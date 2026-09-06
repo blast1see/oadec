@@ -1,0 +1,17 @@
+[package]
+name = "oadec-truehd"
+description = "Dolby TrueHD (MLP) bitstream parser and decoder with the 16-channel object presentation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+oadec-bits.workspace = true
+oadec-emdf.workspace = true
+thiserror.workspace = true
+log.workspace = true
+[lints]
+workspace = true
