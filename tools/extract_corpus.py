@@ -1,4 +1,4 @@
-"""Extract raw TrueHD / E-AC-3 / AC-3 elementary streams from the test MKVs.
+r"""Extract raw TrueHD / E-AC-3 / AC-3 elementary streams from the test MKVs.
 
 Reads each MKV once (mkvextract can pull several tracks in one pass) and writes a
 manifest with sizes.  Real media never enters the repository; this only fills the

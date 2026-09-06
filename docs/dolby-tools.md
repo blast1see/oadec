@@ -1,8 +1,11 @@
-# Dolby tool CLIs on the development machine (captured 2026-09-06)
+# Dolby tool command lines on the development machine
+
+Captured 2026-09-06 by `tools/capture_dolby_help.py`. These outputs
+are the ground truth for the flags used by the verification scripts.
 
 ## `dee.exe --help`
 
-```
+```text
 dee.exe, Version 5.2.1, Jun 10 2022
 Options:
   --help, -h                               : Print this help.
@@ -37,12 +40,126 @@ Usage Examples:
    dee.exe --xml ..\damf_atmos_mezz_to_atmos_ddp_ec3.xml --input-audio ..\Audio\printmaster.atmos
 
 
-Time elapsed: 0.501143 seconds
+Time elapsed: 0.50999 seconds
+```
+
+## `dee.exe --print-stages`
+
+```text
+[2026-09-06 23:36:34.259] INFO: Dolby Encoding Engine, version: 5.2.1-5994839.
+Audio inputs:
+               ac4
+               wav
+               wav_list
+               pcm_s16le
+               pcm_s24le
+               pcm_f32le
+               adm
+               damf
+               wav_s337m
+               ac3
+               ec3
+               dde
+               generic
+               atmos_mezz
+               mxf_iab
+               mp4
+               manifest
+               ts
+
+Video inputs:
+               mxf
+               mxf_sidecar
+               j2k_sidecar
+               tiff_sidecar
+               mov
+               mov_sidecar
+               hevc
+               avc
+               mp4
+               ts
+               bl_el_rpu
+               yuv420
+               yuv420p10le
+               yuv420p12le
+               rgb48le
+               gbrp16le
+               rgbp16le
+               yuv420p16le
+               dvmd
+               prores_sidecar
+               manifest
+               j2k_stream
+
+Audio filters:
+               pcm_channel_order
+               convert_atmos_mezz
+               pcm_to_ddp
+               pcm_loudness_correction
+               encode_to_atmos_ddp
+               atmos_mezz_to_atmos_ddp
+               pcm_to_atmos_ddp
+               ddp_decode
+               pcm_loudness_correction_single_pass
+               encode_to_dd_single_pass
+               measure_loudness
+               transcode_to_ddp
+               encode_to_dthd
+               edit_ddp
+
+Video filters:
+               sdr_to_dv_profile_4_2
+               dv_mezz_to_dv_profile_5
+               dv_mezz_preproc_profile_5
+               extract_j2k
+               dv_md_postproc
+               dv_ves_mux
+               dv_mezz_to_dv_profile_7_el
+               dv_mezz_to_dv_profile_7_bl
+               dv_mezz_to_dv_profile_8_1
+               dv_mezz_to_dv_profile_8_1_yuv
+               sdr_to_dv_profile_8_2
+               dv_mezz_to_hdr10
+               dv_mezz_to_hdr10_yuv
+               dv_mezz_to_sdr
+               dv_mezz_to_sdr_yuv
+               extract_prores
+               encode_to_hevc
+               transcode_to_hevc
+               parse_mxf
+
+Outputs:
+               ac3
+               ac4
+               aac
+               mlp
+               wav
+               ec3
+               hevc
+               yuv420_rpu
+               generic
+               mp4
+               ts
+               j2k_sidecar
+               prores
+               atmos_mezz
+               manifest
+               yuv420p10le
+               yuv420p12le
+               yuv420p16le
+               dvmd
+               pcm_s16le
+               pcm_s24le
+               pcm_f32le
+               dvsd
+               dvrpu
+
+Time elapsed: 2.7757 seconds
 ```
 
 ## `atmos_info.exe --help`
 
-```
+```text
 AtmosInfo Tool (version 1.1)
 Options:
 	--input, -i FILE        : specify input atmos file
@@ -53,8 +170,7 @@ Options:
 
 ## `bwf_info.exe --help`
 
-```
-
+```text
 Broadcast Wave Format Info.
 This tool belongs to the Dolby Encoding Engine version 5.2.1
 Interface version: 0.9.0 (Jun 10 2022):
@@ -65,15 +181,13 @@ Interface version: 0.9.0 (Jun 10 2022):
   --morehelp arg         Show more help about selected topic. Values: loglevel.
 
 
-Execution time: 0.0005419 seconds
+Execution time: 0.000405 seconds
 Exit code: 0
 ```
 
-## `dee_dthd_encoder.exe Files/Dolby Media Encoder/resources/dee/dee_dthd_encoder.exe --help`
+## `dee_dthd_encoder.exe --help`
 
-```
-
-too many positional options have been specified on the command line
+```text
 Dolby TrueHD with Dolby Atmos encoder
 This tool belongs to the Dolby Encoding Engine version 5.7.2.aec4fa9c-master
 Interface version: 1.0.0 (Oct 17 2024):
@@ -128,159 +242,93 @@ Interface version: 1.0.0 (Oct 17 2024):
   --morehelp arg                        Show more help about selected topic. Values: 
                                         add-silence|embed-timecode|examples|extras|input-format|lou
                                         dness-management|presentation|loglevel|all.
-  --temp-dir arg (=%USERPROFILE%\Documents\oadec\docs)
+  --temp-dir arg (=%USERPROFILE%\Documents\oadec)
                                         Directory to store temporary files.
   --keep-temp arg (=0)                  Keep temporary files after execution. Values: 0|1.
 
 
-ERROR: Failed to parse program options.
-Execution time: 0.0033629 seconds
-Exit code: 1
+Execution time: 0.0007712 seconds
+Exit code: 0
 ```
 
-## `dee_dthd_encoder.exe Files/Dolby Media Encoder/resources/dee/dee_dthd_encoder.exe --morehelp input-format`
+## `dee_dthd_encoder.exe --morehelp input-format`
 
+```text
+Option 'input-format' is a positional parameter, which is assigned to the last preceding DolbyTrueHD presentation specified by '--presentation' option.
+
+Formats available for '--presentation' 'atmos':
+  Single Dolby Atmos file (DAMF, BWF ADM or MXF IAB.
+  For '--presentation' 'atmos', this format is automatically assumed.
+  Example:
+    --presentation atmos --input-format atmos_mezz --input file.atmos
+    is equivalent to
+    --presentation atmos --input file.atmos
+
+
+Formats available for '--presentation' '2ch', '6ch' or '8ch':
+  Single 7.1, 5.1 or 2.0 WAVE file input:
+  Example:
+    --input-format wav --input file.wav
+
+  A list of mono WAVE files, one for each channel, in order of L:R:C:LFE:LS:RS:LRS:RRS, L:R:C:LFE:LS:RS or L:R. Files can be omitted with '-' to be replaced with silence:
+  Example: 
+    5.1 input with C and LS filled with silence:
+    --input-format wav_list --input L.wav:R.wav:-:LFE.wav:-:RS.wav
+
+
+
+Execution time: 0.000612 seconds
+Exit code: 0
 ```
 
-too many positional options have been specified on the command line
-Dolby TrueHD with Dolby Atmos encoder
-This tool belongs to the Dolby Encoding Engine version 5.7.2.aec4fa9c-master
-Interface version: 1.0.0 (Oct 17 2024):
-  -h [ --help ]                         Show this help.
-  -l [ --license ] arg (=C:\Program Files\Dolby Media Encoder\resources\dee\license.lic)
-                                        License file.
-  --loglevel arg (=info)                Logging level followed by log customization options. Use 
-                                        "--morehelp loglevel" for more details. Values: 
-                                        debug|error|info|quiet|warning.
-  --overwrite arg (=0)                  Allow overwriting existing files. Values: 0|1.
-  --progress arg (=0)                   Show progress in percentage. Values: 0|1.
-  --presentation arg                    Dolby TrueHD presentation configuration. Values: 
-                                        2ch|6ch|8ch|atmos. Use "--morehelp presentation" for more 
-                                        details.
-  -f [ --input-format ] arg             Presentation's input format. Positional argument for option
-                                        "presentation". Use "--morehelp input-format" for more 
-                                        details. Values: atmos_mezz|wav|wav_list.
-  -i [ --input ] arg                    Input file for presentation. Positional argument for option
-                                        "presentation".
-  -o [ --output ] arg                   Output file.
-  --start arg (=first_frame_of_action)  Start time given as a timecode, seconds (decimal number) or
-                                        the keyword 'first_frame_of_action'.
-  --duration arg (=-1)                  Duration in a timecode or seconds. Value '-1' means "up to 
-                                        the last sample".
-  --end arg (=-1)                       End time given as a timecode or seconds (decimal number). 
-                                        Value '-1' means "process till the end of file".
-  --timecode-frame-rate arg (=auto)     Frame rate associated with the specified timecode. Values: 
-                                        23.976|24|25|29.97|29.97df|30|48|50|59.94|60|not_indicated|
-                                        auto.
-  --time-base arg (=file_position)      Specify how the start/end/duration values are interpreted. 
-                                        Values: file_position|embedded_timecode.
-  --add-silence arg (=0:0)              Duration of silence to prepend and/or append to the output 
-                                        in a format 'prepend_value':'append_value', expressed in 
-                                        seconds or number of frames. Use "--morehelp add-silence" 
-                                        for more details.
-  --loudness-management arg (=measure_only)
-                                        Loudness management options. Syntax:
-                                        "mode:option1=value1:option2=value2".
-                                        Use "--morehelp loudness-management" for more details. 
-                                        Values: measure_only|skip.
-  --optimize-data-rate arg (=0)         Enables additional preprocessing that allows reduction of 
-                                        peak data rate.
-  --embed-timecode arg (=off)           Start timecode to be embedded into bitstream, to be used by
-                                        authoring tools. Use "--morehelp embed-timecode" for more 
-                                        details.
-  --embedded-timecode-format arg (=auto)
-                                        Frame rate of the embedded timecode. Value 'auto' uses 
-                                        value passed with timecode-frame-rate switch. Values: 
-                                        23.976|24|25|29.97|29.97df|30|50|59.94|60|auto.
-  --extras arg                          Configure advanced features. Use "--morehelp extras" for 
-                                        more details.
-  --morehelp arg                        Show more help about selected topic. Values: 
-                                        add-silence|embed-timecode|examples|extras|input-format|lou
-                                        dness-management|presentation|loglevel|all.
-  --temp-dir arg (=%USERPROFILE%\Documents\oadec\docs)
-                                        Directory to store temporary files.
-  --keep-temp arg (=0)                  Keep temporary files after execution. Values: 0|1.
+## `dee_dthd_encoder.exe --morehelp presentation`
+
+```text
+Option 'presentation' defines to which Dolby TrueHD presentation the next 'input' and 'input-format' options are assigned.
+Can be followed by the list of presentation-specific options for further configuration.
+This option can be used without corresponding input to configure a downmix presentation.
+
+  Options for 'atmos' presentation:
+    drc_profile=<STRING>         (default: film_light). Dynamic range control preset. Values: film_light|film_standard|music_light|music_standard|not_indicated|speech.
+    number_of_elements=<INTEGER> (default: 12). Number of clustered signals of Dolby Atmos material to be output by spatial coding. Higher value gives better quality, but increases bitstream size. Values: 12|14|16.
+    legacy_authoring=<BOOLEAN>   (default: 1). Make output bitstream compatible with legacy authoring tools.
+
+  Options for '8ch' presentation:
+    drc_profile=<STRING>                 (default: film_light). Dynamic range control preset. Values: film_light|film_standard|music_light|music_standard|not_indicated|speech.
+    surround_3dB_attenuation=<BOOLEAN>   (default: auto). Controls whether surround channels should be attenuated by 3 dB.
+                                         Value 'auto' corresponds to '0' if a presentation is a downmix of 'atmos' presentation, '1' otherwise.
+
+  Options for '6ch' presentation:
+    drc_profile=<STRING>                 (default: film_light). Dynamic range control preset. Values: film_light|film_standard|music_light|music_standard|not_indicated|speech.
+    surround_3dB_attenuation=<BOOLEAN>   (default: auto). Controls whether surround channels should be attenuated by 3 dB.
+                                         Value 'auto' corresponds to '0' if a presentation is a downmix of 'atmos' presentation, '1' otherwise.
+
+  Options for '2ch' presentation:
+    drc_profile=<STRING>         (default: film_light). Dynamic range control preset Values: film_light|film_standard|music_light|music_standard|not_indicated|speech.
+    drc_default_on=<BOOLEAN>     (default: 1). Setting this to '0' disables DRC for 2 channel presentation. Otherwise, if not specified manually, the default DRC profile is assigned.
+    format=<STRING>              (default: stereo). Defines the format of the 2 channel independent presentation. Applicable only for encoding from independent source files. Values: headphone_encoded|stereo|surround_encoded.
+
+Examples:
+  Providing input for Dolby Atmos presentation:
+    --presentation atmos --input /path/to/input.atmos
+
+  Providing input for both Dolby Atmos and 2 channel presentations:
+    --presentation atmos --input /path/to/input.atmos --presentation 2ch --input-format wav --input /path/to/input.wav
+
+  Specifying additional options for independent presentations (Dolby Atmos and 6 channel):
+    --presentation atmos:legacy_authoring=0 --input /path/to/input.atmos --presentation 6ch:surround_3db_attenuation=1 --input-format wav --input /path/to/input.wav
+
+  Specifying additional options for downmix presentation (2 channel):
+    --presentation 2ch:drc_profile=music_light --presentation atmos --input /path/to/input.atmos
 
 
-ERROR: Failed to parse program options.
-Execution time: 0.0004711 seconds
-Exit code: 1
+Execution time: 0.0006291 seconds
+Exit code: 0
 ```
 
-## `dee_dthd_encoder.exe Files/Dolby Media Encoder/resources/dee/dee_dthd_encoder.exe --morehelp presentation`
+## `dee_ddpjoc_encoder.exe --help`
 
-```
-
-too many positional options have been specified on the command line
-Dolby TrueHD with Dolby Atmos encoder
-This tool belongs to the Dolby Encoding Engine version 5.7.2.aec4fa9c-master
-Interface version: 1.0.0 (Oct 17 2024):
-  -h [ --help ]                         Show this help.
-  -l [ --license ] arg (=C:\Program Files\Dolby Media Encoder\resources\dee\license.lic)
-                                        License file.
-  --loglevel arg (=info)                Logging level followed by log customization options. Use 
-                                        "--morehelp loglevel" for more details. Values: 
-                                        debug|error|info|quiet|warning.
-  --overwrite arg (=0)                  Allow overwriting existing files. Values: 0|1.
-  --progress arg (=0)                   Show progress in percentage. Values: 0|1.
-  --presentation arg                    Dolby TrueHD presentation configuration. Values: 
-                                        2ch|6ch|8ch|atmos. Use "--morehelp presentation" for more 
-                                        details.
-  -f [ --input-format ] arg             Presentation's input format. Positional argument for option
-                                        "presentation". Use "--morehelp input-format" for more 
-                                        details. Values: atmos_mezz|wav|wav_list.
-  -i [ --input ] arg                    Input file for presentation. Positional argument for option
-                                        "presentation".
-  -o [ --output ] arg                   Output file.
-  --start arg (=first_frame_of_action)  Start time given as a timecode, seconds (decimal number) or
-                                        the keyword 'first_frame_of_action'.
-  --duration arg (=-1)                  Duration in a timecode or seconds. Value '-1' means "up to 
-                                        the last sample".
-  --end arg (=-1)                       End time given as a timecode or seconds (decimal number). 
-                                        Value '-1' means "process till the end of file".
-  --timecode-frame-rate arg (=auto)     Frame rate associated with the specified timecode. Values: 
-                                        23.976|24|25|29.97|29.97df|30|48|50|59.94|60|not_indicated|
-                                        auto.
-  --time-base arg (=file_position)      Specify how the start/end/duration values are interpreted. 
-                                        Values: file_position|embedded_timecode.
-  --add-silence arg (=0:0)              Duration of silence to prepend and/or append to the output 
-                                        in a format 'prepend_value':'append_value', expressed in 
-                                        seconds or number of frames. Use "--morehelp add-silence" 
-                                        for more details.
-  --loudness-management arg (=measure_only)
-                                        Loudness management options. Syntax:
-                                        "mode:option1=value1:option2=value2".
-                                        Use "--morehelp loudness-management" for more details. 
-                                        Values: measure_only|skip.
-  --optimize-data-rate arg (=0)         Enables additional preprocessing that allows reduction of 
-                                        peak data rate.
-  --embed-timecode arg (=off)           Start timecode to be embedded into bitstream, to be used by
-                                        authoring tools. Use "--morehelp embed-timecode" for more 
-                                        details.
-  --embedded-timecode-format arg (=auto)
-                                        Frame rate of the embedded timecode. Value 'auto' uses 
-                                        value passed with timecode-frame-rate switch. Values: 
-                                        23.976|24|25|29.97|29.97df|30|50|59.94|60|auto.
-  --extras arg                          Configure advanced features. Use "--morehelp extras" for 
-                                        more details.
-  --morehelp arg                        Show more help about selected topic. Values: 
-                                        add-silence|embed-timecode|examples|extras|input-format|lou
-                                        dness-management|presentation|loglevel|all.
-  --temp-dir arg (=%USERPROFILE%\Documents\oadec\docs)
-                                        Directory to store temporary files.
-  --keep-temp arg (=0)                  Keep temporary files after execution. Values: 0|1.
-
-
-ERROR: Failed to parse program options.
-Execution time: 0.0004748 seconds
-Exit code: 1
-```
-
-## `dee_ddpjoc_encoder.exe Files/Dolby Media Encoder/resources/dee/dee_ddpjoc_encoder.exe --help`
-
-```
-
-too many positional options have been specified on the command line
+```text
 Dolby Digital Plus with Dolby Atmos encoder
 This tool belongs to the Dolby Encoding Engine version 5.7.2.aec4fa9c-master
 Interface version: 1.1.0 (Oct 17 2024):
@@ -338,83 +386,81 @@ Interface version: 1.1.0 (Oct 17 2024):
                                         s-management|loglevel|all.
 
 
-ERROR: Failed to parse program options.
-Execution time: 0.0021318 seconds
-Exit code: 1
+Execution time: 0.0007168 seconds
+Exit code: 0
 ```
 
-## `dee_ddpjoc_encoder.exe Files/Dolby Media Encoder/resources/dee/dee_ddpjoc_encoder.exe --morehelp input-format`
+## `dee_ddpjoc_encoder.exe --morehelp input-format`
 
+```text
+Argument of option '--input-format' can be followed by the list of format-specific options.
+
+Single interleaved WAVE file input with channel-based immersive content:
+  Example: --input-format cbi_wav:height_trim_5_1=-6:surround_trim_5_1=-9 --input file.wav
+  Options:
+   height_trim_5_1=<STRING>      (default: auto). Custom 5.1 height trim level. Values: auto|-3|-6|-9|-12.
+   surround_trim_5_1=<STRING>    (default: auto). Custom 5.1 surround trim level. Values: auto|0|-3|-6|-9.
+
+Single Dolby Atmos file (DAMF, BWF ADM or MXF IAB):
+  Example: --input-format atmos_mezz --input file.atmos
+  Options: NONE
+
+
+
+Execution time: 0.0005964 seconds
+Exit code: 0
 ```
 
-too many positional options have been specified on the command line
-Dolby Digital Plus with Dolby Atmos encoder
-This tool belongs to the Dolby Encoding Engine version 5.7.2.aec4fa9c-master
-Interface version: 1.1.0 (Oct 17 2024):
-  -h [ --help ]                         Show this help.
-  -l [ --license ] arg (=C:\Program Files\Dolby Media Encoder\resources\dee\license.lic)
-                                        License file.
-  --loglevel arg (=info)                Logging level followed by log customization options. Use 
-                                        "--morehelp loglevel" for more details. Values: 
-                                        debug|error|info|quiet|warning.
-  --overwrite arg (=0)                  Allow overwriting existing files. Values: 0|1.
-  --progress arg (=0)                   Show progress in percentage. Values: 0|1.
-  --cc arg (=1)                         Enable concurrent processing. Use "--morehelp cc" for more 
-                                        details. Values: 0|1.
-  --input-format arg                    Input format followed by format-specific options. Use 
-                                        "--morehelp input-format" for more details. Values: 
-                                        atmos_mezz|cbi_wav.
-  -i [ --input ] arg                    Input file path. Can be provided multiple times. The order 
-                                        of input parameters matters and is used as an encoding 
-                                        order.
-  -o [ --output ] arg                   Output bitstream file path. Can be provided multiple times.
-                                        Output paths are matched to inputs based on their order of 
-                                        appearance in command string.
-  --start arg (=first_frame_of_action)  Start time given as a timecode, seconds (decimal number) or
-                                        the keyword 'first_frame_of_action'. Allowed for single 
-                                        input only.
-  --duration arg (=-1)                  Duration in a timecode or seconds. Value '-1' means "up to 
-                                        the last sample". Allowed for single input only.
-  --end arg (=-1)                       End time given as a timecode or seconds (decimal number). 
-                                        Value '-1' means "process till the end of file". Allowed 
-                                        for single input only.
-  --timecode-frame-rate arg (=auto)     Frame rate associated with the specified timecode. Values: 
-                                        23.976|24|25|29.97|29.97df|30|48|50|59.94|60|not_indicated|
-                                        auto.
-  --time-base arg (=file_position)      Specify how the start/end/duration values are interpreted. 
-                                        Values: file_position|embedded_timecode.
-  --add-silence arg (=0:0)              Duration of silence to prepend and/or append to the output 
-                                        in a format 'prepend_value':'append_value', expressed in 
-                                        seconds or number of frames. Use "--morehelp add-silence" 
-                                        for more details. In case of multiple outputs, silence will
-                                        be prepended to the first file and/or appended to the last 
-                                        one.
-  --data-rate arg (=auto)               Target data rate in kbps. Values: 
-                                        auto|384|448|576|640|768|1024.
-  --loudness-management arg (=measure_only)
-                                        Loudness management options. Syntax:
-                                        "mode:option1=value1:option2=value2".
-                                        Use "--morehelp loudness-management" for more details. 
-                                        Values: measure_only.
-  -e [ --encoder ] arg                  Encoder configuration. Use "--morehelp encoder" for more 
-                                        details.
-  --extras arg                          Configure advanced features. Use "--morehelp extras" for 
-                                        more details.
-  --morehelp arg                        Show more help about selected topic. Values: 
-                                        cc|add-silence|encoder|examples|extras|input-format|loudnes
-                                        s-management|loglevel|all.
+## `dee_ddpjoc_encoder.exe --morehelp examples`
+
+```text
+Examples:
+Specifying Dolby Atmos ADM BWF as input
+  dee_ddpjoc_encoder --input-format atmos_mezz --input /path/to/input.wav --output /path/to/output.ec3
+
+Specifying MXF IAB as input
+  dee_ddpjoc_encoder --input-format atmos_mezz --input /path/to/input.mxf --output /path/to/output.ec3
+
+Specifying Dolby Atmos master file set as input
+  dee_ddpjoc_encoder --input-format atmos_mezz --input /path/to/input.atmos --output /path/to/output.ec3
+
+Specifying WAV channel-based immersive 9.1.6 file as input
+  dee_ddpjoc_encoder --input-format cbi_wav --input /path/to/input_9_1_6.wav --output /path/to/output.ec3
+
+Specifying multiple input files
+  dee_ddpjoc_encoder --input-format atmos_mezz --input /path/to/input1.wav --input /path/to/input2.wav --input /path/to/input3.wav--output /path/to/output1.ec3 --output /path/to/output2.ec3 --output /path/to/output3.ec3
+
+Prepending 5 seconds of silence to the first output file and appending 10 seconds to the last one
+  dee_ddpjoc_encoder --add-silence 5:10 --input-format atmos_mezz --input /path/to/input1.wav --input /path/to/input2.wav --output /path/to/output1.ec3 --output /path/to/output2.ec3
+
+Trimming file using timecode with seconds and framerate
+  dee_ddpjoc_encoder --start 01:00:04:13 --end 01:43:00:05 --timecode-frame-rate 24 --input-format atmos_mezz --input /path/to/input.wav --output /path/to/output.ec3
+
+Trimming file using timecode with frames
+  dee_ddpjoc_encoder --start 01:00:04.2 --end 01:43:00.14 --timecode-frame-rate 24 --input-format atmos_mezz --input /path/to/input.wav --output /path/to/output.ec3
+
+Setting ltrt downmix mode, -1.5 dB center mix, and -6 dB surround mix
+  dee_ddpjoc_encoder --encoder preferred_downmix_mode=ltrt:ltrt_cmix=-1.5:ltrt_smix=-6 --input-format atmos_mezz --input /path/to/input.wav --output /path/to/output.ec3
+
+Configuring loudness management options
+  dee_ddpjoc_encoder --loudness-management measure_only:preset=manual:dialogue_intelligence=1:speech_threshold=15 --input-format atmos_mezz --input /path/to/input.wav --output /path/to/output.ec3
+
+Setting height trim to -6 in CBI input
+  dee_ddpjoc_encoder --input-format cbi_wav:height_trim_5_1=-6 --input /path/to/input.wav --output /path/to/output.ec3
+
+Multiplexing output to MP4
+  dee_ddpjoc_encoder --input-format atmos_mezz --input /path/to/input.atmos --output /path/to/output.ec3
+  mp4muxer --input-file /path/to/output.ec3 --input-format ec3 --mpeg4-comp-brand dby1 --output-format mp4 --output-file /path/to/output.mp4
 
 
-ERROR: Failed to parse program options.
-Execution time: 0.0004617 seconds
-Exit code: 1
+
+Execution time: 0.000589 seconds
+Exit code: 0
 ```
 
-## `atmos_info.exe Files/Dolby Media Encoder/resources/dee/atmos_info.exe --help`
+## `atmos_info.exe --help`
 
-```
-
-too many positional options have been specified on the command line
+```text
 Atmos Info
 This tool belongs to the Dolby Encoding Engine version 5.7.2.aec4fa9c-master
 Interface version: 2.0.0 (Oct 17 2024):
@@ -426,15 +472,13 @@ Interface version: 2.0.0 (Oct 17 2024):
   -v [ --version ] arg (=0) Show version information.
 
 
-ERROR: Failed to parse program options.
-Execution time: 0.0002175 seconds
-Exit code: 1
+Execution time: 0.0004116 seconds
+Exit code: 0
 ```
 
-## `drp.exe Files/Dolby/Dolby Reference Player/drp.exe --help`
+## `drp.exe --help`
 
-```
-
+```text
 Dolby Reference Player 3.2.0.8040
 
 Usage:
@@ -552,5 +596,57 @@ Options:
                                            Default: 0
                                            Range: -32 - 32
   --ac4dec-main-assoc-mode <value>       Set main and associated decoding modes
+                                           Default: all
+                                           Possible values are:
+                                           all             All
+                                           main            Main
+                                           associated      Associated
+  --ac4dec-out-cplx-level <value>        Set output complexity level
+                                           Default: 5.1.2
+                                           Possible values are:
+                                           2.0             2.0
+                                           5.1             5.1
+                                           5.1.2           5.1.2
+                                           5.1.4           5.1.4
+  --ac4dec-out-ref-level <value>         Set output reference level. Values from -6 to -1 are not permitted!
+                                           Default: -31
+                                           Range: -31 - 0
+  --ac4dec-pres-index <value>            Set presentation index
+                                           Default: 0
+                                           Range: 0 - 512
+  --truehddec-drc-boost <value>          Set the dynamic range control boost scale factor
+                                           Default: 100
+                                           Range: 0 - 100
+  --truehddec-drc-cut <value>            Set the dynamic range control cut scale factor
+                                           Default: 100
+                                           Range: 0 - 100
+  --truehddec-drc-mode <value>           Set the dynamic range control mode
+                                           Default: disabled
+                                           Possible values are:
+                                           disabled        DRC disabled
+                                           follow          Normal mode follows bitstream control flag
+                                           normal          Normal mode
+                                           heavy           Heavy mode
+  --truehddec-presentation <value>       Set presentation
+                                           Default: 0
+                                           Possible values are:
+                                           0               Auto presentation
+                                           2               2-Channel presentation
+                                           6               6-Channel presentation
+                                           8               8-Channel presentation
+                                           16              16-Channel presentation
+  --oar-bass-ext-mode <value>            Enable bass extraction with the given cutoff frequency
+                                           Default: off
+                                           Possible values are:
+                                           off             Bass extraction disabled
+                                           45              Bass extraction enabled at 45Hz
+                                           50              Bass extraction enabled at 50Hz
+                                           55              Bass extraction enabled at 55Hz
+                                           60              Bass extraction ena
 ```
 
+## `drp.exe --version`
+
+```text
+Dolby Reference Player 3.2.0.8040
+```
