@@ -1,0 +1,15 @@
+[package]
+name = "oadec-emdf"
+description = "EMDF / Evolution containers, Object Audio Metadata and JOC parameter syntax"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+oadec-bits.workspace = true
+thiserror.workspace = true
+[lints]
+workspace = true

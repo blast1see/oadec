@@ -1,0 +1,24 @@
+[package]
+name = "oadec-cli"
+description = "oadec command-line tool: inspect, verify and decode TrueHD Atmos and E-AC-3 JOC streams"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "oadec"
+path = "src/main.rs"
+
+[dependencies]
+oadec-bits.workspace = true
+oadec-emdf.workspace = true
+oadec-truehd.workspace = true
+oadec-eac3.workspace = true
+oadec-joc.workspace = true
+oadec-spatial.workspace = true
+
+[lints]
+workspace = true

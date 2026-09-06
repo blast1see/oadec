@@ -1,0 +1,42 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/oadec-bits",
+    "crates/oadec-emdf",
+    "crates/oadec-truehd",
+    "crates/oadec-eac3",
+    "crates/oadec-joc",
+    "crates/oadec-spatial",
+    "crates/oadec-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "GPL-3.0-only"
+repository = "https://github.com/blast1see/oadec"
+authors = ["blast1see"]
+
+[workspace.dependencies]
+oadec-bits = { path = "crates/oadec-bits" }
+oadec-emdf = { path = "crates/oadec-emdf" }
+oadec-truehd = { path = "crates/oadec-truehd" }
+oadec-eac3 = { path = "crates/oadec-eac3" }
+oadec-joc = { path = "crates/oadec-joc" }
+oadec-spatial = { path = "crates/oadec-spatial" }
+thiserror = "2"
+log = "0.4"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+cast_possible_truncation = "allow"
+
+[profile.release]
+debug = 1
+lto = "thin"
+codegen-units = 1

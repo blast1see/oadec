@@ -1,0 +1,31 @@
+/target
+**/*.rs.bk
+Cargo.lock.orig
+
+# Real media, decoded audio and Dolby tool outputs never enter the repository.
+*.thd
+*.mlp
+*.ec3
+*.eac3
+*.ac3
+*.wav
+*.w64
+*.caf
+*.pcm
+*.s32
+*.f32
+*.atmos
+*.atmos.audio
+*.atmos.metadata
+*.mkv
+*.mp4
+*.m2ts
+*.log
+*.jsonl
+/work/
+/out/
+
+# Python helpers
+__pycache__/
+*.pyc
+.venv/
