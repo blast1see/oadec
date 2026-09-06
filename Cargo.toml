@@ -27,6 +27,10 @@ oadec-joc = { path = "crates/oadec-joc" }
 oadec-spatial = { path = "crates/oadec-spatial" }
 thiserror = "2"
 log = "0.4"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
