@@ -4,6 +4,7 @@ mod compare;
 mod damf;
 mod decode;
 mod eac3;
+mod eac3_objects;
 mod emdf;
 mod info;
 mod input;
@@ -202,7 +203,21 @@ fn main() -> ExitCode {
                 all_events,
                 dolby_origin_tag,
                 no_dither,
-            } => if eac3::is_eac3(&file).unwrap_or(false) {
+            } => if eac3::is_eac3(&file).unwrap_or(false)
+                && matches!(format, Format::Damf | Format::Adm)
+            {
+                eac3_objects::run(
+                    &file,
+                    &output,
+                    &damf::Options {
+                        keep_duplicates,
+                        bed_conform: !no_bed_conform,
+                        all_events,
+                        adm: format == Format::Adm,
+                        dolby_origin_tag,
+                    },
+                )
+            } else if eac3::is_eac3(&file).unwrap_or(false) {
                 eac3::decode(
                     &file,
                     &output,
