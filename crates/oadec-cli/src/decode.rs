@@ -22,6 +22,9 @@ pub enum Format {
     /// Dolby Atmos Master Format set (`.atmos`, `.atmos.metadata`, `.atmos.audio`),
     /// object presentation only; the output path is the base name.
     Damf,
+    /// ADM BWF (Broadcast Wave with axml/chna/dbmd chunks), object presentation
+    /// only; the output path is the base name (`.wav` is appended).
+    Adm,
 }
 
 /// Channel order of the output.

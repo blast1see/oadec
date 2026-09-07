@@ -160,7 +160,7 @@ fn main() -> ExitCode {
                 keep_duplicates,
                 no_bed_conform,
                 all_events,
-            } => if format == Format::Damf {
+            } => if matches!(format, Format::Damf | Format::Adm) {
                 damf::run(
                     &file,
                     &output,
@@ -168,6 +168,7 @@ fn main() -> ExitCode {
                         keep_duplicates,
                         bed_conform: !no_bed_conform,
                         all_events,
+                        adm: format == Format::Adm,
                     },
                 )
             } else {

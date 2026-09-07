@@ -2,9 +2,12 @@
 //!
 //! Part of the `oadec` object-audio decoder engine.
 
+pub mod adm;
 pub mod caf;
 pub mod damf;
+pub mod dbmd;
 pub mod program;
 
+pub use adm::{AdmError, AdmOptions, AdmSummary, AdmWriter};
 pub use damf::{DamfOptions, DamfWriter};
 pub use program::{ElementState, Event, Program, ProgramError, Timeline};

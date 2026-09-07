@@ -1,24 +1,27 @@
-//! `oadec decode --format damf`: the object presentation and its metadata as a
-//! Dolby Atmos Master Format set.
+//! `oadec decode --format damf|adm`: the object presentation and its metadata
+//! as a Dolby Atmos Master Format set or an ADM BWF file.
 
-use std::path::Path;
+use std::io;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
 use oadec_emdf::container::{self, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::{BedChannel, Oamd};
-use oadec_spatial::{DamfOptions, DamfWriter, Program, Timeline};
+use oadec_spatial::{AdmOptions, AdmWriter, DamfOptions, DamfWriter, Event, Program, Timeline};
 use oadec_truehd::{AccessUnit, ChannelLabel, ExtraKind, MajorSync, StreamConfig};
 
 use crate::decode::{Order, Session, format_duration, print_summary};
 use crate::input;
 
-/// Options of the DAMF output.
+/// Options of the object output.
 #[derive(Debug, Clone)]
 pub struct Options {
     pub keep_duplicates: bool,
     pub bed_conform: bool,
     pub all_events: bool,
+    /// Write an ADM BWF file instead of a DAMF set.
+    pub adm: bool,
 }
 
 fn bed_channel(label: ChannelLabel) -> Result<BedChannel> {
@@ -64,7 +67,104 @@ fn program_from_major_sync(ms: &MajorSync) -> Result<Program> {
     })
 }
 
-/// Runs the DAMF output; `base` is the output path without extension.
+/// The two object containers behind one interface.
+enum Sink {
+    Damf(DamfWriter),
+    Adm(AdmWriter),
+}
+
+/// What a closed sink reports.
+struct SinkSummary {
+    frames: u64,
+    channels: usize,
+    events: u64,
+    paths: Vec<PathBuf>,
+    note: String,
+}
+
+impl Sink {
+    fn create(
+        dir: &Path,
+        name: &str,
+        program: &Program,
+        rate: u32,
+        opts: &Options,
+    ) -> Result<Self> {
+        if opts.adm {
+            let options = AdmOptions {
+                bed_conform: opts.bed_conform,
+                ..AdmOptions::default()
+            };
+            let path = dir.join(format!("{name}.wav"));
+            Ok(Self::Adm(AdmWriter::create(
+                &path, program, rate, &options,
+            )?))
+        } else {
+            let options = DamfOptions {
+                bed_conform: opts.bed_conform,
+                ..DamfOptions::default()
+            };
+            Ok(Self::Damf(DamfWriter::create(
+                dir, name, program, rate, &options,
+            )?))
+        }
+    }
+
+    fn push_event(&mut self, event: &Event) -> io::Result<()> {
+        match self {
+            Self::Damf(w) => w.push_event(event),
+            Self::Adm(w) => {
+                w.push_event(event);
+                Ok(())
+            }
+        }
+    }
+
+    fn write_frames<'a>(
+        &mut self,
+        rows: impl Iterator<Item = &'a [i32]>,
+        elements: usize,
+    ) -> io::Result<()> {
+        match self {
+            Self::Damf(w) => w.write_frames(rows, elements),
+            Self::Adm(w) => w.write_frames(rows, elements),
+        }
+    }
+
+    fn finish(self, events: u64) -> Result<SinkSummary> {
+        match self {
+            Self::Damf(w) => {
+                let paths = w.paths().to_vec();
+                let s = w.finish()?;
+                Ok(SinkSummary {
+                    frames: s.frames,
+                    channels: s.channels,
+                    events: s.events,
+                    paths,
+                    note: String::new(),
+                })
+            }
+            Self::Adm(w) => {
+                let path = w.path().to_path_buf();
+                let s = w.finish()?;
+                Ok(SinkSummary {
+                    frames: s.frames,
+                    channels: s.channels,
+                    events,
+                    paths: vec![path],
+                    note: format!(
+                        ", {} object blocks, {} bytes{}",
+                        s.blocks,
+                        s.bytes,
+                        if s.rf64 { ", RF64" } else { "" }
+                    ),
+                })
+            }
+        }
+    }
+}
+
+/// Runs the object output; `base` is the output path without extension.
 pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
     let started = Instant::now();
     let dir = base
@@ -80,7 +180,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
 
     let mut session = Session::new(3, opts.keep_duplicates, Order::Stream);
     let mut timeline = Timeline::new(opts.all_events);
-    let mut writer: Option<DamfWriter> = None;
+    let mut sink: Option<Sink> = None;
     let mut config: Option<StreamConfig> = None;
     let mut emitted: u64 = 0;
     let mut payload_errors: u64 = 0;
@@ -88,11 +188,6 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
     let mut units_with_payloads: u64 = 0;
     let mut program_from_sync: Option<Program> = None;
     let mut program_mismatch = false;
-    let mut damf_opts = DamfOptions {
-        bed_conform: opts.bed_conform,
-        ..DamfOptions::default()
-    };
-    damf_opts.creation_tool_version = env!("CARGO_PKG_VERSION").to_string();
     let mut index: u64 = 0;
 
     input::for_each_unit(path, |unit| {
@@ -101,15 +196,15 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
         let (au, cfg) = AccessUnit::parse(&unit.bytes, config.as_ref())?;
         let rate = cfg.sampling_frequency;
         config = Some(cfg);
-        if writer.is_none() {
+        if sink.is_none() {
             let Some(ms) = &au.major_sync else {
                 bail!("the stream does not start with a major sync");
             };
             let program = program_from_major_sync(ms)?;
-            writer = Some(DamfWriter::create(dir, &name, &program, rate, &damf_opts)?);
+            sink = Some(Sink::create(dir, &name, &program, rate, opts)?);
             program_from_sync = Some(program);
         }
-        let w = writer.as_mut().expect("writer created above");
+        let w = sink.as_mut().expect("sink created above");
 
         let Some(frame) = session.decode(&unit)? else {
             return Ok(()); // duplicate: its audio and metadata are dropped
@@ -180,22 +275,26 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
         Ok(())
     })?;
 
-    let Some(w) = writer else {
+    let Some(sink) = sink else {
         bail!("no access units found");
     };
-    let paths = w.paths().clone();
-    let summary = w.finish()?;
+    let summary = sink.finish(timeline.events)?;
     let elapsed = started.elapsed().as_secs_f64();
     print_summary(&session, elapsed);
     eprintln!(
-        "DAMF: {} frames x {} channels ({}) in {}",
+        "{}: {} frames x {} channels ({}) in {}{}",
+        if opts.adm { "ADM BWF" } else { "DAMF" },
         summary.frames,
         summary.channels,
         format_duration(summary.frames as f64 / f64::from(session.sampling_frequency.max(1))),
-        paths[2].display()
+        summary
+            .paths
+            .last()
+            .map_or_else(String::new, |p| p.display().to_string()),
+        summary.note
     );
     eprintln!(
-        "metadata: {} payloads in {} access units, {} events written ({} restating payloads, {} out-of-order events), {} payload errors",
+        "metadata: {} payloads in {} access units, {} events ({} restating payloads, {} out-of-order events), {} payload errors",
         timeline.payloads,
         units_with_payloads,
         summary.events,
@@ -206,8 +305,16 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
     if let Some(e) = &first_payload_error {
         eprintln!("first payload error: {e}");
     }
-    if session.stats().is_some_and(|s| s.lossless_mismatches != 0) {
-        bail!("lossless check failures were reported");
+    if let Some(s) = session.stats() {
+        if s.valid_branches + s.invalid_branches + s.duplicates > 0 {
+            eprintln!(
+                "timing: {} input timing jumps, {} seamless branches, {} restarts, {} duplicates dropped",
+                s.input_jumps, s.valid_branches, s.invalid_branches, s.duplicates
+            );
+        }
+        if s.lossless_mismatches != 0 {
+            bail!("lossless check failures were reported");
+        }
     }
     Ok(())
 }
