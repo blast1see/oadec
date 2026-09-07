@@ -544,3 +544,27 @@ GUI, DRC application. Revisit after the evidence report exists.
   bit-allocation tables vs QMF), `verification-before-completion` before every gate claim.
 - First actions: `rustup update`, create the repo, download the specs, start M1
   extraction jobs in the background while M2/M3 code is written.
+
+## Status, 2026-09-07
+
+M0–M10 are done and evidenced in `docs/evidence/2026-09-07.md`; M11 is in
+progress on the `eac3` branch; M12 has not started; M13 is partly done
+(README, CHANGELOG, CONTRIBUTING, the repository on GitHub, the vault notes).
+
+Deviations from the plan above:
+
+- The Reference Player CSV (`--metadata-directory`) carries no per-object
+  metadata, so it could not serve as the OAMD oracle of M7. The truehdd event
+  lists and the encoder round trips (TrueHD and E-AC-3 JOC) took its place.
+- No synthetic DAMF ground truth was built in M1. The round trips used real
+  content (the first 1:45 of Pi, then the whole film) and measured the
+  encoder deviations directly: LFE bit-exact, objects at −0.00565 dB and
+  permuted, events one frame boundary earlier.
+- The E-AC-3 corpus grew by three streaming JOC tracks supplied on
+  2026-09-07 (Extraction, Red Notice, Glass Onion).
+- The Dolby Atmos Conversion Tool 2.1.2, installed on 2026-09-07, became a
+  second independent DAMF/ADM oracle. Its DAMF diff format omits unchanged
+  `ID` and `samplePos` keys.
+- ADM files pass the Dolby validators only with `--dolby-origin-tag`; the
+  flag is off by default.
+- The release tag `v0.1.0` waits for M11 and M12.
