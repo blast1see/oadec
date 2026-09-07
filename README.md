@@ -46,9 +46,9 @@ oadec decode  film.thd --format adm  -o out/film  # objects + metadata as ADM BW
 oadec compare film.thd -p 2 -r ref.s32            # sample-by-sample against a reference
 oadec oamd    film.thd --dump 3                   # the object metadata payloads
 oadec emdf    film.ec3                            # EMDF containers of an E-AC-3 stream
-oadec info    film.ec3                        # E-AC-3: frames, coding tools, JOC statistics
+oadec info    film.ec3                            # E-AC-3: frames, coding tools, JOC statistics
 oadec decode  film.ec3 --format damf -o out/film  # JOC objects + metadata as a DAMF set
-oadec compare film.ec3 -r ref.f32             # against a 32-bit float reference (FFmpeg)
+oadec compare film.ec3 -r ref.f32                 # against a 32-bit float reference (FFmpeg)
 ```
 
 `film.thd` is a raw TrueHD elementary stream, for example extracted with
