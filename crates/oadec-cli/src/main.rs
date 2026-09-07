@@ -3,6 +3,7 @@
 mod compare;
 mod damf;
 mod decode;
+mod emdf;
 mod info;
 mod input;
 mod oamd;
@@ -42,6 +43,17 @@ enum Command {
         /// Machine-readable JSON instead of text.
         #[arg(long)]
         json: bool,
+    },
+    /// Walk an E-AC-3 stream, find the EMDF containers and report the metadata timing.
+    Emdf {
+        /// Raw E-AC-3 (.ec3/.eac3/.ac3) elementary stream.
+        file: PathBuf,
+        /// Machine-readable JSON instead of text.
+        #[arg(long)]
+        json: bool,
+        /// Print the first N metadata-carrying frames.
+        #[arg(long)]
+        dump: Option<usize>,
     },
     /// Parse every Object Audio Metadata payload and report what it carries.
     Oamd {
@@ -113,85 +125,93 @@ const EXIT_NONCONFORMANT: u8 = 7;
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    let result = match cli.command {
-        Command::Info { file, json } => info::run(&file, json).map(|()| ExitCode::SUCCESS),
-        Command::Verify { file, json } => verify::run(&file, json).map(|clean| {
-            if clean {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::from(EXIT_NONCONFORMANT)
-            }
-        }),
-        Command::Oamd { file, json, dump } => {
-            oamd::run(&file, &oamd::Options { json, dump }).map(|clean| {
+    let result =
+        match cli.command {
+            Command::Info { file, json } => info::run(&file, json).map(|()| ExitCode::SUCCESS),
+            Command::Verify { file, json } => verify::run(&file, json).map(|clean| {
                 if clean {
                     ExitCode::SUCCESS
                 } else {
                     ExitCode::from(EXIT_NONCONFORMANT)
                 }
-            })
-        }
-        Command::Decode {
-            file,
-            output,
-            presentation,
-            format,
-            order,
-            keep_duplicates,
-            no_bed_conform,
-            all_events,
-        } => if format == Format::Damf {
-            damf::run(
-                &file,
-                &output,
-                &damf::Options {
-                    keep_duplicates,
-                    bed_conform: !no_bed_conform,
-                    all_events,
-                },
-            )
-        } else {
-            decode::run(
-                &file,
-                &output,
-                &decode::Options {
-                    presentation,
-                    format,
-                    order,
-                    keep_duplicates,
-                },
-            )
-        }
-        .map(|()| ExitCode::SUCCESS),
-        Command::Compare {
-            file,
-            reference,
-            presentation,
-            reference_format,
-            order,
-            keep_duplicates,
-            report,
-            reference_skip,
-        } => compare::run(
-            &file,
-            &reference,
-            &compare::Options {
+            }),
+            Command::Emdf { file, json, dump } => emdf::run(&file, &emdf::Options { json, dump })
+                .map(|clean| {
+                    if clean {
+                        ExitCode::SUCCESS
+                    } else {
+                        ExitCode::from(EXIT_NONCONFORMANT)
+                    }
+                }),
+            Command::Oamd { file, json, dump } => oamd::run(&file, &oamd::Options { json, dump })
+                .map(|clean| {
+                    if clean {
+                        ExitCode::SUCCESS
+                    } else {
+                        ExitCode::from(EXIT_NONCONFORMANT)
+                    }
+                }),
+            Command::Decode {
+                file,
+                output,
                 presentation,
-                format: reference_format,
+                format,
+                order,
+                keep_duplicates,
+                no_bed_conform,
+                all_events,
+            } => if format == Format::Damf {
+                damf::run(
+                    &file,
+                    &output,
+                    &damf::Options {
+                        keep_duplicates,
+                        bed_conform: !no_bed_conform,
+                        all_events,
+                    },
+                )
+            } else {
+                decode::run(
+                    &file,
+                    &output,
+                    &decode::Options {
+                        presentation,
+                        format,
+                        order,
+                        keep_duplicates,
+                    },
+                )
+            }
+            .map(|()| ExitCode::SUCCESS),
+            Command::Compare {
+                file,
+                reference,
+                presentation,
+                reference_format,
                 order,
                 keep_duplicates,
                 report,
-                skip: reference_skip,
-            },
-        )
-        .map(|equal| {
-            if equal {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::from(EXIT_NONCONFORMANT)
-            }
-        }),
-    };
+                reference_skip,
+            } => compare::run(
+                &file,
+                &reference,
+                &compare::Options {
+                    presentation,
+                    format: reference_format,
+                    order,
+                    keep_duplicates,
+                    report,
+                    skip: reference_skip,
+                },
+            )
+            .map(|equal| {
+                if equal {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::from(EXIT_NONCONFORMANT)
+                }
+            }),
+        };
     match result {
         Ok(code) => code,
         Err(err) => {
