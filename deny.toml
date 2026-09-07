@@ -10,11 +10,14 @@ allow = [
     "Unicode-3.0",
     "MPL-2.0",
     "GPL-3.0",
+    "GPL-3.0-only",
 ]
 
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# path dependencies inside the workspace carry no version; cargo-deny calls them wildcards
+allow-wildcard-paths = true
 
 [sources]
 unknown-registry = "deny"

@@ -421,6 +421,10 @@ pub const GAQ_REMAP_G4: [(i16, i16, i16); 9] = [
 /// The transform window printed in table 6.33 (five decimals). The decoder
 /// uses the Kaiser-Bessel-derived window computed in double precision, which
 /// the unit tests check against this table.
+#[allow(
+    clippy::approx_constant,
+    reason = "the printed table value happens to be near pi/4"
+)]
 pub const WINDOW_TABLE: [f64; 256] = [
     0.00014, 0.00024, 0.00037, 0.00051, 0.00067, 0.00086, 0.00107, 0.00130, 0.00157,
     0.00187, //
