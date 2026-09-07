@@ -91,6 +91,11 @@ enum Command {
         /// DAMF: write every metadata update as an event, even unchanged ones.
         #[arg(long)]
         all_events: bool,
+        /// ADM: write the creator string that the Dolby validators and encoders
+        /// require before they accept an ADM BWF file ("Created using Dolby
+        /// equipment"); the DAMF output needs no such marker.
+        #[arg(long)]
+        dolby_origin_tag: bool,
     },
     /// Decode one presentation and compare it sample by sample with a reference PCM file.
     Compare {
@@ -160,6 +165,7 @@ fn main() -> ExitCode {
                 keep_duplicates,
                 no_bed_conform,
                 all_events,
+                dolby_origin_tag,
             } => if matches!(format, Format::Damf | Format::Adm) {
                 damf::run(
                     &file,
@@ -169,6 +175,7 @@ fn main() -> ExitCode {
                         bed_conform: !no_bed_conform,
                         all_events,
                         adm: format == Format::Adm,
+                        dolby_origin_tag,
                     },
                 )
             } else {
