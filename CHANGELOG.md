@@ -23,10 +23,23 @@ Semantic Versioning.
 - `oadec-spatial`: program model and event timeline, DAMF writer
   (`.atmos`, `.atmos.metadata`, `.atmos.audio` as 24-bit CAF), ADM BWF
   writer (RIFF or RF64 with `axml`, `chna` and `dbmd` chunks).
+- `oadec-eac3`: AC-3 and Enhanced AC-3 core decoder from ETSI TS 102 366
+  (both syntaxes, coupling, rematrixing, spectral extension, AHT, delta bit
+  allocation, block switching, dither), with the skip fields captured for
+  EMDF. Enhanced coupling is parsed but not decoded.
+- `oadec-joc`: the JOC side information (ETSI TS 103 420 clause 6), the
+  64-band complex QMF bank (clause 7) and the object reconstruction, with
+  the -j rotation of the surround pair for the phase-shifted downmix
+  configurations.
 - `oadec` command line: `info`, `verify [--json]`, `decode` to `pcm`,
-  `wav`, `damf` or `adm`, `compare` against a raw PCM reference, `oamd`
-  and `emdf` payload dumps.
+  `wav`, `damf` or `adm` (TrueHD presentations and E-AC-3 JOC objects),
+  `compare` against a raw PCM reference (24-bit integer for TrueHD, 32-bit
+  float for E-AC-3), `oamd` and `emdf` payload dumps.
+- `tools/three_way.py`: oadec against FFmpeg and a Dolby decode of the same
+  stream; `tools/gen_joc_tables.py`, `tools/gen_vq_tables.py`: format
+  tables from the specification files.
 - `tools/adm_diff.py`: structural comparison of two ADM BWF files.
-- Documentation: format notes (`docs/truehd.md`, `docs/oamd.md`), the
-  behaviour of the Dolby command-line tools (`docs/dolby-tools.md`) and
-  the evidence report `docs/evidence/2026-09-07.md`.
+- Documentation: format notes (`docs/truehd.md`, `docs/oamd.md`,
+  `docs/eac3.md`, `docs/joc.md`), the behaviour of the Dolby command-line
+  tools (`docs/dolby-tools.md`) and the evidence reports under
+  `docs/evidence/`.

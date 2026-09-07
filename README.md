@@ -23,12 +23,15 @@ Atmos track can become an E-AC-3 Atmos track without losing the objects.
 | Timing model, seamless branches, duplicates | done | Braveheart: 0 branches, the same as truehdd |
 | DAMF writer, Dolby validators, encoder round trip | done | validators exit 0; the encoder produces E-AC-3 JOC and TrueHD Atmos from our sets |
 | ADM BWF writer | done | structurally identical to the Dolby converter's own output |
-| E-AC-3 core decoder | in progress | |
-| JOC object reconstruction | planned | |
+| E-AC-3 / AC-3 core decoder (ETSI TS 102 366) | done | 17 streams, 3.3 million frames, zero CRC or parse failures; as close to a Dolby decode as FFmpeg is on every channel |
+| JOC objects (ETSI TS 103 420) to DAMF / ADM | done | 380,000 payloads parse to the byte; objects back in phase with the source of an encoder round trip; validators exit 0 |
 
 The numbers behind the table: [`docs/evidence/`](docs/evidence/). Format
 notes in our own words: [`docs/truehd.md`](docs/truehd.md),
-[`docs/oamd.md`](docs/oamd.md). Design and milestones:
+[`docs/oamd.md`](docs/oamd.md), [`docs/eac3.md`](docs/eac3.md),
+[`docs/joc.md`](docs/joc.md). Untested because the corpus never used them:
+AHT and spectral extension (implemented from the text), enhanced coupling
+(parsed, not decoded). Design and milestones:
 [`docs/superpowers/specs/2026-09-06-oadec-design.md`](docs/superpowers/specs/2026-09-06-oadec-design.md).
 
 ## Quick start
@@ -43,6 +46,9 @@ oadec decode  film.thd --format adm  -o out/film  # objects + metadata as ADM BW
 oadec compare film.thd -p 2 -r ref.s32            # sample-by-sample against a reference
 oadec oamd    film.thd --dump 3                   # the object metadata payloads
 oadec emdf    film.ec3                            # EMDF containers of an E-AC-3 stream
+oadec info    film.ec3                        # E-AC-3: frames, coding tools, JOC statistics
+oadec decode  film.ec3 --format damf -o out/film  # JOC objects + metadata as a DAMF set
+oadec compare film.ec3 -r ref.f32             # against a 32-bit float reference (FFmpeg)
 ```
 
 `film.thd` is a raw TrueHD elementary stream, for example extracted with
@@ -69,6 +75,10 @@ comes from a measurement that can be repeated:
   5.7.2, the Reference Player, the Atmos Conversion Tool) validate the DAMF
   and ADM outputs and re-encode them. Their own conversions are the reference
   the ADM writer is diffed against (`tools/adm_diff.py`).
+- **Three decoders.** AC-3 family decoders dither differently by design, so
+  E-AC-3 output is judged with `tools/three_way.py`: oadec must sit within
+  the distance the Dolby decode and FFmpeg have from each other, channel by
+  channel.
 
 The real-media suite is opt-in. Point `OADEC_MEDIA` at a work directory
 that holds the streams and references and run:

@@ -547,9 +547,9 @@ GUI, DRC application. Revisit after the evidence report exists.
 
 ## Status, 2026-09-07
 
-M0–M10 are done and evidenced in `docs/evidence/2026-09-07.md`; M11 is in
-progress on the `eac3` branch; M12 has not started; M13 is partly done
-(README, CHANGELOG, CONTRIBUTING, the repository on GitHub, the vault notes).
+M0–M10 are done and evidenced in `docs/evidence/2026-09-07.md`; M11 and
+M12 are done and evidenced in `docs/evidence/2026-09-08.md`; M13 is done
+except the release tag.
 
 Deviations from the plan above:
 
@@ -567,4 +567,13 @@ Deviations from the plan above:
   `ID` and `samplePos` keys.
 - ADM files pass the Dolby validators only with `--dolby-origin-tag`; the
   flag is off by default.
-- The release tag `v0.1.0` waits for M11 and M12.
+- The M11 gate was changed from a fixed 1e-6 tolerance to a three-decoder
+  envelope, because AC-3 family decoders dither with their own sequences
+  (clause 6.3.4) and never agree to float precision. The Dolby Encoding
+  Engine's `ddp_decode` filter is the third decoder.
+- The M12 gate used the encoder round trip of real content instead of a
+  synthetic set; the QMF synthesis follows the matrix equation of clause 7.3
+  rather than its pseudo-code, and the surround pair is rotated by -j for
+  downmix configurations 3 and 4 (both measured, see the evidence).
+- The corpus never used AHT, spectral extension or enhanced coupling, so
+  those paths are untested (AHT, SPX) or unsupported (ECPL).
