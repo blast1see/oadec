@@ -24,6 +24,7 @@ pub mod restart;
 pub mod segment;
 pub mod state;
 pub mod sync;
+pub mod timing;
 
 #[cfg(test)]
 pub(crate) mod testutil;
@@ -42,3 +43,4 @@ pub use restart::RestartHeader;
 pub use segment::{Segment, Terminator};
 pub use state::{ParserState, SubstreamState};
 pub use sync::{FormatInfo, MajorSync};
+pub use timing::{Branch, BranchConditions, RestartTiming, StreamTiming, TimingModel};

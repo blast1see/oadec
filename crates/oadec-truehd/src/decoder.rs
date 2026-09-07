@@ -24,6 +24,7 @@ use crate::state::{
     SubstreamState,
 };
 use crate::sync::MajorSync;
+use crate::timing::{StreamTiming, TimingModel};
 
 /// Taps kept for each prediction filter.
 pub const FILTER_ORDER: usize = 8;
@@ -50,6 +51,16 @@ pub struct DecodeStats {
     pub max_bits_violations: u64,
     /// Segments with a parity, CRC, end-pointer or sample-count problem.
     pub segment_problems: u64,
+    /// Access units whose input timing jumped.
+    pub input_jumps: u64,
+    /// Timing jumps judged valid seamless branches.
+    pub valid_branches: u64,
+    /// Timing jumps that were not valid branches.
+    pub invalid_branches: u64,
+    /// Lossless checks not performed because the section spans a branch.
+    pub lossless_checks_skipped: u64,
+    /// Access units dropped as duplicates.
+    pub duplicates: u64,
     /// Description of the first problem seen.
     pub first_problem: Option<String>,
 }
@@ -307,6 +318,8 @@ struct Core {
     /// duplicate detection.
     duplicate_timing: bool,
     duplicate_samples: bool,
+    /// Input/output timing, branches and duplicates.
+    timing: TimingModel,
 }
 
 impl Core {
@@ -319,21 +332,27 @@ impl Core {
     ) -> Result<()> {
         let ss = &state.substream[i];
         if let Some(rh) = &block.restart {
+            let rt = self.timing.restart_header(i, rh.output_timing);
             let sd = &mut self.sub[i];
             if sd.active && i == self.top {
-                self.stats.lossless_checks += 1;
-                let computed = fold_lossless(sd.lossless_accum);
-                if computed != rh.lossless_check {
-                    self.stats.lossless_mismatches += 1;
-                    let unit = self.unit_index;
-                    self.stats.note(|| {
-                        format!(
-                            "access unit {unit}: substream {i}: lossless check {computed:#04X} differs from header {:#04X}",
-                            rh.lossless_check
-                        )
-                    });
+                if rt.branch.is_some_and(|b| b.is_valid()) {
+                    // The check word spans the splice; the header belongs to the new section.
+                    self.stats.lossless_checks_skipped += 1;
+                } else {
+                    self.stats.lossless_checks += 1;
+                    let computed = fold_lossless(sd.lossless_accum);
+                    if computed != rh.lossless_check {
+                        self.stats.lossless_mismatches += 1;
+                        let unit = self.unit_index;
+                        self.stats.note(|| {
+                            format!(
+                                "access unit {unit}: substream {i}: lossless check {computed:#04X} differs from header {:#04X}",
+                                rh.lossless_check
+                            )
+                        });
+                    }
                 }
-                if sd.output_timing == rh.output_timing {
+                if rt.duplicate_timing {
                     self.duplicate_timing = true;
                 }
             }
@@ -561,6 +580,7 @@ impl Decoder {
             unit_index: 0,
             duplicate_timing: false,
             duplicate_samples: false,
+            timing: TimingModel::new(StreamTiming::new(major_sync, &config)),
         };
         Ok(Self {
             config,
@@ -608,10 +628,16 @@ impl Decoder {
         &self.core.stats
     }
 
+    /// The timing model (jumps, branches) so far.
+    #[must_use]
+    pub fn timing(&self) -> &TimingModel {
+        &self.core.timing
+    }
+
     /// Decodes one access unit.
     pub fn decode(&mut self, unit: &[u8]) -> Result<Decoded<'_>> {
         let (au, config) = AccessUnit::parse(unit, Some(&self.config))?;
-        if au.major_sync.is_some() {
+        if let Some(ms) = &au.major_sync {
             if config.substreams != self.config.substreams
                 || config.substream_info != self.config.substream_info
                 || config.samples_per_au != self.config.samples_per_au
@@ -621,10 +647,20 @@ impl Decoder {
                 ));
             }
             self.parser.update(&config);
+            self.core
+                .timing
+                .update_config(StreamTiming::new(ms, &config));
             self.config = config;
         }
         self.core.duplicate_timing = false;
         self.core.duplicate_samples = false;
+        if self
+            .core
+            .timing
+            .begin_unit(au.header.input_timing, u32::from(au.header.length_words))
+        {
+            self.core.stats.input_jumps += 1;
+        }
         let top = self.core.top;
         for i in 0..=top {
             if (self.core.substream_mask >> i) & 1 == 0 {
@@ -667,12 +703,17 @@ impl Decoder {
                 });
             }
         }
+        self.core.timing.end_unit();
+        self.core.stats.valid_branches = self.core.timing.valid_branches() as u64;
+        self.core.stats.invalid_branches = self.core.timing.invalid_branches() as u64;
         let spa = self.core.samples_per_au;
         let len = spa.saturating_sub(self.core.sub[top].zero_samples);
         let duplicate =
             self.core.duplicate_timing && self.core.duplicate_samples && !self.keep_duplicates;
         self.core.stats.units += 1;
-        if !duplicate {
+        if duplicate {
+            self.core.stats.duplicates += 1;
+        } else {
             self.core.stats.samples += len as u64;
         }
         self.core.unit_index += 1;
