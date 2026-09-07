@@ -737,3 +737,75 @@ Options:
 ```text
 Dolby Reference Player 3.2.0.8040
 ```
+
+## `cmdline_atmos_conversion_tool.exe --help` (Dolby Atmos Conversion Tool 2.1.2)
+
+```text
+Dolby Atmos Conversion Tool. A Dolby Atmos media file format and frames-per-second conversion tool.
+
+Option list:
+  -h [ --help ]                       Displays help (full list of Dolby Atmos Conversion Tool 
+                                      command-line options).
+  -v [ --version ]                    Displays the application version and exits the application.
+  -V [ --verbose ]                    Enables verbose information for debugging.
+  -i [ --pm_in ] arg                  Specifies the path to the input Dolby Atmos master file.
+  -o [ --output_path ] arg (=.)       Specifies the output path for the audio and metadata files. 
+                                      The default is the current working directory.
+  -f [ --output_format ] arg (=atmos) Specifies the output file format option: atmos, rpl, wav, or 
+                                      mxf.
+  --source_fps arg                    Specifies the frame rate of the source master file in frames 
+                                      per second (FPS). This option will set the frame rate of the 
+                                      source master file that does not specify one. Valid values 
+                                      are dependent on the frame rate supported by the source 
+                                      master. They can include: 23.976, 24, 25, 29.97, 29.97df, 30.
+  --target_fps arg                    Specifies the frame rate of the target master file. Valid 
+                                      values are dependent on the frame rate supported by the 
+                                      target master. They can include: 23.976, 24, 25, 29.97, 
+                                      29.97df, 30. Frame rates of 29.97 and 29.97df are not 
+                                      supported for mxf output format. Frame rates supported by rpl
+                                      format are 24, 25 and 30 FPS. Numbers near 23.976 and 29.97 
+                                      will be rounded to 24*1000/1001 and 30*1000/1001. If this 
+                                      value is equal to frame rate in the source file, frame rate 
+                                      conversion is bypassed and the tool does a format conversion 
+                                      only.
+  --no_ffoa                           Don't include FFOA when creating the new master.
+  --ffoa arg                          Specifies first frame of action (FFOA).  If none is 
+                                      specified, the source master FFOA will be used.
+  -l [ --primary_lang ] arg           Specifies IMF IAB soundfield primary spoken language as RFC 
+                                      5646 code value. Applicable only for mxf output format. If 
+                                      none is specified for an input mxf master, the primary 
+                                      language of the master is passed through to the output. If 
+                                      none is specified for all other input master types, "en" will
+                                      be used.
+  --list_languages                    Displays full list of supported RFC 5646 primary spoken 
+                                      language codes.
+  --quality arg (=0)                  Specifies the quality of the libsamplerate conversion during 
+                                      a frame rate or sample rate conversion, where 0=best_quality 
+                                      and 4=linear.
+  --disable_multithreading            Disables multithreading and uses a single thread for the 
+                                      resampling during a frame rate or sample rate conversion.
+  --bypass_resampling                 Disables resampling of the audio content during a frame rate 
+                                      conversion (resampling only happens for sample rate 
+                                      conversions if needed).
+  --target_sample_rate arg (=48000)   Specifies the sample rate in Hz of the target master, valid 
+                                      options are: 48000 or 96000.
+                                      Valid sample rate conversions:
+                                      - 48000 All formats     -> 48000 All formats
+                                      - 96000 .atmos, ADM BWF -> 48000 .atmos, ADM BWF, IMF IAB
+                                      - 96000 .atmos, ADM BWF -> 96000 ADM BWF
+  --set_warp_mode arg                 Specifies the warp mode for the target master, valid options 
+                                      are:
+                                      - downmix_loro, Standard (Lo/Ro)
+                                      - downmix_pliix, Dolby Pro Logix IIx
+                                      - warping, Direct render with room balance
+                                      - normal, Direct render
+  --trim_start arg (=0)               Trims n seconds from the beginning of the input master. 
+                                      Applied before prepending or appending silence.
+  --trim_duration arg (=0)            Trims input master to n seconds after the defined start. 
+                                      Applied before prepending or appending silence.
+  --prepend_silence arg (=0)          Prepends n seconds of audio silence to the beginning of the 
+                                      input master.
+  --append_silence arg (=0)           Appends n seconds of audio silence to the end of the input 
+                                      master.
+
+```
