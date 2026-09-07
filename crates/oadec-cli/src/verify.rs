@@ -48,6 +48,52 @@ pub fn run(path: &Path, json: bool) -> Result<bool> {
             "Sync:              {} resyncs, {} skipped bytes, {} trailing bytes",
             f.resyncs, f.skipped_bytes, f.trailing_bytes
         );
+        let substreams = scan
+            .config
+            .as_ref()
+            .map_or(0, |c| usize::from(c.substreams));
+        for (i, st) in scan.substreams.iter().enumerate().take(substreams) {
+            let words = st
+                .sync_words
+                .iter()
+                .map(|(w, n)| format!("{w} x{n}"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let first = st.first_restart.as_ref().map_or_else(String::new, |r| {
+                format!(
+                    ", channels {}..={} (matrix {}), error_protect {}",
+                    r.min_chan, r.max_chan, r.max_matrix_chan, r.error_protect
+                )
+            });
+            println!(
+                "Substream {i}:       {} segments ({} skipped), {} restart headers [{words}]{first}",
+                st.segments, st.skipped, st.restart_headers
+            );
+            println!(
+                "                   {} blocks (max {} per segment, {} protected), {} matrixing ({} interpolated), up to {} matrices, {} CRC segments, {} terminated ({} with zero samples)",
+                st.blocks,
+                st.max_blocks_per_segment,
+                st.protected_blocks,
+                st.matrixing_blocks,
+                st.interpolated_blocks,
+                st.max_primitive_matrices,
+                st.crc_segments,
+                st.terminated_segments,
+                st.zero_sample_segments
+            );
+        }
+        println!(
+            "Substream checks:  {} parse errors, {} block bit-count mismatches, {} parity failures, {} CRC failures, {} end-pointer mismatches, {} sample-count mismatches, {} restart flag mismatches, {} bad terminators, {} unexpected tails",
+            f.substream_errors,
+            f.block_data_bits,
+            f.segment_parity,
+            f.segment_crc,
+            f.segment_end,
+            f.sample_count,
+            f.restart_flag,
+            f.terminator_tail,
+            f.unexpected_tail
+        );
         if let Some(err) = &scan.first_error {
             println!("First error:       {err}");
         }
