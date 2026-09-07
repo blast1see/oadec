@@ -202,14 +202,8 @@ mod tests {
     fn eac3_header_fields() {
         // strmtyp 0, substreamid 0, frmsiz 1535 (3072 bytes), fscod 0, numblkscod 3,
         // acmod 7, lfeon 1, bsid 16
-        let bits: u64 = (0 << 30)
-            | (0 << 27)
-            | (1535 << 16)
-            | (0 << 14)
-            | (3 << 12)
-            | (7 << 9)
-            | (1 << 8)
-            | (16 << 3);
+        // strmtyp 0 and substreamid 0 fill the top five bits, fscod 0 bits 15..14
+        let bits: u64 = (1535 << 16) | (3 << 12) | (7 << 9) | (1 << 8) | (16 << 3);
         let b = bits.to_be_bytes();
         let frame = [0x0B, 0x77, b[4], b[5], b[6], b[7], 0, 0];
         let h = FrameHeader::parse(&frame).unwrap();
