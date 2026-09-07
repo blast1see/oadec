@@ -1,0 +1,76 @@
+name: Release
+
+# CI builds the binary on every push but keeps it as a short-lived workflow
+# artifact. A tag `v*` (or a manual run naming an existing tag) builds the
+# command-line tool on Windows and Linux, checks that it reports the tagged
+# version, and attaches the archives and their SHA-256 sums to a release.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "An existing tag to build and publish"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.suffix }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            suffix: windows-x64
+            exe: oadec.exe
+          - os: ubuntu-latest
+            suffix: linux-x64
+            exe: oadec
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo build --release -p oadec-cli --locked
+
+      - name: The binary answers for itself, with the tagged version
+        shell: bash
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          reported=$(./target/release/${{ matrix.exe }} --version | awk '{print $2}')
+          echo "tag $tag, binary $reported"
+          test "v$reported" = "$tag"
+
+      - name: Archive, and record what it hashes to
+        id: archive
+        shell: bash
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          name="oadec-$tag-${{ matrix.suffix }}"
+          mkdir "$name"
+          cp "target/release/${{ matrix.exe }}" README.md LICENSE CHANGELOG.md "$name/"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a "$name.zip" "$name" > /dev/null
+            asset="$name.zip"
+          else
+            tar czf "$name.tar.gz" "$name"
+            asset="$name.tar.gz"
+          fi
+          sha256sum "$asset" > "$asset.sha256"
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: |
+            ${{ steps.archive.outputs.asset }}
+            ${{ steps.archive.outputs.asset }}.sha256
