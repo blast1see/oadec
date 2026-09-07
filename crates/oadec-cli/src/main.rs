@@ -3,6 +3,7 @@
 mod compare;
 mod damf;
 mod decode;
+mod eac3;
 mod emdf;
 mod info;
 mod input;
@@ -96,6 +97,9 @@ enum Command {
         /// equipment"); the DAMF output needs no such marker.
         #[arg(long)]
         dolby_origin_tag: bool,
+        /// E-AC-3: substitute zeros instead of dither for zero-bit mantissas.
+        #[arg(long)]
+        no_dither: bool,
     },
     /// Decode one presentation and compare it sample by sample with a reference PCM file.
     Compare {
@@ -122,6 +126,21 @@ enum Command {
         /// Bytes to skip at the start of the reference (a container header).
         #[arg(long, default_value_t = 0)]
         reference_skip: u64,
+        /// E-AC-3: substitute zeros instead of dither for zero-bit mantissas.
+        #[arg(long)]
+        no_dither: bool,
+        /// E-AC-3: list the N blocks with the largest deviation.
+        #[arg(long, default_value_t = 0)]
+        worst: usize,
+    },
+    /// Print the side information of one E-AC-3 frame, block by block.
+    #[command(hide = true)]
+    Eac3Blocks {
+        /// Raw E-AC-3 (.ec3/.eac3/.ac3) elementary stream.
+        file: PathBuf,
+        /// Index of the decoded frame (independent substream 0).
+        #[arg(long)]
+        frame: u64,
     },
 }
 
@@ -132,14 +151,30 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
     let result =
         match cli.command {
-            Command::Info { file, json } => info::run(&file, json).map(|()| ExitCode::SUCCESS),
-            Command::Verify { file, json } => verify::run(&file, json).map(|clean| {
-                if clean {
-                    ExitCode::SUCCESS
-                } else {
-                    ExitCode::from(EXIT_NONCONFORMANT)
-                }
-            }),
+            Command::Info { file, json } => eac3::is_eac3(&file)
+                .and_then(|is| {
+                    if is {
+                        eac3::info(&file, json)
+                    } else {
+                        info::run(&file, json)
+                    }
+                })
+                .map(|()| ExitCode::SUCCESS),
+            Command::Verify { file, json } => eac3::is_eac3(&file)
+                .and_then(|is| {
+                    if is {
+                        eac3::verify(&file, json)
+                    } else {
+                        verify::run(&file, json)
+                    }
+                })
+                .map(|clean| {
+                    if clean {
+                        ExitCode::SUCCESS
+                    } else {
+                        ExitCode::from(EXIT_NONCONFORMANT)
+                    }
+                }),
             Command::Emdf { file, json, dump } => emdf::run(&file, &emdf::Options { json, dump })
                 .map(|clean| {
                     if clean {
@@ -166,7 +201,18 @@ fn main() -> ExitCode {
                 no_bed_conform,
                 all_events,
                 dolby_origin_tag,
-            } => if matches!(format, Format::Damf | Format::Adm) {
+                no_dither,
+            } => if eac3::is_eac3(&file).unwrap_or(false) {
+                eac3::decode(
+                    &file,
+                    &output,
+                    &eac3::DecodeOptions {
+                        format,
+                        order,
+                        dither: !no_dither,
+                    },
+                )
+            } else if matches!(format, Format::Damf | Format::Adm) {
                 damf::run(
                     &file,
                     &output,
@@ -200,18 +246,34 @@ fn main() -> ExitCode {
                 keep_duplicates,
                 report,
                 reference_skip,
-            } => compare::run(
-                &file,
-                &reference,
-                &compare::Options {
-                    presentation,
-                    format: reference_format,
-                    order,
-                    keep_duplicates,
-                    report,
-                    skip: reference_skip,
-                },
-            )
+                no_dither,
+                worst,
+            } => if eac3::is_eac3(&file).unwrap_or(false) {
+                eac3::compare(
+                    &file,
+                    &reference,
+                    &eac3::CompareOptions {
+                        order,
+                        report,
+                        skip: reference_skip,
+                        dither: !no_dither,
+                        worst,
+                    },
+                )
+            } else {
+                compare::run(
+                    &file,
+                    &reference,
+                    &compare::Options {
+                        presentation,
+                        format: reference_format,
+                        order,
+                        keep_duplicates,
+                        report,
+                        skip: reference_skip,
+                    },
+                )
+            }
             .map(|equal| {
                 if equal {
                     ExitCode::SUCCESS
@@ -219,6 +281,9 @@ fn main() -> ExitCode {
                     ExitCode::from(EXIT_NONCONFORMANT)
                 }
             }),
+            Command::Eac3Blocks { file, frame } => {
+                eac3::blocks(&file, frame).map(|()| ExitCode::SUCCESS)
+            }
         };
     match result {
         Ok(code) => code,
