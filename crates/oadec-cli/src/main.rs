@@ -32,15 +32,15 @@ struct Cli {
 enum Command {
     /// Print what a stream declares about itself.
     Info {
-        /// Raw TrueHD (.thd/.mlp) elementary stream.
+        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary stream.
         file: PathBuf,
         /// Machine-readable JSON instead of text.
         #[arg(long)]
         json: bool,
     },
-    /// Check the integrity of every access unit and report the failure counts.
+    /// Check the integrity of every access unit or frame and report the failure counts.
     Verify {
-        /// Raw TrueHD (.thd/.mlp) elementary stream.
+        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary stream.
         file: PathBuf,
         /// Machine-readable JSON instead of text.
         #[arg(long)]
@@ -68,9 +68,10 @@ enum Command {
         #[arg(long)]
         dump: Option<usize>,
     },
-    /// Decode one presentation to 24-bit PCM.
+    /// Decode a TrueHD presentation (24-bit PCM) or an E-AC-3 stream (32-bit float), or
+    /// write the object program as a DAMF set or ADM BWF file.
     Decode {
-        /// Raw TrueHD (.thd/.mlp) elementary stream.
+        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary stream.
         file: PathBuf,
         /// Output file.
         #[arg(short, long)]
@@ -102,9 +103,10 @@ enum Command {
         #[arg(long)]
         no_dither: bool,
     },
-    /// Decode one presentation and compare it sample by sample with a reference PCM file.
+    /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
+    /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
     Compare {
-        /// Raw TrueHD (.thd/.mlp) elementary stream.
+        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary stream.
         file: PathBuf,
         /// Reference PCM file (headerless, interleaved).
         #[arg(short, long)]
