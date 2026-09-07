@@ -6,7 +6,8 @@ use std::path::Path;
 use anyhow::Result;
 use oadec_emdf::container;
 use oadec_truehd::{
-    AccessUnit, ExtraKind, MajorSync, ParserState, SampleBuffer, Segment, StreamConfig, Unit,
+    AccessUnit, ExtraKind, MajorSync, ParserState, SampleBuffer, Segment, StreamConfig,
+    StreamTiming, TimingModel, Unit,
 };
 use serde::Serialize;
 
@@ -28,6 +29,8 @@ pub struct Failures {
     pub skipped_bytes: u64,
     pub trailing_bytes: u64,
     pub config_changes: u64,
+    /// Timing jumps that were not valid seamless branches.
+    pub invalid_branches: u64,
     /// Segments that failed to parse (syntax errors, restart header CRC, ranges).
     pub substream_errors: u64,
     /// Blocks whose data bit count differed from `block_data_bits`.
@@ -65,6 +68,7 @@ impl Failures {
             && self.skipped_bytes == 0
             && self.trailing_bytes == 0
             && self.config_changes == 0
+            && self.invalid_branches == 0
             && self.substream_errors == 0
             && self.block_data_bits == 0
             && self.segment_parity == 0
@@ -75,6 +79,40 @@ impl Failures {
             && self.terminator_tail == 0
             && self.unexpected_tail == 0
     }
+}
+
+/// Timing model statistics.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct TimingStats {
+    /// Access units whose input timing jumped.
+    pub input_jumps: u64,
+    /// Restart headers whose output timing was not the expected one.
+    pub output_jumps: u64,
+    /// Jumps judged to be valid seamless branches.
+    pub valid_branches: u64,
+    /// Jumps that were not valid branches (the stream restarts there).
+    pub invalid_branches: u64,
+    /// Restart headers repeating the previous output timing (duplicate candidates).
+    pub duplicate_candidates: u64,
+    /// Peak data rate changes at major syncs.
+    pub peak_rate_changes: u64,
+    /// The first jumps: access unit, advance before and after, conditions met.
+    pub branches: Vec<BranchReport>,
+}
+
+/// One judged jump.
+#[derive(Debug, Clone, Serialize)]
+pub struct BranchReport {
+    pub unit: u64,
+    pub input_jump: bool,
+    pub output_jump: bool,
+    pub prev_advance: u32,
+    pub advance: u32,
+    pub valid: bool,
+    pub advance_step: bool,
+    pub fifo_duration: bool,
+    pub within_75ms: bool,
+    pub data_rate: bool,
 }
 
 /// Extra-data statistics.
@@ -145,6 +183,9 @@ pub struct Scan {
     parser: Option<ParserState>,
     #[serde(skip)]
     buffer: Box<SampleBuffer>,
+    #[serde(skip)]
+    timing: Option<TimingModel>,
+    pub timing_stats: TimingStats,
     pub crc_present_units: [u64; 4],
     pub drc_updates: [u64; 4],
     pub substreams: [SubstreamStats; 4],
@@ -177,6 +218,8 @@ impl Scan {
             config: None,
             parser: None,
             buffer: Box::default(),
+            timing: None,
+            timing_stats: TimingStats::default(),
             crc_present_units: [0; 4],
             drc_updates: [0; 4],
             substreams: core::array::from_fn(|_| SubstreamStats::default()),
@@ -299,7 +342,50 @@ impl Scan {
                 None => self.parser = Some(ParserState::new(&config)),
             }
         }
+        if let Some(ms) = &au.major_sync {
+            let timing = StreamTiming::new(ms, &config);
+            match &mut self.timing {
+                Some(model) => model.update_config(timing),
+                None => self.timing = Some(TimingModel::new(timing)),
+            }
+        }
+        if let Some(model) = &mut self.timing {
+            model.begin_unit(au.header.input_timing, u32::from(au.header.length_words));
+        }
         self.take_segments(&au, unit, index);
+        if let Some(model) = &mut self.timing {
+            model.end_unit();
+            let stats = &mut self.timing_stats;
+            stats.input_jumps = model.input_jumps;
+            stats.output_jumps = model.output_jumps;
+            stats.peak_rate_changes = model.peak_rate_changes;
+            stats.valid_branches = model.valid_branches() as u64;
+            stats.invalid_branches = model.invalid_branches() as u64;
+            self.failures.invalid_branches = stats.invalid_branches;
+            while stats.branches.len() < model.branches.len() && stats.branches.len() < 64 {
+                let b = model.branches[stats.branches.len()];
+                stats.branches.push(BranchReport {
+                    unit: b.unit,
+                    input_jump: b.input_jump,
+                    output_jump: b.output_jump,
+                    prev_advance: b.prev_advance,
+                    advance: b.advance,
+                    valid: b.is_valid(),
+                    advance_step: b.conditions.advance_step,
+                    fifo_duration: b.conditions.fifo_duration,
+                    within_75ms: b.conditions.within_75ms,
+                    data_rate: b.conditions.data_rate,
+                });
+                if !b.is_valid() {
+                    note_first(&mut self.first_error, || {
+                        format!(
+                            "access unit {}: timing jump that is not a valid seamless branch (advance {} -> {})",
+                            b.unit, b.prev_advance, b.advance
+                        )
+                    });
+                }
+            }
+        }
         self.config = Some(config);
     }
 
@@ -336,6 +422,15 @@ impl Scan {
                     continue;
                 }
             };
+            if let (Some(model), Some(rh)) = (
+                self.timing.as_mut(),
+                seg.blocks.first().and_then(|b| b.restart.as_ref()),
+            ) {
+                let r = model.restart_header(i, rh.output_timing);
+                if r.duplicate_timing {
+                    self.timing_stats.duplicate_candidates += 1;
+                }
+            }
             let ss = &parser.substream[i];
             let st = &mut self.substreams[i];
             let f = &mut self.failures;

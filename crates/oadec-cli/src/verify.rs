@@ -94,6 +94,33 @@ pub fn run(path: &Path, json: bool) -> Result<bool> {
             f.terminator_tail,
             f.unexpected_tail
         );
+        let t = &scan.timing_stats;
+        println!(
+            "Timing:            {} input timing jumps, {} output timing jumps, {} valid seamless branches, {} invalid branches, {} duplicate candidates, {} peak rate changes",
+            t.input_jumps,
+            t.output_jumps,
+            t.valid_branches,
+            t.invalid_branches,
+            t.duplicate_candidates,
+            t.peak_rate_changes
+        );
+        for b in t.branches.iter().take(8) {
+            println!(
+                "                   access unit {}: {} advance {} -> {} (step {}, fifo {}, 75ms {}, rate {})",
+                b.unit,
+                if b.valid {
+                    "seamless branch"
+                } else {
+                    "restart"
+                },
+                b.prev_advance,
+                b.advance,
+                b.advance_step,
+                b.fifo_duration,
+                b.within_75ms,
+                b.data_rate
+            );
+        }
         if let Some(err) = &scan.first_error {
             println!("First error:       {err}");
         }
