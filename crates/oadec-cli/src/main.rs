@@ -4,6 +4,7 @@ mod compare;
 mod decode;
 mod info;
 mod input;
+mod oamd;
 mod scan;
 mod verify;
 
@@ -40,6 +41,17 @@ enum Command {
         /// Machine-readable JSON instead of text.
         #[arg(long)]
         json: bool,
+    },
+    /// Parse every Object Audio Metadata payload and report what it carries.
+    Oamd {
+        /// Raw TrueHD (.thd/.mlp) elementary stream.
+        file: PathBuf,
+        /// Machine-readable JSON instead of text.
+        #[arg(long)]
+        json: bool,
+        /// Print the first N payloads in full.
+        #[arg(long)]
+        dump: Option<usize>,
     },
     /// Decode one presentation to 24-bit PCM.
     Decode {
@@ -103,6 +115,15 @@ fn main() -> ExitCode {
                 ExitCode::from(EXIT_NONCONFORMANT)
             }
         }),
+        Command::Oamd { file, json, dump } => {
+            oamd::run(&file, &oamd::Options { json, dump }).map(|clean| {
+                if clean {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::from(EXIT_NONCONFORMANT)
+                }
+            })
+        }
         Command::Decode {
             file,
             output,
