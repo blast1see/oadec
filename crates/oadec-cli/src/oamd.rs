@@ -34,6 +34,8 @@ pub struct OamdSummary {
     pub padding_nonzero: u64,
     /// Elements padded by eight bits or more (a sign of a misread element).
     pub padding_long: u64,
+    /// Elements that overran their declared size.
+    pub size_mismatches: u64,
     pub container_sample_offsets: BTreeMap<u32, u64>,
     pub object_counts: BTreeMap<usize, u64>,
     pub element_ids: BTreeMap<u8, u64>,
@@ -116,6 +118,15 @@ impl OamdSummary {
             *self.element_ids.entry(e.id).or_default() += 1;
             if !e.padding_zero {
                 self.padding_nonzero += 1;
+            }
+            if !e.size_ok {
+                self.size_mismatches += 1;
+                if self.first_error.is_none() {
+                    self.first_error = Some(format!(
+                        "access unit {unit_index}: element {} overran its {} bytes",
+                        e.id, e.size_bytes
+                    ));
+                }
             }
             if e.padding_bits >= 8 {
                 self.padding_long += 1;
@@ -328,6 +339,20 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
                     }
                 }
                 Err(e) => {
+                    if opts.dump.is_some() {
+                        println!(
+                            "access unit {index}: payload of {} bytes failed: {e}",
+                            p.data.len()
+                        );
+                        println!(
+                            "  {}",
+                            p.data
+                                .iter()
+                                .map(|b| format!("{b:02x}"))
+                                .collect::<Vec<_>>()
+                                .join(" ")
+                        );
+                    }
                     summary.payloads += 1;
                     summary.parse_errors += 1;
                     if summary.first_error.is_none() {
@@ -351,13 +376,14 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         println!("{}", serde_json::to_string_pretty(&value)?);
     } else {
         println!(
-            "OAMD payloads:     {} in {} of {} access units; {} parse errors, {} non-zero paddings, {} long paddings",
+            "OAMD payloads:     {} in {} of {} access units; {} parse errors, {} non-zero paddings, {} long paddings, {} size mismatches",
             summary.payloads,
             summary.units_with_oamd,
             summary.units,
             summary.parse_errors,
             summary.padding_nonzero,
-            summary.padding_long
+            summary.padding_long,
+            summary.size_mismatches
         );
         if let Some(p) = &summary.program {
             println!(
