@@ -5,6 +5,10 @@
 //! with the specification (`ts_103420v010201p0.zip`).
 
 /// Window coefficients, index `j` of clauses 7.2 and 7.3.
+#[allow(
+    clippy::excessive_precision,
+    reason = "the values are printed as shipped"
+)]
 pub const QWIN: [f64; 640] = [
     0.000000000000000e+000,
     1.990318758627504e-004,

@@ -55,9 +55,7 @@ pub fn band_map(num_bands: usize) -> [u8; BANDS] {
     let mut map = [0u8; BANDS];
     for (i, (start, cols)) in ROWS.iter().enumerate() {
         let end = ROWS.get(i + 1).map_or(BANDS, |r| r.0);
-        for sb in *start..end {
-            map[sb] = cols[column];
-        }
+        map[*start..end].fill(cols[column]);
     }
     map
 }
@@ -97,9 +95,7 @@ impl JocDecoder {
 
     /// Forgets the history (after a splice).
     pub fn reset(&mut self) {
-        for m in &mut self.prev {
-            *m = [[0.0; BANDS]; MAX_CHANNELS];
-        }
+        self.prev.fill([[0.0; BANDS]; MAX_CHANNELS]);
     }
 
     /// Number of objects.
@@ -144,6 +140,10 @@ impl JocDecoder {
         }
     }
 
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "channel and subband indices address several parallel arrays"
+    )]
     fn update_object(&mut self, obj: usize, info: &JocObject, nch: usize, num_ts: usize) {
         let map = band_map(info.num_bands);
         // dequantized data points: [dp][ch][sb]
@@ -213,6 +213,10 @@ impl JocDecoder {
 
     /// Reconstructs the objects of one time slot (clause 6.6.6):
     /// `out[obj] = sum_ch input[ch] * m[obj][ts][ch]`.
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "channel and subband indices address several parallel arrays"
+    )]
     pub fn reconstruct(&self, ts: usize, input: &[[Complex; BANDS]], out: &mut [[Complex; BANDS]]) {
         let nch = self.num_channels.min(input.len());
         for (obj, o) in out.iter_mut().enumerate().take(self.num_objects) {
@@ -220,7 +224,7 @@ impl JocDecoder {
             for sb in 0..BANDS {
                 let mut acc = Complex::default();
                 for ch in 0..nch {
-                    acc = acc.add(input[ch][sb].scale(m[ch][sb]));
+                    acc = acc.plus(input[ch][sb].scale(m[ch][sb]));
                 }
                 o[sb] = acc;
             }

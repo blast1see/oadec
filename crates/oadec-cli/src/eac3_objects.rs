@@ -112,7 +112,7 @@ impl Pipeline {
                 joc_inputs[i] = coded;
             }
         }
-        if joc_inputs.iter().any(|&i| i == usize::MAX) {
+        if joc_inputs.contains(&usize::MAX) {
             bail!(
                 "the core channels {:?} do not cover the {}-channel JOC downmix",
                 names,
