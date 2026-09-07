@@ -25,14 +25,21 @@ import numpy as np
 def read_wav(path, seconds):
     with open(path, "rb") as f:
         head = f.read(12)
-        if head[:4] != b"RIFF":
-            sys.exit(f"{path}: not RIFF")
+        if head[:4] not in (b"RIFF", b"RF64"):
+            sys.exit(f"{path}: not RIFF/RF64")
         fmt = None
+        data_size_64 = None
         while True:
             h = f.read(8)
             if len(h) < 8:
                 break
             cid, size = struct.unpack("<4sI", h)
+            if cid == b"ds64":
+                body = f.read(size + (size & 1))
+                data_size_64 = struct.unpack("<Q", body[8:16])[0]
+                continue
+            if cid == b"data" and size == 0xFFFFFFFF and data_size_64 is not None:
+                size = data_size_64
             if cid == b"fmt ":
                 body = f.read(size + (size & 1))
                 tag, ch, rate, _, block, bits = struct.unpack("<HHIIHH", body[:16])

@@ -70,22 +70,22 @@ fn program_from_major_sync(ms: &MajorSync) -> Result<Program> {
 }
 
 /// The two object containers behind one interface.
-enum Sink {
+pub(crate) enum Sink {
     Damf(DamfWriter),
     Adm(AdmWriter),
 }
 
 /// What a closed sink reports.
-struct SinkSummary {
-    frames: u64,
-    channels: usize,
-    events: u64,
-    paths: Vec<PathBuf>,
-    note: String,
+pub(crate) struct SinkSummary {
+    pub(crate) frames: u64,
+    pub(crate) channels: usize,
+    pub(crate) events: u64,
+    pub(crate) paths: Vec<PathBuf>,
+    pub(crate) note: String,
 }
 
 impl Sink {
-    fn create(
+    pub(crate) fn create(
         dir: &Path,
         name: &str,
         program: &Program,
@@ -115,7 +115,7 @@ impl Sink {
         }
     }
 
-    fn push_event(&mut self, event: &Event) -> io::Result<()> {
+    pub(crate) fn push_event(&mut self, event: &Event) -> io::Result<()> {
         match self {
             Self::Damf(w) => w.push_event(event),
             Self::Adm(w) => {
@@ -125,7 +125,7 @@ impl Sink {
         }
     }
 
-    fn write_frames<'a>(
+    pub(crate) fn write_frames<'a>(
         &mut self,
         rows: impl Iterator<Item = &'a [i32]>,
         elements: usize,
@@ -136,7 +136,7 @@ impl Sink {
         }
     }
 
-    fn finish(self, events: u64) -> Result<SinkSummary> {
+    pub(crate) fn finish(self, events: u64) -> Result<SinkSummary> {
         match self {
             Self::Damf(w) => {
                 let paths = w.paths().to_vec();

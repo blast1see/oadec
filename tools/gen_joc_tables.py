@@ -109,7 +109,7 @@ def main():
         f"pub const QWIN: [f64; {len(values)}] = [",
     ]
     for i in range(0, len(values), 4):
-        out.append("    " + " ".join(f"{v}," for v in values[i : i + 4]))
+        out.append("    " + " ".join(f"{v.lstrip(chr(43))}," for v in values[i : i + 4]))
     out.append("];")
     out.append("")
     (ROOT / "crates/oadec-joc/src/qmf_window.rs").write_text("\n".join(out), newline="\n")
