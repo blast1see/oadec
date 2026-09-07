@@ -19,6 +19,9 @@ pub enum Format {
     Pcm,
     /// 24-bit WAVE (format extensible), up to 4 GiB.
     Wav,
+    /// Dolby Atmos Master Format set (`.atmos`, `.atmos.metadata`, `.atmos.audio`),
+    /// object presentation only; the output path is the base name.
+    Damf,
 }
 
 /// Channel order of the output.

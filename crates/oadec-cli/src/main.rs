@@ -1,6 +1,7 @@
 //! `oadec` command-line entry point.
 
 mod compare;
+mod damf;
 mod decode;
 mod info;
 mod input;
@@ -72,6 +73,12 @@ enum Command {
         /// Keep access units flagged as duplicates at seamless branches.
         #[arg(long)]
         keep_duplicates: bool,
+        /// DAMF: write the coded bed channels only instead of the full 7.1.2 bed.
+        #[arg(long)]
+        no_bed_conform: bool,
+        /// DAMF: write every metadata update as an event, even unchanged ones.
+        #[arg(long)]
+        all_events: bool,
     },
     /// Decode one presentation and compare it sample by sample with a reference PCM file.
     Compare {
@@ -131,16 +138,30 @@ fn main() -> ExitCode {
             format,
             order,
             keep_duplicates,
-        } => decode::run(
-            &file,
-            &output,
-            &decode::Options {
-                presentation,
-                format,
-                order,
-                keep_duplicates,
-            },
-        )
+            no_bed_conform,
+            all_events,
+        } => if format == Format::Damf {
+            damf::run(
+                &file,
+                &output,
+                &damf::Options {
+                    keep_duplicates,
+                    bed_conform: !no_bed_conform,
+                    all_events,
+                },
+            )
+        } else {
+            decode::run(
+                &file,
+                &output,
+                &decode::Options {
+                    presentation,
+                    format,
+                    order,
+                    keep_duplicates,
+                },
+            )
+        }
         .map(|()| ExitCode::SUCCESS),
         Command::Compare {
             file,
