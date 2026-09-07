@@ -916,6 +916,9 @@ pub struct ElementMd {
     pub discard_unknown: bool,
     /// The element.
     pub element: Element,
+    /// The element fitted inside its declared size (a stream at hand declares a
+    /// too-small size for its very first payload; the element is parsed anyway).
+    pub size_ok: bool,
     /// Padding bits between the element and its declared end.
     pub padding_bits: usize,
     /// Whether the padding bits were all zero.
@@ -1015,13 +1018,8 @@ impl Oamd {
                     Element::Unknown(raw)
                 }
             };
-            if r.position() > end {
-                return malformed(format!(
-                    "element {id} used {} bits more than its {size_bytes} bytes",
-                    r.position() - end
-                ));
-            }
-            let padding_bits = end - r.position();
+            let size_ok = r.position() <= end;
+            let padding_bits = end.saturating_sub(r.position());
             let padding_zero = padding_is_zero(r, padding_bits)?;
             elements.push(ElementMd {
                 id,
@@ -1029,6 +1027,7 @@ impl Oamd {
                 alternate_id,
                 discard_unknown,
                 element,
+                size_ok,
                 padding_bits,
                 padding_zero,
             });
@@ -1498,5 +1497,31 @@ mod tests {
         ));
         // truncated payload
         assert!(matches!(Oamd::parse(&[0x80]), Err(OamdError::Bits(_))));
+    }
+
+    #[test]
+    fn an_element_that_overruns_its_size_still_parses() {
+        // The object element declares 4 bytes but needs more (as the first payload of
+        // one commercial stream does); it is parsed to its real end and flagged.
+        let body = object_element_body();
+        let mut w = Bits::default();
+        w.push(2, 0);
+        w.push(5, 2); // 3 objects
+        w.push(1, 1);
+        w.push(1, 1);
+        w.push(1, 0);
+        w.push(4, 1);
+        w.push(4, u64::from(ELEMENT_OBJECT));
+        w.push(4, 3); // 4 bytes
+        w.push(1, 0);
+        w.push(1, 0); // discard flag
+        w.append(&body);
+        let oamd = Oamd::parse(&w.finish()).unwrap();
+        let e = &oamd.elements[0];
+        assert!(!e.size_ok);
+        assert_eq!(e.size_bytes, 4);
+        assert_eq!(e.padding_bits, 0);
+        assert!(oamd.padding_bits < 8 && oamd.padding_zero);
+        assert_eq!(oamd.object_element().unwrap().objects.len(), 3);
     }
 }
