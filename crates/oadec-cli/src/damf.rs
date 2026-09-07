@@ -22,6 +22,8 @@ pub struct Options {
     pub all_events: bool,
     /// Write an ADM BWF file instead of a DAMF set.
     pub adm: bool,
+    /// Write the creator string the Dolby validators require in ADM files.
+    pub dolby_origin_tag: bool,
 }
 
 fn bed_channel(label: ChannelLabel) -> Result<BedChannel> {
@@ -91,10 +93,13 @@ impl Sink {
         opts: &Options,
     ) -> Result<Self> {
         if opts.adm {
-            let options = AdmOptions {
+            let mut options = AdmOptions {
                 bed_conform: opts.bed_conform,
                 ..AdmOptions::default()
             };
+            if opts.dolby_origin_tag {
+                options.creator = "Created using Dolby equipment".to_string();
+            }
             let path = dir.join(format!("{name}.wav"));
             Ok(Self::Adm(AdmWriter::create(
                 &path, program, rate, &options,
