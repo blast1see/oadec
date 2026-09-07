@@ -809,3 +809,18 @@ Option list:
                                       master.
 
 ```
+
+
+## DEE 5.2.1 `ddp_decode` as a reference decoder
+
+Template `C:\dee\xml_templates\ddp_decode\ec3_ddp_decode_wav_manifest.xml` (`ac3_...` for AC-3). Input
+`<ec3><stream_type>non_atmos</stream_type>` decodes the 5.1 core of a JOC
+stream; `<downmix_config>off`, `<drc>none` give the coded channels without
+dynamic range control or dialogue normalisation (gain 1.0000 measured
+against FFmpeg with `-drc_scale 0`). Output is 24-bit WAVE (RF64 beyond
+4 GiB) in WAVE order, and it starts 256 samples later than FFmpeg or oadec:
+the decoder drops the first half block. The manifest output needs a file
+name and the temp directory must exist. The template placeholders
+`FILE_NAME`/`PATH` appear once per input, output and temp entry; replace
+them in order. A 105-second clip decodes in 5 s, a two-hour film in about
+six minutes.
