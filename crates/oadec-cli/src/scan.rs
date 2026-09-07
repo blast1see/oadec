@@ -5,7 +5,9 @@ use std::path::Path;
 
 use anyhow::Result;
 use oadec_emdf::container;
-use oadec_truehd::{AccessUnit, ExtraKind, MajorSync, StreamConfig, Unit};
+use oadec_truehd::{
+    AccessUnit, ExtraKind, MajorSync, ParserState, SampleBuffer, Segment, StreamConfig, Unit,
+};
 use serde::Serialize;
 
 use crate::input::{self, PassSummary};
@@ -26,6 +28,24 @@ pub struct Failures {
     pub skipped_bytes: u64,
     pub trailing_bytes: u64,
     pub config_changes: u64,
+    /// Segments that failed to parse (syntax errors, restart header CRC, ranges).
+    pub substream_errors: u64,
+    /// Blocks whose data bit count differed from `block_data_bits`.
+    pub block_data_bits: u64,
+    /// Segments whose parity byte did not match.
+    pub segment_parity: u64,
+    /// Segments whose CRC byte did not match.
+    pub segment_crc: u64,
+    /// Segments that did not end exactly at their end pointer.
+    pub segment_end: u64,
+    /// Segments whose blocks did not add up to one access unit of samples.
+    pub sample_count: u64,
+    /// Directory `restart_nonexistent` flags contradicting the segment.
+    pub restart_flag: u64,
+    /// Termination words whose last 13 bits were neither `0x1234` nor a zero-sample count.
+    pub terminator_tail: u64,
+    /// Segments with room for a termination word that held something else.
+    pub unexpected_tail: u64,
 }
 
 impl Failures {
@@ -45,6 +65,15 @@ impl Failures {
             && self.skipped_bytes == 0
             && self.trailing_bytes == 0
             && self.config_changes == 0
+            && self.substream_errors == 0
+            && self.block_data_bits == 0
+            && self.segment_parity == 0
+            && self.segment_crc == 0
+            && self.segment_end == 0
+            && self.sample_count == 0
+            && self.restart_flag == 0
+            && self.terminator_tail == 0
+            && self.unexpected_tail == 0
     }
 }
 
@@ -61,6 +90,37 @@ pub struct ExtraStats {
     /// Payload id -> total bytes.
     pub payload_bytes: BTreeMap<u32, u64>,
     pub protected_frames: u64,
+}
+
+/// What the first restart header of a substream declared.
+#[derive(Debug, Clone, Serialize)]
+pub struct RestartSummary {
+    pub sync_word: String,
+    pub min_chan: u8,
+    pub max_chan: u8,
+    pub max_matrix_chan: u8,
+    pub error_protect: bool,
+}
+
+/// Per-substream statistics.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct SubstreamStats {
+    pub segments: u64,
+    /// Segments skipped because no restart header had been seen yet (or since an error).
+    pub skipped: u64,
+    pub restart_headers: u64,
+    /// Restart sync word -> occurrences.
+    pub sync_words: BTreeMap<String, u64>,
+    pub first_restart: Option<RestartSummary>,
+    pub blocks: u64,
+    pub max_blocks_per_segment: u64,
+    pub protected_blocks: u64,
+    pub matrixing_blocks: u64,
+    pub interpolated_blocks: u64,
+    pub max_primitive_matrices: u64,
+    pub terminated_segments: u64,
+    pub zero_sample_segments: u64,
+    pub crc_segments: u64,
 }
 
 /// Everything learned in one pass.
@@ -81,11 +141,22 @@ pub struct Scan {
     pub first_major_sync: Option<MajorSync>,
     #[serde(skip)]
     pub config: Option<StreamConfig>,
+    #[serde(skip)]
+    parser: Option<ParserState>,
+    #[serde(skip)]
+    buffer: Box<SampleBuffer>,
     pub crc_present_units: [u64; 4],
     pub drc_updates: [u64; 4],
+    pub substreams: [SubstreamStats; 4],
     pub extra: ExtraStats,
     pub failures: Failures,
     pub first_error: Option<String>,
+}
+
+fn note_first(slot: &mut Option<String>, message: impl FnOnce() -> String) {
+    if slot.is_none() {
+        *slot = Some(message());
+    }
 }
 
 impl Scan {
@@ -104,8 +175,11 @@ impl Scan {
             first_unit_offset: None,
             first_major_sync: None,
             config: None,
+            parser: None,
+            buffer: Box::default(),
             crc_present_units: [0; 4],
             drc_updates: [0; 4],
+            substreams: core::array::from_fn(|_| SubstreamStats::default()),
             extra: ExtraStats::default(),
             failures: Failures::default(),
             first_error: None,
@@ -114,9 +188,9 @@ impl Scan {
 
     fn note_error(&mut self, unit_index: u64, offset: u64, what: &str) {
         self.failures.framing_errors += 1;
-        if self.first_error.is_none() {
-            self.first_error = Some(format!("access unit {unit_index} at byte {offset}: {what}"));
-        }
+        note_first(&mut self.first_error, || {
+            format!("access unit {unit_index} at byte {offset}: {what}")
+        });
     }
 
     fn take_unit(&mut self, unit: &Unit, since_major_sync: &mut u64) {
@@ -209,17 +283,158 @@ impl Scan {
                             }
                             Err(e) => {
                                 self.failures.evolution_container_errors += 1;
-                                if self.first_error.is_none() {
-                                    self.first_error =
-                                        Some(format!("access unit {index}: evolution frame: {e}"));
-                                }
+                                note_first(&mut self.first_error, || {
+                                    format!("access unit {index}: evolution frame: {e}")
+                                });
                             }
                         }
                     }
                 }
             }
         }
+
+        if au.major_sync.is_some() || self.parser.is_none() {
+            match &mut self.parser {
+                Some(parser) => parser.update(&config),
+                None => self.parser = Some(ParserState::new(&config)),
+            }
+        }
+        self.take_segments(&au, unit, index);
         self.config = Some(config);
+    }
+
+    /// Parses every substream segment of one access unit and tallies the results.
+    fn take_segments(&mut self, au: &AccessUnit, unit: &Unit, index: u64) {
+        let Some(parser) = self.parser.as_mut() else {
+            return;
+        };
+        let count = parser.substreams.min(au.directory.len()).min(4);
+        for i in 0..count {
+            let entry = &au.directory[i];
+            let Some(bytes) = unit.bytes.get(au.segment_range(i)) else {
+                self.failures.framing_errors += 1;
+                note_first(&mut self.first_error, || {
+                    format!("access unit {index}: substream {i} range outside the unit")
+                });
+                continue;
+            };
+            if !parser.substream[i].restart_seen && entry.restart_nonexistent {
+                self.substreams[i].skipped += 1;
+                continue;
+            }
+            let seg = match Segment::parse(bytes, parser, i, entry.crc_present, &mut self.buffer) {
+                Ok(seg) => seg,
+                Err(e) => {
+                    self.failures.substream_errors += 1;
+                    note_first(&mut self.first_error, || {
+                        format!(
+                            "access unit {index} at byte {}: substream {i}: {e}",
+                            unit.offset
+                        )
+                    });
+                    parser.substream[i].restart_seen = false;
+                    continue;
+                }
+            };
+            let ss = &parser.substream[i];
+            let st = &mut self.substreams[i];
+            let f = &mut self.failures;
+            st.segments += 1;
+            st.blocks += seg.blocks.len() as u64;
+            st.max_blocks_per_segment = st.max_blocks_per_segment.max(seg.blocks.len() as u64);
+            st.max_primitive_matrices = st.max_primitive_matrices.max(ss.primitive_matrices as u64);
+            if entry.crc_present {
+                st.crc_segments += 1;
+            }
+            if seg.has_restart {
+                st.restart_headers += 1;
+                *st.sync_words
+                    .entry(format!("{:#06X}", ss.sync_word))
+                    .or_default() += 1;
+                if st.first_restart.is_none() {
+                    st.first_restart = Some(RestartSummary {
+                        sync_word: format!("{:#06X}", ss.sync_word),
+                        min_chan: ss.min_chan as u8,
+                        max_chan: ss.max_chan as u8,
+                        max_matrix_chan: ss.max_matrix_chan as u8,
+                        error_protect: ss.error_protect,
+                    });
+                }
+            }
+            if entry.restart_nonexistent == seg.has_restart {
+                f.restart_flag += 1;
+                note_first(&mut self.first_error, || {
+                    format!(
+                        "access unit {index}: substream {i}: restart_nonexistent flag contradicts the segment"
+                    )
+                });
+            }
+            for b in &seg.blocks {
+                if b.block_data_bits.is_some() {
+                    st.protected_blocks += 1;
+                }
+                if !b.block_data_bits_ok {
+                    f.block_data_bits += 1;
+                    note_first(&mut self.first_error, || {
+                        format!("access unit {index}: substream {i}: block data bit count mismatch")
+                    });
+                }
+                if let Some(m) = b.header.and_then(|h| h.matrixing) {
+                    st.matrixing_blocks += 1;
+                    if m.interpolation_used {
+                        st.interpolated_blocks += 1;
+                    }
+                }
+            }
+            if !seg.sample_count_ok {
+                f.sample_count += 1;
+                note_first(&mut self.first_error, || {
+                    format!(
+                        "access unit {index}: substream {i}: {} samples in the segment",
+                        seg.samples
+                    )
+                });
+            }
+            if let Some(t) = seg.terminator {
+                st.terminated_segments += 1;
+                if t.zero_samples_indicated {
+                    st.zero_sample_segments += 1;
+                }
+                if !t.tail_ok {
+                    f.terminator_tail += 1;
+                }
+            }
+            if seg.unexpected_tail {
+                f.unexpected_tail += 1;
+                note_first(&mut self.first_error, || {
+                    format!(
+                        "access unit {index}: substream {i}: unexpected data before the end pointer"
+                    )
+                });
+            }
+            if !seg.parity_ok {
+                f.segment_parity += 1;
+                note_first(&mut self.first_error, || {
+                    format!("access unit {index}: substream {i}: parity mismatch")
+                });
+            }
+            if !seg.crc_ok {
+                f.segment_crc += 1;
+                note_first(&mut self.first_error, || {
+                    format!("access unit {index}: substream {i}: CRC mismatch")
+                });
+            }
+            if !seg.end_ok {
+                f.segment_end += 1;
+                note_first(&mut self.first_error, || {
+                    format!(
+                        "access unit {index}: substream {i}: segment ended at bit {} of {}",
+                        seg.len_bits,
+                        bytes.len() * 8
+                    )
+                });
+            }
+        }
     }
 
     fn finish(&mut self, summary: PassSummary) {

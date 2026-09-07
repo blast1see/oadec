@@ -71,9 +71,9 @@ for typed errors; `clap` for the CLI (added in M3).
 - Produces: `Extractor::new() -> Self`, `Extractor::push(&mut self, bytes: &[u8])`, `Extractor::next_unit(&mut self) -> Option<Unit>` where `Unit { offset: u64, bytes: Vec<u8>, has_major_sync: bool, resynced: bool }`; `Extractor::finish(&mut self) -> Vec<Unit>`; statistics `skipped_bytes`.
 - Rules: an AU begins with `check_nibble:4, access_unit_length:12 (16-bit words), input_timing:16`; a major sync starts at byte 4 with `F8 72 6F BA` (`F8 72 6F BB` = MLP/FBB → `Error::UnsupportedFbb`); lock only after a major sync whose CRC-16 verifies; walk by length; if the next header nibble parity fails or the length is 0, drop bytes until the next verified major sync (count them).
 
-- [ ] **Step 1: Failing tests**: two hand-built AUs (major sync + minor) round-trip; garbage before the first sync is skipped and reported; a truncated tail is kept pending until `finish`.
-- [ ] **Step 2–4:** implement; tests pass.
-- [ ] **Step 5: Commit** `feat(truehd): access-unit extractor with resync`.
+- [x] **Step 1: Failing tests**: two hand-built AUs (major sync + minor) round-trip; garbage before the first sync is skipped and reported; a truncated tail is kept pending until `finish`.
+- [x] **Step 2–4:** implement; tests pass.
+- [x] **Step 5: Commit** `feat(truehd): access-unit extractor with resync`.
 
 ### Task 4: `oadec-truehd` — major sync + channel meaning + presentation map
 
@@ -84,8 +84,8 @@ for typed errors; `clap` for the CLI (added in M3).
 - `PresentationMap::from(substream_info, extended_substream_info)` → `mask(p) -> u8`, `kind(p) -> {Independent, CopyOf(q), Invalid}`.
 - `ChannelLabel` enum + `labels_for_presentation(p) -> Vec<ChannelLabel>`.
 
-- [ ] Tests: a synthetic major sync assembled with a `BitWriter` test helper (crc computed with `CRC16_MAJOR_SYNC`) parses back field by field; `PresentationMap` for `substream_info = 0xF8, esi = 3` (four presentations) and for a 2-substream stream; `fs` code 0 → 48000 / 40, code 2 → 192000 / 160, code 8 → 44100 / 40.
-- [ ] Commit `feat(truehd): major sync, channel meaning, presentation map`.
+- [x] Tests: a synthetic major sync assembled with a `BitWriter` test helper (crc computed with `CRC16_MAJOR_SYNC`) parses back field by field; `PresentationMap` for `substream_info = 0xF8, esi = 3` (four presentations) and for a 2-substream stream; `fs` code 0 → 48000 / 40, code 2 → 192000 / 160, code 8 → 44100 / 40.
+- [x] Commit `feat(truehd): major sync, channel meaning, presentation map`.
 
 ### Task 5: `oadec-truehd` — AU header, substream directory, extra data (parse only)
 
@@ -95,8 +95,8 @@ for typed errors; `clap` for the CLI (added in M3).
 - Produces: `AccessUnit::parse(bytes, &StreamConfig) -> Result<AccessUnit>` with `header: AuHeader { check_nibble, length_words, input_timing }`, `major_sync: Option<MajorSync>`, `directory: Vec<DirectoryEntry { extra_word, restart_nonexistent, crc_present, end_ptr_words, drc: Option<(i16, u8)> }>`, `segments: Vec<Range<usize>>` (byte ranges, 16-bit aligned), `extra: Option<ExtraData { kind: Padding|Opaque(Vec<u8>)|Evolution{reserved, frame_bytes: Vec<u8>, parity_ok} }>`, `parity_ok: bool`.
 - Header parity: XOR of the 4 header bytes and all directory bytes, folded to a nibble, must be `0xF`.
 
-- [ ] Tests: hand-built AU with 2 substreams and Evolution extra data; parity failures reported not panicked; a directory whose end pointer exceeds the AU → `Error::Malformed`.
-- [ ] Commit `feat(truehd): access-unit header, directory and extra-data parsing`.
+- [x] Tests: hand-built AU with 2 substreams and Evolution extra data; parity failures reported not panicked; a directory whose end pointer exceeds the AU → `Error::Malformed`.
+- [x] Commit `feat(truehd): access-unit header, directory and extra-data parsing`.
 
 ### Task 6: `oadec-cli info` and parse-only `verify`
 
@@ -104,8 +104,8 @@ for typed errors; `clap` for the CLI (added in M3).
 
 - `oadec info <file.thd>`: format (TrueHD/FBA), sampling rate, samples/AU, substreams, presentations with channel labels, 16-channel info (bed assignment, dynamic object count, dyn-object-only, LFE), peak data rate, AU count, duration, Evolution/OAMD payload presence (ids seen), major sync interval.
 - `oadec verify --parse-only <file.thd> [--json]`: counters (AUs, major syncs, CRC-16 failures, header parity failures, extra-data parity failures, resyncs/skipped bytes, AU length consistency), exit 7 on any failure.
-- [ ] Real-media test (`OADEC_MEDIA`): `pi.thd` → 0 failures; AU count equals `truehdd verify --json` (stored in `ref/manifest.json`).
-- [ ] Commit `feat(cli): info and parse-only verify`.
+- [x] Real-media test (`OADEC_MEDIA`): `pi.thd` → 0 failures; AU count equals `truehdd verify --json` (stored in `ref/manifest.json`).
+- [x] Commit `feat(cli): info and parse-only verify`.
 
 ### Task 7: Substream syntax — restart header, block header, matrices, filters, block data, segment end (M4)
 
@@ -117,9 +117,9 @@ for typed errors; `clap` for the CLI (added in M3).
 - `Block { restart: Option<RestartHeader>, header: Option<BlockHeader>, samples: Vec<[i32;16]> (block_size rows of raw decoded codes: (huff + lsbs + offset) << qss), bypassed_lsb: Vec<[i32;16]> }`.
 - Huffman: 9-bit lookup tables built from the three code books at first use; the deepest 9-bit code (`0x001` for −7 and `0x081` for the maximum) must end in 1.
 
-- [ ] Tests: crafted restart header with matching CRC parses and rejects a corrupted CRC; block header guard bits; matrix syntax for 31EA (with two noise columns) / 31EB (dither_scale) / 31EC (cf_mask, cf_shift_code, lsb_bypass_bit_count, delta config); Huffman decode of every code of the three books (built from the code list verified against the FFmpeg tables: book 1 = −7..10, book 2 = −7..8, book 3 = −7..7); segment terminator and parity/CRC on a crafted segment.
-- [ ] `oadec verify` (full) on the corpus: zero substream parity/CRC failures, zero block bit-count mismatches, restart CRC = 0 failures, ≥ 200× realtime.
-- [ ] Commit `feat(truehd): full substream syntax parsing and verify`.
+- [x] Tests: crafted restart header with matching CRC parses and rejects a corrupted CRC; block header guard bits; matrix syntax for 31EA (with two noise columns) / 31EB (dither_scale) / 31EC (cf_mask, cf_shift_code, lsb_bypass_bit_count, delta config); Huffman decode of every code of the three books (built from the code list verified against the FFmpeg tables: book 1 = −7..10, book 2 = −7..8, book 3 = −7..7); segment terminator and parity/CRC on a crafted segment.
+- [x] `oadec verify` (full) on the corpus: zero substream parity/CRC failures, zero block bit-count mismatches, restart CRC = 0 failures, ≥ 200× realtime.
+- [x] Commit `feat(truehd): full substream syntax parsing and verify`.
 
 ## Self-review
 

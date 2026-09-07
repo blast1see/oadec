@@ -144,6 +144,16 @@ impl<'a> BitReader<'a> {
         Ok(((word >> shift) & ((1u64 << n) - 1)) as u32)
     }
 
+    /// Returns the next bits left-aligned in a 64-bit word together with the
+    /// number of valid bits (at least 57 whenever that many remain; the rest is
+    /// zero padding). Lets a caller decode several fields from one load.
+    #[inline]
+    pub fn peek_window(&self) -> (u64, usize) {
+        let offset = self.pos & 7;
+        let word = self.load64(self.pos >> 3) << offset;
+        (word, (64 - offset).min(self.remaining()))
+    }
+
     /// Reads `n` bits (`n <= 32`) as an unsigned value.
     #[inline]
     pub fn read(&mut self, n: u32) -> Result<u32, BitError> {
