@@ -5,7 +5,13 @@
 //! One analysis step turns 64 time-domain samples into 64 complex subband
 //! samples (one time slot); one synthesis step turns a time slot back into
 //! 64 samples. The pair delays the signal by [`DELAY`] samples, which the
-//! unit test measures.
+//! unit test measures. The modulations are computed with a 128-point FFT;
+//! a test checks them against the direct sums of the specification.
+//!
+//! The synthesis uses the phase term of the matrix equation of clause 7.3,
+//! `(j - 2n + 1/2)`; the pseudo-code of the same clause prints
+//! `(2j - 2n - 1)`, which does not invert the analysis (0.2 dB instead of
+//! 78 dB reconstruction with the QWIN prototype).
 
 use std::f64::consts::PI;
 
@@ -40,10 +46,76 @@ impl Complex {
     /// Sum.
     #[inline]
     #[must_use]
-    pub fn add(self, o: Self) -> Self {
+    pub fn plus(self, o: Self) -> Self {
         Self {
             re: self.re + o.re,
             im: self.im + o.im,
+        }
+    }
+
+    /// Product.
+    #[inline]
+    #[must_use]
+    pub fn times(self, o: Self) -> Self {
+        Self {
+            re: self.re * o.re - self.im * o.im,
+            im: self.re * o.im + self.im * o.re,
+        }
+    }
+
+    #[inline]
+    fn minus(self, o: Self) -> Self {
+        Self {
+            re: self.re - o.re,
+            im: self.im - o.im,
+        }
+    }
+}
+
+/// Radix-2 complex inverse DFT (positive exponent, no scaling) of 128 points.
+#[derive(Debug, Clone)]
+struct Idft128 {
+    twiddles: [Complex; 64],
+    rev: [u8; 128],
+}
+
+impl Idft128 {
+    fn new() -> Self {
+        let mut twiddles = [Complex::default(); 64];
+        for (k, t) in twiddles.iter_mut().enumerate() {
+            let a = 2.0 * PI * k as f64 / 128.0;
+            *t = Complex {
+                re: a.cos(),
+                im: a.sin(),
+            };
+        }
+        let mut rev = [0u8; 128];
+        for (i, r) in rev.iter_mut().enumerate() {
+            *r = (i as u8).reverse_bits() >> 1;
+        }
+        Self { twiddles, rev }
+    }
+
+    fn run(&self, data: &mut [Complex; 128]) {
+        for i in 0..128 {
+            let j = usize::from(self.rev[i]);
+            if j > i {
+                data.swap(i, j);
+            }
+        }
+        let mut len = 2;
+        while len <= 128 {
+            let step = 128 / len;
+            for start in (0..128).step_by(len) {
+                for k in 0..len / 2 {
+                    let w = self.twiddles[k * step];
+                    let a = data[start + k];
+                    let b = data[start + k + len / 2].times(w);
+                    data[start + k] = a.plus(b);
+                    data[start + k + len / 2] = a.minus(b);
+                }
+            }
+            len *= 2;
         }
     }
 }
@@ -52,8 +124,11 @@ impl Complex {
 #[derive(Debug, Clone)]
 pub struct Analysis {
     buf: [f64; LENGTH],
-    /// `exp(i pi (sb + 1/2)(j - 1/2) / 64)` for `sb` in `0..64`, `j` in `0..128`.
-    twiddle: Vec<Complex>,
+    idft: Idft128,
+    /// `exp(i pi (j - 1/2) / 128)` for `j` in `0..128`.
+    pre: [Complex; 128],
+    /// `exp(-i pi sb / 128)` for `sb` in `0..64`.
+    post: [Complex; BANDS],
 }
 
 impl Default for Analysis {
@@ -66,19 +141,27 @@ impl Analysis {
     /// A filter with empty history.
     #[must_use]
     pub fn new() -> Self {
-        let mut twiddle = Vec::with_capacity(BANDS * 2 * BANDS);
-        for sb in 0..BANDS {
-            for j in 0..2 * BANDS {
-                let a = PI * (sb as f64 + 0.5) * (j as f64 - 0.5) / BANDS as f64;
-                twiddle.push(Complex {
-                    re: a.cos(),
-                    im: a.sin(),
-                });
-            }
+        let mut pre = [Complex::default(); 128];
+        for (j, p) in pre.iter_mut().enumerate() {
+            let a = PI * (j as f64 - 0.5) / 128.0;
+            *p = Complex {
+                re: a.cos(),
+                im: a.sin(),
+            };
+        }
+        let mut post = [Complex::default(); BANDS];
+        for (sb, p) in post.iter_mut().enumerate() {
+            let a = -PI * sb as f64 / 128.0;
+            *p = Complex {
+                re: a.cos(),
+                im: a.sin(),
+            };
         }
         Self {
             buf: [0.0; LENGTH],
-            twiddle,
+            idft: Idft128::new(),
+            pre,
+            post,
         }
     }
 
@@ -87,7 +170,8 @@ impl Analysis {
         self.buf = [0.0; LENGTH];
     }
 
-    /// Consumes 64 new samples and produces one time slot of 64 subbands.
+    /// Consumes 64 new samples and produces one time slot of 64 subbands:
+    /// `Q[sb] = sum_j u[j] exp(i pi (sb + 1/2)(j - 1/2) / 64)`.
     pub fn step(&mut self, pcm: &[f64; BANDS], out: &mut [Complex; BANDS]) {
         // 1. shift out 64 old samples
         self.buf.copy_within(0..LENGTH - BANDS, BANDS);
@@ -95,27 +179,21 @@ impl Analysis {
         for j in 0..BANDS {
             self.buf[j] = pcm[BANDS - 1 - j];
         }
-        // 3./4. window and fold to 128 values
-        let mut u = [0.0f64; 2 * BANDS];
-        for (j, uj) in u.iter_mut().enumerate() {
+        // 3./4. window and fold to 128 values, with the half-band pre-twist
+        let mut v = [Complex::default(); 128];
+        for (j, vj) in v.iter_mut().enumerate() {
             let mut acc = 0.0;
             let mut k = j;
             while k < LENGTH {
                 acc += self.buf[k] * QWIN[k];
                 k += 2 * BANDS;
             }
-            *uj = acc;
+            *vj = self.pre[j].scale(acc);
         }
-        // 5. modulate
-        for sb in 0..BANDS {
-            let tw = &self.twiddle[sb * 2 * BANDS..(sb + 1) * 2 * BANDS];
-            let mut re = 0.0;
-            let mut im = 0.0;
-            for j in 0..2 * BANDS {
-                re += u[j] * tw[j].re;
-                im += u[j] * tw[j].im;
-            }
-            out[sb] = Complex { re, im };
+        // 5. modulate: exp(i pi sb (j - 1/2) / 64) = exp(2 pi i sb j / 128) exp(-i pi sb / 128)
+        self.idft.run(&mut v);
+        for (sb, o) in out.iter_mut().enumerate() {
+            *o = v[sb].times(self.post[sb]);
         }
     }
 }
@@ -124,9 +202,11 @@ impl Analysis {
 #[derive(Debug, Clone)]
 pub struct Synthesis {
     buf: [f64; 2 * LENGTH],
-    /// `exp(i pi/(4n) (2 sb + 1)(2 j - 4n + 1)) / n` for `sb` in `0..64`, `j` in `0..128`,
-    /// stored as `(cos, -sin)` pairs.
-    cos: Vec<f64>,
+    idft: Idft128,
+    /// `exp(-i pi 255 sb / 128)` for `sb` in `0..64`.
+    pre: [Complex; BANDS],
+    /// `exp(i pi (2j - 255) / 256) / 64` for `j` in `0..128`.
+    post: [Complex; 128],
 }
 
 impl Default for Synthesis {
@@ -139,28 +219,27 @@ impl Synthesis {
     /// A filter with empty history.
     #[must_use]
     pub fn new() -> Self {
-        let n = BANDS as f64;
-        let mut cos = Vec::with_capacity(BANDS * 2 * BANDS);
-        let mut sin = Vec::with_capacity(BANDS * 2 * BANDS);
-        for sb in 0..BANDS {
-            for j in 0..2 * BANDS {
-                // exp(i pi/(4n) (2 sb + 1)(2 j - 4n + 1)): the phase reference that
-                // inverts the analysis of clause 7.2 with this prototype (the text of
-                // clause 7.3 prints the term differently; see the reconstruction test)
-                let a = PI / (4.0 * n) * (2.0 * sb as f64 + 1.0) * (2.0 * j as f64 - 4.0 * n + 1.0);
-                cos.push(a.cos() / n);
-                sin.push(a.sin() / n);
-            }
+        let mut pre = [Complex::default(); BANDS];
+        for (sb, p) in pre.iter_mut().enumerate() {
+            let a = -PI * 255.0 * sb as f64 / 128.0;
+            *p = Complex {
+                re: a.cos(),
+                im: a.sin(),
+            };
         }
-        // real(Q e^{ia}) = Q.re cos a - Q.im sin a ; store both interleaved
-        let mut table = Vec::with_capacity(cos.len() * 2);
-        for (c, s) in cos.iter().zip(&sin) {
-            table.push(*c);
-            table.push(-*s);
+        let mut post = [Complex::default(); 128];
+        for (j, p) in post.iter_mut().enumerate() {
+            let a = PI * (2.0 * j as f64 - 255.0) / 256.0;
+            *p = Complex {
+                re: a.cos() / BANDS as f64,
+                im: a.sin() / BANDS as f64,
+            };
         }
         Self {
             buf: [0.0; 2 * LENGTH],
-            cos: table,
+            idft: Idft128::new(),
+            pre,
+            post,
         }
     }
 
@@ -169,18 +248,20 @@ impl Synthesis {
         self.buf = [0.0; 2 * LENGTH];
     }
 
-    /// Consumes one time slot and produces 64 output samples.
+    /// Consumes one time slot and produces 64 output samples:
+    /// `buf[j] = Re(sum_sb Q[sb]/n exp(i pi/(4n) (2 sb + 1)(2 j - 4n + 1)))`.
     pub fn step(&mut self, q: &[Complex; BANDS], pcm: &mut [f64; BANDS]) {
         // 1. shift by 2n
         self.buf.copy_within(0..2 * LENGTH - 2 * BANDS, 2 * BANDS);
-        // 2. 128 new values
-        for j in 0..2 * BANDS {
-            let mut acc = 0.0;
-            for sb in 0..BANDS {
-                let t = (sb * 2 * BANDS + j) * 2;
-                acc += q[sb].re * self.cos[t] + q[sb].im * self.cos[t + 1];
-            }
-            self.buf[j] = acc;
+        // 2. 128 new values through the inverse DFT
+        let mut v = [Complex::default(); 128];
+        for (sb, (vv, qq)) in v.iter_mut().zip(q.iter()).enumerate() {
+            *vv = qq.times(self.pre[sb]);
+        }
+        self.idft.run(&mut v);
+        for (j, b) in self.buf[..2 * BANDS].iter_mut().enumerate() {
+            let t = v[j].times(self.post[j]);
+            *b = t.re;
         }
         // 3./4. gather and window
         let mut w = [0.0f64; LENGTH];
@@ -192,12 +273,12 @@ impl Synthesis {
             }
         }
         // 5. sum
-        for ts in 0..BANDS {
+        for (ts, p) in pcm.iter_mut().enumerate() {
             let mut acc = 0.0;
             for j in 0..LENGTH / BANDS {
                 acc += w[BANDS * j + ts];
             }
-            pcm[ts] = acc;
+            *p = acc;
         }
     }
 }
@@ -216,6 +297,68 @@ mod tests {
                     + 0.1 * (t * 2.9 + 1.0).cos()
             })
             .collect()
+    }
+
+    /// The analysis modulation as the direct double sum of clause 7.2.
+    fn direct_analysis(buf: &[f64; LENGTH]) -> [Complex; BANDS] {
+        let mut u = [0.0f64; 2 * BANDS];
+        for (j, uj) in u.iter_mut().enumerate() {
+            let mut k = j;
+            while k < LENGTH {
+                *uj += buf[k] * QWIN[k];
+                k += 2 * BANDS;
+            }
+        }
+        let mut out = [Complex::default(); BANDS];
+        for (sb, o) in out.iter_mut().enumerate() {
+            for (j, uj) in u.iter().enumerate() {
+                let a = PI * (sb as f64 + 0.5) * (j as f64 - 0.5) / BANDS as f64;
+                o.re += uj * a.cos();
+                o.im += uj * a.sin();
+            }
+        }
+        out
+    }
+
+    #[test]
+    #[allow(clippy::needless_range_loop, reason = "index used in the formula")]
+    fn fft_modulation_equals_the_direct_sum() {
+        let x = test_signal(64 * 12);
+        let mut ana = Analysis::new();
+        let mut slot = [Complex::default(); BANDS];
+        for chunk in x.chunks(BANDS) {
+            let mut inp = [0.0f64; BANDS];
+            inp.copy_from_slice(chunk);
+            ana.step(&inp, &mut slot);
+        }
+        let direct = direct_analysis(&ana.buf);
+        let mut worst = 0.0f64;
+        for sb in 0..BANDS {
+            worst = worst.max((slot[sb].re - direct[sb].re).abs());
+            worst = worst.max((slot[sb].im - direct[sb].im).abs());
+        }
+        assert!(worst < 1e-10, "FFT versus direct modulation: {worst:e}");
+        // synthesis: direct real sum of clause 7.3 with the matrix-equation phase
+        let syn = Synthesis::new();
+        let mut v = [Complex::default(); 128];
+        for (sb, (vv, qq)) in v.iter_mut().zip(slot.iter()).enumerate() {
+            *vv = qq.times(syn.pre[sb]);
+        }
+        syn.idft.run(&mut v);
+        for j in 0..128 {
+            let fast = v[j].times(syn.post[j]).re;
+            let mut direct = 0.0;
+            for (sb, qq) in slot.iter().enumerate() {
+                let a = PI / (4.0 * BANDS as f64)
+                    * (2.0 * sb as f64 + 1.0)
+                    * (2.0 * j as f64 - 4.0 * BANDS as f64 + 1.0);
+                direct += (qq.re * a.cos() - qq.im * a.sin()) / BANDS as f64;
+            }
+            assert!(
+                (fast - direct).abs() < 1e-10,
+                "synthesis j {j}: {fast} vs {direct}"
+            );
+        }
     }
 
     #[test]
