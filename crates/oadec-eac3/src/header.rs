@@ -229,10 +229,10 @@ mod tests {
         // crc1 0, fscod 0, frmsizecod 28 (640 kbps -> 1280 words), bsid 8, bsmod 0,
         // acmod 7, cmixlev, surmixlev, lfeon 1
         let mut bits: u64 = 0;
-        bits |= 0 << 46; // fscod
+        // fscod 0 at bits 47..46
         bits |= 36 << 40; // frmsizecod 36: 640 kbps, 1280 words at 48 kHz
         bits |= 8 << 35; // bsid
-        bits |= 0 << 32; // bsmod
+        // bsmod 0 at bits 34..32
         bits |= 7 << 29; // acmod
         bits |= 1 << 27; // cmixlev
         bits |= 1 << 25; // surmixlev
