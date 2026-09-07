@@ -11,6 +11,8 @@
 pub mod au;
 pub mod block;
 pub mod channel;
+pub mod decoder;
+pub mod dither;
 pub mod error;
 pub mod extra;
 pub mod extract;
@@ -29,6 +31,7 @@ pub(crate) mod testutil;
 pub use au::{AccessUnit, AuHeader, DirectoryEntry, StreamConfig};
 pub use block::{Block, BlockHeader, ChannelParams, SampleBuffer};
 pub use channel::{ChannelLabel, ChannelMeaning, ExtraChannelMeaning};
+pub use decoder::{DecodeStats, Decoded, Decoder};
 pub use error::{Error, Result};
 pub use extra::{ExtraData, ExtraKind};
 pub use extract::{ExtractStats, Extractor, Unit};

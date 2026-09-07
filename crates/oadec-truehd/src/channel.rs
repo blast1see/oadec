@@ -420,3 +420,93 @@ mod tests {
         assert_eq!(extra.dynamic_objects(), 11);
     }
 }
+
+impl ChannelLabel {
+    /// Position of the label in the interchange channel order shared by WAVE
+    /// format extensible masks and the FFmpeg native layouts (front left, front
+    /// right, centre, LFE, back pair, front-of-centre pair, back centre, side
+    /// pair, top centre, top front trio, top back trio, ...). Sorting a
+    /// presentation by this index gives the order those tools use.
+    #[must_use]
+    pub fn interchange_index(self) -> u8 {
+        match self {
+            Self::L => 0,
+            Self::R => 1,
+            Self::C => 2,
+            Self::LFE => 3,
+            Self::Lb => 4,
+            Self::Rb => 5,
+            Self::Lsc => 6,
+            Self::Rsc => 7,
+            Self::Cb => 8,
+            Self::Ls => 9,
+            Self::Rs => 10,
+            Self::Tc => 11,
+            Self::Tfl => 12,
+            Self::Tfc => 13,
+            Self::Tfr => 14,
+            Self::Tbl => 15,
+            Self::Tbr => 17,
+            Self::Lw => 31,
+            Self::Rw => 32,
+            Self::Lsd => 33,
+            Self::Rsd => 34,
+            Self::LFE2 => 35,
+            Self::Tsl => 36,
+            Self::Tsr => 37,
+        }
+    }
+
+    /// Labels of the channels a presentation outputs, in stream order. For the
+    /// object presentation only the bed channels are labelled; the remaining
+    /// output channels are the dynamic objects, in order.
+    #[must_use]
+    pub fn presentation(ms: &crate::sync::MajorSync, presentation: usize) -> Vec<Self> {
+        let fi = &ms.format_info;
+        match presentation {
+            0 => Self::two_channel(false),
+            1 => Self::six_channel(fi.sixch_channel_assignment),
+            2 => Self::eight_channel(
+                fi.eightch_channel_assignment,
+                ms.flags & crate::sync::FLAG_RESTRICTED_8CH != 0,
+            ),
+            _ => ms
+                .channel_meaning
+                .extra
+                .as_ref()
+                .map(Self::sixteen_channel)
+                .unwrap_or_default(),
+        }
+    }
+
+    /// Permutation that lists `labels` (stream order) in interchange order:
+    /// `order[k]` is the stream index of the k-th interchange channel. Channels
+    /// beyond the labelled ones (objects) keep their places after the labelled set.
+    #[must_use]
+    pub fn interchange_order(labels: &[Self], channels: usize) -> Vec<usize> {
+        let mut order: Vec<usize> = (0..labels.len().min(channels)).collect();
+        order.sort_by_key(|&i| labels[i].interchange_index());
+        order.extend(labels.len().min(channels)..channels);
+        order
+    }
+}
+
+#[cfg(test)]
+mod order_tests {
+    use super::ChannelLabel as L;
+
+    #[test]
+    fn seven_one_maps_back_pair_before_side_pair() {
+        let labels = [L::L, L::R, L::C, L::LFE, L::Ls, L::Rs, L::Lb, L::Rb];
+        assert_eq!(
+            L::interchange_order(&labels, 8),
+            vec![0, 1, 2, 3, 6, 7, 4, 5]
+        );
+        assert_eq!(
+            L::interchange_order(&labels[..6], 6),
+            vec![0, 1, 2, 3, 4, 5]
+        );
+        // objects after a one-channel bed keep their order
+        assert_eq!(L::interchange_order(&[L::LFE], 4), vec![0, 1, 2, 3]);
+    }
+}

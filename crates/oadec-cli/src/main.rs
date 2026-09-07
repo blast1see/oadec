@@ -1,5 +1,7 @@
 //! `oadec` command-line entry point.
 
+mod compare;
+mod decode;
 mod info;
 mod input;
 mod scan;
@@ -9,6 +11,9 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
+
+use crate::compare::RefFormat;
+use crate::decode::{Format, Order};
 
 /// Object-audio decoder engine for Dolby TrueHD Atmos and E-AC-3 JOC streams.
 #[derive(Debug, Parser)]
@@ -36,6 +41,52 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Decode one presentation to 24-bit PCM.
+    Decode {
+        /// Raw TrueHD (.thd/.mlp) elementary stream.
+        file: PathBuf,
+        /// Output file.
+        #[arg(short, long)]
+        output: PathBuf,
+        /// Presentation to decode (0 = 2ch, 1 = 6ch, 2 = 8ch, 3 = 16ch objects).
+        #[arg(short, long, default_value_t = 2)]
+        presentation: usize,
+        /// Output container.
+        #[arg(long, value_enum, default_value_t = Format::Wav)]
+        format: Format,
+        /// Channel order of the output.
+        #[arg(long, value_enum, default_value_t = Order::Interchange)]
+        order: Order,
+        /// Keep access units flagged as duplicates at seamless branches.
+        #[arg(long)]
+        keep_duplicates: bool,
+    },
+    /// Decode one presentation and compare it sample by sample with a reference PCM file.
+    Compare {
+        /// Raw TrueHD (.thd/.mlp) elementary stream.
+        file: PathBuf,
+        /// Reference PCM file (headerless, interleaved).
+        #[arg(short, long)]
+        reference: PathBuf,
+        /// Presentation to decode.
+        #[arg(short, long, default_value_t = 2)]
+        presentation: usize,
+        /// Sample format of the reference.
+        #[arg(long, value_enum, default_value_t = RefFormat::S32le)]
+        reference_format: RefFormat,
+        /// Channel order of the reference.
+        #[arg(long, value_enum, default_value_t = Order::Interchange)]
+        order: Order,
+        /// Keep access units flagged as duplicates at seamless branches.
+        #[arg(long)]
+        keep_duplicates: bool,
+        /// How many mismatches to list.
+        #[arg(long, default_value_t = 10)]
+        report: usize,
+        /// Bytes to skip at the start of the reference (a container header).
+        #[arg(long, default_value_t = 0)]
+        reference_skip: u64,
+    },
 }
 
 /// Exit code when a verification finds non-conformance.
@@ -47,6 +98,52 @@ fn main() -> ExitCode {
         Command::Info { file, json } => info::run(&file, json).map(|()| ExitCode::SUCCESS),
         Command::Verify { file, json } => verify::run(&file, json).map(|clean| {
             if clean {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(EXIT_NONCONFORMANT)
+            }
+        }),
+        Command::Decode {
+            file,
+            output,
+            presentation,
+            format,
+            order,
+            keep_duplicates,
+        } => decode::run(
+            &file,
+            &output,
+            &decode::Options {
+                presentation,
+                format,
+                order,
+                keep_duplicates,
+            },
+        )
+        .map(|()| ExitCode::SUCCESS),
+        Command::Compare {
+            file,
+            reference,
+            presentation,
+            reference_format,
+            order,
+            keep_duplicates,
+            report,
+            reference_skip,
+        } => compare::run(
+            &file,
+            &reference,
+            &compare::Options {
+                presentation,
+                format: reference_format,
+                order,
+                keep_duplicates,
+                report,
+                skip: reference_skip,
+            },
+        )
+        .map(|equal| {
+            if equal {
                 ExitCode::SUCCESS
             } else {
                 ExitCode::from(EXIT_NONCONFORMANT)
