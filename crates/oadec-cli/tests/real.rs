@@ -253,6 +253,128 @@ fn every_eac3_stream_is_clean() {
     }
 }
 
+/// Enhanced coupling decodes end to end. No stream in the wild uses it, so the
+/// material is made by `oadec eac3-ecpl-inject` from a stream that does use
+/// standard coupling; `tools/` and `docs/evidence` record the comparison with
+/// the two Dolby decoders. The check here is that the rewrite still produces a
+/// stream both the parser and the decoder accept, in either reading of the
+/// standard.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn enhanced_coupling_decodes_a_converted_stream() {
+    let Some(media) = media_dir() else {
+        eprintln!("OADEC_MEDIA not set; skipping");
+        return;
+    };
+    let source = media.join("ec3/pi-head-aht384.ec3");
+    if !source.exists() {
+        eprintln!("{} is missing; skipping", source.display());
+        return;
+    }
+    let out = std::env::temp_dir().join("oadec-ecpl-test.ec3");
+    let status = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .arg("eac3-ecpl-inject")
+        .arg(&source)
+        .arg("-o")
+        .arg(&out)
+        .arg("--chaos")
+        .arg("7")
+        .status()
+        .expect("run oadec eac3-ecpl-inject");
+    assert!(status.success(), "the injector failed");
+
+    let before = verify_json(&source);
+    let report = verify_json(&out);
+    assert!(
+        nonzero_failures(&report).is_empty(),
+        "the converted stream is not clean: {:?}, first error {:?}",
+        nonzero_failures(&report),
+        report["first_error"]
+    );
+    assert_eq!(report["frames"], before["frames"], "frame count changed");
+    assert_eq!(report["samples"], before["samples"], "sample count changed");
+    assert_eq!(
+        report["ecpl_frames"], before["frames"],
+        "not every frame ended up with enhanced coupling"
+    );
+    let tools = coverage_union(&[report]);
+    assert!(
+        tools.iter().any(|t| t == "enhanced-coupling"),
+        "the converted stream does not report enhanced coupling: {tools:?}"
+    );
+
+    // the same stream through the ATSC reading of clause E.3.5.5
+    let spec = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", "--format", "pcm", "--ecpl-spec", "-o"])
+        .arg(std::env::temp_dir().join("oadec-ecpl-test.f32"))
+        .arg(&out)
+        .output()
+        .expect("run oadec decode --ecpl-spec");
+    assert!(
+        spec.status.success(),
+        "the full enhanced coupling process failed: {}",
+        String::from_utf8_lossy(&spec.stderr)
+    );
+    let _ = std::fs::remove_file(&out);
+    let _ = std::fs::remove_file(std::env::temp_dir().join("oadec-ecpl-test.f32"));
+}
+
+/// The low-rate stream signals transient pre-noise processing, and applying it
+/// must change only the frames that signal it and leave the sample count alone.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn transient_pre_noise_changes_only_what_it_should() {
+    let Some(media) = media_dir() else {
+        eprintln!("OADEC_MEDIA not set; skipping");
+        return;
+    };
+    let file = media.join("ec3/pi-head-spx192.ec3");
+    if !file.exists() {
+        eprintln!("{} is missing; skipping", file.display());
+        return;
+    }
+    let report = verify_json(&file);
+    assert!(
+        nonzero_failures(&report).is_empty(),
+        "{:?}",
+        nonzero_failures(&report)
+    );
+    let tpnp = report["tpnp_frames"].as_u64().expect("tpnp_frames");
+    assert!(tpnp > 0, "the low-rate stream no longer signals the tool");
+    let transients = report["transients"].as_array().expect("transients");
+    assert!(
+        !transients.is_empty(),
+        "the tool is signalled but no parameters came back"
+    );
+    for t in transients {
+        let loc = t["loc"].as_u64().expect("loc");
+        let len = t["len"].as_u64().expect("len");
+        assert!(loc <= 1023 * 4, "transient location {loc} out of range");
+        assert!(len <= 255, "time scaling length {len} out of range");
+    }
+
+    let dir = std::env::temp_dir();
+    let mut sizes = Vec::new();
+    for (name, extra) in [("tpnp-on", None), ("tpnp-off", Some("--no-tpnp"))] {
+        let path = dir.join(format!("oadec-{name}.f32"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_oadec"));
+        cmd.args(["decode", "--format", "pcm", "-o"]).arg(&path);
+        if let Some(flag) = extra {
+            cmd.arg(flag);
+        }
+        let out = cmd.arg(&file).output().expect("run oadec decode");
+        assert!(out.status.success(), "{name} decode failed");
+        sizes.push(std::fs::metadata(&path).expect("output").len());
+    }
+    assert_eq!(
+        sizes[0], sizes[1],
+        "the correction changed the number of samples"
+    );
+    for name in ["tpnp-on", "tpnp-off"] {
+        let _ = std::fs::remove_file(dir.join(format!("oadec-{name}.f32")));
+    }
+}
+
 /// Every JOC stream carries an EMDF container with both metadata payloads in
 /// every frame, and all of them parse to the byte.
 #[test]

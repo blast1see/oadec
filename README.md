@@ -25,13 +25,16 @@ Atmos track can become an E-AC-3 Atmos track without losing the objects.
 | ADM BWF writer | done | structurally identical to the Dolby converter's own output |
 | E-AC-3 / AC-3 core decoder (ETSI TS 102 366) | done | 19 streams, 3.3 million frames, zero CRC or parse failures; closer to a Dolby decode than FFmpeg is on every channel of the hardest streams |
 | JOC objects (ETSI TS 103 420) to DAMF / ADM | done | 380,000 payloads parse to the byte; objects back in phase with the source of an encoder round trip; validators exit 0 |
+| Enhanced coupling (clause E.3.5.5) | done | no stream in the world carries it, so `oadec eac3-ecpl-inject` makes one; both Dolby decoders accept it and agree with us at the dither floor |
+| Transient pre-noise processing (clause E.3.7) | done | 3.6 dB closer to the Dolby decode inside the corrected regions; FFmpeg applies nothing |
+| JOC clip gain (clause 6.3.3.2) | done | the standard defines the value and not its use; a two-level encode shows the encoder divides the downmix by it |
 
 The numbers behind the table: [`docs/evidence/`](docs/evidence/). Format
 notes in our own words: [`docs/truehd.md`](docs/truehd.md),
 [`docs/oamd.md`](docs/oamd.md), [`docs/eac3.md`](docs/eac3.md),
-[`docs/joc.md`](docs/joc.md). Not exercised by any stream to hand: enhanced
-coupling (parsed so frames stay in sync, not decoded) and transient
-pre-noise processing (parsed, not applied). Design and milestones:
+[`docs/joc.md`](docs/joc.md). Every coding tool of the format is now decoded,
+including the three nothing else decodes: enhanced coupling, transient
+pre-noise processing and the JOC clip gain. Design and milestones:
 [`docs/superpowers/specs/2026-09-06-oadec-design.md`](docs/superpowers/specs/2026-09-06-oadec-design.md).
 
 ## Quick start
