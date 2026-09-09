@@ -17,6 +17,9 @@ use crate::input;
 /// Options of the object output.
 #[derive(Debug, Clone)]
 pub struct Options {
+    /// E-AC-3 JOC: restore the level the encoder took off the downmix to keep
+    /// it from clipping (`joc_clipgain`, clause 6.3.3.2).
+    pub clip_gain: bool,
     pub keep_duplicates: bool,
     pub bed_conform: bool,
     pub all_events: bool,
