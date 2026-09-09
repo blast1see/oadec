@@ -150,6 +150,15 @@ the fields and applies nothing.
   the corrected regions the distance to the Dolby decode drops by 3,79 dB on
   L, 3,05 dB on R and 4,00 dB on Rs. Dolby applies the tool; FFmpeg does not.
   `tools/tpnp_window.py` is the measurement.
+- **The copy is not the whole tool.** Over the substituted stretch itself the
+  printed reading tracks the Dolby decode to the line, so the source offset,
+  the region and the length are right. The entire residual sits in the first
+  cross-fade, and the variant that measures best there is the one that starts
+  the substitution abruptly, which puts a step at the splice that Dolby does
+  not have. Dolby reaches the splice already matching the original, which is
+  what "time scaling synthesis" in the clause title implies and what its
+  pseudo-code, a plain copy, does not do. oadec keeps the printed cross-fade.
+  See `docs/evidence/2026-09-09-b.md` and `tools/plots.py`.
 
 ## A frame that ends inside its own tail
 
