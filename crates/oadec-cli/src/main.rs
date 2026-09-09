@@ -106,6 +106,10 @@ enum Command {
         /// the reference decoder applies; for measuring what it changes.
         #[arg(long)]
         no_tpnp: bool,
+        /// JOC: leave the objects at the level of the coded downmix instead of
+        /// restoring the clip gain the encoder took off.
+        #[arg(long)]
+        no_clip_gain: bool,
     },
     /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
     /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
@@ -214,6 +218,7 @@ fn main() -> ExitCode {
                 dolby_origin_tag,
                 no_dither,
                 no_tpnp,
+                no_clip_gain,
             } => if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
             {
@@ -226,6 +231,7 @@ fn main() -> ExitCode {
                         all_events,
                         adm: format == Format::Adm,
                         dolby_origin_tag,
+                        clip_gain: !no_clip_gain,
                     },
                 )
             } else if eac3::is_eac3(&file).unwrap_or(false) {
@@ -249,6 +255,8 @@ fn main() -> ExitCode {
                         all_events,
                         adm: format == Format::Adm,
                         dolby_origin_tag,
+                        // TrueHD carries no JOC and so no clip gain.
+                        clip_gain: false,
                     },
                 )
             } else {

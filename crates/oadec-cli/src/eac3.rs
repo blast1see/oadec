@@ -398,6 +398,9 @@ struct Pass {
     /// Per clip gain bucket: the largest and the summed peak sample of the
     /// decoded core, and how many frames went in.
     core_peak: BTreeMap<u32, (f64, f64, u64)>,
+    /// Frames whose JOC payload carries a clip gain other than 1, for the
+    /// evidence tooling.
+    clipgains: Vec<(u64, f64)>,
 }
 
 /// Decodes every frame of independent substream 0 (parsing the others) and
@@ -493,6 +496,9 @@ fn account(
     }
     p.emdf.scan(index, &d.skip_fields);
     if let Some(g) = p.emdf.last_clipgain {
+        if (g - 1.0).abs() > 1e-9 {
+            p.clipgains.push((index, g));
+        }
         let peak = d
             .pcm
             .iter()
@@ -580,6 +586,11 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             "spx_frames": p.spx_frames,
             "ecpl_frames": p.ecpl_frames,
             "tpnp_frames": p.tpnp_frames,
+            "clipgains": p
+                .clipgains
+                .iter()
+                .map(|&(frame, gain)| serde_json::json!({ "frame": frame, "gain": gain }))
+                .collect::<Vec<_>>(),
             "transients": p
                 .transients
                 .iter()

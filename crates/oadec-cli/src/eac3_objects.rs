@@ -77,6 +77,11 @@ struct Pipeline {
     /// encoder round trip, see docs/evidence). `OADEC_JOC_PHASE=3,4:-`
     /// overrides the choice for experiments.
     phase: Vec<(usize, bool)>,
+    /// `joc_clipgain` of the payload in flight, or 1 while it is switched off.
+    clip_gain: f64,
+    /// Whether to restore the level the encoder took off (`--no-clip-gain`
+    /// turns it off, for measuring the difference).
+    apply_clip_gain: bool,
 }
 
 fn phase_rotation(dmx_config: u8) -> Vec<(usize, bool)> {
@@ -103,7 +108,7 @@ fn phase_rotation(dmx_config: u8) -> Vec<(usize, bool)> {
 }
 
 impl Pipeline {
-    fn new(joc: &Joc, program: &Program, names: &[&str]) -> Result<Self> {
+    fn new(joc: &Joc, program: &Program, names: &[&str], clip_gain: bool) -> Result<Self> {
         let mut joc_inputs = vec![usize::MAX; joc.num_channels];
         for (coded, name) in names.iter().enumerate() {
             if let Some(i) = joc_input_index(name)
@@ -171,6 +176,8 @@ impl Pipeline {
             slots_out: vec![[Complex::default(); BANDS]; joc.num_objects],
             frames: 0,
             phase: phase_rotation(joc.dmx_config),
+            clip_gain: 1.0,
+            apply_clip_gain: clip_gain,
         })
     }
 
@@ -190,7 +197,14 @@ impl Pipeline {
         let samples = pcm[0].len();
         let num_ts = samples / BANDS;
         match joc {
-            Some(j) => self.joc.update(j, num_ts),
+            Some(j) => {
+                self.joc.update(j, num_ts);
+                self.clip_gain = if self.apply_clip_gain {
+                    j.clipgain
+                } else {
+                    1.0
+                };
+            }
             None => self.joc.hold(num_ts),
         }
         // objects: analysis -> matrix -> synthesis, per time slot
@@ -228,10 +242,17 @@ impl Pipeline {
                 object_out[obj].extend_from_slice(&out);
             }
         }
+        // Clause 6.3.3.2 gives the clip gain and never says what to do with
+        // it. Encoding the same master at two levels shows the encoder
+        // divides the whole downmix, LFE included, by it: the coded core came
+        // out at exactly `scale / joc_clipgain` in every frame. The object
+        // program is therefore restored by multiplying it back, while the
+        // backwards-compatible core stays as coded. See `docs/joc.md`.
+        let g = self.clip_gain;
         for (e, src) in self.sources.clone().iter().enumerate() {
             match *src {
-                Source::Core(ch) => self.push(e, pcm[ch].iter().map(|&v| f64::from(v))),
-                Source::Object(o) => self.push(e, object_out[o].iter().copied()),
+                Source::Core(ch) => self.push(e, pcm[ch].iter().map(|&v| f64::from(v) * g)),
+                Source::Object(o) => self.push(e, object_out[o].iter().map(|&v| v * g)),
             }
         }
         self.frames += 1;
@@ -390,16 +411,21 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
             };
             let p = Program::from_oamd(o);
             let names = Decoder::channel_names(&d.header);
-            pipeline = Some(Pipeline::new(j, &p, &names)?);
+            pipeline = Some(Pipeline::new(j, &p, &names, opts.clip_gain)?);
             sink = Some(Sink::create(dir, &name, &p, rate, opts)?);
             eprintln!(
-                "program: {} bed channels, {} dynamic objects, {} JOC objects over {} downmix channels (config {}), clip gain {:.3}",
+                "program: {} bed channels, {} dynamic objects, {} JOC objects over {} downmix channels (config {}), clip gain {:.3}{}",
                 p.bed_channels().len(),
                 p.dynamic_objects,
                 j.num_objects,
                 j.num_channels,
                 j.dmx_config,
-                j.clipgain
+                j.clipgain,
+                if opts.clip_gain {
+                    " (applied)"
+                } else {
+                    " (reported, not applied)"
+                }
             );
             program = Some(p);
         }
