@@ -7,10 +7,12 @@
 
 pub mod qmf;
 pub mod qmf_window;
+pub mod quadrature;
 
 use oadec_emdf::joc::{Joc, JocObject, MAX_BANDS, MAX_CHANNELS, MAX_OBJECTS, Slope};
 
 pub use qmf::{Analysis, BANDS, Complex, DELAY, Synthesis};
+pub use quadrature::{Carry, LOW_DELAY, MATRIX_ALIGN, Quadrature};
 
 /// Parameter band of every QMF subband for a given band count (table 54).
 #[must_use]
@@ -76,6 +78,15 @@ pub struct JocDecoder {
     prev: Vec<[[f64; BANDS]; MAX_CHANNELS]>,
     /// Interpolated matrix of the current frame: `[obj][ts][ch][sb]`.
     interp: Vec<Vec<[[f64; BANDS]; MAX_CHANNELS]>>,
+    /// Time slots the subband samples run behind the side information,
+    /// which is what the low-band quadrature filter of
+    /// [`quadrature`] costs when the downmix carries the 90-degree phase
+    /// shift. Zero without it.
+    lag: usize,
+    /// The last `lag` matrices of the previous frame, so that a slot held
+    /// back across the frame boundary still meets the matrix it was coded
+    /// with: `[obj][ts]`.
+    carried: Vec<Vec<[[f64; BANDS]; MAX_CHANNELS]>>,
 }
 
 impl JocDecoder {
@@ -90,12 +101,43 @@ impl JocDecoder {
             num_objects,
             prev: vec![[[0.0; BANDS]; MAX_CHANNELS]; num_objects],
             interp: Vec::new(),
+            lag: 0,
+            carried: Vec::new(),
         }
+    }
+
+    /// Tells the decoder that the subband samples it will be given run
+    /// `lag` time slots behind the side information, so that it holds the
+    /// matrices back by the same amount.
+    pub fn set_lag(&mut self, lag: usize) {
+        self.lag = lag;
+        self.carried = vec![vec![[[0.0; BANDS]; MAX_CHANNELS]; lag]; self.num_objects];
     }
 
     /// Forgets the history (after a splice).
     pub fn reset(&mut self) {
         self.prev.fill([[0.0; BANDS]; MAX_CHANNELS]);
+        for obj in &mut self.carried {
+            obj.fill([[0.0; BANDS]; MAX_CHANNELS]);
+        }
+    }
+
+    /// Keeps the tail of the frame that is about to be replaced, so that the
+    /// slots still in the filter meet their own matrices.
+    fn carry(&mut self) {
+        if self.lag == 0 {
+            return;
+        }
+        for obj in 0..self.num_objects {
+            let Some(frame) = self.interp.get(obj) else {
+                continue;
+            };
+            let n = frame.len();
+            for k in 0..self.lag {
+                // slot n - lag + k of the frame going out
+                self.carried[obj][k] = frame[(n + k).saturating_sub(self.lag).min(n - 1)];
+            }
+        }
     }
 
     /// Number of objects.
@@ -106,6 +148,7 @@ impl JocDecoder {
 
     /// Keeps the previous matrices for a frame without side information.
     pub fn hold(&mut self, num_ts: usize) {
+        self.carry();
         if self.interp.len() != self.num_objects
             || self.interp.first().is_some_and(|v| v.len() != num_ts)
         {
@@ -122,6 +165,7 @@ impl JocDecoder {
     /// from its side information (clauses 6.6.4 and 6.6.5). Objects absent
     /// from the payload keep the previous matrix.
     pub fn update(&mut self, joc: &Joc, num_ts: usize) {
+        self.carry();
         if self.interp.len() != self.num_objects
             || self.interp.first().is_some_and(|v| v.len() != num_ts)
         {
@@ -220,7 +264,11 @@ impl JocDecoder {
     pub fn reconstruct(&self, ts: usize, input: &[[Complex; BANDS]], out: &mut [[Complex; BANDS]]) {
         let nch = self.num_channels.min(input.len());
         for (obj, o) in out.iter_mut().enumerate().take(self.num_objects) {
-            let m = &self.interp[obj][ts];
+            let m = if ts < self.lag {
+                &self.carried[obj][ts]
+            } else {
+                &self.interp[obj][ts - self.lag]
+            };
             for sb in 0..BANDS {
                 let mut acc = Complex::default();
                 for ch in 0..nch {

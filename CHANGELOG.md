@@ -6,6 +6,27 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The JOC mixing matrix was ten time slots out of step with the subband
+  samples.** Clause 6.6.6 pairs slot `ts` of the samples with slot `ts` of
+  the matrix and says nothing about the analysis bank in between. Measured
+  against the object output of the Dolby decoder on three titles from three
+  encoders, the matrix belongs with the samples the bank produces ten slots
+  earlier, sharply: a slot either way costs more than 20 dB. Correcting it
+  takes the residual against Dolby from about -15 dB to below -70 dB in the
+  bands where the core decode is itself exact.
+- **The 90-degree phase shift of downmix configurations 3 and 4 is not a
+  rotation at the bottom of the band.** Rotating every subband by -j is right
+  above 141 Hz and wrong below it, because subband 0 straddles direct current
+  and the image of a real signal's negative frequencies falls inside its
+  passband; the objects lost up to 14 dB under 50 Hz. The operator Dolby uses
+  was measured (the identity at direct current, -j by 141 Hz, the same on
+  every title) and is applied as a 37-tap filter across time slots.
+  `--flat-quadrature` restores the plain reading for measurement.
+  Together the two fixes take the per-object distance to the Dolby decoder
+  from 11-15 dB to 39-56 dB.
+
 ### Added
 
 - **Enhanced coupling** (ATSC A/52:2018 clause E.3.5.5) decodes end to end.
@@ -24,6 +45,8 @@ Semantic Versioning.
   program. Encoding one Atmos master at two levels shows the encoder divides
   the whole downmix, LFE included, by it. `--no-clip-gain` keeps the old
   behaviour.
+- `tools/gen_joc_quadrature.py`, which measures the low-band quadrature
+  operator against the Dolby object decoder and prints the table.
 - `oadec eac3-ecpl-inject`, which rewrites a stream's standard coupling as
   enhanced coupling so a tool nothing emits can be tested, and `oadec-bits`
   gained the `BitWriter` it needs.

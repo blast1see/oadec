@@ -17,7 +17,10 @@ use oadec_eac3::{Decoded, Decoder, Options as CoreOptions, StreamType};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::joc::{Joc, SparseIndexMode};
 use oadec_emdf::oamd::{BedChannel, Oamd};
-use oadec_joc::{Analysis, BANDS, Complex, DELAY, JocDecoder, Synthesis};
+use oadec_joc::{
+    Analysis, BANDS, Carry, Complex, DELAY, JocDecoder, LOW_DELAY, MATRIX_ALIGN, Quadrature,
+    Synthesis,
+};
 use oadec_spatial::{Program, Timeline};
 
 use crate::damf::{Options, Sink};
@@ -70,13 +73,14 @@ struct Pipeline {
     slots_in: Vec<[Complex; BANDS]>,
     slots_out: Vec<[Complex; BANDS]>,
     frames: u64,
-    /// JOC input channels to rotate by +j (true) or -j (false) before the
-    /// reconstruction. Downmix configurations 3 and 4 (table 47) carry the
-    /// surround pair with a 90-degree phase shift; rotating Ls and Rs by -j
-    /// brings the objects back in phase with the source (measured on the
-    /// encoder round trip, see docs/evidence). `OADEC_JOC_PHASE=3,4:-`
-    /// overrides the choice for experiments.
-    phase: Vec<(usize, bool)>,
+    /// One per JOC input channel: holds the subband samples back so that
+    /// they meet the matrix they were coded with, and takes the 90-degree
+    /// phase shift back out of the channels that carry one.
+    quad: Vec<Quadrature>,
+    /// Subband samples once they are through it.
+    slots_rot: Vec<[Complex; BANDS]>,
+    /// Samples of decoder delay that costs.
+    low_delay: usize,
     /// `joc_clipgain` of the payload in flight, or 1 while it is switched off.
     clip_gain: f64,
     /// Whether to restore the level the encoder took off (`--no-clip-gain`
@@ -84,31 +88,58 @@ struct Pipeline {
     apply_clip_gain: bool,
 }
 
-fn phase_rotation(dmx_config: u8) -> Vec<(usize, bool)> {
-    let Some(spec) = std::env::var_os("OADEC_JOC_PHASE") else {
-        return if matches!(dmx_config, 3 | 4) {
-            vec![(3, false), (4, false)]
-        } else {
-            Vec::new()
-        };
+/// What each JOC downmix channel carries. Configurations 3 and 4 of table 47
+/// hand the surround pair over with a 90-degree phase shift; rotating Ls and
+/// Rs back by -j puts the objects in phase with the source (measured on the
+/// encoder round trip, see `docs/evidence`). Every channel gets a
+/// [`Quadrature`] whether or not it carries a shift, because they all need
+/// the same hold for the matrix alignment. `OADEC_JOC_PHASE=3,4:-` overrides
+/// which channels are shifted and `OADEC_JOC_LOW=untouched` selects the third
+/// reading of the shift, both for experiments.
+fn carries(dmx_config: u8, channels: usize, flat: bool) -> Vec<Carry> {
+    let low = std::env::var("OADEC_JOC_LOW").unwrap_or_default();
+    let shift = |plus| match (flat, low.as_str()) {
+        (_, "untouched") => Carry::FlatAbove { plus },
+        (true, _) => Carry::Flat { plus },
+        (false, _) => Carry::Shifted { plus },
     };
-    if spec.is_empty() || spec == "none" {
-        return Vec::new();
+    let mut spec: Vec<(usize, bool)> = match std::env::var("OADEC_JOC_PHASE") {
+        Err(_) => {
+            if matches!(dmx_config, 3 | 4) {
+                vec![(3, false), (4, false)]
+            } else {
+                Vec::new()
+            }
+        }
+        Ok(v) if v.is_empty() || v == "none" => Vec::new(),
+        Ok(v) => match v.split_once(':') {
+            None => Vec::new(),
+            Some((chans, sign)) => {
+                let plus = sign.trim() != "-";
+                chans
+                    .split(',')
+                    .filter_map(|c| c.trim().parse::<usize>().ok())
+                    .map(|c| (c, plus))
+                    .collect()
+            }
+        },
+    };
+    spec.retain(|&(ch, _)| ch < channels);
+    let mut out = vec![Carry::Plain; channels];
+    for (ch, plus) in spec {
+        out[ch] = shift(plus);
     }
-    let spec = spec.to_string_lossy();
-    let Some((chans, sign)) = spec.split_once(':') else {
-        return Vec::new();
-    };
-    let plus = sign.trim() != "-";
-    chans
-        .split(',')
-        .filter_map(|c| c.trim().parse::<usize>().ok())
-        .map(|c| (c, plus))
-        .collect()
+    out
 }
 
 impl Pipeline {
-    fn new(joc: &Joc, program: &Program, names: &[&str], clip_gain: bool) -> Result<Self> {
+    fn new(
+        joc: &Joc,
+        program: &Program,
+        names: &[&str],
+        clip_gain: bool,
+        flat_quadrature: bool,
+    ) -> Result<Self> {
         let mut joc_inputs = vec![usize::MAX; joc.num_channels];
         for (coded, name) in names.iter().enumerate() {
             if let Some(i) = joc_input_index(name)
@@ -157,15 +188,25 @@ impl Pipeline {
             );
         }
         let elements = sources.len();
+        let carry = carries(joc.dmx_config, joc.num_channels, flat_quadrature);
+        // every stream goes through the filter bank, whether or not it
+        // carries a phase shift, because the matrix alignment needs the delay
+        let low_delay = LOW_DELAY * BANDS;
         let to_drop = sources
             .iter()
             .map(|s| match s {
                 Source::Core(_) => DECODER_DELAY,
-                Source::Object(_) => DECODER_DELAY + DELAY,
+                Source::Object(_) => DECODER_DELAY + DELAY + low_delay,
             })
             .collect();
+        let mut joc_decoder = JocDecoder::new(joc.num_channels, joc.num_objects);
+        let lag = std::env::var("OADEC_JOC_LAG")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(LOW_DELAY - MATRIX_ALIGN);
+        joc_decoder.set_lag(lag);
         Ok(Self {
-            joc: JocDecoder::new(joc.num_channels, joc.num_objects),
+            joc: joc_decoder,
             analysis: (0..joc.num_channels).map(|_| Analysis::new()).collect(),
             synthesis: (0..joc.num_objects).map(|_| Synthesis::new()).collect(),
             joc_inputs,
@@ -175,7 +216,9 @@ impl Pipeline {
             slots_in: vec![[Complex::default(); BANDS]; joc.num_channels],
             slots_out: vec![[Complex::default(); BANDS]; joc.num_objects],
             frames: 0,
-            phase: phase_rotation(joc.dmx_config),
+            quad: carry.iter().map(|c| Quadrature::new(*c)).collect(),
+            slots_rot: vec![[Complex::default(); BANDS]; joc.num_channels],
+            low_delay,
             clip_gain: 1.0,
             apply_clip_gain: clip_gain,
         })
@@ -218,25 +261,11 @@ impl Pipeline {
                 }
                 self.analysis[k].step(&chunk, &mut self.slots_in[k]);
             }
-            for &(ch, plus) in &self.phase {
-                if let Some(slot) = self.slots_in.get_mut(ch) {
-                    for c in slot.iter_mut() {
-                        *c = if plus {
-                            Complex {
-                                re: -c.im,
-                                im: c.re,
-                            }
-                        } else {
-                            Complex {
-                                re: c.im,
-                                im: -c.re,
-                            }
-                        };
-                    }
-                }
+            for (k, q) in self.quad.iter_mut().enumerate() {
+                q.step(&self.slots_in[k], &mut self.slots_rot[k]);
             }
             self.joc
-                .reconstruct(ts, &self.slots_in, &mut self.slots_out);
+                .reconstruct(ts, &self.slots_rot, &mut self.slots_out);
             for (obj, syn) in self.synthesis.iter_mut().enumerate() {
                 syn.step(&self.slots_out[obj], &mut out);
                 object_out[obj].extend_from_slice(&out);
@@ -261,7 +290,7 @@ impl Pipeline {
     /// Runs zeros through the banks so the objects catch up with the core.
     fn flush(&mut self) {
         let zeros = vec![
-            vec![0.0f32; DECODER_DELAY + DELAY + BANDS];
+            vec![0.0f32; DECODER_DELAY + DELAY + self.low_delay + BANDS];
             self.joc_inputs.iter().max().map_or(1, |m| m + 1)
         ];
         // the hold keeps the last matrices
@@ -278,8 +307,11 @@ impl Pipeline {
             for k in 0..self.joc_inputs.len() {
                 self.analysis[k].step(&chunk, &mut self.slots_in[k]);
             }
+            for (k, q) in self.quad.iter_mut().enumerate() {
+                q.step(&self.slots_in[k], &mut self.slots_rot[k]);
+            }
             self.joc
-                .reconstruct(ts, &self.slots_in, &mut self.slots_out);
+                .reconstruct(ts, &self.slots_rot, &mut self.slots_out);
             for (obj, syn) in self.synthesis.iter_mut().enumerate() {
                 syn.step(&self.slots_out[obj], &mut out);
                 let e = self
@@ -411,7 +443,13 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
             };
             let p = Program::from_oamd(o);
             let names = Decoder::channel_names(&d.header);
-            pipeline = Some(Pipeline::new(j, &p, &names, opts.clip_gain)?);
+            pipeline = Some(Pipeline::new(
+                j,
+                &p,
+                &names,
+                opts.clip_gain,
+                opts.flat_quadrature,
+            )?);
             sink = Some(Sink::create(dir, &name, &p, rate, opts)?);
             eprintln!(
                 "program: {} bed channels, {} dynamic objects, {} JOC objects over {} downmix channels (config {}), clip gain {:.3}{}",

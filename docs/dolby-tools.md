@@ -945,3 +945,48 @@ Both Dolby decoders here also ignore the enhanced coupling angle and chaos
 fields: a stream with zeros in them and a stream with a full spread decode
 bit-identically, in the `ddp_decode` filter and in the Reference Player. See
 `docs/eac3.md`.
+
+## The Reference Player also decodes to objects
+
+`drp.exe` refuses `--out-ch-config` beyond 7.1 when writing a file, but the
+player ships Dolby's GStreamer elements next to it and they have no such
+limit. `gst-plugins/` holds `dlbac3parse`, `dlbac3dec`, `dlbtruehdparse`,
+`dlbtruehddec`, `dlbac4parse`, `dlbac4dec`, `dlboar` (Object Audio Renderer,
+2.0 up to 9.1.6) and `dlbaudiodecbin`, which wires a decoder to the renderer.
+
+Set the environment first: `GST_PLUGIN_PATH` to the `gst-plugins` directory
+and the player's own directory on `PATH`.
+
+**Rendered bed**, any layout the renderer supports:
+
+```
+gst-launch-1.0 filesrc location=in.ec3 ! dlbac3parse enable-metadata=true \
+  ! dlbaudiodecbin out-ch-config=7.1.4 ! audioconvert ! wavenc \
+  ! filesink location=out.wav
+```
+
+**The objects themselves.** `dlbaudiodecbin` sets the decoder to
+`out-ch-config=RAW` (21) when the content is Atmos, and that value can be
+given directly. It is not in the element's own enumeration, which stops at
+7.1, but the property takes it:
+
+```
+gst-launch-1.0 filesrc location=in.ec3 ! dlbac3parse enable-metadata=true \
+  ! dlbac3dec out-ch-config=21 drc-suppress=true drc-mode=custom-0 \
+              drc-cut=0 drc-boost=0 drop-delay=true \
+  ! "audio/x-raw(meta:DlbObjectAudioMeta),format=F32LE" \
+  ! identity ! filesink location=objects.f32
+```
+
+The result is headerless 32-bit float, one channel per element of the OAMD
+programme: for a 5.1 JOC stream with 15 objects that is the LFE bed and then
+the 15 objects, in the order the programme lists them. `drc-suppress` and
+`drc-mode=custom-0` keep dynamic range control and dialogue normalisation
+out; `drop-delay=true` removes the decoder's start-up samples, after which
+the objects line up with `oadec decode --format damf --no-bed-conform` at
+lag zero. `dlbtruehddec` has the same `out-ch-config=raw` and a
+`presentation` property that reaches 16.
+
+This is the only Dolby decoder here that works in the object domain, and it
+is what settled the JOC matrix alignment and the low-band quadrature filter;
+see `docs/evidence/2026-09-09-c.md`.

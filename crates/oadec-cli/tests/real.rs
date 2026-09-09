@@ -411,6 +411,12 @@ fn enhanced_coupling_survives_the_object_pipeline() {
         ("plain", source.as_path(), None),
         ("ecpl-dolby", converted.as_path(), None),
         ("ecpl-spec", converted.as_path(), Some("--ecpl-spec")),
+        // the low-band quadrature filter must not change the length either
+        (
+            "flat-quadrature",
+            source.as_path(),
+            Some("--flat-quadrature"),
+        ),
     ] {
         let out = dir.join(format!("oadec-objects-{name}"));
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_oadec"));
