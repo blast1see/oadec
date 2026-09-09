@@ -14,6 +14,7 @@ mod info;
 mod input;
 mod oamd;
 mod scan;
+mod thd_demux;
 mod verify;
 
 use std::path::PathBuf;
@@ -170,6 +171,18 @@ enum Command {
         /// Index of the decoded frame (independent substream 0).
         #[arg(long)]
         frame: u64,
+    },
+    /// Split a Blu-ray audio dump that interleaves TrueHD access units with
+    /// the AC-3 core frames of the same track into the two streams.
+    ThdDemux {
+        /// The interleaved dump.
+        file: PathBuf,
+        /// Where to write the TrueHD elementary stream.
+        #[arg(short, long)]
+        output: PathBuf,
+        /// Where to write the AC-3 core; without it the core is dropped.
+        #[arg(long)]
+        core: Option<PathBuf>,
     },
     /// Rewrite the standard coupling of an E-AC-3 stream as enhanced coupling,
     /// which no encoder on hand will emit and no stream in the wild carries.
@@ -363,6 +376,9 @@ fn main() -> ExitCode {
             }),
             Command::Eac3Blocks { file, frame } => {
                 eac3::blocks(&file, frame).map(|()| ExitCode::SUCCESS)
+            }
+            Command::ThdDemux { file, output, core } => {
+                thd_demux::run(&file, &output, core.as_deref()).map(|()| ExitCode::SUCCESS)
             }
             Command::Eac3EcplInject {
                 file,

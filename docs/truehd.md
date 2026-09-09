@@ -96,3 +96,33 @@ before side pair); `ChannelLabel::interchange_order` gives the permutation, and
 `oadec decode` writes it by default. FFmpeg's 5.1 output for a 7.1 stream needs
 `-downmix "5.1(side)"`, because its 5.1 default uses back channels that are not
 a subset of the stream's side layout.
+
+## Blu-ray dumps that keep the AC-3 core in the same file
+
+A Blu-ray TrueHD track carries two elementary streams in one PES: the MLP
+access units and an AC-3 core for players that cannot decode TrueHD. A
+demultiplexer that copies the payload without separating them writes a file
+that is neither, and the extension usually still says `.thd`.
+
+Such a file defeats every tool tried here. FFmpeg answers "Invalid data found
+when processing input" and MediaInfo prints nothing. A TrueHD parser fares
+little better: it locks on at each major sync, loses framing at the next core
+frame and hunts for the next one, so it resynchronises tens of thousands of
+times and throws away most of the stream.
+
+They separate without guessing, because each stream declares its own length:
+an AC-3 syncframe in its header, a TrueHD access unit in its first two bytes.
+Walking the file and taking whichever parses recovers both. `oadec thd-demux`
+does it. Measured on a 4,99 GB dump of a 2:51:47 film: 12 368 306 access
+units and 322 092 core frames, **no byte left over**, 23 seconds.
+
+Two traps worth naming:
+
+- **A file that opens with the AC-3 sync word can still be TrueHD.** The core
+  frame comes first in such a dump, so sniffing two bytes routes the file to
+  the wrong decoder. `is_eac3` now looks for a TrueHD major sync with an
+  access-unit chain behind it before it answers.
+- **Take a core frame only when something parses after it.** A four-byte
+  pattern turns up in audio data eventually; the one-unit lookahead is what
+  keeps an access unit that happens to open `0B 77` from being eaten.
+

@@ -32,6 +32,13 @@ Semantic Versioning.
 - `tools/two_way.py` compares a decode with the Dolby one where FFmpeg cannot
   follow, and `tools/tpnp_window.py` measures what the transient correction
   changes.
+- `oadec thd-demux` splits a Blu-ray audio dump that interleaves TrueHD access
+  units with the AC-3 core frames of the same track. Such a file is refused
+  outright by FFmpeg and MediaInfo; the split is exact because both streams
+  carry their own length.
+- The stream sniffer looks for a TrueHD major sync with an access-unit chain
+  behind it, so a dump that opens with an AC-3 core frame is no longer routed
+  to the E-AC-3 decoder.
 
 
 - `oadec-bits`: MSB-first bit reader with windowed peeking, the TrueHD
