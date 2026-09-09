@@ -54,9 +54,10 @@ def probe(path: Path) -> list[dict]:
         "-of", "json", str(path),
     ]
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=120).stdout
-        streams = json.loads(out).get("streams", [])
-    except (subprocess.SubprocessError, json.JSONDecodeError):
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        streams = json.loads(res.stdout or "{}").get("streams", [])
+    except (OSError, ValueError, subprocess.SubprocessError):
+        # a file ffprobe cannot open is not a decoder problem; note and move on
         return []
     return [s for s in streams if s.get("codec_name") in FORMATS]
 
@@ -125,8 +126,15 @@ def main() -> int:
         files = files[: args.limit]
     print(f"{len(files)} files")
 
-    report: list[dict] = []
+    # resume: a sweep over a library takes long enough that it should not
+    # start over when one file upsets ffprobe
     report_path = args.out / "report.json"
+    report: list[dict] = []
+    if report_path.exists():
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        done = {r["title"] for r in report}
+        files = [f for f in files if f.name not in done]
+        print(f"{len(report)} tracks already in the report, {len(files)} files left")
     for n, f in enumerate(files, 1):
         for s in probe(f):
             codec = s["codec_name"]
