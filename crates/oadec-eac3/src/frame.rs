@@ -15,9 +15,10 @@ use crate::bsi::Bsi;
 use crate::error::{Eac3Error, Result};
 use crate::header::{FrameHeader, StreamType, Syntax};
 use crate::tables::{
-    DEFAULT_CPL_BAND_STRUCT, DEFAULT_ECPL_BAND_STRUCT, DEFAULT_SPX_BAND_STRUCT, ECPL_SUBBAND_TABLE,
-    EXP_D15, EXP_D25, EXP_REUSE, FRAME_EXP_STRATEGY, GAQ_REMAP_A_G1, GAQ_REMAP_G2, GAQ_REMAP_G4,
-    HEBAP_BITS, QUANT_BITS, QUANT3, QUANT5, QUANT7, QUANT11, QUANT15, SPX_ATTEN, SPX_BAND_TABLE,
+    DEFAULT_CPL_BAND_STRUCT, DEFAULT_ECPL_BAND_STRUCT, DEFAULT_SPX_BAND_STRUCT, ECPL_AMP_EXP,
+    ECPL_AMP_MANT, ECPL_SUBBAND_TABLE, EXP_D15, EXP_D25, EXP_REUSE, FRAME_EXP_STRATEGY,
+    GAQ_REMAP_A_G1, GAQ_REMAP_G2, GAQ_REMAP_G4, HEBAP_BITS, QUANT_BITS, QUANT3, QUANT5, QUANT7,
+    QUANT11, QUANT15, SPX_ATTEN, SPX_BAND_TABLE,
 };
 use crate::vq;
 
@@ -33,6 +34,18 @@ const CPL: usize = 5;
 const LFE: usize = 6;
 /// Number of per-channel slots (five fbw, coupling, LFE).
 const NCH: usize = 7;
+
+/// The linear amplitude of an `ecplamp` code (ATSC A/52:2018 table E3.10):
+/// `ecplampmanttab / 32` shifted down by `ecplampexptab`, and code 31 is
+/// minus infinity.
+#[must_use]
+pub fn ecpl_amplitude(code: u8) -> f64 {
+    let i = usize::from(code);
+    if i >= 31 {
+        return 0.0;
+    }
+    f64::from(ECPL_AMP_MANT[i]) / 32.0 / f64::from(1u32 << ECPL_AMP_EXP[i])
+}
 
 /// Pseudo-random source for dither and spectral extension noise (clause
 /// 6.3.4 leaves the sequence to the implementation).
@@ -109,6 +122,17 @@ pub struct Options {
     /// Apply transient pre-noise processing (clause E.3.7). ATSC A/52:2018
     /// says the reference decoder shall; off is for measuring the difference.
     pub tpnp: bool,
+    /// Decode enhanced coupling with the full complex process of ATSC
+    /// A/52:2018 clause E.3.5.5 (carrier reconstruction, angle rotation,
+    /// chaos de-correlation) instead of the amplitude-only process of ETSI
+    /// TS 102 366 V1.4.1 clause E.2.5.5.
+    ///
+    /// The amplitude-only reading is the default because it is what Dolby
+    /// ships: both the Dolby Encoding Engine's decoder and the Dolby
+    /// Reference Player return bit-identical audio whether the angle and
+    /// chaos fields carry zeros or a full spread of values. See
+    /// `docs/eac3.md`.
+    pub ecpl_full: bool,
 }
 
 impl Default for Options {
@@ -116,6 +140,7 @@ impl Default for Options {
         Self {
             dither: true,
             tpnp: true,
+            ecpl_full: false,
         }
     }
 }
@@ -146,6 +171,14 @@ pub struct BlockInfo {
     pub deltbae: Vec<u8>,
     pub rematflg: Vec<bool>,
     pub skip_len: usize,
+    /// Bit position of `ecplinu`, when the block carries a coupling strategy
+    /// and the syntax is E-AC-3.
+    pub ecplinu_bit: Option<usize>,
+    /// Bit span of the coupling strategy from `cplbegf` to the end of the
+    /// band structure, when the block carries one.
+    pub cpl_strategy_span: Option<(usize, usize)>,
+    /// Bit span of the coupling coordinates, when the block has coupling.
+    pub cpl_coord_span: Option<(usize, usize)>,
     /// Bit position after the block.
     pub end_bit: usize,
     /// Exponents and bit allocation pointers per coded channel (fbw, then LFE).
@@ -361,6 +394,9 @@ struct Parser<'a> {
     ecplangle: [[u8; 22]; MAX_FBW],
     ecplchaos: [[u8; 22]; MAX_FBW],
     ecpltrans: [bool; MAX_FBW],
+    ecplinu_bit: Option<usize>,
+    cpl_strategy_span: Option<(usize, usize)>,
+    cpl_coord_span: Option<(usize, usize)>,
     rematflg: [bool; 4],
     nrematbd: usize,
     chbwcod: [u8; MAX_FBW],
@@ -471,6 +507,9 @@ impl<'a> Parser<'a> {
             ecplangle: [[0; 22]; MAX_FBW],
             ecplchaos: [[0; 22]; MAX_FBW],
             ecpltrans: [false; MAX_FBW],
+            ecplinu_bit: None,
+            cpl_strategy_span: None,
+            cpl_coord_span: None,
             rematflg: [false; 4],
             nrematbd: 0,
             chbwcod: [0; MAX_FBW],
@@ -651,6 +690,9 @@ impl<'a> Parser<'a> {
         reason = "channel indices address several parallel arrays"
     )]
     fn parse_audblk(&mut self, blk: usize, noise: &mut Noise) -> Result<()> {
+        self.ecplinu_bit = None;
+        self.cpl_strategy_span = None;
+        self.cpl_coord_span = None;
         let acmod = self.h.acmod;
         let nf = self.nf;
         let eac3 = self.eac3;
@@ -787,6 +829,7 @@ impl<'a> Parser<'a> {
             self.cplinu[blk] = cplinu;
             if cplinu {
                 self.coverage.coupling = true;
+                self.ecplinu_bit = if eac3 { Some(self.r.position()) } else { None };
                 self.ecplinu = if eac3 { self.bit()? } else { false };
                 if eac3 && acmod == 2 {
                     self.chincpl[0] = true;
@@ -800,6 +843,7 @@ impl<'a> Parser<'a> {
                     if acmod == 2 {
                         self.phsflginu = self.bit()?;
                     }
+                    let strategy_start = self.r.position();
                     self.cplbegf = self.bits(4)? as i32;
                     if !eac3 || !self.spxinu {
                         self.cplendf = self.bits(4)? as i32;
@@ -835,8 +879,10 @@ impl<'a> Parser<'a> {
                         - (1..self.ncplsubnd).filter(|&b| self.cplbndstrc[b]).count();
                     self.cplstrt = 37 + 12 * self.cplbegf as usize;
                     self.cplend = 37 + 12 * (self.cplendf + 3) as usize;
+                    self.cpl_strategy_span = Some((strategy_start, self.r.position()));
                 } else {
                     self.coverage.enhanced_coupling = true;
+                    let strategy_start = self.r.position();
                     self.ecplbegf = self.bits(4)?;
                     let e = self.ecplbegf as usize;
                     self.ecpl_begin = if e < 3 {
@@ -878,6 +924,7 @@ impl<'a> Parser<'a> {
                     self.cplstrt = usize::from(ECPL_SUBBAND_TABLE[self.ecpl_begin]);
                     self.cplend = usize::from(ECPL_SUBBAND_TABLE[self.ecpl_end]);
                     self.map_ecpl_bands();
+                    self.cpl_strategy_span = Some((strategy_start, self.r.position()));
                 }
             } else {
                 for ch in 0..nf {
@@ -897,6 +944,7 @@ impl<'a> Parser<'a> {
         let cplinu = self.cplinu[blk];
 
         // coupling coordinates
+        let coord_start = self.r.position();
         if cplinu {
             if !self.ecplinu {
                 let mut any_new = false;
@@ -995,6 +1043,7 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
+            self.cpl_coord_span = Some((coord_start, self.r.position()));
         }
 
         // rematrixing (2/0 mode)
@@ -1280,7 +1329,34 @@ impl<'a> Parser<'a> {
 
         // ---- decoupling ----
         let mut ecpl_block = None;
-        if cplinu && self.ecplinu {
+        if cplinu && self.ecplinu && !self.opts.ecpl_full {
+            // ETSI TS 102 366 V1.4.1 clause E.2.5.5.2, which is what both
+            // Dolby decoders on hand implement: the coupled channel is the
+            // coupling channel scaled by the band amplitude, with no phase.
+            let bands = self.ecpl_bands();
+            for ch in 0..nf {
+                if !self.chincpl[ch] {
+                    continue;
+                }
+                let dith = self.dithflag[ch] && self.opts.dither;
+                for (bnd, &(lo, hi)) in bands.iter().enumerate() {
+                    let amp = ecpl_amplitude(self.ecplamp[ch][bnd]);
+                    for bin in lo..hi.min(self.cplend) {
+                        let v = match cpl_vals[bin - self.cplstrt] {
+                            Some(v) => v,
+                            None => {
+                                if dith {
+                                    noise.dither() * EXP_SCALE[usize::from(self.exps[CPL][bin])]
+                                } else {
+                                    0.0
+                                }
+                            }
+                        };
+                        coef[ch][bin] = v * amp;
+                    }
+                }
+            }
+        } else if cplinu && self.ecplinu {
             // Enhanced coupling cannot finish here: the carrier needs the
             // following block too (clause E.3.5.5.1). The coupled channels
             // stay zero over the region and `crate::ecpl` fills them.
@@ -1448,6 +1524,9 @@ impl<'a> Parser<'a> {
             deltbae: self.deltbae[..nf].to_vec(),
             rematflg: self.rematflg[..self.nrematbd].to_vec(),
             skip_len: self.skip_fields.last().map_or(0, Vec::len),
+            ecplinu_bit: self.ecplinu_bit,
+            cpl_strategy_span: self.cpl_strategy_span,
+            cpl_coord_span: self.cpl_coord_span,
             end_bit: self.r.position(),
             exps: (0..nf)
                 .map(|ch| self.exps[ch][..self.endmant[ch]].to_vec())

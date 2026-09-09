@@ -31,27 +31,25 @@ def read_wav(path: str) -> tuple[np.ndarray, int]:
         if data[:4] not in (b"RIFF", b"RF64"):
             raise SystemExit(f"{path}: not a RIFF file")
         fmt = None
+        data64 = 0
         while True:
             head = fh.read(8)
             if len(head) < 8:
                 break
             cid, size = struct.unpack("<4sI", head)
             if cid == b"fmt ":
-                fmt = fh.read(size)
+                fmt = fh.read(size + (size & 1))
             elif cid == b"data":
                 if size in (0xFFFFFFFF, 0):
-                    raw = fh.read()
+                    raw = fh.read(data64) if data64 else fh.read()
                 else:
                     raw = fh.read(size)
                 break
             elif cid == b"ds64":
-                body = fh.read(size)
-                # RF64: the real data size is the third 64-bit field
-                _, data_size = struct.unpack("<QQ", body[:16])
-                fh.seek(0, 2)
-                end = fh.tell()
-                fh.seek(-(end - fh.tell()), 2)
-                raise SystemExit(f"{path}: RF64 not needed here")
+                body = fh.read(size + (size & 1))
+                # RF64 carries the real sizes here: the RIFF size then the
+                # data size, both 64-bit
+                _, data64 = struct.unpack("<QQ", body[:16])
             else:
                 fh.seek(size + (size & 1), 1)
         if fmt is None:
