@@ -1,7 +1,8 @@
 # Dolby tool command lines on the development machine
 
-Captured 2026-09-06 by `tools/capture_dolby_help.py`. These outputs
+Captured 2026-09-09 by `tools/capture_dolby_help.py`. These outputs
 are the ground truth for the flags used by the verification scripts.
+Notes below the marker at the end are written by hand and are kept.
 
 ## `dee.exe --help`
 
@@ -40,13 +41,13 @@ Usage Examples:
    dee.exe --xml ..\damf_atmos_mezz_to_atmos_ddp_ec3.xml --input-audio ..\Audio\printmaster.atmos
 
 
-Time elapsed: 0.50999 seconds
+Time elapsed: 0.51158 seconds
 ```
 
 ## `dee.exe --print-stages`
 
 ```text
-[2026-09-06 23:36:34.259] INFO: Dolby Encoding Engine, version: 5.2.1-5994839.
+[2026-09-09 19:48:54.635] INFO: Dolby Encoding Engine, version: 5.2.1-5994839.
 Audio inputs:
                ac4
                wav
@@ -154,7 +155,7 @@ Outputs:
                dvsd
                dvrpu
 
-Time elapsed: 2.7757 seconds
+Time elapsed: 2.79269 seconds
 ```
 
 ## `atmos_info.exe --help`
@@ -181,7 +182,7 @@ Interface version: 0.9.0 (Jun 10 2022):
   --morehelp arg         Show more help about selected topic. Values: loglevel.
 
 
-Execution time: 0.000405 seconds
+Execution time: 0.0004066 seconds
 Exit code: 0
 ```
 
@@ -247,7 +248,7 @@ Interface version: 1.0.0 (Oct 17 2024):
   --keep-temp arg (=0)                  Keep temporary files after execution. Values: 0|1.
 
 
-Execution time: 0.0007712 seconds
+Execution time: 0.0007 seconds
 Exit code: 0
 ```
 
@@ -277,7 +278,7 @@ Formats available for '--presentation' '2ch', '6ch' or '8ch':
 
 
 
-Execution time: 0.000612 seconds
+Execution time: 0.0005992 seconds
 Exit code: 0
 ```
 
@@ -322,7 +323,187 @@ Examples:
     --presentation 2ch:drc_profile=music_light --presentation atmos --input /path/to/input.atmos
 
 
-Execution time: 0.0006291 seconds
+Execution time: 0.0006449 seconds
+Exit code: 0
+```
+
+## `dee_ddp_encoder.exe --help`
+
+```text
+Dolby Digital Plus encoder
+This tool belongs to the Dolby Encoding Engine version 5.2.1
+Interface version: 0.1.0 (Jun 10 2022):
+  -h [ --help ]                         Show this help.
+  -l [ --license ] arg (=dee\license.lic)
+                                        License file.
+  --loglevel arg (=info)                Logging level followed by log customization options. Use 
+                                        "--morehelp loglevel" for more details. Values: 
+                                        debug|error|info|quiet|warning.
+  --overwrite arg (=0)                  Allow overwriting existing files. Values: 0|1.
+  --progress arg (=0)                   Show progress in percentage. Values: 0|1.
+  --cc arg (=1)                         Enable concurrent processing. Use "--morehelp cc" for more 
+                                        details. Values: 0|1.
+  --input-format arg                    Input format followed by format-specific options. Use 
+                                        "--morehelp input-format" for more details. Values: 
+                                        wav|wav_list|pcm_s16le|pcm_s24le|pcm_f32le.
+  -i [ --input ] arg                    Input file or files, in case of multi-file input.
+  --input-manifest arg                  Optional input loudness manifest file.
+  -o [ --output ] arg                   Output bitstream file.
+  --start arg (=first_frame_of_action)  Start time given as a timecode, seconds (decimal number) or
+                                        the keyword 'first_frame_of_action'.
+  --duration arg (=till_the_end)        Duration in a timecode or seconds. Values '-1' and 
+                                        'till_the_end' mean "up to the last sample".
+  --end arg (=end_of_file)              End time given as a timecode, seconds (decimal number) or 
+                                        the keyword 'end_of_file'.
+  --timecode-frame-rate arg (=not_indicated)
+                                        Frame rate associated with the specified timecode. Values: 
+                                        23.976|24|25|29.97|29.97df|30|48|50|59.94|60|not_indicated.
+  --time-base arg (=file_position)      Specify how the start/end/duration values are interpreted. 
+                                        Values: file_position|embedded_timecode.
+  --ffoa arg (=auto)                    First frame of action given as a timecode or seconds 
+                                        (decimal number). 'auto' means "use input file's FFOA".
+  --offset arg (=auto)                  Offset given as a timecode or seconds (decimal number). 
+                                        'auto' means "use input file's offset".
+  --add-silence arg (=0:0)              Duration of silence to prepend and/or append to the output 
+                                        in a format 'prepend_value':'append_value'. Both values can
+                                        be provided as either:
+                                        seconds (decimal number)
+                                        or
+                                        'xf', where x is a number of frames (requires 
+                                        timecode-frame-rate to be provided).
+  --data-rate arg (=auto)               Target data rate in kbps.. Use "--morehelp data-rate" for 
+                                        more details.
+  --loudness-management arg (=measure_and_correct)
+                                        Loudness management options. Syntax:
+                                        "mode:option1=value1:option2=value2".
+                                        Use "--morehelp loudness-management" for more details. 
+                                        Values: measure_and_correct|measure_only|skip.
+  -c [ --output-channel-layout ] arg (=auto)
+                                        Audio output channel configuration. Values: 
+                                        auto|mono|stereo|5.1.
+  -e [ --encoder ] arg                  Encoder configuration. Use "--morehelp encoder" for more 
+                                        details.
+  --embed-timecode arg (=off)           Start timecode to be embedded into bitstream, to be used by
+                                        authoring tools. Use "--morehelp embed-timecode" for more 
+                                        details.
+  --embedded-timecode-format arg (=auto)
+                                        Frame rate of the embedded timecode. Value 'auto' uses 
+                                        value passed with timecode-frame-rate switch. Values: 
+                                        23.976|24|25|29.97|29.97df|30|50|59.94|60|auto.
+  --morehelp arg                        Show more help about selected topic. Values: 
+                                        cc|data-rate|embed-timecode|encoder|input-format|loudness-m
+                                        anagement|loglevel.
+  --temp-dir arg (=%USERPROFILE%\Documents\oadec)
+                                        Directory to store temporary files.
+  --keep-temp arg (=0)                  Keep temporary files after execution. Values: 0|1.
+
+
+Execution time: 0.0007274 seconds
+Exit code: 0
+```
+
+## `dee_ddp_encoder.exe --morehelp input-format`
+
+```text
+Argument of option '--input-format' can be followed by the list of format-specific options.
+
+Single multichannel WAVE file input:
+  Example: --input-format wav --input file.wav
+  Options: NONE
+
+A list of mono WAVE files, one for each channel, in order of L:R:C:LFE:LS:RS:LRS:RRS. Files can be omitted with '-' to be replaced with silence:
+  Examples: 
+    Stereo input: --input-format wav_list --input L.wav:R.wav
+    5.1 input with C and LS filled with silence: --input-format wav_list --input L.wav:R.wav:-:LFE.wav:-:RS.wav
+  Options: NONE
+
+Raw PCM:
+  Can be specified as one of the following formats:
+    pcm_s16le                 signed 16-bit integer, little-endian
+    pcm_s24le                 signed 24-bit integer, little-endian
+    pcm_f32le                 32-bit floating point, little-endian
+  Example: --input-format pcm_s16le:sample_rate=48000:channels=6
+  Options:
+    sample_rate=<INTEGER>     Required.
+    channels=<INTEGER>        Required.
+    streaming=<BOOLEAN>       Optional (default: 0).
+    sample_count=<INTEGER>    Optional (default: -1). Value '-1' means "unspecified".
+
+
+
+
+Execution time: 0.0005722 seconds
+Exit code: 0
+```
+
+## `dee_ddp_encoder.exe --help`
+
+```text
+Dolby Digital Plus encoder
+This tool belongs to the Dolby Encoding Engine version 5.7.2.aec4fa9c-master
+Interface version: 1.1.0 (Oct 17 2024):
+  -h [ --help ]                         Show this help.
+  -l [ --license ] arg (=C:\Program Files\Dolby Media Encoder\resources\dee\license.lic)
+                                        License file.
+  --loglevel arg (=info)                Logging level followed by log customization options. Use 
+                                        "--morehelp loglevel" for more details. Values: 
+                                        debug|error|info|quiet|warning.
+  --overwrite arg (=0)                  Allow overwriting existing files. Values: 0|1.
+  --progress arg (=0)                   Show progress in percentage. Values: 0|1.
+  --cc arg (=1)                         Enable concurrent processing. Use "--morehelp cc" for more 
+                                        details. Values: 0|1.
+  --input-format arg                    Input format followed by format-specific options. Use 
+                                        "--morehelp input-format" for more details. Values: 
+                                        atmos_mezz|wav|wav_list|pcm_s16le|pcm_s24le|pcm_f32le.
+  -i [ --input ] arg                    Input file or files, in case of multi-file input.
+  --input-manifest arg                  Optional input loudness manifest file.
+  -o [ --output ] arg                   Output bitstream file.
+  --start arg (=first_frame_of_action)  Start time given as a timecode, seconds (decimal number) or
+                                        the keyword 'first_frame_of_action'.
+  --duration arg (=-1)                  Duration in a timecode or seconds. Value '-1' means "up to 
+                                        the last sample".
+  --end arg (=-1)                       End time given as a timecode or seconds (decimal number). 
+                                        Value '-1' means "process till the end of file".
+  --timecode-frame-rate arg (=auto)     Frame rate associated with the specified timecode. Values: 
+                                        23.976|24|25|29.97|29.97df|30|48|50|59.94|60|not_indicated|
+                                        auto.
+  --time-base arg (=file_position)      Specify how the start/end/duration values are interpreted. 
+                                        Values: file_position|embedded_timecode.
+  --add-silence arg (=0:0)              Duration of silence to prepend and/or append to the output 
+                                        in a format 'prepend_value':'append_value', expressed in 
+                                        seconds or number of frames. Use "--morehelp add-silence" 
+                                        for more details.
+  --data-rate arg (=auto)               Target data rate in kbps. List of available data rate 
+                                        values depends on the selected encoder mode. Use 
+                                        "--morehelp data-rate" for more details.
+  --loudness-management arg (=measure_and_correct)
+                                        Loudness management options. Syntax:
+                                        "mode:option1=value1:option2=value2".
+                                        Use "--morehelp loudness-management" for more details. 
+                                        Values: measure_and_correct|measure_only.
+  -c [ --output-channel-layout ] arg (=auto)
+                                        Audio output channel configuration. Values: 
+                                        auto|mono|stereo|5.1.
+  -e [ --encoder ] arg                  Encoder configuration. Use "--morehelp encoder" for more 
+                                        details.
+  --embed-timecode arg (=off)           Start timecode to be embedded into bitstream, to be used by
+                                        authoring tools. Use "--morehelp embed-timecode" for more 
+                                        details.
+  --embedded-timecode-format arg (=auto)
+                                        Frame rate of the embedded timecode. Value 'auto' uses 
+                                        value passed with timecode-frame-rate switch. Values: 
+                                        23.976|24|25|29.97|29.97df|30|50|59.94|60|auto.
+  --extras arg                          Configure advanced features. Use "--morehelp extras" for 
+                                        more details.
+  --morehelp arg                        Show more help about selected topic. Values: 
+                                        cc|add-silence|data-rate|embed-timecode|encoder|examples|ex
+                                        tras|input-format|loudness-management|loglevel|all.
+  --temp-dir arg (=%USERPROFILE%\Documents\oadec)
+                                        Directory to store temporary files.
+  --keep-temp arg (=0)                  Keep temporary files after execution. Values: 0|1.
+
+
+Execution time: 0.0006976 seconds
 Exit code: 0
 ```
 
@@ -386,7 +567,7 @@ Interface version: 1.1.0 (Oct 17 2024):
                                         s-management|loglevel|all.
 
 
-Execution time: 0.0007168 seconds
+Execution time: 0.0007114 seconds
 Exit code: 0
 ```
 
@@ -407,7 +588,7 @@ Single Dolby Atmos file (DAMF, BWF ADM or MXF IAB):
 
 
 
-Execution time: 0.0005964 seconds
+Execution time: 0.0005803 seconds
 Exit code: 0
 ```
 
@@ -454,7 +635,7 @@ Multiplexing output to MP4
 
 
 
-Execution time: 0.000589 seconds
+Execution time: 0.0005825 seconds
 Exit code: 0
 ```
 
@@ -472,7 +653,7 @@ Interface version: 2.0.0 (Oct 17 2024):
   -v [ --version ] arg (=0) Show version information.
 
 
-Execution time: 0.0004116 seconds
+Execution time: 0.0004197 seconds
 Exit code: 0
 ```
 
@@ -650,79 +831,7 @@ Options:
 ```text
 Dolby Reference Player 3.2.0.8040
 ```
-
-## `cmdline_atmos_conversion_tool.exe --help` (Dolby Atmos Conversion Tool 2.1.2)
-
-```text
-Dolby Atmos Conversion Tool. A Dolby Atmos media file format and frames-per-second conversion tool.
-
-Option list:
-  -h [ --help ]                       Displays help (full list of Dolby Atmos Conversion Tool 
-                                      command-line options).
-  -v [ --version ]                    Displays the application version and exits the application.
-  -V [ --verbose ]                    Enables verbose information for debugging.
-  -i [ --pm_in ] arg                  Specifies the path to the input Dolby Atmos master file.
-  -o [ --output_path ] arg (=.)       Specifies the output path for the audio and metadata files. 
-                                      The default is the current working directory.
-  -f [ --output_format ] arg (=atmos) Specifies the output file format option: atmos, rpl, wav, or 
-                                      mxf.
-  --source_fps arg                    Specifies the frame rate of the source master file in frames 
-                                      per second (FPS). This option will set the frame rate of the 
-                                      source master file that does not specify one. Valid values 
-                                      are dependent on the frame rate supported by the source 
-                                      master. They can include: 23.976, 24, 25, 29.97, 29.97df, 30.
-  --target_fps arg                    Specifies the frame rate of the target master file. Valid 
-                                      values are dependent on the frame rate supported by the 
-                                      target master. They can include: 23.976, 24, 25, 29.97, 
-                                      29.97df, 30. Frame rates of 29.97 and 29.97df are not 
-                                      supported for mxf output format. Frame rates supported by rpl
-                                      format are 24, 25 and 30 FPS. Numbers near 23.976 and 29.97 
-                                      will be rounded to 24*1000/1001 and 30*1000/1001. If this 
-                                      value is equal to frame rate in the source file, frame rate 
-                                      conversion is bypassed and the tool does a format conversion 
-                                      only.
-  --no_ffoa                           Don't include FFOA when creating the new master.
-  --ffoa arg                          Specifies first frame of action (FFOA).  If none is 
-                                      specified, the source master FFOA will be used.
-  -l [ --primary_lang ] arg           Specifies IMF IAB soundfield primary spoken language as RFC 
-                                      5646 code value. Applicable only for mxf output format. If 
-                                      none is specified for an input mxf master, the primary 
-                                      language of the master is passed through to the output. If 
-                                      none is specified for all other input master types, "en" will
-                                      be used.
-  --list_languages                    Displays full list of supported RFC 5646 primary spoken 
-                                      language codes.
-  --quality arg (=0)                  Specifies the quality of the libsamplerate conversion during 
-                                      a frame rate or sample rate conversion, where 0=best_quality 
-                                      and 4=linear.
-  --disable_multithreading            Disables multithreading and uses a single thread for the 
-                                      resampling during a frame rate or sample rate conversion.
-  --bypass_resampling                 Disables resampling of the audio content during a frame rate 
-                                      conversion (resampling only happens for sample rate 
-                                      conversions if needed).
-  --target_sample_rate arg (=48000)   Specifies the sample rate in Hz of the target master, valid 
-                                      options are: 48000 or 96000.
-                                      Valid sample rate conversions:
-                                      - 48000 All formats     -> 48000 All formats
-                                      - 96000 .atmos, ADM BWF -> 48000 .atmos, ADM BWF, IMF IAB
-                                      - 96000 .atmos, ADM BWF -> 96000 ADM BWF
-  --set_warp_mode arg                 Specifies the warp mode for the target master, valid options 
-                                      are:
-                                      - downmix_loro, Standard (Lo/Ro)
-                                      - downmix_pliix, Dolby Pro Logix IIx
-                                      - warping, Direct render with room balance
-                                      - normal, Direct render
-  --trim_start arg (=0)               Trims n seconds from the beginning of the input master. 
-                                      Applied before prepending or appending silence.
-  --trim_duration arg (=0)            Trims input master to n seconds after the defined start. 
-                                      Applied before prepending or appending silence.
-  --prepend_silence arg (=0)          Prepends n seconds of audio silence to the beginning of the 
-                                      input master.
-  --append_silence arg (=0)           Appends n seconds of audio silence to the end of the input 
-                                      master.
-
-```
-
+<!-- hand-written below -->
 
 ## DEE 5.2.1 `ddp_decode` as a reference decoder
 
@@ -737,3 +846,15 @@ name and the temp directory must exist. The template placeholders
 `FILE_NAME`/`PATH` appear once per input, output and temp entry; replace
 them in order. A 105-second clip decodes in 5 s, a two-hour film in about
 six minutes.
+
+## Enhanced coupling is not an encoder option
+
+None of the captured command lines mentions coupling at all, and the
+`pcm_to_ddp` and `encode_to_atmos_ddp` job schemas expose only the encoder
+mode and the data rate. No Dolby tool here can be asked to emit enhanced
+coupling, which is why `oadec eac3-ecpl-inject` exists.
+
+Both Dolby decoders here also ignore the enhanced coupling angle and chaos
+fields: a stream with zeros in them and a stream with a full spread decode
+bit-identically, in the `ddp_decode` filter and in the Reference Player. See
+`docs/eac3.md`.
