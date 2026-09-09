@@ -20,6 +20,10 @@ pub struct Options {
     /// E-AC-3 JOC: restore the level the encoder took off the downmix to keep
     /// it from clipping (`joc_clipgain`, clause 6.3.3.2).
     pub clip_gain: bool,
+    /// E-AC-3 JOC: take the 90-degree phase shift of downmix configurations
+    /// 3 and 4 back out with a plain rotation in every subband, the lowest
+    /// one included, instead of the low-band filter the Dolby decoder uses.
+    pub flat_quadrature: bool,
     pub keep_duplicates: bool,
     pub bed_conform: bool,
     pub all_events: bool,

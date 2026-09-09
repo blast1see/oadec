@@ -32,12 +32,34 @@ that the decoder relies on. Clause numbers refer to that document.
   must be `(j - 2n + 1/2)` as in the matrix equation of clause 7.3, not the
   `(2j - 2n - 1)` of its pseudo-code; only the former reconstructs (78 dB).
   Analysis plus synthesis delays by 577 samples.
+- **Matrix alignment.** Clause 6.6.6 multiplies the subband samples of time
+  slot `ts` by the matrix of time slot `ts` and says nothing about the filter
+  bank that produced them. Taken literally that is ten time slots out.
+  Measured against the object output of the Dolby decoder on three titles
+  from three encoders, the matrix of slot `ts` belongs with the subband
+  samples the analysis bank produces ten slots earlier; the optimum is sharp,
+  more than 20 dB per slot either side. Ten slots is 640 samples, the length
+  of the analysis prototype. `MATRIX_ALIGN` in `oadec-joc` holds the samples
+  back accordingly. Reading it literally costs 25 to 50 dB of object
+  accuracy, which no channel-domain comparison can see.
 - **Downmix configurations 3 and 4** (table 47, "with 90 degree phase
   shift") carry the surround pair phase-shifted. Clause 6.6 says nothing
-  more; measured on the encoder round trip, rotating Ls and Rs by −j in the
-  QMF domain before the reconstruction brings every object back in phase
-  with the source. Configuration 4 is assumed to behave like 3 (no stream
-  to test).
+  more, and what the shift is the standard never says at all. Rotating Ls
+  and Rs by −j in the QMF domain is right above 141 Hz, where our objects
+  and the Dolby decoder's agree to the dither floor. It is wrong below it:
+  subband 0 spans 0 to 375 Hz, so it straddles direct current, the image of
+  the negative frequencies of a real signal sits inside its passband, and
+  one rotation turns both halves the same way so that they cancel. The loss
+  reaches 14 dB below 50 Hz.
+
+  What Dolby does was measured, bracketed between the two readings (rotate
+  every subband, rotate every subband but the lowest): the operator is the
+  identity at direct current and reaches −j by about 141 Hz, the same on all
+  three titles. One time slot of delay in a subband is 64 output samples
+  exactly, so the operator is a real 37-tap filter across time slots;
+  `quadrature.rs` carries it and `tools/gen_joc_quadrature.py` regenerates
+  it. `--flat-quadrature` restores the plain reading for measurement.
+  Configuration 4 is assumed to behave like 3 (no stream to test).
 - **Clip gain** (clause 6.3.3.2): `(1 + y/32) 2^(x-4)`, over [1; 8,75]. The
   standard defines the value and never uses it again: the word does not
   appear in clause 6.6, which specifies the whole decode. It is the gain the
@@ -74,3 +96,9 @@ that the decoder relies on. Clause numbers refer to that document.
 - **Object order.** The OAMD program lists beds, then ISF, then dynamic
   objects; JOC objects fill that order minus the LFE. Complexity index 16
   in the streams measured means 15 JOC objects plus the LFE bed.
+- **The Dolby decoder writes objects too**, which is what settled the two
+  points above. Its GStreamer element `dlbac3dec` takes an undocumented
+  `out-ch-config=21` ("RAW") and then emits the coded objects as PCM instead
+  of a channel bed, and `dlboar` renders them to up to 9.1.6.
+  `docs/dolby-tools.md` has the pipeline; `docs/evidence/2026-09-09-c.md` has
+  the measurements.

@@ -120,6 +120,12 @@ enum Command {
         /// restoring the clip gain the encoder took off.
         #[arg(long)]
         no_clip_gain: bool,
+        /// JOC: take the 90-degree phase shift of downmix configurations 3
+        /// and 4 back out by rotating every subband alike, the lowest one
+        /// included, instead of correcting the lowest one the way the Dolby
+        /// decoder does; for measuring what the correction changes.
+        #[arg(long)]
+        flat_quadrature: bool,
     },
     /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
     /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
@@ -272,6 +278,7 @@ fn main() -> ExitCode {
                 no_tpnp,
                 ecpl_spec,
                 no_clip_gain,
+                flat_quadrature,
             } => if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
             {
@@ -285,6 +292,7 @@ fn main() -> ExitCode {
                         adm: format == Format::Adm,
                         dolby_origin_tag,
                         clip_gain: !no_clip_gain,
+                        flat_quadrature,
                     },
                 )
             } else if eac3::is_eac3(&file).unwrap_or(false) {
@@ -309,8 +317,9 @@ fn main() -> ExitCode {
                         all_events,
                         adm: format == Format::Adm,
                         dolby_origin_tag,
-                        // TrueHD carries no JOC and so no clip gain.
+                        // TrueHD carries no JOC, so neither of these apply.
                         clip_gain: false,
+                        flat_quadrature: false,
                     },
                 )
             } else {
