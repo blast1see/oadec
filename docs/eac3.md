@@ -44,7 +44,21 @@ streams listed in `docs/evidence/2026-09-08.md`.
   double precision matches the five-decimal table 6.33 within 6e-6.
 - **AHT.** The inverse DCT of clause E.2.4.5 is `C(k,m) = sqrt(2) sum_j
   R_j X(k,j) cos(j(2m+1)pi/12)` with `R_0 = 1/sqrt(2)`; the text extraction
-  of the PDF garbles it. Not exercised by the corpus.
+  of the PDF garbles it.
+- **Gain-adaptive quantization.** The helper array of clause E.2.4.2 marks
+  a bin as gain-coded from its `hebap` alone, but clause E.2.4.4.2 says
+  `gaqmod == 0` transmits no gain words and uses the plain quantizer
+  throughout. Reading a gain word for those bins reads the wrong bits (and
+  crashed the decoder before the low-rate material was made).
+- **Getting AHT and spectral extension to appear.** No film in the corpus
+  used either. Encoding 5.1 material with DEE `pcm_to_ddp` at 384 kbit/s
+  gives AHT in almost every frame, and at 192 kbit/s spectral extension in
+  every frame as well; below 192 the encoder refuses 5.1. Measured in
+  `docs/evidence/2026-09-09.md`.
+- **Spectral extension noise** is drawn by the decoder, like the dither of
+  clause 6.3.4, so decoders differ audibly less than the raw ratio
+  suggests: on a stream with SPX in every frame two conforming decoders sit
+  15-19 dB apart on the surround channels.
 - **EMDF placement.** JOC streams carry one EMDF container per frame in the
   skip field of an audio block (clause H.1); parsing the skip fields is exact,
   scanning the frame bytes for `0x5838` is not (false syncs in audio data).
