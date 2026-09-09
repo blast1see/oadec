@@ -373,6 +373,8 @@ struct Pass {
     dialnorm: BTreeMap<u8, u64>,
     aht_frames: u64,
     spx_frames: u64,
+    ecpl_frames: u64,
+    tpnp_frames: u64,
 }
 
 /// Decodes every frame of independent substream 0 (parsing the others) and
@@ -384,6 +386,7 @@ fn pass(
 ) -> Result<(Pass, u64, u64)> {
     let mut decoder = Decoder::new(opts);
     let mut p = Pass::default();
+    let mut pending: std::collections::VecDeque<u64> = std::collections::VecDeque::new();
     let (frames, sync_errors, skipped) = for_each_frame(path, |_offset, bytes, header| {
         let key = (header.stream_type as u8, header.substream_id);
         *p.substreams.entry(key).or_default() += 1;
@@ -397,41 +400,72 @@ fn pass(
         }
         let index = p.frames;
         p.frames += 1;
+        // Enhanced coupling makes the decoder hold a frame back, so the frame
+        // it hands out is not always the one just fed in; the queue keeps the
+        // index that belongs to each released frame.
+        pending.push_back(index);
         match decoder.decode(bytes) {
-            Ok(d) => {
-                if p.first.is_none() {
-                    p.first = Some((d.header.clone(), d.bsi.clone()));
-                }
-                *p.dialnorm.entry(d.bsi.dialnorm).or_default() += 1;
-                merge(&mut p.coverage, &d.coverage);
-                if d.coverage.aht {
-                    p.aht_frames += 1;
-                }
-                if d.coverage.spectral_extension {
-                    p.spx_frames += 1;
-                }
-                if !d.crc_ok {
-                    p.crc_failures += 1;
-                    if p.first_error.is_none() {
-                        p.first_error = Some(format!("frame {index}: CRC failure"));
-                    }
-                }
-                p.emdf.scan(index, &d.skip_fields);
-                p.samples += d.header.samples() as u64;
-                on_pcm(&d)?;
+            Ok(Some(d)) => {
+                let at = pending.pop_front().unwrap_or(index);
+                account(&mut p, at, &d, &mut on_pcm)?;
             }
+            Ok(None) => {}
             Err(e) => {
+                pending.pop_back();
                 p.decode_errors += 1;
                 if p.first_error.is_none() {
                     p.first_error = Some(format!("frame {index}: {e}"));
+                }
+                while let Some(d) = decoder.flush()? {
+                    let at = pending.pop_front().unwrap_or(index);
+                    account(&mut p, at, &d, &mut on_pcm)?;
                 }
                 decoder.reset();
             }
         }
         Ok(())
     })?;
+    while let Some(d) = decoder.flush()? {
+        let at = pending.pop_front().unwrap_or(p.frames);
+        account(&mut p, at, &d, &mut on_pcm)?;
+    }
     let _ = frames;
     Ok((p, sync_errors, skipped))
+}
+
+/// Folds one decoded frame into the pass statistics.
+fn account(
+    p: &mut Pass,
+    index: u64,
+    d: &Decoded,
+    on_pcm: &mut impl FnMut(&Decoded) -> Result<()>,
+) -> Result<()> {
+    if p.first.is_none() {
+        p.first = Some((d.header.clone(), d.bsi.clone()));
+    }
+    *p.dialnorm.entry(d.bsi.dialnorm).or_default() += 1;
+    merge(&mut p.coverage, &d.coverage);
+    if d.coverage.aht {
+        p.aht_frames += 1;
+    }
+    if d.coverage.spectral_extension {
+        p.spx_frames += 1;
+    }
+    if d.coverage.enhanced_coupling {
+        p.ecpl_frames += 1;
+    }
+    if d.coverage.transient_pre_noise {
+        p.tpnp_frames += 1;
+    }
+    if !d.crc_ok {
+        p.crc_failures += 1;
+        if p.first_error.is_none() {
+            p.first_error = Some(format!("frame {index}: CRC failure"));
+        }
+    }
+    p.emdf.scan(index, &d.skip_fields);
+    p.samples += d.header.samples() as u64;
+    on_pcm(d)
 }
 
 /// Whether a pass found nothing wrong: every frame decoded, every CRC and
@@ -487,6 +521,8 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             "coverage": coverage_list(&p.coverage),
             "aht_frames": p.aht_frames,
             "spx_frames": p.spx_frames,
+            "ecpl_frames": p.ecpl_frames,
+            "tpnp_frames": p.tpnp_frames,
             "joc_extension": joc.map(|(flag, complexity)| json!({
                 "flag": flag,
                 "complexity_index": complexity,
@@ -578,10 +614,12 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
         ),
     }
     println!(
-        "Coding tools:      {} (AHT in {} frames, spectral extension in {} frames)",
+        "Coding tools:      {} (AHT in {} frames, spectral extension in {}, enhanced coupling in {}, transient pre-noise in {})",
         coverage_list(&p.coverage).join(", "),
         p.aht_frames,
-        p.spx_frames
+        p.spx_frames,
+        p.ecpl_frames,
+        p.tpnp_frames
     );
     println!(
         "EMDF:              {} frames with skip fields ({} bytes), {} containers, {} frames without one, {} false sync words, payload ids {:?}",
