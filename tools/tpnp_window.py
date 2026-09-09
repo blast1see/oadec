@@ -54,8 +54,13 @@ def read_wav(path: str) -> tuple[np.ndarray, int]:
                 fh.seek(size + (size & 1), 1)
         if fmt is None:
             raise SystemExit(f"{path}: no fmt chunk")
+        tag = struct.unpack("<H", fmt[0:2])[0]
         channels, _rate = struct.unpack("<HI", fmt[2:8])
         bits = struct.unpack("<H", fmt[14:16])[0]
+        if tag == 0xFFFE and len(fmt) >= 26:
+            # WAVE_FORMAT_EXTENSIBLE keeps the real tag in the sub-format GUID
+            tag = struct.unpack("<H", fmt[24:26])[0]
+    is_float = tag == 3
     if bits == 24:
         b = np.frombuffer(raw[: (len(raw) // 3) * 3], dtype=np.uint8).reshape(-1, 3)
         v = (
@@ -65,7 +70,10 @@ def read_wav(path: str) -> tuple[np.ndarray, int]:
         )
         a = v.astype(np.float64) / 8388608.0
     elif bits == 32:
-        a = np.frombuffer(raw, dtype="<f4").astype(np.float64)
+        if is_float:
+            a = np.frombuffer(raw, dtype="<f4").astype(np.float64)
+        else:
+            a = np.frombuffer(raw, dtype="<i4").astype(np.float64) / 2147483648.0
     elif bits == 16:
         a = np.frombuffer(raw, dtype="<i2").astype(np.float64) / 32768.0
     else:

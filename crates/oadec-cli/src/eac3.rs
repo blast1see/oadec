@@ -425,6 +425,7 @@ struct Pass {
     samples: u64,
     decode_errors: u64,
     crc_failures: u64,
+    tail_overruns: u64,
     first_error: Option<String>,
     coverage: Coverage,
     emdf: EmdfStats,
@@ -529,6 +530,14 @@ fn account(
             }
         }
     }
+    if d.tail_overrun {
+        p.tail_overruns += 1;
+        if p.first_error.is_none() {
+            p.first_error = Some(format!(
+                "frame {index}: the audio blocks end inside the frame tail"
+            ));
+        }
+    }
     if !d.crc_ok {
         p.crc_failures += 1;
         if p.first_error.is_none() {
@@ -577,6 +586,7 @@ fn joc_peak(j: &Joc) -> f64 {
 fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
     p.decode_errors == 0
         && p.crc_failures == 0
+        && p.tail_overruns == 0
         && sync_errors == 0
         && skipped == 0
         && p.emdf.oamd_errors == 0
@@ -618,6 +628,7 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "skipped_bytes": skipped,
                 "decode_errors": p.decode_errors,
                 "crc_failures": p.crc_failures,
+                "tail_overruns": p.tail_overruns,
                 "oamd_errors": e.oamd_errors,
                 "joc_errors": e.joc_errors,
                 "joc_size_mismatches": e.joc_size_mismatch,
@@ -817,8 +828,8 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
         );
     }
     println!(
-        "Integrity:         {} decode errors, {} CRC failures",
-        p.decode_errors, p.crc_failures
+        "Integrity:         {} decode errors, {} CRC failures, {} frames ending inside the frame tail",
+        p.decode_errors, p.crc_failures, p.tail_overruns
     );
     if let Some(e) = p.first_error.as_ref().or(p.emdf.first_error.as_ref()) {
         println!("First problem:     {e}");

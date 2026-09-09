@@ -268,6 +268,9 @@ pub struct Frame {
     /// Transient pre-noise processing per full-bandwidth channel, in coded
     /// order (clause E.3.7); empty when the frame signals none.
     pub transproc: Vec<Option<Transient>>,
+    /// The audio blocks ended inside the 18 bits the frame tail needs, which
+    /// is out of spec. The frame is still decoded; see `docs/eac3.md`.
+    pub tail_overrun: bool,
 }
 
 /// CRC-16 with the generator `x^16 + x^15 + x^2 + 1` of clause 6.10.1.
@@ -2079,8 +2082,15 @@ impl Frame {
         } else {
             Vec::new()
         };
-        // auxdata (at least auxdatae) and errorcheck (17 bits) must fit
-        if end_bit + 1 + 17 > frame.len() * 8 {
+        // The frame closes with at least `auxdatae` and the error check, 18
+        // bits. A frame whose audio blocks reach into that space is out of
+        // spec, but throwing it away is worse than keeping it: on a 1959
+        // catalogue title one frame in 1 875 ends three bits inside the tail,
+        // its CRC checks, and FFmpeg, the Dolby decoder and this one all
+        // produce audio that agrees to the usual dither floor. So it is
+        // reported and decoded, not refused.
+        let tail_overrun = end_bit + 1 + 17 > frame.len() * 8;
+        if end_bit > frame.len() * 8 {
             let e = Eac3Error::Syntax("audio blocks run past the end of the frame");
             return Err(fail(e, Some(header), Some(bsi), out_blocks, end_bit));
         }
@@ -2094,6 +2104,7 @@ impl Frame {
             end_bit,
             crc_ok: crc,
             transproc,
+            tail_overrun,
         })
     }
 }

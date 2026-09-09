@@ -26,6 +26,8 @@ pub struct Decoded {
     /// order (clause E.3.7); empty when the frame signals none. Reported
     /// whether or not the correction was applied.
     pub transproc: Vec<Option<crate::frame::Transient>>,
+    /// The audio blocks ended inside the space the frame tail needs.
+    pub tail_overrun: bool,
 }
 
 /// Decodes a sequence of syncframes of one substream.
@@ -173,6 +175,7 @@ impl Decoder {
             coverage: frame.coverage,
             crc_ok: frame.crc_ok,
             transproc: frame.transproc.clone(),
+            tail_overrun: frame.tail_overrun,
         };
         let transproc: &[Option<crate::frame::Transient>] = if self.opts.tpnp {
             &frame.transproc
