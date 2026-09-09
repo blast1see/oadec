@@ -18,7 +18,7 @@ Atmos track can become an E-AC-3 Atmos track without losing the objects.
 | TrueHD framing, major sync, `info`, `verify` | done | six films, every integrity counter zero |
 | Substream syntax (restart/block headers, matrices, filters, Huffman) | done | 24 million segments, zero parity or CRC failures |
 | Presentations 0–2 (2 / 6 / 8 channels) | done | **bit-exact** with FFmpeg over six whole films |
-| Presentation 3 (16-channel objects, restart sync `0x31EC`) | done | Pi: bit-exact with truehdd, all 47,718 lossless checks pass |
+| Presentation 3 (16-channel objects, restart sync `0x31EC`) | done | **bit-exact with the Dolby decoder's own object output**, every sample of 12 and 16 objects on two films; all 47,718 lossless checks pass |
 | Object Audio Metadata (ETSI TS 103 420) | done | 1,344,146 payloads, zero parse errors |
 | Timing model, seamless branches, duplicates | done | Braveheart: 0 branches, the same as truehdd |
 | DAMF writer, Dolby validators, encoder round trip | done | validators exit 0; the encoder produces E-AC-3 JOC and TrueHD Atmos from our sets |
@@ -27,7 +27,7 @@ Atmos track can become an E-AC-3 Atmos track without losing the objects.
 | JOC objects (ETSI TS 103 420) to DAMF / ADM | done | 380,000 payloads parse to the byte; against the Dolby decoder's own object output, 40 to 56 dB per object, at the dither floor in every band the core decode is exact in |
 | Enhanced coupling (clause E.3.5.5) | done | no stream in the world carries it, so `oadec eac3-ecpl-inject` makes one; both Dolby decoders accept it and agree with us at the dither floor |
 | Transient pre-noise processing (clause E.3.7) | done | 3.6 dB closer to the Dolby decode inside the corrected regions; FFmpeg applies nothing |
-| JOC clip gain (clause 6.3.3.2) | done | the standard defines the value and not its use; a two-level encode shows the encoder divides the downmix by it |
+| JOC clip gain (clause 6.3.3.2) | done | the standard defines the value and not its use; a two-level encode shows the encoder divides the downmix by it, and the Dolby object decoder agrees on a title that changes it mid-reel |
 
 The numbers behind the table: [`docs/evidence/`](docs/evidence/). Format
 notes in our own words: [`docs/truehd.md`](docs/truehd.md),
