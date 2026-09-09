@@ -17,6 +17,7 @@ pub mod frame;
 pub mod header;
 pub mod imdct;
 pub mod tables;
+pub mod tpnp;
 pub mod vq;
 
 pub use bsi::Bsi;
