@@ -984,8 +984,15 @@ the 15 objects, in the order the programme lists them. `drc-suppress` and
 `drc-mode=custom-0` keep dynamic range control and dialogue normalisation
 out; `drop-delay=true` removes the decoder's start-up samples, after which
 the objects line up with `oadec decode --format damf --no-bed-conform` at
-lag zero. `dlbtruehddec` has the same `out-ch-config=raw` and a
-`presentation` property that reaches 16.
+lag zero. `dlbtruehddec` has the same `out-ch-config=raw` and a `presentation` property
+that reaches 16, but it will not take a raw `.thd` elementary stream: the
+decoder answers `0x50` on the first access unit whether the parser is in
+passthrough or not, with or without major-sync alignment, at any presentation.
+The plugin set here has no Matroska demuxer to feed it from, so the TrueHD
+object path stays unchecked against Dolby in the object domain. It is not
+unchecked otherwise: the eight-channel presentation is bit-exact against the
+Dolby engine inside Plex, and the sixteen-channel one is bit-exact against
+truehdd.
 
 This is the only Dolby decoder here that works in the object domain, and it
 is what settled the JOC matrix alignment and the low-band quadrature filter;
