@@ -23,15 +23,15 @@ Atmos track can become an E-AC-3 Atmos track without losing the objects.
 | Timing model, seamless branches, duplicates | done | Braveheart: 0 branches, the same as truehdd |
 | DAMF writer, Dolby validators, encoder round trip | done | validators exit 0; the encoder produces E-AC-3 JOC and TrueHD Atmos from our sets |
 | ADM BWF writer | done | structurally identical to the Dolby converter's own output |
-| E-AC-3 / AC-3 core decoder (ETSI TS 102 366) | done | 17 streams, 3.3 million frames, zero CRC or parse failures; as close to a Dolby decode as FFmpeg is on every channel |
+| E-AC-3 / AC-3 core decoder (ETSI TS 102 366) | done | 19 streams, 3.3 million frames, zero CRC or parse failures; closer to a Dolby decode than FFmpeg is on every channel of the hardest streams |
 | JOC objects (ETSI TS 103 420) to DAMF / ADM | done | 380,000 payloads parse to the byte; objects back in phase with the source of an encoder round trip; validators exit 0 |
 
 The numbers behind the table: [`docs/evidence/`](docs/evidence/). Format
 notes in our own words: [`docs/truehd.md`](docs/truehd.md),
 [`docs/oamd.md`](docs/oamd.md), [`docs/eac3.md`](docs/eac3.md),
-[`docs/joc.md`](docs/joc.md). Untested because the corpus never used them:
-AHT and spectral extension (implemented from the text), enhanced coupling
-(parsed, not decoded). Design and milestones:
+[`docs/joc.md`](docs/joc.md). Not exercised by any stream to hand: enhanced
+coupling (parsed so frames stay in sync, not decoded) and transient
+pre-noise processing (parsed, not applied). Design and milestones:
 [`docs/superpowers/specs/2026-09-06-oadec-design.md`](docs/superpowers/specs/2026-09-06-oadec-design.md).
 
 ## Quick start
