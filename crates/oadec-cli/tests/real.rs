@@ -375,6 +375,91 @@ fn transient_pre_noise_changes_only_what_it_should() {
     }
 }
 
+/// Enhanced coupling and JOC in one stream. Nothing in the wild carries both,
+/// so the material is made here: a JOC encode low enough to use coupling, then
+/// converted. This is the case where the enhanced coupling lookahead meets the
+/// object pipeline, so a frame held back or counted twice would show up as a
+/// changed object length or a lost metadata event.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn enhanced_coupling_survives_the_object_pipeline() {
+    let Some(media) = media_dir() else {
+        eprintln!("OADEC_MEDIA not set; skipping");
+        return;
+    };
+    let source = media.join("ec3/pi-head-joc384.ec3");
+    if !source.exists() {
+        eprintln!("{} is missing; skipping", source.display());
+        return;
+    }
+    let dir = std::env::temp_dir();
+    let converted = dir.join("oadec-joc-ecpl.ec3");
+    let status = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .arg("eac3-ecpl-inject")
+        .arg(&source)
+        .arg("-o")
+        .arg(&converted)
+        .args(["--chaos", "5"])
+        .status()
+        .expect("run oadec eac3-ecpl-inject");
+    assert!(status.success(), "the injector failed");
+
+    // objects out of the plain stream, then out of the converted one in both
+    // readings of the standard
+    let mut runs = Vec::new();
+    for (name, input, extra) in [
+        ("plain", source.as_path(), None),
+        ("ecpl-dolby", converted.as_path(), None),
+        ("ecpl-spec", converted.as_path(), Some("--ecpl-spec")),
+    ] {
+        let out = dir.join(format!("oadec-objects-{name}"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_oadec"));
+        cmd.args(["decode", "--format", "damf", "-o"]).arg(&out);
+        if let Some(flag) = extra {
+            cmd.arg(flag);
+        }
+        let res = cmd.arg(input).output().expect("run oadec decode");
+        assert!(
+            res.status.success(),
+            "{name} object decode failed: {}",
+            String::from_utf8_lossy(&res.stderr)
+        );
+        let log = String::from_utf8_lossy(&res.stderr).into_owned();
+        let audio = out.with_extension("atmos.audio");
+        let size = std::fs::metadata(&audio)
+            .unwrap_or_else(|e| panic!("{name}: {} ({e})", audio.display()))
+            .len();
+        runs.push((name, size, log));
+        for ext in ["atmos", "atmos.audio", "atmos.metadata"] {
+            let _ = std::fs::remove_file(out.with_extension(ext));
+        }
+    }
+    let _ = std::fs::remove_file(&converted);
+
+    let events = |log: &str| {
+        log.split_whitespace()
+            .zip(log.split_whitespace().skip(1))
+            .find(|(_, w)| *w == "events,")
+            .map(|(n, _)| n.to_string())
+    };
+    let (_, base_size, base_log) = &runs[0];
+    for (name, size, log) in &runs[1..] {
+        assert_eq!(
+            size, base_size,
+            "{name} changed the object length: {size} against {base_size}"
+        );
+        assert_eq!(
+            events(log),
+            events(base_log),
+            "{name} changed the metadata event count"
+        );
+        assert!(
+            !log.contains("out-of-order events)") || log.contains("0 out-of-order events)"),
+            "{name} reported out-of-order metadata events"
+        );
+    }
+}
+
 /// Every JOC stream carries an EMDF container with both metadata payloads in
 /// every frame, and all of them parse to the byte.
 #[test]
