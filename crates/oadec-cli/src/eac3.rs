@@ -19,9 +19,50 @@ use crate::decode::{Format, Order, format_duration};
 /// Whether the file starts with an AC-3 family sync word.
 pub fn is_eac3(path: &Path) -> Result<bool> {
     let mut f = File::open(path).with_context(|| format!("opening {}", path.display()))?;
-    let mut head = [0u8; 2];
+    let mut head = vec![0u8; SNIFF_BYTES];
     let n = f.read(&mut head)?;
-    Ok(n == 2 && head == [0x0B, 0x77])
+    head.truncate(n);
+    // The first two bytes are not enough. A Blu-ray TrueHD track can carry an
+    // AC-3 core frame in front of the MLP stream, so a file that opens with
+    // the AC-3 sync word may still be TrueHD; FFmpeg and MediaInfo both give
+    // up on one. A major sync with an access-unit chain behind it decides.
+    if truehd_start(&head).is_some() {
+        return Ok(false);
+    }
+    Ok(head.starts_with(&[0x0B, 0x77]))
+}
+
+/// How far into a file to look for the shape of the stream.
+const SNIFF_BYTES: usize = 64 << 10;
+
+/// The offset where a TrueHD stream starts inside `head`, if one does.
+///
+/// A four-byte sync word turns up in audio data about once every four
+/// gigabytes, so finding one proves nothing on its own; the access-unit
+/// lengths in front of it have to chain as well.
+fn truehd_start(head: &[u8]) -> Option<usize> {
+    const CHAIN: usize = 8;
+    let mut at = 0usize;
+    while at + 8 <= head.len() {
+        let word = u32::from_be_bytes(head[at + 4..at + 8].try_into().ok()?);
+        if word == oadec_truehd::sync::SYNC_FBA || word == oadec_truehd::sync::SYNC_FBB {
+            let mut off = at;
+            let mut linked = 0;
+            while linked < CHAIN && off + 2 <= head.len() {
+                let len = usize::from(u16::from_be_bytes([head[off], head[off + 1]]) & 0x0FFF) * 2;
+                if len < 8 || off + len > head.len() {
+                    break;
+                }
+                off += len;
+                linked += 1;
+            }
+            if linked >= CHAIN || off >= head.len() {
+                return Some(at);
+            }
+        }
+        at += 1;
+    }
+    None
 }
 
 /// Streams the syncframes of a file: `on_frame(offset, bytes, header)`.
