@@ -138,3 +138,166 @@ fn every_truehd_stream_is_clean() {
     }
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
+
+/// The union of the coding tools a set of reports used.
+fn coverage_union(reports: &[Value]) -> Vec<String> {
+    let mut tools: Vec<String> = reports
+        .iter()
+        .filter_map(|r| r["coverage"].as_array())
+        .flatten()
+        .filter_map(|v| v.as_str().map(str::to_owned))
+        .collect();
+    tools.sort();
+    tools.dedup();
+    tools
+}
+
+/// Two short E-AC-3 clips encoded at low data rates exercise the paths the
+/// film corpus never reaches: the adaptive hybrid transform and spectral
+/// extension. Both decode without a single failure.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn the_low_rate_clips_exercise_aht_and_spectral_extension() {
+    let Some(media) = media_dir() else {
+        eprintln!("OADEC_MEDIA not set; skipping");
+        return;
+    };
+    let clips = [
+        ("pi-head-spx192.ec3", &["aht", "spectral-extension"][..]),
+        ("pi-head-aht384.ec3", &["aht"][..]),
+    ];
+    for (name, expected) in clips {
+        let path = media.join("ec3").join(name);
+        if !path.exists() {
+            eprintln!("{} missing; skipping", path.display());
+            continue;
+        }
+        let report = verify_json(&path);
+        assert_eq!(
+            nonzero_failures(&report),
+            Vec::<String>::new(),
+            "{name} first error: {:?}",
+            report["first_error"]
+        );
+        assert_eq!(report["clean"], Value::Bool(true), "{name}");
+        let tools = coverage_union(std::slice::from_ref(&report));
+        for tool in expected {
+            assert!(
+                tools.iter().any(|t| t == tool),
+                "{name} does not use {tool}: {tools:?}"
+            );
+        }
+        assert!(
+            report["aht_frames"].as_u64().unwrap_or(0) > 0,
+            "{name}: no frame used the adaptive hybrid transform"
+        );
+    }
+}
+
+/// Every AC-3 family stream in the corpus decodes cleanly: no sync loss, no
+/// skipped byte, no CRC failure, and every metadata payload parses. Together
+/// the corpus must still cover the tools that are easy to get wrong.
+#[test]
+#[ignore = "needs OADEC_MEDIA; several minutes"]
+fn every_eac3_stream_is_clean() {
+    let Some(media) = media_dir() else {
+        eprintln!("OADEC_MEDIA not set; skipping");
+        return;
+    };
+    let mut files: Vec<PathBuf> = std::fs::read_dir(media.join("ec3"))
+        .expect("ec3 directory")
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| {
+            p.extension()
+                .and_then(|x| x.to_str())
+                .is_some_and(|x| matches!(x, "ec3" | "eac3" | "ac3"))
+        })
+        .collect();
+    files.sort();
+    assert!(!files.is_empty(), "no streams under OADEC_MEDIA/ec3");
+    let mut problems = Vec::new();
+    let mut reports = Vec::new();
+    for file in &files {
+        let report = verify_json(file);
+        let failures = nonzero_failures(&report);
+        eprintln!(
+            "{}: {} frames, {:?}, failures {failures:?}",
+            file.display(),
+            report["frames"],
+            report["coverage"]
+        );
+        if !failures.is_empty() || report["clean"] != Value::Bool(true) {
+            problems.push(format!(
+                "{}: {failures:?} first error {:?}",
+                file.display(),
+                report["first_error"]
+            ));
+        }
+        reports.push(report);
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+    let tools = coverage_union(&reports);
+    for tool in [
+        "coupling",
+        "rematrixing",
+        "block-switching",
+        "dither",
+        "skip-fields",
+        "aht",
+        "spectral-extension",
+    ] {
+        assert!(
+            tools.iter().any(|t| t == tool),
+            "the corpus no longer covers {tool}: {tools:?}"
+        );
+    }
+}
+
+/// Every JOC stream carries an EMDF container with both metadata payloads in
+/// every frame, and all of them parse to the byte.
+#[test]
+#[ignore = "needs OADEC_MEDIA; several minutes"]
+fn joc_streams_carry_object_metadata_in_every_frame() {
+    let Some(media) = media_dir() else {
+        eprintln!("OADEC_MEDIA not set; skipping");
+        return;
+    };
+    let mut files: Vec<PathBuf> = std::fs::read_dir(media.join("ec3"))
+        .expect("ec3 directory")
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|x| x == "ec3"))
+        .collect();
+    files.sort();
+    let mut joc_streams = 0;
+    for file in &files {
+        let report = verify_json(file);
+        if report["joc"].is_null() {
+            continue;
+        }
+        joc_streams += 1;
+        let frames = report["frames"].as_u64().expect("frames");
+        let emdf = &report["emdf"];
+        let joc = &report["joc"];
+        eprintln!(
+            "{}: {frames} frames, {} JOC payloads, downmix configs {:?}",
+            file.display(),
+            emdf["joc_payloads"],
+            joc["downmix_configs"]
+        );
+        assert_eq!(emdf["container_errors"].as_u64(), Some(0), "{file:?}");
+        assert_eq!(emdf["oamd_errors"].as_u64(), Some(0), "{file:?}");
+        assert_eq!(joc["errors"].as_u64(), Some(0), "{file:?}");
+        assert_eq!(joc["size_mismatches"].as_u64(), Some(0), "{file:?}");
+        assert_eq!(
+            emdf["oamd_ok"].as_u64(),
+            Some(frames),
+            "{file:?}: an object metadata payload is missing from some frame"
+        );
+        assert_eq!(
+            emdf["joc_payloads"].as_u64(),
+            Some(frames),
+            "{file:?}: a JOC payload is missing from some frame"
+        );
+    }
+    assert!(joc_streams > 0, "no JOC stream under OADEC_MEDIA/ec3");
+}

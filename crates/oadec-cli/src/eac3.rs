@@ -12,6 +12,7 @@ use oadec_eac3::{Coverage, Decoded, Decoder, FrameHeader, Options, Syntax, find_
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::joc::{Joc, Slope, SparseIndexMode};
 use oadec_emdf::oamd::Oamd;
+use serde_json::{Value, json};
 
 use crate::decode::{Format, Order, format_duration};
 
@@ -420,6 +421,18 @@ fn pass(
     Ok((p, sync_errors, skipped))
 }
 
+/// Whether a pass found nothing wrong: every frame decoded, every CRC and
+/// every metadata payload checked out, and no byte of the file was skipped.
+fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
+    p.decode_errors == 0
+        && p.crc_failures == 0
+        && sync_errors == 0
+        && skipped == 0
+        && p.emdf.oamd_errors == 0
+        && p.emdf.joc_errors == 0
+        && p.emdf.joc_size_mismatch == 0
+}
+
 fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64, json: bool) {
     let Some((h, bsi)) = &p.first else {
         eprintln!("{}: no decodable frames", path.display());
@@ -429,45 +442,72 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
     let duration = p.samples as f64 / f64::from(h.sample_rate);
     let joc = bsi.joc_extension();
     if json {
-        let ids: Vec<String> = p
-            .emdf
+        let e = &p.emdf;
+        let payload_ids: serde_json::Map<String, Value> = e
             .payload_ids
             .iter()
-            .map(|(k, v)| format!("\"{k}\": {v}"))
+            .map(|(k, v)| (k.to_string(), Value::from(*v)))
             .collect();
-        println!(
-            "{{\"file\": {:?}, \"syntax\": \"{}\", \"sample_rate\": {}, \"channels\": {:?}, \"blocks_per_frame\": {}, \"bit_rate\": {}, \"bsid\": {}, \"frames\": {}, \"independent_frames\": {}, \"dependent_frames\": {}, \"samples\": {}, \"duration\": {:.3}, \"sync_errors\": {}, \"skipped_bytes\": {}, \"decode_errors\": {}, \"crc_failures\": {}, \"coverage\": {:?}, \"aht_frames\": {}, \"spx_frames\": {}, \"joc_extension\": {:?}, \"dialnorm\": {:?}, \"emdf\": {{\"frames_with_skip\": {}, \"containers\": {}, \"container_errors\": {}, \"payload_ids\": {{{}}}, \"oamd_ok\": {}, \"oamd_errors\": {}, \"joc_payloads\": {}}}, \"first_error\": {:?}, \"seconds\": {:.2}}}",
-            path.display().to_string(),
-            syntax_name(h),
-            h.sample_rate,
-            names,
-            h.blocks,
-            h.bit_rate(),
-            h.bsid,
-            p.frames,
-            p.independent,
-            p.dependent,
-            p.samples,
-            duration,
-            sync_errors,
-            skipped,
-            p.decode_errors,
-            p.crc_failures,
-            coverage_list(&p.coverage),
-            p.aht_frames,
-            p.spx_frames,
-            joc,
-            p.dialnorm.keys().collect::<Vec<_>>(),
-            p.emdf.frames_with_skip,
-            p.emdf.containers,
-            p.emdf.container_errors,
-            ids.join(", "),
-            p.emdf.oamd_ok,
-            p.emdf.oamd_errors,
-            p.emdf.joc,
-            p.first_error.as_ref().or(p.emdf.first_error.as_ref()),
-            elapsed
-        );
+        let report = json!({
+            "file": path.display().to_string(),
+            "syntax": syntax_name(h),
+            "sample_rate": h.sample_rate,
+            "channels": names,
+            "blocks_per_frame": h.blocks,
+            "bit_rate": h.bit_rate(),
+            "bsid": h.bsid,
+            "frames": p.frames,
+            "independent_frames": p.independent,
+            "dependent_frames": p.dependent,
+            "samples": p.samples,
+            "duration": duration,
+            "clean": is_clean(p, sync_errors, skipped),
+            "failures": {
+                "sync_errors": sync_errors,
+                "skipped_bytes": skipped,
+                "decode_errors": p.decode_errors,
+                "crc_failures": p.crc_failures,
+                "oamd_errors": e.oamd_errors,
+                "joc_errors": e.joc_errors,
+                "joc_size_mismatches": e.joc_size_mismatch,
+            },
+            "coverage": coverage_list(&p.coverage),
+            "aht_frames": p.aht_frames,
+            "spx_frames": p.spx_frames,
+            "joc_extension": joc.map(|(flag, complexity)| json!({
+                "flag": flag,
+                "complexity_index": complexity,
+            })),
+            "dialnorm": p.dialnorm.keys().collect::<Vec<_>>(),
+            "emdf": {
+                "frames_with_skip": e.frames_with_skip,
+                "skip_bytes": e.skip_bytes,
+                "containers": e.containers,
+                "container_errors": e.container_errors,
+                "payload_ids": payload_ids,
+                "oamd_ok": e.oamd_ok,
+                "oamd_errors": e.oamd_errors,
+                "joc_payloads": e.joc,
+            },
+            "joc": (e.joc > 0).then(|| json!({
+                "parsed": e.joc_ok,
+                "errors": e.joc_errors,
+                "size_mismatches": e.joc_size_mismatch,
+                "non_zero_padding": e.joc_padding_nonzero,
+                "downmix_configs": e.joc_dmx.keys().collect::<Vec<_>>(),
+                "objects_per_payload": e.joc_objects.keys().collect::<Vec<_>>(),
+                "bands": e.joc_bands.keys().collect::<Vec<_>>(),
+                "sparse_objects": e.joc_sparse,
+                "dense_objects": e.joc_dense,
+                "absent_objects": e.joc_absent_objects,
+                "steep_objects": e.joc_steep,
+                "fine_quantized_objects": e.joc_fine,
+                "two_data_points": e.joc_two_dpoints,
+            })),
+            "first_error": p.first_error.as_ref().or(e.first_error.as_ref()),
+            "seconds": elapsed,
+        });
+        println!("{report}");
         return;
     }
     println!("File:              {}", path.display());
@@ -611,13 +651,7 @@ pub fn verify(path: &Path, json: bool) -> Result<bool> {
         started.elapsed().as_secs_f64(),
         json,
     );
-    let clean = p.decode_errors == 0
-        && p.crc_failures == 0
-        && sync_errors == 0
-        && skipped == 0
-        && p.emdf.oamd_errors == 0
-        && p.emdf.joc_errors == 0
-        && p.emdf.joc_size_mismatch == 0;
+    let clean = is_clean(&p, sync_errors, skipped);
     if !json {
         println!(
             "Result:            {}",
