@@ -6,6 +6,8 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-10
+
 ### Fixed
 
 - **The JOC mixing matrix was ten time slots out of step with the subband
