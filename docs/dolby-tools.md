@@ -984,15 +984,25 @@ the 15 objects, in the order the programme lists them. `drc-suppress` and
 `drc-mode=custom-0` keep dynamic range control and dialogue normalisation
 out; `drop-delay=true` removes the decoder's start-up samples, after which
 the objects line up with `oadec decode --format damf --no-bed-conform` at
-lag zero. `dlbtruehddec` has the same `out-ch-config=raw` and a `presentation` property
-that reaches 16, but it will not take a raw `.thd` elementary stream: the
-decoder answers `0x50` on the first access unit whether the parser is in
-passthrough or not, with or without major-sync alignment, at any presentation.
-The plugin set here has no Matroska demuxer to feed it from, so the TrueHD
-object path stays unchecked against Dolby in the object domain. It is not
-unchecked otherwise: the eight-channel presentation is bit-exact against the
-Dolby engine inside Plex, and the sixteen-channel one is bit-exact against
-truehdd.
+lag zero.
+
+**TrueHD needs a container.** `dlbtruehddec` has the same `out-ch-config=21`
+and a `presentation` property that reaches 16, but it will not take a raw
+`.thd` elementary stream: it answers `0x50` on the first access unit whether
+the parser is in passthrough or not, at any presentation. Wrap the same audio
+in MP4 and it decodes. `qtdemux` here does not know the `mlpa` sample entry
+and labels the samples `audio/x-gst-fourcc-mlpa`, so the caps need fixing on
+the way past:
+
+```
+ffmpeg -i in.thd -c:a copy -strict -2 -movflags faststart -f mp4 in.mp4
+
+gst-launch-1.0 filesrc location=in.mp4 ! qtdemux   ! capssetter caps="audio/x-true-hd" replace=true join=false   ! dlbtruehdparse enable-metadata=true   ! dlbtruehddec out-ch-config=21 presentation=16   ! "audio/x-raw(meta:DlbObjectAudioMeta),format=S32LE"   ! identity ! filesink location=objects.s32
+```
+
+The result is 24-bit samples in 32-bit words, one channel per element of the
+programme, padded to sixteen with digital silence. Our object output matches
+it sample for sample; see `docs/evidence/2026-09-10.md`.
 
 This is the only Dolby decoder here that works in the object domain, and it
 is what settled the JOC matrix alignment and the low-band quadrature filter;

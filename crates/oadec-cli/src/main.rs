@@ -12,6 +12,7 @@ mod ecpl_inject;
 mod emdf;
 mod info;
 mod input;
+mod joc_config;
 mod oamd;
 mod scan;
 mod thd_demux;
@@ -215,6 +216,19 @@ enum Command {
         #[arg(long, default_value_t = 2)]
         interp: u32,
     },
+    /// Rewrite `joc_dmx_config_idx` (table 47) in every JOC payload of an
+    /// E-AC-3 stream and change nothing else, to ask a decoder what it does
+    /// with the same audio under a different downmix configuration.
+    Eac3JocConfig {
+        /// Raw E-AC-3 elementary stream carrying JOC.
+        file: PathBuf,
+        /// Where to write the relabelled stream.
+        #[arg(short, long)]
+        output: PathBuf,
+        /// The configuration to write: 0 and 3 are the ones encoders use.
+        #[arg(long)]
+        dmx_config: u8,
+    },
 }
 
 /// Exit code when a verification finds non-conformance.
@@ -407,6 +421,11 @@ fn main() -> ExitCode {
                 },
             )
             .map(|()| ExitCode::SUCCESS),
+            Command::Eac3JocConfig {
+                file,
+                output,
+                dmx_config,
+            } => joc_config::run(&file, &output, dmx_config).map(|()| ExitCode::SUCCESS),
         };
     match result {
         Ok(code) => code,

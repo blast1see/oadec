@@ -92,6 +92,11 @@ pub struct Payload {
     pub config: PayloadConfig,
     /// Payload bytes.
     pub data: Vec<u8>,
+    /// Bit offset of the first payload byte in the buffer the container was
+    /// parsed from, wrapper included. A container sits byte-aligned inside a
+    /// skip field but its payloads do not, so a tool that wants to rewrite a
+    /// field in one needs this to find it.
+    pub data_bit: usize,
 }
 
 /// `emdf_protection()`.
@@ -211,10 +216,16 @@ pub fn parse(reader: &mut BitReader<'_>, flavor: Flavor) -> Result<Container, Co
             ));
         }
         let mut data = Vec::with_capacity(size);
+        let data_bit = reader.position();
         for _ in 0..size {
             data.push(reader.read(8)? as u8);
         }
-        payloads.push(Payload { id, config, data });
+        payloads.push(Payload {
+            id,
+            config,
+            data,
+            data_bit,
+        });
     }
 
     let primary_len = PROTECTION_SIZES[reader.read(2)? as usize];

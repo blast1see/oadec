@@ -466,6 +466,63 @@ fn enhanced_coupling_survives_the_object_pipeline() {
     }
 }
 
+/// Relabelling the downmix configuration must move three bits and nothing
+/// else: the payloads still parse to the byte and every frame check still
+/// passes.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn relabelling_the_downmix_configuration_moves_only_three_bits() {
+    let Some(media) = media_dir() else {
+        eprintln!("OADEC_MEDIA not set; skipping");
+        return;
+    };
+    let source = media.join("clips/talktome-joc-head.ec3");
+    if !source.exists() {
+        eprintln!("{} is missing; skipping", source.display());
+        return;
+    }
+    let out = std::env::temp_dir().join("oadec-joc-cfg0.ec3");
+    let status = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .arg("eac3-joc-config")
+        .arg(&source)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--dmx-config", "0"])
+        .status()
+        .expect("run oadec eac3-joc-config");
+    assert!(status.success(), "the relabel failed");
+
+    let before = verify_json(&source);
+    let after = verify_json(&out);
+    assert_eq!(after["joc"]["downmix_configs"], serde_json::json!([0]));
+    assert_eq!(before["joc"]["downmix_configs"], serde_json::json!([3]));
+    for key in ["parsed", "errors", "size_mismatches", "non_zero_padding"] {
+        assert_eq!(after["joc"][key], before["joc"][key], "joc.{key}");
+    }
+    assert_eq!(
+        after["joc"]["objects_per_payload"],
+        before["joc"]["objects_per_payload"]
+    );
+    assert!(
+        nonzero_failures(&after).is_empty(),
+        "{:?}",
+        nonzero_failures(&after)
+    );
+    assert_eq!(after["emdf"]["oamd_ok"], before["emdf"]["oamd_ok"]);
+
+    // three bits per frame, plus the two bytes of frame check they force
+    let a = std::fs::read(&source).expect("read the source");
+    let b = std::fs::read(&out).expect("read the relabelled stream");
+    let n = a.len().min(b.len());
+    let differing = (0..n).filter(|&i| a[i] != b[i]).count();
+    let frames = before["frames"].as_u64().expect("frames") as usize;
+    assert!(
+        differing <= frames * 4,
+        "{differing} bytes differ over {frames} frames"
+    );
+    let _ = std::fs::remove_file(&out);
+}
+
 /// The metadata scanner and the verifier walk the same streams by different
 /// routes, so they must agree about how many EMDF containers are there. They
 /// did not: the scanner used to hunt the sync word in the raw frame bytes,
