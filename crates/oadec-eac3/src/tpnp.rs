@@ -142,6 +142,10 @@ impl<T> Post<T> {
     /// from [`Post::pop`] with the frame's samples.
     pub fn push(&mut self, meta: T, pcm: &[Vec<f32>], transproc: &[Option<Transient>]) {
         if self.buf.len() != pcm.len() {
+            // A channel count change invalidates every index into the buffer,
+            // so start over rather than mix two layouts. `Decoder` resets on a
+            // layout change already; this is the belt to that pair of braces.
+            self.reset();
             self.buf = vec![Vec::new(); pcm.len()];
         }
         let start = self.end;
