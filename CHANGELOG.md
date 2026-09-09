@@ -18,13 +18,11 @@ Semantic Versioning.
   bit offset of each skip field, and `container::Payload::data_bit` the bit
   offset of a payload's first byte. Between them a tool can reach a field
   inside an EMDF container and rewrite it in place.
-
-### Verified
-
-- **The TrueHD object presentation is bit-exact against Dolby.** Its decoder
-  refuses a raw elementary stream but takes the same audio in an MP4; with
-  that, Pi's twelve objects and Talk to Me's sixteen come out identical, all
-  60 909 600 and 30 720 000 samples, worst difference zero.
+- `docs/evidence/2026-09-10.md`, which records that the TrueHD object
+  presentation is bit-exact against the Dolby decoder's own object output.
+  That decoder refuses a raw elementary stream but takes the same audio in an
+  MP4; with that, Pi's twelve objects and Talk to Me's sixteen come out
+  identical, all 60 909 600 and 30 720 000 samples, worst difference zero.
 
 ## [0.2.0] - 2026-09-10
 

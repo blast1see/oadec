@@ -605,3 +605,45 @@ in-repo bit stream rewriter rather than from any encoder, since neither DEE
 nor FFmpeg can emit the tool; and the question the plan expected to settle by
 measurement (the nine-bit disagreement) was settled by documents instead,
 three editions against one.
+
+## Status, 2026-09-10 (v0.2.0)
+
+The Dolby Reference Player turned out to ship Dolby's own **object** decoder
+in its GStreamer plugins, which the plan never anticipated: `dlbac3dec
+out-ch-config=21` writes the coded objects as PCM instead of a channel bed.
+Every claim about JOC objects up to this point had been judged in the channel
+domain, and against the object domain two real faults appeared at once. Both
+are fixed and a third followed from the same measurement.
+
+- **The JOC mixing matrix was ten time slots out.** Clause 6.6.6 pairs slot
+  `ts` of the subband samples with slot `ts` of the matrix and says nothing
+  about the analysis bank in between. Measured on three titles from three
+  encoders, the matrix belongs with the samples the bank produces ten slots
+  earlier; a slot either way costs more than 20 dB.
+- **The 90-degree phase shift is not a rotation at the bottom of the band.**
+  Subband 0 straddles direct current, so a single rotation by -j makes the
+  real signal's two halves cancel. The operator Dolby uses was measured and is
+  applied as a 37-tap filter across time slots.
+- **The dither was 3 dB louder than Dolby's**: clause 7.3.4 offers three
+  scalings and Dolby takes 0,5 where the code took 0,707.
+
+Per object against the Dolby decoder the distance went from 11-15 dB to
+40-56 dB, which is the floor the unshared dither sets. TrueHD's object
+presentation is not near that floor but **identical**, sample for sample, once
+the same decoder is reached through an MP4 wrapper. `docs/evidence/`
+2026-09-09-c and 2026-09-10 carry the measurements.
+
+Two tools were also found to be lying and were fixed: `oadec emdf` hunted the
+EMDF sync word in raw frame bytes and so missed half the containers, and both
+metadata commands answered the wrong format with silence instead of a
+refusal.
+
+Further deviations from the plan above: `tools/bwf_dump.py`,
+`tools/evidence.py`, `tools/make_synthetic_damf.py` and `tools/roundtrip.py`
+were never written under those names; their jobs went to `adm_diff.py`,
+the `docs/evidence/` reports, the DEE job templates and `joc_roundtrip.py`.
+Two tools the plan did not foresee exist instead: `gen_joc_quadrature.py`,
+which measures the low-band operator against the Dolby object decoder, and
+`plots.py`. The repository history was rewritten on 2026-09-10 to drop a
+`target-alt` directory that had been committed by accident, which took the
+packed size from 37 MB to under 1 MB without changing a single tracked file.
