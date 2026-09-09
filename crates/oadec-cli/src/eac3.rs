@@ -192,10 +192,17 @@ struct EmdfStats {
     joc_fine: u64,
     joc_seq_zero: u64,
     joc_clipgain: BTreeMap<u32, u64>,
+    /// Per clip gain bucket: the largest and the summed peak matrix
+    /// coefficient, and how many payloads went in.
+    joc_peak: BTreeMap<u32, (f64, f64, u64)>,
+    /// The clip gain of the payload the last scan saw, so the caller can pair
+    /// it with the decoded samples of the same frame.
+    last_clipgain: Option<f64>,
 }
 
 impl EmdfStats {
     fn scan(&mut self, frame_index: u64, skip_fields: &[Vec<u8>]) {
+        self.last_clipgain = None;
         let total: usize = skip_fields.iter().map(Vec::len).sum();
         if total == 0 {
             return;
@@ -236,10 +243,21 @@ impl EmdfStats {
                                     }
                                     *self.joc_dmx.entry(j.dmx_config).or_default() += 1;
                                     *self.joc_objects.entry(j.num_objects).or_default() += 1;
-                                    *self
-                                        .joc_clipgain
-                                        .entry((j.clipgain * 1000.0).round() as u32)
-                                        .or_default() += 1;
+                                    let bucket = (j.clipgain * 1000.0).round() as u32;
+                                    *self.joc_clipgain.entry(bucket).or_default() += 1;
+                                    self.last_clipgain = Some(j.clipgain);
+                                    // Clause 6.3.3.2 defines the clip gain but
+                                    // never says what a decoder does with it.
+                                    // If it exists to keep the matrix inside
+                                    // its quantized range, then the peak
+                                    // coefficient times the clip gain should
+                                    // sit near the ceiling whenever the gain
+                                    // is not 1; this records the evidence.
+                                    let peak = joc_peak(&j);
+                                    let e = self.joc_peak.entry(bucket).or_insert((0.0, 0.0, 0));
+                                    e.0 = e.0.max(peak);
+                                    e.1 += peak;
+                                    e.2 += 1;
                                     if j.seq_count == 0 {
                                         self.joc_seq_zero += 1;
                                     }
@@ -375,6 +393,11 @@ struct Pass {
     spx_frames: u64,
     ecpl_frames: u64,
     tpnp_frames: u64,
+    /// Every transient pre-noise parameter set, for the evidence tooling.
+    transients: Vec<(u64, usize, usize, usize)>,
+    /// Per clip gain bucket: the largest and the summed peak sample of the
+    /// decoded core, and how many frames went in.
+    core_peak: BTreeMap<u32, (f64, f64, u64)>,
 }
 
 /// Decodes every frame of independent substream 0 (parsing the others) and
@@ -456,6 +479,11 @@ fn account(
     }
     if d.coverage.transient_pre_noise {
         p.tpnp_frames += 1;
+        for (ch, t) in d.transproc.iter().enumerate() {
+            if let Some(t) = t {
+                p.transients.push((index, ch, t.loc, t.len));
+            }
+        }
     }
     if !d.crc_ok {
         p.crc_failures += 1;
@@ -464,8 +492,37 @@ fn account(
         }
     }
     p.emdf.scan(index, &d.skip_fields);
+    if let Some(g) = p.emdf.last_clipgain {
+        let peak = d
+            .pcm
+            .iter()
+            .flat_map(|c| c.iter())
+            .fold(0.0f32, |a, &v| a.max(v.abs()));
+        let e = p
+            .core_peak
+            .entry((g * 1000.0).round() as u32)
+            .or_insert((0.0, 0.0, 0));
+        e.0 = e.0.max(f64::from(peak));
+        e.1 += f64::from(peak);
+        e.2 += 1;
+    }
     p.samples += d.header.samples() as u64;
     on_pcm(d)
+}
+
+/// The largest absolute dequantized matrix coefficient of one JOC payload.
+fn joc_peak(j: &Joc) -> f64 {
+    let mut peak = 0.0f64;
+    for o in j.objects.iter().flatten() {
+        for dp in &o.mtx_q {
+            for ch in dp.iter().take(j.num_channels) {
+                for &q in ch.iter().take(o.num_bands) {
+                    peak = peak.max(oadec_joc::dequantize(q, o.quant_idx).abs());
+                }
+            }
+        }
+    }
+    peak
 }
 
 /// Whether a pass found nothing wrong: every frame decoded, every CRC and
@@ -523,6 +580,18 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             "spx_frames": p.spx_frames,
             "ecpl_frames": p.ecpl_frames,
             "tpnp_frames": p.tpnp_frames,
+            "transients": p
+                .transients
+                .iter()
+                .map(|&(frame, channel, loc, len)| {
+                    serde_json::json!({
+                        "frame": frame,
+                        "channel": channel,
+                        "loc": loc,
+                        "len": len,
+                    })
+                })
+                .collect::<Vec<_>>(),
             "joc_extension": joc.map(|(flag, complexity)| json!({
                 "flag": flag,
                 "complexity_index": complexity,
@@ -647,6 +716,34 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             e.joc_seq_zero,
             e.joc_clipgain
         );
+        if e.joc_clipgain.len() > 1 {
+            let rows: Vec<String> = e
+                .joc_peak
+                .iter()
+                .map(|(g, (max, sum, n))| {
+                    let gain = f64::from(*g) / 1000.0;
+                    format!(
+                        "{gain:.3}: peak {max:.2}, mean {:.2}, x gain {:.2} ({n})",
+                        sum / *n as f64,
+                        max * gain
+                    )
+                })
+                .collect();
+            println!("JOC clip gain:     {}", rows.join("; "));
+            let rows: Vec<String> = p
+                .core_peak
+                .iter()
+                .map(|(g, (max, sum, n))| {
+                    let gain = f64::from(*g) / 1000.0;
+                    format!(
+                        "{gain:.3}: core peak {max:.3}, mean {:.3}, x gain {:.3} ({n})",
+                        sum / *n as f64,
+                        max * gain
+                    )
+                })
+                .collect();
+            println!("JOC core level:    {}", rows.join("; "));
+        }
         println!(
             "JOC objects:       bands {:?}; {} sparse, {} dense, {} absent; {} with two data points, {} steep, {} fine-quantized",
             e.joc_bands,
@@ -720,6 +817,7 @@ pub struct DecodeOptions {
     pub format: Format,
     pub order: Order,
     pub dither: bool,
+    pub tpnp: bool,
 }
 
 fn write_float_wav_header(
@@ -774,6 +872,7 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<()> {
         path,
         Options {
             dither: opts.dither,
+            tpnp: opts.tpnp,
         },
         |d| {
             if !header_written {
@@ -830,6 +929,7 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<()> {
 #[derive(Debug, Clone, Copy)]
 pub struct CompareOptions {
     pub order: Order,
+    pub tpnp: bool,
     pub report: usize,
     /// Bytes to skip at the start of the reference.
     pub skip: u64,
@@ -955,6 +1055,7 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
         path,
         Options {
             dither: opts.dither,
+            tpnp: opts.tpnp,
         },
         |d| {
             if order.is_empty() {

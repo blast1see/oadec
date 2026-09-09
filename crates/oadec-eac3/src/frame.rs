@@ -106,11 +106,17 @@ pub struct Options {
     /// Substitute dither for zero-bit mantissas (clause 6.3.4); off gives
     /// zeros, which makes the output deterministic.
     pub dither: bool,
+    /// Apply transient pre-noise processing (clause E.3.7). ATSC A/52:2018
+    /// says the reference decoder shall; off is for measuring the difference.
+    pub tpnp: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Self { dither: true }
+        Self {
+            dither: true,
+            tpnp: true,
+        }
     }
 }
 

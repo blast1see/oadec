@@ -102,6 +102,10 @@ enum Command {
         /// E-AC-3: substitute zeros instead of dither for zero-bit mantissas.
         #[arg(long)]
         no_dither: bool,
+        /// E-AC-3: skip transient pre-noise processing (clause E.3.7), which
+        /// the reference decoder applies; for measuring what it changes.
+        #[arg(long)]
+        no_tpnp: bool,
     },
     /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
     /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
@@ -132,6 +136,10 @@ enum Command {
         /// E-AC-3: substitute zeros instead of dither for zero-bit mantissas.
         #[arg(long)]
         no_dither: bool,
+        /// E-AC-3: skip transient pre-noise processing (clause E.3.7), which
+        /// the reference decoder applies; for measuring what it changes.
+        #[arg(long)]
+        no_tpnp: bool,
         /// E-AC-3: list the N blocks with the largest deviation.
         #[arg(long, default_value_t = 0)]
         worst: usize,
@@ -205,6 +213,7 @@ fn main() -> ExitCode {
                 all_events,
                 dolby_origin_tag,
                 no_dither,
+                no_tpnp,
             } => if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
             {
@@ -227,6 +236,7 @@ fn main() -> ExitCode {
                         format,
                         order,
                         dither: !no_dither,
+                        tpnp: !no_tpnp,
                     },
                 )
             } else if matches!(format, Format::Damf | Format::Adm) {
@@ -264,6 +274,7 @@ fn main() -> ExitCode {
                 report,
                 reference_skip,
                 no_dither,
+                no_tpnp,
                 worst,
             } => if eac3::is_eac3(&file).unwrap_or(false) {
                 eac3::compare(
@@ -271,6 +282,7 @@ fn main() -> ExitCode {
                     &reference,
                     &eac3::CompareOptions {
                         order,
+                        tpnp: !no_tpnp,
                         report,
                         skip: reference_skip,
                         dither: !no_dither,
