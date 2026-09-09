@@ -84,10 +84,19 @@ impl Noise {
         f64::from(self.next_u32() as i32) / 2_147_483_648.0
     }
 
-    /// Dither value for a zero-bit mantissa: uniform in `[-0.707, 0.707)`.
+    /// Dither value for a zero-bit mantissa: uniform in `[-0.5, 0.5)`.
+    ///
+    /// Clause 7.3.4 of ATSC A/52 calls 0,707 the optimum scaling and 0,5
+    /// "also acceptable", and leaves the sequence itself to the
+    /// implementation. Dolby takes the second: decoding a stream with the
+    /// dither on and off and subtracting gives our dither, and subtracting
+    /// the same silent decode from the Dolby one gives theirs. The power
+    /// ratio is 2,00 on fifteen channels of three streams, so their scaling
+    /// is 0,707 / sqrt(2) = 0,5. Matching it is worth about 2 dB against
+    /// Dolby and costs nothing the standard asks for.
     #[inline]
     pub fn dither(&mut self) -> f64 {
-        self.uniform() * 0.707
+        self.uniform() * 0.5
     }
 
     /// Zero-mean, unit-variance noise for spectral extension.
@@ -2145,8 +2154,14 @@ mod tests {
     fn noise_is_bounded_and_not_constant() {
         let mut n = Noise::default();
         let vals: Vec<f64> = (0..1000).map(|_| n.dither()).collect();
-        assert!(vals.iter().all(|v| v.abs() <= 0.707));
+        // the scaling the Dolby decoder uses, measured; clause 7.3.4 allows it
+        assert!(vals.iter().all(|v| v.abs() <= 0.5));
         assert!(vals.iter().any(|v| *v > 0.3) && vals.iter().any(|v| *v < -0.3));
+        let rms = (vals.iter().map(|v| v * v).sum::<f64>() / 1000.0).sqrt();
+        assert!(
+            (rms - 0.5 / 3f64.sqrt()).abs() < 0.02,
+            "dither rms {rms:.4}"
+        );
         let mean: f64 = vals.iter().sum::<f64>() / 1000.0;
         assert!(mean.abs() < 0.1);
     }

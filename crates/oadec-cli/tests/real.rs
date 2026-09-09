@@ -466,6 +466,52 @@ fn enhanced_coupling_survives_the_object_pipeline() {
     }
 }
 
+/// The metadata scanner and the verifier walk the same streams by different
+/// routes, so they must agree about how many EMDF containers are there. They
+/// did not: the scanner used to hunt the sync word in the raw frame bytes,
+/// which finds only the containers that land on a byte boundary.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn the_metadata_scanner_and_the_verifier_count_the_same_containers() {
+    let Some(media) = media_dir() else {
+        eprintln!("OADEC_MEDIA not set; skipping");
+        return;
+    };
+    for name in [
+        "clips/talktome-joc-head.ec3",
+        "clips/kingsman-joc-head.ec3",
+        "clips/disclosure-web-head.ec3",
+        "ec3/pi-head-joc384.ec3",
+    ] {
+        let file = media.join(name);
+        if !file.exists() {
+            eprintln!("{} is missing; skipping", file.display());
+            continue;
+        }
+        let verify = verify_json(&file);
+        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["emdf", "--json"])
+            .arg(&file)
+            .output()
+            .expect("run oadec emdf");
+        let scan: Value = serde_json::from_slice(&out.stdout)
+            .unwrap_or_else(|e| panic!("{name}: emdf output is not JSON ({e})"));
+        let want = verify["emdf"]["containers"].as_u64();
+        assert_eq!(scan["containers"].as_u64(), want, "{name}: container count");
+        assert_eq!(
+            scan["container_errors"].as_u64(),
+            Some(0),
+            "{name}: {}",
+            scan["first_error"]
+        );
+        assert_eq!(
+            scan["oamd_payloads"].as_u64(),
+            verify["emdf"]["oamd_ok"].as_u64(),
+            "{name}: OAMD payload count"
+        );
+    }
+}
+
 /// Every JOC stream carries an EMDF container with both metadata payloads in
 /// every frame, and all of them parse to the byte.
 #[test]

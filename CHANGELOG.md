@@ -24,9 +24,28 @@ Semantic Versioning.
   was measured (the identity at direct current, -j by 141 Hz, the same on
   every title) and is applied as a 37-tap filter across time slots.
   `--flat-quadrature` restores the plain reading for measurement.
-  Together the two fixes take the per-object distance to the Dolby decoder
-  from 11-15 dB to 39-56 dB.
-
+- **The dither was 3 dB louder than Dolby's.** ATSC A/52 clause 7.3.4 offers
+  0,707, 0,75 and 0,5 as scalings and leaves the sequence to the
+  implementation. Which one Dolby uses is measurable without their sequence:
+  the power ratio between their dither and ours is 2,00 on fifteen channels
+  of three streams, so theirs is 0,5. Matching it is worth 1,76 dB on every
+  channel of every stream.
+- Together the three above take the per-object distance to the Dolby
+  decoder from 11-15 dB to 40-56 dB, which is the floor the unshared
+  dither sets. `docs/evidence/2026-09-09-c.md` has the measurements.
+- **The two metadata commands reported nothing instead of refusing.** `oadec
+  oamd` walks TrueHD access units and an E-AC-3 file has none, so it printed
+  nought payloads and called the result clean; `oadec emdf` walks E-AC-3
+  frames and answered a TrueHD file with nothing but sync errors. Each now
+  says what the file is and points at the other. `emdf` also counts the frames
+  it could not parse rather than passing over them.
+- **`oadec emdf` missed half the EMDF containers and invented errors.** It
+  hunted the sync word in the raw frame bytes, so it found only the containers
+  that happened to land on a byte boundary: 480 of 976 on one stream, 208 of
+  1250 on another, with twenty-odd "malformed container" reports that were
+  false syncs in audio data. It now parses the frame and reads the skip
+  fields, where the containers are, and agrees with `verify` to the container.
+  A new opt-in test holds the two to the same count.
 ### Added
 
 - **Enhanced coupling** (ATSC A/52:2018 clause E.3.5.5) decodes end to end.
@@ -47,6 +66,9 @@ Semantic Versioning.
   behaviour.
 - `tools/gen_joc_quadrature.py`, which measures the low-band quadrature
   operator against the Dolby object decoder and prints the table.
+- `tools/sweep.py` records each JOC track's downmix configuration, object
+  count and clip gains, which is how the one configuration 0 stream in the
+  library was found.
 - `oadec eac3-ecpl-inject`, which rewrites a stream's standard coupling as
   enhanced coupling so a tool nothing emits can be tested, and `oadec-bits`
   gained the `BitWriter` it needs.

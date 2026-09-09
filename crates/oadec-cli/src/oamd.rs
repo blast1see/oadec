@@ -304,6 +304,19 @@ fn dump_payload(unit_index: u64, container_offset: Option<u32>, oamd: &Oamd) {
 
 /// Runs the command; returns `true` when every payload parsed cleanly.
 pub fn run(path: &Path, opts: &Options) -> Result<bool> {
+    // an E-AC-3 stream carries its Object Audio Metadata in the EMDF
+    // containers of the skip fields, not in TrueHD access units; walking it
+    // for access units finds nothing and would report a clean zero
+    if crate::eac3::is_eac3(path).unwrap_or(false) {
+        anyhow::bail!(
+            concat!(
+                "{} is E-AC-3; its object metadata rides in the EMDF containers, ",
+                "not in TrueHD access units. Use `oadec emdf` for the payloads ",
+                "and their timing, or `oadec info` for the tallies."
+            ),
+            path.display()
+        );
+    }
     let started = Instant::now();
     let mut summary = OamdSummary::default();
     let mut config: Option<StreamConfig> = None;

@@ -60,6 +60,16 @@ that the decoder relies on. Clause numbers refer to that document.
   `quadrature.rs` carries it and `tools/gen_joc_quadrature.py` regenerates
   it. `--flat-quadrature` restores the plain reading for measurement.
   Configuration 4 is assumed to behave like 3 (no stream to test).
+- **Configuration 0 is all but extinct, and Dolby will not upmix it.** Of the
+  113 object-carrying E-AC-3 tracks in the library, 112 use configuration 3
+  and one uses 0. On that one the Dolby decoder reports `joc_enable(1)` and
+  then chooses channel output: six channels, no objects, where every
+  configuration 3 stream gives sixteen. Its JOC parses clean and its OAMD
+  carries a bed and fifteen placed objects like any other, so there is
+  nothing visibly wrong with it. oadec follows clause 6.6, which draws no
+  distinction between the configurations, and reconstructs the objects. The
+  path therefore has no Dolby reference; `docs/evidence/2026-09-09-c.md`
+  records it as an open divergence.
 - **Clip gain** (clause 6.3.3.2): `(1 + y/32) 2^(x-4)`, over [1; 8,75]. The
   standard defines the value and never uses it again: the word does not
   appear in clause 6.6, which specifies the whole decode. It is the gain the

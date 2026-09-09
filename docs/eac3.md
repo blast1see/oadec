@@ -36,6 +36,16 @@ four are the same specification, and for enhanced coupling they disagree.
   depending on the content, and to float precision where no bin is
   dithered. The dither of coupled bins is scaled by the coupling coordinate
   (up to 8x), which is where most of the residual of stereo streams lies.
+
+  The *scaling* is not free, though, and it is measurable without knowing
+  anyone's sequence. ATSC A/52 clause 7.3.4 calls 0,707 optimum, 0,75 close
+  enough and 0,5 also acceptable. Decoding a stream with the dither on and
+  off gives our dither by subtraction; subtracting the same silent decode
+  from the Dolby one gives theirs. The power ratio is 2,00 on fifteen
+  channels of three streams, so Dolby scales by 0,5, and oadec now does too.
+  It is worth 1,76 dB on every channel of every stream. The Dolby decode is
+  also repeatable to the byte, so their sequence is seeded rather than
+  sampled; recovering it, and with it bit-exactness, has not been tried.
 - **Decoder delay.** The first 256 output samples are the first block's
   half window over silence. The Dolby decoder drops them; FFmpeg and oadec
   keep them. Object metadata counts time from the first frame's first
@@ -63,7 +73,13 @@ four are the same specification, and for enhanced coupling they disagree.
 - **Spectral extension noise** is drawn by the decoder, like the dither of
   clause 6.3.4, so decoders differ audibly less than the raw ratio
   suggests: on a stream with SPX in every frame two conforming decoders sit
-  15-19 dB apart on the surround channels.
+  15-19 dB apart on the surround channels. The *level* is right, though, and
+  that is checkable: against both Dolby decoders on `pi-head-spx192.ec3` the
+  17-22 kHz band is 0,0 dB energy-weighted over the whole file and 0,0 dB
+  median per frame, with the two envelopes correlated at 0,997 in log energy.
+  Measure it over long windows sampled sparsely and it appears to be 25 dB
+  out, because most of what that adds up is two decoders' noise floors; a
+  ratio of two silences is not a measurement.
 - **EMDF placement.** JOC streams carry one EMDF container per frame in the
   skip field of an audio block (clause H.1); parsing the skip fields is exact,
   scanning the frame bytes for `0x5838` is not (false syncs in audio data).
