@@ -167,7 +167,10 @@ struct EmdfStats {
     frames_with_skip: u64,
     skip_bytes: u64,
     containers: u64,
+    /// Frames whose skip fields held no parsable container.
     container_errors: u64,
+    /// Sync words inside payload bytes that did not start a container.
+    false_syncs: u64,
     payload_ids: BTreeMap<u32, u64>,
     oamd_ok: u64,
     oamd_errors: u64,
@@ -203,6 +206,11 @@ impl EmdfStats {
         for s in skip_fields {
             data.extend_from_slice(s);
         }
+        // A frame carries one EMDF container (ETSI TS 103 420 clause 8.2), but
+        // its payload bytes may hold the sync word again. A candidate that does
+        // not parse is such a false sync, not a broken container; only a frame
+        // that yields no container at all is a failure.
+        let mut found = false;
         let mut pos = 0usize;
         while pos + 4 <= data.len() {
             if data[pos] != 0x58 || data[pos + 1] != 0x38 {
@@ -212,6 +220,7 @@ impl EmdfStats {
             match container::parse_emdf_with_sync(&data[pos..]) {
                 Ok((c, used)) => {
                     self.containers += 1;
+                    found = true;
                     for p in &c.payloads {
                         *self.payload_ids.entry(p.id).or_default() += 1;
                         if p.id == PAYLOAD_ID_JOC {
@@ -282,14 +291,18 @@ impl EmdfStats {
                     }
                     pos += used.max(4);
                 }
-                Err(e) => {
-                    self.container_errors += 1;
-                    if self.first_error.is_none() {
-                        self.first_error =
-                            Some(format!("frame {frame_index} skip byte {pos}: {e}"));
-                    }
-                    pos += 2;
+                Err(_) => {
+                    self.false_syncs += 1;
+                    pos += 1;
                 }
+            }
+        }
+        if !found {
+            self.container_errors += 1;
+            if self.first_error.is_none() {
+                self.first_error = Some(format!(
+                    "frame {frame_index}: no EMDF container in the skip fields"
+                ));
             }
         }
     }
@@ -484,6 +497,7 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "skip_bytes": e.skip_bytes,
                 "containers": e.containers,
                 "container_errors": e.container_errors,
+                "false_syncs": e.false_syncs,
                 "payload_ids": payload_ids,
                 "oamd_ok": e.oamd_ok,
                 "oamd_errors": e.oamd_errors,
@@ -570,11 +584,12 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
         p.spx_frames
     );
     println!(
-        "EMDF:              {} frames with skip fields ({} bytes), {} containers, {} container errors, payload ids {:?}",
+        "EMDF:              {} frames with skip fields ({} bytes), {} containers, {} frames without one, {} false sync words, payload ids {:?}",
         p.emdf.frames_with_skip,
         p.emdf.skip_bytes,
         p.emdf.containers,
         p.emdf.container_errors,
+        p.emdf.false_syncs,
         p.emdf.payload_ids
     );
     println!(
