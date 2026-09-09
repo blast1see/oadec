@@ -24,7 +24,7 @@ Atmos track can become an E-AC-3 Atmos track without losing the objects.
 | DAMF writer, Dolby validators, encoder round trip | done | validators exit 0; the encoder produces E-AC-3 JOC and TrueHD Atmos from our sets |
 | ADM BWF writer | done | structurally identical to the Dolby converter's own output |
 | E-AC-3 / AC-3 core decoder (ETSI TS 102 366) | done | 19 streams, 3.3 million frames, zero CRC or parse failures; closer to a Dolby decode than FFmpeg is on every channel of the hardest streams |
-| JOC objects (ETSI TS 103 420) to DAMF / ADM | done | 380,000 payloads parse to the byte; against the Dolby decoder's own object output, 39 to 56 dB per object, at the dither floor in every band the core decode is exact in |
+| JOC objects (ETSI TS 103 420) to DAMF / ADM | done | 380,000 payloads parse to the byte; against the Dolby decoder's own object output, 40 to 56 dB per object, at the dither floor in every band the core decode is exact in |
 | Enhanced coupling (clause E.3.5.5) | done | no stream in the world carries it, so `oadec eac3-ecpl-inject` makes one; both Dolby decoders accept it and agree with us at the dither floor |
 | Transient pre-noise processing (clause E.3.7) | done | 3.6 dB closer to the Dolby decode inside the corrected regions; FFmpeg applies nothing |
 | JOC clip gain (clause 6.3.3.2) | done | the standard defines the value and not its use; a two-level encode shows the encoder divides the downmix by it |

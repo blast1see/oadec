@@ -2,9 +2,10 @@
 //! containers in their skip fields and report the Object Audio Metadata timing
 //! they carry.
 //!
-//! This is a frame-level scan (sync word, frame size, block count), not the
-//! core decoder; it settles where the encoder places metadata relative to the
-//! 1536-sample frames.
+//! The frames are walked by their sync words and sizes and each one is parsed
+//! far enough to reach its skip fields, which is where the containers are; no
+//! audio comes out. It settles where the encoder places metadata relative to
+//! the 1536-sample frames.
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -14,6 +15,7 @@ use std::time::Instant;
 
 use anyhow::{Context, Result};
 use oadec_bits::BitReader;
+use oadec_eac3::frame::{Frame, Noise, Options as FrameOptions};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::Oamd;
 use serde::Serialize;
@@ -36,6 +38,8 @@ pub struct EmdfSummary {
     pub dependent_frames: u64,
     pub bytes: u64,
     pub sync_errors: u64,
+    /// Frames the parser could not read far enough to reach the skip fields.
+    pub unparsed_frames: u64,
     pub frames_with_emdf: u64,
     pub containers: u64,
     pub container_errors: u64,
@@ -88,31 +92,56 @@ fn parse_head(bytes: &[u8]) -> Option<FrameHead> {
     })
 }
 
-/// Finds byte-aligned EMDF sync words in a frame and returns the containers.
+/// The EMDF containers of one frame.
+///
+/// The containers live in the skip fields of the audio blocks, which start at
+/// a bit offset the frame's own syntax decides, so hunting for the sync word
+/// in the raw frame bytes finds only the containers that happen to land on a
+/// byte boundary and calls the rest errors. On the streams here that missed
+/// half of them and invented twenty false errors. The frame is parsed instead,
+/// and the sync word is looked for in the skip fields, where it is
+/// byte-aligned by construction.
 fn find_emdf(
     frame: &[u8],
+    noise: &mut Noise,
+    unparsed: &mut u64,
 ) -> Vec<(
     usize,
     std::result::Result<container::Container, container::ContainerError>,
 )> {
     let mut out = Vec::new();
-    let mut i = 2;
-    while i + 4 <= frame.len() {
-        if frame[i] == 0x58 && frame[i + 1] == 0x38 {
-            match container::parse_emdf_with_sync(&frame[i..]) {
+    let opts = FrameOptions {
+        dither: false,
+        ..FrameOptions::default()
+    };
+    let Ok(parsed) = Frame::parse(frame, noise, opts) else {
+        *unparsed += 1;
+        return out;
+    };
+    let total: usize = parsed.skip_fields.iter().map(Vec::len).sum();
+    if total == 0 {
+        return out;
+    }
+    let mut data = Vec::with_capacity(total);
+    for s in &parsed.skip_fields {
+        data.extend_from_slice(s);
+    }
+    let mut i = 0;
+    let mut read_one = false;
+    while i + 4 <= data.len() {
+        if data[i] == 0x58 && data[i + 1] == 0x38 {
+            match container::parse_emdf_with_sync(&data[i..]) {
                 Ok((c, used)) => {
-                    let len = used.max(4);
                     out.push((i, Ok(c)));
-                    i += len;
+                    read_one = true;
+                    i += used.max(4);
                     continue;
                 }
-                Err(e) => {
-                    // a false sync inside audio data is common; only keep errors that
-                    // look like a real header (a plausible length field)
-                    if frame.len() - i > 16 {
-                        out.push((i, Err(e)));
-                    }
-                }
+                // the bytes after the last container are padding and can
+                // carry the sync word by chance; only a sync word before any
+                // container has been read is a container we failed to open
+                Err(e) if !read_one => out.push((i, Err(e))),
+                Err(_) => {}
             }
         }
         i += 1;
@@ -122,6 +151,17 @@ fn find_emdf(
 
 /// Runs the command; returns `true` when every container and payload parsed.
 pub fn run(path: &Path, opts: &Options) -> Result<bool> {
+    // the containers are in E-AC-3 skip fields; a TrueHD stream has none and
+    // walking it for E-AC-3 sync words would report nothing but sync errors
+    if !crate::eac3::is_eac3(path).unwrap_or(false) {
+        anyhow::bail!(
+            concat!(
+                "{} is not an E-AC-3 stream. TrueHD carries its object metadata ",
+                "in the access units instead; use `oadec oamd` for that."
+            ),
+            path.display()
+        );
+    }
     let started = Instant::now();
     let mut data = Vec::new();
     File::open(path)
@@ -132,6 +172,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         ..EmdfSummary::default()
     };
     let mut pos = 0usize;
+    let mut noise = Noise::default();
     let mut sample_pos: u64 = 0; // first sample of the current independent frame
     let mut dumped = 0usize;
     let mut last_frame_len: u64 = 0;
@@ -163,7 +204,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             last_frame_len = u64::from(head.numblks) * BLOCK_SAMPLES;
         }
         let frame_index = s.frames - 1;
-        let containers = find_emdf(frame);
+        let containers = find_emdf(frame, &mut noise, &mut s.unparsed_frames);
         if !containers.is_empty() {
             s.frames_with_emdf += 1;
         }
@@ -172,7 +213,9 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
                 Err(e) => {
                     s.container_errors += 1;
                     if s.first_error.is_none() {
-                        s.first_error = Some(format!("frame {frame_index} byte {offset}: {e}"));
+                        s.first_error = Some(format!(
+                            "frame {frame_index}, skip-field byte {offset}: {e}"
+                        ));
                     }
                 }
                 Ok(c) => {
@@ -250,7 +293,10 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         pos += len;
     }
     let elapsed = started.elapsed().as_secs_f64();
-    let clean = s.sync_errors == 0 && s.container_errors == 0 && s.oamd_errors == 0;
+    let clean = s.sync_errors == 0
+        && s.unparsed_frames == 0
+        && s.container_errors == 0
+        && s.oamd_errors == 0;
     if opts.json {
         let mut value = serde_json::to_value(&s)?;
         value["clean"] = serde_json::json!(clean);
@@ -258,8 +304,13 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         println!("{}", serde_json::to_string_pretty(&value)?);
     } else {
         println!(
-            "Frames:            {} ({} independent, {} dependent), {} bytes, {} sync errors",
-            s.frames, s.independent_frames, s.dependent_frames, s.bytes, s.sync_errors
+            "Frames:            {} ({} independent, {} dependent), {} bytes, {} sync errors, {} unparsed",
+            s.frames,
+            s.independent_frames,
+            s.dependent_frames,
+            s.bytes,
+            s.sync_errors,
+            s.unparsed_frames
         );
         println!(
             "EMDF:              {} frames with containers, {} containers, {} container errors, payload ids {:?}",

@@ -161,6 +161,11 @@ def main() -> int:
                 "coverage": v.get("coverage"),
                 "first_error": v.get("first_error"),
                 "objects": v.get("object_presentation") or v.get("joc") is not None,
+                # which JOC downmix configuration and how many objects: the
+                # decoder's phase-shift path is only exercised by 3 and 4
+                "downmix_configs": (v.get("joc") or {}).get("downmix_configs"),
+                "objects_per_payload": (v.get("joc") or {}).get("objects_per_payload"),
+                "clipgains": (v.get("joc") or {}).get("clipgain_x1000"),
                 "bytes": out.stat().st_size,
             }
             report.append(row)
