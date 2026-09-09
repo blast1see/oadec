@@ -218,3 +218,32 @@ fn the_options_are_untouched() {
     // coupling de-correlation is not clause 6.3.4 dither.
     let _ = Options::default();
 }
+
+#[test]
+fn interpolation_writes_every_bin_of_the_region() {
+    // The bin angles are held in a buffer reused by every channel, so an
+    // interpolation that stops short would leave the previous channel's
+    // values behind. Clause E.3.5.5.3 walks the bins in three stretches and
+    // the arithmetic is easy to get wrong by one.
+    let synth = Synth::new();
+    for &(start, end, width) in &[(37usize, 253usize, 12usize), (49, 121, 12), (13, 37, 6)] {
+        let bands: Vec<(usize, usize)> = (start..end)
+            .step_by(width)
+            .map(|b| (b, (b + width).min(end)))
+            .collect();
+        let n = bands.len();
+        if n < 2 {
+            continue;
+        }
+        let mut ecpl = one_band(start, end, 0, 0, 0);
+        ecpl.bands = bands;
+        ecpl.angle_interp = true;
+        let angles: Vec<f64> = (0..n).map(|i| (i as f64 / n as f64) - 0.5).collect();
+        let mut out = [f64::NAN; N];
+        synth.spread_angles(&ecpl, &angles, &mut out);
+        for (bin, v) in out.iter().enumerate().take(end).skip(start) {
+            assert!(!v.is_nan(), "bin {bin} of {start}..{end} was never written");
+            assert!((-1.0..=1.0).contains(v), "bin {bin} wrapped to {v}");
+        }
+    }
+}
