@@ -17,9 +17,9 @@
 
 use std::f64::consts::PI;
 
-use crate::frame::{EcplBlock, MAX_FBW, N, Noise};
+use crate::frame::{EcplBlock, MAX_FBW, N, Noise, ecpl_amplitude};
 use crate::imdct::{Complex, Dft512, Imdct};
-use crate::tables::{ECPL_AMP_EXP, ECPL_AMP_MANT, ECPL_ANGLE_TAB, ECPL_CHAOS_TAB};
+use crate::tables::{ECPL_ANGLE_TAB, ECPL_CHAOS_TAB};
 
 /// Transform size of the carrier reconstruction (clause E.3.5.5.1).
 const NN: usize = 2 * N;
@@ -147,12 +147,7 @@ impl Synth {
             let Some(c) = slot else { continue };
             let first = ch == ecpl.first_ch;
             for bnd in 0..nbnd {
-                let code = usize::from(c.amp[bnd]);
-                let mut a = if code == 31 {
-                    0.0
-                } else {
-                    f64::from(ECPL_AMP_MANT[code]) / 32.0 / f64::from(1u32 << ECPL_AMP_EXP[code])
-                };
+                let mut a = ecpl_amplitude(c.amp[bnd]);
                 chaos[bnd] = if first {
                     0.0
                 } else {

@@ -5,6 +5,7 @@ mod damf;
 mod decode;
 mod eac3;
 mod eac3_objects;
+mod ecpl_inject;
 mod emdf;
 mod info;
 mod input;
@@ -106,6 +107,11 @@ enum Command {
         /// the reference decoder applies; for measuring what it changes.
         #[arg(long)]
         no_tpnp: bool,
+        /// E-AC-3: decode enhanced coupling with the full complex process of
+        /// ATSC A/52:2018 clause E.3.5.5 instead of the amplitude-only one
+        /// both Dolby decoders implement.
+        #[arg(long)]
+        ecpl_spec: bool,
         /// JOC: leave the objects at the level of the coded downmix instead of
         /// restoring the clip gain the encoder took off.
         #[arg(long)]
@@ -144,6 +150,11 @@ enum Command {
         /// the reference decoder applies; for measuring what it changes.
         #[arg(long)]
         no_tpnp: bool,
+        /// E-AC-3: decode enhanced coupling with the full complex process of
+        /// ATSC A/52:2018 clause E.3.5.5 instead of the amplitude-only one
+        /// both Dolby decoders implement.
+        #[arg(long)]
+        ecpl_spec: bool,
         /// E-AC-3: list the N blocks with the largest deviation.
         #[arg(long, default_value_t = 0)]
         worst: usize,
@@ -156,6 +167,31 @@ enum Command {
         /// Index of the decoded frame (independent substream 0).
         #[arg(long)]
         frame: u64,
+    },
+    /// Rewrite the standard coupling of an E-AC-3 stream as enhanced coupling,
+    /// which no encoder on hand will emit and no stream in the wild carries.
+    #[command(hide = true)]
+    Eac3EcplInject {
+        /// Raw E-AC-3 elementary stream that uses coupling.
+        file: PathBuf,
+        /// Where to write the converted stream.
+        #[arg(short, long)]
+        output: PathBuf,
+        /// Highest `ecplchaos` code to write (0 to 7). The random values the
+        /// chaos term scales are the decoder's own, so anything above zero
+        /// makes two decoders differ by design; zero keeps the stream
+        /// comparable.
+        #[arg(long, default_value_t = 0)]
+        chaos: u32,
+        /// Write a zero angle everywhere, leaving only the amplitude path.
+        #[arg(long)]
+        flat_angle: bool,
+        /// Write unity amplitude everywhere, so only the dither can differ.
+        #[arg(long)]
+        flat_amp: bool,
+        /// `ecplangleintrp`: 0 or 1 fixed, 2 to alternate per block.
+        #[arg(long, default_value_t = 2)]
+        interp: u32,
     },
 }
 
@@ -218,6 +254,7 @@ fn main() -> ExitCode {
                 dolby_origin_tag,
                 no_dither,
                 no_tpnp,
+                ecpl_spec,
                 no_clip_gain,
             } => if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
@@ -243,6 +280,7 @@ fn main() -> ExitCode {
                         order,
                         dither: !no_dither,
                         tpnp: !no_tpnp,
+                        ecpl_full: ecpl_spec,
                     },
                 )
             } else if matches!(format, Format::Damf | Format::Adm) {
@@ -283,6 +321,7 @@ fn main() -> ExitCode {
                 reference_skip,
                 no_dither,
                 no_tpnp,
+                ecpl_spec,
                 worst,
             } => if eac3::is_eac3(&file).unwrap_or(false) {
                 eac3::compare(
@@ -291,6 +330,7 @@ fn main() -> ExitCode {
                     &eac3::CompareOptions {
                         order,
                         tpnp: !no_tpnp,
+                        ecpl_full: ecpl_spec,
                         report,
                         skip: reference_skip,
                         dither: !no_dither,
@@ -321,6 +361,24 @@ fn main() -> ExitCode {
             Command::Eac3Blocks { file, frame } => {
                 eac3::blocks(&file, frame).map(|()| ExitCode::SUCCESS)
             }
+            Command::Eac3EcplInject {
+                file,
+                output,
+                chaos,
+                flat_angle,
+                flat_amp,
+                interp,
+            } => ecpl_inject::run(
+                &file,
+                &output,
+                ecpl_inject::Shape {
+                    chaos,
+                    flat_angle,
+                    flat_amp,
+                    interp,
+                },
+            )
+            .map(|()| ExitCode::SUCCESS),
         };
     match result {
         Ok(code) => code,

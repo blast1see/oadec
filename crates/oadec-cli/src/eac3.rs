@@ -829,6 +829,7 @@ pub struct DecodeOptions {
     pub order: Order,
     pub dither: bool,
     pub tpnp: bool,
+    pub ecpl_full: bool,
 }
 
 fn write_float_wav_header(
@@ -884,6 +885,7 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<()> {
         Options {
             dither: opts.dither,
             tpnp: opts.tpnp,
+            ecpl_full: opts.ecpl_full,
         },
         |d| {
             if !header_written {
@@ -941,6 +943,7 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<()> {
 pub struct CompareOptions {
     pub order: Order,
     pub tpnp: bool,
+    pub ecpl_full: bool,
     pub report: usize,
     /// Bytes to skip at the start of the reference.
     pub skip: u64,
@@ -1067,6 +1070,7 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
         Options {
             dither: opts.dither,
             tpnp: opts.tpnp,
+            ecpl_full: opts.ecpl_full,
         },
         |d| {
             if order.is_empty() {
