@@ -1572,8 +1572,13 @@ impl<'a> Parser<'a> {
                 }
             } else {
                 let m = u32::from(HEBAP_BITS[usize::from(hb)]);
-                let gain = if gaqbin[bin] == 1 {
-                    let g = gains[gain_index];
+                // A gain word exists only when GAQ is in use (clause E.2.4.4.2:
+                // gaqmod 0 transmits none and every mantissa uses the plain
+                // quantizer) and the bin is inside the mode's hebap range.
+                let gain = if gaqmod != 0 && gaqbin[bin] == 1 {
+                    let g = *gains.get(gain_index).ok_or(Eac3Error::Syntax(
+                        "fewer GAQ gain words than gain-coded bins",
+                    ))?;
                     gain_index += 1;
                     g
                 } else {
