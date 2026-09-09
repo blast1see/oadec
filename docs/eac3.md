@@ -97,7 +97,9 @@ every `ecplangle` and `ecplchaos` zero and one with a full spread of both:
 
 - the Dolby Encoding Engine 5.2.1 `ddp_decode` filter returns **bit-identical**
   audio for the two;
-- Dolby Reference Player 3.2.0 returns **bit-identical** audio for the two.
+- Dolby Reference Player 3.2.0 returns **bit-identical** audio for the two;
+- Plex's EasyAudioEncoder, the licensed Dolby engine its transcoder is built
+  against, returns **bit-identical** audio for the two.
 
 Neither Dolby decoder implements the angle or the chaos. oadec therefore
 follows the amplitude-only reading by default, which is what the ETSI V1.4.1
@@ -148,3 +150,17 @@ the fields and applies nothing.
   the corrected regions the distance to the Dolby decode drops by 3,79 dB on
   L, 3,05 dB on R and 4,00 dB on Rs. Dolby applies the tool; FFmpeg does not.
   `tools/tpnp_window.py` is the measurement.
+
+## A frame that ends inside its own tail
+
+A frame closes with at least `auxdatae` and the error check, eighteen bits. On
+`The 400 Blows` (1959, AC-3 2.0 at 192 kbit/s) one frame in 1 875 ends three
+bits inside that space. Its CRC checks, and FFmpeg, the Dolby decoder and this
+one all produce audio for it that agrees to the usual dither floor: measured
+against FFmpeg, frame 224 sits at 44,5 dB, its neighbours at 50,1 and 50,4.
+
+So the frame is out of spec but perfectly decodable. Refusing it threw away
+32 ms of audio that three decoders agree on, which is the wrong trade. It is
+now decoded and counted separately, and `verify` still reports the file as
+non-conformant. Found by sweeping 1 368 tracks out of 361 films; it was one of
+two failures, and the only one that was ours.

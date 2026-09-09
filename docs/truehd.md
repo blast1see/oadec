@@ -126,3 +126,13 @@ Two traps worth naming:
   pattern turns up in audio data eventually; the one-unit lookahead is what
   keeps an access unit that happens to open `0B 77` from being eaten.
 
+## Bit-exact against Dolby
+
+The lossless check inside the format is self-validating, and `truehdd` is not
+a Dolby decoder, so until now nothing said that this decoder agrees with
+Dolby's. It does, exactly. Plex ships a licensed Dolby engine
+(`EasyAudioEncoder`, driven through `Plex Transcoder -c:a truehd_eae`); on
+`pi-head50m.thd` decoded to the eight-channel presentation, oadec and that
+engine agree on **all 40 606 400 samples**, zero lag, no sample different at
+24 bits. See `docs/evidence/2026-09-09-b.md`.
+
