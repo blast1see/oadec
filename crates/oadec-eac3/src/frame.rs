@@ -147,6 +147,56 @@ pub struct BlockInfo {
     pub bap: Vec<Vec<u8>>,
 }
 
+/// One coupled channel's enhanced coupling coordinates for one block
+/// (ATSC A/52:2018 clause E.3.5.4), one entry per enhanced coupling band.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct EcplChannel {
+    /// `ecplamp`, code 31 meaning minus infinity.
+    pub amp: Vec<u8>,
+    /// `ecplangle`; zero for the first coupled channel, which sends none.
+    pub angle: Vec<u8>,
+    /// `ecplchaos`; zero for the first coupled channel, which sends none.
+    pub chaos: Vec<u8>,
+    /// `ecpltrans`: a transient is present, so the de-correlation draws a
+    /// fresh random value per band per block instead of a fixed one per bin.
+    pub transient: bool,
+}
+
+/// The enhanced coupling of one audio block (ATSC A/52:2018 clause E.3.5.5).
+///
+/// ETSI TS 102 366 V1.4.1 describes only a real-valued amplitude scaling and
+/// marks the angle and chaos fields "reserved"; V1.2.1 of the same document
+/// and both ATSC editions carry the full complex process. See `docs/eac3.md`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EcplBlock {
+    /// First and one-past-last transform bin of the coupling region.
+    pub start: usize,
+    pub end: usize,
+    /// The `necplbnd` bands as `(first_bin, end_bin)`, partitioning
+    /// `start..end`.
+    pub bands: Vec<(usize, usize)>,
+    /// `ecplangleintrp`: interpolate bin angles between band centres.
+    pub angle_interp: bool,
+    /// Index of the first coupled channel, which carries no angle or chaos.
+    pub first_ch: usize,
+    /// One entry per full-bandwidth channel, `None` when not coupled.
+    pub chans: Vec<Option<EcplChannel>>,
+    /// The enhanced coupling channel's transform coefficients, zero outside
+    /// `start..end`.
+    pub coeffs: [f64; N],
+}
+
+/// One channel's transient pre-noise processing for one frame
+/// (ATSC A/52:2018 clause E.3.7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Transient {
+    /// `transprocloc * 4`: samples after the frame's first output sample.
+    /// May exceed the frame length, that is, point into the next frame.
+    pub loc: usize,
+    /// `transproclen`: the time scaling length in samples.
+    pub len: usize,
+}
+
 /// The reconstructed transform coefficients of one audio block.
 #[derive(Debug, Clone)]
 pub struct Block {
@@ -157,6 +207,10 @@ pub struct Block {
     pub blksw: Vec<bool>,
     /// The side information the block was decoded with.
     pub info: BlockInfo,
+    /// Enhanced coupling of this block. While it is `Some`, the coupled
+    /// channels' `coeffs` are still zero over `start..end`: the synthesis
+    /// needs the following block and runs in `crate::ecpl`.
+    pub ecpl: Option<Box<EcplBlock>>,
 }
 
 /// A parsed syncframe.
@@ -172,6 +226,9 @@ pub struct Frame {
     pub end_bit: usize,
     /// Whether the frame CRC (`crc2`, and `crc1` for AC-3) checks.
     pub crc_ok: bool,
+    /// Transient pre-noise processing per full-bandwidth channel, in coded
+    /// order (clause E.3.7); empty when the frame signals none.
+    pub transproc: Vec<Option<Transient>>,
 }
 
 /// CRC-16 with the generator `x^16 + x^15 + x^2 + 1` of clause 6.10.1.
@@ -252,6 +309,8 @@ struct Parser<'a> {
     firstcplcos: [bool; MAX_FBW],
     firstcplleak: bool,
     spxatten: [Option<u8>; MAX_FBW],
+    /// Transient pre-noise processing per channel (clause E.3.7).
+    transproc: [Option<Transient>; MAX_FBW],
     // ---- block state ----
     blksw: [bool; MAX_FBW],
     dithflag: [bool; MAX_FBW],
@@ -287,6 +346,15 @@ struct Parser<'a> {
     ecplbndstrc: [bool; 22],
     ecpl_bands_known: bool,
     necplbnd: usize,
+    /// First bin of each enhanced coupling band, `necplbnd + 1` entries.
+    ecplbnd_start: [usize; 23],
+    ecplangleintrp: bool,
+    /// Enhanced coupling coordinates per channel and band; held across
+    /// blocks until retransmitted (clause E.3.5.4).
+    ecplamp: [[u8; 22]; MAX_FBW],
+    ecplangle: [[u8; 22]; MAX_FBW],
+    ecplchaos: [[u8; 22]; MAX_FBW],
+    ecpltrans: [bool; MAX_FBW],
     rematflg: [bool; 4],
     nrematbd: usize,
     chbwcod: [u8; MAX_FBW],
@@ -357,6 +425,7 @@ impl<'a> Parser<'a> {
             firstcplcos: [true; MAX_FBW],
             firstcplleak: true,
             spxatten: [None; MAX_FBW],
+            transproc: [None; MAX_FBW],
             blksw: [false; MAX_FBW],
             dithflag: [true; MAX_FBW],
             spxinu: false,
@@ -390,6 +459,12 @@ impl<'a> Parser<'a> {
             ecplbndstrc: [false; 22],
             ecpl_bands_known: false,
             necplbnd: 0,
+            ecplbnd_start: [0; 23],
+            ecplangleintrp: false,
+            ecplamp: [[0; 22]; MAX_FBW],
+            ecplangle: [[0; 22]; MAX_FBW],
+            ecplchaos: [[0; 22]; MAX_FBW],
+            ecpltrans: [false; MAX_FBW],
             rematflg: [false; 4],
             nrematbd: 0,
             chbwcod: [0; MAX_FBW],
@@ -533,12 +608,15 @@ impl<'a> Parser<'a> {
             self.frmcsnroffst = self.bits(6)? as u8;
             self.frmfsnroffst = self.bits(4)? as u8;
         }
-        // transient pre-noise processing
+        // transient pre-noise processing (clause E.3.7)
         if transproce {
             self.coverage.transient_pre_noise = true;
-            for _ in 0..self.nf {
+            for ch in 0..self.nf {
                 if self.bit()? {
-                    self.r.skip(10 + 8)?;
+                    // transprocloc has four-sample resolution (E.2.3.2.22)
+                    let loc = self.bits(10)? as usize * 4;
+                    let len = self.bits(8)? as usize;
+                    self.transproc[ch] = Some(Transient { loc, len });
                 }
             }
         }
@@ -793,6 +871,7 @@ impl<'a> Parser<'a> {
                             .count();
                     self.cplstrt = usize::from(ECPL_SUBBAND_TABLE[self.ecpl_begin]);
                     self.cplend = usize::from(ECPL_SUBBAND_TABLE[self.ecpl_end]);
+                    self.map_ecpl_bands();
                 }
             } else {
                 for ch in 0..nf {
@@ -866,36 +945,44 @@ impl<'a> Parser<'a> {
                     }
                 }
             } else {
-                // enhanced coupling parameters (parsed; decoding is not implemented)
+                // enhanced coupling coordinates (clause E.2.3.3.20-26)
                 let mut firstchincpl: Option<usize> = None;
-                self.r.skip(1)?; // reserved
+                self.ecplangleintrp = self.bit()?;
                 for ch in 0..nf {
                     if self.chincpl[ch] {
                         if firstchincpl.is_none() {
                             firstchincpl = Some(ch);
                         }
-                        let (ecplparam1e, rsvdfieldse) = if self.firstcplcos[ch] {
+                        let (ecplparam1e, ecplparam2e) = if self.firstcplcos[ch] {
                             self.firstcplcos[ch] = false;
                             (true, Some(ch) > firstchincpl)
                         } else {
                             let p = self.bit()?;
-                            let rs = if Some(ch) > firstchincpl {
+                            let q = if Some(ch) > firstchincpl {
                                 self.bit()?
                             } else {
                                 false
                             };
-                            (p, rs)
+                            (p, q)
                         };
                         if ecplparam1e {
-                            for _ in 0..self.necplbnd {
-                                self.r.skip(5)?; // ecplamp
+                            for bnd in 0..self.necplbnd {
+                                self.ecplamp[ch][bnd] = self.bits(5)? as u8;
                             }
                         }
-                        if rsvdfieldse {
-                            self.r.skip(9 * (self.necplbnd - 1))?;
+                        if ecplparam2e {
+                            // One angle and one chaos value per band. ETSI
+                            // TS 102 366 V1.4.1 prints "reserved
+                            // 9 x (necplbnd - 1)" here, which is nine bits
+                            // short: V1.2.1 of the same document and both
+                            // ATSC A/52 editions loop over every band.
+                            for bnd in 0..self.necplbnd {
+                                self.ecplangle[ch][bnd] = self.bits(6)? as u8;
+                                self.ecplchaos[ch][bnd] = self.bits(3)? as u8;
+                            }
                         }
                         if Some(ch) > firstchincpl {
-                            self.r.skip(1)?; // reserved
+                            self.ecpltrans[ch] = self.bit()?;
                         }
                     } else {
                         self.firstcplcos[ch] = true;
@@ -1186,10 +1273,30 @@ impl<'a> Parser<'a> {
         }
 
         // ---- decoupling ----
-        if cplinu {
-            if self.ecplinu {
-                return Err(Eac3Error::Unsupported("enhanced coupling"));
+        let mut ecpl_block = None;
+        if cplinu && self.ecplinu {
+            // Enhanced coupling cannot finish here: the carrier needs the
+            // following block too (clause E.3.5.5.1). The coupled channels
+            // stay zero over the region and `crate::ecpl` fills them.
+            let mut coeffs = [0.0f64; N];
+            for (i, v) in cpl_vals.iter().enumerate() {
+                let bin = self.cplstrt + i;
+                if bin >= self.cplend {
+                    break;
+                }
+                coeffs[bin] = v.unwrap_or(0.0);
             }
+            let first_ch = (0..nf).find(|&ch| self.chincpl[ch]).unwrap_or(0);
+            ecpl_block = Some(Box::new(EcplBlock {
+                start: self.cplstrt,
+                end: self.cplend,
+                bands: self.ecpl_bands(),
+                angle_interp: self.ecplangleintrp,
+                first_ch,
+                chans: (0..nf).map(|ch| self.ecpl_channel(ch)).collect(),
+                coeffs,
+            }));
+        } else if cplinu {
             for ch in 0..nf {
                 if !self.chincpl[ch] {
                     continue;
@@ -1259,12 +1366,55 @@ impl<'a> Parser<'a> {
             coeffs,
             blksw: self.blksw[..nf].to_vec(),
             info,
+            ecpl: ecpl_block,
         });
         Ok(())
     }
 
     /// Snapshot of the block-level state (for the block record and for error
     /// reports).
+    /// Fills `ecplbnd_start` with the first bin of every enhanced coupling
+    /// band (clause E.3.5.5.2). Sub-bands up to and including
+    /// `max(ecpl_begin, 8)` never join the previous band, so their structure
+    /// bits are known to be zero and are not transmitted.
+    fn map_ecpl_bands(&mut self) {
+        let floor = self.ecpl_begin.max(8);
+        let mut n = 0usize;
+        #[allow(
+            clippy::needless_range_loop,
+            reason = "the sub-band index addresses two parallel tables"
+        )]
+        for sbnd in self.ecpl_begin..self.ecpl_end {
+            if !(sbnd > floor && self.ecplbndstrc[sbnd]) {
+                self.ecplbnd_start[n] = usize::from(ECPL_SUBBAND_TABLE[sbnd]);
+                n += 1;
+            }
+        }
+        self.ecplbnd_start[n] = usize::from(ECPL_SUBBAND_TABLE[self.ecpl_end]);
+    }
+
+    /// The `(first_bin, end_bin)` of every enhanced coupling band.
+    fn ecpl_bands(&self) -> Vec<(usize, usize)> {
+        (0..self.necplbnd)
+            .map(|b| (self.ecplbnd_start[b], self.ecplbnd_start[b + 1]))
+            .collect()
+    }
+
+    /// One channel's enhanced coupling coordinates, or `None` when the
+    /// channel is not coupled in this block.
+    fn ecpl_channel(&self, ch: usize) -> Option<EcplChannel> {
+        if !self.chincpl[ch] {
+            return None;
+        }
+        let n = self.necplbnd;
+        Some(EcplChannel {
+            amp: self.ecplamp[ch][..n].to_vec(),
+            angle: self.ecplangle[ch][..n].to_vec(),
+            chaos: self.ecplchaos[ch][..n].to_vec(),
+            transient: self.ecpltrans[ch],
+        })
+    }
+
     fn block_info(&self, blk: usize) -> BlockInfo {
         let nf = self.nf;
         let cplinu = self.cplinu[blk];
@@ -1835,8 +1985,15 @@ impl Frame {
             out_blocks,
             skip_fields,
             coverage,
+            transproc,
+            nf,
             ..
         } = p;
+        let transproc = if coverage.transient_pre_noise {
+            transproc[..nf].to_vec()
+        } else {
+            Vec::new()
+        };
         // auxdata (at least auxdatae) and errorcheck (17 bits) must fit
         if end_bit + 1 + 17 > frame.len() * 8 {
             let e = Eac3Error::Syntax("audio blocks run past the end of the frame");
@@ -1851,6 +2008,7 @@ impl Frame {
             coverage,
             end_bit,
             crc_ok: crc,
+            transproc,
         })
     }
 }

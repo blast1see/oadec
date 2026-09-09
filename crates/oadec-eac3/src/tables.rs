@@ -344,6 +344,27 @@ pub const ECPL_AMP_MANT: [u8; 32] = [
     0x10, 0x1b, 0x17, 0x13, 0x10, 0x1b, 0x17, 0x13, 0x10, 0x1b, 0x17, 0x13, 0x10, 0x1b, 0x17, 0x00,
 ];
 
+/// Enhanced coupling angles, ATSC A/52:2018 table E3.11 (`ecplangletab`): the
+/// 6-bit code read as a signed integer over 32, spanning [-1, 1) for
+/// [-pi, pi). ETSI TS 102 366 V1.4.1 has no such table because its clause
+/// E.2.5.5 carries no angle processing at all; see `docs/eac3.md`.
+pub const ECPL_ANGLE_TAB: [f64; 64] = [
+    0.00000, 0.03125, 0.06250, 0.09375, 0.12500, 0.15625, 0.18750, 0.21875, 0.25000, 0.28125,
+    0.31250, 0.34375, 0.37500, 0.40625, 0.43750, 0.46875, 0.50000, 0.53125, 0.56250, 0.59375,
+    0.62500, 0.65625, 0.68750, 0.71875, 0.75000, 0.78125, 0.81250, 0.84375, 0.87500, 0.90625,
+    0.93750, 0.96875, -1.00000, -0.96875, -0.93750, -0.90625, -0.87500, -0.84375, -0.81250,
+    -0.78125, -0.75000, -0.71875, -0.68750, -0.65625, -0.62500, -0.59375, -0.56250, -0.53125,
+    -0.50000, -0.46875, -0.43750, -0.40625, -0.37500, -0.34375, -0.31250, -0.28125, -0.25000,
+    -0.21875, -0.18750, -0.15625, -0.12500, -0.09375, -0.06250, -0.03125,
+];
+
+/// Enhanced coupling chaos scaling, ATSC A/52:2018 table E3.12
+/// (`ecplchaostab`): `-code / 7`, from 0 (coherent) to -1 (fully
+/// de-correlated).
+pub const ECPL_CHAOS_TAB: [f64; 8] = [
+    0.000000, -0.142857, -0.285714, -0.428571, -0.571429, -0.714286, -0.857143, -1.000000,
+];
+
 /// Spectral extension attenuation, table E.2.12 (`spxattentab`): the first
 /// three taps of the symmetric five-tap notch by `spxattencod`.
 pub const SPX_ATTEN: [[f64; 3]; 32] = [

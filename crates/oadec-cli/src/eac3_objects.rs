@@ -365,25 +365,14 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
     let mut index: u64 = 0;
     let mut rows_written: u64 = 0;
 
-    for_each_frame(path, |_offset, bytes, header| {
-        if header.stream_type == StreamType::Dependent || header.substream_id != 0 {
-            return Ok(());
-        }
-        let frame_index = index;
-        index += 1;
-        let d = match decoder.decode(bytes) {
-            Ok(d) => d,
-            Err(e) => {
-                decode_errors += 1;
-                if first_error.is_none() {
-                    first_error = Some(format!("frame {frame_index}: {e}"));
-                }
-                decoder.reset();
-                return Ok(());
-            }
-        };
+    // Enhanced coupling makes the decoder hold a frame back, so the frame it
+    // hands out is not always the one just fed in; `pending` keeps the index
+    // that belongs to each released frame, and the flush loops make sure none
+    // is dropped on an error or at the end of the stream.
+    let mut pending: std::collections::VecDeque<u64> = std::collections::VecDeque::new();
+    let mut handle = |frame_index: u64, d: &Decoded| -> Result<()> {
         rate = d.header.sample_rate;
-        let (oamds, joc, errors) = frame_payloads(&d);
+        let (oamds, joc, errors) = frame_payloads(d);
         payload_errors += errors;
         if joc.is_none() {
             frames_without_joc += 1;
@@ -453,7 +442,42 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
             rows_written += n as u64;
         }
         Ok(())
+    };
+
+    for_each_frame(path, |_offset, bytes, header| {
+        if header.stream_type == StreamType::Dependent || header.substream_id != 0 {
+            return Ok(());
+        }
+        let frame_index = index;
+        index += 1;
+        pending.push_back(frame_index);
+        match decoder.decode(bytes) {
+            Ok(Some(d)) => {
+                let at = pending.pop_front().unwrap_or(frame_index);
+                handle(at, &d)?;
+            }
+            Ok(None) => {}
+            Err(e) => {
+                pending.pop_back();
+                decode_errors += 1;
+                if first_error.is_none() {
+                    first_error = Some(format!("frame {frame_index}: {e}"));
+                }
+                while let Some(d) = decoder.flush()? {
+                    let at = pending.pop_front().unwrap_or(frame_index);
+                    handle(at, &d)?;
+                }
+                decoder.reset();
+            }
+        }
+        Ok(())
     })?;
+    while let Some(d) = decoder.flush()? {
+        let at = pending.pop_front().unwrap_or(index);
+        handle(at, &d)?;
+    }
+    // `handle` borrows the pipeline and the sink; end that borrow.
+    let _ = &mut handle;
 
     let (Some(mut pl), Some(sink)) = (pipeline, sink) else {
         bail!("no decodable frames");
