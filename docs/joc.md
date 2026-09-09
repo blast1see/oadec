@@ -62,14 +62,20 @@ that the decoder relies on. Clause numbers refer to that document.
   Configuration 4 is assumed to behave like 3 (no stream to test).
 - **Configuration 0 is all but extinct, and Dolby will not upmix it.** Of the
   113 object-carrying E-AC-3 tracks in the library, 112 use configuration 3
-  and one uses 0. On that one the Dolby decoder reports `joc_enable(1)` and
-  then chooses channel output: six channels, no objects, where every
-  configuration 3 stream gives sixteen. Its JOC parses clean and its OAMD
-  carries a bed and fifteen placed objects like any other, so there is
-  nothing visibly wrong with it. oadec follows clause 6.6, which draws no
-  distinction between the configurations, and reconstructs the objects. The
-  path therefore has no Dolby reference; `docs/evidence/2026-09-09-c.md`
-  records it as an open divergence.
+  and one uses 0. Relabelling a working configuration 3 stream as 0 with
+  `oadec eac3-joc-config`, which moves the three bits of the field and redoes
+  the frame check and nothing else, makes the Dolby decoder drop from sixteen
+  object channels to six: `Channel-based decoding joc_enable(1),
+  jocd_out_mode(1)`. So the configuration alone is enough to turn its upmix
+  off. oadec follows clause 6.6, which draws no distinction, and reconstructs
+  the objects either way.
+
+  The one stream in the library that carries configuration 0 has a second
+  reason as well: relabelled to 3 it is still refused, and the refusal is
+  taken again mid-stream when the decoder reaches its frames. Its sequence
+  counter, its splices, its use of the steep slope and its metadata structure
+  were each checked against streams the decoder accepts and none of them is
+  the cause. `docs/evidence/2026-09-10.md` has the measurements.
 - **Clip gain** (clause 6.3.3.2): `(1 + y/32) 2^(x-4)`, over [1; 8,75]. The
   standard defines the value and never uses it again: the word does not
   appear in clause 6.6, which specifies the whole decode. It is the gain the

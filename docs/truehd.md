@@ -135,4 +135,11 @@ Dolby's. It does, exactly. Plex ships a licensed Dolby engine
 `pi-head50m.thd` decoded to the eight-channel presentation, oadec and that
 engine agree on **all 40 606 400 samples**, zero lag, no sample different at
 24 bits. See `docs/evidence/2026-09-09-b.md`.
-
+- **The object presentation is bit-exact against Dolby.** Dolby's TrueHD
+  element refuses a raw elementary stream but takes the same audio in an MP4,
+  and `out-ch-config=21` with `presentation=16` then writes the coded objects
+  as PCM. Against that, Pi's twelve objects and Talk to Me's sixteen come out
+  identical, every sample: 60 909 600 and 30 720 000 of them, worst difference
+  zero. TrueHD invents nothing at decode time, so two correct decoders have
+  nothing to differ about. `docs/dolby-tools.md` has the pipeline and
+  `docs/evidence/2026-09-10.md` the numbers.

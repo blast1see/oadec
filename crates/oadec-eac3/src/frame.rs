@@ -269,6 +269,9 @@ pub struct Frame {
     pub blocks: Vec<Block>,
     /// The skip field bytes of each block (empty when none).
     pub skip_fields: Vec<Vec<u8>>,
+    /// Bit offset in the frame at which each of `skip_fields` starts, so a
+    /// tool can reach back into the frame and rewrite what it found there.
+    pub skip_bits: Vec<usize>,
     pub coverage: Coverage,
     /// Bit position after the last audio block.
     pub end_bit: usize,
@@ -428,6 +431,7 @@ struct Parser<'a> {
     // ---- outputs ----
     out_blocks: Vec<Block>,
     skip_fields: Vec<Vec<u8>>,
+    skip_bits: Vec<usize>,
 }
 
 fn nchgrps(expstr: u8, endmant: usize) -> usize {
@@ -539,6 +543,7 @@ impl<'a> Parser<'a> {
             pre_mant: Vec::new(),
             out_blocks: Vec::with_capacity(usize::from(h.blocks)),
             skip_fields: Vec::with_capacity(usize::from(h.blocks)),
+            skip_bits: Vec::with_capacity(usize::from(h.blocks)),
         }
     }
 
@@ -1252,9 +1257,11 @@ impl<'a> Parser<'a> {
         }
         // skip field
         let mut skip = Vec::new();
+        let mut skip_bit = 0usize;
         if (!eac3 || self.skipflde) && self.bit()? {
             let skipl = self.bits(9)? as usize;
             skip.reserve(skipl);
+            skip_bit = self.r.position();
             for _ in 0..skipl {
                 skip.push(self.bits(8)? as u8);
             }
@@ -1263,6 +1270,7 @@ impl<'a> Parser<'a> {
             }
         }
         self.skip_fields.push(skip);
+        self.skip_bits.push(skip_bit);
 
         // ---- bit allocation ----
         let all_zero = self.csnroffst == 0
@@ -2081,6 +2089,7 @@ impl Frame {
         let Parser {
             out_blocks,
             skip_fields,
+            skip_bits,
             coverage,
             transproc,
             nf,
@@ -2109,6 +2118,7 @@ impl Frame {
             bsi,
             blocks: out_blocks,
             skip_fields,
+            skip_bits,
             coverage,
             end_bit,
             crc_ok: crc,
