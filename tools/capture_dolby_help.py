@@ -14,6 +14,9 @@ CMDS = [
     [str(DEE57 / "dee_dthd_encoder.exe"), "--help"],
     [str(DEE57 / "dee_dthd_encoder.exe"), "--morehelp", "input-format"],
     [str(DEE57 / "dee_dthd_encoder.exe"), "--morehelp", "presentation"],
+    [r"C:\dee\dee_ddp_encoder.exe", "--help"],
+    [r"C:\dee\dee_ddp_encoder.exe", "--morehelp", "input-format"],
+    [str(DEE57 / "dee_ddp_encoder.exe"), "--help"],
     [str(DEE57 / "dee_ddpjoc_encoder.exe"), "--help"],
     [str(DEE57 / "dee_ddpjoc_encoder.exe"), "--morehelp", "input-format"],
     [str(DEE57 / "dee_ddpjoc_encoder.exe"), "--morehelp", "examples"],
@@ -22,12 +25,23 @@ CMDS = [
     [r"C:\Program Files\Dolby\Dolby Reference Player\drp.exe", "--version"],
 ]
 
+# Anything after this marker is written by hand and survives a recapture.
+KEEP = "<!-- hand-written below -->"
+
+target = Path("docs/dolby-tools.md")
+tail = ""
+if target.exists():
+    old = target.read_text(encoding="utf-8")
+    if KEEP in old:
+        tail = old[old.index(KEEP):]
+
 out = ["# Dolby tool command lines on the development machine", "",
        f"Captured {time.strftime('%Y-%m-%d')} by `tools/capture_dolby_help.py`. These outputs",
-       "are the ground truth for the flags used by the verification scripts.", ""]
+       "are the ground truth for the flags used by the verification scripts.",
+       "Notes below the marker at the end are written by hand and are kept.", ""]
 for cmd in CMDS:
     res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     text = (res.stdout + res.stderr).replace("\r", "").strip()
     out += [f"## `{Path(cmd[0]).name} {' '.join(cmd[1:])}`", "", "```text", text[:12000], "```", ""]
-Path("docs/dolby-tools.md").write_text("\n".join(out), encoding="utf-8")
+target.write_text("\n".join(out) + tail, encoding="utf-8")
 print("wrote docs/dolby-tools.md", sum(len(x) for x in out), "chars")

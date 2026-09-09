@@ -1,5 +1,8 @@
 //! `oadec` command-line entry point.
 
+// the `verify --json` report is one big `json!` literal
+#![recursion_limit = "256"]
+
 mod compare;
 mod damf;
 mod decode;

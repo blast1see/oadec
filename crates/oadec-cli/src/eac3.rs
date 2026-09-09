@@ -633,6 +633,15 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "steep_objects": e.joc_steep,
                 "fine_quantized_objects": e.joc_fine,
                 "two_data_points": e.joc_two_dpoints,
+                "seq_count_zero": e.joc_seq_zero,
+                // clause 6.3.3.2, x1000 so the ladder stays exact in JSON
+                "clipgain_x1000": e.joc_clipgain.keys().collect::<Vec<_>>(),
+                "clipgain_frames": e
+                    .joc_clipgain
+                    .iter()
+                    .filter(|(g, _)| **g != 1000)
+                    .map(|(_, n)| n)
+                    .sum::<u64>(),
             })),
             "first_error": p.first_error.as_ref().or(e.first_error.as_ref()),
             "seconds": elapsed,
