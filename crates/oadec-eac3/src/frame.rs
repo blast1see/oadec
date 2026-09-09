@@ -770,6 +770,14 @@ impl<'a> Parser<'a> {
                         // spx_begin = 2 spxbegf - 3: ecpl_end = 2 spxbegf = spx_begin + 3
                         self.ecpl_end = self.spx_begin + 3;
                     }
+                    // A begin frequency above the end frequency is not a
+                    // representable band range (clause E.1.3.3.19).
+                    if self.ecpl_end <= self.ecpl_begin || self.ecpl_end >= ECPL_SUBBAND_TABLE.len()
+                    {
+                        return Err(Eac3Error::Syntax(
+                            "enhanced coupling ends at or below its start",
+                        ));
+                    }
                     if self.bit()? {
                         for sbnd in self.ecpl_begin.max(8) + 1..self.ecpl_end {
                             self.ecplbndstrc[sbnd] = self.bit()?;
