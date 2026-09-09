@@ -38,9 +38,36 @@ that the decoder relies on. Clause numbers refer to that document.
   QMF domain before the reconstruction brings every object back in phase
   with the source. Configuration 4 is assumed to behave like 3 (no stream
   to test).
-- **Clip gain** (clause 6.3.3.2): `(1 + y/32) 2^(x-4)`. Its role in decoding
-  is not specified; the DEE streams carry 1.0, a streaming title 1.0–2.25.
-  oadec reports it and does not apply it.
+- **Clip gain** (clause 6.3.3.2): `(1 + y/32) 2^(x-4)`, over [1; 8,75]. The
+  standard defines the value and never uses it again: the word does not
+  appear in clause 6.6, which specifies the whole decode. It is the gain the
+  encoder took off the downmix, and the decoder puts it back on the objects.
+
+  Measured, because the standard would not say. The same Atmos master was
+  encoded twice, once as it stands and once scaled by exactly three. The
+  unscaled encode carries 1,000 in all 3 305 frames; the scaled one carries
+  360 frames from 1,031 to 1,813. Decoding both cores and taking the
+  per-frame ratio gives `scale / clipgain` in every bucket:
+
+  | clip gain | frames | hot/ref | x gain |
+  |---|---:|---:|---:|
+  | 1,0000 | 408 | 2,9995 | 2,9995 |
+  | 1,0312 | 125 | 2,9100 | 3,0009 |
+  | 1,0625 | 110 | 2,8234 | 2,9999 |
+  | 1,0938 | 30 | 2,7422 | 2,9992 |
+  | 1,3125 | 3 | 2,2866 | 3,0011 |
+
+  All six coded channels follow it, LFE included, each within 0,3 % of three.
+  So oadec multiplies the object program, bed and objects alike, by the clip
+  gain, and leaves the backwards-compatible core exactly as coded.
+  `--no-clip-gain` turns it off.
+
+  Two other readings are refuted. It is not a matrix range extender: the peak
+  quantized coefficient already sits at the 9,61 ceiling when the gain is 1,
+  and gain times peak runs past the ceiling when it is not. It is not
+  unrelated to level: on a two-hour streaming title the mean core peak is
+  0,091 where the gain is 1 and 0,38 to 0,74 where it is not, with the
+  maximum pinned at full scale in every bucket.
 - **The LFE** is not part of JOC (table 47, note); it comes from the core
   decode and is aligned with the objects by delaying the objects' start by
   the filter bank delay.

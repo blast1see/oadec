@@ -576,4 +576,32 @@ Deviations from the plan above:
   rather than its pseudo-code, and the surround pair is rotated by -j for
   downmix configurations 3 and 4 (both measured, see the evidence).
 - The corpus never used AHT, spectral extension or enhanced coupling, so
-  those paths are untested (AHT, SPX) or unsupported (ECPL).
+  those paths were untested (AHT, SPX) or unsupported (ECPL).
+
+## Status, 2026-09-09
+
+The three tools that were parsed but not decoded are decoded now, each
+settled against a Dolby decoder or a controlled Dolby encode; the evidence is
+in `docs/evidence/2026-09-09-b.md`.
+
+- **Enhanced coupling.** The four editions of the standard do not describe the
+  same tool: ETSI TS 102 366 V1.4.1 has an amplitude-only version with the
+  angle and chaos fields reserved, while V1.2.1 and both ATSC A/52 editions
+  have the full complex process and count the coordinate field nine bits
+  longer. Both Dolby decoders ignore the angle and the chaos, so the
+  amplitude-only reading is the default and `--ecpl-spec` selects the other.
+  The material problem was solved in-repo: `oadec eac3-ecpl-inject` converts a
+  stream's standard coupling to enhanced coupling without touching a mantissa.
+- **Transient pre-noise processing.** Applied, 3,57 dB closer to the Dolby
+  decode inside the corrected regions. It needs a sample-clocked output buffer
+  because the correction reads across the previous frame and can be aimed at a
+  transient in a later one.
+- **JOC clip gain.** The standard defines the value and never its use.
+  Encoding one Atmos master at two levels shows the encoder divides the whole
+  downmix, LFE included, by it, so the object program is multiplied back.
+
+Deviations from the plan above: the enhanced coupling material came from an
+in-repo bit stream rewriter rather than from any encoder, since neither DEE
+nor FFmpeg can emit the tool; and the question the plan expected to settle by
+measurement (the nine-bit disagreement) was settled by documents instead,
+three editions against one.

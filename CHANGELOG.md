@@ -8,6 +8,32 @@ Semantic Versioning.
 
 ### Added
 
+- **Enhanced coupling** (ATSC A/52:2018 clause E.3.5.5) decodes end to end.
+  ETSI TS 102 366 V1.4.1 reduces the tool to a real-valued gain and marks the
+  angle and chaos fields reserved; V1.2.1 of the same document and both ATSC
+  editions carry the full complex process and count the coordinate field nine
+  bits longer. Both Dolby decoders on hand return bit-identical audio whether
+  the angle and chaos carry zeros or a full spread, so the amplitude-only
+  reading is the default and `--ecpl-spec` selects the ATSC one.
+- **Transient pre-noise processing** (clause E.3.7) is applied. The correction
+  reads across the previous frame and can be aimed at a transient in a later
+  one, so decoded samples are released only once no future frame can rewrite
+  them; frames still come out whole, in order and the same length.
+  `--no-tpnp` keeps the old behaviour.
+- **JOC clip gain** (ETSI TS 103 420 clause 6.3.3.2) is applied to the object
+  program. Encoding one Atmos master at two levels shows the encoder divides
+  the whole downmix, LFE included, by it. `--no-clip-gain` keeps the old
+  behaviour.
+- `oadec eac3-ecpl-inject`, which rewrites a stream's standard coupling as
+  enhanced coupling so a tool nothing emits can be tested, and `oadec-bits`
+  gained the `BitWriter` it needs.
+- `verify --json` reports `ecpl_frames`, `tpnp_frames`, the transient
+  parameters and the frames that carry a clip gain.
+- `tools/two_way.py` compares a decode with the Dolby one where FFmpeg cannot
+  follow, and `tools/tpnp_window.py` measures what the transient correction
+  changes.
+
+
 - `oadec-bits`: MSB-first bit reader with windowed peeking, the TrueHD
   CRC-8/CRC-16 polynomials and the parity helpers.
 - `oadec-truehd`: access-unit framing and resynchronisation, major sync with
@@ -45,3 +71,10 @@ Semantic Versioning.
   `docs/eac3.md`, `docs/joc.md`), the behaviour of the Dolby command-line
   tools (`docs/dolby-tools.md`) and the evidence reports under
   `docs/evidence/`.
+
+### Changed
+
+- `Decoder::decode` returns `Option<Decoded>` and `Decoder::flush` drains what
+  the two lookaheads hold, so no frame is lost at the end of a stream or after
+  an error. Streams that use neither tool are never held and decode
+  byte-identically to before.
