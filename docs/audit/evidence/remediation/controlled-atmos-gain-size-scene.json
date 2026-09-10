@@ -1,0 +1,48 @@
+{
+ "_what": "A controlled Atmos programme that varies object gain and object size and holds everything else still, so that the two can be measured separately against what was authored. Positions are static and repeat the scene that already recovered exactly, which makes them the control. This file is the ground truth: oadec atmos-author writes the master from it and tools/ground_truth.py compares a decode with it.",
+ "sample_rate": 48000,
+ "duration_samples": 480000,
+ "bed": ["LFE"],
+ "objects": [
+  {
+   "name": "gain 0 dB, point source",
+   "signal": {"kind": "tone", "hz": 440.0, "dbfs": -20.0},
+   "events": [{"sample": 0, "pos": [-1.0, 1.0, 0.0], "gain_db": 0, "size": 0.0}]
+  },
+  {
+   "name": "gain -3 dB, point source",
+   "signal": {"kind": "tone", "hz": 880.0, "dbfs": -20.0},
+   "events": [{"sample": 0, "pos": [0.0, 1.0, 0.0], "gain_db": -3, "size": 0.0}]
+  },
+  {
+   "name": "gain -6 dB, point source",
+   "signal": {"kind": "tone", "hz": 1320.0, "dbfs": -20.0},
+   "events": [{"sample": 0, "pos": [1.0, 1.0, 0.0], "gain_db": -6, "size": 0.0}]
+  },
+  {
+   "name": "gain -12 dB, point source",
+   "signal": {"kind": "tone", "hz": 1760.0, "dbfs": -20.0},
+   "events": [{"sample": 0, "pos": [-1.0, -1.0, 0.0], "gain_db": -12, "size": 0.0}]
+  },
+  {
+   "name": "gain -24 dB, point source",
+   "signal": {"kind": "tone", "hz": 2200.0, "dbfs": -20.0},
+   "events": [{"sample": 0, "pos": [1.0, -1.0, 0.0], "gain_db": -24, "size": 0.0}]
+  },
+  {
+   "name": "size 0.25, gain 0 dB",
+   "signal": {"kind": "tone", "hz": 2640.0, "dbfs": -20.0},
+   "events": [{"sample": 0, "pos": [0.0, 1.0, 1.0], "gain_db": 0, "size": 0.25}]
+  },
+  {
+   "name": "size 0.5, gain 0 dB",
+   "signal": {"kind": "tone", "hz": 3080.0, "dbfs": -20.0},
+   "events": [{"sample": 0, "pos": [0.0, -1.0, 1.0], "gain_db": 0, "size": 0.5}]
+  },
+  {
+   "name": "size 1.0, gain 0 dB",
+   "signal": {"kind": "tone", "hz": 3520.0, "dbfs": -20.0},
+   "events": [{"sample": 0, "pos": [0.0, 0.0, 0.5], "gain_db": 0, "size": 1.0}]
+  }
+ ]
+}

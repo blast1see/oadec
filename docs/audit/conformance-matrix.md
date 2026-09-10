@@ -156,7 +156,10 @@ Every `after` here points at a file under `evidence/remediation/`. The report is
 | Steep interpolation switch point | PASS, unmeasured | **PASS-TOL** | `steep-offset-differential.json` | Confirmed against one decoder family, on four titles that carry steep objects |
 | Coarse JOC | N/T | **PASS-TOL** | `joc-syntax-coverage.json` | — |
 | Two-point interpolation | N/T | N/T | `joc-syntax-coverage.json` | 0 of 32 493 245 object updates |
-| Controlled object positions | N/T | **PASS** | `controlled-atmos-ground-truth.json` | Movement, gain, size and divergence are named follow-ups |
+| Controlled object positions | N/T | **PASS** | `controlled-atmos-ground-truth.json` | Movement is the encoder resampling a trajectory onto its own grid |
+| Controlled object gain | N/T | **PASS** (encoder drops it) | `controlled-atmos-gain-size.json` | Objects authored at 0, -3, -6, -12 and -24 dB all come back with gain 0 and at the same level, in both codecs, and the OAMD payload of the encoded stream carries gain 0 itself. The decoder reads what is there; nothing in the wild carries a non-zero object gain either |
+| Controlled object size | N/T | **PASS** (encoder renders it) | `controlled-atmos-gain-size.json` | Size comes back 0 and the object is spread over 7 to 11 encoded objects against 1 for a point source, total energy within 1,2 dB. Rendered, not carried |
+| Controlled object divergence | N/T | N/T, unreachable | `controlled-atmos-gain-size.json` | DAMF has no divergence field, so no authored master can carry one; it needs a stream that already does |
 | TrueHD bit exactness | PASS | **PASS** | `regression-summary.json` | — |
 | JOC objects against Dolby | PASS-TOL | **PASS-TOL** | `joc-objects-vs-dolby.json` | Six titles, none regressed; Glass Onion's worst object moved 25,24 to 49,93 dB with the steep correction. The worst of the six is 35,25 dB and the difference that remains is E-AC-3 dither |
 | Media suite reports honestly | FAIL | **PASS** | CI job `media-suite-refuses-to-pass-without-media` | — |
