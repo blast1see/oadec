@@ -392,8 +392,8 @@
   "note": "from evidence/remediation/joc-syntax-coverage.json: 2,3 per cent of all object updates in 31 JOC streams"
  },
  "summary": {
-  "titles_with_steep_objects": 4,
-  "improved": 2,
+  "titles_with_steep_objects": 5,
+  "improved": 3,
   "unchanged": 6,
   "regressed": 0,
   "best_single_frame": {
@@ -410,5 +410,81 @@
    "median_after_db": 65.44
   },
   "verdict": "the switch position is a discrete parameter with a sharp optimum one slot before the printed reading; the neighbouring positions are 22 dB worse and the printed one is 25 dB worse"
+ },
+ "later_titles": {
+  "utc": "2026-09-10T13:45:04.302192+00:00",
+  "why": "the corpus scan that measured which outputs the corrections changed named two more streams with heavy steep content, and one of them had no Dolby reference yet",
+  "jackal-s01e07-head": {
+   "steep_objects": 840,
+   "steep_frames": 56,
+   "offset_ts_values": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    17,
+    18,
+    19,
+    20,
+    22,
+    23,
+    24
+   ],
+   "as_printed": {
+    "objects_worst_sdr_db": 26.77,
+    "objects_median_sdr_db": 37.89,
+    "corr_structure_max_abs_delta": 0.0006
+   },
+   "measured": {
+    "objects_worst_sdr_db": 35.12,
+    "objects_median_sdr_db": 39.34,
+    "corr_structure_max_abs_delta": 0.0003
+   },
+   "per_frame": {
+    "654": [
+     34.56,
+     36.3
+    ],
+    "667": [
+     44.28,
+     44.28
+    ],
+    "694": [
+     50.12,
+     50.12
+    ],
+    "707": [
+     26.51,
+     37.76
+    ],
+    "710": [
+     31.46,
+     39.18
+    ],
+    "715": [
+     37.9,
+     37.9
+    ],
+    "746": [
+     41.99,
+     41.99
+    ]
+   },
+   "reading": "a fifth independent title, with more steep objects than any measured before, and the same shape: the damaged frames recover and the rest do not move"
+  },
+  "pi-head-joc384": {
+   "steep_objects": 1199,
+   "verdict": "NOT MEASURED",
+   "why": "the Dolby reference for this stream could not be aligned with our twelve object channels -- worst 8,78 dB under both readings, identical, which is a comparison that has not found the right pairing rather than a decoder result. Recorded so that nobody reads a conclusion out of it."
+  }
  }
 }

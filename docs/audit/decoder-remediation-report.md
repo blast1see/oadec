@@ -492,16 +492,23 @@ twice from the same binary, once with `--steep-as-printed` and once without,
 and both are compared per object against Dolby's object decoder in the window
 `tools/objcmp.py` already used.
 
-Eight titles. Four carry steep objects; the other four are the negative control
-and are bit-identical under the two readings, because a stream with no steep
-object cannot reach the code that changed.
+Nine titles. Five carry steep objects; four are the negative control and are
+bit-identical under the two readings, because a stream with no steep object
+cannot reach the code that changed.
 
 | Title | Steep objects | Worst, as printed | Worst, corrected | Median |
 |---|---:|---:|---:|---|
 | Glass Onion | 195 | 25,24 dB | **49,93 dB** | 47,76 → 65,44 |
+| The Jackal | 840 | 26,77 dB | **35,12 dB** | 37,89 → 39,34 |
 | Shaun of the Dead | 30 | 40,75 dB | **43,62 dB** | 46,79 → 53,79 |
 | Red Notice | 105 | 36,21 dB | 36,21 dB | unchanged |
 | Extraction | 30 | 50,51 dB | 50,51 dB | unchanged |
+
+The Jackal came last, from the sweep that measured which outputs the corrections
+changed: it carries more steep objects than any title measured before it and had
+no reference until then. Two of its damaged frames go 26,51 → 37,76 and
+31,46 → 39,18 dB while the rest do not move, which is the same shape as
+Glass Onion's.
 
 Per frame it is sharper. Of Glass Onion's thirteen frames with steep objects,
 four were damaged and nine were already right:

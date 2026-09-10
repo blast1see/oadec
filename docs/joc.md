@@ -101,13 +101,14 @@ that the decoder relies on. Clause numbers refer to that document.
   one slot too many. Dolby's decoder switches at the slot the offset names,
   which is `ts < joc_offset_ts - 1`.
 
-  Measured against Dolby's object decoder on eight titles. Four carry steep
-  objects; the other four are the negative control and are bit-identical
-  either way, because the reading cannot reach a stream that has none.
+  Measured against Dolby's object decoder on nine titles. Five carry steep
+  objects; four are the negative control and are bit-identical either way,
+  because the reading cannot reach a stream that has none.
 
   | title | steep objects | worst, as printed | worst, corrected | median |
   |---|---:|---:|---:|---|
   | Glass Onion | 195 | 25,24 dB | **49,93 dB** | 47,76 → 65,44 |
+  | The Jackal | 840 | 26,77 dB | **35,12 dB** | 37,89 → 39,34 |
   | Shaun of the Dead | 30 | 40,75 dB | **43,62 dB** | 46,79 → 53,79 |
   | Red Notice | 105 | 36,21 dB | 36,21 dB | unchanged |
   | Extraction | 30 | 50,51 dB | 50,51 dB | unchanged |
