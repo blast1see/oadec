@@ -163,8 +163,9 @@ that the decoder relies on. Clause numbers refer to that document.
   `quadrature.rs` carries it and `tools/gen_joc_quadrature.py` regenerates
   it. `--flat-quadrature` restores the plain reading for measurement.
   Configuration 4 behaves like 3, and that is now measured rather than assumed:
-  three library titles carry it, and Green Book's objects come out at 50,13 dB
-  worst against Dolby's.
+  five library tracks carry it and Green Book's objects come out at 50,13 dB
+  worst against Dolby's. Configurations 1 and 2 occur in no track of any file --
+  0 of the 118 that carry JOC, across 111 films and 226 Dolby tracks.
 - **Configuration 0 is all but extinct, and Dolby will not upmix it.** Of the
   113 object-carrying E-AC-3 tracks in the library, 112 use configuration 3
   and one uses 0. The one that carries 0 is decoded to six channels rather
