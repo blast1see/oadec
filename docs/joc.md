@@ -23,40 +23,56 @@ that the decoder relies on. Clause numbers refer to that document.
 - **Differential decoding** (clause 6.6.2): dense matrices start from 48
   (coarse) or 96 (fine) and accumulate modulo 96/192 across bands.
 
-  **Sparse mode is printed wrong, in two places.** Pseudo-code 2 puts the
-  offset 50/100 on the channels a band does not select, and forms the channel
+  **Sparse mode is printed wrong, in three places.** Pseudo-code 2 puts the
+  offset 50/100 on the channels a band does not select, forms the channel
   index of band `pb` as `(joc_channel_idx[pb-1] + joc_channel_idx[pb]) % nch`
-  from the *transmitted* previous value. Both are wrong, and the second only
-  matters once the first is fixed.
+  from the *transmitted* previous value, and accumulates the selected
+  channel's coefficient from `joc_mix_mtx_q[ch][pb-1]`, which is that same
+  offset whenever the previous band chose a different channel. All three are
+  wrong, and each only becomes measurable once the one before it is fixed.
 
   50 and 100 do not dequantise to zero. Clause 6.6.4 gives
   `(q - nquant/2) * 820 / (4096 (1 + quant_idx))`, so 50 and 100 both come out
   at 0,4004 — an unselected channel would contribute four tenths of a downmix
   channel to every object, which is the opposite of what "sparse" means. The
   code that dequantises to zero is 48/96, the same value dense mode starts
-  from. And the index accumulates from the *resolved* previous index, not the
-  transmitted one.
+  from. The index accumulates from the *resolved* previous index, not the
+  transmitted one. And the coefficient chain runs unbroken across the bands
+  whatever channel each one selects, the way dense mode's per-channel chain
+  does, instead of restarting at the offset every time the channel changes.
 
-  Measured against Dolby's object decoder on the only sparse material there
-  is — 150 objects across three streaming titles, 150 of 32 493 245 object
-  updates in the whole library — on the three frames that carry it:
+  The seed of that chain is the printed 50/100 and stays there. Reading it as
+  48/96, so that sparse and dense start from the same place, is the obvious
+  fourth correction and it is wrong: the sparse frames of one clip fall from
+  53 dB to −0,4 dB. One constant, two uses, and only one of them misprinted.
 
-  | frame | as printed | corrected | frames either side |
-  |---|---:|---:|---:|
-  | Extraction 63 325 | 1,05 dB | 16,53 dB | 38-48 dB |
-  | Extraction 208 315 | −3,23 dB | 45,72 dB | 55-58 dB |
-  | Extraction 208 333 | −13,48 dB | 51,52 dB | 54-56 dB |
+  Measured against Dolby's object decoder on **all** the sparse material there
+  is: 150 object updates in ten frames of three streaming titles, out of
+  32 493 245 object updates in the whole library. Five clips, each cut around
+  the frames `verify --json` names. The number below is the worst sparse frame
+  of a clip against that same clip's own median away from those frames, so it
+  compares the sparse frames with the ordinary frames of the same decode of the
+  same material:
 
-  The off-channel value alone is worth 10 to 19 dB; the index alone is worth
-  nothing, because the off-channel error swamps it; together they are worth
-  15,5 to 65 dB. `--sparse-as-printed` restores the printed reading for
-  measurement. Frames with no sparse object are bit-identical either way.
+  | clip | sparse frames | as printed | + zero gain and resolved index | + unbroken chain |
+  |---|---|---:|---:|---:|
+  | Extraction A | 1 | −36,9 dB | −13,8 dB | **−9,9 dB** |
+  | Extraction B | 2 | −71,3 dB | −12,1 dB | **−4,7 dB** |
+  | Extraction C | 1 | −46,3 dB | −19,7 dB | **−5,7 dB** |
+  | Glass Onion | 5 | −75,2 dB | −50,1 dB | **−9,2 dB** |
+  | Red Notice | 1 | −58,7 dB | −10,7 dB | **−4,9 dB** |
 
-  One frame still lagged its neighbours by 22 dB after both corrections. Half
-  of that turned out not to be sparse at all but the steep switch point below:
-  that frame is also steep, with offset 23. It now reaches 30,63 dB where its
-  neighbours are 38 to 48, so the gap is 10 to 15 dB and still unexplained.
-  The other two reach parity.
+  Glass Onion is where the third correction shows: two corrections leave its
+  five frames 50 dB down, all three bring them to 9. In absolute terms the
+  sparse frames end up at 34,6 to 68,4 dB against clip levels of 44 to 60.
+  `--sparse-as-printed` restores the printed reading, and a stream with no
+  sparse object is bit-identical under all three. Evidence:
+  `docs/audit/evidence/remediation/sparse-differential.json`.
+
+  The frame this started from is still the worst of the ten, and its
+  disagreement is confined to two QMF slots at the point where the sparse
+  matrix is applied. It is also the only frame in the library that is both
+  sparse and steep with a large offset. Open.
 - **Dequantization** (clause 6.6.4): `(q - nquant/2) * 820 / (4096 (1 +
   quant_idx))`, range about ±9.6.
 - **Band mapping** (table 54): 23/15/12/9/7/5/3/1 parameter bands over the

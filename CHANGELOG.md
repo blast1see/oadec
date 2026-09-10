@@ -21,13 +21,17 @@ Semantic Versioning.
   delivery path now decides with the list `verify` uses and exits 7, and
   `docs/exit-codes.md` writes the policy down. Replaying both campaigns: 0
   silent, 0 panics.
-- **Sparse JOC matrices.** Clause 6.6.2's pseudo-code is wrong in two places,
-  and Dolby's decoder disagrees with both: an unselected channel takes the code
-  that dequantises to zero gain, not the printed 50 or 100, and the channel
-  index accumulates from the resolved previous index. On the three frames of
-  real sparse material available this moves the objects from -13,5 to +1,1 dB
-  against Dolby's to 16,5 to 51,5 dB. `--sparse-as-printed` restores the
-  printed reading.
+- **Sparse JOC matrices.** Clause 6.6.2's pseudo-code is wrong in three places,
+  and Dolby's decoder disagrees with all three: an unselected channel takes the
+  code that dequantises to zero gain, not the printed 50 or 100; the channel
+  index accumulates from the resolved previous index; and the coefficient chain
+  runs unbroken across the bands whatever channel each one selects, instead of
+  restarting at the offset every time the channel changes. Measured on every
+  sparse frame in the library -- ten frames of three streaming titles, five clips
+  -- the worst sparse frame of a clip goes from 75 dB below that clip's own
+  level to 10 dB below it. The seed of the chain is the printed 50/100 and
+  stays there; reading it as 48/96 costs 50 dB. `--sparse-as-printed` restores
+  the printed reading.
 - **The steep interpolation switched one time slot too late.** `joc_offset_ts`
   is one-based (clause 6.3.4.4 defines it as the transmitted bits plus one) and
   the `ts` of clause 6.6.5 counts from zero, but the printed pseudo-code

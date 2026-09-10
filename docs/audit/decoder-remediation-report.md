@@ -7,7 +7,9 @@ the record of what was measured on the day.
 
 Two defects were demonstrated by the audit and both are fixed. A third turned up
 while closing one of the coverage gaps, a fourth while measuring what was left
-of the third, and one of the audit's own conclusions turned out to be wrong. Beyond them the audit left a number of areas untested
+of the third, and a third fault in the same clause as the third defect turned up
+when the material that had never been decoded finally was. One of the audit's
+own conclusions turned out to be wrong as well. Beyond them the audit left a number of areas untested
 rather than failing, and those are treated as what they are: coverage gaps,
 unknown proprietary behaviour, or reference-decoder disagreement, each pursued
 on its own terms and none of them promoted to a pass without evidence.
@@ -334,14 +336,18 @@ that gap turned it into a demonstrated defect.
 ### Symptom
 
 Frames carrying sparse matrices decode to objects that bear almost no relation
-to Dolby's. Per-object median distance on the three frames of real sparse
-material available, against the frames either side of them:
+to Dolby's. Per-object median distance on the first sparse material found, the
+three frames of two Extraction clips, against the frames either side of them:
 
 | Frame | oadec | frames either side |
 |---|---:|---:|
 | Extraction 63 325 | 1,05 dB | 38-48 dB |
 | Extraction 208 315 | −3,23 dB | 55-58 dB |
 | Extraction 208 333 | −13,48 dB | 54-56 dB |
+
+Seven more sparse frames were cut later — one more from Extraction and the
+whole of Glass Onion's and Red Notice's — and they behave the same way:
+−16 to +6 dB where the same clips run at 52 to 60 elsewhere.
 
 ### Why the audit could not see it
 
@@ -355,7 +361,7 @@ a syncframe boundary and contains it.
 
 ### Root cause
 
-Clause 6.6.2 pseudo-code 2 is wrong in two places.
+Clause 6.6.2 pseudo-code 2 is wrong in three places, and each hides the next.
 
 It puts the value `offset`, 50 coarse or 100 fine, on the channels a band does
 not select. Clause 6.6.4 dequantises with `(q - nquant/2) * 820 /
@@ -364,37 +370,67 @@ unselected channel contributes four tenths of a downmix channel to the object,
 which is the opposite of what a sparse representation is for. The code that
 means zero gain is 48/96, the same value dense mode starts from.
 
-And it forms the channel index of band `pb` from the **transmitted** previous
+It forms the channel index of band `pb` from the **transmitted** previous
 value rather than the resolved one. That reading was already in the source,
 behind `SparseIndexMode::Cumulative`, unused and unsettled — because on its own
 it is worth nothing measurable, the off-channel error swamping it entirely.
 
+And it accumulates the selected channel's coefficient from
+`joc_mix_mtx_q[obj][dp][ch][pb-1]` — the same channel's previous band — which
+is the offset whenever the previous band selected a different channel. So the
+printed reading restarts the chain at the offset every time the channel moves.
+Dolby's runs it unbroken across the bands, whatever channel each one lands on,
+the way dense mode's per-channel chain runs unbroken across its own. This one
+only became visible after the first two, and it is what the material from the
+two titles that had never been decoded shows most clearly.
+
+The seed of the chain is the printed 50/100 and stays there. Reading it as
+48/96, so that sparse and dense agree on where they start, is the obvious
+fourth correction and it is wrong by 50 dB: one constant, two uses, and only
+one of the two misprinted.
+
 ### Reference result
 
-`evidence/remediation/joc-syntax-coverage.json`. Against Dolby's own object
-decoder:
+`evidence/remediation/sparse-differential.json`. **Every** sparse frame in the
+library is measured: ten frames, 150 object updates, three streaming titles, five
+clips cut around the frames `verify --json` names. Glass Onion and Red Notice
+had never been decoded against Dolby on their sparse frames at all, and one of
+Extraction's four had been missed; the first round of this work had three of
+the ten.
 
-| Frame | as printed | off-channel zero | both corrections |
-|---|---:|---:|---:|
-| Extraction 63 325 | 1,05 dB | 12,33 dB | **16,53 dB** |
-| Extraction 208 315 | −3,23 dB | 7,51 dB | **45,72 dB** |
-| Extraction 208 333 | −13,48 dB | 5,61 dB | **51,52 dB** |
+The figure below is the worst sparse frame of a clip against that same clip's
+median away from its sparse frames, so the comparison is with the ordinary
+frames of the same decode of the same material:
 
-Frames carrying no sparse object are bit-identical either way, and all 33 work
-streams decode to byte-identical PCM and DAMF. `--sparse-as-printed` keeps the
-printed reading reachable so the difference stays measurable.
+| Clip | Sparse frames | as printed | + zero gain, resolved index | + unbroken chain |
+|---|---|---:|---:|---:|
+| Extraction A | 1 | −36,9 dB | −13,8 dB | **−9,9 dB** |
+| Extraction B | 2 | −71,3 dB | −12,1 dB | **−4,7 dB** |
+| Extraction C | 1 | −46,3 dB | −19,7 dB | **−5,7 dB** |
+| Glass Onion | 5 | −75,2 dB | −50,1 dB | **−9,2 dB** |
+| Red Notice | 1 | −58,7 dB | −10,7 dB | **−4,9 dB** |
+
+Glass Onion is where the third correction shows: two corrections leave its five
+frames 50 dB below their clip, all three bring them to 9. In absolute terms the
+ten sparse frames end at 34,6 to 68,4 dB against clip levels of 44 to 60.
+
+Frames carrying no sparse object are bit-identical under all three readings,
+and all 33 work streams decode to byte-identical PCM and DAMF.
+`--sparse-as-printed` keeps the printed reading reachable so the difference
+stays measurable.
 
 Coarse quantisation, tested the same way on a clip carrying 75 coarse objects,
 was already right: 50 to 57 dB, unchanged.
 
 ### Remaining limitation
 
-The first of the three frames still lagged its neighbours by 22 dB after both
-corrections, where the other two reached parity. Half of that gap turned out
-not to belong to sparse mode at all: the same frame is also the only steep
-frame in that clip, and defect 4 below took it from 16,53 dB to 30,63 dB
-against neighbours at 38 to 48. What is left is 10 to 15 dB and is recorded as
-open.
+One frame of the ten is still the worst: 34,6 dB where its clip sits at 44,4
+and its immediate neighbours at 38,5 and 48,2. It is the frame this
+investigation started from, and it has moved three times — 16,5 dB after the
+first two corrections, 30,6 after defect 4 below, 34,6 after the third. What is left
+is confined to two QMF time slots, at the point where the sparse matrix is
+applied, and that frame is the only one in the library that is both sparse and
+steep with a large offset. Open.
 
 ### What is still unexercised
 
@@ -583,10 +619,11 @@ run that cannot reach the media now fails, and CI runs the check that it does.
 
 ## What is still open
 
-- **Sparse JOC**, on one of the three frames that carry it: 10 to 15 dB below
-  its neighbours after the two sparse corrections and the steep one. It was
-  22 dB before defect 4 was found in the same frame. The other two reach
-  parity.
+- **Sparse JOC**, on one of the library's ten sparse frames: 34,6 dB where its
+  clip sits at 44,4. The disagreement is two QMF slots wide and sits where the
+  sparse matrix is applied. That frame has moved from 1,05 to 16,5 to 30,6 to
+  34,6 dB across three separate corrections; the other nine end within 5,7 dB
+  of their clips' own level.
 - **The second reason Dolby refuses three titles.** `2ch_control_enabled` is
   necessary and not sufficient; the rest is taken before any audio is decoded
   and is not in the major sync.
