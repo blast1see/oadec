@@ -106,5 +106,10 @@
   },
   "reading": "the sparse-and-steep frames sit at or above their clip's level. The combination is not the cause. Nor is a large switch offset: both clips carry offsets across the whole range including 23 and 24.",
   "so": "the remaining frame is an outlier of one. It is not sparse decoding, not steep decoding, not the two together, not a large offset and not dither. It stays open as a single frame rather than as a class."
+ },
+ "coarse_quantisation_comes_with_it": {
+  "note": "the same clip is 5 325 coarse objects against 675 fine, so the 46,78 dB it measures is a coarse-quantisation result as much as a sparse one. Coarse had been checked on a clip carrying 75 coarse objects; this is seventy-one times as many, in one measurement, and it sits at the level of the rest of the clip.",
+  "coarse_objects": 5325,
+  "fine_objects": 675
  }
 }
