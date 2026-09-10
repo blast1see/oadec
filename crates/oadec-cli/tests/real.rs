@@ -378,6 +378,72 @@ fn transient_pre_noise_changes_only_what_it_should() {
     }
 }
 
+/// Downmix configuration 4 decodes to objects.
+///
+/// It needs a seven-channel JOC downmix, a seven-channel downmix needs a
+/// dependent substream, and until those were decoded the configuration was
+/// unreachable -- which is why nothing measured before this release had ever
+/// carried it. Table 47 of TS 103 420 ends configurations 2 and 4 in the top
+/// front pair and not the rear one, and reading it as configuration 1 leaves a
+/// real stream's height channels unmapped and the decode refused.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn downmix_configuration_four_decodes_to_objects() {
+    let media = media_dir();
+    let file = media.join("clips/greenbook-cfg4-head.ec3");
+    require(&file);
+
+    let info = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["info", "--json"])
+        .arg(&file)
+        .output()
+        .expect("run oadec info");
+    let v: Value = serde_json::from_slice(&info.stdout).expect("info json");
+    let configs: Vec<u64> = v["joc"]["downmix_configs"]
+        .as_array()
+        .expect("downmix configs")
+        .iter()
+        .filter_map(serde_json::Value::as_u64)
+        .collect();
+    assert!(
+        configs.contains(&4),
+        "the clip no longer carries configuration 4: {configs:?}"
+    );
+    let names: Vec<&str> = v["channels"]
+        .as_array()
+        .expect("channels")
+        .iter()
+        .map(|n| n.as_str().unwrap_or(""))
+        .collect();
+    assert!(
+        names.contains(&"Vhl") && names.contains(&"Vhr"),
+        "the height pair the seven-channel downmix needs is missing: {names:?}"
+    );
+
+    let base = std::env::temp_dir().join("oadec-cfg4");
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", "--format", "damf", "--no-bed-conform", "-o"])
+        .arg(&base)
+        .arg(&file)
+        .output()
+        .expect("run oadec decode");
+    let text = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        matches!(out.status.code(), Some(0) | Some(7)),
+        "configuration 4 did not decode: {text}"
+    );
+    assert!(
+        text.contains("over 7 downmix channels (config 4)"),
+        "the pipeline did not report seven inputs at configuration 4: {text}"
+    );
+    let audio = base.with_extension("atmos.audio");
+    let len = std::fs::metadata(&audio).expect("decoded audio").len();
+    assert!(len > 0, "no object audio was written");
+    for ext in [".atmos", ".atmos.metadata", ".atmos.audio"] {
+        let _ = std::fs::remove_file(std::env::temp_dir().join(format!("oadec-cfg4{ext}")));
+    }
+}
+
 /// The core decoder's own options reach the object path.
 ///
 /// `decode --format damf` on an E-AC-3 stream used to build the core decoder
