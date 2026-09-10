@@ -147,7 +147,7 @@ Every `after` here points at a file under `evidence/remediation/`. The report is
 | DD+ 7.1 output | FAIL | **PASS** | `dependent-substream-before-after.json` | — |
 | Dependent channel map | N/I | **PASS** | `ddp71-channel-compare.json` | Whether the map counts the LFE is a documented reading |
 | EMDF in the last dependent substream | N/I, unreachable | **PASS** | `library-syntax-scan.json` | The configuration 4 streams have both: 18 750 dependent frames and 18 750 containers, none of them in the independent substream. The encoder agrees with clause 8.2, and a decoder that filters dependents out finds no metadata at all in these streams |
-| EMDF in auxiliary data | N/I | N/T | `joc-syntax-coverage.json` | 0 frames carry auxiliary user bits in 49 streams |
+| EMDF in auxiliary data | N/I | N/T | `library-syntax-scan.json` | 0 frames carry auxiliary user bits in any of the 151 streams read whole: 49 in the working directory, 78 across sixteen library titles and 24 streaming ones |
 | JOC configuration 4 | N/T, unreachable | **PASS-TOL** | `library-syntax-scan.json`, `library-configurations.json` | Five library tracks carry it, all 5.1.2 through a dependent substream. Its input mapping was wrong and is fixed |
 | JOC configuration 1 / 2 | N/T, unreachable | N/T, reachable | `library-configurations.json` | 0 of the library's 118 JOC-carrying tracks, and 0 of 170 722 130 object updates |
 | JOC integrity propagation | FAIL | **PASS** | `decode-exit-codes.json` | — |
