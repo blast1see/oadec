@@ -8,6 +8,14 @@ available reference · **UNK** unknown or proprietary.
 Evidence paths are relative to `docs/audit/`. Source anchors are
 `crate/src/file.rs:line` under `crates/`.
 
+> **Revised after remediation.** Rows the remediation branch changed carry the
+> audit's original verdict in brackets, so the before-state stays readable
+> without going back through git. The report is
+> `decoder-remediation-report.md`; the measurements are under
+> `evidence/remediation/`. Nothing moved without one. Line numbers in the
+> Implementation column refer to the code as the audit found it and are left
+> alone; where a row's code has moved, the new location is named in the text.
+
 ## TrueHD
 
 | Feature | Requirement | Implementation | Evidence | Result |
@@ -50,10 +58,10 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 |---|---|---|---|---|
 | Syncframe and bit stream information | TS 102 366 Annex E | `eac3/header.rs:92`, `eac3/bsi.rs` | 17-stream corpus, 0 sync errors | PASS |
 | Frame CRC | TS 102 366 clause 6.10.1 | `eac3/frame.rs:288` | flipped bit gives 1 CRC failure in `verify` | PASS |
-| CRC failure affects the exit code | — | `cli/eac3.rs:541` | `verify` exits 7; `decode` prints the count and exits 0 | PARTIAL |
+| CRC failure affects the exit code | — | `cli/integrity.rs`, used by every delivery path | every path now decides with the list `verify` uses; 29 of 33 corpus streams moved from exit 0 to exit 7, each one already non-conformant to `verify`; `evidence/remediation/decode-exit-codes.json` | PASS [was PARTIAL] |
 | Independent substream decode | Annex E | `cli/eac3.rs:465` | three-way comparison, closer to Dolby than FFmpeg on every channel | PASS-TOL |
-| **Dependent substream decode** | Annex E | filtered out at `cli/eac3.rs:465`, `cli/eac3_objects.rs:511` | 7.1 track: FFmpeg 8 channels, oadec 6; `verify` says CLEAN, exit 0 | **FAIL** |
-| Custom channel map | Annex E | parsed at `eac3/bsi.rs:148`, zero consumers | follows from the row above | N/I |
+| **Dependent substream decode** | Annex E clause E.2.8.2 | `eac3/program.rs`, `ProgramDecoder` | 40 of 40 eight-channel library tracks decode to 8 channels, FFmpeg agreeing on the count for every one; 320 channel comparisons, 0 mismatched; `evidence/remediation/ddp71-channel-compare.json` | **PASS** [was FAIL] |
+| Custom channel map | Annex E clause E.1.3.1.8, table E.1.4 | `eac3/program.rs`, `chanmap_locations` | two maps found in the wild: 0x1a00 (Ls, Rs, Lrs/Rrs → 7.1) on 35 titles and 0xa010 (L, R, Vhl/Vhr → 5.1.2) on 5, both agreeing with FFmpeg's layout | PASS [was N/I] |
 | Coupling and default band structure | Annex E, Table E.1.12 | `eac3/frame.rs:880` | absolute subband indexing; stereo corpus decodes | PASS |
 | Enhanced coupling, amplitude only | TS 102 366 V1.4.1 | `eac3/frame.rs:1352` | default; injected material decodes, media test passes | PASS |
 | Enhanced coupling, angle and chaos | A/52:2018 clause E.3.5.5 | `eac3/ecpl.rs:94`, behind `--ecpl-spec` | no decoder anywhere implements it, so there is no oracle | N/T |
@@ -74,8 +82,8 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 |---|---|---|---|---|
 | EMDF container parse | TS 102 366 Annex H | `emdf/container.rs:190` | container counts agree between `emdf` and `verify` on four clips | PASS |
 | EMDF located in the skip field | Annex H clause H.1 | `eac3/frame.rs:1258` | exact, not a byte scan | PASS |
-| EMDF in auxiliary data | Annex H | never parsed, `eac3/frame.rs:2088` | no material in the corpus uses it | N/I |
-| EMDF in the last dependent substream | TS 103 420 clause 8.2 | dependent substreams are skipped | follows from the dependent-substream failure | N/I |
+| EMDF in auxiliary data | Annex H clause H.1, clause 4.4.4 | `eac3/frame.rs`, `read_auxdata` | read structurally at fixed offsets, never scanned for; 0 frames carrying auxiliary user bits across the corpus, so the carriage itself is unexercised | N/T [was N/I] |
+| EMDF in the last dependent substream | TS 103 420 clause 8.2 | `eac3/program.rs`, `ProgramFrame::metadata_part` | implemented; with no dependent substream it is the independent one and every JOC report is unchanged field for field. No stream carrying both a dependent substream and object metadata exists to exercise the clause itself | N/T [was N/I] |
 | EMDF protection words | Annex H clause H.2.2.4 | `emdf/container.rs:231` | read, stored, never verified | N/I |
 | Payload configuration constraints | TS 103 420 Table 56 | `emdf/container.rs:160` | all nine fields parsed, none validated | PARTIAL |
 | Payload dispatch, 11 and 14 | TS 103 420 Table 55 | `emdf/container.rs:28`, `:31` | discrimination matrix, six inputs, all correct | PASS |
@@ -91,7 +99,7 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | `joc_num_objects`, reserved configurations | clauses 6.3.2.2, 6.3.2.4 | `emdf/joc.rs:141` | 5 to 7 rejected, bits above 15 rejected | PASS |
 | Downmix configuration 3 | Table 47 | `cli/eac3_objects.rs:106` | 13 of 15 clips; objects match Dolby | PASS |
 | Downmix configuration 0 | Table 47 | same | oadec upmixes per clause 6.6; Dolby refuses. Documented divergence, no reference | N/T |
-| Downmix configurations 1, 2, 4 | Table 47 | `emdf/joc.rs:29` | need 7 downmix channels, unreachable while dependent substreams are skipped | N/T |
+| Downmix configurations 1, 2, 4 | Table 47 | `emdf/joc.rs:29`, reached through `cli/eac3_objects.rs` | no longer unreachable: a seven-channel programme feeds `Pipeline::new`. Still no material. Relabelling cannot make any, because these configurations size the matrix for seven channels and a five-channel payload relabelled that way runs out of bits in every frame | N/T (implemented, untested) |
 | Temporal interpolation, smooth, 1 data point | clause 6.6.5 | `joc/lib.rs:208` | exercised on every clip; objects match Dolby | PASS |
 | Temporal interpolation, steep, 1 data point | clause 6.6.5 | same | 2 760 object updates in the corpus | PASS |
 | Temporal interpolation, 2 data points | clause 6.6.5 | same | **0 occurrences in the corpus** | N/T |
@@ -118,8 +126,8 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | Feature | Requirement | Implementation | Evidence | Result |
 |---|---|---|---|---|
 | No panic on arbitrary input | production quality | `oadec-bits` returns errors | 220 bit-flip trials, 0 panics | PASS |
-| Corruption never silently accepted, TrueHD | production quality | `truehd/decoder.rs:698` | 98 of 100 flagged by `decode`, 100 of 100 by `verify` | PASS |
-| Corruption never silently accepted, JOC objects | production quality | `cli/eac3_objects.rs` | **99 of 120 produced object output with no diagnostic and exit 0**; `verify` caught all 99 | **FAIL** |
+| Corruption never silently accepted, TrueHD | production quality | `cli/decode.rs`, `truehd_findings` | 100 of 100 non-zero exit from `decode`, including the two the audit found silent; the extractor summary that every caller but `verify` used to discard is now read | PASS |
+| Corruption never silently accepted, JOC objects | production quality | `cli/eac3_objects.rs`, `cli/integrity.rs` | the same 99 sites replayed: 0 silent, 120 of 120 non-zero exit, 0 panics; `evidence/remediation/decode-exit-codes.json` | **PASS** [was FAIL] |
 | Reserved JOC extension configuration | clause 6.3.2.5 | `emdf/joc.rs:263` | rejected after the payload is consumed, then stale matrices are held with an anonymous error count | PARTIAL |
 | Seek and random access | stateful codec | no seek API | files are always decoded from byte 0 | N/I |
 | Environment-independent decode | reproducibility | `cli/eac3_objects.rs:100`, `:203` | three variables silently alter JOC decoding and appear in no output | FAIL |

@@ -46,8 +46,8 @@ def scan(binary: str, path: Path) -> dict | None:
         d = json.loads(res.stdout)
     except json.JSONDecodeError:
         return None
-    j = d.get("joc", {})
-    e = d.get("emdf", {})
+    j = d.get("joc") or {}
+    e = d.get("emdf") or {}
     return {
         "carries_joc": bool(j.get("parsed")),
         "auxdata_frames": e.get("auxdata_frames"),

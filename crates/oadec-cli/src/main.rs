@@ -133,6 +133,11 @@ enum Command {
         /// decoder does; for measuring what the correction changes.
         #[arg(long)]
         flat_quadrature: bool,
+        /// JOC: read a sparse matrix exactly as clause 6.6.2 prints it,
+        /// rather than as Dolby's decoder reads it; for measuring the
+        /// difference the two corrections make.
+        #[arg(long)]
+        sparse_as_printed: bool,
     },
     /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
     /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
@@ -309,6 +314,7 @@ fn main() -> ExitCode {
                 ecpl_spec,
                 no_clip_gain,
                 flat_quadrature,
+                sparse_as_printed,
             } => if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
             {
@@ -323,6 +329,7 @@ fn main() -> ExitCode {
                         dolby_origin_tag,
                         clip_gain: !no_clip_gain,
                         flat_quadrature,
+                        sparse_as_printed,
                     },
                 )
             } else if eac3::is_eac3(&file).unwrap_or(false) {
@@ -351,6 +358,7 @@ fn main() -> ExitCode {
                         // TrueHD carries no JOC, so neither of these apply.
                         clip_gain: false,
                         flat_quadrature: false,
+                        sparse_as_printed: false,
                     },
                 )
             } else {

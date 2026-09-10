@@ -13,7 +13,7 @@ use oadec_eac3::{
     find_sync,
 };
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
-use oadec_emdf::joc::{Joc, Slope, SparseIndexMode};
+use oadec_emdf::joc::{Joc, Slope, SparseReading};
 use oadec_emdf::oamd::Oamd;
 use serde_json::{Value, json};
 
@@ -276,6 +276,9 @@ struct EmdfStats {
     /// The distribution of `joc_offset_ts`, the time slot a steep slope
     /// switches at.
     joc_offset_ts: BTreeMap<u8, u64>,
+    /// The first frames carrying each rare branch, capped. Counts say whether a
+    /// stream exercises a branch; these say where to cut a clip that does.
+    joc_rare_frames: BTreeMap<&'static str, Vec<u64>>,
     joc_seq_zero: u64,
     joc_clipgain: BTreeMap<u32, u64>,
     /// Per clip gain bucket: the largest and the summed peak matrix
@@ -287,6 +290,16 @@ struct EmdfStats {
 }
 
 impl EmdfStats {
+    /// Records where a rare syntax branch occurred, up to a cap: the counts
+    /// answer "does anything use this", the frame numbers answer "where do I
+    /// cut a clip that does".
+    fn note_rare(&mut self, what: &'static str, frame: u64) {
+        let seen = self.joc_rare_frames.entry(what).or_default();
+        if seen.len() < 64 && seen.last() != Some(&frame) {
+            seen.push(frame);
+        }
+    }
+
     fn scan(&mut self, frame_index: u64, skip_fields: &[Vec<u8>]) {
         self.last_clipgain = None;
         let total: usize = skip_fields.iter().map(Vec::len).sum();
@@ -318,7 +331,7 @@ impl EmdfStats {
                         *self.payload_ids.entry(p.id).or_default() += 1;
                         if p.id == PAYLOAD_ID_JOC {
                             self.joc += 1;
-                            match Joc::parse(&p.data, SparseIndexMode::Literal) {
+                            match Joc::parse(&p.data, SparseReading::default()) {
                                 Ok(j) => {
                                     self.joc_ok += 1;
                                     if !j.size_ok(p.data.len()) {
@@ -355,11 +368,13 @@ impl EmdfStats {
                                                     1;
                                                 if o.sparse {
                                                     self.joc_sparse += 1;
+                                                    self.note_rare("sparse", frame_index);
                                                 } else {
                                                     self.joc_dense += 1;
                                                 }
                                                 if o.num_dpoints == 2 {
                                                     self.joc_two_dpoints += 1;
+                                                    self.note_rare("two-data-points", frame_index);
                                                 }
                                                 if o.slope == Slope::Steep {
                                                     self.joc_steep += 1;
@@ -368,6 +383,7 @@ impl EmdfStats {
                                                     self.joc_fine += 1;
                                                 } else {
                                                     self.joc_coarse += 1;
+                                                    self.note_rare("coarse", frame_index);
                                                 }
                                                 let branch = match (o.slope, o.num_dpoints) {
                                                     (Slope::Smooth, 1) => "smooth-1",
@@ -376,6 +392,9 @@ impl EmdfStats {
                                                     (Slope::Steep, _) => "steep-2",
                                                 };
                                                 *self.joc_interp.entry(branch).or_default() += 1;
+                                                if branch != "smooth-1" {
+                                                    self.note_rare(branch, frame_index);
+                                                }
                                                 for ts in o.offset_ts.iter().take(o.num_dpoints) {
                                                     *self.joc_offset_ts.entry(*ts).or_default() +=
                                                         1;
@@ -986,6 +1005,9 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "two_data_points": e.joc_two_dpoints,
                 "interpolation_branches": e.joc_interp.iter()
                     .map(|(k, v)| ((*k).to_string(), Value::from(*v)))
+                    .collect::<serde_json::Map<String, Value>>(),
+                "rare_branch_frames": e.joc_rare_frames.iter()
+                    .map(|(k, v)| ((*k).to_string(), Value::from(v.clone())))
                     .collect::<serde_json::Map<String, Value>>(),
                 "offset_ts": e.joc_offset_ts.iter()
                     .map(|(k, v)| (k.to_string(), Value::from(*v)))

@@ -15,7 +15,7 @@ use std::time::Instant;
 use anyhow::{Context, Result, bail};
 use oadec_eac3::{ChannelLoc, Decoded, Options as CoreOptions, ProgramDecoder, ProgramFrame};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
-use oadec_emdf::joc::{Joc, SparseIndexMode};
+use oadec_emdf::joc::{Joc, SparseReading};
 use oadec_emdf::oamd::{BedChannel, Oamd};
 use oadec_joc::{
     Analysis, BANDS, Carry, Complex, DELAY, JocDecoder, LOW_DELAY, MATRIX_ALIGN, Quadrature,
@@ -336,7 +336,7 @@ impl Pipeline {
 /// Which substream is [`ProgramFrame::metadata_part`]: the last dependent one
 /// when the programme has any, else the independent one (TS 103 420 clause
 /// 8.2).
-fn frame_payloads(d: &Decoded) -> (Vec<(Oamd, u32)>, Option<Joc>, u64) {
+fn frame_payloads(d: &Decoded, sparse: SparseReading) -> (Vec<(Oamd, u32)>, Option<Joc>, u64) {
     let mut oamd = Vec::new();
     let mut joc = None;
     let mut errors = 0u64;
@@ -363,7 +363,7 @@ fn frame_payloads(d: &Decoded) -> (Vec<(Oamd, u32)>, Option<Joc>, u64) {
                             Err(_) => errors += 1,
                         }
                     } else if p.id == PAYLOAD_ID_JOC {
-                        match Joc::parse(&p.data, SparseIndexMode::Literal) {
+                        match Joc::parse(&p.data, sparse) {
                             Ok(j) => joc = Some(j),
                             Err(_) => errors += 1,
                         }
@@ -429,7 +429,14 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
                 }
             }
         }
-        let (oamds, joc, errors) = frame_payloads(&frame.metadata_part().decoded);
+        let (oamds, joc, errors) = frame_payloads(
+            &frame.metadata_part().decoded,
+            if opts.sparse_as_printed {
+                SparseReading::AsPrinted
+            } else {
+                SparseReading::Measured
+            },
+        );
         payload_errors += errors;
         if joc.is_none() {
             frames_without_joc += 1;

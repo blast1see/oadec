@@ -1,0 +1,225 @@
+{
+ "what": "Which JOC syntax real streams use, and what the rare branches decode to",
+ "utc": "2026-09-10T10:20:40.027722+00:00",
+ "commit": "822aa87b5789557d4ab4fb7509f731318877ec85",
+ "binary_sha256": "0a5806c525e464c3645326818b1c67656d3414706122099b5540db719fc414d1",
+ "method": "Whole files, not head clips. The audit scanned three megabytes off the front of fifteen clips and found no sparse matrices and no coarse quantisation at all; a whole-file scan of the same library finds both, in streaming material, tens of thousands of frames in. Where a rare branch occurs is reported too, so a clip that contains it can be cut and run against Dolby's object decoder.",
+ "coverage": {
+  "streams_scanned": 49,
+  "streams_decoded": 49,
+  "streams_carrying_joc": 31,
+  "auxdata_frames": 0,
+  "containers_in_auxdata": 0,
+  "auxdata_overruns": 0,
+  "object_updates": 32493245,
+  "sparse": 150,
+  "dense": 32493095,
+  "fine": 32488175,
+  "coarse": 5070,
+  "steep": 737503,
+  "two_data_points": 0,
+  "interpolation_branches": {
+   "smooth-1": 31755742,
+   "steep-1": 737503
+  },
+  "downmix_configs": {
+   "3": 28,
+   "0": 3
+  },
+  "parse_errors": 0,
+  "size_mismatches": 0,
+  "non_zero_padding": 0,
+  "streams_with_sparse": [
+   "extraction-nf.ec3",
+   "glassonion-nf.ec3",
+   "rednotice-nf.ec3"
+  ],
+  "streams_with_coarse": [
+   "disclosure-web.ec3",
+   "extraction-nf.ec3",
+   "glassonion-nf.ec3",
+   "rednotice-nf.ec3"
+  ],
+  "streams_with_two_data_points": []
+ },
+ "sparse_and_coarse_against_dolby": {
+  "reference": "Dolby Reference Player 3.2.0 gst-plugins, dlbac3dec out-ch-config=21, drc suppressed, start-up delay dropped",
+  "clips": [
+   {
+    "clip": "extraction-sparse",
+    "sparse_frames": [
+     75
+    ],
+    "frames": {
+     "60": {
+      "printed": {
+       "median_sdr_db": 17.09,
+       "worst_sdr_db": 7.75
+      },
+      "fixed": {
+       "median_sdr_db": 17.09,
+       "worst_sdr_db": 7.75
+      },
+      "sparse": false
+     },
+     "70": {
+      "printed": {
+       "median_sdr_db": 41.03,
+       "worst_sdr_db": 25.21
+      },
+      "fixed": {
+       "median_sdr_db": 41.03,
+       "worst_sdr_db": 25.21
+      },
+      "sparse": false
+     },
+     "75": {
+      "printed": {
+       "median_sdr_db": 1.05,
+       "worst_sdr_db": -6.23
+      },
+      "fixed": {
+       "median_sdr_db": 16.53,
+       "worst_sdr_db": 11.71
+      },
+      "sparse": true
+     },
+     "90": {
+      "printed": {
+       "median_sdr_db": 38.9,
+       "worst_sdr_db": 21.57
+      },
+      "fixed": {
+       "median_sdr_db": 38.9,
+       "worst_sdr_db": 21.57
+      },
+      "sparse": false
+     }
+    }
+   },
+   {
+    "clip": "extraction-sparse2",
+    "sparse_frames": [
+     65,
+     83
+    ],
+    "frames": {
+     "60": {
+      "printed": {
+       "median_sdr_db": 57.71,
+       "worst_sdr_db": 42.66
+      },
+      "fixed": {
+       "median_sdr_db": 57.71,
+       "worst_sdr_db": 42.66
+      },
+      "sparse": false
+     },
+     "65": {
+      "printed": {
+       "median_sdr_db": -3.23,
+       "worst_sdr_db": -30.01
+      },
+      "fixed": {
+       "median_sdr_db": 45.72,
+       "worst_sdr_db": 30.6
+      },
+      "sparse": true
+     },
+     "70": {
+      "printed": {
+       "median_sdr_db": 55.41,
+       "worst_sdr_db": 44.97
+      },
+      "fixed": {
+       "median_sdr_db": 55.41,
+       "worst_sdr_db": 44.97
+      },
+      "sparse": false
+     },
+     "83": {
+      "printed": {
+       "median_sdr_db": -13.48,
+       "worst_sdr_db": -40.41
+      },
+      "fixed": {
+       "median_sdr_db": 51.52,
+       "worst_sdr_db": -1.23
+      },
+      "sparse": true
+     },
+     "90": {
+      "printed": {
+       "median_sdr_db": 54.56,
+       "worst_sdr_db": 47.01
+      },
+      "fixed": {
+       "median_sdr_db": 54.56,
+       "worst_sdr_db": 47.01
+      },
+      "sparse": false
+     }
+    }
+   },
+   {
+    "clip": "extraction-coarse",
+    "sparse_frames": [],
+    "frames": {
+     "60": {
+      "printed": {
+       "median_sdr_db": 56.81,
+       "worst_sdr_db": 42.35
+      },
+      "fixed": {
+       "median_sdr_db": 56.81,
+       "worst_sdr_db": 42.35
+      },
+      "sparse": false
+     },
+     "70": {
+      "printed": {
+       "median_sdr_db": 52.69,
+       "worst_sdr_db": 20.92
+      },
+      "fixed": {
+       "median_sdr_db": 52.69,
+       "worst_sdr_db": 20.92
+      },
+      "sparse": false
+     },
+     "90": {
+      "printed": {
+       "median_sdr_db": 50.04,
+       "worst_sdr_db": 21.34
+      },
+      "fixed": {
+       "median_sdr_db": 50.04,
+       "worst_sdr_db": 21.34
+      },
+      "sparse": false
+     }
+    }
+   }
+  ],
+  "reading": [
+   "Coarse quantisation was already right: the coarse clip sits at 50 to 57 dB against Dolby with no change.",
+   "Sparse mode was wrong. On the three frames of real sparse material available the printed reading gives -13,5, -3,2 and +1,1 dB against Dolby's objects, where the frames either side of them sit at 38 to 58 dB.",
+   "Two departures from clause 6.6.2's printed pseudo-code fix it. An unselected channel takes the code that dequantises to zero gain (48 coarse, 96 fine) rather than the printed 50 or 100, which dequantise to a gain of 0,4 and pour four of the five downmix channels into every object. And the channel index accumulates from the resolved index of the previous band rather than from the transmitted one.",
+   "Both are needed: the off-channel value alone recovers 10 to 19 dB, the index alone recovers nothing because the off-channel error dominates, and together they give 15,5, 49,0 and 65,0 dB.",
+   "Frames with no sparse object are bit-identical before and after, and all 33 work streams decode to byte-identical PCM and DAMF."
+  ]
+ },
+ "still_unexercised": {
+  "two_data_points": "0 of 32 493 245 object updates",
+  "interpolation_branches_never_seen": [
+   "smooth-2",
+   "steep-2"
+  ],
+  "downmix_configs_never_seen": [
+   1,
+   2,
+   4
+  ],
+  "auxdata_carriage": "0 frames across 49 streams"
+ }
+}
