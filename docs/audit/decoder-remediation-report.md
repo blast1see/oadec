@@ -1589,8 +1589,37 @@ were replayed against the final binary rather than assumed:
 |---|---|---|---|
 | JOC, 120 sites | 0 silent, 120 non-zero, 0 panics | 0 silent, 120 non-zero | 0 silent, 120 non-zero |
 | TrueHD, 100 sites | 0 silent, 100 non-zero, 0 panics | 0 silent, 100 non-zero | — |
+| DD+ 7.1, 150 sites | 0 silent, 150 non-zero, 0 panics | 0 silent, 150 non-zero | 0 silent, 150 non-zero |
 
 Site for site identical to what the same replay recorded before the JOC work.
+
+The third campaign is new, because neither of the first two has a dependent
+substream and `program.rs` is the largest and newest code here. It says the right
+thing and exercises nothing: every single-bit error lands under the frame CRC and
+is caught before any syntax is read — 136 of the 150 report CRC failures and the
+other 14 report decode errors, identically from all three arms.
+
+So a second one repairs the CRC after the flip, leaving the parse as the only
+thing that can notice, and confines itself to `bsi` — bits 40 to 79 of a
+dependent frame, which is where `eac3-blocks` says it ends. Past that are the
+audio blocks, where every bit pattern is legal and a flip changes the audio
+without making the stream malformed; no decoder can report that, so counting it
+would measure nothing.
+
+| DD+ 7.1, 200 sites inside the dependent `bsi` | verify | programme | `--core-only` |
+|---|---|---|---|
+| reported, exit 7 | 159 | 159 | 159 |
+| said nothing **and changed nothing** | 41 | 41 | 41 |
+| **said nothing while the audio moved** | **0** | **0** | **0** |
+| panics | 0 | 0 | 0 |
+
+That last distinction is what makes the number mean anything. A flip in
+`dialnorm` or `compr` gives a well-formed stream that says something different
+and does not reach the samples of this programme; a decoder that is silent about
+it is right, and all 41 silent trials are of that kind, byte-identical to the
+clean decode on both paths. Eight of the 159 are named by the channel-map
+validation this branch added, on a path that had never run on any input before.
+`evidence/remediation/fuzz-dependent-substream.json`.
 
 The blast radius was measured rather than argued, against hashes taken before
 the corrections. All 21 corpus PCM decodes still on disk are byte-identical, as
