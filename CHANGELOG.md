@@ -107,6 +107,11 @@ Semantic Versioning.
   for the other refusal, the configuration 0 stream Dolby gives six channels:
   its own objects come back as sixteen that Dolby opens, on the head clip and on
   a mid-file cut, with the accepted title at sixteen either way.
+- Confirmation for the titles Dolby will not open. The object output for those
+  streams used to have nothing to check it against, which is why the refusal
+  mattered here at all. All 89 of them decode to object audio byte-identical to
+  `truehdd`'s, with 14 that Dolby opens as a control: 103 of 103, over 3,9 GB.
+  The refused set is not an unconfirmed set.
 - The same question put to the TrueHD side of the library, and the answer it
   gives about a standing claim. Dolby's object path opens 105 of 194 object
   presentations across 186 files and refuses 89, so the `presentation=16`

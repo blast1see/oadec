@@ -908,9 +908,10 @@ not useless -- a legal change is taken -- but it is too blunt to single out one
 field, and any question about these titles that needs a clean mutation is
 answered by that, not by the mutation.
 
-None of this says oadec is wrong. oadec decodes all six; the three whose object
-output has never been confirmed are the three Dolby will not open in object
-mode. `evidence/remediation/major-sync-rewrite-rejected.json`,
+None of this says oadec is wrong. oadec decodes all six; at the time of writing,
+the three whose object output had never been confirmed were the three Dolby will
+not open in object mode. That sentence is now false, and the section after next
+says why. `evidence/remediation/major-sync-rewrite-rejected.json`,
 `evidence/remediation/presentation16-differential.json`.
 
 ---
@@ -942,6 +943,30 @@ gives the same answer three runs running; A Quiet Place is refused at 20, 60 and
 for the three — the same clip decodes at `presentation=16` with the default
 channel configuration and at `presentation=2` with `out-ch-config=21`, and only
 the two together are refused. `truehdd` opens it and finds twelve elements.
+
+### The refused set is not the unconfirmed set
+
+The reason the refusal mattered to this project was never Dolby's opinion of the
+streams: it was that the object output for those titles had nothing to check it
+against. That is no longer so. The same cuts the sweep took were decoded twice,
+by this decoder and by `truehdd`, and the two object audio files compared by
+hash.
+
+| | compared | byte-identical |
+|---|---:|---:|
+| refused by Dolby | 89 | **89** |
+| opened by Dolby, as a control | 14 | 14 |
+
+103 of 103, over 3,9 GB of object audio. TrueHD is lossless and presentation 3
+carries the objects as coded channels, so two correct decoders must agree
+exactly — and they do, on every title Dolby will not open.
+
+The refusal says nothing about whether this decoder is right about those
+streams. It does not say Dolby is wrong either: two non-Dolby decoders agreeing
+is weaker than either agreeing with Dolby, and why that mode refuses them is
+still unknown. What it retires is the last claim in this report that treated the
+refused set as unconfirmed.
+`evidence/remediation/refused-titles-vs-truehdd.json`.
 
 ### What that does to `2ch_control_enabled`
 
