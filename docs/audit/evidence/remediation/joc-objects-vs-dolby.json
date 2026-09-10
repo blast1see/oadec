@@ -1,13 +1,13 @@
 {
  "what": "JOC object reconstruction against Dolby, after the substream and integrity work",
- "utc": "2026-09-10T10:37:46.994403+00:00",
- "note": "The three titles the audit measured are compared against its stored figures; the other three had Dolby object references on hand and are held out.",
+ "utc": "2026-09-10T12:06:05.905088+00:00",
+ "note": "The three titles the audit measured are compared against its stored figures; the other three had Dolby object references on hand and are held out. Re-measured after the steep switch-point correction: Glass Onion improves, the other five are unchanged to the decimal, none regresses.",
  "summary": {
   "titles": 6,
   "measured": 6,
   "regressed": 0,
   "held_out": 3,
-  "worst_sdr_db": 25.24,
+  "worst_sdr_db": 35.25,
   "worst_correlation_structure_delta": 0.0014,
   "lags": [
    0
@@ -635,14 +635,14 @@
    "lag_samples": 0,
    "lag_corr": 1.0,
    "compared_samples": 1200000,
-   "objects_worst_sdr_db": 25.24,
-   "objects_median_sdr_db": 47.76,
+   "objects_worst_sdr_db": 49.93,
+   "objects_median_sdr_db": 65.44,
    "lfe_sdr_db": null,
    "max_obj_vs_obj_corr_ours": 0.7637,
    "max_obj_vs_obj_corr_dolby": 0.7638,
    "mean_obj_corr_ours": 0.0542,
    "mean_obj_corr_dolby": 0.0542,
-   "corr_structure_max_abs_delta": 0.0007,
+   "corr_structure_max_abs_delta": 0.0001,
    "pairs_over_0_9_ours": 0,
    "pairs_over_0_9_dolby": 0,
    "per_object": [
@@ -664,8 +664,8 @@
     },
     {
      "obj": 2,
-     "r": 0.999996,
-     "sdr_db": 50.58,
+     "r": 1.0,
+     "sdr_db": 60.35,
      "rms_ours": 0.001864,
      "rms_dolby": 0.001864,
      "silence_pct": 21.09
@@ -680,32 +680,32 @@
     },
     {
      "obj": 4,
-     "r": 0.999992,
-     "sdr_db": 47.76,
+     "r": 0.999999,
+     "sdr_db": 58.36,
      "rms_ours": 0.001476,
      "rms_dolby": 0.001476,
      "silence_pct": 21.11
     },
     {
      "obj": 5,
-     "r": 0.999915,
-     "sdr_db": 37.7,
+     "r": 1.0,
+     "sdr_db": 65.44,
      "rms_ours": 0.000601,
      "rms_dolby": 0.000601,
      "silence_pct": 21.31
     },
     {
      "obj": 6,
-     "r": 0.999924,
-     "sdr_db": 38.16,
+     "r": 1.0,
+     "sdr_db": 66.99,
      "rms_ours": 0.000531,
      "rms_dolby": 0.000531,
      "silence_pct": 21.39
     },
     {
      "obj": 7,
-     "r": 0.999347,
-     "sdr_db": 28.84,
+     "r": 0.999995,
+     "sdr_db": 49.93,
      "rms_ours": 2.9e-05,
      "rms_dolby": 2.9e-05,
      "silence_pct": 63.65
@@ -720,11 +720,11 @@
     },
     {
      "obj": 9,
-     "r": 0.998508,
-     "sdr_db": 25.24,
+     "r": 0.999997,
+     "sdr_db": 52.76,
      "rms_ours": 2.3e-05,
      "rms_dolby": 2.3e-05,
-     "silence_pct": 64.18
+     "silence_pct": 64.2
     },
     {
      "obj": 10,

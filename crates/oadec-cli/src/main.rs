@@ -139,6 +139,11 @@ enum Command {
         /// difference the two corrections make.
         #[arg(long)]
         sparse_as_printed: bool,
+        /// JOC: put the steep switch of clause 6.6.5 one slot after the
+        /// offset names, the way the printed pseudo-code reads, rather than
+        /// where Dolby's decoder puts it; for measuring the difference.
+        #[arg(long)]
+        steep_as_printed: bool,
     },
     /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
     /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
@@ -327,6 +332,7 @@ fn main() -> ExitCode {
                 no_clip_gain,
                 flat_quadrature,
                 sparse_as_printed,
+                steep_as_printed,
             } => if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
             {
@@ -342,6 +348,7 @@ fn main() -> ExitCode {
                         clip_gain: !no_clip_gain,
                         flat_quadrature,
                         sparse_as_printed,
+                        steep_as_printed,
                     },
                 )
             } else if eac3::is_eac3(&file).unwrap_or(false) {
@@ -371,6 +378,7 @@ fn main() -> ExitCode {
                         clip_gain: false,
                         flat_quadrature: false,
                         sparse_as_printed: false,
+                        steep_as_printed: false,
                     },
                 )
             } else {
