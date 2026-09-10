@@ -166,9 +166,9 @@ enum Command {
         /// Bytes to skip at the start of the reference (a container header).
         #[arg(long, default_value_t = 0)]
         reference_skip: u64,
-        /// E-AC-3: write only the 5.1-compatible channels of the independent
-        /// substream instead of the whole programme, which is what a decoder
-        /// limited to 5.1 produces (clause E.2.8.2).
+        /// E-AC-3: compare only the 5.1-compatible channels of the independent
+        /// substream instead of the whole programme, which is what a reference
+        /// decoder limited to 5.1 produces (clause E.2.8.2).
         #[arg(long)]
         core_only: bool,
         /// E-AC-3: substitute zeros instead of dither for zero-bit mantissas.
