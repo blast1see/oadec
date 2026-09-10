@@ -996,7 +996,10 @@ the two that hold the measurement flags.
   `evidence/remediation/configuration-0-refusal-pair.json`.
 - **Two-data-point interpolation**, and with it the smooth-2 and steep-2
   branches of clause 6.6.5: 0 of 170 722 130 object updates, and no way to make
-  any. Dolby's encoder writes one data point per frame at every data rate it
+  any that could be measured. A synthetic payload carrying two data points is
+  writable -- the syntax is small and the Huffman encoder already exists for the
+  tests -- but Dolby discards a rewritten payload, so it could only ever be
+  checked against this decoder, which is what the unit tests already do. Dolby's encoder writes one data point per frame at every data rate it
   offers, even for an object authored to move four times within a frame. The
   branches are covered by a unit test against the printed pseudo-code, which
   proves the implementation matches clause 6.6.5 and not that Dolby agrees
