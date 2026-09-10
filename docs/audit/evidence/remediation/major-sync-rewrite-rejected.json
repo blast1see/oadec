@@ -59,6 +59,12 @@
    "bit": 190,
    "where": "a mix level or source format",
    "object_path": "refused"
+  },
+  {
+   "field": "twoch_dialogue_norm",
+   "bit": 165,
+   "where": "another legal level, and it belongs to the two-channel presentation rather than the sixteen-channel one",
+   "object_path": "refused"
   }
  ],
  "the_refusal_is_specific_to_the_object_path": {
@@ -69,7 +75,7 @@
  },
  "consequence": {
   "not_withdrawn_outright": "the six unmodified titles still correlate perfectly: every accepted one has 2ch_control_enabled set and every refused one has it clear. That observation is untouched.",
-  "weakened": "the mutation experiment cannot carry it to necessity. Clearing the flag on an accepted title refuses -- and so does changing a DRC gain, which cannot be causal. A refusal after editing one field is weak evidence that the field is the reason, when editing unrelated fields refuses too.",
+  "weakened": "the mutation experiment cannot carry the correlation to necessity. Clearing 2ch_control_enabled on an accepted title refuses -- and so does changing the two-channel dialogue normalisation, which belongs to a different presentation and cannot gate this one. A refusal after editing one field is weak evidence that the field is the reason when editing unrelated fields refuses too.",
   "what_is_new": "the object path reads the major sync far more strictly than ordinary decoding does: the same edited streams decode at presentation 2 and at presentation 16 with the default channel configuration.",
   "status": "`2ch_control_enabled` is a perfect correlate with suggestive but not clean causal evidence. It is not the flat 'necessary' the earlier round claimed, and not the 'not causal' the audit claimed."
  },
@@ -82,6 +88,6 @@
  "it_is_not_that_any_edit_refuses": {
   "note": "`extended_substream_info` changed from 3 to 2 -- a legal value -- is accepted, with the same patcher, the same CRC repair and the same MP4 wrapping. So the machinery works end to end, and the refusals are field-sensitive rather than a reaction to editing as such.",
   "the_pattern": "what refuses looks like values the decoder does not expect: a reserved field made non-zero, an undefined flag bit, a peak data rate below the stream's own, variable_rate cleared on a variable-rate stream, and the four-bit extended_substream_info given a bit it does not define. What is accepted is the one plainly legal change tried.",
-  "but": "two of the refusals are legal values with no bearing on presentation availability: the heavy DRC start-up gain and a channel_meaning mix level. A decoder that refuses the object presentation because a DRC gain changed is not telling you about presentations."
+  "but": "the clearest case is `twoch_dialogue_norm`: a legal dialogue-normalisation level that belongs to the two-channel presentation, changed to another legal level, and the sixteen-channel object output refuses. A field of one presentation cannot determine whether another presentation exists. The DRC start-up gain and the eight-channel dialogue norm behave the same way."
  }
 }
