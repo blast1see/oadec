@@ -5,11 +5,12 @@ is still open. The audit itself is in this directory, committed unedited as the
 before-state; where its numbers move, this report says so and the audit stays as
 the record of what was measured on the day.
 
-Two defects were demonstrated by the audit. Both are fixed, and a third turned up while closing one of the coverage gaps. Beyond them the audit left a
-number of areas untested rather than failing, and those are treated as what they
-are: coverage gaps, unknown proprietary behaviour, or reference-decoder
-disagreement, each pursued on its own terms and none of them promoted to a pass
-without evidence.
+Two defects were demonstrated by the audit and both are fixed. A third turned up
+while closing one of the coverage gaps, and one of the audit's own conclusions
+turned out to be wrong. Beyond them the audit left a number of areas untested
+rather than failing, and those are treated as what they are: coverage gaps,
+unknown proprietary behaviour, or reference-decoder disagreement, each pursued
+on its own terms and none of them promoted to a pass without evidence.
 
 Evidence is under `evidence/remediation/`. Every status change points at a file
 there.
@@ -473,6 +474,24 @@ proved nothing. Asking for `--ignored` is asking for the conformance suite, so a
 run that cannot reach the media now fails, and CI runs the check that it does.
 
 ---
+
+## What is still open
+
+- **Sparse JOC**, on one of the three frames that carry it: 22 dB below its
+  neighbours after both corrections. The other two reach parity.
+- **The second reason Dolby refuses three titles.** `2ch_control_enabled` is
+  necessary and not sufficient; the rest is taken before any audio is decoded
+  and is not in the major sync.
+- **Two-data-point interpolation**, and with it the smooth-2 and steep-2
+  branches of clause 6.6.5: 0 of 32 493 245 object updates.
+- **Downmix configurations 1, 2 and 4**: reachable, and no material. Relabelling
+  cannot make any, because they size the matrix for seven channels.
+- **EMDF in `auxdata`**, and **EMDF in a dependent substream**: both implemented
+  and neither exercised, because no stream on hand carries either.
+- **Controlled movement, gain, size and divergence.** The authoring pipeline
+  works and the scene file is one edit away; only positions and timing were
+  measured this round.
+- **EMDF protection words** are still parsed and not verified.
 
 ## Status
 
