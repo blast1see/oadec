@@ -162,4 +162,5 @@ Every `after` here points at a file under `evidence/remediation/`. The report is
 | Controlled object divergence | N/T | N/T, unreachable | `controlled-atmos-gain-size.json` | DAMF has no divergence field, so no authored master can carry one; it needs a stream that already does |
 | TrueHD bit exactness | PASS | **PASS** | `regression-summary.json` | — |
 | JOC objects against Dolby | PASS-TOL | **PASS-TOL** | `joc-objects-vs-dolby.json` | Six titles, none regressed; Glass Onion's worst object moved 25,24 to 49,93 dB with the steep correction. The worst of the six is 35,25 dB and the difference that remains is E-AC-3 dither |
+| Measurement flags reach the object path | FAIL | **PASS** | media tests `the_core_options_reach_the_object_path`, `core_only_is_refused_with_an_object_output` | `--no-dither`, `--no-tpnp` and `--ecpl-spec` were dropped on `decode --format damf` for E-AC-3; `--core-only` is now refused there rather than ignored |
 | Media suite reports honestly | FAIL | **PASS** | CI job `media-suite-refuses-to-pass-without-media` | — |
