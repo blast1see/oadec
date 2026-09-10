@@ -5,14 +5,25 @@ is still open. The audit itself is in this directory, committed unedited as the
 before-state; where its numbers move, this report says so and the audit stays as
 the record of what was measured on the day.
 
-Two defects were demonstrated by the audit and both are fixed. A third turned up
-while closing one of the coverage gaps, a fourth while measuring what was left
-of the third, and a third fault in the same clause as the third defect turned up
-when the material that had never been decoded finally was. One of the audit's
-own conclusions turned out to be wrong as well. Beyond them the audit left a number of areas untested
-rather than failing, and those are treated as what they are: coverage gaps,
-unknown proprietary behaviour, or reference-decoder disagreement, each pursued
-on its own terms and none of them promoted to a pass without evidence.
+Two defects were demonstrated by the audit and both are fixed. Two more turned
+up while closing the coverage gaps: sparse JOC matrices, found when material
+that had never been decoded finally was, and the steep interpolation switch,
+found while measuring what the sparse corrections left behind. Clause 6.6.2
+yielded a third fault of its own on the way.
+
+Conclusions were overturned in both directions. One of the audit's was wrong.
+So was one of this report's: it claimed `2ch_control_enabled` was necessary for
+Dolby to open an object presentation, and a cleaner experiment shows it is not
+even sufficient. Where a claim moved, the sentence that moved it is here rather
+than in a rewritten paragraph.
+
+Beyond the defects the audit left a number of areas untested rather than
+failing, and those are treated as what they are: coverage gaps, unknown
+proprietary behaviour, or reference-decoder disagreement, each pursued on its
+own terms and none promoted to a pass without evidence. Two of them are now
+settled against authored ground truth rather than against another decoder, and
+one instrument that failed here was replaced by a better one: instead of editing
+a finished stream, have Dolby's encoder write the shape under test.
 
 Evidence is under `evidence/remediation/`. Every status change points at a file
 there.
@@ -748,8 +759,8 @@ refused. Byte +18 opens `channel_meaning` — six bits of
 `heavy_drc_start_up_gain`, then `2ch_control_enabled` — so the differential
 finds the audit's field again, independently.
 
-**And the field is causal after all.** The audit tested one direction. Testing
-the other:
+**And the field looked causal.** The audit tested one direction. Testing the
+other gave this, which two later sections take apart:
 
 | Title | `2ch_control_enabled` | Dolby |
 |---|---|---|
