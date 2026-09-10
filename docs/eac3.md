@@ -83,6 +83,85 @@ four are the same specification, and for enhanced coupling they disagree.
 - **EMDF placement.** JOC streams carry one EMDF container per frame in the
   skip field of an audio block (clause H.1); parsing the skip fields is exact,
   scanning the frame bytes for `0x5838` is not (false syncs in audio data).
+## Substreams, and the programme they make
+
+A programme of more than 5.1 channels is an independent substream carrying a
+5.1-compatible downmix followed by the dependent substreams that replace and
+extend it. Four clauses settle everything a decoder needs.
+
+- **Association is bitstream position.** Clause E.1.3.1.2: "dependent
+  substreams shall immediately follow the independent substream with which they
+  are associated." Substream ids are assigned sequentially in that order, an
+  AC-3 stream inside an Enhanced AC-3 stream is treated as independent substream
+  0, and independent substream 0 is always first. Nothing is inferred from ids
+  or from file order.
+- **Replace or add.** Clause E.2.8.2: with `chanmape` clear, the dependent
+  substream's own `acmod` and `lfeon` name its channels and those overwrite the
+  matching channels of the independent substream; with `chanmape` set, the
+  custom channel map names them, matching locations replace and the rest are
+  additional. At most 16 channels are rendered for one programme.
+- **The map.** Clause E.1.3.1.8, table E.1.4, bit 0 stored in the most
+  significant bit of the 16-bit field: 0 L, 1 C, 2 R, 3 Ls, 4 Rs, 5 Lc/Rc,
+  6 Lrs/Rrs, 7 Cs, 8 Ts, 9 Lsd/Rsd, 10 Lw/Rw, 11 Vhl/Vhr, 12 Vhc, 13 Lts/Rts,
+  14 LFE2, 15 LFE. A pair bit stands for two adjacent coded channels, and the
+  number of locations shall equal the substream's coded channel count.
+- **A second programme is legal.** Clause E.2.8.3: another independent substream
+  is another programme. The default is programme 1, and the rest are skipped,
+  dependents included.
+
+**Two maps occur in the wild, and the file name does not say which.** Sweeping
+the 40 eight-channel E-AC-3 tracks in one library, ten seconds from ten minutes
+into each:
+
+| `chanmap` | locations | programme | titles |
+|---|---|---|---|
+| 0x1a00 | Ls, Rs, Lrs/Rrs | 7.1 | 35 |
+| 0xa010 | L, R, Vhl/Vhr | 5.1.2 | 5 |
+
+Both replace two of the core's channels and add two. FFmpeg reports the same two
+layouts on the same titles. A track whose file name says 7.1 is quite capable of
+being 5.1.2, so the map is what to read.
+
+A typical group, measured on a Blu-ray remux: an AC-3 5.1 core at 640 kbit/s,
+2 560 bytes, immediately followed by an E-AC-3 dependent substream with
+`strmtyp` 1, `substreamid` 0, `acmod` 5 (four coded channels), `lfeon` 0,
+`chanmape` 1 and `chanmap` 0x1a00, 3 584 bytes. The dependent substream's Ls and
+Rs replace the core's matrixed pair and its Lrs and Rrs are added, giving
+L C R Ls Rs LFE Lrs Rrs.
+
+- **Interchange order is the order of the WAVE mask bits**, which is why the
+  rear pair comes out before the side pair: BL 0x10 and BR 0x20 before SL 0x200
+  and SR 0x400, giving FL FR FC LFE BL BR SL SR and mask 0x63f. That is FFmpeg's
+  order for the same stream. Deriving the order from the mask rather than from a
+  second table is what stops the two disagreeing.
+- **Release must be keyed on the frame group, not on arrival.** Each substream
+  has its own decoder, and enhanced coupling makes a decoder hold a frame back
+  while transient pre-noise processing holds samples back. A substream using
+  either releases a group later than one that does not, so pairing whatever came
+  out of one decoder with whatever came out of another misaligns the programme
+  as soon as an encoder switches a tool on in the core and not in the dependent
+  substream.
+- **Dependent-substream `bsi` had never run on real material** before this,
+  because the filter that dropped those frames sat before the frame was parsed.
+  It matters more than it sounds: `Frame::parse` seeks the audio blocks to the
+  bit the `bsi` ended at, so one bit wrong there misreads the whole frame, and
+  the frame CRC will not catch it because the CRC is over the bytes. The check
+  that settled it was bit slack, `frame_bytes * 8 - used_bits`: on the 1917
+  extract the dependent substream leaves 18 to 1 281 bits unread over 1 875
+  frames, and the floor of exactly 18 is the mandatory `auxdatae` and error
+  check that closes every frame.
+
+- **EMDF has two legal homes.** Annex H clause H.1 says the container "may be
+  carried within an AC-3 or Enhanced AC-3 syncframe using one of the reserved
+  data spaces ... for example the auxdata field located at the end of the
+  syncframe, or the skip fields present at the end of each audio block". TS
+  103 420 clause 8.2 narrows it for object audio: with dependent substreams
+  present, the container carrying OAMD and JOC is in the **last dependent
+  substream**. `auxdata` is read structurally -- `auxdatae` 18 bits from the end
+  of the frame, `auxdatal` in the 14 before it, the user data ending where
+  `auxdatal` begins -- and never scanned for. No stream measured so far carries
+  any: 0 frames with auxiliary user bits across the corpus.
+
 - **Coded channel order** is table 4.3 (`L C R Ls Rs`, LFE last); the WAVE
   and FFmpeg order is `L R C LFE Ls Rs`.
 

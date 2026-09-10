@@ -283,6 +283,13 @@ pub struct Frame {
     /// The audio blocks ended inside the 18 bits the frame tail needs, which
     /// is out of spec. The frame is still decoded; see `docs/eac3.md`.
     pub tail_overrun: bool,
+    /// The auxiliary data user bits of clause 4.4.4, packed from the first of
+    /// them. Annex H names `auxdata` as a place an EMDF container may be
+    /// carried, next to the skip fields.
+    pub auxdata: Vec<u8>,
+    /// `auxdatae` was set but `auxdatal` claimed more bits than lie between the
+    /// audio blocks and the frame tail.
+    pub auxdata_overrun: bool,
 }
 
 /// CRC-16 with the generator `x^16 + x^15 + x^2 + 1` of clause 6.10.1.
@@ -2112,6 +2119,7 @@ impl Frame {
             let e = Eac3Error::Syntax("audio blocks run past the end of the frame");
             return Err(fail(e, Some(header), Some(bsi), out_blocks, end_bit));
         }
+        let (auxdata, auxdata_overrun) = read_auxdata(frame, end_bit);
         let crc = crc_ok(frame, &header);
         Ok(Self {
             header,
@@ -2124,8 +2132,52 @@ impl Frame {
             crc_ok: crc,
             transproc,
             tail_overrun,
+            auxdata,
+            auxdata_overrun,
         })
     }
+}
+
+/// The auxiliary data user bits of a syncframe (clause 4.4.4).
+///
+/// Nothing is scanned. The frame closes with `auxdatae`, the CRC reserved bit
+/// and `crc2`, so `auxdatae` is 18 bits from the end; if it is set, the 14 bits
+/// before it are `auxdatal`, and the user data is the `auxdatal` bits that end
+/// where `auxdatal` begins, read forward. Clause 4.4.4.1 puts it there
+/// deliberately, "so that the aux data decoder (which may not decode any audio)
+/// may simply look to the end of the AC-3 syncframe".
+///
+/// Returns the user bits packed from the first of them, and whether `auxdatal`
+/// claimed more bits than lie between the audio blocks and the tail.
+fn read_auxdata(frame: &[u8], end_bit: usize) -> (Vec<u8>, bool) {
+    let bits = frame.len() * 8;
+    if bits < 32 || end_bit + 18 > bits {
+        return (Vec::new(), false);
+    }
+    let bit = |i: usize| (frame[i >> 3] >> (7 - (i & 7))) & 1;
+    if bit(bits - 18) == 0 {
+        return (Vec::new(), false);
+    }
+    let mut len = 0usize;
+    for i in 0..14 {
+        len = (len << 1) | usize::from(bit(bits - 32 + i));
+    }
+    if len == 0 {
+        return (Vec::new(), false);
+    }
+    let Some(start) = bits.checked_sub(32 + len) else {
+        return (Vec::new(), true);
+    };
+    if start < end_bit {
+        return (Vec::new(), true);
+    }
+    let mut out = vec![0u8; len.div_ceil(8)];
+    for i in 0..len {
+        if bit(start + i) != 0 {
+            out[i >> 3] |= 0x80 >> (i & 7);
+        }
+    }
+    (out, false)
 }
 
 #[cfg(test)]
@@ -2148,6 +2200,50 @@ mod tests {
         assert_eq!(ceil_log2(1536), 11);
         assert_eq!(ceil_log2(2048), 11);
         assert_eq!(ceil_log2(2049), 12);
+    }
+
+    /// Clause 4.4.4: `auxdatae` sits 18 bits from the end of the syncframe,
+    /// `auxdatal` in the 14 bits before it, and the user data ends where
+    /// `auxdatal` begins. Nothing is scanned, so the reader has to land on the
+    /// bit and not near it.
+    #[test]
+    fn auxdata_is_read_from_the_end_of_the_frame() {
+        let bits = 512usize;
+        let mut frame = vec![0u8; bits / 8];
+        let set = |frame: &mut Vec<u8>, i: usize| frame[i >> 3] |= 0x80 >> (i & 7);
+
+        // no auxdatae: nothing to read
+        assert_eq!(read_auxdata(&frame, 0), (Vec::new(), false));
+
+        // 24 bits of user data, 0xA5 0x3C 0xF0
+        let payload = [0xA5u8, 0x3C, 0xF0];
+        let len = 24usize;
+        set(&mut frame, bits - 18); // auxdatae
+        for i in 0..14 {
+            if len & (1 << (13 - i)) != 0 {
+                set(&mut frame, bits - 32 + i); // auxdatal, most significant first
+            }
+        }
+        let start = bits - 32 - len;
+        for i in 0..len {
+            if payload[i >> 3] & (0x80 >> (i & 7)) != 0 {
+                set(&mut frame, start + i);
+            }
+        }
+        assert_eq!(read_auxdata(&frame, 0), (payload.to_vec(), false));
+
+        // a length that reaches back into the audio blocks is an overrun, not
+        // a read
+        assert_eq!(read_auxdata(&frame, start + 1), (Vec::new(), true));
+
+        // and a length longer than the frame is an overrun, not a subtraction
+        // that wraps: the robustness suite found this within a second
+        let mut wild = vec![0u8; bits / 8];
+        set(&mut wild, bits - 18);
+        for i in 0..14 {
+            set(&mut wild, bits - 32 + i); // auxdatal = 16 383, far past the frame
+        }
+        assert_eq!(read_auxdata(&wild, 0), (Vec::new(), true));
     }
 
     #[test]

@@ -243,6 +243,14 @@ struct EmdfStats {
     joc_ok: u64,
     joc_errors: u64,
     joc_size_mismatch: u64,
+    /// Frames carrying auxiliary data user bits (clause 4.4.4), and how many
+    /// bytes of them, and how many EMDF containers they hold. Annex H names
+    /// `auxdata` as a place a container may be carried, next to the skip
+    /// fields, so this is what says whether anything in the wild uses it.
+    auxdata_frames: u64,
+    auxdata_bytes: u64,
+    containers_in_auxdata: u64,
+    auxdata_overruns: u64,
     /// Containers found in the independent substream of a programme that also
     /// has dependent substreams. TS 103 420 clause 8.2 puts the container in
     /// the last dependent substream when one exists, so this should be zero;
@@ -259,6 +267,15 @@ struct EmdfStats {
     joc_two_dpoints: u64,
     joc_steep: u64,
     joc_fine: u64,
+    joc_coarse: u64,
+    /// The four temporal-interpolation branches of clause 6.6.5, pseudo-code 6,
+    /// counted separately: slope smooth or steep crossed with one or two data
+    /// points. Two of them have never been seen in any stream measured, and a
+    /// total that only says "2 760 steep" cannot tell you which.
+    joc_interp: BTreeMap<&'static str, u64>,
+    /// The distribution of `joc_offset_ts`, the time slot a steep slope
+    /// switches at.
+    joc_offset_ts: BTreeMap<u8, u64>,
     joc_seq_zero: u64,
     joc_clipgain: BTreeMap<u32, u64>,
     /// Per clip gain bucket: the largest and the summed peak matrix
@@ -349,6 +366,19 @@ impl EmdfStats {
                                                 }
                                                 if o.quant_idx == 1 {
                                                     self.joc_fine += 1;
+                                                } else {
+                                                    self.joc_coarse += 1;
+                                                }
+                                                let branch = match (o.slope, o.num_dpoints) {
+                                                    (Slope::Smooth, 1) => "smooth-1",
+                                                    (Slope::Smooth, _) => "smooth-2",
+                                                    (Slope::Steep, 1) => "steep-1",
+                                                    (Slope::Steep, _) => "steep-2",
+                                                };
+                                                *self.joc_interp.entry(branch).or_default() += 1;
+                                                for ts in o.offset_ts.iter().take(o.num_dpoints) {
+                                                    *self.joc_offset_ts.entry(*ts).or_default() +=
+                                                        1;
                                                 }
                                             }
                                         }
@@ -656,6 +686,17 @@ fn account(
     if frame.parts.len() > 1 {
         p.emdf.containers_in_independent += count_containers(&d.skip_fields);
     }
+    for part in &frame.parts {
+        if !part.decoded.auxdata.is_empty() {
+            p.emdf.auxdata_frames += 1;
+            p.emdf.auxdata_bytes += part.decoded.auxdata.len() as u64;
+            p.emdf.containers_in_auxdata +=
+                count_containers(std::slice::from_ref(&part.decoded.auxdata));
+        }
+        if part.decoded.auxdata_overrun {
+            p.emdf.auxdata_overruns += 1;
+        }
+    }
     if let Some(g) = p.emdf.last_clipgain {
         if (g - 1.0).abs() > 1e-9 {
             p.clipgains.push((index, g));
@@ -918,6 +959,10 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "containers": e.containers,
                 "container_errors": e.container_errors,
                 "containers_in_independent_substream": e.containers_in_independent,
+                "auxdata_frames": e.auxdata_frames,
+                "auxdata_bytes": e.auxdata_bytes,
+                "containers_in_auxdata": e.containers_in_auxdata,
+                "auxdata_overruns": e.auxdata_overruns,
                 "false_syncs": e.false_syncs,
                 "payload_ids": payload_ids,
                 "oamd_ok": e.oamd_ok,
@@ -937,7 +982,14 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "absent_objects": e.joc_absent_objects,
                 "steep_objects": e.joc_steep,
                 "fine_quantized_objects": e.joc_fine,
+                "coarse_quantized_objects": e.joc_coarse,
                 "two_data_points": e.joc_two_dpoints,
+                "interpolation_branches": e.joc_interp.iter()
+                    .map(|(k, v)| ((*k).to_string(), Value::from(*v)))
+                    .collect::<serde_json::Map<String, Value>>(),
+                "offset_ts": e.joc_offset_ts.iter()
+                    .map(|(k, v)| (k.to_string(), Value::from(*v)))
+                    .collect::<serde_json::Map<String, Value>>(),
                 "seq_count_zero": e.joc_seq_zero,
                 // clause 6.3.3.2, x1000 so the ladder stays exact in JSON
                 "clipgain_x1000": e.joc_clipgain.keys().collect::<Vec<_>>(),
