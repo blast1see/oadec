@@ -923,12 +923,35 @@ after the hand edit came from the edit. That is what the dynamic-range gain
 control suggested and this settles it. This report's earlier "suggestive but
 unclean" becomes **not sufficient**.
 
-What is left is the same question with one fewer answer. Nothing in the 74
-fields oadec reports separates the sets; `truehdd verify`, a conformance checker
-written by other people, does not separate them either — Shaun and Kingsman draw
-DRC warnings, Knives Out draws none, and Talk to Me draws the same warnings
-while being accepted; and the one byte that did separate them is not the cause.
-`evidence/remediation/twoch-control-authored.json`.
+### And the content is not it either
+
+The same tools answer the next question. The objects of the refused titles are
+recoverable — oadec decodes them and `truehdd` confirms them byte for byte — so
+they can be handed back to Dolby's encoder and the question asked again.
+`decode -p 3 --format damf --no-bed-conform`, then `encode_to_dthd` from that
+set with `spatial_clusters` matched to the element count, then the same object
+path:
+
+| | elements | re-encode |
+|---|---:|---|
+| Shaun of the Dead | 12 | accepted |
+| Knives Out | 12 | accepted |
+| Kingsman | 14 | accepted |
+| Pi, the control | 12 | accepted |
+
+So the refusal is not about the object programme: not the objects, not their
+count, not their metadata. A re-encode keeps the content and replaces the
+container, which is the point of the experiment and also its boundary — it says
+the content is acceptable, not which field of the original is the trigger.
+
+What is left is the same question with three fewer answers. The streams are not
+undecodable, the flag that correlates is not sufficient, and the content is
+acceptable. Nothing in the 74 fields oadec reports separates the sets;
+`truehdd verify`, a conformance checker written by other people, does not
+separate them either — Shaun and Kingsman draw DRC warnings, Knives Out draws
+none, and Talk to Me draws the same warnings while being accepted. It is a
+property of how those three streams were written, and no instrument here reaches
+it. `evidence/remediation/twoch-control-authored.json`.
 
 ---
 
@@ -1166,8 +1189,9 @@ byte-identical on every one, 212 527 200 element-samples with the same MD5.
   stream with the flag clear when `presentation_2ch/drc_default_on` is false,
   and Dolby opens that stream while refusing the three titles in the same
   session. The flag may still matter in combination with something else; on its
-  own it does not. What is left is a decision taken on something oadec does not
-  parse, or on a combination of fields, and no instrument here reaches it.
+  own it does not. Nor is the content: each refused title's own objects, decoded
+  here and re-encoded by DEE, are opened. What is left is a property of how those
+  three streams were written, and no instrument here reaches it.
 - **Why Dolby refuses one configuration 0 stream and accepts another.** There is
   a control pair now: Snatch is given six channels and Dredd sixteen objects,
   and the two agree in every field this decoder parses -- frame header,
