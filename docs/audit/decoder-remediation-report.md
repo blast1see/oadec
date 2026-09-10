@@ -759,6 +759,18 @@ across discs and streaming carry coarse quantisation. And **downmix
 configuration 4 exists**: three of the sixteen titles carry it, where nothing
 measured before ever had.
 
+A second, much cheaper sweep then asked the configuration question of the whole
+library. The configuration is a header field and constant within a stream, so
+ten seconds off the front of a track answers it — what a head clip does not
+excuse is reading one track per file, which is what the earlier sweep did and
+why it reported 112 of 113 at configuration 3 with one at 0. Reading every
+Dolby track of every file, 226 of them across 111 films, 118 carry JOC:
+**configuration 3 in 112, configuration 0 in one, configuration 4 in five, and
+configurations 1 and 2 in none at all**. Five titles carry configuration 4, not
+three, and each of the five discs also carries a configuration 3 track, which is
+exactly how a one-track-per-file sweep misses them.
+`evidence/remediation/library-configurations.json`.
+
 ### Why it had never been seen
 
 Every configuration 4 stream found is an AC-3 core plus an E-AC-3 dependent
@@ -924,9 +936,10 @@ the two that hold the measurement flags.
   with it — and defect 4 is exactly a case where it does not, on the branch
   that could be measured. The two-point branches carry the same offset field
   and the same correction is applied to it, unmeasured.
-- **Downmix configurations 1 and 2**: reachable, and no material. Relabelling
-  cannot make any, because they size the matrix for seven channels; neither can
-  the encoder, whose job description has no core-layout or
+- **Downmix configurations 1 and 2**: reachable, and no material anywhere in
+  the library — 0 of the 118 Dolby tracks that carry JOC, across 111 films.
+  Relabelling cannot make any, because they size the matrix for seven channels;
+  neither can the encoder, whose job description has no core-layout or
   downmix-configuration option and which writes configuration 3 at all six of
   its data rates. Configuration 4 is no longer on this list.
 - **EMDF in `auxdata`**, and **EMDF in a dependent substream**: both implemented

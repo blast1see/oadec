@@ -53,7 +53,9 @@ Semantic Versioning.
   configuration 4 needs a seven-channel downmix, which needs a dependent
   substream, which this release is the first to decode. Three library titles
   carry configuration 4 and their objects now come out at 50,13 dB worst
-  against Dolby's. Swapping the top front pair costs 29 dB, so the order is
+  against Dolby's. Reading every Dolby track of every file rather than the first
+  finds five such tracks in the library and none at all at configurations 1
+  and 2: `tools/joc_config_sweep.py`. Swapping the top front pair costs 29 dB, so the order is
   measured.
 - **`--no-dither`, `--no-tpnp` and `--ecpl-spec` reach the object path.**
   `decode --format damf` on an E-AC-3 stream built the core decoder with its
