@@ -17,6 +17,17 @@ on its own terms and none of them promoted to a pass without evidence.
 Evidence is under `evidence/remediation/`. Every status change points at a file
 there.
 
+That the audit itself was not edited is checkable rather than asserted. The
+baseline commit is the one that added the audit report, and since then the only
+audit file this branch modifies is `conformance-matrix.md`, whose rows carry
+their before-state in `[was …]` brackets:
+
+```
+git diff --name-status $(git log --oneline --diff-filter=A     -- docs/audit/2026-09-10-conformance-audit.md | tail -1 | cut -d' ' -f1)..HEAD     -- docs/audit/
+```
+
+Everything else it lists is an addition under `evidence/remediation/`.
+
 ---
 
 ## Defect 1 — E-AC-3 dependent substreams were never decoded
