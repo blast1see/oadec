@@ -31,6 +31,11 @@ pub struct Options {
     /// pseudo-code puts it, one slot after the offset names, rather than
     /// where Dolby's decoder puts it. For measuring the difference.
     pub steep_as_printed: bool,
+    /// E-AC-3 only: how the core is decoded. `decode --format damf` on an
+    /// E-AC-3 stream used to ignore `--no-dither`, `--no-tpnp` and
+    /// `--ecpl-spec` entirely, which made three measurement flags read as
+    /// applied while the object path decoded with the defaults.
+    pub core: oadec_eac3::Options,
     pub keep_duplicates: bool,
     pub bed_conform: bool,
     pub all_events: bool,

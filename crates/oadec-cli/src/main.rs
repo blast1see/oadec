@@ -336,21 +336,37 @@ fn main() -> ExitCode {
             } => if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
             {
-                eac3_objects::run(
-                    &file,
-                    &output,
-                    &damf::Options {
-                        keep_duplicates,
-                        bed_conform: !no_bed_conform,
-                        all_events,
-                        adm: format == Format::Adm,
-                        dolby_origin_tag,
-                        clip_gain: !no_clip_gain,
-                        flat_quadrature,
-                        sparse_as_printed,
-                        steep_as_printed,
-                    },
-                )
+                if core_only {
+                    // The object programme is the whole programme and the JOC
+                    // downmix needs every channel of it, so the two cannot be
+                    // asked for together.
+                    Err(anyhow::anyhow!(
+                        "--core-only writes the 5.1-compatible channels of the independent \
+                         substream, which is not an object programme; drop it, or ask for \
+                         --format wav or pcm"
+                    ))
+                } else {
+                    eac3_objects::run(
+                        &file,
+                        &output,
+                        &damf::Options {
+                            keep_duplicates,
+                            bed_conform: !no_bed_conform,
+                            all_events,
+                            adm: format == Format::Adm,
+                            dolby_origin_tag,
+                            clip_gain: !no_clip_gain,
+                            flat_quadrature,
+                            sparse_as_printed,
+                            steep_as_printed,
+                            core: oadec_eac3::Options {
+                                dither: !no_dither,
+                                tpnp: !no_tpnp,
+                                ecpl_full: ecpl_spec,
+                            },
+                        },
+                    )
+                }
             } else if eac3::is_eac3(&file).unwrap_or(false) {
                 eac3::decode(
                     &file,
@@ -379,6 +395,8 @@ fn main() -> ExitCode {
                         flat_quadrature: false,
                         sparse_as_printed: false,
                         steep_as_printed: false,
+                        // TrueHD carries no E-AC-3 core.
+                        core: oadec_eac3::Options::default(),
                     },
                 )
             } else {
