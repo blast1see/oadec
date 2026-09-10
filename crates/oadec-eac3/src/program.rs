@@ -338,6 +338,79 @@ pub fn dependent_locations(
     })
 }
 
+/// What merging one substream's channels into a programme did.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MergeOutcome {
+    /// Channels that took the place of one the programme already had.
+    pub replaced: usize,
+    /// Channels the programme did not have before.
+    pub added: usize,
+    /// Channels dropped because the programme was already at its limit.
+    pub over_capacity: usize,
+}
+
+/// The channels of a programme and the substream channel each is taken from.
+///
+/// Built by merging substreams in bitstream order per clause E.2.8.2: a
+/// channel whose location the programme already carries replaces it, and one
+/// whose location is new is appended. The independent substream is merged
+/// first, so its 5.1-compatible downmix is what a dependent substream
+/// overwrites.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ProgramLayout {
+    /// Programme channels, in the order they were first seen.
+    pub channels: Vec<ChannelLoc>,
+    /// For each programme channel, the substream it comes from and the coded
+    /// channel within it.
+    pub sources: Vec<(usize, usize)>,
+}
+
+impl ProgramLayout {
+    /// Merges the channels of substream `part`, given in coded order.
+    pub fn merge(&mut self, part: usize, locations: &[ChannelLoc]) -> MergeOutcome {
+        let mut out = MergeOutcome::default();
+        for (coded, &loc) in locations.iter().enumerate() {
+            if let Some(i) = self.channels.iter().position(|c| *c == loc) {
+                self.sources[i] = (part, coded);
+                out.replaced += 1;
+            } else if self.channels.len() < MAX_PROGRAM_CHANNELS {
+                self.channels.push(loc);
+                self.sources.push((part, coded));
+                out.added += 1;
+            } else {
+                out.over_capacity += 1;
+            }
+        }
+        out
+    }
+
+    /// Number of programme channels.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.channels.len()
+    }
+
+    /// Whether no substream has been merged yet.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.channels.is_empty()
+    }
+
+    /// Programme channel indices in WAVE interchange order.
+    #[must_use]
+    pub fn interchange_order(&self) -> Vec<usize> {
+        let mut idx: Vec<usize> = (0..self.channels.len()).collect();
+        idx.sort_by_key(|&i| self.channels[i].interchange_rank());
+        idx
+    }
+
+    /// The channel names in programme order.
+    #[must_use]
+    pub fn names(&self) -> Vec<&'static str> {
+        self.channels.iter().map(|c| c.name()).collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -480,6 +553,84 @@ mod tests {
         let mask = chans.iter().fold(0, |a, c| a | c.wave_mask());
         assert_eq!(mask, 0x63F);
         assert_eq!(mask.count_ones() as usize, chans.len());
+    }
+
+    /// The measured Blu-ray 7.1 group: an AC-3 5.1 core followed by a
+    /// dependent substream naming Ls, Rs and the rear pair. The surrounds are
+    /// replaced, the rear pair is added, and nothing else moves.
+    #[test]
+    fn a_dependent_substream_replaces_the_surrounds_and_adds_the_rear_pair() {
+        use ChannelLoc::{C, L, Lfe, Lrs, Ls, R, Rrs, Rs};
+        let mut layout = ProgramLayout::default();
+        let core = layout.merge(
+            0,
+            &independent_locations(&{
+                let mut h = header(7, true, StreamType::Independent);
+                h.syntax = Syntax::Ac3;
+                h
+            }),
+        );
+        assert_eq!(
+            (core.replaced, core.added, core.over_capacity),
+            (0, 6, 0),
+            "the core brings six channels and replaces nothing"
+        );
+        let dep = layout.merge(1, &chanmap_locations(0x1a00));
+        assert_eq!((dep.replaced, dep.added, dep.over_capacity), (2, 2, 0));
+        assert_eq!(layout.channels, vec![L, C, R, Ls, Rs, Lfe, Lrs, Rrs]);
+        assert_eq!(
+            layout.sources,
+            vec![
+                (0, 0),
+                (0, 1),
+                (0, 2),
+                (1, 0),
+                (1, 1),
+                (0, 5),
+                (1, 2),
+                (1, 3)
+            ]
+        );
+        let order = layout.interchange_order();
+        let ordered: Vec<ChannelLoc> = order.iter().map(|&i| layout.channels[i]).collect();
+        assert_eq!(ordered, vec![L, R, C, Lfe, Lrs, Rrs, Ls, Rs]);
+        assert_eq!(
+            ordered.iter().fold(0, |a, c| a | c.wave_mask()),
+            0x63F,
+            "canonical WAVE 7.1"
+        );
+    }
+
+    /// A programme cannot grow past sixteen channels (clause E.2.8.2).
+    #[test]
+    fn a_programme_stops_at_sixteen_channels() {
+        use ChannelLoc::{
+            C, Cs, L, Lc, Lfe, Lfe2, Lrs, Ls, Lsd, Lts, Lw, R, Rc, Rrs, Rs, Rsd, Rts, Rw, Ts, Vhc,
+            Vhl, Vhr,
+        };
+        let all = [
+            L, C, R, Ls, Rs, Lc, Rc, Lrs, Rrs, Cs, Ts, Lsd, Rsd, Lw, Rw, Vhl, Vhr, Vhc, Lts, Rts,
+            Lfe2, Lfe,
+        ];
+        let mut layout = ProgramLayout::default();
+        let out = layout.merge(0, &all);
+        assert_eq!(layout.len(), MAX_PROGRAM_CHANNELS);
+        assert_eq!(out.added, MAX_PROGRAM_CHANNELS);
+        assert_eq!(out.over_capacity, all.len() - MAX_PROGRAM_CHANNELS);
+    }
+
+    /// Merging the same locations twice replaces rather than duplicating, so a
+    /// second dependent substream carrying a channel a first one already
+    /// supplied takes it over (clause E.2.8.2).
+    #[test]
+    fn a_later_substream_takes_over_a_channel_an_earlier_one_supplied() {
+        use ChannelLoc::{Ls, Rs};
+        let mut layout = ProgramLayout::default();
+        layout.merge(0, &[Ls, Rs]);
+        let second = layout.merge(1, &[Ls]);
+        assert_eq!((second.replaced, second.added), (1, 0));
+        assert_eq!(layout.channels, vec![Ls, Rs]);
+        assert_eq!(layout.sources, vec![(1, 0), (0, 1)]);
     }
 
     /// The JOC downmix inputs of table 53, including the two the rear pair
