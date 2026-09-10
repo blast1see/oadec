@@ -6,7 +6,49 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **E-AC-3 dependent substreams are decoded.** A Dolby Digital Plus 7.1
+  programme used to come out as its 5.1 core with `verify` calling the file
+  clean; it now decodes to all eight channels, and each one pairs with FFmpeg's
+  by at least 53 dB. Across the 40 eight-channel tracks in one library, 40 give
+  eight channels and 320 channel comparisons give no mismatch. Two custom
+  channel maps occur in the wild and the file name does not say which: 0x1a00
+  is 7.1 and 0xa010 is 5.1.2.
+- **Corruption reaches the exit code.** `verify` caught every one of 220
+  injected bit errors and exited 7; `decode --format damf` produced Atmos
+  objects and metadata with exit 0 and no diagnostic on 99 of them. Every
+  delivery path now decides with the list `verify` uses and exits 7, and
+  `docs/exit-codes.md` writes the policy down. Replaying both campaigns: 0
+  silent, 0 panics.
+- **Sparse JOC matrices.** Clause 6.6.2's pseudo-code is wrong in two places,
+  and Dolby's decoder disagrees with both: an unselected channel takes the code
+  that dequantises to zero gain, not the printed 50 or 100, and the channel
+  index accumulates from the resolved previous index. On the three frames of
+  real sparse material available this moves the objects from -13,5 to +1,1 dB
+  against Dolby's to 16,5 to 51,5 dB. `--sparse-as-printed` restores the
+  printed reading.
+- The EMDF container is looked for where TS 103 420 clause 8.2 puts it, the
+  last dependent substream, and `auxdata` is read where clause 4.4.4 puts it.
+  `eac3-joc-config` no longer skips dependent substreams, which would have made
+  it a silent no-op on exactly the streams it exists to interrogate.
+- The media suite fails when it cannot reach the media. It used to report
+  "10 passed" in 0.00 s with `OADEC_MEDIA` unset, and CI now has a job that
+  fails if that comes back.
+
 ### Added
+
+- `oadec atmos-author`, which writes a Dolby Atmos master from a scene
+  description so that a decode can be checked against authored metadata rather
+  than against another decoder. Dolby's `atmos_info` accepts the master; DEE
+  encodes it both ways; seven static object positions come back exactly, at
+  sample offset zero, through both TrueHD Atmos and E-AC-3 JOC.
+- `--core-only` on `decode` and `compare`, which writes the independent
+  substream's channels alone -- the 5.1-compatible decode clause E.2.8.2
+  allows, and what a reference decoder limited to 5.1 produces.
+- `verify --json` reports the programme's substreams, the JOC syntax each
+  stream uses branch by branch, and the frames where the rare branches occur,
+  so a clip that exercises one can be cut.
 
 - `oadec eac3-joc-config`, which rewrites `joc_dmx_config_idx` in every JOC
   payload and changes nothing else, so that a decoder can be handed the same
