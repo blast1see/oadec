@@ -178,6 +178,53 @@ programme channels pair with FFmpeg's, each beating its runner-up by at least
 eight 32-bit channels. `--core-only` reproduces the pre-change 5.1 decode byte
 for byte.
 
+### Signals that name themselves
+
+Everything above compares oadec against another decoder, which shows that two
+implementations do the same thing and not that either puts a channel where the
+stream says it belongs. That needs a source whose channels can be told apart by
+listening to them.
+
+Twelve seconds, eight channels, one sine per channel at −20 dBFS — 400, 630,
+1000, 55, 1600, 2500, 4000 and 6300 Hz — encoded by DEE's own
+`pcm_to_ddp` at `encoder_mode` ddp71, 1024 kbit/s, loudness measured and not
+corrected. Out comes exactly the structure defect 1 was about: an independent
+substream at `acmod` 7 + LFE and a dependent at `acmod` 5 with `chanmap` 0x1a00,
+375 frames each, no CRC failure and no decode error.
+
+**Every decoded channel carries one tone at −20,0 dBFS**, its authored level to
+the first decimal, with the loudest tone belonging to another channel between
+108 and 191 dB below it. FFmpeg gives the identical assignment from the same
+stream. The channel map is no longer a matter of two decoders agreeing.
+
+And the same clip shows what the defect actually delivered. `--core-only`, the
+5.1 a decoder that stops at the independent substream produces:
+
+| the 5.1 core's left surround | dBFS |
+|---|---:|
+| the back-left tone | −20,0 |
+| the side-left tone | −21,2 |
+| the side-right tone | −26,2 |
+
+Three signals in one channel. After the merge that same channel carries a single
+tone at −20,0 with everything else more than 150 dB down, and the back pair
+arrives as two new channels. That is clause E.2.8.2's replace-and-add, measured
+rather than argued — and it is why the old behaviour was worse than "two
+channels missing".
+
+The clip is checked in as material and the check as a media test: every channel
+within 1 dB of −20 and at least 60 dB clear of any other channel's tone.
+Swapping the side and back pairs in the expectation makes it fail by 197 dB.
+
+One thing was nearly misread as a decoder fault along the way. DEE reads an
+eight-channel WAV as L, R, C, LFE, Ls, Rs, Lrs, Rrs — side pair fifth and sixth,
+back pair seventh and eighth — where the WAVE channel mask orders them the other
+way round. Encoding the same audio again with the mask set to zero places the
+tones identically, so the encoder is not reading the mask at all. It was the
+FFmpeg control that separated "the encoder's input convention" from "the
+decoder's output order".
+`evidence/remediation/ddp71-authored-tones.json`.
+
 ### More than one title
 
 `evidence/remediation/ddp71-channel-compare.json`, from `tools/ddp71_sweep.py`

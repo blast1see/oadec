@@ -84,6 +84,15 @@ Semantic Versioning.
 
 ### Added
 
+- Authored ground truth for the dependent-substream merge. A Dolby Digital Plus
+  7.1 stream made by Dolby's own encoder from eight tones, one per channel,
+  decodes so that every channel carries its own tone at -20,0 dBFS with the
+  loudest tone belonging to another channel 108 to 191 dB below, and FFmpeg
+  gives the identical assignment. `--core-only` on the same clip shows what the
+  defect delivered: a left surround holding the back-left tone at -20,0, the
+  side-left at -21,2 and the side-right at -26,2. Clause E.2.8.2's
+  replace-and-add, measured. Kept as a media test that fails by 197 dB if the
+  side and back pairs are swapped.
 - The clean experiment the presentation-16 question needed, by authoring the
   stimulus instead of editing a finished stream. DEE writes
   `2ch_control_enabled` clear when `presentation_2ch/drc_default_on` is false,

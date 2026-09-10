@@ -873,3 +873,111 @@ fn corrupted_joc_never_decodes_to_a_silent_success() {
         silent.join(", ")
     );
 }
+
+/// The merged channels carry the signals that were authored into them.
+///
+/// Every earlier check of the dependent-substream channel map compared oadec
+/// against another decoder, which can only show that two implementations agree.
+/// `clips/ddp71-tones.ec3` is a Dolby Digital Plus 7.1 stream Dolby's own
+/// encoder made from eight tones, one per channel, at -20 dBFS. A channel that
+/// ends up in the wrong slot cannot hide behind agreement here: it arrives
+/// carrying the wrong frequency.
+///
+/// The tones are listed in the order the encoder reads an eight-channel WAV,
+/// which is not the order the WAVE channel mask implies -- DEE takes the fifth
+/// and sixth channels as the side pair and the seventh and eighth as the back
+/// pair, and does the same with the mask set to zero.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn the_merged_channels_carry_the_tones_they_were_authored_with() {
+    /// Level in dBFS of a tone at `hz`, by projection onto a windowed complex
+    /// exponential. A window whose length is not a whole number of periods
+    /// still reads the level correctly; the window is what makes that true.
+    fn tone_dbfs(x: &[f64], hz: f64) -> f64 {
+        use std::f64::consts::PI;
+        let n = x.len();
+        let (mut re, mut im, mut wsum) = (0.0, 0.0, 0.0);
+        for (i, &v) in x.iter().enumerate() {
+            let w = 0.5 - 0.5 * (2.0 * PI * i as f64 / n as f64).cos();
+            let p = 2.0 * PI * hz * i as f64 / 48_000.0;
+            re += v * w * p.cos();
+            im -= v * w * p.sin();
+            wsum += w;
+        }
+        let a = (re * re + im * im).sqrt() / (wsum / 2.0);
+        20.0 * a.max(1e-12).log10()
+    }
+
+    // interchange order: L R C LFE Lrs Rrs Ls Rs, and the tone each carries
+    const EXPECTED: [(&str, f64); 8] = [
+        ("L", 400.0),
+        ("R", 630.0),
+        ("C", 1000.0),
+        ("LFE", 55.0),
+        ("Lrs", 4000.0),
+        ("Rrs", 6300.0),
+        ("Ls", 1600.0),
+        ("Rs", 2500.0),
+    ];
+
+    let media = media_dir();
+    let file = media.join("clips/ddp71-tones.ec3");
+    require(&file);
+
+    let out = std::env::temp_dir().join("oadec-ddp71-tones.f32");
+    let run = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", "--format", "pcm", "--order", "interchange", "-o"])
+        .arg(&out)
+        .arg(&file)
+        .output()
+        .expect("run oadec decode");
+    assert!(
+        matches!(run.status.code(), Some(0) | Some(7)),
+        "the 7.1 stream did not decode: {}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+
+    let bytes = std::fs::read(&out).expect("decoded pcm");
+    let _ = std::fs::remove_file(&out);
+    let samples: Vec<f32> = bytes
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .copied()
+        .map(f32::from_le_bytes)
+        .collect();
+    assert_eq!(
+        samples.len() % 8,
+        0,
+        "the decode is not eight channels wide"
+    );
+    let frames = samples.len() / 8;
+    assert!(
+        frames > 48_000 * 5,
+        "the clip is too short: {frames} frames"
+    );
+
+    // a window well inside the encode, so that no start-up transient is in it
+    let (start, len) = (48_000, 48_000 * 4);
+    for (ch, (name, hz)) in EXPECTED.iter().enumerate() {
+        let x: Vec<f64> = (start..start + len)
+            .map(|i| f64::from(samples[i * 8 + ch]))
+            .collect();
+        let own = tone_dbfs(&x, *hz);
+        let other = EXPECTED
+            .iter()
+            .filter(|(_, f)| f != hz)
+            .map(|(_, f)| tone_dbfs(&x, *f))
+            .fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            (own - -20.0).abs() < 1.0,
+            "channel {ch} ({name}) carries its own tone at {own:.1} dBFS, not -20"
+        );
+        assert!(
+            own - other > 60.0,
+            "channel {ch} ({name}) is only {:.1} dB above the loudest tone that \
+             belongs to another channel, so the merge may have placed it wrong",
+            own - other
+        );
+    }
+}
