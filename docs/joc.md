@@ -3,6 +3,16 @@
 Facts about joint object coding (ETSI TS 103 420 V1.2.1 clause 6 and 7)
 that the decoder relies on. Clause numbers refer to that document.
 
+- **What real streams actually use.** Whole-file scan of 49 streams, 31 of them
+  carrying JOC, 32 493 245 object updates: dense 32 493 095 and sparse 150;
+  fine 32 488 175 and coarse 5 070; smooth slope with one data point
+  31 755 742 and steep with one 737 503. **Two data points: zero.** So two of
+  the four branches of clause 6.6.5 pseudo-code 6, smooth-2 and steep-2, have
+  never been seen, and downmix configurations 1, 2 and 4 never occur either
+  (28 streams at configuration 3, three at 0). Sparse and coarse appear only in
+  streaming material. Scanning head clips finds none of it: the same library
+  scanned three megabytes at a time gives zero sparse and zero coarse.
+
 - **Where the side information lives.** EMDF payload 14 in the skip fields
   of the E-AC-3 frame, next to the OAMD payload 11 (clause 8.2); both once
   per frame in every stream measured.
@@ -11,13 +21,40 @@ that the decoder relies on. Clause numbers refer to that document.
   turns them into `crates/oadec-emdf/src/joc_tables.rs`. A child value `c <= 0`
   is the leaf `-c - 1` (clause 6.6.3); every value round-trips in the tests.
 - **Differential decoding** (clause 6.6.2): dense matrices start from 48
-  (coarse) or 96 (fine) and accumulate modulo 96/192 across bands; sparse
-  mode places one value per band on one channel and the offset 50/100
-  elsewhere. The sparse channel index of band `pb` is
-  `(joc_channel_idx[pb-1] + joc_channel_idx[pb]) % nch` with the
-  *transmitted* previous index, as printed; an alternative cumulative
-  reading is kept behind `SparseIndexMode::Cumulative`. Sparse objects are
-  rare (60 of 3.3 million object updates in one stream) and untested.
+  (coarse) or 96 (fine) and accumulate modulo 96/192 across bands.
+
+  **Sparse mode is printed wrong, in two places.** Pseudo-code 2 puts the
+  offset 50/100 on the channels a band does not select, and forms the channel
+  index of band `pb` as `(joc_channel_idx[pb-1] + joc_channel_idx[pb]) % nch`
+  from the *transmitted* previous value. Both are wrong, and the second only
+  matters once the first is fixed.
+
+  50 and 100 do not dequantise to zero. Clause 6.6.4 gives
+  `(q - nquant/2) * 820 / (4096 (1 + quant_idx))`, so 50 and 100 both come out
+  at 0,4004 — an unselected channel would contribute four tenths of a downmix
+  channel to every object, which is the opposite of what "sparse" means. The
+  code that dequantises to zero is 48/96, the same value dense mode starts
+  from. And the index accumulates from the *resolved* previous index, not the
+  transmitted one.
+
+  Measured against Dolby's object decoder on the only sparse material there
+  is — 150 objects across three streaming titles, 150 of 32 493 245 object
+  updates in the whole library — on the three frames that carry it:
+
+  | frame | as printed | corrected | frames either side |
+  |---|---:|---:|---:|
+  | Extraction 63 325 | 1,05 dB | 16,53 dB | 38-48 dB |
+  | Extraction 208 315 | −3,23 dB | 45,72 dB | 55-58 dB |
+  | Extraction 208 333 | −13,48 dB | 51,52 dB | 54-56 dB |
+
+  The off-channel value alone is worth 10 to 19 dB; the index alone is worth
+  nothing, because the off-channel error swamps it; together they are worth
+  15,5 to 65 dB. `--sparse-as-printed` restores the printed reading for
+  measurement. Frames with no sparse object are bit-identical either way.
+
+  One frame still lags its neighbours by 22 dB after both corrections, so
+  something in the sparse path is still not right; it is a loud dense passage
+  and the other two reach parity.
 - **Dequantization** (clause 6.6.4): `(q - nquant/2) * 820 / (4096 (1 +
   quant_idx))`, range about ±9.6.
 - **Band mapping** (table 54): 23/15/12/9/7/5/3/1 parameter bands over the

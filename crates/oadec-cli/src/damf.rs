@@ -24,6 +24,9 @@ pub struct Options {
     /// 3 and 4 back out with a plain rotation in every subband, the lowest
     /// one included, instead of the low-band filter the Dolby decoder uses.
     pub flat_quadrature: bool,
+    /// JOC: read a sparse matrix exactly as clause 6.6.2 prints it, rather
+    /// than as Dolby's decoder reads it. For measuring the difference.
+    pub sparse_as_printed: bool,
     pub keep_duplicates: bool,
     pub bed_conform: bool,
     pub all_events: bool,

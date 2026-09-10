@@ -3,7 +3,7 @@
 //! typed error, never in a panic.
 
 use oadec_emdf::container;
-use oadec_emdf::joc::{Joc, SparseIndexMode};
+use oadec_emdf::joc::{Joc, SparseReading};
 use oadec_emdf::oamd::Oamd;
 
 /// xorshift64, so the cases are reproducible without a dependency.
@@ -40,7 +40,7 @@ fn arbitrary_bytes_never_panic_the_metadata_parsers() {
         if Oamd::parse(&data).is_ok() {
             oamd_ok += 1;
         }
-        if Joc::parse(&data, SparseIndexMode::Literal).is_ok() {
+        if Joc::parse(&data, SparseReading::AsPrinted).is_ok() {
             joc_ok += 1;
         }
         if container::parse_evolution(&data).is_ok() {
@@ -60,7 +60,7 @@ fn a_jocs_own_bytes_flipped_one_bit_at_a_time_never_panic() {
     for _ in 0..200_000 {
         let len = 1 + (rng.next() % 60) as usize;
         let data = rng.bytes(len);
-        if Joc::parse(&data, SparseIndexMode::Literal).is_ok() {
+        if Joc::parse(&data, SparseReading::AsPrinted).is_ok() {
             base = Some(data);
             break;
         }
@@ -73,8 +73,8 @@ fn a_jocs_own_bytes_flipped_one_bit_at_a_time_never_panic() {
         for bit in 0..8 {
             let mut data = base.clone();
             data[byte] ^= 1 << bit;
-            let _ = Joc::parse(&data, SparseIndexMode::Literal);
-            let _ = Joc::parse(&data, SparseIndexMode::Cumulative);
+            let _ = Joc::parse(&data, SparseReading::AsPrinted);
+            let _ = Joc::parse(&data, SparseReading::Measured);
         }
     }
 }
