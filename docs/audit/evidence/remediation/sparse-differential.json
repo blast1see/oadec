@@ -581,5 +581,16 @@
    "what_is_left": "a two-slot disagreement where the sparse matrix is applied; the only frame in the library that is both sparse and steep with a large offset"
   },
   "streams_without_sparse_objects": "bit-identical under all three readings"
+ },
+ "clips_cut_from": {
+  "extraction-sparse": "ec3/extraction-nf.ec3 --from-group 63250 --groups 400 (sparse frame 63325)",
+  "extraction-sparse2": "ec3/extraction-nf.ec3 --from-group 208250 --groups 400 (sparse frames 208315 and 208333)",
+  "extraction-sparse3": "ec3/extraction-nf.ec3 --from-group 69000 --groups 400 (sparse frame 69062)",
+  "glassonion-sparse": "ec3/glassonion-nf.ec3 --from-group 237100 --groups 400 (sparse frames 237183, 237186-237189)",
+  "rednotice-sparse": "ec3/rednotice-nf.ec3 --from-group 22450 --groups 400 (sparse frame 22520)",
+  "tool": "python tools/ec3_cut.py <in.ec3> <out.ec3> --from-group N --groups 400",
+  "reference": "gst-launch-1.0 filesrc location=<clip> ! dlbac3parse enable-metadata=true ! dlbac3dec out-ch-config=21 drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true ! \"audio/x-raw(meta:DlbObjectAudioMeta),format=F32LE\" ! identity ! filesink location=<clip>-dolby.f32",
+  "ours": "oadec decode --format damf --no-bed-conform [--sparse-as-printed] -o <base> <clip>",
+  "note": "The group a clip starts at is the sparse frame number minus its position in the clip; the first two clips were cut in an earlier session and their start groups are recovered that way."
  }
 }
