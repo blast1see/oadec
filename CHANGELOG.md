@@ -107,6 +107,16 @@ Semantic Versioning.
   for the other refusal, the configuration 0 stream Dolby gives six channels:
   its own objects come back as sixteen that Dolby opens, on the head clip and on
   a mid-file cut, with the accepted title at sixteen either way.
+- The same question put to the TrueHD side of the library, and the answer it
+  gives about a standing claim. Dolby's object path opens 105 of 194 object
+  presentations across 186 files and refuses 89, so the `presentation=16`
+  refusal is 46 per cent of a catalogue rather than three odd titles -- stable
+  across runs and cut lengths, specific to the object mode, and opened by two
+  other decoders. **`2ch_control_enabled` is retired**: perfect across six
+  titles, it is clear in 76 that Dolby opens and 83 it refuses. The best
+  predictor left is `twoch_dialogue_norm`, 32 to 37 with opening and 63 or 31
+  with refusal, agreeing on 187 of 194 -- the same family of field, and still a
+  correlation no instrument here can test.
 - Material where the steep branch of clause 6.6.5 is the rule instead of the
   exception, and a gate on it. Three authored scenes say what provokes it: a
   sweep every half frame gives 15 steep objects of 4 695, teleporting between

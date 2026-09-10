@@ -913,6 +913,87 @@ mode. `evidence/remediation/major-sync-rewrite-rejected.json`,
 
 ---
 
+## The refusal is not three titles
+
+Everything above treats the `presentation=16` refusal as a property of three
+streams. Six titles is enough to find a field that correlates perfectly and not
+enough to know whether it means anything, and the sweep that made the point for
+Dolby Digital Plus makes it here too: twenty seconds from the head of every
+TrueHD track in the library that declares a sixteen-channel presentation,
+through the same command.
+
+| | |
+|---|---:|
+| files | 186 |
+| object presentations | 194 |
+| opened | 105 |
+| **refused** | **89, or 46 per cent** |
+
+Shaun of the Dead and Knives Out sit alongside A Quiet Place and its sequel,
+three John Wick films, three Thor films, Aliens, Apocalypse Now, District 9,
+Alita, The Northman, Zombieland and Dredd. What looked like three odd streams is
+most of a catalogue.
+
+The verdict belongs to the stream and not to the measurement. The same file
+gives the same answer three runs running; A Quiet Place is refused at 20, 60 and
+180 seconds of input; and it is specific to the object mode, exactly as it was
+for the three — the same clip decodes at `presentation=16` with the default
+channel configuration and at `presentation=2` with `out-ch-config=21`, and only
+the two together are refused. `truehdd` opens it and finds twelve elements.
+
+### What that does to `2ch_control_enabled`
+
+**The correlation does not survive.** Across six titles the flag was set in all
+three Dolby opened and clear in all three it refused. Across 194:
+
+| | opened | refused |
+|---|---:|---:|
+| `2ch_control_enabled` clear | 76 | 83 |
+| `2ch_control_enabled` set | 29 | 6 |
+
+Clear is very nearly a coin toss. Set leans towards opening and is a minority of
+both. The field predicts almost nothing, and the perfect correlation across six
+titles was the six titles. This report has now weakened that reading twice and
+can retire it: it was **not sufficient**, by the encoder experiment, and it is
+**not a correlate either**, by the sweep.
+
+### What is left is one number, and it is still a correlation
+
+Over every field `info --json` reports — and it now reports the channel meaning,
+which it did not before this sweep and which is why the first pass came back
+saying nothing at all about these fields — nothing takes disjoint values on the
+two sides. One nearly does: `twoch_dialogue_norm`, the two-channel
+presentation's own dialogue normalisation.
+
+| | values |
+|---|---|
+| opened | 37 (×72), 33 (×25), 34 (×3), 36 (×2), 32 (×2), 31 (×1) |
+| refused | 63 (×53), 31 (×30), 37 (×5), 33 (×1) |
+
+A value between 32 and 37 goes with opening; 63, the field's maximum and what is
+written when nothing was, or 31, which is what the other presentations carry,
+goes with refusal. That agrees with the verdict on **187 of 194** streams, seven
+exceptions.
+
+It is the same family as the old reading — the flag says whether to honour the
+two-channel presentation's own control data and the dialogue norm is that data —
+which is why on six titles the two moved together and the flag looked like the
+answer.
+
+And it is a correlation, not a cause, for the reason it has always been: the
+object path refuses any stream whose major sync was edited, whatever the edit
+says, including edits to fields that cannot be causal. A correlation over 194
+streams is worth more than one over six. It is still a correlation.
+
+**The classification this earns is Dolby-tool-unsupported**, not spec-invalid
+and not oadec-invalid. An output mode that opens 54 per cent of a catalogue's
+Atmos titles and refuses the rest, with no bitstream field separating them and
+two other decoders opening all of them, is more plausibly a property of that
+mode than of the streams.
+`evidence/remediation/truehd-object-sweep.json`.
+
+---
+
 ## A second opinion that is not ours and not Dolby's
 
 Every reading above rests on one engine saying no and this one saying yes. DEE,
@@ -1394,21 +1475,27 @@ byte-identical on every one, 212 527 200 element-samples with the same MD5.
   across three corrections. It is not dither amplified by the large coefficient
   the sparse matrix carries there: our own dither's weight on that frame is
   61,70 dB against neighbours at 59,58 to 80,90 and a clip median of 59,38.
-- **Why Dolby refuses three titles.** Two answers were removed this round and
-  none was found. A third decoder says the streams are not the problem:
+- **Why Dolby's object mode opens some TrueHD Atmos titles and not others.** It
+  is not three titles: over 194 object presentations in 186 library files it
+  opens 105 and refuses 89. Three answers were removed this round and none was
+  found. A third decoder says the streams are not the problem:
   `truehdd` opens the object presentation on all six, with the element counts
   oadec reports and byte-identical object audio, and its conformance checker
   does not separate the sets either. And `2ch_control_enabled`, the one field
-  that correlates perfectly across the six, is **not sufficient**: DEE writes a
-  stream with the flag clear when `presentation_2ch/drc_default_on` is false,
-  and Dolby opens that stream while refusing the three titles in the same
-  session. The flag may still matter in combination with something else; on its
-  own it does not. Nor is the content: each refused title's own objects, decoded
+  that correlated perfectly across the six, is **retired twice over**: DEE
+  writes a stream with the flag clear when `presentation_2ch/drc_default_on` is
+  false and Dolby opens it, so it is not sufficient; and across 194 streams it is
+  clear in 76 Dolby opens and 83 it refuses, so it is not a correlate either. The
+  best predictor left is `twoch_dialogue_norm` — a value between 32 and 37 goes
+  with opening and 63 or 31 with refusal, agreeing on 187 of 194 — which is the
+  same family of field and is still a correlation, because the object path
+  refuses any stream whose major sync was edited. Nor is the content: each refused title's own objects, decoded
   here and re-encoded by DEE, are opened. What is left is a property of how those
   three streams were written, and no instrument here reaches it.
   One avenue is prepared and not taken: an Atmos sink is on this machine and its
-  EDID advertises TrueHD and Dolby Digital Plus at eight channels, so the three
-  refused titles can be sent to a renderer that is not Dolby'''s software. It
+  EDID advertises TrueHD and Dolby Digital Plus at eight channels, so a refused
+  title can be sent to a renderer that is not Dolby's software. It matters more
+  now that the refused set is 89 titles rather than three. It
   cannot answer in a machine-readable way — a sink reports what it decoded on its
   own display and there is no return path — so it needs a person at the device.
   `tools/atmos_sink_check.ps1` sends all six titles to it in turn and pauses
