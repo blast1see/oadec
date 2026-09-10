@@ -1,0 +1,73 @@
+{
+ "a": "E:/oadec-work/audit/tmp/ddp71-ours.f32",
+ "b": "E:/oadec-work/audit/tmp/ddp71-ffmpeg.f32",
+ "a_samples": 2880000,
+ "b_samples": 2880000,
+ "a_channels": 6,
+ "b_channels": 6,
+ "compared_samples": 2880000,
+ "total_differing": 16172582,
+ "first_differing_index": 0,
+ "per_channel": [
+  {
+   "ch": 0,
+   "differing": 2879860,
+   "max_abs_diff": 6.028730422258377e-05,
+   "rms_error": 5.788113662677134e-06,
+   "peak_error": 6.028730422258377e-05,
+   "rms_signal": 0.008961748180699537,
+   "sdr_db": 63.8,
+   "first_diff": 0
+  },
+  {
+   "ch": 1,
+   "differing": 2879832,
+   "max_abs_diff": 4.6343542635440826e-05,
+   "rms_error": 5.639275712259828e-06,
+   "peak_error": 4.6343542635440826e-05,
+   "rms_signal": 0.011072321060991108,
+   "sdr_db": 65.86,
+   "first_diff": 0
+  },
+  {
+   "ch": 2,
+   "differing": 2879958,
+   "max_abs_diff": 4.244549199938774e-05,
+   "rms_error": 4.942967076873181e-06,
+   "peak_error": 4.244549199938774e-05,
+   "rms_signal": 0.0023102305029086808,
+   "sdr_db": 53.39,
+   "first_diff": 0
+  },
+  {
+   "ch": 3,
+   "differing": 1772934,
+   "max_abs_diff": 9.313225746154785e-09,
+   "rms_error": 3.839134492314869e-10,
+   "peak_error": 9.313225746154785e-09,
+   "rms_signal": 0.00480249253583356,
+   "sdr_db": 141.94,
+   "first_diff": 3072
+  },
+  {
+   "ch": 4,
+   "differing": 2879998,
+   "max_abs_diff": 0.006328980438411236,
+   "rms_error": 0.0008111661779781067,
+   "peak_error": 0.006328980438411236,
+   "rms_signal": 0.005783754940425175,
+   "sdr_db": 17.06,
+   "first_diff": 0
+  },
+  {
+   "ch": 5,
+   "differing": 2880000,
+   "max_abs_diff": 0.0073987488867715,
+   "rms_error": 0.0008376533447344,
+   "peak_error": 0.0073987488867715,
+   "rms_signal": 0.005946365011065672,
+   "sdr_db": 17.02,
+   "first_diff": 0
+  }
+ ]
+}

@@ -1,0 +1,407 @@
+{
+ "clip": "clips/talktome-joc-head.ec3 (first 400000 bytes)",
+ "seed": 1,
+ "trials": 120,
+ "panics": 0,
+ "nonzero_exit": 21,
+ "no_diagnostic_from_decode_damf": 99,
+ "verify_flags_all_of_them": 99,
+ "flip_sites": [
+  {
+   "offset": 70445,
+   "bit": 1
+  },
+  {
+   "offset": 133729,
+   "bit": 1
+  },
+  {
+   "offset": 259750,
+   "bit": 7
+  },
+  {
+   "offset": 247592,
+   "bit": 6
+  },
+  {
+   "offset": 110076,
+   "bit": 1
+  },
+  {
+   "offset": 255777,
+   "bit": 0
+  },
+  {
+   "offset": 204372,
+   "bit": 6
+  },
+  {
+   "offset": 318472,
+   "bit": 0
+  },
+  {
+   "offset": 139633,
+   "bit": 3
+  },
+  {
+   "offset": 309934,
+   "bit": 1
+  },
+  {
+   "offset": 166424,
+   "bit": 0
+  },
+  {
+   "offset": 11703,
+   "bit": 0
+  },
+  {
+   "offset": 340549,
+   "bit": 0
+  },
+  {
+   "offset": 276629,
+   "bit": 3
+  },
+  {
+   "offset": 229579,
+   "bit": 7
+  },
+  {
+   "offset": 289857,
+   "bit": 3
+  },
+  {
+   "offset": 181246,
+   "bit": 3
+  },
+  {
+   "offset": 354863,
+   "bit": 3
+  },
+  {
+   "offset": 398955,
+   "bit": 7
+  },
+  {
+   "offset": 151929,
+   "bit": 0
+  },
+  {
+   "offset": 218198,
+   "bit": 1
+  },
+  {
+   "offset": 97468,
+   "bit": 4
+  },
+  {
+   "offset": 63381,
+   "bit": 5
+  },
+  {
+   "offset": 378265,
+   "bit": 6
+  },
+  {
+   "offset": 266190,
+   "bit": 3
+  },
+  {
+   "offset": 159052,
+   "bit": 4
+  },
+  {
+   "offset": 308061,
+   "bit": 7
+  },
+  {
+   "offset": 264914,
+   "bit": 6
+  },
+  {
+   "offset": 308806,
+   "bit": 0
+  },
+  {
+   "offset": 251777,
+   "bit": 3
+  },
+  {
+   "offset": 389929,
+   "bit": 6
+  },
+  {
+   "offset": 217219,
+   "bit": 2
+  },
+  {
+   "offset": 192478,
+   "bit": 5
+  },
+  {
+   "offset": 45333,
+   "bit": 7
+  },
+  {
+   "offset": 348000,
+   "bit": 1
+  },
+  {
+   "offset": 85825,
+   "bit": 6
+  },
+  {
+   "offset": 194260,
+   "bit": 7
+  },
+  {
+   "offset": 339296,
+   "bit": 2
+  },
+  {
+   "offset": 88391,
+   "bit": 3
+  },
+  {
+   "offset": 212050,
+   "bit": 5
+  },
+  {
+   "offset": 302930,
+   "bit": 5
+  },
+  {
+   "offset": 240717,
+   "bit": 4
+  },
+  {
+   "offset": 345618,
+   "bit": 0
+  },
+  {
+   "offset": 201163,
+   "bit": 2
+  },
+  {
+   "offset": 252235,
+   "bit": 5
+  },
+  {
+   "offset": 298843,
+   "bit": 3
+  },
+  {
+   "offset": 264618,
+   "bit": 6
+  },
+  {
+   "offset": 254240,
+   "bit": 5
+  },
+  {
+   "offset": 217277,
+   "bit": 5
+  },
+  {
+   "offset": 830,
+   "bit": 5
+  },
+  {
+   "offset": 240200,
+   "bit": 0
+  },
+  {
+   "offset": 120379,
+   "bit": 2
+  },
+  {
+   "offset": 288754,
+   "bit": 2
+  },
+  {
+   "offset": 48025,
+   "bit": 4
+  },
+  {
+   "offset": 17017,
+   "bit": 1
+  },
+  {
+   "offset": 43638,
+   "bit": 0
+  },
+  {
+   "offset": 237501,
+   "bit": 0
+  },
+  {
+   "offset": 395389,
+   "bit": 4
+  },
+  {
+   "offset": 130840,
+   "bit": 4
+  },
+  {
+   "offset": 57403,
+   "bit": 2
+  },
+  {
+   "offset": 180576,
+   "bit": 4
+  },
+  {
+   "offset": 36446,
+   "bit": 2
+  },
+  {
+   "offset": 83689,
+   "bit": 4
+  },
+  {
+   "offset": 344277,
+   "bit": 4
+  },
+  {
+   "offset": 339844,
+   "bit": 4
+  },
+  {
+   "offset": 260305,
+   "bit": 7
+  },
+  {
+   "offset": 59868,
+   "bit": 0
+  },
+  {
+   "offset": 163580,
+   "bit": 6
+  },
+  {
+   "offset": 180010,
+   "bit": 6
+  },
+  {
+   "offset": 98586,
+   "bit": 4
+  },
+  {
+   "offset": 57022,
+   "bit": 4
+  },
+  {
+   "offset": 382810,
+   "bit": 3
+  },
+  {
+   "offset": 317534,
+   "bit": 6
+  },
+  {
+   "offset": 9366,
+   "bit": 6
+  },
+  {
+   "offset": 76788,
+   "bit": 0
+  },
+  {
+   "offset": 376876,
+   "bit": 2
+  },
+  {
+   "offset": 285580,
+   "bit": 3
+  },
+  {
+   "offset": 330706,
+   "bit": 7
+  },
+  {
+   "offset": 117018,
+   "bit": 0
+  },
+  {
+   "offset": 207040,
+   "bit": 5
+  },
+  {
+   "offset": 345937,
+   "bit": 6
+  },
+  {
+   "offset": 65894,
+   "bit": 3
+  },
+  {
+   "offset": 37081,
+   "bit": 1
+  },
+  {
+   "offset": 162719,
+   "bit": 4
+  },
+  {
+   "offset": 389987,
+   "bit": 2
+  },
+  {
+   "offset": 218194,
+   "bit": 4
+  },
+  {
+   "offset": 68362,
+   "bit": 0
+  },
+  {
+   "offset": 309636,
+   "bit": 3
+  },
+  {
+   "offset": 298991,
+   "bit": 7
+  },
+  {
+   "offset": 89924,
+   "bit": 0
+  },
+  {
+   "offset": 198164,
+   "bit": 3
+  },
+  {
+   "offset": 181891,
+   "bit": 1
+  },
+  {
+   "offset": 107878,
+   "bit": 6
+  },
+  {
+   "offset": 310068,
+   "bit": 3
+  },
+  {
+   "offset": 258133,
+   "bit": 1
+  },
+  {
+   "offset": 155227,
+   "bit": 7
+  },
+  {
+   "offset": 320931,
+   "bit": 6
+  },
+  {
+   "offset": 82295,
+   "bit": 3
+  },
+  {
+   "offset": 177783,
+   "bit": 6
+  }
+ ]
+}
