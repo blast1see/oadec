@@ -263,6 +263,8 @@ struct EmdfStats {
     joc_bands: BTreeMap<usize, u64>,
     joc_absent_objects: u64,
     joc_sparse: u64,
+    /// Objects that are sparse and steep at once.
+    joc_sparse_steep: u64,
     joc_dense: u64,
     joc_two_dpoints: u64,
     joc_steep: u64,
@@ -374,6 +376,19 @@ impl EmdfStats {
                                                 if o.sparse {
                                                     self.joc_sparse += 1;
                                                     self.note_rare("sparse", frame_index);
+                                                    // the combination is what
+                                                    // the one unexplained frame
+                                                    // has, and a clip that
+                                                    // carries more of them is
+                                                    // what turns an anomaly of
+                                                    // one into a measurement
+                                                    if o.slope == Slope::Steep {
+                                                        self.joc_sparse_steep += 1;
+                                                        self.note_rare(
+                                                            "sparse-and-steep",
+                                                            frame_index,
+                                                        );
+                                                    }
                                                 } else {
                                                     self.joc_dense += 1;
                                                 }
@@ -1002,6 +1017,7 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "objects_per_payload": e.joc_objects.keys().collect::<Vec<_>>(),
                 "bands": e.joc_bands.keys().collect::<Vec<_>>(),
                 "sparse_objects": e.joc_sparse,
+                "sparse_and_steep_objects": e.joc_sparse_steep,
                 "dense_objects": e.joc_dense,
                 "absent_objects": e.joc_absent_objects,
                 "steep_objects": e.joc_steep,

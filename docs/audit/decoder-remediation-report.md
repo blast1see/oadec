@@ -460,8 +460,19 @@ left to explain in sparse decoding itself, and the row moves to `PASS-TOL`.
 
 What remains is one frame, and it is the one that is also steep with offset 23:
 34,6 dB where its clip sits at 44,4, a two-slot disagreement at the point where
-the sparse matrix is applied. It is the only frame in the material measured that
-is both. `evidence/remediation/sparse-settled.json`.
+the sparse matrix is applied.
+
+**The combination is not the cause either.** `verify --json` now counts objects
+that are sparse and steep at once and reports where they are, and Extraction 2
+carries 120 of them across eight frames. A clip around two of them measures
+51,32 and 49,57 dB against a clip median of 48,76 -- at or above their clip's
+level, with neighbours at 56 to 63. Nor is a large switch offset the cause: both
+clips carry offsets across the whole range, 23 and 24 included.
+
+So the remaining frame is an outlier of one. It is not sparse decoding, not
+steep decoding, not the two together, not a large offset and not dither. It
+stays open as a single frame rather than as a class.
+`evidence/remediation/sparse-settled.json`.
 
 ### What is still unexercised
 
@@ -932,11 +943,11 @@ the two that hold the measurement flags.
 
 ## What is still open
 
-- **The one frame that is both sparse and steep**: 34,6 dB where its clip sits
-  at 44,4, a two-slot disagreement at the point where the sparse matrix is
-  applied. Sparse decoding itself is settled -- 825 sparse objects in a clip
-  with no steep object sit at their clip's own level -- so what is left belongs
-  to the combination. That frame has moved from 1,05 to 16,5 to 30,6 to 34,6 dB
+- **One frame, and only that frame**: 34,6 dB where its clip sits at 44,4, a
+  two-slot disagreement at the point where the sparse matrix is applied. Sparse
+  decoding is settled, and so is the combination that frame has: 120 objects
+  that are sparse and steep at once, in another title, sit at or above their
+  clip's level. That frame has moved from 1,05 to 16,5 to 30,6 to 34,6 dB
   across three corrections. It is not dither amplified by the large coefficient
   the sparse matrix carries there: our own dither's weight on that frame is
   61,70 dB against neighbours at 59,58 to 80,90 and a clip median of 59,38.
