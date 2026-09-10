@@ -1226,8 +1226,8 @@ byte-identical in all three files of the set, and the nine whose object audio
 moved are exactly the nine that carry steep objects, from 30 of them to 1 200.
 The three TrueHD baselines are still bit-exact, the six-title object comparison
 regressed on none of them, the controlled scene reproduces its figures to the
-digit, and the media suite passes 14 of 14 in 1 262 s -- twelve as before plus
-the two that hold the measurement flags. The presentation-3 baseline is no
+digit, and the media suite passes 16 of 16 in 1 328 s, the last of them the one that
+reads the authored tones back out of the 7.1 programme. The presentation-3 baseline is no
 longer three titles: `truehdd` was run over all six and the object audio is
 byte-identical on every one, 212 527 200 element-samples with the same MD5.
 `evidence/remediation/decode-exit-codes.json`,
