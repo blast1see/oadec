@@ -743,18 +743,24 @@ wrapping could have been the cause. The unpatched stream wrapped with the same
 command in the same session is accepted, sixteen object channels. The wrapping
 is innocent and the refusal follows the edit.
 
-So the object path applies an integrity check over the major sync that ordinary
-decoding does not, and the defined CRC-16 is not it: `oadec verify` derives the
-CRC span from the parse rather than by searching, and reports the patched files
-clean. What that leaves is the
-state before the correction: `2ch_control_enabled` is a perfect correlate across
-six titles with **no causal evidence in either direction**. The audit's own
-experiment — setting the flag on a refused title and seeing nothing change — is
-uninformative for the same reason.
+So the object path reads the major sync far more strictly than ordinary decoding
+does, and the defined CRC-16 is not what it is reading: `oadec verify` derives
+the CRC span from the parse rather than by searching, and reports every patched
+file clean.
 
-It is the third instrument to fail this way, after in-place rewriting of EMDF
-payloads. Any question about these titles that needs a controlled mutation is
-closed by that, not answered.
+What that leaves is a middle position, which is where the evidence actually is.
+The six unmodified titles correlate perfectly and that is untouched: every
+accepted one has `2ch_control_enabled` set, every refused one has it clear. The
+mutation cannot carry that to necessity, because the same refusal follows edits
+that cannot be causal. So the flag is a perfect correlate with suggestive but
+unclean causal evidence — not the flat "necessary" this report claimed, and not
+the "not causal" the audit claimed.
+
+It is the third instrument to come back with a limit on it, after in-place
+rewriting of EMDF payloads, which this decoder discards outright. This one is
+not useless -- a legal change is taken -- but it is too blunt to single out one
+field, and any question about these titles that needs a clean mutation is
+answered by that, not by the mutation.
 
 None of this says oadec is wrong. oadec decodes all six; the three whose object
 output has never been confirmed are the three Dolby will not open in object
@@ -987,10 +993,11 @@ the two that hold the measurement flags.
   the sparse matrix carries there: our own dither's weight on that frame is
   61,70 dB against neighbours at 59,58 to 80,90 and a clip median of 59,38.
 - **The second reason Dolby refuses three titles.** `2ch_control_enabled` is
-  a perfect correlate across six titles with no causal evidence either way. The
-  experiment that seemed to show necessity is confounded: the object path
-  refuses any stream whose major sync was edited, including in fields with no
-  bearing on presentations, so no controlled mutation can reach the question.
+  a perfect correlate across six titles whose causal evidence is suggestive and
+  not clean: the object path also refuses edits to a DRC start-up gain and a mix
+  level, which cannot be causal, while accepting at least one legal change. A
+  mutation experiment on this decoder cannot separate the flag from its
+  strictness.
 - **Why Dolby refuses one configuration 0 stream and accepts another.** There is
   a control pair now: Snatch is given six channels and Dredd sixteen objects,
   and the two agree in every field this decoder parses -- frame header,

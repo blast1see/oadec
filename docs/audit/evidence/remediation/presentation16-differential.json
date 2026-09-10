@@ -84,5 +84,5 @@
   "Nothing here says oadec is wrong. oadec decodes all six, and the three it cannot have confirmed are the three Dolby will not open in object mode."
  ],
  "still_open": "The second reason. It is taken before any audio is decoded and is not visible in the major sync.",
- "later_note": "The causal experiment below is confounded and its conclusion is withdrawn. The Dolby object path refuses any stream whose major sync was edited, whatever the field: reserved bits, the peak data rate, the variable-rate flag and the DRC start-up gain all produce the same refusal with the defined CRC-16 repaired, while ordinary decoding takes the same streams. See major-sync-rewrite-rejected.json. The page below stays as the record of what was measured on the day."
+ "later_note": "The causal experiment below is weakened, not withdrawn. Dolby's object path reads the major sync strictly: eight of nine edited bits are refused with the defined CRC-16 repaired, including a DRC start-up gain and a mix level that cannot bear on presentation availability, while a legal change to extended_substream_info is accepted. So clearing 2ch_control_enabled refusing does not single that field out. The correlation across six unmodified titles is untouched. See major-sync-rewrite-rejected.json. The page below stays as the record of what was measured on the day."
 }
