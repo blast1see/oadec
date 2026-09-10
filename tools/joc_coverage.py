@@ -88,13 +88,17 @@ def main() -> int:
     ap.add_argument("--binary", default=r"target\release\oadec.exe")
     ap.add_argument("--out", required=True)
     ap.add_argument("--library", action="store_true",
-                    help="the paths are media trees, not elementary streams")
+                    help="the paths are media trees or media files, not elementary streams")
     a = ap.parse_args()
 
     streams: list[tuple[str, Path, int | None]] = []
     if a.library:
         for root in a.paths:
-            for f in sorted(Path(root).rglob("*")):
+            p = Path(root)
+            # a path may be one media file rather than a tree, which is how a
+            # chosen subset of a library is scanned without copying it
+            files = [p] if p.is_file() else sorted(p.rglob("*"))
+            for f in files:
                 if f.suffix.lower() in MEDIA:
                     for idx in dolby_tracks(f):
                         streams.append((f"{f.name}#{idx}", f, idx))
