@@ -177,7 +177,7 @@ impl Sink {
 }
 
 /// Runs the object output; `base` is the output path without extension.
-pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
+pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
     let dir = base
         .parent()
@@ -202,7 +202,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
     let mut program_mismatch = false;
     let mut index: u64 = 0;
 
-    input::for_each_unit(path, |unit| {
+    let pass = input::for_each_unit(path, |unit| {
         let unit_index = index;
         index += 1;
         let (au, cfg) = AccessUnit::parse(&unit.bytes, config.as_ref())?;
@@ -317,16 +317,16 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
     if let Some(e) = &first_payload_error {
         eprintln!("first payload error: {e}");
     }
-    if let Some(s) = session.stats() {
-        if s.valid_branches + s.invalid_branches + s.duplicates > 0 {
-            eprintln!(
-                "timing: {} input timing jumps, {} seamless branches, {} restarts, {} duplicates dropped",
-                s.input_jumps, s.valid_branches, s.invalid_branches, s.duplicates
-            );
-        }
-        if s.lossless_mismatches != 0 {
-            bail!("lossless check failures were reported");
-        }
+    if let Some(s) = session.stats()
+        && s.valid_branches + s.invalid_branches + s.duplicates > 0
+    {
+        eprintln!(
+            "timing: {} input timing jumps, {} seamless branches, {} restarts, {} duplicates dropped",
+            s.input_jumps, s.valid_branches, s.invalid_branches, s.duplicates
+        );
     }
-    Ok(())
+    let mut f = crate::decode::truehd_findings(&pass, session.stats());
+    f.note(payload_errors, "metadata payload errors");
+    f.first_problem(first_payload_error.as_deref());
+    Ok(f.report())
 }

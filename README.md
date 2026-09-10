@@ -42,7 +42,7 @@ pre-noise processing and the JOC clip gain. Design and milestones:
 ```text
 cargo build --release
 oadec info    film.thd                            # what the stream declares
-oadec verify  film.thd                            # every integrity rule; exit 7 on failure
+oadec verify  film.thd                            # every integrity rule; exit 7 on failure (docs/exit-codes.md)
 oadec decode  film.thd -p 2 -o film-7.1.wav       # a channel presentation as WAVE
 oadec decode  film.thd --format damf -o out/film  # objects + metadata as a DAMF set
 oadec decode  film.thd --format adm  -o out/film  # objects + metadata as ADM BWF

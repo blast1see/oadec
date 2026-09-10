@@ -26,6 +26,7 @@ use oadec_spatial::{Program, Timeline};
 use crate::damf::{Options, Sink};
 use crate::decode::format_duration;
 use crate::eac3::for_each_frame;
+use crate::integrity::Findings;
 
 /// Samples the core decoder emits before the first frame's audio proper (the
 /// first block's half window). The Dolby decoder drops them; the metadata
@@ -380,7 +381,7 @@ fn frame_payloads(d: &Decoded) -> (Vec<(Oamd, u32)>, Option<Joc>, u64) {
 
 /// Runs the object output for an E-AC-3 JOC stream; `base` is the output path
 /// without extension.
-pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
+pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
     let dir = base
         .parent()
@@ -581,16 +582,23 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
             0.0
         }
     );
-    eprintln!(
-        "integrity: {crc_failures} CRC failures, {tail_overruns} frames ending inside the frame tail, {sync_errors} sync errors, {skipped} bytes skipped, {} dependent frames dropped",
-        stats.dependent_dropped
+    let mut f = Findings::default();
+    f.note(decode_errors, "frames failed to decode");
+    f.note(crc_failures, "CRC failures");
+    f.note(tail_overruns, "frames ending inside the frame tail");
+    f.note(sync_errors, "sync errors");
+    f.note(skipped, "bytes skipped");
+    f.note(payload_errors, "metadata payload errors");
+    f.note(
+        stats.dependent_dropped,
+        "dependent substream frames dropped",
     );
-    let first_error = first_error.or_else(|| stats.first_error.clone());
-    if let Some(e) = &first_error {
-        eprintln!("first problem: {e}");
-    }
-    if decode_errors > 0 {
-        bail!("{decode_errors} frames failed to decode");
-    }
-    Ok(())
+    f.note(
+        stats.orphan_dependents,
+        "dependent frames with no independent substream",
+    );
+    f.note(stats.location_errors, "unreadable channel maps");
+    f.note(stats.layout_changes, "mid-stream channel layout changes");
+    f.first_problem(first_error.or_else(|| stats.first_error.clone()).as_deref());
+    Ok(f.report())
 }
