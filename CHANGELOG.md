@@ -107,6 +107,15 @@ Semantic Versioning.
   for the other refusal, the configuration 0 stream Dolby gives six channels:
   its own objects come back as sixteen that Dolby opens, on the head clip and on
   a mid-file cut, with the accepted title at sixteen either way.
+- A corruption campaign for the dependent-substream path, which the two existing
+  ones cannot reach because neither of their streams has a dependent substream.
+  150 single-bit sites: no panic, no silent success, exit 7 everywhere -- and no
+  exercise of the parser at all, because every one lands under the frame CRC. So
+  a second campaign repairs the CRC after the flip and stays inside `bsi`, where
+  the parse is the only thing that can notice: 200 sites, 0 panics, 159 reported
+  and 41 silent with the audio byte-identical to the clean decode, which is what
+  a well-formed stream saying something different should produce. Silently
+  corrupted output: 0 of 350 across both.
 - Defect 4's premise, read off the streams instead of a decoder. A frame is 24
   time slots, so a zero-based index into it takes 0 to 23 and a one-based one
   takes 1 to 24. Over 515 205 steep objects in three whole streams the offset

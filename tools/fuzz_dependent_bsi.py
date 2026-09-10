@@ -15,9 +15,14 @@ exactly the input that finds out whether the parse is defensive.
 
     python tools/fuzz_dependent_bsi.py in.ec3 SEED COUNT out.json
 
-Each trial flips one bit inside a dependent frame's `bsi` -- `acmod`, `lfeon`,
-`chanmape`, `chanmap`, the mixing and DRC fields -- and rewrites `crc2` so the
-frame is well formed. The decoder must not panic and must not report success.
+Each trial flips one bit inside a dependent frame's `bsi` -- `dialnorm`, `compr`,
+`chanmape`, `chanmap`, the mixing and information flags -- and rewrites `crc2` so
+the frame is well formed. The decoder must not panic, and must not stay silent
+while the merged audio moves.
+
+The range stops where `bsi` does. Past it are the audio blocks, where every bit
+pattern is legal: a flip there changes the audio without making the stream
+malformed, no decoder can report it, and counting those would measure nothing.
 """
 
 from __future__ import annotations
@@ -45,10 +50,13 @@ for _i in range(256):
         _v = ((_v << 1) ^ POLY) & 0xFFFF if _v & 0x8000 else (_v << 1) & 0xFFFF
     TABLE.append(_v)
 
-# after syncword(16) + strmtyp(2) + substreamid(3) + frmsiz(11) + fscod(2) +
-# numblkscod(2) + acmod(3) + lfeon(1) + bsid(5) the fields that describe the
-# programme begin; 240 bits in is still inside bsi for every frame seen here
-BSI_FROM, BSI_TO = 40, 240
+# `bsi` starts after syncword(16) + strmtyp(2) + substreamid(3) + frmsiz(11) +
+# fscod(2) + numblkscod(2) + acmod(3) + lfeon(1) + bsid(5), and `eac3-blocks`
+# prints where it ends -- 79 for the dependent frames of the test stream. Past
+# that is `audfrm` and the audio blocks, where every bit pattern is legal and a
+# flip changes the audio without making the stream malformed: no decoder can
+# report that, so including it would measure nothing.
+BSI_FROM, BSI_TO = 40, 80
 
 
 def crc16(data: bytes) -> int:

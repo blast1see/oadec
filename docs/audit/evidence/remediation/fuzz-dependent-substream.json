@@ -1,0 +1,81 @@
+{
+ "what": "Two corruption campaigns against the dependent-substream path, which the earlier ones could not reach because neither of their streams has a dependent substream",
+ "utc": "2026-09-10T23:44:22.474171+00:00",
+ "commit": "0ccf6a1e158f2a8e40559fe7587330d309c7e520",
+ "why": "`program.rs` is the largest and newest code on this branch and the dependent `bsi` it parses had never executed on real material. `frame.rs` seeks the audio frame header to `bsi.end_bit`, so one bit wrong in that parse gives a garbage frame rather than a slightly wrong one -- which is the risk phase 1 existed to retire",
+ "material": "400 frame groups of the 1917 Dolby Digital Plus track: an AC-3 core at acmod 7 + LFE and an E-AC-3 dependent at acmod 5 with chanmap 0x1a00, 363 dependent frames",
+ "campaign_1_single_bit_anywhere": {
+  "sites": 150,
+  "summary": {
+   "verify": {
+    "silent": 0,
+    "nonzero_exit": 150,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   },
+   "decode_programme": {
+    "silent": 0,
+    "nonzero_exit": 150,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   },
+   "decode_core_only": {
+    "silent": 0,
+    "nonzero_exit": 150,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   }
+  },
+  "what_it_shows": "no panic, no silent success, exit 7 on all 150 from all three arms -- the programme decode, the `--core-only` decode and `verify` agree site for site",
+  "what_it_does_not_show": "anything about the parser. Every single-bit error lands under the frame CRC and is caught before any syntax is read: 136 of the 150 report CRC failures and the other 14 report decode errors"
+ },
+ "campaign_2_inside_the_dependent_header_with_the_crc_repaired": {
+  "sites": 200,
+  "range": "bits 40 to 79 of a dependent frame, which is where `bsi` ends according to `eac3-blocks`. Past it are the audio blocks, where every bit pattern is legal: a flip there changes the audio without making the stream malformed, so no decoder can report it and counting those would measure nothing",
+  "summary": {
+   "verify": {
+    "silent": 41,
+    "nonzero_exit": 159,
+    "reported_but_exit_0": 0,
+    "said_nothing_and_changed_nothing": 41,
+    "silently_corrupted": 0,
+    "panics": 0
+   },
+   "decode_programme": {
+    "silent": 41,
+    "nonzero_exit": 159,
+    "reported_but_exit_0": 0,
+    "said_nothing_and_changed_nothing": 41,
+    "silently_corrupted": 0,
+    "panics": 0
+   },
+   "decode_core_only": {
+    "silent": 41,
+    "nonzero_exit": 159,
+    "reported_but_exit_0": 0,
+    "said_nothing_and_changed_nothing": 41,
+    "silently_corrupted": 0,
+    "panics": 0
+   }
+  },
+  "result": "0 panics. 159 of 200 reported and exited 7. The other 41 said nothing -- and in every one of those the decoded audio is byte-identical to the clean decode, on both the programme path and `--core-only`, so the silence is correct",
+  "silently_corrupted": 0,
+  "the_silent_bits": {
+   "45": 4,
+   "46": 3,
+   "47": 2,
+   "48": 3,
+   "49": 2,
+   "51": 5,
+   "52": 1,
+   "53": 3,
+   "55": 3,
+   "56": 4,
+   "57": 7,
+   "58": 4
+  },
+  "what_the_silent_bits_are": "`dialnorm` at 45 to 49, `compre`/`compr` from 50, and the information flags after the channel map -- fields that a decoder may read and that do not reach the samples of this programme",
+  "what_the_reported_ones_say": "decode errors where the flip breaks the syntax, and eight trials where the new channel-map validation names the fault directly: \"the channel map names ...\". That path had never run on any input before this branch"
+ },
+ "the_gate": "silent corrupted output, 0 of 350 across both campaigns; panics, 0. The distinction that makes the second number mean something is between saying nothing about a change that did not reach the audio, which is correct, and saying nothing while the audio moves, which is the failure. The tool counts them separately"
+}
