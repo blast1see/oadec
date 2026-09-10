@@ -92,7 +92,9 @@ Semantic Versioning.
   the controlled scene are the same size, `oadec info` differs in that one line,
   and the object audio is byte-identical. So the field that correlates perfectly
   across six titles is **not sufficient**, and the earlier bit patch that seemed
-  to show necessity was measuring the edit rather than the field.
+  to show necessity was measuring the edit rather than the field. Nor is the
+  content: each refused title's own objects, decoded here and re-encoded by DEE,
+  are opened by the same object path that refuses the originals.
 - A third decoder's opinion, which is neither ours nor Dolby's. `truehdd` 0.6.1
   opens the object presentation on all six TrueHD Atmos titles, including the
   three Dolby's object path refuses, with the element counts oadec reports and
