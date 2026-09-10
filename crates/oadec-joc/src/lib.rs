@@ -621,6 +621,49 @@ mod tests {
         }
     }
 
+    /// A switch offset the frame cannot hold.
+    ///
+    /// `joc_offset_ts_bits` is five bits and clause 6.3.4.4 adds one, so the
+    /// field carries 1 to 32 while a frame is 24 time slots. Every value from 1
+    /// to 24 occurs in real streams and nothing above 24 does -- which is how
+    /// the field is known to be one-based -- but a malformed stream can transmit
+    /// 25 to 32, and the decoder has to do something defined with it.
+    ///
+    /// What it does is hold the previous matrix for the whole frame, which is
+    /// the limit of the rule rather than a special case: the switch is at a slot
+    /// this frame never reaches.
+    #[test]
+    fn an_offset_the_frame_cannot_hold_leaves_the_previous_matrix_alone() {
+        const NCH: usize = 5;
+        const NUM_TS: usize = 24;
+        for offset in 25u8..=32 {
+            let mut d = JocDecoder::new(NCH, 1);
+            // Two frames of the same matrix first, so that every slot the
+            // reconstruction can reach -- including the ones the lag takes from
+            // the frame before -- already holds it. Steep with offset 1
+            // switches at the first slot, so there is no ramp anywhere in them.
+            // 96 is the code that dequantises to zero gain at quant_idx 1, so
+            // it would make this hold nothing and prove nothing
+            let settle = one_object(Slope::Steep, 1, [1, 0], &[[150, 150, 150, 150, 150]], NCH);
+            d.update(&settle, NUM_TS);
+            d.update(&settle, NUM_TS);
+            let held = coefficient(&d, NUM_TS - 1, 0, 0, NCH);
+            assert!(
+                held.abs() > 1e-9,
+                "the matrix to hold is zero, so nothing is being tested"
+            );
+            let joc = one_object(Slope::Steep, 1, [offset, 0], &[[30, 30, 30, 30, 30]], NCH);
+            d.update(&joc, NUM_TS);
+            for ts in 0..NUM_TS {
+                let got = coefficient(&d, ts, 0, 0, NCH);
+                assert!(
+                    (got - held).abs() < 1e-12,
+                    "offset {offset}, slot {ts}: {got} is not the matrix that was held, {held}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn band_map_matches_the_examples_of_table_54() {
         let m15 = band_map(15);
