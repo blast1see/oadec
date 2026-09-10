@@ -84,7 +84,7 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | EMDF located in the skip field | Annex H clause H.1 | `eac3/frame.rs:1258` | exact, not a byte scan | PASS |
 | EMDF in auxiliary data | Annex H clause H.1, clause 4.4.4 | `eac3/frame.rs`, `read_auxdata` | read structurally at fixed offsets, never scanned for; 0 frames carrying auxiliary user bits across the corpus, so the carriage itself is unexercised | N/T [was N/I] |
 | EMDF in the last dependent substream | TS 103 420 clause 8.2 | `eac3/program.rs`, `ProgramFrame::metadata_part` | implemented; with no dependent substream it is the independent one and every JOC report is unchanged field for field. No stream carrying both a dependent substream and object metadata exists to exercise the clause itself | N/T [was N/I] |
-| EMDF protection words | Annex H clause H.2.2.4 | `emdf/container.rs:231` | read, stored, never verified | N/I |
+| EMDF protection words | Annex H clause H.2.2.4 | `emdf/container.rs:231` | read and stored. They cannot be verified: clause H.2.2.4.3 says "calculation of the value of the protection_bits_primary field is implementation dependent and is not defined in the present document", and H.2.2.4.4 says the same of the secondary word | UNK [was N/I] |
 | Payload configuration constraints | TS 103 420 Table 56 | `emdf/container.rs:160` | all nine fields parsed, none validated | PARTIAL |
 | Payload dispatch, 11 and 14 | TS 103 420 Table 55 | `emdf/container.rs:28`, `:31` | discrimination matrix, six inputs, all correct | PASS |
 | `addbsi` Atmos declaration | TS 103 420 clause 8.3 | `eac3/bsi.rs:55` | flag true and complexity index 16 on JOC streams, which is 15 objects plus the LFE bed | PASS |
@@ -105,7 +105,7 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | Temporal interpolation, steep, 1 data point | clause 6.6.5 | same | 2 760 object updates in the corpus | PASS |
 | Temporal interpolation, 2 data points | clause 6.6.5 | same | **0 of 32 493 245 object updates in 31 JOC streams, whole files**, so the smooth-2 and steep-2 branches of pseudo-code 6 have never run on real material | N/T |
 | `joc_mix_mtx_prev` zero at stream start | clause 6.6.5 | `joc/lib.rs:96` | zero-initialised | PASS |
-| Splice reset on a zero sequence counter | clause 6.3.3.3 | `joc/lib.rs:118` and three siblings | the reset methods have no callers | N/I |
+| Splice reset on a zero sequence counter | clause 6.3.3.3 | `cli/eac3_objects.rs`, `Pipeline::frame` | a zero sequence counter after the first frame forgets the matrix history, as clause 6.6.5 requires of the first frame. A counter that simply does not follow the previous one is counted and reported and not acted on, because the clause makes only the zero a splice: a stream cut at frame 300 reports one such gap and no splice | PASS [was N/I] |
 | Object reconstruction | clause 6.6.6 | `joc/lib.rs:264` | six titles, worst 35,25 to 40,75 dB against Dolby, lag 0 | PASS-TOL |
 | Matrix-to-timeslot alignment | clause 6.6.6 pairs `ts` with `ts` | `joc/quadrature.rs:52`, offset 10 | sweep: optimum sharp and symmetric at 10, 11,0 dB better than the literal reading | PASS-TOL (deviation, confirmed against one decoder family) |
 | 90-degree phase shift for configurations 3 and 4 | not specified | `joc/quadrature.rs:57` | 37-tap filter fitted to Dolby; objects match on six titles including two new ones | INFERRED |

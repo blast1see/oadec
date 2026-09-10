@@ -60,6 +60,14 @@ struct Pipeline {
     slots_in: Vec<[Complex; BANDS]>,
     slots_out: Vec<[Complex; BANDS]>,
     frames: u64,
+    /// Frames whose sequence counter said the stream had been spliced, so the
+    /// matrix history before them was forgotten (clause 6.3.3.3).
+    splices: u64,
+    /// Frames whose sequence counter did not follow the previous one and did
+    /// not say so with a zero. Reported, not acted on: the counter wraps at
+    /// 1 023 and a stream that simply miscounts is not a splice.
+    seq_gaps: u64,
+    last_seq: Option<u16>,
     /// One per JOC input channel: holds the subband samples back so that
     /// they meet the matrix they were coded with, and takes the 90-degree
     /// phase shift back out of the channels that carry one.
@@ -203,6 +211,9 @@ impl Pipeline {
             slots_in: vec![[Complex::default(); BANDS]; joc.num_channels],
             slots_out: vec![[Complex::default(); BANDS]; joc.num_objects],
             frames: 0,
+            splices: 0,
+            seq_gaps: 0,
+            last_seq: None,
             quad: carry.iter().map(|c| Quadrature::new(*c)).collect(),
             slots_rot: vec![[Complex::default(); BANDS]; joc.num_channels],
             low_delay,
@@ -228,6 +239,22 @@ impl Pipeline {
         let num_ts = samples / BANDS;
         match joc {
             Some(j) => {
+                // Clause 6.3.3.3: the sequence counter increments every frame
+                // and wraps to 1 at 1 023; zero means the first frame of the
+                // bitstream or the first frame after a splice. The matrices
+                // from before a splice do not belong to what follows it, and
+                // clause 6.6.5 requires the history to be zero before the
+                // first frame, so it is forgotten here.
+                if j.seq_count == 0 && self.frames > 0 {
+                    self.joc.reset();
+                    self.splices += 1;
+                } else if let Some(prev) = self.last_seq {
+                    let want = if prev >= 1023 { 1 } else { prev + 1 };
+                    if j.seq_count != want {
+                        self.seq_gaps += 1;
+                    }
+                }
+                self.last_seq = Some(j.seq_count);
                 self.joc.update(j, num_ts);
                 self.clip_gain = if self.apply_clip_gain {
                     j.clipgain
@@ -578,6 +605,12 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
         frames_without_joc,
         frames_without_oamd
     );
+    if pl.splices > 0 || pl.seq_gaps > 0 {
+        eprintln!(
+            "splices: {} frames restarted the sequence counter, {} did not follow the previous one",
+            pl.splices, pl.seq_gaps
+        );
+    }
     eprintln!(
         "core: {} frames decoded, {} decode errors, {:.2} s ({:.0}x realtime)",
         pl.frames,

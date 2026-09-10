@@ -483,15 +483,28 @@ run that cannot reach the media now fails, and CI runs the check that it does.
   necessary and not sufficient; the rest is taken before any audio is decoded
   and is not in the major sync.
 - **Two-data-point interpolation**, and with it the smooth-2 and steep-2
-  branches of clause 6.6.5: 0 of 32 493 245 object updates.
-- **Downmix configurations 1, 2 and 4**: reachable, and no material. Relabelling
-  cannot make any, because they size the matrix for seven channels.
+  branches of clause 6.6.5: 0 of 32 493 245 object updates, and no way to make
+  any. Dolby's encoder writes one data point per frame at every data rate it
+  offers, even for an object authored to move four times within a frame. The
+  branches are covered by a unit test against the printed pseudo-code, which
+  proves the implementation matches clause 6.6.5 and not that Dolby agrees
+  with it.
+- **Downmix configurations 1, 2 and 4**: reachable, and no material.
+  Relabelling cannot make any, because they size the matrix for seven channels;
+  neither can the encoder, whose job description has no core-layout or
+  downmix-configuration option and which writes configuration 3 at all six of
+  its data rates.
 - **EMDF in `auxdata`**, and **EMDF in a dependent substream**: both implemented
   and neither exercised, because no stream on hand carries either.
 - **Controlled movement, gain, size and divergence.** The authoring pipeline
   works and the scene file is one edit away; only positions and timing were
   measured this round.
-- **EMDF protection words** are still parsed and not verified.
+- **EMDF protection words** are parsed and not verified, and cannot be:
+  clause H.2.2.4.3 says "calculation of the value of the
+  `protection_bits_primary` field is implementation dependent and is not
+  defined in the present document", and H.2.2.4.4 says the same of the
+  secondary word. The audit's backlog item asking for them to be verified is
+  not actionable as written; the status moves from N/I to UNK.
 
 ## Status
 
