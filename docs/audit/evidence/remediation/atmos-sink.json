@@ -47,5 +47,12 @@
  ],
  "what_it_cannot_do": "give a machine-readable answer. A sink reports what it decoded on its own display and nowhere else: there is no return path for that over HDMI. So every reading is a person looking at the front panel, which makes it a yes/no observation rather than a per-object measurement.",
  "how": "mpv --audio-device='wasapi/{8ff19f11-40c5-4444-9762-490395ddb6b1}' --audio-exclusive=yes --audio-spdif=truehd --no-video --start=<a loud passage> --length=20 <file>, and --audio-spdif=eac3 for the Dolby Digital Plus streams",
- "status": "prepared, not run: the reading needs a person at the device"
+ "status": "prepared, not run: the reading needs a person at the device",
+ "prepared": {
+  "script": "tools/atmos_sink_check.ps1",
+  "listing_mode": "pwsh tools/atmos_sink_check.ps1 lists the devices and stops",
+  "play_mode": "pwsh tools/atmos_sink_check.ps1 -Play -Device 'wasapi/{8ff19f11-40c5-4444-9762-490395ddb6b1}'",
+  "what_it_does": "sends each of the six titles to the sink as a TrueHD bitstream, three that Dolby opens and three it refuses, pausing after each so the display can be read",
+  "what_to_record": "what the display names the format, and whether it differs between the accepted and the refused set"
+ }
 }

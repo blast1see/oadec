@@ -1251,7 +1251,8 @@ byte-identical on every one, 212 527 200 element-samples with the same MD5.
   refused titles can be sent to a renderer that is not Dolby'''s software. It
   cannot answer in a machine-readable way — a sink reports what it decoded on its
   own display and there is no return path — so it needs a person at the device.
-  `evidence/remediation/atmos-sink.json`.
+  `tools/atmos_sink_check.ps1` sends all six titles to it in turn and pauses
+  after each. `evidence/remediation/atmos-sink.json`.
 - **Why Dolby refuses one configuration 0 stream and accepts another.** There is
   a control pair now: Snatch is given six channels and Dredd sixteen objects,
   and the two agree in every field this decoder parses -- frame header,
