@@ -45,7 +45,10 @@ pub const LOW_DELAY: usize = LOW_TAPS / 2;
 /// ran. Measured against the object output of the Dolby decoder on three
 /// titles from three encoders, the matrix of slot `ts` belongs to the
 /// subband samples the analysis produces `MATRIX_ALIGN` slots earlier; the
-/// optimum is sharp, 15 dB per slot either side. Holding the samples back by
+/// optimum is sharp and symmetric: sweeping the offset against Dolby's objects
+/// gives 37,2 dB at 0, 47,2 at 9, 48,2 at 10, 47,2 at 11 and 38,5 at 18, so it
+/// is about 1 dB per slot on the mean over objects and 11 dB better than
+/// reading the clause literally. Holding the samples back by
 /// this much and reading the matrix as it comes takes the object residual
 /// from -15 dB to below -70 dB in the bands where the core decode itself is
 /// exact.

@@ -93,8 +93,9 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | QMF prototype | clause 7.4 | `joc/qmf_window.rs` | 640 values identical to ETSI `prot64` as float64 | PASS |
 | Parameter band mapping | Table 54 | `joc/lib.rs:19` | all 23 rows and 8 columns match, including the worked example | PASS |
 | Dequantisation | clause 6.6.4 | `joc/lib.rs:67` | formula identical to Pseudocode 5 | PASS |
+| Coarse quantisation | clause 6.6.3, Annex A.1 | `emdf/joc.rs`, `COARSE_MTX`/`COARSE_VEC` | 5 070 of 32 493 245 object updates use it, across four streaming titles. A clip carrying 75 coarse objects sits at 50 to 57 dB against Dolby's objects, unchanged by the sparse correction: coarse was already right; `evidence/remediation/joc-syntax-coverage.json` | PASS-TOL [was N/T] |
 | Differential decode, dense | clause 6.6.2 Pseudocode 3 | `emdf/joc.rs:244` | identical to the printed pseudocode | PASS |
-| Differential decode, sparse | Pseudocode 2 | `emdf/joc.rs:202` | literal reading implemented, matches the print; **0 of 231 645 object updates use sparse mode** | N/T |
+| Differential decode, sparse | Pseudocode 2 | `emdf/joc.rs`, `SparseReading::Measured` | 150 of 32 493 245 object updates across three streaming titles use it, and whole-file scanning is what found them. The printed reading gives -13,5 to +1,1 dB against Dolby on the frames that carry it where the neighbours give 38 to 58 dB; with the off-channel code corrected to zero gain and the channel index accumulated from the resolved previous value, 16,5 to 51,5 dB. One of three frames still lags its neighbours by 22 dB; `evidence/remediation/joc-syntax-coverage.json` | PARTIAL [was N/T] |
 | Clip gain value and use | clause 6.3.3.2 | `emdf/joc.rs:152`, `cli/eac3_objects.rs:280` | formula matches; the use is measured, not specified | PASS (value) / INFERRED (use) |
 | `joc_num_objects`, reserved configurations | clauses 6.3.2.2, 6.3.2.4 | `emdf/joc.rs:141` | 5 to 7 rejected, bits above 15 rejected | PASS |
 | Downmix configuration 3 | Table 47 | `cli/eac3_objects.rs:106` | 13 of 15 clips; objects match Dolby | PASS |
@@ -102,7 +103,7 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | Downmix configurations 1, 2, 4 | Table 47 | `emdf/joc.rs:29`, reached through `cli/eac3_objects.rs` | no longer unreachable: a seven-channel programme feeds `Pipeline::new`. Still no material. Relabelling cannot make any, because these configurations size the matrix for seven channels and a five-channel payload relabelled that way runs out of bits in every frame | N/T (implemented, untested) |
 | Temporal interpolation, smooth, 1 data point | clause 6.6.5 | `joc/lib.rs:208` | exercised on every clip; objects match Dolby | PASS |
 | Temporal interpolation, steep, 1 data point | clause 6.6.5 | same | 2 760 object updates in the corpus | PASS |
-| Temporal interpolation, 2 data points | clause 6.6.5 | same | **0 occurrences in the corpus** | N/T |
+| Temporal interpolation, 2 data points | clause 6.6.5 | same | **0 of 32 493 245 object updates in 31 JOC streams, whole files**, so the smooth-2 and steep-2 branches of pseudo-code 6 have never run on real material | N/T |
 | `joc_mix_mtx_prev` zero at stream start | clause 6.6.5 | `joc/lib.rs:96` | zero-initialised | PASS |
 | Splice reset on a zero sequence counter | clause 6.3.3.3 | `joc/lib.rs:118` and three siblings | the reset methods have no callers | N/I |
 | Object reconstruction | clause 6.6.6 | `joc/lib.rs:264` | six titles, worst 35,25 to 40,75 dB against Dolby, lag 0 | PASS-TOL |
@@ -131,3 +132,30 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | Reserved JOC extension configuration | clause 6.3.2.5 | `emdf/joc.rs:263` | rejected after the payload is consumed, then stale matrices are held with an anonymous error count | PARTIAL |
 | Seek and random access | stateful codec | no seek API | files are always decoded from byte 0 | N/I |
 | Environment-independent decode | reproducibility | `cli/eac3_objects.rs:100`, `:203` | three variables silently alter JOC decoding and appear in no output | FAIL |
+
+---
+
+## Before and after
+
+Every `after` here points at a file under `evidence/remediation/`. The report is
+`decoder-remediation-report.md`.
+
+| Area | Before | After | Evidence | Remaining gap |
+|---|---|---|---|---|
+| E-AC-3 dependent substreams | FAIL | **PASS** | `ddp71-channel-compare.json` | Multiple dependents per programme implemented, unexercised |
+| DD+ 7.1 output | FAIL | **PASS** | `dependent-substream-before-after.json` | — |
+| Dependent channel map | N/I | **PASS** | `ddp71-channel-compare.json` | Whether the map counts the LFE is a documented reading |
+| EMDF in the last dependent substream | N/I, unreachable | N/T | `joc-syntax-coverage.json` | No stream with both a dependent substream and object metadata |
+| EMDF in auxiliary data | N/I | N/T | `joc-syntax-coverage.json` | 0 frames carry auxiliary user bits in 49 streams |
+| JOC configuration 1 / 2 / 4 | N/T, unreachable | N/T, reachable | `joc-syntax-coverage.json` | 0 of 31 JOC streams use them; relabelling cannot make any |
+| JOC integrity propagation | FAIL | **PASS** | `decode-exit-codes.json` | — |
+| Decode CRC exit status | PARTIAL | **PASS** | `decode-exit-codes.json` | — |
+| Corruption never silently accepted, TrueHD | PASS with 2 silent | **PASS** | `decode-exit-codes.json` | — |
+| Dolby presentation 16 refusal | N/T, "not causal" | N/T, one cause found | `presentation16-differential.json` | `2ch_control_enabled` is necessary, not sufficient; the second reason is unknown |
+| Sparse JOC | N/T | PARTIAL | `joc-syntax-coverage.json` | One of three frames still 22 dB below its neighbours |
+| Coarse JOC | N/T | **PASS-TOL** | `joc-syntax-coverage.json` | — |
+| Two-point interpolation | N/T | N/T | `joc-syntax-coverage.json` | 0 of 32 493 245 object updates |
+| Controlled object positions | N/T | **PASS** | `controlled-atmos-ground-truth.json` | Movement, gain, size and divergence are named follow-ups |
+| TrueHD bit exactness | PASS | **PASS** | `regression-summary.json` | — |
+| JOC objects against Dolby | PASS-TOL | **PASS-TOL** | `joc-objects-vs-dolby.json` | — |
+| Media suite reports honestly | FAIL | **PASS** | CI job `media-suite-refuses-to-pass-without-media` | — |
