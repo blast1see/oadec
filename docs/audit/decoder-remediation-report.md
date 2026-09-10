@@ -964,8 +964,10 @@ can retire it: it was **not sufficient**, by the encoder experiment, and it is
 Over every field `info --json` reports — and it now reports the channel meaning,
 which it did not before this sweep and which is why the first pass came back
 saying nothing at all about these fields — nothing takes disjoint values on the
-two sides. One nearly does: `twoch_dialogue_norm`, the two-channel
-presentation's own dialogue normalisation.
+two sides. **Nor does any pair**: of the 3 486 pairs formable from the 84 fields
+that are neither counts nor near-unique, none splits them either. One field
+nearly does on its own: `twoch_dialogue_norm`, the two-channel presentation's
+own dialogue normalisation.
 
 | | values |
 |---|---|
