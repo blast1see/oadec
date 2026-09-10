@@ -15,6 +15,7 @@ mod info;
 mod input;
 mod integrity;
 mod joc_config;
+mod joc_offset;
 mod oamd;
 mod scan;
 mod thd_demux;
@@ -266,6 +267,20 @@ enum Command {
         #[arg(long)]
         dmx_config: u8,
     },
+    /// Rewrite `joc_offset_ts_bits` (clause 6.3.4.4) in every JOC payload of an
+    /// E-AC-3 stream and change nothing else, to ask a decoder where it puts
+    /// the steep switch when the field says something different.
+    Eac3JocOffset {
+        /// Raw E-AC-3 elementary stream carrying JOC.
+        file: PathBuf,
+        /// Where to write the rewritten stream.
+        #[arg(short, long)]
+        output: PathBuf,
+        /// The value to transmit, 0 to 31; the decoder's `joc_offset_ts` is
+        /// one more than this (clause 6.3.4.4).
+        #[arg(long)]
+        offset_ts_bits: u8,
+    },
 }
 
 /// Exit code when a verification finds non-conformance.
@@ -500,6 +515,11 @@ fn main() -> ExitCode {
                 output,
                 dmx_config,
             } => joc_config::run(&file, &output, dmx_config).map(|()| ExitCode::SUCCESS),
+            Command::Eac3JocOffset {
+                file,
+                output,
+                offset_ts_bits,
+            } => joc_offset::run(&file, &output, offset_ts_bits).map(|()| ExitCode::SUCCESS),
         };
     match result {
         Ok(code) => code,

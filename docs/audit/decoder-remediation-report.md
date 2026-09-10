@@ -739,6 +739,76 @@ run that cannot reach the media now fails, and CI runs the check that it does.
 
 ---
 
+## An instrument that does not work, and what rested on it
+
+Every conclusion in this project that came from rewriting a field inside an EMDF
+payload and handing the result to Dolby's decoder rests on an assumption nobody
+had tested: that the decoder honours the rewritten value. It does not.
+
+The test came out of trying to strengthen defect 4. A sweep over an unmodified
+stream shows where the steep switch point's optimum is; it does not show that
+the optimum belongs to the field, since the same curve would appear if the whole
+matrix stream were misaligned for some other reason. Moving the field and
+watching both decoders follow it is the experiment that settles that, so
+`oadec eac3-joc-offset` was written to move it: five bits per steep data point,
+frame check redone, nothing else touched. `oadec verify` reads the new value
+back on all 195 of Glass Onion's steep objects and calls the stream clean.
+
+Dolby does not follow it.
+
+| Frame | rewritten to 4 | to 12 | to 20 |
+|---|---:|---:|---:|
+| 628 | 62,1 dB | 62,1 dB | 62,1 dB |
+| 824 | 31,0 dB | 31,0 dB | **bit-identical** |
+| 840 | 26,8 dB | 26,8 dB | 26,8 dB |
+| 907 | 46,3 dB | 46,3 dB | **bit-identical** |
+| 929 | 46,4 dB | 46,4 dB | **bit-identical** |
+
+Those are Dolby's own decodes measured against Dolby's decode of the original.
+A decoder following the field would move a different distance for a switch at
+slot 3 and a switch at slot 11; this one moves the same distance to one decimal.
+And the frames that come back bit-identical under 20 are exactly the three whose
+fifteen objects already transmitted 19, so the tool did not change them: 45 of
+the 195 fields carry `joc_offset_ts` 20. What Dolby does depends on whether the
+payload was touched, not on what was written into it.
+
+What it does instead is hold the previous matrix. Sweeping our own transmitted
+value against Dolby's decode of the stream that says 11 gives no optimum at 11
+or anywhere near it:
+
+| ours transmits | 0 | 4 | 8 | 11 | 14 | 18 | 22 | 26 | 31 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| dB against Dolby's 11 | 22,8 | 23,7 | 24,9 | 26,6 | 29,0 | 36,9 | **60,9** | 61,0 | 61,0 |
+
+Agreement rises monotonically and saturates at 22, which is where a 24-slot
+frame's switch stops firing at all.
+
+The likely mechanism is the EMDF protection words. `container.rs` parses
+`protection_bits_primary` and cannot verify it, because clause H.2.2.4.3 of
+TS 102 366 says its calculation "is implementation dependent and is not defined
+in the present document". A decoder that does compute it finds every in-place
+payload rewrite invalid. Frame-level rewriting is not the problem:
+`eac3-ecpl-inject` rewrites audio data and redoes the same frame check, and
+Dolby decodes those streams normally. It is the container that is protected.
+The measurement shows the behaviour, not the field that causes it.
+
+**What this withdraws.** Two earlier conclusions came from relabelling
+`joc_dmx_config_idx` and handing the result to Dolby: that configuration 0 alone
+turns its upmix off, and that the library's one configuration 0 stream has a
+second reason for being refused because relabelling it to 3 does not help.
+Neither is supported by that experiment, because dropping to the core's six
+channels is also what discarding the payload gives. The first claim survives on
+other evidence -- the stream that genuinely carries configuration 0 is decoded
+to six channels unmodified -- and the second does not.
+
+**What it does not touch.** Defect 4 rests on unmodified streams from five
+titles decoded by both decoders. So do the sparse corrections, the matrix
+alignment and the quadrature. None of them involves a rewrite.
+
+`evidence/remediation/payload-rewrite-rejected.json`.
+
+---
+
 ## The gates, re-run at the end
 
 Every change of this round touches the JOC decode, and the last of them --
@@ -807,7 +877,11 @@ the two that hold the measurement flags.
   `protection_bits_primary` field is implementation dependent and is not
   defined in the present document", and H.2.2.4.4 says the same of the
   secondary word. The audit's backlog item asking for them to be verified is
-  not actionable as written; the status moves from N/I to UNK.
+  not actionable as written; the status moves from N/I to UNK. What is new is
+  that a decoder which does compute them is now visible from the outside:
+  Dolby discards any JOC payload rewritten in place, whatever the new value
+  says, which is what a failed check looks like. That does not recover the
+  algorithm, and it costs this project an instrument.
 
 ## Status
 

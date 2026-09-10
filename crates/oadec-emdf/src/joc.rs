@@ -348,6 +348,50 @@ impl Joc {
         })
     }
 
+    /// Bit offsets, within the payload, of every `joc_offset_ts_bits` field
+    /// (clause 6.3.4.4).
+    ///
+    /// The per-object headers all precede the matrix data, so this reads only
+    /// as far as the last of them and never touches the Huffman-coded part.
+    /// It exists so that the field can be rewritten in place and the same
+    /// audio handed to a decoder with the switch moved: a sweep over an
+    /// unmodified stream shows where the optimum is, and changing the field
+    /// shows that it is the field the optimum belongs to.
+    pub fn offset_ts_bits(data: &[u8]) -> Result<Vec<usize>> {
+        let mut r = BitReader::new(data);
+        let dmx_config = r.read(3)? as u8;
+        if NUM_CHANNELS.get(usize::from(dmx_config)).is_none() {
+            return Err(JocError::DmxConfig(dmx_config));
+        }
+        let objects_bits = r.read(6)? as u8;
+        if objects_bits > 15 {
+            return Err(JocError::Objects(objects_bits));
+        }
+        let num_objects = usize::from(objects_bits) + 1;
+        r.read(3)?; // joc_ext_config_idx
+        r.read(3)?; // joc_clipgain_x
+        r.read(5)?; // joc_clipgain_y
+        r.read(10)?; // joc_seq_count
+        let mut out = Vec::new();
+        for _ in 0..num_objects {
+            if !r.read_bool()? {
+                continue;
+            }
+            r.read(3)?; // joc_num_bands_idx
+            r.read_bool()?; // b_joc_sparse
+            r.read(1)?; // joc_num_quant_idx
+            let steep = r.read_bool()?;
+            let num_dpoints = r.read(1)? as usize + 1;
+            if steep {
+                for _ in 0..num_dpoints {
+                    out.push(r.position());
+                    r.read(5)?;
+                }
+            }
+        }
+        Ok(out)
+    }
+
     /// Whether the payload was consumed exactly (no trailing bytes).
     #[must_use]
     pub fn size_ok(&self, payload_len: usize) -> bool {

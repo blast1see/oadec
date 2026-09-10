@@ -78,12 +78,16 @@ Semantic Versioning.
   stream uses branch by branch, and the frames where the rare branches occur,
   so a clip that exercises one can be cut.
 
-- `oadec eac3-joc-config`, which rewrites `joc_dmx_config_idx` in every JOC
-  payload and changes nothing else, so that a decoder can be handed the same
-  audio under a different downmix configuration. It answers a question the
-  notes had left open: relabelling a working stream from configuration 3 to 0
-  makes the Dolby decoder drop from sixteen object channels to six, so the
-  configuration alone turns its upmix off.
+- `oadec eac3-joc-offset`, which rewrites `joc_offset_ts_bits` (clause 6.3.4.4)
+  in every JOC payload and changes nothing else, beside the existing
+  `eac3-joc-config`. Both are instruments against oadec itself and **neither
+  works against the Dolby decoder**: it discards a payload that has been
+  rewritten and holds the previous matrix, whatever the new value says. That
+  withdraws the support for one earlier conclusion -- relabelling a working
+  stream from configuration 3 to 0 makes Dolby drop to six channels, but so
+  does discarding the payload, and the experiment cannot tell them apart. The
+  claim itself survives on the one stream that genuinely carries configuration
+  0 unmodified.
 - The parsers now report where they found things: `Frame::skip_bits` gives the
   bit offset of each skip field, and `container::Payload::data_bit` the bit
   offset of a payload's first byte. Between them a tool can reach a field
