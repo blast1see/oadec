@@ -1524,63 +1524,76 @@ byte-identical on every one, 212 527 200 element-samples with the same MD5.
 
 ## What is still open
 
-- **One frame, and only that frame**: 34,6 dB where its clip sits at 44,4, a
-  two-slot disagreement at the point where the sparse matrix is applied. Sparse
+- **One frame, and only that frame**: 34,6 dB where its clip sits at 44,4, the
+  difference concentrated in two time slots at the point where the sparse matrix
+  is applied. Sparse
   decoding is settled, and so is the combination that frame has: 120 objects
   that are sparse and steep at once, in another title, sit at or above their
   clip's level. That frame has moved from 1,05 to 16,5 to 30,6 to 34,6 dB
   across three corrections. It is not dither amplified by the large coefficient
   the sparse matrix carries there: our own dither's weight on that frame is
   61,70 dB against neighbours at 59,58 to 80,90 and a clip median of 59,38.
-- **Why Dolby's object mode opens some TrueHD Atmos titles and not others.** It
-  is not three titles: over 194 object presentations in 186 library files it
-  opens 105 and refuses 89. Three answers were removed this round and none was
-  found. A third decoder says the streams are not the problem:
-  `truehdd` opens the object presentation on all six, with the element counts
-  oadec reports and byte-identical object audio, and its conformance checker
-  does not separate the sets either. And `2ch_control_enabled`, the one field
-  that correlated perfectly across the six, is **retired twice over**: DEE
-  writes a stream with the flag clear when `presentation_2ch/drc_default_on` is
-  false and Dolby opens it, so it is not sufficient; and across 194 streams it is
-  clear in 76 Dolby opens and 83 it refuses, so it is not a correlate either. The
-  best predictor left is `twoch_dialogue_norm` — a value between 32 and 37 goes
-  with opening and 63 or 31 with refusal, agreeing on 187 of 194 — which is the
-  same family of field and is still a correlation, because the object path
-  refuses any stream whose major sync was edited. Nor is the content: each refused title's own objects, decoded
-  here and re-encoded by DEE, are opened. What is left is a property of how those
-  three streams were written, and no instrument here reaches it.
-  One avenue is prepared and not taken: an Atmos sink is on this machine and its
+- **Why Dolby's object mode opens some TrueHD Atmos titles and not others.**
+  It opens 105 of the library's 194 object presentations and refuses 89, so this
+  is not three odd streams but 46 per cent of a catalogue. The verdict belongs to
+  the stream — stable across runs and cut lengths — and to the object mode alone:
+  the same clip decodes at `presentation=16` with the default channel
+  configuration and at `presentation=2` with `out-ch-config=21`.
+
+  Four answers were removed and none was found. The streams are not undecodable:
+  `truehdd` opens all 89 and this decoder's object audio matches it byte for
+  byte, 103 of 103 including controls. The content is not it: each refused
+  title's own objects, re-encoded by DEE, are opened. `2ch_control_enabled` is
+  retired twice over — DEE writes a stream with the flag clear when
+  `presentation_2ch/drc_default_on` is false and Dolby opens that, so it is not
+  sufficient, and across 194 streams it is clear in 76 Dolby opens and 83 it
+  refuses, so it is not a correlate either. And nothing in the bitstream
+  separates the sets: no field of the 84 usable ones, and no pair of the 3 486
+  formable from them.
+
+  What is left is an association: `twoch_dialogue_norm` between 32 and 37 goes
+  with opening and 63 or 31 with refusal, agreeing on 187 of 194 where the next
+  best field manages 134 and the median field manages nothing. That is not a
+  search artefact — the arithmetic that killed the configuration-0 conjunction
+  clears this one — but it is an association, because no mutation reaches it:
+  the object path refuses any stream whose major sync was edited, whatever the
+  edit says.
+
+  One avenue is prepared and not taken. An Atmos sink is on this machine and its
   EDID advertises TrueHD and Dolby Digital Plus at eight channels, so a refused
-  title can be sent to a renderer that is not Dolby's software. It matters more
-  now that the refused set is 89 titles rather than three. It
-  cannot answer in a machine-readable way — a sink reports what it decoded on its
-  own display and there is no return path — so it needs a person at the device.
-  `tools/atmos_sink_check.ps1` sends all six titles to it in turn and pauses
-  after each. `evidence/remediation/atmos-sink.json`.
-- **Why Dolby refuses one configuration 0 stream and accepts another.** There is
-  a control pair now: Snatch is given six channels and Dredd sixteen objects,
-  and the two agree in every field this decoder parses -- frame header,
-  programme, EMDF container version and key, payload configuration, the small
-  payloads, the OAMD shape, the JOC header. The sequence counter is ruled out
-  directly: Snatch's 48 zeros are all in its first 48 frames, a mid-file cut of
-  the same title has none, and Dolby refuses that cut too. What is left is a
-  field oadec does not parse or a decision taken on content, and the obvious
-  experiment -- change one field and watch the refusal move -- is not available,
-  because Dolby discards any payload rewritten in place, and a header field is no
-  better: every stream whose `dialnorm` is rewritten is refused whatever the new
-  value says. Three things are known. It is not the content — Snatch's own
-  objects, re-encoded by DEE, come back as sixteen objects Dolby opens, on the
-  head clip and a mid-file cut alike. It is not one disc's accident — a
-  library-wide sweep of Dolby's object path over 226 JOC tracks finds a second
-  refusal, The King (2019), a streaming release. And the two refused streams are
-  the only ones anywhere that are configuration 0 **and** carry `dialnorm` 31;
-  neither half is enough on its own, since Dolby opens seven configuration-0
-  streams and 90 streams with `dialnorm` 31. That conjunction has no
-  counterexample in 225 streams, no way to be tested, and less weight than it
-  reads: with two refused streams among 225, a field pair that isolates exactly
-  those two is what a search of thousands of pairs is expected to produce by
-  chance.
-  `evidence/remediation/configuration-0-refusal-pair.json`,
+  title can be sent to a renderer that is neither Dolby's software nor this one.
+  It cannot answer in a machine-readable way — a sink reports what it decoded on
+  its own display and there is no return path over HDMI — so it needs a person
+  at the device. `tools/atmos_sink_check.ps1` sends six titles to it in turn and
+  pauses after each. `evidence/remediation/truehd-object-sweep.json`,
+  `evidence/remediation/refused-titles-vs-truehdd.json`,
+  `evidence/remediation/atmos-sink.json`.
+- **Why Dolby refuses two configuration 0 streams and accepts seven.** A
+  library-wide sweep of its object path over 226 Dolby Digital Plus tracks finds
+  two refusals: Snatch and The King (2019), a streaming release, so it is not
+  one disc's accident either. They agree with the seven it opens in every field
+  this decoder parses — frame header, programme, EMDF container version and key,
+  payload configuration, the small payloads, the OAMD shape, the JOC header.
+
+  Two answers are excluded. The sequence counter: Snatch's 48 zeros are all in
+  its first 48 frames, a mid-file cut has none, and Dolby refuses that cut too.
+  The content: Snatch's own objects, re-encoded by DEE, come back as sixteen
+  objects Dolby opens, on the head clip and the mid-file cut alike, with Dredd
+  at sixteen either way.
+
+  What is left is one conjunction and it is a candidate rather than a finding.
+  The two refused streams are the only ones anywhere that are configuration 0
+  **and** carry `dialnorm` 31; neither half is enough alone, since Dolby opens
+  seven configuration-0 streams and 90 streams with `dialnorm` 31. But there are
+  two refused streams among 225 and about 25 200 ways to choose two rows, against
+  13 530 field pairs searched — the same order — so a pair that isolates exactly
+  those two is what such a search produces by chance. It will stay a candidate
+  until a third refusal appears.
+
+  No experiment reaches it. Dolby discards any payload rewritten in place, and a
+  header field is no better: every stream whose `dialnorm` is rewritten is
+  refused whatever the new value says, including a legal value that is not the
+  one under suspicion. `evidence/remediation/configuration-0-refusal-pair.json`,
   `evidence/remediation/dolby-object-sweep.json`.
 - **Two-data-point interpolation**, and with it the smooth-2 and steep-2
   branches of clause 6.6.5: 0 of 170 722 130 object updates, and no way to make
