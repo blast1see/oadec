@@ -359,6 +359,11 @@ impl EmdfStats {
                                     e.2 += 1;
                                     if j.seq_count == 0 {
                                         self.joc_seq_zero += 1;
+                                        // clause 6.3.3.3: the first frame of
+                                        // the bitstream, or the first after a
+                                        // splice. Where they are is what a cut
+                                        // between two of them needs.
+                                        self.note_rare("seq-count-zero", frame_index);
                                     }
                                     for o in &j.objects {
                                         match o {

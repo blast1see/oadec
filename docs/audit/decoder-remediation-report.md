@@ -932,6 +932,17 @@ the two that hold the measurement flags.
 - **The second reason Dolby refuses three titles.** `2ch_control_enabled` is
   necessary and not sufficient; the rest is taken before any audio is decoded
   and is not in the major sync.
+- **Why Dolby refuses one configuration 0 stream and accepts another.** There is
+  a control pair now: Snatch is given six channels and Dredd sixteen objects,
+  and the two agree in every field this decoder parses -- frame header,
+  programme, EMDF container version and key, payload configuration, the small
+  payloads, the OAMD shape, the JOC header. The sequence counter is ruled out
+  directly: Snatch's 48 zeros are all in its first 48 frames, a mid-file cut of
+  the same title has none, and Dolby refuses that cut too. What is left is a
+  field oadec does not parse or a decision taken on content, and the obvious
+  experiment -- change one field and watch the refusal move -- is not available,
+  because Dolby discards any payload rewritten in place.
+  `evidence/remediation/configuration-0-refusal-pair.json`.
 - **Two-data-point interpolation**, and with it the smooth-2 and steep-2
   branches of clause 6.6.5: 0 of 110 352 185 object updates, and no way to make
   any. Dolby's encoder writes one data point per frame at every data rate it
