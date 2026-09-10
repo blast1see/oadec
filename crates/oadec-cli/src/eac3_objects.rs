@@ -13,7 +13,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use oadec_eac3::{ChannelLoc, Decoded, Options as CoreOptions, ProgramDecoder, ProgramFrame};
+use oadec_eac3::{ChannelLoc, Decoded, ProgramDecoder, ProgramFrame};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::joc::{Joc, SparseReading};
 use oadec_emdf::oamd::{BedChannel, Oamd};
@@ -423,7 +423,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
         .to_string();
     std::fs::create_dir_all(dir)?;
 
-    let mut decoder = ProgramDecoder::new(CoreOptions::default());
+    let mut decoder = ProgramDecoder::new(opts.core);
     let mut timeline = Timeline::new(opts.all_events);
     let mut sink: Option<Sink> = None;
     let mut pipeline: Option<Pipeline> = None;

@@ -45,6 +45,12 @@ Semantic Versioning.
   frame 581 from 23,51 dB to 58,90. Titles with no steep object are
   bit-identical either way. `--steep-as-printed` restores the printed
   reading.
+- **`--no-dither`, `--no-tpnp` and `--ecpl-spec` reach the object path.**
+  `decode --format damf` on an E-AC-3 stream built the core decoder with its
+  defaults and ignored all three, so three measurement flags read as applied and
+  were not. `--core-only` is now refused with an object output rather than
+  quietly ignored: the object programme is the whole programme. Two media tests
+  hold both.
 - The EMDF container is looked for where TS 103 420 clause 8.2 puts it, the
   last dependent substream, and `auxdata` is read where clause 4.4.4 puts it.
   `eac3-joc-config` no longer skips dependent substreams, which would have made

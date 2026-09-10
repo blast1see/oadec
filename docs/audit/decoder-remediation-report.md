@@ -688,6 +688,29 @@ mode. `evidence/remediation/presentation16-differential.json`.
 
 ---
 
+## A smaller one of the same family
+
+Three of `decode`'s measurement flags never reached the object path.
+`--no-dither`, `--no-tpnp` and `--ecpl-spec` all set fields on the core
+decoder's options, and `decode --format damf` on an E-AC-3 stream built those
+options with `Default::default()` and dropped what the command line said. The
+flags read as applied and were not, which is the same shape as defect 2: a
+decision taken and then not carried to the thing that produces the output.
+
+It surfaced while testing whether the last sparse frame's residual was dither
+noise amplified by a large matrix coefficient. That question could not be asked
+until the flag worked. With it working the answer is no: our own dither's weight
+on that frame is 61,70 dB, in line with its neighbours at 59,58 to 80,90 and
+with the clip's median of 59,38. A residual at 34,55 dB is not dither.
+
+`--core-only` is now refused with an object output instead of being ignored,
+because the object programme is the whole programme and the JOC downmix needs
+every channel of it. Two media tests hold both: one asks for `--no-dither` and
+requires the objects to move, the other requires the contradictory combination
+to fail and to name the flag.
+
+---
+
 ## The harness that let both defects through
 
 `cargo test --release -p oadec-cli --test real -- --ignored` with `OADEC_MEDIA`

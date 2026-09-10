@@ -378,6 +378,77 @@ fn transient_pre_noise_changes_only_what_it_should() {
     }
 }
 
+/// The core decoder's own options reach the object path.
+///
+/// `decode --format damf` on an E-AC-3 stream used to build the core decoder
+/// with its defaults and ignore `--no-dither`, `--no-tpnp` and `--ecpl-spec`
+/// entirely, so three measurement flags read as applied and were not. The way
+/// to know is to ask for one and see the output move: dither is substituted for
+/// zero-bit mantissas, so turning it off has to change the objects.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn the_core_options_reach_the_object_path() {
+    let media = media_dir();
+    let file = media.join("clips/disclosure-web-head.ec3");
+    require(&file);
+    let dir = std::env::temp_dir();
+    let mut payloads = Vec::new();
+    for (name, extra) in [("dither-on", None), ("dither-off", Some("--no-dither"))] {
+        let base = dir.join(format!("oadec-{name}"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_oadec"));
+        cmd.args(["decode", "--format", "damf", "--no-bed-conform", "-o"])
+            .arg(&base);
+        if let Some(flag) = extra {
+            cmd.arg(flag);
+        }
+        let out = cmd.arg(&file).output().expect("run oadec decode");
+        // a cut clip ends mid-frame, so exit 7 is the integrity policy at work
+        assert!(
+            matches!(out.status.code(), Some(0) | Some(7)),
+            "{name} decode exited {:?}",
+            out.status.code()
+        );
+        let audio = dir.join(format!("oadec-{name}.atmos.audio"));
+        payloads.push(std::fs::read(&audio).expect("decoded audio"));
+    }
+    assert_eq!(
+        payloads[0].len(),
+        payloads[1].len(),
+        "turning dither off changed the number of samples"
+    );
+    assert_ne!(
+        payloads[0], payloads[1],
+        "--no-dither did not reach the object path"
+    );
+    for name in ["dither-on", "dither-off"] {
+        for ext in [".atmos", ".atmos.metadata", ".atmos.audio"] {
+            let _ = std::fs::remove_file(dir.join(format!("oadec-{name}{ext}")));
+        }
+    }
+}
+
+/// An object output and `--core-only` are contradictory and are refused.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn core_only_is_refused_with_an_object_output() {
+    let media = media_dir();
+    let file = media.join("clips/disclosure-web-head.ec3");
+    require(&file);
+    let base = std::env::temp_dir().join("oadec-core-only-objects");
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", "--format", "damf", "--core-only", "-o"])
+        .arg(&base)
+        .arg(&file)
+        .output()
+        .expect("run oadec decode");
+    assert!(!out.status.success(), "the combination was accepted");
+    let text = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        text.contains("--core-only"),
+        "the refusal does not name the flag: {text}"
+    );
+}
+
 /// Enhanced coupling and JOC in one stream. Nothing in the wild carries both,
 /// so the material is made here: a JOC encode low enough to use coupling, then
 /// converted. This is the case where the enhanced coupling lookahead meets the
