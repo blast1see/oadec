@@ -178,20 +178,31 @@ impl ChannelLoc {
         }
     }
 
-    /// The JOC downmix input this location feeds (TS 103 420 table 53), if
-    /// any. Table 53 names inputs 5 and 6 `Lb` and `Rb`; they are the rear
-    /// surround pair that table E.1.4 calls `Lrs` and `Rrs`.
+    /// The JOC downmix input this location feeds under a given
+    /// `joc_dmx_config_idx`, if any.
+    ///
+    /// Table 47 of TS 103 420 gives the downmix channels per configuration and
+    /// the last two are not the same pair in all of them: configuration 1 ends
+    /// `Lb, Rb`, the rear surround pair that table E.1.4 of TS 102 366 calls
+    /// `Lrs` and `Rrs`, while configurations 2 and 4 end `Tfl, Tfr`, the top
+    /// front pair that table E.1.4 calls `Vhl` and `Vhr`. Configurations 0 and
+    /// 3 have five channels and no such pair. Reading the seven-channel
+    /// configurations as if they all ended in the rear pair leaves a real
+    /// stream's two height channels unmapped: Green Book's Dolby Digital Plus
+    /// track is configuration 4 over `L C R Ls Rs LFE Vhl Vhr`.
     #[must_use]
-    pub const fn joc_input(self) -> Option<usize> {
-        use ChannelLoc::{C, L, Lrs, Ls, R, Rrs, Rs};
+    pub const fn joc_input(self, dmx_config: u8) -> Option<usize> {
+        use ChannelLoc::{C, L, Lrs, Ls, R, Rrs, Rs, Vhl, Vhr};
         Some(match self {
             L => 0,
             R => 1,
             C => 2,
             Ls => 3,
             Rs => 4,
-            Lrs => 5,
-            Rrs => 6,
+            Lrs if dmx_config == 1 => 5,
+            Rrs if dmx_config == 1 => 6,
+            Vhl if dmx_config == 2 || dmx_config == 4 => 5,
+            Vhr if dmx_config == 2 || dmx_config == 4 => 6,
             _ => return None,
         })
     }
@@ -1094,22 +1105,45 @@ mod tests {
         assert_eq!(layout.sources, vec![(1, 0), (0, 1)]);
     }
 
-    /// The JOC downmix inputs of table 53, including the two the rear pair
-    /// feeds that only a dependent substream can supply.
+    /// The JOC downmix inputs of table 47, including the two that only a
+    /// dependent substream can supply -- and they are not the same two in
+    /// every configuration.
     #[test]
     fn the_joc_downmix_inputs_cover_seven_channels() {
-        use ChannelLoc::{C, L, Lfe, Lrs, Ls, R, Rrs, Rs};
+        use ChannelLoc::{C, L, Lfe, Lrs, Ls, R, Rrs, Rs, Vhl, Vhr};
+        // configuration 2 and 4 end in the top front pair, not the rear one
+        for cfg in [2u8, 4] {
+            let seven: Vec<_> = [L, R, C, Ls, Rs, Vhl, Vhr]
+                .iter()
+                .map(|c| c.joc_input(cfg))
+                .collect();
+            assert_eq!(
+                seven,
+                (0..7).map(Some).collect::<Vec<_>>(),
+                "configuration {cfg} takes the top front pair"
+            );
+            assert_eq!(Lrs.joc_input(cfg), None, "and not the rear pair");
+            assert_eq!(Rrs.joc_input(cfg), None);
+        }
+        // configurations 0 and 3 have five channels and neither pair
+        for cfg in [0u8, 3] {
+            assert_eq!(Lrs.joc_input(cfg), None);
+            assert_eq!(Vhl.joc_input(cfg), None);
+            assert_eq!(L.joc_input(cfg), Some(0));
+        }
         let inputs: Vec<_> = [L, R, C, Ls, Rs, Lrs, Rrs]
             .iter()
-            .map(|c| c.joc_input())
+            .map(|c| c.joc_input(1))
             .collect();
         assert_eq!(
             inputs,
             (0..7).map(Some).collect::<Vec<_>>(),
-            "table 53 inputs 0 to 6"
+            "configuration 1 takes the rear pair, table 47 inputs 0 to 6"
         );
         assert_eq!(ChannelLoc::from_name("Lb"), Some(Lrs));
         assert_eq!(ChannelLoc::from_name("Rb"), Some(Rrs));
-        assert_eq!(Lfe.joc_input(), None, "the LFE bypasses JOC");
+        for cfg in 0..5u8 {
+            assert_eq!(Lfe.joc_input(cfg), None, "the LFE bypasses JOC");
+        }
     }
 }

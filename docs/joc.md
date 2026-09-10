@@ -3,15 +3,19 @@
 Facts about joint object coding (ETSI TS 103 420 V1.2.1 clause 6 and 7)
 that the decoder relies on. Clause numbers refer to that document.
 
-- **What real streams actually use.** Whole-file scan of 49 streams, 31 of them
-  carrying JOC, 32 493 245 object updates: dense 32 493 095 and sparse 150;
-  fine 32 488 175 and coarse 5 070; smooth slope with one data point
-  31 755 742 and steep with one 737 503. **Two data points: zero.** So two of
-  the four branches of clause 6.6.5 pseudo-code 6, smooth-2 and steep-2, have
-  never been seen, and downmix configurations 1, 2 and 4 never occur either
-  (28 streams at configuration 3, three at 0). Sparse and coarse appear only in
-  streaming material. Scanning head clips finds none of it: the same library
-  scanned three megabytes at a time gives zero sparse and zero coarse.
+- **What real streams actually use.** Whole-file scan of 49 streams in the
+  working directory plus sixteen library titles chosen across sources, 50
+  streams carrying JOC between them, **110 352 185 object updates**. Sparse 165
+  and coarse 9 015 of those; smooth slope with one data point and steep with
+  one account for all of them. **Two data points: zero.** So two of the four
+  branches of clause 6.6.5 pseudo-code 6, smooth-2 and steep-2, have still
+  never been seen. Downmix configurations: 3 everywhere except three streams at
+  0 and **three at 4**; 1 and 2 are still unseen. Scanning head clips finds
+  none of the rare syntax: the same library scanned three megabytes at a time
+  gives zero sparse and zero coarse. Nor is the rare syntax a streaming habit --
+  Dangal, a Blu-ray remux, carries sparse matrices, and coarse quantisation
+  turns up in eight streams across discs and streaming.
+  `docs/audit/evidence/remediation/library-syntax-scan.json`.
 
 - **Where the side information lives.** EMDF payload 14 in the skip fields
   of the E-AC-3 frame, next to the OAMD payload 11 (clause 8.2); both once
@@ -158,7 +162,9 @@ that the decoder relies on. Clause numbers refer to that document.
   exactly, so the operator is a real 37-tap filter across time slots;
   `quadrature.rs` carries it and `tools/gen_joc_quadrature.py` regenerates
   it. `--flat-quadrature` restores the plain reading for measurement.
-  Configuration 4 is assumed to behave like 3 (no stream to test).
+  Configuration 4 behaves like 3, and that is now measured rather than assumed:
+  three library titles carry it, and Green Book's objects come out at 50,13 dB
+  worst against Dolby's.
 - **Configuration 0 is all but extinct, and Dolby will not upmix it.** Of the
   113 object-carrying E-AC-3 tracks in the library, 112 use configuration 3
   and one uses 0. The one that carries 0 is decoded to six channels rather
@@ -183,6 +189,18 @@ that the decoder relies on. Clause numbers refer to that document.
   same frame check and Dolby decodes its output normally -- so it is the
   container that is protected.
   `docs/audit/evidence/remediation/payload-rewrite-rejected.json`.
+- **The seven-channel configurations do not all end in the same pair.**
+  Table 47 gives the downmix channels: configuration 1 ends `Lb, Rb`, the rear
+  surround pair that table E.1.4 of TS 102 366 calls `Lrs` and `Rrs`, while
+  configurations 2 and 4 end `Tfl, Tfr`, the top front pair it calls `Vhl` and
+  `Vhr`. Reading all three as if they ended in the rear pair leaves a real
+  stream's height channels unmapped, and every configuration 4 stream found so
+  far is exactly that shape: an AC-3 core plus an E-AC-3 dependent substream
+  with `chanmap` 0xa010, giving `L C R Ls Rs LFE Vhl Vhr`. The order within the
+  pair is measured, not assumed: swapping `Tfl` and `Tfr` costs 29 dB in a
+  window where the height channels carry signal -- and nothing at all in one
+  where they are digitally silent, which is where the comparison tool's default
+  window happens to fall on that title.
 - **Clip gain** (clause 6.3.3.2): `(1 + y/32) 2^(x-4)`, over [1; 8,75]. The
   standard defines the value and never uses it again: the word does not
   appear in clause 6.6, which specifies the whole decode. It is the gain the
