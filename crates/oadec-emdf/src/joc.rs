@@ -258,13 +258,22 @@ impl Joc {
                     }
                     // clause 6.6.2, pseudocode 2
                     let mut resolved = [0u8; MAX_BANDS];
-                    let mut prev_mod = raw_idx[0] % nch as u32;
+                    // Clause 6.6.2 takes the first band's index as transmitted
+                    // and applies its modulo only from the second band on, so
+                    // no modulo here. Three transmitted bits can name a channel
+                    // that does not exist; such a band then selects none of
+                    // them and every channel holds its unselected value, which
+                    // is what an index naming nothing means. Wrapping it onto a
+                    // real channel instead would invent one. It cannot happen
+                    // on conforming material: every one of the library's 150
+                    // sparse objects transmits 0 to 4 with five channels.
+                    let mut prev_mod = raw_idx[0];
                     // the coefficient of the band before this one, whichever
-                    // channel carried it
+                    // channel carried it; band 0 seeds it from `base`
                     let mut prev_coeff = base;
                     for pb in 0..obj.num_bands {
                         let ch_mod = if pb == 0 {
-                            raw_idx[0] % nch as u32
+                            raw_idx[0]
                         } else {
                             match sparse_mode {
                                 SparseReading::AsPrinted => {
@@ -275,16 +284,22 @@ impl Joc {
                         };
                         prev_mod = ch_mod;
                         resolved[pb] = ch_mod as u8;
+                        // The chain belongs to the object, not to a channel:
+                        // it advances on every band, and the index only says
+                        // where the value lands. That matters only for a band
+                        // whose index names no channel, which conforming
+                        // material never has.
+                        let chained = (prev_coeff + vec[pb]) % nquant;
+                        prev_coeff = chained;
                         for ch in 0..nch {
                             q[ch][pb] = if ch as u32 == ch_mod {
-                                let from = match (pb, sparse_mode) {
-                                    (0, _) => base,
-                                    (_, SparseReading::AsPrinted) => u32::from(q[ch][pb - 1]),
-                                    (_, SparseReading::Measured) => prev_coeff,
-                                };
-                                let v = (from + vec[pb]) % nquant;
-                                prev_coeff = v;
-                                v as u8
+                                match (pb, sparse_mode) {
+                                    (0, _) => ((base + vec[pb]) % nquant) as u8,
+                                    (_, SparseReading::AsPrinted) => {
+                                        ((u32::from(q[ch][pb - 1]) + vec[pb]) % nquant) as u8
+                                    }
+                                    (_, SparseReading::Measured) => chained as u8,
+                                }
                             } else {
                                 unselected as u8
                             };
@@ -459,6 +474,62 @@ mod tests {
         assert_eq!(&obj.mtx_q[0][3][..3], &[58, 58, 58]);
         assert_eq!(&obj.mtx_q[0][4][..3], &[53, 58, 63]);
         assert_eq!(obj.mtx_q[1], obj.mtx_q[0]);
+    }
+
+    /// Clause 6.6.2 applies its modulo from the second parameter band on, not
+    /// to the first, and three transmitted bits can name a channel that a
+    /// five-channel downmix does not have. Such a band selects none of them.
+    ///
+    /// It cannot happen on conforming material: every one of the 150 sparse
+    /// objects in the library transmits 0 to 4 with five channels. What it
+    /// stops is a malformed stream quietly wrapping onto a real channel and
+    /// pouring an object into it.
+    #[test]
+    fn a_first_band_index_naming_no_channel_selects_none_of_them() {
+        let mut w = Writer { bits: Vec::new() };
+        w.put(0, 3); // dmx 5.X
+        w.put(0, 6); // one object
+        w.put(0, 3);
+        w.put(4, 3);
+        w.put(16, 5);
+        w.put(0, 10);
+        // one sparse object, 3 bands, fine, smooth with one data point
+        w.put(1, 1);
+        w.put(1, 3);
+        w.put(1, 1);
+        w.put(1, 1);
+        w.put(0, 1); // smooth
+        w.put(0, 1); // one data point
+        // joc_channel_idx[0] = 6, which five channels cannot name
+        w.put(6, 3);
+        w.huff(&IDX_5CH, 0);
+        w.huff(&IDX_5CH, 0);
+        for _ in 0..3 {
+            w.huff(&FINE_VEC, 4);
+        }
+        while !w.bits.len().is_multiple_of(8) {
+            w.bits.push(false);
+        }
+        let bytes = w.bytes();
+        let joc = Joc::parse(&bytes, SparseReading::Measured).unwrap();
+        let obj = joc.objects[0].as_ref().unwrap();
+        let ch = obj.sparse_channel.as_ref().unwrap()[0];
+        assert_eq!(
+            ch[0], 6,
+            "the index is kept as transmitted, not wrapped to 1"
+        );
+        let q = &obj.mtx_q[0];
+        for (c, row) in q.iter().enumerate().take(joc.num_channels) {
+            assert_eq!(
+                row[0], 96,
+                "band 0 names no channel, so channel {c} holds the unselected code"
+            );
+        }
+        // the second band's index is (6 + 0) % 5 = 1, back in range
+        assert_eq!(ch[1], 1);
+        // the chain is the object's, so band 0's value advanced it even though
+        // no channel took it: 100 (the seed) + 4 + 4
+        assert_eq!(q[1][1], 108, "and band 1 carries the coefficient chain");
     }
 
     #[test]

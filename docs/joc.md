@@ -46,6 +46,16 @@ that the decoder relies on. Clause numbers refer to that document.
   fourth correction and it is wrong: the sparse frames of one clip fall from
   53 dB to −0,4 dB. One constant, two uses, and only one of them misprinted.
 
+  **The first band's index takes no modulo.** Clause 6.6.2 applies
+  `% joc_num_channels` from the second parameter band on and not to the first,
+  where three transmitted bits can name a channel a five-channel downmix does
+  not have. Such a band selects none of them and every channel keeps its
+  unselected value; wrapping it onto a real channel would invent one. It cannot
+  happen on conforming material — all 150 sparse objects in the library
+  transmit 0 to 4 with five channels, and all five sparse clips decode
+  byte-identically either way — so this is malformed-stream behaviour and is
+  pinned by a unit test rather than measured.
+
   Measured against Dolby's object decoder on **all** the sparse material there
   is: 150 object updates in ten frames of three streaming titles, out of
   32 493 245 object updates in the whole library. Five clips, each cut around

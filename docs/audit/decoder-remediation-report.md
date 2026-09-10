@@ -389,6 +389,16 @@ The seed of the chain is the printed 50/100 and stays there. Reading it as
 fourth correction and it is wrong by 50 dB: one constant, two uses, and only
 one of the two misprinted.
 
+One more thing in the same parser, which the audit's backlog asked about and
+which is not a defect: the first parameter band's channel index was being taken
+modulo the channel count where clause 6.6.2 applies no modulo. Three
+transmitted bits can name a channel a five-channel downmix does not have, and
+the wrap put such a band's coefficient onto a real channel. It no longer does:
+a band whose index names no channel selects none of them. This cannot change a
+conforming stream — all 150 sparse objects in the library transmit 0 to 4 with
+five channels, and all five sparse clips decode byte-identically either way —
+so it is pinned by a unit test rather than by a measurement.
+
 ### Reference result
 
 `evidence/remediation/sparse-differential.json`. **Every** sparse frame in the
