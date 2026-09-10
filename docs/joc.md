@@ -4,9 +4,9 @@ Facts about joint object coding (ETSI TS 103 420 V1.2.1 clause 6 and 7)
 that the decoder relies on. Clause numbers refer to that document.
 
 - **What real streams actually use.** Whole-file scan of 49 streams in the
-  working directory plus sixteen library titles chosen across sources, 50
-  streams carrying JOC between them, **110 352 185 object updates**. Sparse 165
-  and coarse 9 015 of those; smooth slope with one data point and steep with
+  working directory, sixteen library titles chosen across sources and twelve
+  streaming titles, 67 streams carrying JOC between them, **170 722 130 object
+  updates**. Sparse 3 540 and coarse 92 550 of those; smooth slope with one data point and steep with
   one account for all of them. **Two data points: zero.** So two of the four
   branches of clause 6.6.5 pseudo-code 6, smooth-2 and steep-2, have still
   never been seen. Downmix configurations: 3 everywhere except three streams at
@@ -83,10 +83,17 @@ that the decoder relies on. Clause numbers refer to that document.
   sparse object is bit-identical under all three. Evidence:
   `docs/audit/evidence/remediation/sparse-differential.json`.
 
-  The frame this started from is still the worst of the ten, and its
-  disagreement is confined to two QMF slots at the point where the sparse
-  matrix is applied. It is also the only frame in the library that is both
-  sparse and steep with a large offset. Open.
+  **Settled on material that separates sparse from steep.** The streaming
+  collection carries 3 375 sparse objects where the whole corpus before it had
+  150, and one clip of Extraction 2 holds 825 of them in 55 frames with **no
+  steep object anywhere in it**. The printed reading puts those frames at
+  −3,92 dB median against Dolby where the rest of the clip is 45,96; all three
+  corrections put them at **46,78 dB against 46,69** -- the level of the clip.
+  There is nothing left to explain in sparse decoding.
+
+  The frame that stayed short in the narrower evidence is the one that is also
+  steep, with offset 23, and its two-slot residual belongs to that combination.
+  `docs/audit/evidence/remediation/sparse-settled.json`.
 - **Dequantization** (clause 6.6.4): `(q - nquant/2) * 820 / (4096 (1 +
   quant_idx))`, range about ±9.6.
 - **Band mapping** (table 54): 23/15/12/9/7/5/3/1 parameter bands over the
