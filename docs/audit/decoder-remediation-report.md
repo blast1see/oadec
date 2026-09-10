@@ -517,8 +517,8 @@ The sparse frames sit at the level of the rest of the clip. There is nothing
 left to explain in sparse decoding itself, and the row moves to `PASS-TOL`.
 
 What remains is one frame, and it is the one that is also steep with offset 23:
-34,6 dB where its clip sits at 44,4, a two-slot disagreement at the point where
-the sparse matrix is applied.
+34,6 dB where its clip sits at 44,4. **That reading did not survive being asked
+one more question**; the section below says so.
 
 **The combination is not the cause either.** `verify --json` now counts objects
 that are sparse and steep at once and reports where they are, and Extraction 2
@@ -528,9 +528,37 @@ level, with neighbours at 56 to 63. Nor is a large switch offset the cause: both
 clips carry offsets across the whole range, 23 and 24 included.
 
 So the remaining frame is an outlier of one. It is not sparse decoding, not
-steep decoding, not the two together, not a large offset and not dither. It
-stays open as a single frame rather than as a class.
+steep decoding, not the two together, not a large offset and not dither.
 `evidence/remediation/sparse-settled.json`.
+
+### There is no outlier
+
+The frame is Extraction (2020) frame 63325 — not Glass Onion, whose sparse
+frames carry no steep object at all and measure 50 to 68 dB from four different
+clip windows. It is sparse, steep and coarse at once, fifteen objects all three,
+which is why every correction moved it: as decoded 34,55 dB, with the printed
+steep reading 18,43, with the printed sparse reading 7,54, with both 1,05. That
+last figure is what the first round recorded before any of them. Dither is not
+it either, at 34,90 with dither off.
+
+What was never asked is where the frame ranks among its neighbours. A median
+says what a typical frame does and nothing about the spread, and this passage's
+spread is wide:
+
+| window | median | frame 63325 | its rank, worst first |
+|---|---:|---:|---|
+| 99 frames | 40,53 dB | 34,55 dB | **10 of 99** |
+| 299 frames | 41,65 dB | 34,89 dB | **48 of 299** |
+
+Nine frames of the first window are worse, down to 22,85 dB, and none of them is
+sparse; forty-seven are worse in the second, down to 21,37. The passage as a
+whole sits at 40 to 42 dB where Extraction 2's sparse clip sits at 46,78 and
+Glass Onion's at 58. A frame six decibels under its window's median, with
+forty-seven frames beneath it, is not something left to explain.
+
+The mistake was comparing one frame with a clip median and never asking where it
+stood among its neighbours. There is no outlier, and this open item closes.
+`evidence/remediation/sparse-outlier-dissolved.json`.
 
 ### What is still unexercised
 
@@ -1529,15 +1557,6 @@ the two sweeps read, this decoder reported no failure of any kind.
 
 ## What is still open
 
-- **One frame, and only that frame**: 34,6 dB where its clip sits at 44,4, the
-  difference concentrated in two time slots at the point where the sparse matrix
-  is applied. Sparse
-  decoding is settled, and so is the combination that frame has: 120 objects
-  that are sparse and steep at once, in another title, sit at or above their
-  clip's level. That frame has moved from 1,05 to 16,5 to 30,6 to 34,6 dB
-  across three corrections. It is not dither amplified by the large coefficient
-  the sparse matrix carries there: our own dither's weight on that frame is
-  61,70 dB against neighbours at 59,58 to 80,90 and a clip median of 59,38.
 - **Why Dolby's object mode opens some TrueHD Atmos titles and not others.**
   It opens 105 of the library's 194 object presentations and refuses 89, so this
   is not three odd streams but 46 per cent of a catalogue. The verdict belongs to
