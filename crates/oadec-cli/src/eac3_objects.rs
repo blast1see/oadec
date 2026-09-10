@@ -138,7 +138,7 @@ impl Pipeline {
     ) -> Result<Self> {
         let mut joc_inputs = vec![usize::MAX; joc.num_channels];
         for (coded, loc) in chans.iter().enumerate() {
-            if let Some(i) = loc.joc_input()
+            if let Some(i) = loc.joc_input(joc.dmx_config)
                 && i < joc.num_channels
             {
                 joc_inputs[i] = coded;

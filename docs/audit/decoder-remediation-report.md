@@ -455,11 +455,12 @@ steep with a large offset. Open.
 
 ### What is still unexercised
 
-Across 32 493 245 object updates in 31 JOC streams: **two data points never
-occur**, so two of the four branches of clause 6.6.5 pseudo-code 6 — smooth
-with two points and steep with two points — have never run on real material.
-Downmix configurations 1, 2 and 4 never occur; 28 streams use configuration 3
-and three use 0. No EMDF container was found in `auxdata` in any of 49 streams.
+Across 110 352 185 object updates in 50 JOC streams, the corpus having been
+more than tripled since: **two data points never occur**, so two of the four
+branches of clause 6.6.5 pseudo-code 6 — smooth with two points and steep with
+two points — have never run on real material. Downmix configurations 1 and 2
+never occur; configuration 4 does, in three library titles, and has a section
+of its own below. No EMDF container was found in `auxdata` in any stream.
 
 ---
 
@@ -567,7 +568,7 @@ as printed and the deviation stays visible as a deviation.
 
 This is agreement with one decoder family, as the matrix alignment and the
 sparse corrections are. It is `PASS-TOL`, not `PASS`. Steep interpolation is
-737 503 of 32 493 245 object updates — 2,3 per cent — so this reaches most
+3 900 553 of 110 352 185 object updates — 3,5 per cent — so this reaches most
 streams, but the two-data-point steep branch still has no material and stays
 `N/T`.
 
@@ -739,6 +740,70 @@ run that cannot reach the media now fails, and CI runs the check that it does.
 
 ---
 
+## Configuration 4, found by scanning the library rather than the corpus
+
+The counts behind three open rows came from 31 streams in the working
+directory. The library holds 111 more object-carrying tracks, every count that
+closed or failed to close a row is a per-frame encoder decision, and head clips
+are what hid sparse mode the first time. So sixteen titles were scanned whole,
+chosen across sources rather than at random: 112 of the library's 113 object
+tracks use configuration 3 with fifteen objects and unity clip gain, and most
+are UHD disc remuxes from one encoder chain, so diversity of source is worth
+more than count.
+
+That added 77 858 940 object updates to the 32 493 245 already scanned. Two
+data points: still zero. EMDF in auxiliary data: still zero. Two negatives did
+fall, though. Sparse matrices and coarse quantisation are not a streaming habit —
+Dangal, a Blu-ray remux, carries fifteen sparse objects and eight streams
+across discs and streaming carry coarse quantisation. And **downmix
+configuration 4 exists**: three of the sixteen titles carry it, where nothing
+measured before ever had.
+
+### Why it had never been seen
+
+Every configuration 4 stream found is an AC-3 core plus an E-AC-3 dependent
+substream with `chanmap` 0xa010, giving `L C R Ls Rs LFE Vhl Vhr` — a 5.1.2
+programme. Configuration 4 needs a seven-channel downmix, a seven-channel
+downmix needs a dependent substream, and until defect 1 those decoded as their
+5.1 core. The configuration was not rare; it was unreachable.
+
+### The mapping was written for configuration 1 alone
+
+Table 47 gives the downmix channels per configuration. Configuration 1 ends
+`Lb, Rb`, the rear surround pair that table E.1.4 of TS 102 366 calls `Lrs` and
+`Rrs`. Configurations 2 and 4 end `Tfl, Tfr`, the top front pair it calls `Vhl`
+and `Vhr`. `ChannelLoc::joc_input` knew only the first reading, so a
+configuration 4 stream's height channels mapped to nothing.
+
+It did not decode them wrongly. The object pipeline refused: "the programme
+channels [...] do not cover the 7-channel JOC downmix". The bail that has sat
+there since the substream work did its job on the first real stream to reach it.
+
+### What it measures now
+
+| | worst | median |
+|---|---:|---:|
+| Green Book, the window the comparison tool uses by default | 50,13 dB | 51,97 dB |
+| Green Book, the window where the height pair carries signal | 37,20 dB | 41,96 dB |
+| Dangal, likewise, thirteen objects with signal | 34,19 dB | 39,91 dB |
+
+Dangal's other two objects read 5,65 and 5,30 dB and carry an RMS of 0,000001 in
+both decoders, so that figure is the ratio of two noise floors and not a
+measurement.
+
+**The order within the pair is measured.** Swapping `Tfl` and `Tfr` costs 29 dB
+in the window where the height channels carry signal — 1,66 dB worst against
+37,20. In the default window it costs nothing at all, to the decimal, because
+Green Book's height channels are digitally silent there. A control run in the
+wrong window would have said the two mappings were the same thing.
+
+This also settles something left open: the 90-degree phase correction of
+configurations 3 and 4 was implemented for 3 and assumed to hold for 4, with the
+note "no stream to test". There is a stream now, and it holds.
+`evidence/remediation/library-syntax-scan.json`.
+
+---
+
 ## An instrument that does not work, and what rested on it
 
 Every conclusion in this project that came from rewriting a field inside an EMDF
@@ -851,7 +916,7 @@ the two that hold the measurement flags.
   necessary and not sufficient; the rest is taken before any audio is decoded
   and is not in the major sync.
 - **Two-data-point interpolation**, and with it the smooth-2 and steep-2
-  branches of clause 6.6.5: 0 of 32 493 245 object updates, and no way to make
+  branches of clause 6.6.5: 0 of 110 352 185 object updates, and no way to make
   any. Dolby's encoder writes one data point per frame at every data rate it
   offers, even for an object authored to move four times within a frame. The
   branches are covered by a unit test against the printed pseudo-code, which
@@ -859,11 +924,11 @@ the two that hold the measurement flags.
   with it — and defect 4 is exactly a case where it does not, on the branch
   that could be measured. The two-point branches carry the same offset field
   and the same correction is applied to it, unmeasured.
-- **Downmix configurations 1, 2 and 4**: reachable, and no material.
-  Relabelling cannot make any, because they size the matrix for seven channels;
-  neither can the encoder, whose job description has no core-layout or
+- **Downmix configurations 1 and 2**: reachable, and no material. Relabelling
+  cannot make any, because they size the matrix for seven channels; neither can
+  the encoder, whose job description has no core-layout or
   downmix-configuration option and which writes configuration 3 at all six of
-  its data rates.
+  its data rates. Configuration 4 is no longer on this list.
 - **EMDF in `auxdata`**, and **EMDF in a dependent substream**: both implemented
   and neither exercised, because no stream on hand carries either.
 - **Controlled divergence**, which cannot be authored: DAMF has no field for it,

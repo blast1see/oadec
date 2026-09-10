@@ -45,6 +45,16 @@ Semantic Versioning.
   frame 581 from 23,51 dB to 58,90. Titles with no steep object are
   bit-identical either way. `--steep-as-printed` restores the printed
   reading.
+- **The JOC downmix input mapping was written for configuration 1 alone.**
+  Table 47 of TS 103 420 ends configuration 1 in the rear surround pair and
+  configurations 2 and 4 in the top front pair; reading all three the same way
+  leaves a configuration 4 stream's height channels unmapped. It refused the
+  decode rather than producing wrong output, and it had never fired because
+  configuration 4 needs a seven-channel downmix, which needs a dependent
+  substream, which this release is the first to decode. Three library titles
+  carry configuration 4 and their objects now come out at 50,13 dB worst
+  against Dolby's. Swapping the top front pair costs 29 dB, so the order is
+  measured.
 - **`--no-dither`, `--no-tpnp` and `--ecpl-spec` reach the object path.**
   `decode --format damf` on an E-AC-3 stream built the core decoder with its
   defaults and ignored all three, so three measurement flags read as applied and

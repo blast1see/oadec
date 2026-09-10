@@ -1,0 +1,164 @@
+{
+ "what": "A whole-file JOC syntax scan of sixteen library titles chosen across sources, and what it found: downmix configuration 4, which no stream measured before had ever carried",
+ "utc": "2026-09-10T18:13:17.149284+00:00",
+ "commit": "94672e5532a505a43ea095aaebf34f3c0a708960",
+ "binary_sha256": "b584f75aae4566ad74f93703d2ff1bf28860c612fce2258238e60f3532dd7432",
+ "why": "the counts behind three open rows came from 31 streams in the working directory. The library holds 111 more object-carrying tracks, and every count that closed or failed to close a row is a per-frame encoder decision. Head clips are what hid sparse mode the first time, so this reads whole files.",
+ "sample": "sixteen titles stratified by source rather than drawn at random, because 112 of the library's 113 object tracks use configuration 3 with 15 objects and unity clip gain and most are UHD disc remuxes from one encoder chain",
+ "coverage": {
+  "first_title": {
+   "streams_scanned": 1,
+   "streams_decoded": 1,
+   "streams_carrying_joc": 1,
+   "auxdata_frames": 0,
+   "containers_in_auxdata": 0,
+   "auxdata_overruns": 0,
+   "object_updates": 4131690,
+   "sparse": 0,
+   "dense": 4131690,
+   "fine": 4131690,
+   "coarse": 0,
+   "steep": 158970,
+   "two_data_points": 0,
+   "interpolation_branches": {
+    "smooth-1": 3972720,
+    "steep-1": 158970
+   },
+   "downmix_configs": {
+    "3": 1
+   },
+   "parse_errors": 0,
+   "size_mismatches": 0,
+   "non_zero_padding": 0,
+   "streams_with_sparse": [],
+   "streams_with_coarse": [],
+   "streams_with_two_data_points": []
+  },
+  "other_fifteen": {
+   "streams_scanned": 78,
+   "streams_decoded": 35,
+   "streams_carrying_joc": 18,
+   "auxdata_frames": 0,
+   "containers_in_auxdata": 0,
+   "auxdata_overruns": 0,
+   "object_updates": 73727250,
+   "sparse": 15,
+   "dense": 73727235,
+   "fine": 73723305,
+   "coarse": 3945,
+   "steep": 3004080,
+   "two_data_points": 0,
+   "interpolation_branches": {
+    "smooth-1": 70723170,
+    "steep-1": 3004080
+   },
+   "downmix_configs": {
+    "3": 15,
+    "4": 3
+   },
+   "parse_errors": 0,
+   "size_mismatches": 0,
+   "non_zero_padding": 0,
+   "streams_with_sparse": [
+    "Dangal (2016).mkv#3"
+   ],
+   "streams_with_coarse": [
+    "Indiana Jones and the Dial of Destiny (2023).mkv#2",
+    "Dangal (2016).mkv#2",
+    "Dangal (2016).mkv#3",
+    "Klaus (2019).mkv#1",
+    "The Lord of the Rings The Two Towers (2002).mkv#2",
+    "The Hobbit The Desolation of Smaug (2013).mkv#2",
+    "Jurassic Park (1993).mkv#3",
+    "Back to the Future (1985).mkv#3"
+   ],
+   "streams_with_two_data_points": []
+  },
+  "combined_object_updates": 110352185,
+  "reading": "77 858 940 object updates added to the 32 493 245 already scanned  for 110 352 185 in 50 JOC streams. Two data points: still zero. EMDF in auxdata: still zero frames. Configurations 1 and 2: still unseen.",
+  "library_object_updates": 77858940,
+  "combined_streams_carrying_joc": 50,
+  "combined_sparse": 165,
+  "combined_coarse": 9015
+ },
+ "what_changed_in_the_negatives": [
+  {
+   "was": "sparse and coarse appear only in streaming material",
+   "now": "false. Dangal, a Blu-ray remux, carries 15 sparse objects, and eight streams across discs and streaming carry coarse quantisation."
+  },
+  {
+   "was": "downmix configurations 1, 2 and 4 never occur; relabelling cannot make any",
+   "now": "configuration 4 occurs: three of the sixteen titles carry it. 1 and 2 are still unseen."
+  }
+ ],
+ "configuration_4": {
+  "titles": [
+   "Green Book (2018), track 3",
+   "Dangal (2016), track 3",
+   "Jurassic Park (1993), track 4"
+  ],
+  "structure": "every one is an AC-3 core plus an E-AC-3 dependent substream, chanmap 0xa010, giving L C R Ls Rs LFE Vhl Vhr -- a 5.1.2 programme. Before the dependent-substream work these decoded as 5.1 and the configuration was structurally unreachable, which is why it had never been seen.",
+  "defect_found": {
+   "what": "the JOC downmix input mapping was written for configuration 1 alone. Table 47 of TS 103 420 gives the downmix channels per configuration: 1 ends `Lb, Rb`, the rear surround pair, while 2 and 4 end `Tfl, Tfr`, the top front pair that table E.1.4 of TS 102 366 calls Vhl and Vhr.",
+   "symptom": "the object decode refused with \"the programme channels [...] do not cover the 7-channel JOC downmix\" rather than producing wrong output, so nothing was silently mis-decoded",
+   "fix": "ChannelLoc::joc_input takes the configuration"
+  },
+  "against_dolby": {
+   "green_book": {
+    "default_window_samples_200000_to_1400000": {
+     "worst_db": 50.13,
+     "median_db": 51.97,
+     "lfe_db": 111.57,
+     "lag": 0,
+     "corr_structure_max_abs_delta": 0.0001
+    },
+    "window_where_the_height_pair_carries_signal": {
+     "start_s": 110,
+     "worst_db": 37.2,
+     "median_db": 41.96
+    }
+   },
+   "dangal": {
+    "window_where_the_height_pair_carries_signal": {
+     "start_s": 510,
+     "objects_with_signal_db": [
+      34.19,
+      51.0
+     ],
+     "median_db": 39.91,
+     "two_objects_at_the_noise_floor": [
+      5.65,
+      5.3
+     ],
+     "note": "those two carry an RMS of 0,000001 in both decoders, so the figure is the ratio of two noise floors and not a measurement"
+    }
+   }
+  },
+  "the_order_of_the_top_pair_is_measured_not_assumed": {
+   "control": "the same decode with Tfl and Tfr swapped",
+   "default_window": {
+    "correct": {
+     "worst_db": 50.13,
+     "median_db": 51.97
+    },
+    "swapped": {
+     "worst_db": 50.13,
+     "median_db": 51.97
+    },
+    "reading": "identical, and that is the trap: the height channels are digitally silent in the opening of this title, so the window the comparison tool uses by default cannot see the difference"
+   },
+   "window_at_110_s": {
+    "correct": {
+     "worst_db": 37.2,
+     "median_db": 41.96
+    },
+    "swapped": {
+     "worst_db": 1.66,
+     "median_db": 12.79
+    },
+    "reading": "swapping the pair costs 29 dB where the pair carries signal"
+   }
+  },
+  "what_this_settles": "the 90-degree phase correction of configurations 3 and 4 was implemented for 3 and assumed to hold for 4, with the note \"no stream to test\". There is a stream now, and it holds."
+ }
+}
