@@ -781,7 +781,9 @@ audit found `2ch_control_enabled` perfectly correlated across the six, set it in
 all 383 major syncs of a Shaun clip with the CRC repaired, saw no change, and
 concluded the field was not causal.
 
-Three things came out of going back to it.
+Three things came out of going back to it. Read them as the six-title round they
+were: two sections below, the same question is put to 194 object presentations
+and the flag does not survive it.
 
 **What the refusal is.** The decoder says "Selected Dolby TrueHD presentation is
 not available" and the pipeline fails to preroll, so the decision is taken from
