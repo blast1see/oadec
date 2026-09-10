@@ -1465,6 +1465,42 @@ mod tests {
         assert_eq!(p.bed_or_isf_objects(), 13);
     }
 
+    /// Tables 23 and 25 of TS 103 420, written out again rather than read from
+    /// the constants they pin.
+    ///
+    /// A mutation pass over this crate found both of them unguarded: changing
+    /// the first `sample_offset` from 8 to 9, or the first `ramp_duration` from
+    /// 32 to 33, left every test passing. They are transcribed numbers with no
+    /// structure to check them against, which is exactly the kind of constant a
+    /// typo survives in -- and both reach the timing of every metadata update.
+    #[test]
+    fn the_timing_tables_are_the_ones_the_clauses_print() {
+        // Table 23: value of sample_offset, by sample_offset_idx
+        assert_eq!(SAMPLE_OFFSET, [8, 16, 18, 24]);
+        // Table 25: value of ramp_duration, by ramp_duration_idx
+        assert_eq!(
+            RAMP_DURATION,
+            [
+                32, 64, 128, 256, 320, 480, 1000, 1001, 1024, 1600, 1601, 1602, 1920, 2000, 2002,
+                2048,
+            ]
+        );
+        // clause 5.6.2.9 puts ramp_duration_bits in [0, 2047], and the last
+        // entry of table 25 is 2048 -- so the index reaches one duration the
+        // explicit field cannot express, which is presumably what it is for.
+        // Every other entry is reachable both ways.
+        assert_eq!(
+            RAMP_DURATION
+                .iter()
+                .filter(|d| **d > 2047)
+                .copied()
+                .collect::<Vec<_>>(),
+            [2048]
+        );
+        // clause 5.6.2.3: sample_offset is in the range [0, 31]
+        assert!(SAMPLE_OFFSET.iter().all(|o| *o <= 31));
+    }
+
     #[test]
     fn size_and_count_violations_are_errors() {
         // object count that the program does not describe
