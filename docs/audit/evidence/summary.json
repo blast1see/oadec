@@ -1,0 +1,185 @@
+{
+ "02-truehd-bit-exactness": {
+  "presentation_2_vs_ffmpeg": {
+   "clip": "clips/pi-head50m.thd",
+   "samples": 40606400,
+   "channels": 8,
+   "differing_samples": 0,
+   "max_abs_diff": 0,
+   "reference": "ffmpeg 2026-09-02 pcm_s32le, low 8 bits dropped",
+   "method": "independent 24-bit LE reader, not oadec compare"
+  },
+  "presentation_3_vs_truehdd": {
+   "samples": 60909600,
+   "channels": 12,
+   "differing_samples": 0,
+   "note": "the two CAF files are byte-identical (182728868 bytes each)"
+  },
+  "sample_range_p2": {
+   "min": -8217040,
+   "max": 7877136,
+   "at_full_scale": 0
+  },
+  "sample_range_p3": {
+   "min": -7620096,
+   "max": 6738928,
+   "at_full_scale": 0
+  }
+ },
+ "03-truehd-objects-vs-dolby": {
+  "pipeline": "ffmpeg -c:a copy -strict -2 -movflags faststart -f mp4 | qtdemux ! capssetter caps=audio/x-true-hd ! dlbtruehdparse ! dlbtruehddec out-ch-config=21 presentation=16",
+  "samples": 60909600,
+  "channels_compared": 12,
+  "differing_samples": 0,
+  "max_abs_diff": 0,
+  "dolby_channels_12_to_15": "digital silence",
+  "dolby_word_width": "32-bit, low 8 bits zero"
+ },
+ "03-01-negative-control": {
+  "file": "cloudatlas/cloudatlas.thd (first 60 MB)",
+  "substreams": 3,
+  "substream_info": "0x4C",
+  "flags": "0x0000",
+  "sixteen_channel_presentation": false,
+  "evolution_payloads": 0,
+  "object_path": "refused: the stream has no 16-channel presentation"
+ },
+ "03-11-dolby-presentation16-refusal": {
+  "accepted": {
+   "pi": "2ch_control_enabled=true",
+   "talktome": "true",
+   "braveheart": "true"
+  },
+  "refused": {
+   "shaun": "false",
+   "knivesout": "false",
+   "kingsman": "false"
+  },
+  "hypotheses_eliminated": [
+   "malformed first OAMD payload: cutting past it removes the size mismatch, Dolby still refuses",
+   "2ch_control_enabled: set in all 383 major syncs with CRC-16 repaired, Dolby still refuses",
+   "declared 16-channel structure: identical to Pi (substream_info 0xFC, ext 3, flags 0x1000, 12 channels, 50-byte payloads, same cadence)"
+  ],
+  "status": "correlation perfect across six titles, causation disproved"
+ },
+ "05-04-discrimination-matrix": [
+  {
+   "input": "AC-3 5.1",
+   "joc_extension": "none",
+   "oamd": 0,
+   "joc": 0,
+   "damf_exit": 2
+  },
+  {
+   "input": "E-AC-3 5.1 no objects",
+   "joc_extension": "none",
+   "oamd": 0,
+   "joc": 0,
+   "damf_exit": 2
+  },
+  {
+   "input": "E-AC-3 2.0",
+   "joc_extension": "none",
+   "oamd": 0,
+   "joc": 0,
+   "damf_exit": 2
+  },
+  {
+   "input": "E-AC-3 JOC config 3",
+   "joc_extension": "flag true, complexity index 16",
+   "oamd": 976,
+   "joc": 976,
+   "damf_exit": 0
+  },
+  {
+   "input": "E-AC-3 JOC config 0",
+   "joc_extension": "flag true, complexity index 16",
+   "oamd": 1250,
+   "joc": 1250,
+   "damf_exit": 0
+  },
+  {
+   "input": "E-AC-3 7.1 core+dependent",
+   "joc_extension": "none",
+   "oamd": 0,
+   "joc": 0,
+   "damf_exit": 2
+  }
+ ],
+ "06-10-joc-coverage": {
+  "clips": 15,
+  "object_updates": 231645,
+  "dense": 231645,
+  "sparse": 0,
+  "fine_quantised": 231645,
+  "coarse_quantised": 0,
+  "steep_slope": 2760,
+  "two_data_points": 0,
+  "downmix_configs_seen": {
+   "3": 13,
+   "0": 2
+  },
+  "downmix_configs_absent": [
+   1,
+   2,
+   4
+  ]
+ },
+ "06-12-object-isolation": {
+  "clip": "clips/talktome-joc-head.ec3",
+  "objects": 16,
+  "max_object_vs_core_correlation": 0.545,
+  "pairs_over_0_9_ours": 31,
+  "pairs_over_0_9_dolby": 31,
+  "mean_abs_correlation_ours": 0.559,
+  "mean_abs_correlation_dolby": 0.559,
+  "max_matrix_delta": 0.0,
+  "conclusion": "high inter-object correlation is intrinsic to JOC (15 objects from 5 channels) and oadec reproduces Dolby's structure exactly"
+ },
+ "08-oamd-timing-vs-truehdd": {
+  "clip": "clips/pi-head50m.thd",
+  "events_oadec": 132,
+  "events_truehdd": 132,
+  "differing_events": 21,
+  "difference_histogram": {
+   "+32 samples": 21
+  },
+  "explanation": "clause 5.3.2 start_sample = sample_offset + 32 x block_offset_factor; truehdd omits the term",
+  "block_offset_histogram": {
+   "0": 2645,
+   "1": 661
+  }
+ },
+ "09-01-robustness": {
+  "truehd": {
+   "trials": 100,
+   "panics": 0,
+   "nonzero_exit": 95,
+   "flagged_exit0": 3,
+   "no_diagnostic": 2,
+   "verify_catches_the_undetected": 2
+  },
+  "joc": {
+   "trials": 120,
+   "panics": 0,
+   "nonzero_exit": 21,
+   "flagged_exit0": 0,
+   "no_diagnostic": 99,
+   "verify_catches_the_undetected": 99
+  }
+ },
+ "12-adm-output": {
+  "clip": "clips/talktome-head.thd",
+  "interpolation_length_values_seconds": [
+   0.0,
+   0.005208
+  ],
+  "fixed_constant_samples": 250,
+  "real_ramp_durations_samples": [
+   32,
+   1536
+  ],
+  "gain_elements": 0,
+  "importance_elements": 0
+ }
+}

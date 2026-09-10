@@ -1,0 +1,17 @@
+{
+ "trials": 100,
+ "panics": [],
+ "silent_accept": [
+  {
+   "offset": 36624,
+   "bit": 3
+  },
+  {
+   "offset": 288473,
+   "bit": 4
+  }
+ ],
+ "nonzero_exit": 95,
+ "flagged": 3,
+ "timeout": 0
+}
