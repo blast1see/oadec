@@ -105,6 +105,11 @@ enum Command {
         /// equipment"); the DAMF output needs no such marker.
         #[arg(long)]
         dolby_origin_tag: bool,
+        /// E-AC-3: write only the 5.1-compatible channels of the independent
+        /// substream instead of the whole programme, which is what a decoder
+        /// limited to 5.1 produces (clause E.2.8.2).
+        #[arg(long)]
+        core_only: bool,
         /// E-AC-3: substitute zeros instead of dither for zero-bit mantissas.
         #[arg(long)]
         no_dither: bool,
@@ -154,6 +159,11 @@ enum Command {
         /// Bytes to skip at the start of the reference (a container header).
         #[arg(long, default_value_t = 0)]
         reference_skip: u64,
+        /// E-AC-3: write only the 5.1-compatible channels of the independent
+        /// substream instead of the whole programme, which is what a decoder
+        /// limited to 5.1 produces (clause E.2.8.2).
+        #[arg(long)]
+        core_only: bool,
         /// E-AC-3: substitute zeros instead of dither for zero-bit mantissas.
         #[arg(long)]
         no_dither: bool,
@@ -292,6 +302,7 @@ fn main() -> ExitCode {
                 no_bed_conform,
                 all_events,
                 dolby_origin_tag,
+                core_only,
                 no_dither,
                 no_tpnp,
                 ecpl_spec,
@@ -320,6 +331,7 @@ fn main() -> ExitCode {
                     &eac3::DecodeOptions {
                         format,
                         order,
+                        core_only,
                         dither: !no_dither,
                         tpnp: !no_tpnp,
                         ecpl_full: ecpl_spec,
@@ -362,6 +374,7 @@ fn main() -> ExitCode {
                 keep_duplicates,
                 report,
                 reference_skip,
+                core_only,
                 no_dither,
                 no_tpnp,
                 ecpl_spec,
@@ -376,6 +389,7 @@ fn main() -> ExitCode {
                         ecpl_full: ecpl_spec,
                         report,
                         skip: reference_skip,
+                        core_only,
                         dither: !no_dither,
                         worst,
                     },

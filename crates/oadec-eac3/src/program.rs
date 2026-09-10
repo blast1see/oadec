@@ -12,7 +12,12 @@
 //! feeds — hangs off one enum, so the three can never disagree with each other
 //! the way three separate `match` ladders eventually do.
 
+use std::collections::{BTreeMap, VecDeque};
+
 use crate::bsi::Bsi;
+use crate::decoder::{Decoded, Decoder};
+use crate::error::Result;
+use crate::frame::Options;
 use crate::header::{FrameHeader, StreamType};
 use crate::tables::CHANNEL_ORDER;
 
@@ -302,7 +307,7 @@ pub fn chanmap_locations(chanmap: u16) -> Vec<ChannelLoc> {
 pub fn dependent_locations(
     header: &FrameHeader,
     bsi: &Bsi,
-) -> Result<DependentLocations, LocationError> {
+) -> core::result::Result<DependentLocations, LocationError> {
     if header.stream_type != StreamType::Dependent {
         if bsi.chanmap.is_some() {
             return Err(LocationError::NotDependent);
@@ -408,6 +413,462 @@ impl ProgramLayout {
     #[must_use]
     pub fn names(&self) -> Vec<&'static str> {
         self.channels.iter().map(|c| c.name()).collect()
+    }
+}
+
+/// The substream one part of a programme came from: `(strmtyp, substreamid)`.
+pub type SubstreamKey = (u8, u8);
+
+/// One decoded substream of a frame group.
+#[derive(Debug)]
+pub struct Part {
+    pub key: SubstreamKey,
+    /// The channels this substream carries, in its own coded order.
+    pub locations: Vec<ChannelLoc>,
+    /// The channel map named the full-bandwidth channels of a substream that
+    /// also carries an LFE, so the LFE was appended (see [`DependentLocations`]).
+    pub lfe_implied: bool,
+    pub decoded: Decoded,
+}
+
+/// One frame group: an independent substream and the dependent substreams that
+/// immediately followed it, merged into one programme frame.
+#[derive(Debug)]
+pub struct ProgramFrame {
+    /// Group index, counted from 0.
+    pub index: u64,
+    /// The programme's channels and where each is taken from.
+    pub layout: ProgramLayout,
+    /// The substreams of this group in bitstream order; `parts[0]` is the
+    /// independent one.
+    pub parts: Vec<Part>,
+    /// This group carried a different set of channels from the programme's, so
+    /// the ones it did not carry are silent.
+    pub layout_changed: bool,
+    /// Set only when `layout_changed`: the programme's channels materialised,
+    /// with silence where this group had nothing.
+    filled: Vec<Vec<f32>>,
+}
+
+impl ProgramFrame {
+    /// The independent substream of the group.
+    #[must_use]
+    pub fn core(&self) -> &Decoded {
+        &self.parts[0].decoded
+    }
+
+    /// Samples of programme channel `i`.
+    ///
+    /// Nothing is copied in the usual case: the merge is a permutation, so a
+    /// programme channel is a borrow of one substream's decoded channel.
+    #[must_use]
+    pub fn channel(&self, i: usize) -> &[f32] {
+        if self.layout_changed {
+            return &self.filled[i];
+        }
+        let (part, coded) = self.layout.sources[i];
+        &self.parts[part].decoded.pcm[coded]
+    }
+
+    /// Number of programme channels.
+    #[must_use]
+    pub fn channels(&self) -> usize {
+        self.layout.len()
+    }
+
+    /// Samples per channel.
+    #[must_use]
+    pub fn samples(&self) -> usize {
+        self.parts[0].decoded.header.samples()
+    }
+
+    /// The substream carrying the EMDF metadata (TS 103 420 clause 8.2): the
+    /// last dependent substream when the programme has one, else the
+    /// independent substream.
+    #[must_use]
+    pub fn metadata_part(&self) -> &Part {
+        self.parts
+            .iter()
+            .rev()
+            .find(|p| p.key.0 == StreamType::Dependent as u8)
+            .unwrap_or(&self.parts[0])
+    }
+}
+
+/// What a pass over the substreams of a programme found, beyond what the caller
+/// can see for itself in each [`Part`].
+#[derive(Debug, Default, Clone)]
+pub struct ProgramStats {
+    /// Frame groups emitted.
+    pub groups: u64,
+    /// Frames of a programme other than the selected one. Legal, and skipped
+    /// (clause E.2.8.3).
+    pub other_program_frames: u64,
+    /// Dependent frames with no independent substream before them.
+    pub orphan_dependents: u64,
+    /// Groups whose channel set differed from the programme's.
+    pub layout_changes: u64,
+    /// Dependent frames dropped because their block count or sample rate did
+    /// not match the independent substream (clause E.1.3.1.2).
+    pub misaligned: u64,
+    /// Channels dropped because the programme was already at sixteen.
+    pub over_capacity: u64,
+    /// Dependent frames whose channel map could not be read.
+    pub location_errors: u64,
+    /// Frames whose channel map left the LFE implied.
+    pub lfe_implied: u64,
+    /// Dependent frames whose channels did not reach the programme, for any
+    /// reason above.
+    pub dependent_dropped: u64,
+    /// Decode errors per substream.
+    pub decode_errors: BTreeMap<SubstreamKey, u64>,
+    pub first_error: Option<String>,
+}
+
+impl ProgramStats {
+    /// Whether every substream of the programme reached the output intact.
+    #[must_use]
+    pub fn is_clean(&self) -> bool {
+        self.orphan_dependents == 0
+            && self.layout_changes == 0
+            && self.misaligned == 0
+            && self.over_capacity == 0
+            && self.location_errors == 0
+            && self.dependent_dropped == 0
+            && self.decode_errors.values().all(|&n| n == 0)
+    }
+
+    fn note(&mut self, message: String) {
+        if self.first_error.is_none() {
+            self.first_error = Some(message);
+        }
+    }
+}
+
+/// One substream's decoder and the group each frame in flight belongs to.
+#[derive(Debug)]
+struct Sub {
+    key: SubstreamKey,
+    dec: Decoder,
+    /// Groups fed but not yet released, oldest first.
+    inflight: VecDeque<u64>,
+    /// Released frames with the group they belong to.
+    ready: VecDeque<(u64, Decoded)>,
+}
+
+/// A group being assembled or waiting for its substreams.
+#[derive(Debug)]
+struct GroupSlot {
+    index: u64,
+    /// Substream slots fed this group, in bitstream order.
+    members: Vec<usize>,
+    /// The slot of the independent substream, once it has been fed.
+    core: Option<usize>,
+}
+
+/// Decodes one programme of an Enhanced AC-3 stream: an independent substream
+/// and the dependent substreams that immediately follow it (clause E.2.8.2).
+///
+/// Frames go in in bitstream order and merged groups come out. Each substream
+/// keeps its own [`Decoder`], because a decoder holds per-substream state --
+/// the transform delay buffers, the noise generator, the enhanced-coupling
+/// synthesiser, a held frame, the transient pre-noise look-ahead -- none of
+/// which may be shared.
+///
+/// That last point is why a released frame carries its group index rather than
+/// being paired by arrival: enhanced coupling makes a decoder hold a frame
+/// back, and transient pre-noise processing holds samples back, so a substream
+/// using either releases a group later than one that does not. Pairing whatever
+/// came out of one decoder with whatever came out of another would misalign the
+/// programme the moment an encoder switched a tool on in the core and not in
+/// the dependent substream.
+#[derive(Debug)]
+pub struct ProgramDecoder {
+    opts: Options,
+    subs: Vec<Sub>,
+    slots: BTreeMap<SubstreamKey, usize>,
+    open: Option<GroupSlot>,
+    pending: VecDeque<GroupSlot>,
+    next_group: u64,
+    /// Substream id of the programme the frames now arriving belong to.
+    program: Option<u8>,
+    layout: Option<ProgramLayout>,
+    stats: ProgramStats,
+}
+
+impl ProgramDecoder {
+    #[must_use]
+    pub fn new(opts: Options) -> Self {
+        Self {
+            opts,
+            subs: Vec::new(),
+            slots: BTreeMap::new(),
+            open: None,
+            pending: VecDeque::new(),
+            next_group: 0,
+            program: None,
+            layout: None,
+            stats: ProgramStats::default(),
+        }
+    }
+
+    /// What the pass has found so far.
+    #[must_use]
+    pub fn stats(&self) -> &ProgramStats {
+        &self.stats
+    }
+
+    /// The programme's channel layout, once a group has been emitted.
+    #[must_use]
+    pub fn layout(&self) -> Option<&ProgramLayout> {
+        self.layout.as_ref()
+    }
+
+    fn slot_for(&mut self, key: SubstreamKey) -> usize {
+        if let Some(&s) = self.slots.get(&key) {
+            return s;
+        }
+        let s = self.subs.len();
+        self.subs.push(Sub {
+            key,
+            dec: Decoder::new(self.opts),
+            inflight: VecDeque::new(),
+            ready: VecDeque::new(),
+        });
+        self.slots.insert(key, s);
+        s
+    }
+
+    /// Feeds one syncframe, in bitstream order.
+    ///
+    /// A frame that will not decode is recorded and its substream reset, so a
+    /// broken dependent substream never costs the programme its core.
+    ///
+    /// # Errors
+    ///
+    /// Only from flushing a decoder after a failed frame.
+    pub fn push(&mut self, bytes: &[u8], header: &FrameHeader) -> Result<()> {
+        let key = (header.stream_type as u8, header.substream_id);
+        let dependent = header.stream_type == StreamType::Dependent;
+        // Dependent substreams immediately follow the independent substream
+        // they belong to (clause E.1.3.1.2), so bitstream order is what says
+        // which programme a dependent frame is part of.
+        if !dependent {
+            self.program = Some(header.substream_id);
+        }
+        if dependent && self.program.is_none() {
+            self.stats.orphan_dependents += 1;
+            self.stats
+                .note("a dependent substream before any independent one".to_string());
+            return Ok(());
+        }
+        if self.program != Some(0) {
+            self.stats.other_program_frames += 1;
+            return Ok(());
+        }
+        let slot = self.slot_for(key);
+        if !dependent {
+            if let Some(g) = self.open.take() {
+                self.pending.push_back(g);
+            }
+            self.open = Some(GroupSlot {
+                index: self.next_group,
+                members: Vec::new(),
+                core: Some(slot),
+            });
+            self.next_group += 1;
+        }
+        let Some(open) = self.open.as_mut() else {
+            return Ok(());
+        };
+        let group = open.index;
+        if !open.members.contains(&slot) {
+            open.members.push(slot);
+        }
+        let sub = &mut self.subs[slot];
+        sub.inflight.push_back(group);
+        match sub.dec.decode(bytes) {
+            Ok(Some(d)) => {
+                let at = sub.inflight.pop_front().unwrap_or(group);
+                sub.ready.push_back((at, d));
+            }
+            Ok(None) => {}
+            Err(e) => {
+                sub.inflight.pop_back();
+                *self.stats.decode_errors.entry(key).or_default() += 1;
+                let (t, id) = key;
+                let kind = if t == 1 { "dependent" } else { "independent" };
+                self.stats
+                    .note(format!("group {group}, {kind} substream {id}: {e}"));
+                while let Some(d) = sub.dec.flush()? {
+                    let at = sub.inflight.pop_front().unwrap_or(group);
+                    sub.ready.push_back((at, d));
+                }
+                sub.dec.reset();
+                // the failing frame is always the one just fed, and its group is
+                // still open, so dropping the slot from it stops `pop` waiting
+                // for a frame that will never arrive
+                if let Some(open) = self.open.as_mut() {
+                    open.members.retain(|&s| s != slot);
+                    if open.core == Some(slot) {
+                        open.core = None;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Closes the stream: drains every substream's look-ahead and closes the
+    /// open group. Call [`Self::pop`] in a loop afterwards.
+    ///
+    /// # Errors
+    ///
+    /// Only from flushing a decoder.
+    pub fn finish(&mut self) -> Result<()> {
+        for sub in &mut self.subs {
+            while let Some(d) = sub.dec.flush()? {
+                let at = sub.inflight.pop_front().unwrap_or(0);
+                sub.ready.push_back((at, d));
+            }
+        }
+        if let Some(g) = self.open.take() {
+            self.pending.push_back(g);
+        }
+        Ok(())
+    }
+
+    /// The next group whose every substream has arrived.
+    pub fn pop(&mut self) -> Option<ProgramFrame> {
+        loop {
+            let g = self.pending.front()?;
+            let ready = g.members.iter().all(|&s| {
+                self.subs[s]
+                    .ready
+                    .front()
+                    .is_some_and(|(gi, _)| *gi == g.index)
+            });
+            if !ready {
+                return None;
+            }
+            let g = self.pending.pop_front()?;
+            // a group whose independent substream failed produced no audio
+            let Some(core) = g.core else {
+                for &s in &g.members {
+                    self.subs[s].ready.pop_front();
+                }
+                continue;
+            };
+            if let Some(frame) = self.assemble(&g, core) {
+                self.stats.groups += 1;
+                return Some(frame);
+            }
+        }
+    }
+
+    fn assemble(&mut self, g: &GroupSlot, core: usize) -> Option<ProgramFrame> {
+        let mut parts: Vec<Part> = Vec::with_capacity(g.members.len());
+        for &s in &g.members {
+            let key = self.subs[s].key;
+            let (_, decoded) = self.subs[s].ready.pop_front()?;
+            if s != core {
+                let ch = &parts[0].decoded.header;
+                if decoded.header.blocks != ch.blocks
+                    || decoded.header.sample_rate != ch.sample_rate
+                {
+                    self.stats.misaligned += 1;
+                    self.stats.dependent_dropped += 1;
+                    let (_, id) = key;
+                    self.stats.note(format!(
+                        "group {}, dependent substream {id}: {} blocks at {} Hz against the independent substream's {} at {}",
+                        g.index, decoded.header.blocks, decoded.header.sample_rate, ch.blocks, ch.sample_rate
+                    ));
+                    continue;
+                }
+            }
+            match dependent_locations(&decoded.header, &decoded.bsi) {
+                Ok(l) => {
+                    if l.lfe_implied {
+                        self.stats.lfe_implied += 1;
+                    }
+                    parts.push(Part {
+                        key,
+                        locations: l.locations,
+                        lfe_implied: l.lfe_implied,
+                        decoded,
+                    });
+                }
+                Err(e) => {
+                    self.stats.location_errors += 1;
+                    self.stats.dependent_dropped += 1;
+                    let (_, id) = key;
+                    self.stats
+                        .note(format!("group {}, substream {id}: {e}", g.index));
+                }
+            }
+        }
+        if parts.is_empty() {
+            return None;
+        }
+        let mut layout = ProgramLayout::default();
+        for (i, part) in parts.iter().enumerate() {
+            let out = layout.merge(i, &part.locations);
+            if out.over_capacity > 0 {
+                self.stats.over_capacity += u64::try_from(out.over_capacity).unwrap_or(u64::MAX);
+                self.stats.dependent_dropped += 1;
+                self.stats.note(format!(
+                    "group {}: {} channels past the sixteen a programme may carry",
+                    g.index, out.over_capacity
+                ));
+            }
+        }
+        let programme = self.layout.get_or_insert_with(|| layout.clone());
+        let mut layout_changed = false;
+        let mut filled = Vec::new();
+        if programme.channels != layout.channels {
+            // The output width is fixed by the first group -- `decode` writes
+            // the WAVE header from it and only patches the length afterwards --
+            // so a group that carries a different set of channels is reported
+            // and silence-filled, never acted on.
+            self.stats.layout_changes += 1;
+            self.stats.note(format!(
+                "group {}: the programme changed from {:?} to {:?}",
+                g.index,
+                programme
+                    .channels
+                    .iter()
+                    .map(|c| c.name())
+                    .collect::<Vec<_>>(),
+                layout.channels.iter().map(|c| c.name()).collect::<Vec<_>>()
+            ));
+            layout_changed = true;
+            let samples = parts[0].decoded.header.samples();
+            filled = programme
+                .channels
+                .iter()
+                .map(|loc| {
+                    layout.channels.iter().position(|c| c == loc).map_or_else(
+                        || vec![0.0; samples],
+                        |i| {
+                            let (part, coded) = layout.sources[i];
+                            parts[part].decoded.pcm[coded].clone()
+                        },
+                    )
+                })
+                .collect();
+        }
+        let layout = if layout_changed {
+            programme.clone()
+        } else {
+            layout
+        };
+        Some(ProgramFrame {
+            index: g.index,
+            layout,
+            parts,
+            layout_changed,
+            filled,
+        })
     }
 }
 
