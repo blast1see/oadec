@@ -91,7 +91,16 @@
    }
   ],
   "what_it_is_not": "a cause. The mutation instrument is dead for TrueHD: the object path refuses any stream whose major sync was edited, whatever the edit says, including edits to fields that cannot be causal. This is a correlation on a hundred and ninety streams instead of six, which is worth more than the old one and is still a correlation",
-  "why_it_is_the_same_family_as_the_old_reading": "both are about whether the two-channel presentation carries control data of its own. The flag says whether to honour it; the dialogue norm is the value. On six titles the two moved together, which is why the flag looked perfect"
+  "why_it_is_the_same_family_as_the_old_reading": "both are about whether the two-channel presentation carries control data of its own. The flag says whether to honour it; the dialogue norm is the value. On six titles the two moved together, which is why the flag looked perfect",
+  "how_much_it_is_worth": {
+   "method": "rank every usable field by how many rows no partition of its values can classify. A field unrelated to the verdict leaves about as many as the smaller side has",
+   "twoch_dialogue_norm": 7,
+   "second_best_twoch_mix_level": 60,
+   "third_best_drc_start_up_gain": 61,
+   "median_of_84_fields": 89,
+   "a_field_that_says_nothing": 89,
+   "reading": "this is not one candidate among many, which is what the configuration-0 conjunction turned out to be. It is one field an order of magnitude clear of every other, on a set split 105 to 89 where chance has no room to produce it. Association, still not cause"
+  }
  },
  "no_field_splits_them": "over every field `info --json` reports -- and it now reports the channel meaning, which it did not before this sweep -- nothing takes disjoint values on the two sides. Nor does any pair: of the 3 486 pairs formable from the 84 fields that are neither counts nor near-unique, **none** splits them. Substream layout, extended substream info, flags, object count, mix level, sampling rate and major-sync cadence are distributed alike",
  "classification": "Dolby-tool-unsupported rather than spec-invalid or oadec-invalid. An output mode that opens 54 per cent of a catalogue's Atmos titles and refuses the rest, with no bitstream field separating them, is more plausibly a property of that mode than of the streams -- and two other decoders open all of them"
