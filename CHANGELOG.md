@@ -54,7 +54,12 @@ Semantic Versioning.
 
 - `oadec atmos-author`, which writes a Dolby Atmos master from a scene
   description so that a decode can be checked against authored metadata rather
-  than against another decoder. Dolby's `atmos_info` accepts the master; DEE
+  than against another decoder. A second scene settles object gain and object
+  size: Dolby's encoders carry neither. An object authored at -24 dB comes back
+  at the same level as one authored at 0 dB with gain 0 in its metadata, and a
+  sized object is spread over seven to eleven encoded objects with size 0 and
+  its energy within a decibel of what went in. `tools/ground_truth.py` reads
+  both fields back and measures the essence level. Dolby's `atmos_info` accepts the master; DEE
   encodes it both ways; seven static object positions come back exactly, at
   sample offset zero, through both TrueHD Atmos and E-AC-3 JOC.
 - `--core-only` on `decode` and `compare`, which writes the independent

@@ -545,6 +545,77 @@ streams, but the two-data-point steep branch still has no material and stays
 
 ---
 
+## Controlled ground truth, second round: object gain and object size
+
+The first round authored a scene, encoded it with Dolby's own encoder both ways
+and got seven static positions back exactly, at event offset zero. It named
+movement, gain, size and divergence as follow-ups. Two of those are now
+measured, and a third turns out not to be measurable through this pipeline at
+all.
+
+A second scene holds everything still except the two fields under test:
+`evidence/remediation/controlled-atmos-gain-size-scene.json`. Eight objects,
+each a tone at its own frequency so it can be identified from its audio, five
+of them point sources at 0, −3, −6, −12 and −24 dB and three of them at
+gain 0 with sizes 0,25, 0,5 and 1,0. The positions repeat the scene that
+already recovered exactly, so they are the control. `atmos_info --validate 1`
+accepts the master, exit 0.
+
+### Object gain does not survive the encoder
+
+| | authored | recovered metadata | essence level | total tone power |
+|---|---|---|---|---|
+| point source | gain 0 | gain 0 | as authored | −23,02 dBFS |
+| point source | gain −3 | **gain 0** | as authored | −23,02 dBFS |
+| point source | gain −6 | **gain 0** | as authored | −23,02 dBFS |
+| point source | gain −12 | **gain 0** | as authored | −23,02 dBFS |
+| point source | gain −24 | **gain 0** | as authored | −23,02 dBFS |
+
+The figures are the TrueHD encode; the E-AC-3 one agrees within 0,08 dB. The
+gain is not in the metadata and it is not in the audio: the object authored at −24 dB comes back at the same level as the one
+authored at 0. It is not this decoder dropping it either — `oadec emdf --dump 1`
+reads `gain Db(0)` straight out of the OAMD payload of the encoded stream,
+before any DAMF is written.
+
+### Object size is rendered into the spatial coding
+
+| authored size | elements carrying the tone | loudest element | total tone power against authored |
+|---|---:|---:|---:|
+| 0 (point source) | 1 | −23,02 dBFS | −0,01 dB |
+| 0,25 | 7 | −26,83 dBFS | −0,31 dB |
+| 0,5 | 8 | −28,39 dBFS | −0,61 dB |
+| 1,0 | 11 | −33,42 dBFS | −1,21 dB |
+
+The metadata comes back with size 0, but the energy is not lost: a sized object
+is spread over seven to eleven encoded objects where a point source needs one,
+and the total is within about a decibel of what went in. The element it is
+loudest in reports a position at the room edge rather than the authored one,
+which is what a spread across the room gives. So size is not carried; it is
+rendered, and the decoder is reading correctly what the encoder wrote.
+
+Neither is peculiar to authored material. Pi decoded from TrueHD and Disclosure
+decoded from E-AC-3 JOC carry gain 0 and size 0,0 on every object of every
+event, so nothing in the wild exercises these fields either.
+
+### Divergence cannot be authored at all
+
+OAMD carries `object_divergence` in the extended object element and oadec parses
+it. The Dolby Atmos Master Format has no divergence field, so a DAMF master
+cannot express one and this pipeline cannot produce a stream that carries it.
+It stays `N/T` for a reason that no amount of authoring will change: it needs a
+stream that already has it.
+
+### What this leaves
+
+The control holds in both codecs: five point sources, positions exact, event
+offset zero, one element each. `tools/ground_truth.py` now reads gain and size
+back and measures the essence level, so the same scene shape answers all three
+questions at once. Movement was measured in the first round and is unchanged:
+the encoder resamples a trajectory onto its own grid.
+`evidence/remediation/controlled-atmos-gain-size.json`.
+
+---
+
 ## The Dolby refusal, chased again
 
 Dolby's TrueHD decoder opens the object presentation on Pi, Talk to Me and
@@ -643,9 +714,12 @@ run that cannot reach the media now fails, and CI runs the check that it does.
   its data rates.
 - **EMDF in `auxdata`**, and **EMDF in a dependent substream**: both implemented
   and neither exercised, because no stream on hand carries either.
-- **Controlled movement, gain, size and divergence.** The authoring pipeline
-  works and the scene file is one edit away; only positions and timing were
-  measured this round.
+- **Controlled divergence**, which cannot be authored: DAMF has no field for it,
+  so the pipeline that settled positions, gain and size cannot reach it. It
+  needs a stream that already carries one, and none on hand does.
+- **Object gain and object size in the wild.** Both are dropped by Dolby's
+  encoders and neither appears in any real stream measured, so the decoder's
+  handling of a non-zero value is implemented and unexercised.
 - **EMDF protection words** are parsed and not verified, and cannot be:
   clause H.2.2.4.3 says "calculation of the value of the
   `protection_bits_primary` field is implementation dependent and is not

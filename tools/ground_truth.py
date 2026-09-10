@@ -119,6 +119,8 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--tolerance", type=float, default=0.05,
                     help="position tolerance in room units")
+    ap.add_argument("--size-tolerance", type=float, default=0.02,
+                    help="object size tolerance")
     a = ap.parse_args()
 
     scene = json.load(open(a.scene, encoding="utf-8"))
@@ -155,6 +157,12 @@ def main() -> int:
             # the nearest recovered event to the authored one
             near = min((e for e in seq), key=lambda e: abs(e.get("samplePos", 0) - ev["sample"]),
                        default=None)
+            # gain and size are metadata the renderer applies, so they are
+            # read back from the recovered state rather than from the audio
+            want_gain = ev.get("gain_db", 0)
+            got_gain = got.get("gain") if got else None
+            want_size = ev.get("size", 0.0)
+            got_size = got.get("size") if got else None
             checks.append({
                 "authored_sample": ev["sample"],
                 "authored_pos": ev["pos"],
@@ -164,6 +172,14 @@ def main() -> int:
                 "event_offset_samples": (None if near is None
                                          else near.get("samplePos", 0) - ev["sample"]),
                 "position_matches": bool(err is not None and err <= a.tolerance),
+                "authored_gain_db": want_gain,
+                "recovered_gain_db": got_gain,
+                "gain_matches": (None if got_gain is None
+                                 else abs(float(got_gain) - want_gain) < 0.5),
+                "authored_size": want_size,
+                "recovered_size": got_size,
+                "size_matches": (None if got_size is None
+                                 else abs(float(got_size) - want_size) <= a.size_tolerance),
             })
         # A moving object is judged differently, because the encoder is free to
         # resample a trajectory onto its own grid: what can be asked of the
@@ -184,6 +200,21 @@ def main() -> int:
                 c["encoder_time_shift_samples"] = near.get("samplePos", 0) - c["authored_sample"]
                 c["position_matches"] = err <= a.tolerance
         row["checks"] = checks
+        # The level of the decoded essence answers a separate question: whether
+        # the encoder left the gain in the metadata or applied it to the audio.
+        # The authored tone level is known, so the difference is the answer.
+        sig = obj["signal"]
+        if sig["kind"] == "tone":
+            x = objects_audio[:, ch]
+            rms = float(np.sqrt((x ** 2).mean()))
+            # a full-scale sine has an RMS of 1/sqrt(2)
+            level = (20 * np.log10(rms * np.sqrt(2)) if rms > 0 else float("-inf"))
+            row["authored_signal_dbfs"] = sig["dbfs"]
+            row["decoded_level_dbfs"] = round(level, 2)
+            row["level_minus_authored_db"] = round(level - sig["dbfs"], 2)
+            row["gain_is_in_the_audio"] = bool(
+                obj["events"][0].get("gain_db", 0) != 0
+                and abs(level - sig["dbfs"] - obj["events"][0]["gain_db"]) < 1.5)
         row["verdict"] = ("PASS" if all(c["position_matches"] for c in checks)
                           else "POSITION DIFFERS")
         row["static"] = len(obj["events"]) == 1
@@ -200,6 +231,8 @@ def main() -> int:
                   else c["position_error"]) is not None]
     shifts = [c["encoder_time_shift_samples"] for r in rows for c in r.get("checks", [])
               if c.get("encoder_time_shift_samples") is not None]
+    gains = [c for r in rows for c in r.get("checks", []) if c.get("gain_matches") is not None]
+    sizes = [c for r in rows for c in r.get("checks", []) if c.get("size_matches") is not None]
     summary = {
         "scene": a.scene,
         "decoded": str(base),
@@ -215,13 +248,27 @@ def main() -> int:
         "worst_position_error": None if not errors else max(errors),
         "event_offsets_samples": sorted(set(offsets)),
         "encoder_time_shift_samples": sorted(set(shifts)),
+        "gain_checks": len(gains),
+        "gain_recovered": sum(1 for c in gains if c["gain_matches"]),
+        "size_checks": len(sizes),
+        "size_recovered": sum(1 for c in sizes if c["size_matches"]),
+        "levels_minus_authored_db": sorted(
+            r["level_minus_authored_db"] for r in rows if "level_minus_authored_db" in r),
     }
     json.dump({"summary": summary, "objects": rows}, open(a.out, "w"), indent=1)
     print(json.dumps(summary, indent=1))
     for r in rows:
         print(f"  {r['authored'][:34]:34s} -> channel {r.get('decoded_channel')} "
               f"{r['verdict']}")
+        if "level_minus_authored_db" in r:
+            print(f"      essence {r['decoded_level_dbfs']:+.2f} dBFS, authored "
+                  f"{r['authored_signal_dbfs']:+.1f}, difference "
+                  f"{r['level_minus_authored_db']:+.2f} dB")
         for c in r.get("checks", []):
+            if c.get("recovered_gain_db") is not None or c.get("recovered_size") is not None:
+                print(f"      gain authored {c['authored_gain_db']} recovered "
+                      f"{c['recovered_gain_db']}; size authored {c['authored_size']} "
+                      f"recovered {c['recovered_size']}")
             if "closest_position_error" in c:
                 print(f"      authored {c['authored_pos']} at {c['authored_sample']:>7}: "
                       f"recovered {c['closest_recovered_pos']} at "
