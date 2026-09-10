@@ -1307,8 +1307,9 @@ byte-identical on every one, 212 527 200 element-samples with the same MD5.
   DEE can read, does not reach it either. It needs a stream that already carries
   one, and none on hand does.
 - **Object gain and object size in the wild.** Both are dropped by Dolby's
-  encoders and neither appears in any real stream measured, so the decoder's
-  handling of a non-zero value is implemented and unexercised.
+  encoders and neither appears in any real stream measured. The parse of a
+  non-zero value is unit-tested against hand-built payloads, including the reuse
+  and differential forms; what has never happened is a real stream carrying one.
 - **EMDF protection words** are parsed and not verified, and cannot be:
   clause H.2.2.4.3 says "calculation of the value of the
   `protection_bits_primary` field is implementation dependent and is not
