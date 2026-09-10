@@ -720,15 +720,38 @@ patched Pi reports nothing but the 84 trailing bytes the 50 MB cut already had,
 so the patch is clean. Clearing the flag turns an accepted title into a refused
 one, on both accepted titles tested.
 
-So `2ch_control_enabled` is **necessary and not sufficient**. Setting it on a
-refused title changes nothing, which is what the audit measured and why testing
-only that direction could not have found the necessity. The refused titles have
-at least one further reason, it is taken before any audio is decoded, and it is
-not in the major sync.
+That reading is **withdrawn.** It holds only if the decoder honours an edited
+major sync at all, and it does not.
+
+Four more fields were edited the same way, in every major sync of the same file,
+with the same CRC-16 repaired and `oadec verify` reporting the same nothing: the
+16-bit `reserved` field that no decoder should act on, `peak_data_rate` one unit
+lower, `variable_rate` from 1 to 0, and the `heavy_drc_start_up_gain` at the top
+of `channel_meaning`. **All four are refused**, exactly as clearing
+`2ch_control_enabled` is. None of them has anything to do with presentation
+availability.
+
+The refusal is specific to the object path, which is what makes it look like the
+real thing. The same edited streams decode at presentation 2, and at
+presentation 16 with the default channel configuration; only
+`out-ch-config=21` refuses. That is the shape all six titles show, and it is
+also the shape an edited stream shows.
+
+So the object path applies an integrity check over the major sync that ordinary
+decoding does not, and the defined CRC-16 is not it. What that leaves is the
+state before the correction: `2ch_control_enabled` is a perfect correlate across
+six titles with **no causal evidence in either direction**. The audit's own
+experiment — setting the flag on a refused title and seeing nothing change — is
+uninformative for the same reason.
+
+It is the third instrument to fail this way, after in-place rewriting of EMDF
+payloads. Any question about these titles that needs a controlled mutation is
+closed by that, not answered.
 
 None of this says oadec is wrong. oadec decodes all six; the three whose object
 output has never been confirmed are the three Dolby will not open in object
-mode. `evidence/remediation/presentation16-differential.json`.
+mode. `evidence/remediation/major-sync-rewrite-rejected.json`,
+`evidence/remediation/presentation16-differential.json`.
 
 ---
 
@@ -956,8 +979,10 @@ the two that hold the measurement flags.
   the sparse matrix carries there: our own dither's weight on that frame is
   61,70 dB against neighbours at 59,58 to 80,90 and a clip median of 59,38.
 - **The second reason Dolby refuses three titles.** `2ch_control_enabled` is
-  necessary and not sufficient; the rest is taken before any audio is decoded
-  and is not in the major sync.
+  a perfect correlate across six titles with no causal evidence either way. The
+  experiment that seemed to show necessity is confounded: the object path
+  refuses any stream whose major sync was edited, including in fields with no
+  bearing on presentations, so no controlled mutation can reach the question.
 - **Why Dolby refuses one configuration 0 stream and accepts another.** There is
   a control pair now: Snatch is given six channels and Dredd sixteen objects,
   and the two agree in every field this decoder parses -- frame header,

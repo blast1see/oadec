@@ -58,6 +58,14 @@ Semantic Versioning.
   finds five such tracks in the library and none at all at configurations 1
   and 2: `tools/joc_config_sweep.py`. Swapping the top front pair costs 29 dB, so the order is
   measured.
+- **A second instrument turned out not to reach Dolby's object decoder.** It
+  refuses any TrueHD stream whose major sync was edited, whatever the field:
+  reserved bits, the peak data rate, the variable-rate flag and the DRC start-up
+  gain all produce "Selected Dolby TrueHD presentation is not available" with
+  the defined CRC-16 repaired, while the same streams decode at presentation 2
+  and at presentation 16 with the default channel configuration. That withdraws
+  the conclusion that `2ch_control_enabled` is necessary for the object
+  presentation: clearing it refuses, but so does changing a DRC gain.
 - **`--no-dither`, `--no-tpnp` and `--ecpl-spec` reach the object path.**
   `decode --format damf` on an E-AC-3 stream built the core decoder with its
   defaults and ignored all three, so three measurement flags read as applied and

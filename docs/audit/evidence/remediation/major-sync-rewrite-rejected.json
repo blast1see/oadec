@@ -1,0 +1,52 @@
+{
+ "what": "Whether the Dolby TrueHD object path honours an edited major sync, which every presentation-16 experiment in this project assumed",
+ "utc": "2026-09-10T19:35:37.891509+00:00",
+ "commit": "955063b1c93d12303c39c86f6c3e640fcfd30993",
+ "why": "the remediation corrected the audit on 2ch_control_enabled by flipping the flag from 1 to 0 on two accepted titles and watching Dolby refuse them. That direction is only informative if the decoder honours an edited major sync at all. Nobody had checked, and the same assumption had just failed for EMDF payloads.",
+ "method": "one bit changed in every major sync of Pi's fifty-megabyte cut, the defined CRC-16 repaired, nothing else touched -- the same machinery as patch_2ch_ctrl.py, at a different bit offset. `oadec verify` reports 0 major sync CRC failures, 0 bad signatures and 0 substream faults on every variant, the same as the original.",
+ "fields_tried": [
+  {
+   "field": "2ch_control_enabled",
+   "bit": 150,
+   "where": "channel_meaning",
+   "object_path": "refused",
+   "source": "the earlier experiment"
+  },
+  {
+   "field": "reserved",
+   "bit": 96,
+   "where": "a field no decoder should act on",
+   "object_path": "refused"
+  },
+  {
+   "field": "peak_data_rate",
+   "bit": 127,
+   "where": "one unit lower, a legal value",
+   "object_path": "refused"
+  },
+  {
+   "field": "variable_rate",
+   "bit": 112,
+   "where": "1 to 0",
+   "object_path": "refused"
+  },
+  {
+   "field": "heavy_drc_start_up_gain",
+   "bit": 144,
+   "where": "channel_meaning, a DRC gain",
+   "object_path": "refused"
+  }
+ ],
+ "the_refusal_is_specific_to_the_object_path": {
+  "presentation_16_with_out_ch_config_21": "refused, \"Selected Dolby TrueHD presentation is not available\"",
+  "presentation_16_with_the_default_channel_configuration": "decoded",
+  "presentation_2": "decoded",
+  "reading": "the edited stream is not rejected as broken. Ordinary decoding takes it. Only the object output refuses, which is the same shape the six titles show: all of them decode at presentation 16 until out-ch-config 21 is asked for."
+ },
+ "consequence": {
+  "withdrawn": "\"2ch_control_enabled is necessary: clearing it turns an accepted title into a refused one\". Changing the DRC start-up gain does the same, and so does changing the peak data rate by one unit. The experiment cannot separate the field from the edit.",
+  "restored": "the state before that correction: the flag is a perfect correlate across six titles with no causal evidence in either direction. The audit's own experiment -- setting the flag on a refused title and seeing no change -- is equally uninformative, for the same reason.",
+  "what_is_new": "the object path applies an integrity check over the major sync that ordinary decoding does not, and the defined CRC-16 is not it: five different fields, four of them unrelated to presentations, all trip it with that CRC repaired.",
+  "instrument": "in-place rewriting of the TrueHD major sync joins in-place rewriting of EMDF payloads: both are usable against oadec and neither reaches the Dolby object decoder. Every question that needs one is closed by that."
+ }
+}
