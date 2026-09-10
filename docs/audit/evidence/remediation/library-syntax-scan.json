@@ -160,5 +160,25 @@
    }
   },
   "what_this_settles": "the 90-degree phase correction of configurations 3 and 4 was implemented for 3 and assumed to hold for 4, with the note \"no stream to test\". There is a stream now, and it holds."
+ },
+ "clause_8_2_is_exercised_at_last": {
+  "utc": "2026-09-10T19:25:56.390474+00:00",
+  "clause": "TS 103 420 clause 8.2: when dependent substreams exist, the EMDF container carrying the object metadata shall be in the last dependent substream of the bitstream",
+  "why_it_had_never_been_checked": "it needs a stream that has both a dependent substream and object metadata, and no stream measured before had both. The counter that reports a container found in the independent part while dependents exist was added as evidence and had nothing to report on.",
+  "material": "the configuration 4 streams: Green Book and Dangal, ten minutes each",
+  "measured": {
+   "green_book": {
+    "dependent_frames": 18750,
+    "containers": 18750,
+    "containers_in_independent_substream": 0
+   },
+   "dangal": {
+    "dependent_frames": 18750,
+    "containers": 18750,
+    "containers_in_independent_substream": 0
+   }
+  },
+  "reading": "every container is in the dependent substream, none in the independent one. The encoder agrees with the clause, and the placement rule is exercised rather than implemented and untested.",
+  "and_it_confirms_the_audit": "a decoder that filters dependent substreams out finds zero containers in these streams and therefore no objects at all. That is exactly what the audit predicted when it wrote that clause 8.2 puts the metadata in the last dependent substream and nothing was looking there."
  }
 }
