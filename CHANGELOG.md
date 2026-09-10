@@ -84,6 +84,20 @@ Semantic Versioning.
 
 ### Added
 
+- A third decoder's opinion, which is neither ours nor Dolby's. `truehdd` 0.6.1
+  opens the object presentation on all six TrueHD Atmos titles, including the
+  three Dolby's object path refuses, with the element counts oadec reports and
+  `.atmos.audio` files that carry the same MD5 -- 212 527 200 element-samples,
+  zero differing. That does not say why Dolby refuses, but it separates *Dolby
+  refuses these three* from *these three are not object programmes*. The
+  presentation-3 baseline now covers six titles rather than three.
+- A unit test for the OAMD event-timing equation of TS 103 420 clause 5.3.2,
+  `start_sample = sample_offset + 32 x block_offset_factor`, over seven
+  combinations. It is the one field whose value the two decoders disagree
+  about: `truehdd` drops the second term, which puts one event in five 32
+  samples early. Modulo the 1 536-sample codec frame the clause names, oadec's
+  event positions take four distinct residues over seven streams and
+  `truehdd`'s take seven, so the streams say the same thing the clause does.
 - `oadec atmos-author`, which writes a Dolby Atmos master from a scene
   description so that a decode can be checked against authored metadata rather
   than against another decoder. A second scene settles object gain and object
