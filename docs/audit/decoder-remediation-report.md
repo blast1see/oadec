@@ -540,6 +540,33 @@ So the remaining frame is an outlier of one. It is not sparse decoding, not
 steep decoding, not the two together, not a large offset and not dither.
 `evidence/remediation/sparse-settled.json`.
 
+### One check that does not need Dolby
+
+Everything above is a differential, and a differential cannot tell "this decoder
+is right" from "this decoder repeats the same mistake as the one it is compared
+with". There is one property of the answer that comes from the audio instead: an
+object's level is continuous across a frame boundary unless the content changes,
+and a matrix wrong for one frame makes it step.
+
+Decoding the settled clip twice, once under each reading, and measuring that
+step 256 samples either side of every boundary:
+
+| | sparse boundaries (95) | worst | every other boundary (403) |
+|---|---:|---:|---:|
+| the reading in use | 1,54 dB | 4,22 dB | 1,81 dB |
+| as clause 6.6.2 prints it | 1,73 dB | **8,02 dB** | 1,81 dB |
+
+The other boundaries are the control and are identical between the two decodes,
+because the reading touches only sparse frames. Under the reading in use the
+sparse boundaries are quieter than the ordinary ones; under the printed reading
+they are noisier and the worst is nearly twice as big. Three smaller clips point
+the same way, Red Notice most clearly at 2,60 against 4,59.
+
+This is worth much less than the 50 dB the corrections are worth against Dolby,
+and it answers something that measurement cannot. The effect is small — a fifth
+of a decibel in the median — because most objects at a sparse boundary are not
+badly affected either way. `evidence/remediation/sparse-continuity.json`.
+
 ### There is no outlier
 
 The frame is Extraction (2020) frame 63325 — not Glass Onion, whose sparse
