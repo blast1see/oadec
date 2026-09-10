@@ -392,8 +392,8 @@
   "note": "from evidence/remediation/joc-syntax-coverage.json: 2,3 per cent of all object updates in 31 JOC streams"
  },
  "summary": {
-  "titles_with_steep_objects": 5,
-  "improved": 3,
+  "titles_with_steep_objects": 6,
+  "improved": 4,
   "unchanged": 6,
   "regressed": 0,
   "best_single_frame": {
@@ -486,5 +486,21 @@
    "verdict": "NOT MEASURED",
    "why": "the Dolby reference for this stream could not be aligned with our twelve object channels -- worst 8,78 dB under both readings, identical, which is a comparison that has not found the right pairing rather than a decoder result. Recorded so that nobody reads a conclusion out of it."
   }
+ },
+ "a_sixth_title_from_another_source": {
+  "utc": "2026-09-10T19:28:54.296726+00:00",
+  "why": "the five titles behind this correction are disc remuxes and streaming rips of one encoder family. The streaming collection carries 2 451 570 steep objects of its own, and a clip of Extraction 2 is dense with them",
+  "clip": "Extraction 2 (2023), frames 153 100 to 153 500 of its first Dolby track",
+  "as_printed": {
+   "objects_worst_sdr_db": 21.74,
+   "objects_median_sdr_db": 27.11,
+   "corr_structure_max_abs_delta": 0.0023
+  },
+  "measured": {
+   "objects_worst_sdr_db": 30.3,
+   "objects_median_sdr_db": 36.7,
+   "corr_structure_max_abs_delta": 0.001
+  },
+  "reading": "better on every measure: 8,6 dB on the worst object, 9,6 on the median, and the inter-object correlation structure halved. The absolute figures are lower than the other titles because the clip is also dense with sparse and coarse objects; the comparison that matters is between the two readings of the same clip."
  }
 }

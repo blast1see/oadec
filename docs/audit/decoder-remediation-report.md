@@ -525,9 +525,12 @@ twice from the same binary, once with `--steep-as-printed` and once without,
 and both are compared per object against Dolby's object decoder in the window
 `tools/objcmp.py` already used.
 
-Nine titles. Five carry steep objects; four are the negative control and are
+Ten titles. Six carry steep objects; four are the negative control and are
 bit-identical under the two readings, because a stream with no steep object
-cannot reach the code that changed.
+cannot reach the code that changed. The sixth came last, from the streaming
+collection: an Extraction 2 clip carrying 1 020 steep objects, a different
+encoder generation from the disc remuxes, better on every measure and with its
+inter-object correlation structure halved.
 
 | Title | Steep objects | Worst, as printed | Worst, corrected | Median |
 |---|---:|---:|---:|---|
@@ -536,6 +539,7 @@ cannot reach the code that changed.
 | Shaun of the Dead | 30 | 40,75 dB | **43,62 dB** | 46,79 → 53,79 |
 | Red Notice | 105 | 36,21 dB | 36,21 dB | unchanged |
 | Extraction | 30 | 50,51 dB | 50,51 dB | unchanged |
+| Extraction 2 | 1 020 | 21,74 dB | **30,30 dB** | 27,11 → 36,70 |
 
 The Jackal came last, from the sweep that measured which outputs the corrections
 changed: it carries more steep objects than any title measured before it and had

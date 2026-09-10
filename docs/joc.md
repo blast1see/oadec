@@ -112,9 +112,10 @@ that the decoder relies on. Clause numbers refer to that document.
   one slot too many. Dolby's decoder switches at the slot the offset names,
   which is `ts < joc_offset_ts - 1`.
 
-  Measured against Dolby's object decoder on nine titles. Five carry steep
+  Measured against Dolby's object decoder on ten titles. Six carry steep
   objects; four are the negative control and are bit-identical either way,
-  because the reading cannot reach a stream that has none.
+  because the reading cannot reach a stream that has none. The sixth is a
+  streaming encode rather than a disc remux.
 
   | title | steep objects | worst, as printed | worst, corrected | median |
   |---|---:|---:|---:|---|
@@ -123,6 +124,7 @@ that the decoder relies on. Clause numbers refer to that document.
   | Shaun of the Dead | 30 | 40,75 dB | **43,62 dB** | 46,79 → 53,79 |
   | Red Notice | 105 | 36,21 dB | 36,21 dB | unchanged |
   | Extraction | 30 | 50,51 dB | 50,51 dB | unchanged |
+  | Extraction 2 | 1 020 | 21,74 dB | **30,30 dB** | 27,11 → 36,70 |
 
   Per frame it is sharper still: of Glass Onion's 13 frames with steep
   objects, four were damaged and nine were already right — 33,82 → 63,29 and
