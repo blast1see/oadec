@@ -175,9 +175,13 @@ enum Command {
     Eac3Blocks {
         /// Raw E-AC-3 (.ec3/.eac3/.ac3) elementary stream.
         file: PathBuf,
-        /// Index of the decoded frame (independent substream 0).
+        /// Index of the frame group (an independent substream and the
+        /// dependent substreams that follow it), counted from 0.
         #[arg(long)]
         frame: u64,
+        /// Which substream of the group: 0 is the independent one.
+        #[arg(long, default_value_t = 0)]
+        part: usize,
     },
     /// Split a Blu-ray audio dump that interleaves TrueHD access units with
     /// the AC-3 core frames of the same track into the two streams.
@@ -397,8 +401,8 @@ fn main() -> ExitCode {
                     ExitCode::from(EXIT_NONCONFORMANT)
                 }
             }),
-            Command::Eac3Blocks { file, frame } => {
-                eac3::blocks(&file, frame).map(|()| ExitCode::SUCCESS)
+            Command::Eac3Blocks { file, frame, part } => {
+                eac3::blocks(&file, frame, part).map(|()| ExitCode::SUCCESS)
             }
             Command::ThdDemux { file, output, core } => {
                 thd_demux::run(&file, &output, core.as_deref()).map(|()| ExitCode::SUCCESS)

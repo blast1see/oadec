@@ -413,6 +413,30 @@ fn merge(into: &mut Coverage, c: &Coverage) {
     into.rematrixing |= c.rematrixing;
 }
 
+/// What one substream of a programme carried, for the substreams that are
+/// parsed but whose audio does not reach the output.
+#[derive(Debug, Default)]
+struct SubStats {
+    frames: u64,
+    decode_errors: u64,
+    crc_failures: u64,
+    tail_overruns: u64,
+    /// Smallest and largest number of bits of a frame the parser left unread.
+    /// A well-formed frame is consumed nearly to its end, so a systematic
+    /// misparse of syntax that has never run shows up here as wild or negative
+    /// slack long before it shows up as bad audio.
+    slack_bits: Option<(i64, i64)>,
+    first_error: Option<String>,
+    header: Option<FrameHeader>,
+    /// Channel locations, from the custom channel map or from `acmod`.
+    locations: Vec<ChannelLoc>,
+    /// Every distinct `chanmap` seen, so a mid-stream change is visible.
+    chanmaps: BTreeMap<u16, u64>,
+    location_errors: u64,
+    lfe_implied: u64,
+    first_location_error: Option<String>,
+}
+
 /// Summary of a full pass over a stream.
 #[derive(Debug, Default)]
 struct Pass {
@@ -420,6 +444,16 @@ struct Pass {
     independent: u64,
     dependent: u64,
     substreams: BTreeMap<(u8, u8), u64>,
+    /// The substreams that were parsed but not merged into the output, keyed
+    /// by `(strmtyp, substreamid)`.
+    subs: BTreeMap<(u8, u8), SubStats>,
+    /// Dependent substream frames of the selected programme that were seen and
+    /// whose channels did not reach the output.
+    dependent_dropped: u64,
+    /// Frames belonging to a second programme, which is legal and is skipped.
+    other_program_frames: u64,
+    /// Dependent frames with no independent substream before them.
+    orphan_dependents: u64,
     samples: u64,
     decode_errors: u64,
     crc_failures: u64,
@@ -443,8 +477,70 @@ struct Pass {
     clipgains: Vec<(u64, f64)>,
 }
 
-/// Decodes every frame of independent substream 0 (parsing the others) and
-/// collects statistics; `on_pcm` receives the decoded frames in order.
+/// Decodes a substream of the programme whose audio does not reach the output,
+/// and folds what it finds into [`SubStats`].
+///
+/// The point is the bit slack. Clause E.1.3.1 syntax that only dependent
+/// substreams carry -- `chanmape`, `chanmap`, and the branches guarded on
+/// `strmtyp` -- has never run on real material, because the filter this
+/// replaces sat before the frame was parsed at all. A single bit wrong there
+/// does not give a slightly wrong frame: `Frame::parse` seeks the audio blocks
+/// to the bit position the `bsi` ended at, so the whole frame is misread, and
+/// the frame CRC will not catch it because the CRC is over the bytes and never
+/// touches the parse. Bit slack does catch it.
+fn account_sub(sub: &mut SubStats, index: u64, header: &FrameHeader, d: &Decoded) {
+    sub.frames += 1;
+    if sub.header.is_none() {
+        sub.header = Some(d.header.clone());
+    }
+    let slack = (header.frame_bytes as i64) * 8 - d.used_bits as i64;
+    sub.slack_bits = Some(match sub.slack_bits {
+        None => (slack, slack),
+        Some((lo, hi)) => (lo.min(slack), hi.max(slack)),
+    });
+    if !d.crc_ok {
+        sub.crc_failures += 1;
+        if sub.first_error.is_none() {
+            sub.first_error = Some(format!("frame {index}: CRC failure"));
+        }
+    }
+    if d.tail_overrun {
+        sub.tail_overruns += 1;
+        if sub.first_error.is_none() {
+            sub.first_error = Some(format!(
+                "frame {index}: the audio blocks end inside the frame tail"
+            ));
+        }
+    }
+    if let Some(m) = d.bsi.chanmap {
+        *sub.chanmaps.entry(m).or_default() += 1;
+    }
+    match oadec_eac3::dependent_locations(&d.header, &d.bsi) {
+        Ok(l) => {
+            if l.lfe_implied {
+                sub.lfe_implied += 1;
+            }
+            if sub.locations.is_empty() {
+                sub.locations = l.locations;
+            }
+        }
+        Err(e) => {
+            sub.location_errors += 1;
+            if sub.first_location_error.is_none() {
+                sub.first_location_error = Some(format!("frame {index}: {e}"));
+            }
+        }
+    }
+}
+
+/// Decodes every frame of independent substream 0 and collects statistics;
+/// `on_pcm` receives the decoded frames in order.
+///
+/// The dependent substreams of that programme are decoded too, but only so
+/// their integrity and their channel map can be reported: their audio is
+/// counted as dropped, not merged. A second programme -- another independent
+/// substream and the dependents that follow it -- is counted and skipped,
+/// which clause E.2.8.3 allows.
 fn pass(
     path: &Path,
     opts: Options,
@@ -453,15 +549,60 @@ fn pass(
     let mut decoder = Decoder::new(opts);
     let mut p = Pass::default();
     let mut pending: std::collections::VecDeque<u64> = std::collections::VecDeque::new();
+    // one decoder per substream that is parsed but not merged
+    let mut side: BTreeMap<(u8, u8), (Decoder, std::collections::VecDeque<u64>)> = BTreeMap::new();
+    // the substream id of the programme the frames now arriving belong to
+    let mut program: Option<u8> = None;
     let (frames, sync_errors, skipped) = for_each_frame(path, |_offset, bytes, header| {
         let key = (header.stream_type as u8, header.substream_id);
         *p.substreams.entry(key).or_default() += 1;
+        let dependent = header.stream_type == oadec_eac3::StreamType::Dependent;
         match header.stream_type {
             oadec_eac3::StreamType::Dependent => p.dependent += 1,
             _ => p.independent += 1,
         }
-        // only independent substream 0 is decoded
-        if header.stream_type == oadec_eac3::StreamType::Dependent || header.substream_id != 0 {
+        // Dependent substreams immediately follow the independent substream
+        // they belong to (clause E.1.3.1.2), so bitstream order is what says
+        // which programme a dependent frame is part of.
+        if !dependent {
+            program = Some(header.substream_id);
+        }
+        if dependent && program.is_none() {
+            p.orphan_dependents += 1;
+            return Ok(());
+        }
+        if program != Some(0) {
+            p.other_program_frames += 1;
+            return Ok(());
+        }
+        if dependent {
+            p.dependent_dropped += 1;
+            let index = p.subs.entry(key).or_default().frames;
+            let (dec, q) = side
+                .entry(key)
+                .or_insert_with(|| (Decoder::new(opts), std::collections::VecDeque::new()));
+            q.push_back(index);
+            let header = header.clone();
+            match dec.decode(bytes) {
+                Ok(Some(d)) => {
+                    let at = q.pop_front().unwrap_or(index);
+                    account_sub(p.subs.entry(key).or_default(), at, &header, &d);
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    q.pop_back();
+                    let sub = p.subs.entry(key).or_default();
+                    sub.decode_errors += 1;
+                    if sub.first_error.is_none() {
+                        sub.first_error = Some(format!("frame {index}: {e}"));
+                    }
+                    while let Some(d) = dec.flush()? {
+                        let at = q.pop_front().unwrap_or(index);
+                        account_sub(p.subs.entry(key).or_default(), at, &header, &d);
+                    }
+                    dec.reset();
+                }
+            }
             return Ok(());
         }
         let index = p.frames;
@@ -494,6 +635,14 @@ fn pass(
     while let Some(d) = decoder.flush()? {
         let at = pending.pop_front().unwrap_or(p.frames);
         account(&mut p, at, &d, &mut on_pcm)?;
+    }
+    for (key, (dec, q)) in &mut side {
+        while let Some(d) = dec.flush()? {
+            let index = p.subs.entry(*key).or_default().frames;
+            let at = q.pop_front().unwrap_or(index);
+            let header = d.header.clone();
+            account_sub(p.subs.entry(*key).or_default(), at, &header, &d);
+        }
     }
     let _ = frames;
     Ok((p, sync_errors, skipped))
@@ -590,6 +739,60 @@ fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
         && p.emdf.oamd_errors == 0
         && p.emdf.joc_errors == 0
         && p.emdf.joc_size_mismatch == 0
+        // A dependent substream that was seen and whose channels did not reach
+        // the output means the programme was truncated, whatever the frames
+        // that did decode looked like. A second programme is legal and is not
+        // counted here.
+        && p.dependent_dropped == 0
+        && p.orphan_dependents == 0
+        && p.subs.values().all(|s| {
+            s.decode_errors == 0
+                && s.crc_failures == 0
+                && s.tail_overruns == 0
+                && s.location_errors == 0
+        })
+}
+
+/// One line per substream of the selected programme, in bitstream order:
+/// what it codes, what its channels are, and whether they reached the output.
+fn program_parts(p: &Pass, h: &FrameHeader) -> Vec<Value> {
+    let mut parts = vec![json!({
+        "substream": "independent 0",
+        "syntax": syntax_name(h),
+        "acmod": h.acmod,
+        "lfeon": h.lfeon,
+        "chanmap": Value::Null,
+        "channels": Decoder::channel_names(h),
+        "frames": p.frames,
+        "merged": true,
+        "bit_rate": h.bit_rate(),
+        "crc_failures": p.crc_failures,
+        "decode_errors": p.decode_errors,
+        "tail_overruns": p.tail_overruns,
+    })];
+    for ((t, id), sub) in &p.subs {
+        let sh = sub.header.as_ref();
+        parts.push(json!({
+            "substream": format!("{} {id}", if *t == 1 { "dependent" } else { "independent" }),
+            "syntax": sh.map(syntax_name),
+            "acmod": sh.map(|h| h.acmod),
+            "lfeon": sh.map(|h| h.lfeon),
+            "chanmap": sub.chanmaps.keys().map(|m| format!("0x{m:04x}")).collect::<Vec<_>>(),
+            "channels": sub.locations.iter().map(|c| c.name()).collect::<Vec<_>>(),
+            "frames": sub.frames,
+            "merged": false,
+            "bit_rate": sh.map(oadec_eac3::FrameHeader::bit_rate),
+            "crc_failures": sub.crc_failures,
+            "decode_errors": sub.decode_errors,
+            "tail_overruns": sub.tail_overruns,
+            "location_errors": sub.location_errors,
+            "lfe_implied": sub.lfe_implied,
+            "unread_bits": sub.slack_bits.map(|(lo, hi)| json!([lo, hi])),
+            "first_error": sub.first_error,
+            "first_location_error": sub.first_location_error,
+        }));
+    }
+    parts
 }
 
 fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64, json: bool) {
@@ -630,7 +833,15 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "oamd_errors": e.oamd_errors,
                 "joc_errors": e.joc_errors,
                 "joc_size_mismatches": e.joc_size_mismatch,
+                "dependent_dropped": p.dependent_dropped,
+                "orphan_dependents": p.orphan_dependents,
+                "substream_decode_errors": p.subs.values().map(|s| s.decode_errors).sum::<u64>(),
+                "substream_crc_failures": p.subs.values().map(|s| s.crc_failures).sum::<u64>(),
+                "substream_tail_overruns": p.subs.values().map(|s| s.tail_overruns).sum::<u64>(),
+                "substream_location_errors": p.subs.values().map(|s| s.location_errors).sum::<u64>(),
             },
+            "program": program_parts(p, h),
+            "other_program_frames": p.other_program_frames,
             "coverage": coverage_list(&p.coverage),
             "aht_frames": p.aht_frames,
             "spx_frames": p.spx_frames,
@@ -732,6 +943,72 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             .collect::<Vec<_>>()
             .join(", ")
     );
+    if !p.subs.is_empty() {
+        println!(
+            "Programme:         independent 0: {} acmod {}{}, {} kbit/s -> {}, {} frames",
+            syntax_name(h),
+            h.acmod,
+            if h.lfeon { " + LFE" } else { "" },
+            h.bit_rate() / 1000,
+            names.join(" "),
+            p.frames
+        );
+        for ((t, id), sub) in &p.subs {
+            let kind = if *t == 1 { "dependent" } else { "independent" };
+            let map = sub
+                .chanmaps
+                .keys()
+                .map(|m| format!("chanmap 0x{m:04x}"))
+                .collect::<Vec<_>>()
+                .join(" then ");
+            let chans = sub
+                .locations
+                .iter()
+                .map(|c| c.name())
+                .collect::<Vec<_>>()
+                .join(" ");
+            println!(
+                "                   {kind} {id}: {} acmod {}{}{} -> {}",
+                sub.header.as_ref().map_or("?", |h| syntax_name(h)),
+                sub.header.as_ref().map_or(0, |h| h.acmod),
+                sub.header
+                    .as_ref()
+                    .map_or("", |h| if h.lfeon { " + LFE" } else { "" }),
+                if map.is_empty() {
+                    String::new()
+                } else {
+                    format!(", {map}")
+                },
+                if chans.is_empty() { "?" } else { &chans }
+            );
+            let slack = sub
+                .slack_bits
+                .map_or_else(|| "-".to_string(), |(lo, hi)| format!("{lo} to {hi}"));
+            println!(
+                "                     {} frames NOT MERGED, {} CRC failures, {} decode errors, {} bits unread",
+                sub.frames, sub.crc_failures, sub.decode_errors, slack
+            );
+            if sub.location_errors > 0 {
+                println!(
+                    "                     {} channel map errors, first {}",
+                    sub.location_errors,
+                    sub.first_location_error.as_deref().unwrap_or("-")
+                );
+            }
+            if sub.lfe_implied > 0 {
+                println!(
+                    "                     {} frames whose channel map left the LFE implied",
+                    sub.lfe_implied
+                );
+            }
+        }
+    }
+    if p.other_program_frames > 0 {
+        println!(
+            "Other programmes:  {} frames skipped (only the first independent substream is decoded)",
+            p.other_program_frames
+        );
+    }
     println!(
         "Dialnorm:          {}",
         p.dialnorm
@@ -1011,26 +1288,42 @@ pub struct CompareOptions {
     pub worst: usize,
 }
 
-/// Prints the side information of every block of frame `index` (decoded
-/// frames of independent substream 0 are counted from 0).
-pub fn blocks(path: &Path, index: u64) -> Result<()> {
-    let mut count = 0u64;
+/// Prints the side information of every block of one substream of frame group
+/// `index`.
+///
+/// Groups are counted from 0 and are what clause E.1.3.1.2 describes: an
+/// independent substream and the dependent substreams that immediately follow
+/// it. `part` selects within the group, 0 being the independent substream, so
+/// `--part 1` reads the dependent substream of a 7.1 stream, which is the only
+/// way to check a `bsi` path by hand.
+pub fn blocks(path: &Path, index: u64, part: usize) -> Result<()> {
+    let mut group = 0u64;
+    let mut in_group = 0usize;
+    let mut started = false;
     let mut found = false;
     for_each_frame(path, |offset, bytes, header| {
-        if found
-            || header.stream_type == oadec_eac3::StreamType::Dependent
-            || header.substream_id != 0
-        {
+        if found {
             return Ok(());
         }
-        if count != index {
-            count += 1;
+        if header.stream_type == oadec_eac3::StreamType::Dependent {
+            if !started {
+                return Ok(());
+            }
+            in_group += 1;
+        } else {
+            if started {
+                group += 1;
+            }
+            started = true;
+            in_group = 0;
+        }
+        if group != index || in_group != part {
             return Ok(());
         }
         found = true;
         let mut noise = oadec_eac3::Noise::default();
         println!(
-            "frame {index} at byte {offset}: {} bytes, {:?}",
+            "group {index} part {part} at byte {offset}: {} bytes, {:?}",
             header.frame_bytes, header
         );
         let blocks = match oadec_eac3::Frame::parse_partial(bytes, &mut noise, Options::default()) {
@@ -1086,7 +1379,7 @@ pub fn blocks(path: &Path, index: u64) -> Result<()> {
         Ok(())
     })?;
     if !found {
-        bail!("frame {index} not found ({count} decodable frames)");
+        bail!("group {index} part {part} not found");
     }
     Ok(())
 }
