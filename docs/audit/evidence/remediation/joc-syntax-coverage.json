@@ -221,5 +221,67 @@
    4
   ],
   "auxdata_carriage": "0 frames across 49 streams"
+ },
+ "controlled_generation": {
+  "what": "Can the encoder be made to emit the syntax no real stream uses?",
+  "utc": "2026-09-10T11:04:57.086979+00:00",
+  "encoder": "Dolby Encoding Engine 5.2.1, encode_to_atmos_ddp, from the controlled Atmos master",
+  "data_rate_sweep": {
+   "rates_kbits": [
+    384,
+    448,
+    576,
+    640,
+    768,
+    1024
+   ],
+   "downmix_config": {
+    "384": 3,
+    "448": 3,
+    "576": 3,
+    "640": 3,
+    "768": 3,
+    "1024": 3
+   },
+   "objects": {
+    "384": 11,
+    "448": 15,
+    "576": 15,
+    "640": 15,
+    "768": 15,
+    "1024": 15
+   },
+   "two_data_points": {
+    "384": 0,
+    "448": 0,
+    "576": 0,
+    "640": 0,
+    "768": 0,
+    "1024": 0
+   },
+   "coarse_objects": {
+    "384": 0,
+    "448": 15,
+    "576": 15,
+    "640": 15,
+    "768": 15,
+    "1024": 15
+   },
+   "reading": "Every rate gives downmix configuration 3 and one data point. The data rate is the only lever the encoder offers -- its XML has no core-layout or downmix-configuration option at all -- so configurations 1, 2 and 4 cannot be manufactured with the tools on hand."
+  },
+  "fast_movement": {
+   "scene": "docs/audit/evidence/remediation/controlled-atmos-fast-scene.json",
+   "what": "Five objects moving in a circle, one step every half, third, quarter, one and two frames, plus three still ones as controls. Two data points per frame exist for objects that move faster than one update per frame, so this is what should provoke them.",
+   "result": {
+    "two_data_points": 0,
+    "interpolation_branches": {
+     "smooth-1": 4680,
+     "steep-1": 15
+    },
+    "downmix_config": 3
+   },
+   "reading": "Zero. DEE writes one data point per frame even for an object that moves four times within one. The two-data-point branches cannot be reached from this encoder either."
+  },
+  "what_is_left": "For smooth-2 and steep-2 the only evidence available is a unit test against the printed pseudo-code, which proves the implementation matches clause 6.6.5 and not that Dolby agrees with clause 6.6.5. `every_interpolation_branch_matches_pseudocode_6` in oadec-joc restates pseudo-code 6 independently and reads the interpolated matrix back through `reconstruct` with a unit impulse, checking all four branches at every time slot, every channel and three subbands. They stay N/T."
  }
 }
