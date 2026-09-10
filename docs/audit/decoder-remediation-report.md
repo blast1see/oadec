@@ -682,7 +682,8 @@ whole-clip figure with them, while here the figure *is* the steady state.
 Unanimous either way, and it is now a media test: the reading in use must beat
 the printed one by at least a decibel on every element carrying audio, and
 swapping the two makes it fail at element 1 with 38,08 against 43,45.
-`evidence/remediation/steep-authored-material.json`.
+`evidence/remediation/steep-authored-material.json`, with the scene it was
+authored from in `evidence/remediation/controlled-atmos-onset-scene.json`.
 
 Two things that scene could not be made to produce. **Sparse matrices**: not at
 any of the six data rates, not from eight point sources parked exactly on the
@@ -1019,7 +1020,8 @@ and not oadec-invalid. An output mode that opens 54 per cent of a catalogue's
 Atmos titles and refuses the rest, with no bitstream field separating them and
 two other decoders opening all of them, is more plausibly a property of that
 mode than of the streams.
-`evidence/remediation/truehd-object-sweep.json`.
+`evidence/remediation/truehd-object-sweep.json`, and the field-by-field pass
+itself in `evidence/remediation/truehd-object-sweep-split.json`.
 
 ---
 
