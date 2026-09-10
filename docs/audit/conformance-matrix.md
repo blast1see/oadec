@@ -26,7 +26,7 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | Substream parity and CRC-8 | Dolby | `oadec-truehd/src/segment.rs:143`, `:144` | flipped bit at offset 6 000 000 gives 1 parity + 1 CRC failure | PASS |
 | Restart header and its CRC-8 | Dolby | `oadec-truehd/src/restart.rs:57`, `:152` | fatal on mismatch; exercised by fuzz | PASS |
 | Lossless reconstruction, presentation 2 | lossless by definition | `oadec-truehd/src/decoder.rs` | 40 606 400 samples against FFmpeg, 0 differing | PASS |
-| Lossless reconstruction, presentation 3 | lossless by definition | same | 60 909 600 samples against `truehdd`, 0 differing | PASS |
+| Lossless reconstruction, presentation 3 | lossless by definition | same | 60 909 600 samples against `truehdd` on three titles, 0 differing; and 212 527 200 element-samples across all six with the same MD5 on every `.atmos.audio`; `evidence/remediation/truehdd-second-opinion.json` | PASS |
 | Lossless check word | Dolby | `oadec-truehd/src/decoder.rs:337` | corruption in substreams 0, 1, 2 and 3 all caught at `-p 3` | PASS |
 | `verify` performs a lossless check | — | `oadec-cli/src/scan.rs:411` | `verify --json` exposes no lossless statistic; parity and CRC catch everything tested | PARTIAL |
 | Seamless branch and duplicate access units | Dolby | `oadec-truehd/src/timing.rs:64`, `:240` | Braveheart and the synthetic splice clip clean in the media suite | PASS |
@@ -50,7 +50,7 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | Bed and object separation | TS 103 420 clause 5 | `truehd/channel.rs:296`, `spatial/program.rs` | LFE bed plus 11 or 15 dynamic objects, matching Dolby's channel assignment | PASS |
 | ISF objects | TS 103 420 | `cli/damf.rs:74` | hardcoded to zero; the E-AC-3 path at `eac3_objects.rs:173` handles it | FAIL |
 | `--presentation` honoured for object output | — | `cli/damf.rs:193` | silently forced to presentation 3 | FAIL |
-| Titles Dolby will confirm | — | — | 3 of 6 accepted. The refusal is specific to the object output — all six decode at `presentation=16` when `out-ch-config` is left alone — and `2ch_control_enabled` is necessary but not sufficient: clearing it turns an accepted title into a refused one, setting it leaves a refused one refused; `evidence/remediation/presentation16-differential.json` | N/T |
+| Titles Dolby will confirm | — | — | 3 of 6 accepted. The refusal is specific to the object output — all six decode at `presentation=16` when `out-ch-config` is left alone. A third decoder, `truehdd` 0.6.1, opens the object presentation on all six with the element counts oadec reports, so the streams decode as object programmes outside this project. Why Dolby refuses is unanswered: `2ch_control_enabled` correlates perfectly across the six unmodified titles but the mutation experiment cannot reach necessity, because the object path also refuses legal changes that cannot be causal; `evidence/remediation/presentation16-differential.json`, `evidence/remediation/major-sync-rewrite-rejected.json`, `evidence/remediation/truehdd-second-opinion.json` | N/T |
 
 ## E-AC-3
 
@@ -113,7 +113,7 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | LFE bypass | Table 47 note | `cli/eac3_objects.rs:165` | LFE taken from the core, matches Dolby at 89 to 118 dB | PASS |
 | Object count and distinctness | clause 6.3.2.4 | `cli/eac3_objects.rs:211` | 15 distinct objects; largest object-to-core correlation 0,545; correlation structure matches Dolby to 0,0017 | PASS |
 | OAMD field coverage | clause 5.5 | `emdf/oamd.rs:949` | every syntax element read; 1,3 M payloads with 0 parse errors in prior work, re-confirmed on the clips | PASS |
-| OAMD event timing | clause 5.3.2 | `spatial/program.rs:331` | 21 of 132 events differ from `truehdd` by exactly +32 samples, the block-offset term | PASS |
+| OAMD event timing | clause 5.3.2 | `spatial/program.rs:331` | 131 of 800 events across six titles, and 19 of 45 of the authored scene, differ from `truehdd` by exactly +32 samples and by nothing else: the block-offset term, which clause 5.3.2 requires and `truehdd` omits. Modulo the 1 536-sample codec frame the clause names, oadec's positions take 4 distinct residues over seven streams and `truehdd`'s take 7. Unit test over seven combinations; `evidence/remediation/truehdd-second-opinion.json` | PASS |
 | Object 3-D size | clause 5.6.1.2 | `spatial/program.rs:243` | depth and height dropped; ADM re-emits the first axis as all three | FAIL |
 | Object distance, divergence, warp mode, trim decibels | clause 5.2 | parsed at `emdf/oamd.rs:474`, `:828`, `:764`, `:735` | never reach any output | PARTIAL |
 | Extended-precision position | clause 5.6.6.4 | `emdf/oamd.rs:865` | parsed and applied | PASS |

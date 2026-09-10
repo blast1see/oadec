@@ -792,6 +792,81 @@ mode. `evidence/remediation/major-sync-rewrite-rejected.json`,
 
 ---
 
+## A second opinion that is not ours and not Dolby's
+
+Every reading above rests on one engine saying no and this one saying yes. DEE,
+the Reference Player and Plex EasyAudioEncoder are the same decoder wearing
+three names, so the count was one against one. There is a third: `truehdd`
+0.6.1, a TrueHD decoder written by other people, in a separate codebase, which
+this project already used as the presentation-3 PCM baseline.
+
+**It opens all six.** `truehdd decode --presentation 3` exits 0 on Pi, Talk to
+Me, Braveheart, Shaun of the Dead, Knives Out and Kingsman, writing a DAMF set
+with the same element count oadec reports on each -- 12, 16, 12, 12, 12 and 14 --
+and reporting `Dolby Atmos true` with an independent presentation 3 for all six.
+The one structural difference it shows is that Kingsman's presentation 1 is
+independent where the other five downmix it from presentation 2, and the other
+two refused titles do not share that, so it separates nothing.
+
+That does not say why Dolby refuses, and a permissive decoder opening a stream
+is not proof that a stricter one is wrong. What it does is separate two claims
+that had been travelling together: *Dolby refuses these three* and *these three
+are not object programmes*. The second is now contradicted by an implementation
+that shares no code with this one.
+
+**The audio is byte-identical.** Not close: the same MD5 on all six
+`.atmos.audio` files, same sample count, same channel count, same CAF header,
+zero differing samples in 212 527 200 element-samples. That is what two correct
+decoders of a lossless format must produce, and it widens the presentation-3
+gate from three titles to six.
+
+### The one thing the two decoders disagree about
+
+Of the metadata, exactly one field differs in value: `samplePos`, and it differs
+by exactly 32 samples and by nothing else, on 131 of the 800 events written
+across the six titles. `pos` differs on 573 events in printed form only -- the
+largest difference in value is 7,1e-08, because `truehdd` prints the full double
+and oadec prints seven digits.
+
+Clause 5.3.2 of TS 103 420 is explicit:
+
+> The start_sample values t_n shall be determined by the following equation:
+> t_n = so + 32 × bo_n. In this equation so is the value of sample_offset and
+> bo_n is the value of block_offset_factor for the corresponding property
+> update.
+
+oadec computes `base + container_offset + sample_offset + 32 ×
+block_offset_factor`. `truehdd` computes `sample_pos + sample_offset +
+evo_sample_offset` and never adds the block offset; it reads
+`block_offset_factor_bits` and uses it only to decide whether a payload restates
+the current state. Every stream measured carries the factor as 0 or 1, one
+payload in five at 1, which is why the difference is always exactly 32.
+
+The specification settles it, but the streams settle it too, and independently.
+The same clause says the decoder adds 1 536 to `frame_offset` each codec frame,
+so take every written event position modulo 1536:
+
+| | distinct residues over seven streams | shape |
+|---|---:|---|
+| oadec | **4** | one or two per stream, the second being the one-per-element opening event |
+| `truehdd` | 7 | the same residues, with one of them split in two, 32 apart |
+
+Braveheart's 201 events are all at residue 0 under oadec and split 167/34 under
+`truehdd`. Shaun's 338 sit at 1152 and split 252/74. On the authored master --
+the one case where a regular grid is expected, because Dolby's encoder snapped
+its events to frame boundaries -- all 45 of oadec's positions are exact
+multiples of 1536 and 19 of `truehdd`'s are 32 short of one.
+
+So this is a reference-decoder disagreement where the specification is explicit
+and oadec follows it. Nothing here changes. The equation is now pinned by a unit
+test over seven combinations including `block_offset_factor` 63; removing the
+term from the decoder makes it fail with left 0, right 32. What is not measured
+is the multiplier itself: no material anywhere carries a factor above 1, so 32
+is normative rather than observed.
+`evidence/remediation/truehdd-second-opinion.json`.
+
+---
+
 ## A smaller one of the same family
 
 Three of `decode`'s measurement flags never reached the object path.
@@ -999,7 +1074,9 @@ moved are exactly the nine that carry steep objects, from 30 of them to 1 200.
 The three TrueHD baselines are still bit-exact, the six-title object comparison
 regressed on none of them, the controlled scene reproduces its figures to the
 digit, and the media suite passes 14 of 14 in 1 262 s -- twelve as before plus
-the two that hold the measurement flags.
+the two that hold the measurement flags. The presentation-3 baseline is no
+longer three titles: `truehdd` was run over all six and the object audio is
+byte-identical on every one, 212 527 200 element-samples with the same MD5.
 `evidence/remediation/decode-exit-codes.json`,
 `evidence/remediation/regression-summary.json`.
 
@@ -1015,7 +1092,11 @@ the two that hold the measurement flags.
   across three corrections. It is not dither amplified by the large coefficient
   the sparse matrix carries there: our own dither's weight on that frame is
   61,70 dB against neighbours at 59,58 to 80,90 and a clip median of 59,38.
-- **The second reason Dolby refuses three titles.** `2ch_control_enabled` is
+- **The second reason Dolby refuses three titles.** A third decoder now says
+  the streams are not the problem: `truehdd` opens the object presentation on
+  all six, with the element counts oadec reports and byte-identical object
+  audio. That leaves the question as one about Dolby's software, and it is still
+  unanswered. `2ch_control_enabled` is
   a perfect correlate across six titles whose causal evidence is suggestive and
   not clean: the object path also refuses a legal change to the two-channel
   presentation's dialogue normalisation, which cannot gate the sixteen-channel

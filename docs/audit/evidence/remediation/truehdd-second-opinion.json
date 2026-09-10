@@ -1,0 +1,306 @@
+{
+ "what": "A third-party TrueHD decoder, run against the same six titles and against the authored master, to ask two things: whether the object presentation Dolby's software refuses on three of them opens elsewhere, and whether anything in oadec's object output disagrees with an implementation that shares none of its code",
+ "utc": "2026-09-10T20:12:36.180615+00:00",
+ "commit": "0aafce08f10d0dbdad2f0c5e74d3106e0b955b51",
+ "reference": {
+  "tool": "truehdd 0.6.1",
+  "command": "truehdd decode --presentation 3",
+  "independence": "a separate codebase by other authors. It is not Dolby: two non-Dolby decoders agreeing is weaker evidence than either agreeing with Dolby, and this project already used it as the presentation-3 PCM baseline",
+  "material": "25 MB from the head of each title, and the authored master of the controlled scene"
+ },
+ "result_1_the_refusal_is_not_in_the_streams": {
+  "finding": "truehdd opens presentation 3 on all six titles and exits 0, with the same element count oadec reports on each: 12, 16, 12, 12, 12 and 14. It reports Dolby Atmos true and an independent presentation 3 for all six, including the three that Dolby's object path refuses",
+  "what_it_settles": "a second implementation, sharing no code with this one, reads the three refused streams as ordinary object programmes. Dolby refuses and the stream is not an object programme are now separated by evidence rather than by assertion",
+  "what_it_does_not_settle": "why Dolby refuses. A permissive decoder opening a stream is not proof that a stricter one is wrong, and neither of the two that open it is Dolby. The reason stays open",
+  "one_structural_difference_seen": "Kingsman's presentation 1 is independent where the other five downmix it from presentation 2. It is one of the three refused, and the other two do not share it, so it separates nothing"
+ },
+ "result_2_the_audio_is_byte_identical": {
+  "finding": "on all six titles the two decoders' .atmos.audio files have the same MD5: same sample count, same channel count, same CAF header, zero differing samples",
+  "element_samples_compared": 212527200,
+  "why_that_is_expected": "TrueHD is lossless and presentation 3 carries the objects as coded channels, so two correct decoders must agree exactly. It widens the existing presentation-3 gate from three titles to six"
+ },
+ "result_3_a_disagreement_in_metadata_timing": {
+  "finding": "the only field whose value differs is samplePos, and it differs by exactly 32 samples, never by anything else, in 131 of the 800 events written across the six titles and in 19 of the 45 of the authored scene. oadec's is always the later one",
+  "root_cause": "truehdd computes the event position as sample_pos + sample_offset + evo_sample_offset (src/damf.rs:428) and never adds the block offset. It reads block_offset_factor_bits and uses it only to decide whether a payload restates the current state",
+  "the_normative_equation": {
+   "clause": "ETSI TS 103 420 V1.2.1 clause 5.3.2, Timing of property updates",
+   "text": "The start_sample values t_n shall be determined by the following equation: t_n = so + 32 x bo_n. In this equation so is the value of sample_offset and bo_n is the value of block_offset_factor for the corresponding property update.",
+   "also": "In the processing of each codec frame the decoder shall add the value 1 536 (the codec transform size in samples) to frame_offset.",
+   "oadec": "crates/oadec-spatial/src/program.rs: base + container_offset + sample_offset + block_offset_factor * 32"
+  },
+  "the_arbiter_that_is_not_the_specification": {
+   "method": "take every written event position modulo 1536, the codec frame the clause names. A reading that is right should leave each stream on a coherent phase; a reading that drops a term should scatter the events that carry it",
+   "oadec": {
+    "distinct_residues_over_all_seven_streams": 4,
+    "per_stream": "one or two residues each, and the second is the one-per-element opening event",
+    "histogram": {
+     "0": 460,
+     "40": 26,
+     "64": 33,
+     "1152": 326
+    }
+   },
+   "truehdd": {
+    "distinct_residues_over_all_seven_streams": 7,
+    "per_stream": "the same residues, with one of them split into two 32 apart",
+    "histogram": {
+     "0": 388,
+     "32": 4,
+     "40": 26,
+     "64": 29,
+     "1120": 74,
+     "1152": 252,
+     "1504": 72
+    }
+   },
+   "authored_scene": "all 45 of oadec's event positions are exact multiples of 1536; 19 of truehdd's are 32 short of one. This is the case where a regular grid is expected, because the scene was authored and Dolby's encoder snapped its events to frame boundaries"
+  },
+  "verdict": "a reference-decoder disagreement in which the specification is explicit and oadec follows it. Not an oadec defect, and not a reason to change anything here",
+  "limit_of_the_measurement": "every stream measured carries block_offset_factor in 0 or 1 only, so the difference is always exactly 32 and the multiplier of 32 itself is normative rather than measured. A value above 1 has not been seen in any material",
+  "regression_test": "crates/oadec-spatial/src/program.rs, an_update_starts_at_sample_offset_plus_thirty_two_per_block_factor, over seven combinations including block_offset_factor 63. Removing the term from the decoder makes it fail with left 0, right 32"
+ },
+ "result_4_positions_agree": {
+  "finding": "pos differs in printed form on 573 events and in value on none: the largest difference over all seven streams is 7,1e-08. truehdd prints the full double, oadec prints seven significant digits",
+  "events_whose_printed_position_differs": 573
+ },
+ "per_stream": {
+  "pi": {
+   "title": "Pi",
+   "dolby_object_path": "accepted",
+   "truehdd_opened_presentation_3": true,
+   "elements": 12,
+   "audio": {
+    "samples_per_channel": 3014240,
+    "differing_samples": 0,
+    "files_byte_identical": true
+   },
+   "metadata": {
+    "events": 45,
+    "events_with_a_different_sample_position": 4,
+    "sample_position_deltas": {
+     "32": 4
+    },
+    "events_whose_printed_position_differs": 12,
+    "largest_position_difference": 7.096774201631462e-08,
+    "other_differing_fields": {}
+   },
+   "block_offset_factor_distribution": {
+    "0": 1572,
+    "1": 392
+   },
+   "event_residues_mod_1536": {
+    "oadec": {
+     "0": 12,
+     "64": 33
+    },
+    "truehdd": {
+     "0": 12,
+     "32": 4,
+     "64": 29
+    }
+   }
+  },
+  "talktome": {
+   "title": "Talk to Me",
+   "dolby_object_path": "accepted",
+   "truehdd_opened_presentation_3": true,
+   "elements": 16,
+   "audio": {
+    "samples_per_channel": 3362040,
+    "differing_samples": 0,
+    "files_byte_identical": true
+   },
+   "metadata": {
+    "events": 30,
+    "events_with_a_different_sample_position": 0,
+    "sample_position_deltas": {},
+    "events_whose_printed_position_differs": 2,
+    "largest_position_difference": 5.161290284050324e-09,
+    "other_differing_fields": {}
+   },
+   "block_offset_factor_distribution": {
+    "0": 1751,
+    "1": 438
+   },
+   "event_residues_mod_1536": {
+    "oadec": {
+     "0": 30
+    },
+    "truehdd": {
+     "0": 30
+    }
+   }
+  },
+  "braveheart": {
+   "title": "Braveheart",
+   "dolby_object_path": "accepted",
+   "truehdd_opened_presentation_3": true,
+   "elements": 12,
+   "audio": {
+    "samples_per_channel": 2159360,
+    "differing_samples": 0,
+    "files_byte_identical": true
+   },
+   "metadata": {
+    "events": 201,
+    "events_with_a_different_sample_position": 34,
+    "sample_position_deltas": {
+     "32": 34
+    },
+    "events_whose_printed_position_differs": 162,
+    "largest_position_difference": 7.096774201631462e-08,
+    "other_differing_fields": {}
+   },
+   "block_offset_factor_distribution": {
+    "0": 1125,
+    "1": 281
+   },
+   "event_residues_mod_1536": {
+    "oadec": {
+     "0": 201
+    },
+    "truehdd": {
+     "0": 167,
+     "1504": 34
+    }
+   }
+  },
+  "shaun": {
+   "title": "Shaun of the Dead",
+   "dolby_object_path": "refused",
+   "truehdd_opened_presentation_3": true,
+   "elements": 12,
+   "audio": {
+    "samples_per_channel": 2396960,
+    "differing_samples": 0,
+    "files_byte_identical": true
+   },
+   "metadata": {
+    "events": 338,
+    "events_with_a_different_sample_position": 74,
+    "sample_position_deltas": {
+     "32": 74
+    },
+    "events_whose_printed_position_differs": 305,
+    "largest_position_difference": 7.096774201631462e-08,
+    "other_differing_fields": {}
+   },
+   "block_offset_factor_distribution": {
+    "0": 1249,
+    "1": 312
+   },
+   "event_residues_mod_1536": {
+    "oadec": {
+     "0": 12,
+     "1152": 326
+    },
+    "truehdd": {
+     "0": 12,
+     "1120": 74,
+     "1152": 252
+    }
+   }
+  },
+  "knivesout": {
+   "title": "Knives Out",
+   "dolby_object_path": "refused",
+   "truehdd_opened_presentation_3": true,
+   "elements": 12,
+   "audio": {
+    "samples_per_channel": 4461720,
+    "differing_samples": 0,
+    "files_byte_identical": true
+   },
+   "metadata": {
+    "events": 44,
+    "events_with_a_different_sample_position": 3,
+    "sample_position_deltas": {
+     "32": 3
+    },
+    "events_whose_printed_position_differs": 0,
+    "largest_position_difference": 0.0,
+    "other_differing_fields": {}
+   },
+   "block_offset_factor_distribution": {
+    "0": 2325,
+    "1": 581
+   },
+   "event_residues_mod_1536": {
+    "oadec": {
+     "0": 32,
+     "40": 12
+    },
+    "truehdd": {
+     "0": 29,
+     "40": 12,
+     "1504": 3
+    }
+   }
+  },
+  "kingsman": {
+   "title": "Kingsman",
+   "dolby_object_path": "refused",
+   "truehdd_opened_presentation_3": true,
+   "elements": 14,
+   "audio": {
+    "samples_per_channel": 1024800,
+    "differing_samples": 0,
+    "files_byte_identical": true
+   },
+   "metadata": {
+    "events": 142,
+    "events_with_a_different_sample_position": 16,
+    "sample_position_deltas": {
+     "32": 16
+    },
+    "events_whose_printed_position_differs": 92,
+    "largest_position_difference": 5.483870979539063e-08,
+    "other_differing_fields": {}
+   },
+   "block_offset_factor_distribution": {
+    "0": 535,
+    "1": 134
+   },
+   "event_residues_mod_1536": {
+    "oadec": {
+     "0": 128,
+     "40": 14
+    },
+    "truehdd": {
+     "0": 112,
+     "40": 14,
+     "1504": 16
+    }
+   }
+  },
+  "authored-scene": {
+   "title": "the controlled scene, authored here and encoded by Dolby",
+   "metadata": {
+    "events": 45,
+    "events_with_a_different_sample_position": 19,
+    "sample_position_deltas": {
+     "32": 19
+    }
+   },
+   "block_offset_factor_distribution": {
+    "0": 250,
+    "1": 63
+   },
+   "event_residues_mod_1536": {
+    "oadec": {
+     "0": 45
+    },
+    "truehdd": {
+     "0": 26,
+     "1504": 19
+    }
+   }
+  }
+ },
+ "files": {
+  "work": "E:/oadec-work/audit/remediation/truehdd-p3",
+  "exact": "E:/oadec-work/audit/remediation/truehdd-p3/exact.json",
+  "metadata": "E:/oadec-work/audit/remediation/truehdd-p3/metadata-diff.json",
+  "residues": "E:/oadec-work/audit/remediation/truehdd-p3/residues.json"
+ }
+}
