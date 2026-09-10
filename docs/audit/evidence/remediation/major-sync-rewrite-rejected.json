@@ -48,5 +48,11 @@
   "restored": "the state before that correction: the flag is a perfect correlate across six titles with no causal evidence in either direction. The audit's own experiment -- setting the flag on a refused title and seeing no change -- is equally uninformative, for the same reason.",
   "what_is_new": "the object path applies an integrity check over the major sync that ordinary decoding does not, and the defined CRC-16 is not it: five different fields, four of them unrelated to presentations, all trip it with that CRC repaired.",
   "instrument": "in-place rewriting of the TrueHD major sync joins in-place rewriting of EMDF payloads: both are usable against oadec and neither reaches the Dolby object decoder. Every question that needs one is closed by that."
+ },
+ "the_control_this_needed_itself": {
+  "why": "the patched streams were wrapped in MP4 for the Dolby element, which will not take a raw elementary stream. If that wrapping were the cause, every conclusion here would be the same mistake it is about.",
+  "test": "the unpatched stream wrapped with the same command in the same session: ffmpeg -c:a copy -strict -2 -movflags faststart -f mp4",
+  "result": "accepted, sixteen object channels",
+  "reading": "the wrapping is innocent; the refusal follows the edit"
  }
 }
