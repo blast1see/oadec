@@ -1217,6 +1217,14 @@ Neither half of that is the answer on its own:
 No stream in the library is configuration 0 with `dialnorm` 31 and opened, and
 none is configuration 0 with a lower `dialnorm` and refused.
 
+**That is worth less than it reads.** There are two refused streams and about
+25 200 ways to choose two rows from 225. A search over the 13 530 field pairs
+formable from what `info` reports is of the same order, so a conjunction that
+isolates exactly those two is what such a search is *expected* to turn up by
+chance. It is a candidate, not a finding, and it stays one until a third refused
+stream appears. The TrueHD side is the counter-example that makes the point:
+there the refused set is 89 rather than 2, and no pair of 3 486 splits it.
+
 And unlike everything else this report has wanted to test, `dialnorm` looked
 reachable. It is not in an EMDF payload — which Dolby discards when rewritten —
 but five bits of `bsi()` at bit 45 of an E-AC-3 syncframe, with a recomputable
@@ -1550,7 +1558,10 @@ byte-identical on every one, 212 527 200 element-samples with the same MD5.
   the only ones anywhere that are configuration 0 **and** carry `dialnorm` 31;
   neither half is enough on its own, since Dolby opens seven configuration-0
   streams and 90 streams with `dialnorm` 31. That conjunction has no
-  counterexample in 226 streams and no way to be tested.
+  counterexample in 225 streams, no way to be tested, and less weight than it
+  reads: with two refused streams among 225, a field pair that isolates exactly
+  those two is what a search of thousands of pairs is expected to produce by
+  chance.
   `evidence/remediation/configuration-0-refusal-pair.json`,
   `evidence/remediation/dolby-object-sweep.json`.
 - **Two-data-point interpolation**, and with it the smooth-2 and steep-2

@@ -146,12 +146,17 @@ def main() -> int:
             raw = work / f"{tag}.f32"
             size, err = dolby_objects(ec3, raw)
             samples = v.get("samples") or 0
-            # The plugin pads its output by the decoder delay, so a very short cut
-            # gives a ratio that is not an integer. Record it and say so rather
-            # than rounding a five-second clip into a false refusal.
+            # The plugin drops its start-up delay from the end, so the output is
+            # a fixed number of samples short of the input on every channel --
+            # about 1 500 -- and the ratio of bytes to samples is not an integer.
+            # A tolerance on the ratio is therefore wrong: on a five-second cut
+            # the same shortfall is a tenth of a channel and on a long one it is
+            # nothing. Judge the shortfall itself, and refuse to guess when the
+            # output is longer than the input or short by more than a frame.
             ratio = size / 4 / samples if samples else 0.0
-            channels = round(ratio)
-            exact = abs(ratio - channels) < 0.05
+            channels = max(1, round(ratio))
+            short = samples - (size / 4 / channels) if samples else 0.0
+            exact = 0 <= short <= 4000
             rows.append({"file": path.name, "track": index,
                          "downmix_configs": joc.get("downmix_configs"),
                          "objects": joc.get("objects_per_payload"),
@@ -159,6 +164,7 @@ def main() -> int:
                          "samples": samples, "dolby_bytes": size,
                          "opens": channels >= 16 and exact,
                          "dolby_channels": channels, "channel_ratio": round(ratio, 4),
+                         "samples_short_per_channel": round(short, 1),
                          "ratio_is_clean": exact, "fields": fields(v), "error": err})
             print(f"  {channels:2d} ch  cfg {joc.get('downmix_configs')}  {path.name[:70]}",
                   flush=True)
@@ -170,7 +176,8 @@ def main() -> int:
     refused = [r for r in rows if 0 < r["dolby_channels"] < 16 and r["ratio_is_clean"]]
     unclear = [r for r in rows if 0 < r["dolby_channels"] < 16 and not r["ratio_is_clean"]]
     for r in unclear:
-        print(f"  check by hand ({r['channel_ratio']} channels, the cut is too short): "
+        print(f"  check by hand ({r['channel_ratio']} channels, "
+              f"{r['samples_short_per_channel']} samples short): "
               f"{r['file']} #{r['track']}")
     print(f"\n{len(rows)} JOC tracks: {len(opened)} opened as objects, {len(refused)} refused")
     for r in refused:
