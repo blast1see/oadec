@@ -1,18 +1,48 @@
 //! Real-media checks, opt-in through `OADEC_MEDIA` (the work directory holding
-//! `thd/`, `ec3/` and the reference outputs). Every test is `#[ignore]`d so a
-//! plain `cargo test` never touches the media:
+//! `thd/`, `ec3/`, `clips/` and the reference outputs). Every test is
+//! `#[ignore]`d so a plain `cargo test` never touches the media:
 //!
 //! ```text
 //! OADEC_MEDIA=E:\oadec-work cargo test --release -p oadec-cli --test real -- --ignored
 //! ```
+//!
+//! Asking for `--ignored` is asking for the conformance suite, so a run that
+//! cannot reach the media **fails**. These tests used to print "skipping" and
+//! return `Ok`, which meant the documented command reported ten passes in
+//! 0.00 s with nothing decoded -- a green result that proved nothing. A
+//! conformance suite that cannot run has to say so in the only way a test
+//! harness can.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use serde_json::Value;
 
-fn media_dir() -> Option<PathBuf> {
-    std::env::var_os("OADEC_MEDIA").map(PathBuf::from)
+fn media_dir() -> PathBuf {
+    let Some(dir) = std::env::var_os("OADEC_MEDIA").map(PathBuf::from) else {
+        panic!(
+            "OADEC_MEDIA is not set, so the conformance suite cannot run. \
+             Point it at the work directory holding thd/, ec3/ and clips/, or \
+             run `cargo test` without `--ignored` for the unit tests alone."
+        );
+    };
+    assert!(
+        dir.is_dir(),
+        "OADEC_MEDIA is {}, which is not a directory",
+        dir.display()
+    );
+    dir
+}
+
+/// A file the test needs. Missing material fails the test: a conformance check
+/// that quietly skipped its input would report a pass it did not earn.
+fn require(path: &Path) -> &Path {
+    assert!(
+        path.exists(),
+        "{} is missing; the conformance suite needs it",
+        path.display()
+    );
+    path
 }
 
 fn verify_json(path: &Path) -> Value {
@@ -46,10 +76,7 @@ fn nonzero_failures(report: &Value) -> Vec<String> {
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn pi_is_clean_and_matches_the_reference_layout() {
-    let Some(media) = media_dir() else {
-        eprintln!("OADEC_MEDIA not set; skipping");
-        return;
-    };
+    let media = media_dir();
     let report = verify_json(&media.join("thd").join("pi.thd"));
     assert_eq!(
         nonzero_failures(&report),
@@ -106,10 +133,7 @@ fn pi_is_clean_and_matches_the_reference_layout() {
 #[test]
 #[ignore = "needs OADEC_MEDIA; several minutes"]
 fn every_truehd_stream_is_clean() {
-    let Some(media) = media_dir() else {
-        eprintln!("OADEC_MEDIA not set; skipping");
-        return;
-    };
+    let media = media_dir();
     let mut files: Vec<PathBuf> = std::fs::read_dir(media.join("thd"))
         .expect("thd directory")
         .filter_map(|e| e.ok().map(|e| e.path()))
@@ -158,20 +182,14 @@ fn coverage_union(reports: &[Value]) -> Vec<String> {
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn the_low_rate_clips_exercise_aht_and_spectral_extension() {
-    let Some(media) = media_dir() else {
-        eprintln!("OADEC_MEDIA not set; skipping");
-        return;
-    };
+    let media = media_dir();
     let clips = [
         ("pi-head-spx192.ec3", &["aht", "spectral-extension"][..]),
         ("pi-head-aht384.ec3", &["aht"][..]),
     ];
     for (name, expected) in clips {
         let path = media.join("ec3").join(name);
-        if !path.exists() {
-            eprintln!("{} missing; skipping", path.display());
-            continue;
-        }
+        require(&path);
         let report = verify_json(&path);
         assert_eq!(
             nonzero_failures(&report),
@@ -200,10 +218,7 @@ fn the_low_rate_clips_exercise_aht_and_spectral_extension() {
 #[test]
 #[ignore = "needs OADEC_MEDIA; several minutes"]
 fn every_eac3_stream_is_clean() {
-    let Some(media) = media_dir() else {
-        eprintln!("OADEC_MEDIA not set; skipping");
-        return;
-    };
+    let media = media_dir();
     let mut files: Vec<PathBuf> = std::fs::read_dir(media.join("ec3"))
         .expect("ec3 directory")
         .filter_map(|e| e.ok().map(|e| e.path()))
@@ -262,15 +277,9 @@ fn every_eac3_stream_is_clean() {
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn enhanced_coupling_decodes_a_converted_stream() {
-    let Some(media) = media_dir() else {
-        eprintln!("OADEC_MEDIA not set; skipping");
-        return;
-    };
+    let media = media_dir();
     let source = media.join("ec3/pi-head-aht384.ec3");
-    if !source.exists() {
-        eprintln!("{} is missing; skipping", source.display());
-        return;
-    }
+    require(&source);
     let out = std::env::temp_dir().join("oadec-ecpl-test.ec3");
     let status = Command::new(env!("CARGO_BIN_EXE_oadec"))
         .arg("eac3-ecpl-inject")
@@ -324,15 +333,9 @@ fn enhanced_coupling_decodes_a_converted_stream() {
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn transient_pre_noise_changes_only_what_it_should() {
-    let Some(media) = media_dir() else {
-        eprintln!("OADEC_MEDIA not set; skipping");
-        return;
-    };
+    let media = media_dir();
     let file = media.join("ec3/pi-head-spx192.ec3");
-    if !file.exists() {
-        eprintln!("{} is missing; skipping", file.display());
-        return;
-    }
+    require(&file);
     let report = verify_json(&file);
     assert!(
         nonzero_failures(&report).is_empty(),
@@ -383,15 +386,9 @@ fn transient_pre_noise_changes_only_what_it_should() {
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn enhanced_coupling_survives_the_object_pipeline() {
-    let Some(media) = media_dir() else {
-        eprintln!("OADEC_MEDIA not set; skipping");
-        return;
-    };
+    let media = media_dir();
     let source = media.join("ec3/pi-head-joc384.ec3");
-    if !source.exists() {
-        eprintln!("{} is missing; skipping", source.display());
-        return;
-    }
+    require(&source);
     let dir = std::env::temp_dir();
     let converted = dir.join("oadec-joc-ecpl.ec3");
     let status = Command::new(env!("CARGO_BIN_EXE_oadec"))
@@ -472,15 +469,9 @@ fn enhanced_coupling_survives_the_object_pipeline() {
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn relabelling_the_downmix_configuration_moves_only_three_bits() {
-    let Some(media) = media_dir() else {
-        eprintln!("OADEC_MEDIA not set; skipping");
-        return;
-    };
+    let media = media_dir();
     let source = media.join("clips/talktome-joc-head.ec3");
-    if !source.exists() {
-        eprintln!("{} is missing; skipping", source.display());
-        return;
-    }
+    require(&source);
     let out = std::env::temp_dir().join("oadec-joc-cfg0.ec3");
     let status = Command::new(env!("CARGO_BIN_EXE_oadec"))
         .arg("eac3-joc-config")
@@ -530,10 +521,7 @@ fn relabelling_the_downmix_configuration_moves_only_three_bits() {
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn the_metadata_scanner_and_the_verifier_count_the_same_containers() {
-    let Some(media) = media_dir() else {
-        eprintln!("OADEC_MEDIA not set; skipping");
-        return;
-    };
+    let media = media_dir();
     for name in [
         "clips/talktome-joc-head.ec3",
         "clips/kingsman-joc-head.ec3",
@@ -541,10 +529,7 @@ fn the_metadata_scanner_and_the_verifier_count_the_same_containers() {
         "ec3/pi-head-joc384.ec3",
     ] {
         let file = media.join(name);
-        if !file.exists() {
-            eprintln!("{} is missing; skipping", file.display());
-            continue;
-        }
+        require(&file);
         let verify = verify_json(&file);
         let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
             .args(["emdf", "--json"])
@@ -574,10 +559,7 @@ fn the_metadata_scanner_and_the_verifier_count_the_same_containers() {
 #[test]
 #[ignore = "needs OADEC_MEDIA; several minutes"]
 fn joc_streams_carry_object_metadata_in_every_frame() {
-    let Some(media) = media_dir() else {
-        eprintln!("OADEC_MEDIA not set; skipping");
-        return;
-    };
+    let media = media_dir();
     let mut files: Vec<PathBuf> = std::fs::read_dir(media.join("ec3"))
         .expect("ec3 directory")
         .filter_map(|e| e.ok().map(|e| e.path()))
@@ -616,4 +598,141 @@ fn joc_streams_carry_object_metadata_in_every_frame() {
         );
     }
     assert!(joc_streams > 0, "no JOC stream under OADEC_MEDIA/ec3");
+}
+
+/// A Dolby Digital Plus 7.1 programme decodes to its whole channel set.
+///
+/// The stream is an AC-3 5.1 core followed by an E-AC-3 dependent substream
+/// whose custom channel map names Ls, Rs and the rear pair, so the programme is
+/// eight channels: the dependent substream's discrete surrounds replace the
+/// core's matrixed ones and its rear pair is added (clause E.2.8.2). Before
+/// dependent substreams were decoded this file gave six channels and `verify`
+/// still called it clean.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn a_seven_one_programme_decodes_to_eight_channels() {
+    let media = media_dir();
+    let file = media.join("ec3").join("ddp71-1917-head.ec3");
+    require(&file);
+
+    let report = verify_json(&file);
+    let channels: Vec<&str> = report["channels"]
+        .as_array()
+        .expect("channels")
+        .iter()
+        .map(|v| v.as_str().expect("channel name"))
+        .collect();
+    assert_eq!(
+        channels,
+        ["L", "C", "R", "Ls", "Rs", "LFE", "Lrs", "Rrs"],
+        "the programme is the core's channels with the dependent substream's merged in"
+    );
+    assert_eq!(
+        nonzero_failures(&report),
+        Vec::<String>::new(),
+        "first error: {:?}",
+        report["first_error"]
+    );
+    assert_eq!(report["clean"], Value::Bool(true));
+    assert!(
+        report["dependent_frames"].as_u64().unwrap_or(0) > 0,
+        "the file carries a dependent substream"
+    );
+    let parts = report["program"].as_array().expect("program");
+    assert_eq!(
+        parts.len(),
+        2,
+        "one independent and one dependent substream"
+    );
+    assert_eq!(parts[1]["substream"], Value::from("dependent 0"));
+    assert_eq!(parts[1]["merged"], Value::Bool(true));
+
+    let samples = report["samples"].as_u64().expect("samples");
+    let dir = std::env::temp_dir();
+    for (name, args, want) in [
+        ("programme", &[][..], 8u64),
+        ("core", &["--core-only"][..], 6),
+    ] {
+        let out = dir.join(format!("oadec-ddp71-{name}.f32"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_oadec"));
+        cmd.args(["decode", "--format", "pcm", "-o"]).arg(&out);
+        cmd.args(args);
+        let res = cmd.arg(&file).output().expect("run oadec decode");
+        assert!(
+            res.status.success(),
+            "{name} decode failed: {}",
+            String::from_utf8_lossy(&res.stderr)
+        );
+        let size = std::fs::metadata(&out).expect("output").len();
+        assert_eq!(
+            size,
+            samples * want * 4,
+            "{name}: {want} channels of 32-bit float"
+        );
+        let _ = std::fs::remove_file(&out);
+    }
+}
+
+/// Every corruption `verify` catches also reaches the object output.
+///
+/// The audit flipped 120 single bits in a JOC stream. `verify` reported all
+/// 120; `decode --format damf` produced Atmos objects and object metadata with
+/// no diagnostic and exit 0 on 99 of them. Those 99 sites are recorded in the
+/// audit evidence and are replayed here: not one of them may decode to a silent
+/// success again.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn corrupted_joc_never_decodes_to_a_silent_success() {
+    let media = media_dir();
+    let source = media.join("clips").join("talktome-joc-head.ec3");
+    require(&source);
+    let sites: Value = serde_json::from_slice(
+        &std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../docs/audit/evidence/09-01-fuzz-joc.json"),
+        )
+        .expect("the audit's fuzz evidence"),
+    )
+    .expect("fuzz evidence is JSON");
+    let sites = sites["flip_sites"].as_array().expect("flip sites");
+    assert_eq!(sites.len(), 99, "the 99 silently accepted corruptions");
+
+    // the campaign ran on the first 400 000 bytes of the clip
+    let mut base = std::fs::read(&source).expect("read the clip");
+    base.truncate(400_000);
+    let dir = std::env::temp_dir();
+    let mutated = dir.join("oadec-fuzz-gate.ec3");
+    let out = dir.join("oadec-fuzz-gate");
+    let mut silent = Vec::new();
+    for site in sites {
+        let offset = site["offset"].as_u64().expect("offset") as usize;
+        let bit = site["bit"].as_u64().expect("bit");
+        let mut data = base.clone();
+        data[offset] ^= 1 << bit;
+        std::fs::write(&mutated, &data).expect("write the mutated clip");
+        let res = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["decode", "--format", "damf", "-o"])
+            .arg(&out)
+            .arg(&mutated)
+            .output()
+            .expect("run oadec decode");
+        let log = String::from_utf8_lossy(&res.stderr);
+        assert!(
+            !log.contains("panicked"),
+            "offset {offset} bit {bit} panicked: {log}"
+        );
+        if res.status.success() {
+            silent.push(format!("offset {offset} bit {bit}"));
+        }
+    }
+    let _ = std::fs::remove_file(&mutated);
+    for ext in [".atmos", ".atmos.metadata", ".atmos.audio"] {
+        let _ = std::fs::remove_file(dir.join(format!("oadec-fuzz-gate{ext}")));
+    }
+    assert!(
+        silent.is_empty(),
+        "{} corruptions still decode to a clean exit: {}",
+        silent.len(),
+        silent.join(", ")
+    );
 }

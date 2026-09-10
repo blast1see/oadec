@@ -91,6 +91,10 @@ that holds the streams and references and run:
 cargo test --release -p oadec-cli --test real -- --ignored
 ```
 
+Those tests are `#[ignore]`d, so a plain `cargo test` never touches the media.
+Asking for `--ignored` without setting `OADEC_MEDIA` fails: a conformance suite
+that cannot reach its material must say so rather than report a pass.
+
 ## What it does not do
 
 No rendering to speaker layouts, no dynamic range control, no dialogue

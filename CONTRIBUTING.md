@@ -35,10 +35,13 @@ The project is GPL-3.0-only and must stay clean-room:
 
 ## Real-media tests
 
-The real-media suite is opt-in and skipped when `OADEC_MEDIA` is unset. The
-work directory it expects holds `thd/` and `ec3/` (raw elementary streams),
-`ref-ffmpeg/` and `ref-truehdd/` (reference decodes), `clips/`, `out/` and
-`dee/`. Nothing in it is ever committed.
+The real-media suite is opt-in: every test is `#[ignore]`d, so a plain
+`cargo test` never touches the media. Asking for `--ignored` is asking for the
+conformance suite, so a run that cannot reach the media **fails** rather than
+reporting a pass it did not earn. The work directory it expects holds `thd/`
+and `ec3/` (raw elementary streams), `ref-ffmpeg/` and `ref-truehdd/`
+(reference decodes), `clips/`, `out/` and `dee/`. Nothing in it is ever
+committed.
 
 ```text
 OADEC_MEDIA=E:\oadec-work cargo test --release -p oadec-cli --test real -- --ignored

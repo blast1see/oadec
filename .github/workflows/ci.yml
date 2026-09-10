@@ -27,6 +27,28 @@ jobs:
       - run: cargo test --workspace --locked
       - run: cargo build --release -p oadec-cli --locked
 
+  # The media suite decodes the real corpus and cannot run here: the streams are
+  # films and are not in the repository. What can run here is the check that it
+  # says so. It used to print "10 passed" in 0.00 s with OADEC_MEDIA unset,
+  # because every test returned Ok after printing "skipping" -- a green
+  # conformance result that proved nothing. This job fails if that ever comes
+  # back. Conformance itself is run by hand against the work directory and its
+  # results are stored under docs/audit/evidence/.
+  media-suite-refuses-to-pass-without-media:
+    name: the media suite reports not-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: the conformance suite must fail without OADEC_MEDIA, not pass
+        run: |
+          if cargo test --release -p oadec-cli --test real -- --ignored; then
+            echo "::error::the media suite reported success with no media present"
+            exit 1
+          fi
+          echo "the media suite refused to run without media, as it should"
+
   deny:
     name: cargo deny
     runs-on: ubuntu-latest
