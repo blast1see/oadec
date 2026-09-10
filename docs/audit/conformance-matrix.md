@@ -50,7 +50,7 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | Bed and object separation | TS 103 420 clause 5 | `truehd/channel.rs:296`, `spatial/program.rs` | LFE bed plus 11 or 15 dynamic objects, matching Dolby's channel assignment | PASS |
 | ISF objects | TS 103 420 | `cli/damf.rs:74` | hardcoded to zero; the E-AC-3 path at `eac3_objects.rs:173` handles it | FAIL |
 | `--presentation` honoured for object output | — | `cli/damf.rs:193` | silently forced to presentation 3 | FAIL |
-| Titles Dolby will confirm | — | — | 3 of 6 accepted; the other 3 refused for a cause not found | N/T |
+| Titles Dolby will confirm | — | — | 3 of 6 accepted. The refusal is specific to the object output — all six decode at `presentation=16` when `out-ch-config` is left alone — and `2ch_control_enabled` is necessary but not sufficient: clearing it turns an accepted title into a refused one, setting it leaves a refused one refused; `evidence/remediation/presentation16-differential.json` | N/T |
 
 ## E-AC-3
 
