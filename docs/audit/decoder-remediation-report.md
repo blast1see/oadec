@@ -613,6 +613,29 @@ about the syntax changes: the parse still reports `joc_offset_ts` exactly as
 clause 6.3.4.4 defines it, and `verify --json` still counts the transmitted
 values.
 
+**The streams say the same thing without being asked.** A frame is 24 time
+slots, so a zero-based index into it takes the values 0 to 23 and a one-based
+one takes 1 to 24. Over three whole streams and 515 205 steep objects:
+
+| | steep objects | offsets seen | at 24 |
+|---|---:|---|---:|
+| Glass Onion | 181 080 | every value 1 to 24, none outside | 7 410 |
+| Extraction | 143 730 | every value 1 to 24, none outside | 4 620 |
+| Red Notice | 190 395 | every value 1 to 24, none outside | 7 920 |
+
+Zero never occurs and 24 does, which is what a one-based field looks like and
+not what a zero-based one looks like.
+
+It also shows the printed reading discarding transmitted data rather than merely
+mistiming it. Under that reading the switch happens when `ts` reaches the
+transmitted value, and for a value of 24 in a frame whose slots are 0 to 23 that
+never happens: the data point the encoder sent is never applied and the object
+holds the previous frame's matrix for the whole frame. That is 19 950 of the
+515 205 steep objects here, between 3,2 and 4,2 per cent of each stream's. A
+reading that throws away transmitted data on one steep object in twenty-five is
+wrong on its own terms, before any decoder is consulted.
+`evidence/remediation/steep-offset-is-one-based.json`.
+
 ### Reproduction and reference result
 
 `evidence/remediation/steep-offset-differential.json`. Each clip is decoded

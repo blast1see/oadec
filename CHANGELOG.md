@@ -107,6 +107,14 @@ Semantic Versioning.
   for the other refusal, the configuration 0 stream Dolby gives six channels:
   its own objects come back as sixteen that Dolby opens, on the head clip and on
   a mid-file cut, with the accepted title at sixteen either way.
+- Defect 4's premise, read off the streams instead of a decoder. A frame is 24
+  time slots, so a zero-based index into it takes 0 to 23 and a one-based one
+  takes 1 to 24. Over 515 205 steep objects in three whole streams the offset
+  takes every value from 1 to 24, never 0 and never more than 24. And the printed
+  reading does not merely mistime the 19 950 that carry 24: it never applies
+  their data point at all, because a switch at slot 24 of a frame whose slots are
+  0 to 23 never happens. That is one steep object in twenty-five whose
+  transmitted matrix the printed reading discards.
 - The last open question about the decoder itself, closed by asking one more
   question of it. A frame that had been reported as an unexplained outlier --
   34,6 dB where its clip sat at 44,4 -- turns out to be the tenth worst of the 99
