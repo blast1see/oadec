@@ -94,6 +94,14 @@ impl Decoder {
         names
     }
 
+    /// Locations of the output channels in coded order for a header, which is
+    /// [`Self::channel_names`] in the form that carries a WAVE mask bit and an
+    /// interchange rank with it.
+    #[must_use]
+    pub fn channel_locations(header: &FrameHeader) -> Vec<crate::program::ChannelLoc> {
+        crate::program::independent_locations(header)
+    }
+
     /// Decodes one complete syncframe.
     ///
     /// Returns the frame that is now final, or `None` while the decoder is

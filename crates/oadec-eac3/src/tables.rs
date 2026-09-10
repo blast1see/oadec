@@ -30,6 +30,31 @@ pub const CHANNEL_ORDER: [&[&str]; 8] = [
     &["L", "C", "R", "Ls", "Rs"],
 ];
 
+/// Channel locations of the custom channel map by `chanmap` bit (table E.1.4).
+///
+/// Bit 0, the left channel, is stored in the most significant bit of the
+/// 16-bit field. An entry naming a pair stands for two adjacent coded
+/// channels of the dependent substream. Only dependent substreams carry a
+/// custom channel map (clause E.1.3.1.7).
+pub const CHANMAP_LOCATIONS: [&[&str]; 16] = [
+    &["L"],
+    &["C"],
+    &["R"],
+    &["Ls"],
+    &["Rs"],
+    &["Lc", "Rc"],
+    &["Lrs", "Rrs"],
+    &["Cs"],
+    &["Ts"],
+    &["Lsd", "Rsd"],
+    &["Lw", "Rw"],
+    &["Vhl", "Vhr"],
+    &["Vhc"],
+    &["Lts", "Rts"],
+    &["LFE2"],
+    &["LFE"],
+];
+
 /// AC-3 frame size in 16-bit words by `frmsizecod` and `fscod` (table 4.13):
 /// columns are 48 kHz, 44.1 kHz, 32 kHz in `fscod` order.
 pub const FRAME_SIZE_WORDS: [[u16; 3]; 38] = [
