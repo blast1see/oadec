@@ -1,0 +1,94 @@
+{
+ "what": "What makes Dolby's Dolby Digital Plus object encoder choose the rare branches of clause 6.6.5, and what that buys: material where the steep branch is the common case instead of the exception",
+ "utc": "2026-09-10T21:55:39.398068+00:00",
+ "commit": "c6088fbd4fbc2ffb37bf77658e901c8ce2fda6ff",
+ "why": "defect 4 was settled on six titles whose steep objects are two to four per cent of their object updates, so every measurement is a handful of frames against a clip. If a scene can be authored that makes the encoder write steep in quantity, the branch can be measured where it dominates -- and kept as a gate",
+ "what_provokes_the_steep_branch": {
+  "method": "three scenes through `oadec atmos-author` and `dee encode_to_atmos_ddp`, with `verify --json` reading the syntax back. Every scene is eight objects, ten seconds, 4 695 object updates",
+  "a_sweep_every_half_frame": {
+   "steep_objects": 15,
+   "share": "0,3 %",
+   "note": "the fast scene, built to provoke two data points"
+  },
+  "teleporting_between_opposite_corners_once_a_frame": {
+   "steep_objects": 45,
+   "share": "1 %",
+   "frames": [
+    0,
+    1,
+    2
+   ],
+   "note": "every one in the first three frames, where the encoder has no previous matrix to ramp from. Movement, however discontinuous, is answered with smooth interpolation"
+  },
+  "objects_arriving_out_of_silence_mid_file": {
+   "steep_objects": 1410,
+   "share": "30 %",
+   "first_frame": 63,
+   "note": "spread from frame 63 to the end, which is what the six real titles look like"
+  },
+  "reading": "this encoder answers the arrival of level with the steep branch and movement with the smooth one. That is why film soundtracks carry steep objects at all: things start",
+  "clip": "E:/oadec-work/clips/joc-onset-steep.ec3",
+  "scene": "evidence/remediation/controlled-atmos-onset-scene.json"
+ },
+ "defect_4_on_that_material": {
+  "against": "Dolby's own decoder on the stream its own encoder wrote from the scene, `ref-drp/joc/joc-onset-steep.f32`",
+  "elements": [
+   {
+    "element": 1,
+    "measured_db": 43.45,
+    "printed_db": 38.08,
+    "difference_db": 5.36
+   },
+   {
+    "element": 2,
+    "measured_db": 58.39,
+    "printed_db": 53.88,
+    "difference_db": 4.51
+   },
+   {
+    "element": 3,
+    "measured_db": 50.59,
+    "printed_db": 44.87,
+    "difference_db": 5.72
+   },
+   {
+    "element": 4,
+    "measured_db": 51.39,
+    "printed_db": 45.93,
+    "difference_db": 5.46
+   },
+   {
+    "element": 5,
+    "measured_db": 64.43,
+    "printed_db": 61.04,
+    "difference_db": 3.39
+   }
+  ],
+  "summary": {
+   "corrected_median_db": 51.39,
+   "corrected_worst_db": 43.45,
+   "printed_median_db": 45.93,
+   "printed_worst_db": 38.08,
+   "corrected_better_on": "5 of 5 elements that carry audio",
+   "difference_db": "between +3,39 and +5,72"
+  },
+  "why_the_margin_is_smaller_than_on_the_films": "there the steep frames are a few per cent, so a whole-clip figure is dominated by them going from 25 to 50 dB. Here every frame from 63 on is steep, so the figure is the steady state and the correction moves it by five decibels rather than twenty-five. Unanimous either way",
+  "gate": "crates/oadec-cli/tests/real.rs, `the_steep_switch_is_measured_where_the_branch_is_the_common_case`: the reading in use must beat the printed one by at least 1 dB on every element that carries audio. Swapping the two readings makes it fail at element 1 with 38,08 against 43,45"
+ },
+ "what_could_not_be_authored": {
+  "sparse_matrices": {
+   "tried": "eight hard-panned point sources sitting exactly on the downmix speakers of configuration 3, at all six data rates the encoder offers, plus the sweep, teleport and onset scenes",
+   "result": {
+    "384": 0,
+    "448": 0,
+    "576": 0,
+    "640": 0,
+    "768": 0,
+    "1024": 0
+   },
+   "reading": "DEE 5.2.1 writes no sparse matrix for any material or rate tried. Sparse is an encoder-generation property -- it appears in a streaming ladder and in one Blu-ray remux -- so the settlement against Dolby's decoder on real material stays the best evidence there is for that branch"
+  },
+  "two_data_points": "zero in every authored scene, including the one built to provoke them by moving objects four times within a frame",
+  "coarse_quantisation": "the sweep scene produced 15 coarse objects and the hard-panned one none, so it follows movement rather than rate"
+ }
+}

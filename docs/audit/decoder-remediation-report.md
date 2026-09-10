@@ -647,13 +647,58 @@ readings and the one slot they disagree about.
 `SteepReading::AsPrinted` explicitly, so the printed pseudo-code stays pinned
 as printed and the deviation stays visible as a deviation.
 
+### Material where the branch is the rule, not the exception
+
+Every measurement above is a few frames against a clip, because steep objects
+are two to four per cent of a film's object updates. That can be changed by
+asking the encoder for them.
+
+Three scenes were authored and encoded, each eight objects over ten seconds and
+4 695 object updates:
+
+| the scene | steep objects | where |
+|---|---:|---|
+| a sweep every half frame | 15 | the fast scene, built for two data points |
+| teleporting between opposite corners once a frame | 45 | frames 0, 1 and 2 only |
+| **objects arriving out of silence mid-file** | **1 410** | from frame 63 to the end |
+
+So this encoder answers movement — however discontinuous — with smooth
+interpolation, and the arrival of level with the steep branch. Teleporting
+produced steep only in the first three frames, where the encoder has no previous
+matrix to ramp from, which is the same situation an onset creates. That is why
+film soundtracks carry steep objects at all: things start.
+
+On the third of those, where thirty per cent of the object updates take the
+branch under test, against Dolby's decode of the stream its own encoder wrote:
+
+| | median | worst |
+|---|---:|---:|
+| the reading in use | **51,39 dB** | **43,45 dB** |
+| the printed reading | 45,93 dB | 38,08 dB |
+
+Better on five elements of five, by 3,39 to 5,72 dB. The margin is smaller than
+the films' 25 to 50 because there the steep frames are a few per cent and drag a
+whole-clip figure with them, while here the figure *is* the steady state.
+Unanimous either way, and it is now a media test: the reading in use must beat
+the printed one by at least a decibel on every element carrying audio, and
+swapping the two makes it fail at element 1 with 38,08 against 43,45.
+`evidence/remediation/steep-authored-material.json`.
+
+Two things that scene could not be made to produce. **Sparse matrices**: not at
+any of the six data rates, not from eight point sources parked exactly on the
+downmix speakers, not from any other scene. DEE 5.2.1 writes none, so sparse
+stays settled against Dolby's decoder on real material and nothing better is
+available. **Two data points**: still zero, including in the scene built to
+provoke them.
+
 ### Remaining limitation
 
 This is agreement with one decoder family, as the matrix alignment and the
-sparse corrections are. It is `PASS-TOL`, not `PASS`. Steep interpolation is
-6 352 123 of 170 722 130 object updates — 3,7 per cent — so this reaches most
-streams, but the two-data-point steep branch still has no material and stays
-`N/T`.
+sparse corrections are. It is `PASS-TOL`, not `PASS` — though the material is
+no longer only other people's: the last measurement is on a stream authored
+here, and the encoder that made it is Dolby's. Steep interpolation is 6 352 123
+of 170 722 130 object updates — 3,7 per cent — so this reaches most streams, but
+the two-data-point steep branch still has no material and stays `N/T`.
 
 ---
 
