@@ -3,6 +3,7 @@
 // the `verify --json` report is one big `json!` literal
 #![recursion_limit = "256"]
 
+mod author;
 mod compare;
 mod damf;
 mod decode;
@@ -198,6 +199,17 @@ enum Command {
         /// Which substream of the group: 0 is the independent one.
         #[arg(long, default_value_t = 0)]
         part: usize,
+    },
+    /// Write a Dolby Atmos master from a scene description, so a decode can be
+    /// checked against authored metadata rather than against another decoder.
+    #[command(hide = true)]
+    AtmosAuthor {
+        /// Scene description (JSON).
+        scene: PathBuf,
+        /// Output base name; `.atmos`, `.atmos.metadata` and `.atmos.audio`
+        /// are appended.
+        #[arg(short, long)]
+        output: PathBuf,
     },
     /// Split a Blu-ray audio dump that interleaves TrueHD access units with
     /// the AC-3 core frames of the same track into the two streams.
@@ -432,6 +444,9 @@ fn main() -> ExitCode {
             }),
             Command::Eac3Blocks { file, frame, part } => {
                 eac3::blocks(&file, frame, part).map(|()| ExitCode::SUCCESS)
+            }
+            Command::AtmosAuthor { scene, output } => {
+                author::run(&scene, &output).map(|()| ExitCode::SUCCESS)
             }
             Command::ThdDemux { file, output, core } => {
                 thd_demux::run(&file, &output, core.as_deref()).map(|()| ExitCode::SUCCESS)
