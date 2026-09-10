@@ -15,7 +15,13 @@ reports nothing: that is the defect.
 from __future__ import annotations
 import json, os, random, re, shutil, subprocess, sys, tempfile
 
-BIN = os.environ.get("OADEC_BIN", r"target\release\oadec.exe")
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
+from oadec_bin import find as find_oadec  # noqa: E402
+
+BIN = find_oadec()
 
 # A line that names a non-zero integrity counter, or a first-problem line.
 COUNTERS = re.compile(
