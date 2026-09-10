@@ -295,6 +295,76 @@ mod tests {
         ));
     }
 
+    /// Every single-bit corruption of an access unit that parses.
+    ///
+    /// The crate's arbitrary-byte pass cannot reach this syntax. A random buffer
+    /// with a sync word in it fails the major-sync CRC and stops there, so
+    /// `channel_meaning`, `extra_channel_meaning` and the substream directory --
+    /// the structures every field-level comparison in the audit reads -- are
+    /// never parsed from anything but well-formed input. Starting from a unit
+    /// that parses puts the corruption inside them.
+    ///
+    /// The major-sync CRC catches most of it, which is the point: what is being
+    /// checked is that the ones it does not catch are errors and not panics.
+    #[test]
+    fn every_single_bit_of_a_valid_access_unit_is_an_error_or_nothing_at_all() {
+        let ms = atmos_major_sync();
+        let au = build_au(
+            Some(&ms),
+            &[
+                &[0xAAu8; 6][..],
+                &[0xBBu8; 4][..],
+                &[0xCCu8; 2][..],
+                &[0xDDu8; 8][..],
+            ],
+            &[],
+            0x1234,
+        );
+        AccessUnit::parse(&au, None).expect("the unit this starts from has to parse");
+
+        let (mut parsed, mut rejected) = (0u32, 0u32);
+        for byte in 0..au.len() {
+            for bit in 0..8u32 {
+                let mut data = au.clone();
+                data[byte] ^= 1 << bit;
+                let in_major_sync = (4..4 + ms.len()).contains(&byte);
+                match AccessUnit::parse(&data, None) {
+                    Ok((unit, _)) => {
+                        parsed += 1;
+                        // whatever it decided, the offsets it reports have to
+                        // stay inside the buffer it was given
+                        assert!(unit.segments_end() <= data.len());
+                        for i in 0..unit.directory.len() {
+                            let r = unit.segment_range(i);
+                            assert!(r.start <= r.end && r.end <= data.len());
+                        }
+                        // A CRC-16 detects every single-bit error, so a flip
+                        // inside the major sync has to reach the caller: the
+                        // parse either refuses it or hands it over with the flag
+                        // down. Silently returning a major sync that says
+                        // something different is the one outcome not allowed.
+                        if in_major_sync && let Some(ms) = &unit.major_sync {
+                            assert!(
+                                !ms.crc_ok,
+                                "byte {byte} bit {bit} is inside the major sync and it came                                  back saying its CRC is fine"
+                            );
+                        }
+                    }
+                    Err(_) => rejected += 1,
+                }
+            }
+        }
+        assert_eq!(parsed + rejected, au.len() as u32 * 8);
+        assert!(
+            parsed > 0,
+            "every corruption was rejected, so nothing was parsed"
+        );
+        assert!(
+            rejected > 0,
+            "no corruption was rejected, which cannot be right"
+        );
+    }
+
     #[test]
     fn corrupted_parity_and_bad_pointers_are_reported() {
         let ms = atmos_major_sync();
