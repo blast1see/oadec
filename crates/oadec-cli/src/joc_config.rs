@@ -20,8 +20,8 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
+use oadec_eac3::Syntax;
 use oadec_eac3::frame::{Frame, Noise, Options as FrameOptions};
-use oadec_eac3::{StreamType, Syntax};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC};
 
 use crate::eac3::for_each_frame;
@@ -94,7 +94,10 @@ pub fn run(path: &Path, out: &Path, config: u8) -> Result<()> {
     let mut untouched = 0u64;
     let (frames, sync_errors, skipped) = for_each_frame(path, |_offset, bytes, header| {
         let mut frame = bytes.to_vec();
-        if header.syntax == Syntax::Eac3 && header.stream_type != StreamType::Dependent {
+        // Dependent substreams are rewritten too: with one present, clause 8.2
+        // of TS 103 420 puts the JOC payload there, so skipping them would make
+        // this tool a no-op on exactly the streams it exists to interrogate.
+        if header.syntax == Syntax::Eac3 {
             let opts = FrameOptions {
                 dither: false,
                 ..FrameOptions::default()
