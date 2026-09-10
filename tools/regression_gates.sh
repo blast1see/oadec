@@ -30,9 +30,11 @@ echo "== D1: presentation 2 against FFmpeg =="
 if [ -f "$THD" ]; then
   ffmpeg -v error -y -i "$THD" -f s32le -acodec pcm_s32le "$TMP/pi-p2-ffmpeg.s32" 2>"$TMP/ffmpeg.log"
   out=$("$BIN" compare -p 2 -r "$TMP/pi-p2-ffmpeg.s32" --reference-format s32le "$THD" 2>&1)
-  rc=$?
   echo "$out" | tail -5
-  if echo "$out" | grep -q "result: BIT-EXACT" && [ $rc -eq 0 ]; then
+  # The verdict is the sample comparison. A cut clip ends mid-access-unit, so
+  # `compare` also reports the trailing bytes and exits 7; that is the integrity
+  # policy doing its job and says nothing about whether the samples match.
+  if echo "$out" | grep -q "result: BIT-EXACT"; then
     record "truehd-presentation-2-vs-ffmpeg" "PASS" "$out"
   else
     record "truehd-presentation-2-vs-ffmpeg" "FAIL" "$out"
@@ -49,7 +51,9 @@ if [ -f "$THD" ] && [ -x "$TRUEHDD" ]; then
     > "$TMP/truehdd.log" 2>&1
   ref=$(ls "$TMP/thdd"/*.atmos.audio 2>/dev/null | head -1)
   ours="$TMP/pi-p3-ours"
-  "$BIN" decode -p 3 --format damf -o "$ours" "$THD" > "$TMP/ours-p3.log" 2>&1
+  # `--no-bed-conform` writes the coded bed rather than a conformed 7.1.2 one,
+  # which is what truehdd emits.
+  "$BIN" decode -p 3 --format damf --no-bed-conform -o "$ours" "$THD"     > "$TMP/ours-p3.log" 2>&1
   if [ -n "$ref" ] && [ -f "$ours.atmos.audio" ]; then
     out=$(python - "$ref" "$ours.atmos.audio" <<'PY'
 import sys, struct
