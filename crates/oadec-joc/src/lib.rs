@@ -283,6 +283,198 @@ impl JocDecoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use oadec_emdf::joc::{Joc, JocObject};
+
+    /// One frame of side information for a single object, with the branch of
+    /// clause 6.6.5 the test wants.
+    fn one_object(
+        slope: Slope,
+        num_dpoints: usize,
+        offset_ts: [u8; 2],
+        dp: &[[u8; 5]],
+        nch: usize,
+    ) -> Joc {
+        let mut mtx_q = Vec::new();
+        for (d, row) in dp.iter().enumerate().take(num_dpoints) {
+            let mut m = [[0u8; oadec_emdf::joc::MAX_BANDS]; oadec_emdf::joc::MAX_CHANNELS];
+            for (ch, slot) in m.iter_mut().enumerate().take(nch) {
+                // a distinct value per channel, per band and per data point, so
+                // that a branch reading the wrong one of the three shows up
+                for (pb, v) in slot.iter_mut().enumerate().take(4) {
+                    *v = row[ch] + pb as u8 + d as u8;
+                }
+            }
+            mtx_q.push(m);
+        }
+        Joc {
+            dmx_config: 3,
+            num_channels: nch,
+            num_objects: 1,
+            ext_config: 0,
+            clipgain: 1.0,
+            seq_count: 1,
+            objects: vec![Some(JocObject {
+                num_bands: 3,
+                sparse: false,
+                quant_idx: 1,
+                slope,
+                num_dpoints,
+                offset_ts,
+                mtx_q,
+                sparse_channel: None,
+            })],
+            bits_used: 0,
+            padding_zero: true,
+        }
+    }
+
+    /// The matrix coefficient the decoder would apply to channel `ch`,
+    /// subband `sb`, time slot `ts`, read out through the public interface: a
+    /// unit impulse in one channel comes out of `reconstruct` as that
+    /// coefficient.
+    fn coefficient(d: &JocDecoder, ts: usize, ch: usize, sb: usize, nch: usize) -> f64 {
+        let mut input = vec![[Complex::default(); BANDS]; nch];
+        input[ch][sb] = Complex { re: 1.0, im: 0.0 };
+        let mut out = vec![[Complex::default(); BANDS]; 1];
+        d.reconstruct(ts, &input, &mut out);
+        out[0][sb].re
+    }
+
+    /// Clause 6.6.5, pseudo-code 6, restated here rather than shared with the
+    /// implementation, so that the test can disagree with it.
+    fn expected(
+        branch: (Slope, usize, [u8; 2]),
+        points: (f64, f64, f64),
+        ts: usize,
+        num_ts: usize,
+    ) -> f64 {
+        let (slope, num_dpoints, offset_ts) = branch;
+        let (prev, d0, d1) = points;
+        match slope {
+            Slope::Smooth if num_dpoints == 1 => {
+                prev + (ts as f64 + 1.0) * (d0 - prev) / num_ts as f64
+            }
+            Slope::Smooth => {
+                let ts_2 = num_ts / 2;
+                if ts < ts_2 {
+                    prev + (ts as f64 + 1.0) * (d0 - prev) / ts_2 as f64
+                } else {
+                    d0 + (ts - ts_2 + 1) as f64 * (d1 - d0) / (num_ts - ts_2) as f64
+                }
+            }
+            Slope::Steep if num_dpoints == 1 => {
+                if ts < usize::from(offset_ts[0]) {
+                    prev
+                } else {
+                    d0
+                }
+            }
+            Slope::Steep => {
+                if ts < usize::from(offset_ts[0]) {
+                    prev
+                } else if ts < usize::from(offset_ts[1]) {
+                    d0
+                } else {
+                    d1
+                }
+            }
+        }
+    }
+
+    /// All four branches of clause 6.6.5, pseudo-code 6.
+    ///
+    /// Two of them -- smooth and steep with two data points -- have never
+    /// occurred in any real stream measured: 0 of 32 493 245 object updates in
+    /// 31 JOC streams. No encoder on hand emits them either; DEE 5.2.1 writes
+    /// one data point at every data rate it offers, even for objects moving
+    /// four times per frame. So this is the only thing holding them: it proves
+    /// the implementation matches the printed pseudo-code, and not that Dolby
+    /// agrees with the printed pseudo-code.
+    #[test]
+    fn every_interpolation_branch_matches_pseudocode_6() {
+        const NCH: usize = 5;
+        const NUM_TS: usize = 24;
+        let cases: [(Slope, usize, [u8; 2]); 4] = [
+            (Slope::Smooth, 1, [0, 0]),
+            (Slope::Smooth, 2, [0, 0]),
+            (Slope::Steep, 1, [7, 0]),
+            (Slope::Steep, 2, [7, 17]),
+        ];
+        for (slope, num_dpoints, offset_ts) in cases {
+            let mut d = JocDecoder::new(NCH, 1);
+            // the history is zero before the first frame (clause 6.6.5)
+            let first = one_object(
+                slope,
+                num_dpoints,
+                offset_ts,
+                &[[120, 90, 150, 60, 100]; 2],
+                NCH,
+            );
+            d.update(&first, NUM_TS);
+            // a second frame, so `prev` is not zero for the branch under test
+            let second = one_object(
+                slope,
+                num_dpoints,
+                offset_ts,
+                &[[80, 130, 40, 170, 96]; 2],
+                NCH,
+            );
+            let prev_q = [120u8, 90, 150, 60, 100];
+            let dp_q = [80u8, 130, 40, 170, 96];
+            d.update(&second, NUM_TS);
+
+            let map = band_map(3);
+            for ts in 0..NUM_TS {
+                for ch in 0..NCH {
+                    for sb in [0usize, 17, 63] {
+                        let pb = usize::from(map[sb]);
+                        // the first frame's last data point is what `prev` holds
+                        let prev = dequantize(prev_q[ch] + (num_dpoints - 1) as u8 + pb as u8, 1);
+                        let d0 = dequantize(dp_q[ch] + pb as u8, 1);
+                        let d1 = dequantize(dp_q[ch] + 1 + pb as u8, 1);
+                        let want =
+                            expected((slope, num_dpoints, offset_ts), (prev, d0, d1), ts, NUM_TS);
+                        let got = coefficient(&d, ts, ch, sb, NCH);
+                        assert!(
+                            (got - want).abs() < 1e-12,
+                            "{slope:?} with {num_dpoints} data point(s), ts {ts}, ch {ch}, sb {sb}: {got} != {want}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// The two branches with two data points reach the second matrix and the
+    /// two with one do not, which is the whole difference between them and the
+    /// reason a test that only checked the endpoints would pass either way.
+    #[test]
+    fn the_second_data_point_is_reached_only_when_there_is_one() {
+        const NCH: usize = 5;
+        const NUM_TS: usize = 24;
+        for (slope, offset_ts) in [(Slope::Smooth, [0u8, 0]), (Slope::Steep, [7, 17])] {
+            let mut d = JocDecoder::new(NCH, 1);
+            d.update(
+                &one_object(slope, 2, offset_ts, &[[96, 96, 96, 96, 96]; 2], NCH),
+                NUM_TS,
+            );
+            // first data point 40, second 170, so the two are far apart
+            let joc = one_object(
+                slope,
+                2,
+                offset_ts,
+                &[[40, 40, 40, 40, 40], [170, 170, 170, 170, 170]],
+                NCH,
+            );
+            d.update(&joc, NUM_TS);
+            let last = coefficient(&d, NUM_TS - 1, 0, 0, NCH);
+            let second = dequantize(joc.objects[0].as_ref().unwrap().mtx_q[1][0][0], 1);
+            assert!(
+                (last - second).abs() < 1e-12,
+                "{slope:?}: the last slot should hold the second data point, {last} != {second}"
+            );
+        }
+    }
 
     #[test]
     fn band_map_matches_the_examples_of_table_54() {
