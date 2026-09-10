@@ -7505,5 +7505,48 @@
   "All 120 JOC corruptions now exit non-zero from verify, from decode --format pcm and from decode --format damf. Silent accepts: 99 -> 0.",
   "All 100 TrueHD corruptions now exit non-zero from verify and from decode -p 3. Silent accepts: 2 -> 0; flagged-but-exit-0: 3 -> 0.",
   "No panics in either campaign, before or after."
- ]
+ ],
+ "re_run_after_the_joc_corrections": {
+  "utc": "2026-09-10T13:37:49.969490+00:00",
+  "why": "the steep switch point, the sparse coefficient chain and the first-band index all change how a JOC payload decodes, and the last of them changes it only for malformed input, which is exactly what a bit-flip campaign produces",
+  "binary_sha256": "42d806f5e33f598b7b24aead4089edc2b6ab5d2305acab79e4ddce87f1892bd1",
+  "joc": {
+   "verify": {
+    "silent": 0,
+    "nonzero_exit": 120,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   },
+   "decode_pcm": {
+    "silent": 0,
+    "nonzero_exit": 120,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   },
+   "decode_damf": {
+    "silent": 0,
+    "nonzero_exit": 120,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   }
+  },
+  "truehd": {
+   "verify": {
+    "silent": 0,
+    "nonzero_exit": 100,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   },
+   "decode_pcm": {
+    "silent": 0,
+    "nonzero_exit": 100,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   }
+  },
+  "unchanged": {
+   "joc": true,
+   "truehd": true
+  }
+ }
 }
