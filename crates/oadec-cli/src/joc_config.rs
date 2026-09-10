@@ -9,6 +9,15 @@
 //! to hand the same decoder the same audio under both labels, which is what
 //! this does.
 //!
+//! **This does not work against the Dolby decoder.** It discards a payload that
+//! has been rewritten and holds the previous matrix, whatever the new value
+//! says, most likely because it verifies the EMDF protection words that
+//! clause H.2.2.4.3 of TS 102 366 leaves implementation-dependent. Dropping to
+//! the core's six channels is what that fallback looks like, and it is
+//! indistinguishable from honouring configuration 0. See
+//! `docs/audit/evidence/remediation/payload-rewrite-rejected.json`. The tool is
+//! kept because it is a working instrument against this decoder.
+//!
 //! The field is the first three bits of the JOC payload, the payload sits at a
 //! bit offset inside an EMDF container, and the container sits at a byte
 //! offset inside a skip field that itself starts at a bit offset in the frame.
@@ -30,7 +39,7 @@ use crate::eac3::for_each_frame;
 const CONFIG_BITS: u32 = 3;
 
 /// Writes `n` bits of `value` at bit offset `at`.
-fn put_bits(buf: &mut [u8], at: usize, n: u32, value: u32) {
+pub fn put_bits(buf: &mut [u8], at: usize, n: u32, value: u32) {
     for i in 0..n as usize {
         let bit = (value >> (n as usize - 1 - i)) & 1 == 1;
         let p = at + i;
@@ -44,7 +53,7 @@ fn put_bits(buf: &mut [u8], at: usize, n: u32, value: u32) {
 }
 
 /// The frame check of clause 7.10, as in `eac3-ecpl-inject`.
-fn crc16(bytes: &[u8]) -> u16 {
+pub fn crc16(bytes: &[u8]) -> u16 {
     let mut crc = 0u16;
     for &b in bytes {
         crc ^= u16::from(b) << 8;

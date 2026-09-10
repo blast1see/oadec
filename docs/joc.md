@@ -161,20 +161,28 @@ that the decoder relies on. Clause numbers refer to that document.
   Configuration 4 is assumed to behave like 3 (no stream to test).
 - **Configuration 0 is all but extinct, and Dolby will not upmix it.** Of the
   113 object-carrying E-AC-3 tracks in the library, 112 use configuration 3
-  and one uses 0. Relabelling a working configuration 3 stream as 0 with
-  `oadec eac3-joc-config`, which moves the three bits of the field and redoes
-  the frame check and nothing else, makes the Dolby decoder drop from sixteen
-  object channels to six: `Channel-based decoding joc_enable(1),
-  jocd_out_mode(1)`. So the configuration alone is enough to turn its upmix
-  off. oadec follows clause 6.6, which draws no distinction, and reconstructs
-  the objects either way.
+  and one uses 0. The one that carries 0 is decoded to six channels rather
+  than sixteen objects: `Channel-based decoding joc_enable(1),
+  jocd_out_mode(1)`. oadec follows clause 6.6, which draws no distinction, and
+  reconstructs the objects either way.
 
-  The one stream in the library that carries configuration 0 has a second
-  reason as well: relabelled to 3 it is still refused, and the refusal is
-  taken again mid-stream when the decoder reaches its frames. Its sequence
-  counter, its splices, its use of the steep slope and its metadata structure
-  were each checked against streams the decoder accepts and none of them is
-  the cause. `docs/evidence/2026-09-10.md` has the measurements.
+  **Relabelling does not test this, and neither does any other in-place
+  rewrite.** A configuration 3 stream relabelled as 0 also drops to six
+  channels, and so does a configuration 0 stream relabelled as 3 -- but a
+  decoder that discards a JOC payload falls back to the core's six channels
+  too, and Dolby discards any payload that has been rewritten. Rewriting
+  `joc_offset_ts_bits` to 4 and to 12 moves Dolby's output away from the
+  original by exactly the same distance in every frame, to one decimal, while
+  the three frames the tool happened not to change come back bit-identical;
+  and a sweep of our own switch position against Dolby's decode of a rewritten
+  stream has no optimum, rising monotonically to 60,95 dB where our switch
+  stops firing at all. Dolby holds the previous matrix on a rewritten payload.
+  The likely mechanism is the EMDF protection words, which clause H.2.2.4.3 of
+  TS 102 366 leaves implementation-dependent and which no third party can
+  recompute. Frame-level rewriting is fine -- `eac3-ecpl-inject` redoes the
+  same frame check and Dolby decodes its output normally -- so it is the
+  container that is protected.
+  `docs/audit/evidence/remediation/payload-rewrite-rejected.json`.
 - **Clip gain** (clause 6.3.3.2): `(1 + y/32) 2^(x-4)`, over [1; 8,75]. The
   standard defines the value and never uses it again: the word does not
   appear in clause 6.6, which specifies the whole decode. It is the gain the
