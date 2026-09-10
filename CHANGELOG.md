@@ -107,6 +107,18 @@ Semantic Versioning.
   for the other refusal, the configuration 0 stream Dolby gives six channels:
   its own objects come back as sixteen that Dolby opens, on the head clip and on
   a mid-file cut, with the accepted title at sixteen either way.
+- A library-wide answer to what Dolby's own object decoder opens: 226 Dolby
+  Digital Plus tracks across 210 files, 223 opened as sixteen objects and **two**
+  refused. The one stream known to be refused is not a singleton -- The King
+  (2019), a streaming release, gets the same six channels. With nine
+  configuration-0 streams instead of two, exactly one field splits the refused
+  from the opened: `dialnorm`, 31 in both refused and 23 to 27 in every accepted
+  one. Neither half is the answer alone, since Dolby opens seven configuration-0
+  streams and 90 streams carrying `dialnorm` 31. `tools/ec3_patch_dialnorm.py`
+  can move the field and repair the frame CRC exactly -- it round-trips byte for
+  byte -- and the answer is still no: Dolby refuses a patched stream for a legal
+  value that is not 31, so it is reacting to the edit. A fourth instrument with
+  a limit on it, and a false positive caught by its control.
 - A third decoder's opinion, which is neither ours nor Dolby's. `truehdd` 0.6.1
   opens the object presentation on all six TrueHD Atmos titles, including the
   three Dolby's object path refuses, with the element counts oadec reports and
