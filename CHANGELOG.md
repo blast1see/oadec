@@ -141,7 +141,10 @@ Semantic Versioning.
   configuration-0 streams instead of two, exactly one field splits the refused
   from the opened: `dialnorm`, 31 in both refused and 23 to 27 in every accepted
   one. Neither half is the answer alone, since Dolby opens seven configuration-0
-  streams and 90 streams carrying `dialnorm` 31. `tools/ec3_patch_dialnorm.py`
+  streams and 90 streams carrying `dialnorm` 31. That conjunction is a candidate
+  and not a finding: with two refused streams among 225 there are 25 200 ways to
+  choose two rows, and a search over 13 530 field pairs is of the same order, so
+  a pair that isolates exactly those two is what chance produces. `tools/ec3_patch_dialnorm.py`
   can move the field and repair the frame CRC exactly -- it round-trips byte for
   byte -- and the answer is still no: Dolby refuses a patched stream for a legal
   value that is not 31, so it is reacting to the edit. A fourth instrument with

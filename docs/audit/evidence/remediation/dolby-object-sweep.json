@@ -116,7 +116,8 @@
     ],
     "dolby_channels": 6
    }
-  ]
+  ],
+  "how_much_it_is_worth": "less than it reads. The conjunction holds exactly over all 225 streams whose verdict is clean -- configuration 0 and dialnorm 31 are the two Dolby refuses and nothing else -- but there are only two refused streams, and about 25 200 ways to choose two rows from 225. A search over the 13 530 field pairs formable from what `info` reports is of the same order, so a conjunction that isolates exactly those two is what such a search is expected to produce by chance. It is a candidate, not a finding, and it will stay one until either a third refused stream appears or a mutation instrument does"
  },
  "and_it_cannot_be_tested_here": {
   "why_it_looked_testable": "dialnorm is not in an EMDF payload, which Dolby discards when rewritten. It is five bits of `bsi()` at bit 45 of an E-AC-3 syncframe and the frame CRC-16 is recomputable, so a patched stream is well-formed rather than merely edited",
