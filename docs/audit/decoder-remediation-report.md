@@ -402,6 +402,68 @@ and three use 0. No EMDF container was found in `auxdata` in any of 49 streams.
 
 ---
 
+## The Dolby refusal, chased again
+
+Dolby's TrueHD decoder opens the object presentation on Pi, Talk to Me and
+Braveheart and refuses it on Shaun of the Dead, Knives Out and Kingsman. The
+audit found `2ch_control_enabled` perfectly correlated across the six, set it in
+all 383 major syncs of a Shaun clip with the CRC repaired, saw no change, and
+concluded the field was not causal.
+
+Three things came out of going back to it.
+
+**What the refusal is.** The decoder says "Selected Dolby TrueHD presentation is
+not available" and the pipeline fails to preroll, so the decision is taken from
+the major sync before any audio is decoded. And it is specific to the object
+output: all three refused titles decode at `presentation=16` when
+`out-ch-config` is left alone. Only `out-ch-config=21` with `presentation=16` is
+refused.
+
+**Nothing in the header separates the sets.** Across all 74 fields oadec reports
+from the major sync and the 16-channel declaration, not one separates the three
+accepted from the three refused. Shaun of the Dead and Knives Out are
+indistinguishable from Pi and Braveheart: four substreams,
+`extended_substream_info` 3, flags 0x1000, presentation masks 1/3/7/15, and a
+16-channel declaration of 12 channels, 11 dynamic objects, dialogue norm 31,
+mix level 35. One is accepted and the other refused.
+
+Byte by byte over the first 96 bytes of the major sync, exactly one whole byte
+separates them: byte +18, 0x02 in all three accepted and 0x00 in all three
+refused. Byte +18 opens `channel_meaning` — six bits of
+`heavy_drc_start_up_gain`, then `2ch_control_enabled` — so the differential
+finds the audit's field again, independently.
+
+**And the field is causal after all.** The audit tested one direction. Testing
+the other:
+
+| Title | `2ch_control_enabled` | Dolby |
+|---|---|---|
+| Pi | 1, as authored | accepted |
+| Pi | 0, cleared | **refused** |
+| Braveheart | 1, as authored | accepted |
+| Braveheart | 0, cleared | **refused** |
+| Shaun of the Dead | 0, as authored | refused |
+| Shaun of the Dead | 1, set | refused |
+| Knives Out | 0 → 1 | refused |
+| Kingsman | 0 → 1 | refused |
+
+The flag is flipped in every major sync and the CRC-16 repaired; `verify` on the
+patched Pi reports nothing but the 84 trailing bytes the 50 MB cut already had,
+so the patch is clean. Clearing the flag turns an accepted title into a refused
+one, on both accepted titles tested.
+
+So `2ch_control_enabled` is **necessary and not sufficient**. Setting it on a
+refused title changes nothing, which is what the audit measured and why testing
+only that direction could not have found the necessity. The refused titles have
+at least one further reason, it is taken before any audio is decoded, and it is
+not in the major sync.
+
+None of this says oadec is wrong. oadec decodes all six; the three whose object
+output has never been confirmed are the three Dolby will not open in object
+mode. `evidence/remediation/presentation16-differential.json`.
+
+---
+
 ## The harness that let both defects through
 
 `cargo test --release -p oadec-cli --test real -- --ignored` with `OADEC_MEDIA`
