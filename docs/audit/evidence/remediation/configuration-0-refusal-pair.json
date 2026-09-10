@@ -21,5 +21,55 @@
   "it is not about the sequence counter, which the earlier work had already doubted and which a mid-file cut now rules out directly",
   "the question is now properly posed, with a control that differs in nothing this decoder can read. What is left is a field oadec does not parse, or a decision the decoder takes on content"
  ],
- "instrument_note": "the obvious next experiment -- change one field of Snatch and see whether the refusal moves -- is not available: Dolby discards any EMDF payload rewritten in place. See payload-rewrite-rejected.json"
+ "instrument_note": "the obvious next experiment -- change one field of Snatch and see whether the refusal moves -- is not available: Dolby discards any EMDF payload rewritten in place. See payload-rewrite-rejected.json",
+ "the_content_is_not_it": {
+  "utc": "2026-09-10T21:15:25.896984+00:00",
+  "commit": "18573b25d83744575761ac867a4c9516561ddc83",
+  "why": "the field-by-field difference found nothing and the mutation instrument is unavailable, because Dolby discards any payload rewritten in place. What is still available is the question the TrueHD titles answered: decode the refused stream's own objects, hand them back to Dolby's encoder, and ask Dolby again",
+  "method": "`decode --format damf --no-bed-conform`, then `dee encode_to_atmos_ddp` from that set at 768 kbit/s, then the same object-mode command that produced the original figures",
+  "result": {
+   "snatch": {
+    "clip": "snatch-joc-head.ec3",
+    "samples_per_channel": 1920000,
+    "original": {
+     "dolby_bytes": 46044648,
+     "dolby_channels": 6
+    },
+    "reencode": {
+     "elements_handed_back": 16,
+     "dolby_bytes": 122785728,
+     "dolby_channels": 16
+    }
+   },
+   "dredd": {
+    "clip": "dredd-cfg0.ec3",
+    "samples_per_channel": 28800000,
+    "original": {
+     "dolby_bytes": 1843105728,
+     "dolby_channels": 16
+    },
+    "reencode": {
+     "elements_handed_back": 16,
+     "dolby_bytes": 1843105728,
+     "dolby_channels": 16
+    }
+   },
+   "snatch-mid": {
+    "clip": "snatch-mid.ec3",
+    "samples_per_channel": 1966080,
+    "original": {
+     "dolby_bytes": 47150568,
+     "dolby_channels": 6
+    },
+    "reencode": {
+     "elements_handed_back": 16,
+     "dolby_bytes": 125734848,
+     "dolby_channels": 16
+    }
+   }
+  },
+  "reading": "Snatch is given six channels and its own objects, re-encoded, are given sixteen. The mid-file cut behaves the same way. Dredd, the accepted control, is sixteen both times. So the refusal is not about the object programme Snatch carries",
+  "the_re_encode_is_a_real_object_stream": "not merely sixteen channels of something: oadec and Dolby agree on all fifteen active objects of the Snatch re-encode at 43,81 to 111,05 dB, correlation 0,99998 or better, with the sixteenth silent in both. That is ordinary configuration-0 agreement",
+  "what_it_leaves": "the same question with one fewer answer. Not the configuration, not the sequence counter, not any field this decoder parses, and not the content. A property of how that stream was written, which no instrument here reaches"
+ }
 }

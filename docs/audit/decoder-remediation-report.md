@@ -988,6 +988,26 @@ after the hand edit came from the edit. That is what the dynamic-range gain
 control suggested and this settles it. This report's earlier "suggestive but
 unclean" becomes **not sufficient**.
 
+### The same question, asked of the other refusal
+
+Dolby also gives one configuration 0 stream six channels and another sixteen
+objects: Snatch is refused, Dredd is accepted, and they agree in every field
+oadec parses. The mutation instrument is unavailable there too, for a different
+reason — Dolby discards a payload rewritten in place. But the re-encode is
+available, and it is the same experiment:
+
+| | Dolby, as it stands | Dolby, its own objects re-encoded |
+|---|---:|---:|
+| Snatch, head | 6 channels | **16** |
+| Snatch, a mid-file cut | 6 channels | **16** |
+| Dredd, the control | 16 | 16 |
+
+The re-encode is a real object stream and not sixteen channels of something:
+oadec and Dolby agree on all fifteen active objects of it at 43,81 to 111,05 dB,
+correlation 0,999 98 or better, the sixteenth silent in both. So that refusal is
+not about the object programme either.
+`evidence/remediation/configuration-0-refusal-pair.json`.
+
 ### And the content is not it either
 
 The same tools answer the next question. The objects of the refused titles are
@@ -1273,7 +1293,11 @@ byte-identical on every one, 212 527 200 element-samples with the same MD5.
   the same title has none, and Dolby refuses that cut too. What is left is a
   field oadec does not parse or a decision taken on content, and the obvious
   experiment -- change one field and watch the refusal move -- is not available,
-  because Dolby discards any payload rewritten in place.
+  because Dolby discards any payload rewritten in place. What is available is the
+  re-encode, and it answers the same thing it answered for the TrueHD titles:
+  Snatch's own objects, decoded here and re-encoded by DEE, come back as sixteen
+  objects that Dolby opens, on both the head clip and a mid-file cut, with Dredd
+  at sixteen either way as the control. So it is not the content.
   `evidence/remediation/configuration-0-refusal-pair.json`.
 - **Two-data-point interpolation**, and with it the smooth-2 and steep-2
   branches of clause 6.6.5: 0 of 170 722 130 object updates, and no way to make

@@ -103,7 +103,10 @@ Semantic Versioning.
   across six titles is **not sufficient**, and the earlier bit patch that seemed
   to show necessity was measuring the edit rather than the field. Nor is the
   content: each refused title's own objects, decoded here and re-encoded by DEE,
-  are opened by the same object path that refuses the originals.
+  are opened by the same object path that refuses the originals. The same holds
+  for the other refusal, the configuration 0 stream Dolby gives six channels:
+  its own objects come back as sixteen that Dolby opens, on the head clip and on
+  a mid-file cut, with the accepted title at sixteen either way.
 - A third decoder's opinion, which is neither ours nor Dolby's. `truehdd` 0.6.1
   opens the object presentation on all six TrueHD Atmos titles, including the
   three Dolby's object path refuses, with the element counts oadec reports and
