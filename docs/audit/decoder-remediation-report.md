@@ -1513,10 +1513,15 @@ byte-identical in all three files of the set, and the nine whose object audio
 moved are exactly the nine that carry steep objects, from 30 of them to 1 200.
 The three TrueHD baselines are still bit-exact, the six-title object comparison
 regressed on none of them, the controlled scene reproduces its figures to the
-digit, and the media suite passes 16 of 16 in 1 328 s, the last of them the one that
-reads the authored tones back out of the 7.1 programme. The presentation-3 baseline is no
+digit, and the media suite passes 18 of 18 in 1 329 s. The two newest are the ones this
+round could not have written before it had the material: the steep switch
+measured on a stream that is thirty per cent steep, and a title Dolby will not
+open checked against an independent decoder byte for byte. The presentation-3 baseline is no
 longer three titles: `truehdd` was run over all six and the object audio is
-byte-identical on every one, 212 527 200 element-samples with the same MD5.
+byte-identical on every one, 212 527 200 element-samples with the same MD5 — and
+then over every title in the library that Dolby's object mode refuses, 89 of 89
+identical with 14 it opens as a control, 3,9 GB in all. Across the 420 streams
+the two sweeps read, this decoder reported no failure of any kind.
 `evidence/remediation/decode-exit-codes.json`,
 `evidence/remediation/regression-summary.json`.
 
