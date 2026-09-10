@@ -34,5 +34,37 @@
  "joc_objects": {
   "evidence": "joc-objects-vs-dolby.json",
   "note": "six titles, none regressed; Glass Onion moved from 25,24 to 49,93 dB worst object with the steep correction and the other five are unchanged to the decimal"
+ },
+ "blast_radius": {
+  "utc": "2026-09-10T13:40:27.475019+00:00",
+  "what": "which stored outputs the JOC corrections changed, against the hashes taken before them (E:/oadec-work/audit/remediation/sparse/{pcm,damf}-sha256.txt)",
+  "pcm": {
+   "checked": 21,
+   "identical": 21,
+   "different": 0,
+   "not_on_disk": 12,
+   "why": "the corrections are in the JOC matrix, which no PCM decode touches"
+  },
+  "damf": {
+   "unchanged_and_byte_identical": [
+    "br2049-joc-head.ec3",
+    "disclosure-web-head.ec3",
+    "kingsman-joc-head.ec3",
+    "knivesout-joc-head.ec3",
+    "talktome-joc-head.ec3"
+   ],
+   "changed_audio": {
+    "extraction-nf-head.ec3": 30,
+    "glassonion-nf-head.ec3": 195,
+    "jackal-s01e07-head.ec3": 840,
+    "pi-head-dee-head.ec3": 135,
+    "pi-head-joc384.ec3": 1199,
+    "rednotice-nf-head.ec3": 105,
+    "shaun-joc1024-head.ec3": 30,
+    "snatch-joc-head.ec3": 225,
+    "snatch-mid.ec3": 1200
+   },
+   "reading": "the set whose object audio moved is exactly the set that carries steep objects, and the count beside each name is how many it carries. Every clip with none is byte-identical in all three files of the set. No sparse clip is in this list because none of these head clips carries a sparse object."
+  }
  }
 }
