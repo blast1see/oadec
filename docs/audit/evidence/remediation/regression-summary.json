@@ -1,11 +1,11 @@
 {
- "what": "The TrueHD results the audit proved, re-run after the substream and integrity work",
+ "what": "The TrueHD results the audit proved, re-run after the substream, integrity and JOC work",
  "note": "D1's `compare` exits 7 because the 50 MB cut ends mid-access-unit and the integrity policy now reports the 84 trailing bytes. The verdict is the sample comparison, which is bit-exact.",
  "gates": [
   {
    "gate": "truehd-presentation-2-vs-ffmpeg",
    "verdict": "PASS",
-   "detail": "decoded 126895 access units, 5075800 samples x 8 channels (0:01:45.746), 0 dropped duplicates\nlossless checks: 1000 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: L R C LFE Lb Rb Ls Rs\nspeed: 0.84 s (126x realtime)\ncompared 5075800 samples x 8 channels (0:01:45.746) with the reference\nmismatching samples: 0 (max difference 0)\nlengths agree\nresult: BIT-EXACT\nintegrity: 84 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults"
+   "detail": "decoded 126895 access units, 5075800 samples x 8 channels (0:01:45.746), 0 dropped duplicates\nlossless checks: 1000 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: L R C LFE Lb Rb Ls Rs\nspeed: 0.87 s (121x realtime)\ncompared 5075800 samples x 8 channels (0:01:45.746) with the reference\nmismatching samples: 0 (max difference 0)\nlengths agree\nresult: BIT-EXACT\nintegrity: 84 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults"
   },
   {
    "gate": "truehd-presentation-3-vs-truehdd",
@@ -23,5 +23,6 @@
   "Presentation 3 against truehdd: the CAF payloads are byte-identical over 182 728 800 bytes.",
   "Presentation 3 against Dolby's object decoder: 5 075 800 frames of 12 objects, 0 differing samples, maximum difference 0.",
   "TrueHD is lossless, so nothing but zero would do."
- ]
+ ],
+ "utc": "2026-09-10T12:06:18.691731+00:00"
 }

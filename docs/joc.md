@@ -52,9 +52,11 @@ that the decoder relies on. Clause numbers refer to that document.
   15,5 to 65 dB. `--sparse-as-printed` restores the printed reading for
   measurement. Frames with no sparse object are bit-identical either way.
 
-  One frame still lags its neighbours by 22 dB after both corrections, so
-  something in the sparse path is still not right; it is a loud dense passage
-  and the other two reach parity.
+  One frame still lagged its neighbours by 22 dB after both corrections. Half
+  of that turned out not to be sparse at all but the steep switch point below:
+  that frame is also steep, with offset 23. It now reaches 30,63 dB where its
+  neighbours are 38 to 48, so the gap is 10 to 15 dB and still unexplained.
+  The other two reach parity.
 - **Dequantization** (clause 6.6.4): `(q - nquant/2) * 820 / (4096 (1 +
   quant_idx))`, range about ±9.6.
 - **Band mapping** (table 54): 23/15/12/9/7/5/3/1 parameter bands over the
@@ -64,6 +66,39 @@ that the decoder relies on. Clause numbers refer to that document.
   previous frame's last data point over the 24 time slots of a six-block
   frame (12 + 12 with two data points); steep slope switches at the
   transmitted slot offset. Objects absent from a payload keep their matrix.
+
+  **The steep switch is one slot late as printed.** Clause 6.3.4.4 defines
+  `joc_offset_ts = joc_offset_ts_bits + 1`, so the offset is one-based: the
+  smallest value it can carry names the first time slot. The `ts` of
+  clause 6.6.5 counts from zero, and its pseudo-code compares the two
+  directly — `if (ts < joc_offset_ts)` — which holds the previous matrix for
+  one slot too many. Dolby's decoder switches at the slot the offset names,
+  which is `ts < joc_offset_ts - 1`.
+
+  Measured against Dolby's object decoder on eight titles. Four carry steep
+  objects; the other four are the negative control and are bit-identical
+  either way, because the reading cannot reach a stream that has none.
+
+  | title | steep objects | worst, as printed | worst, corrected | median |
+  |---|---:|---:|---:|---|
+  | Glass Onion | 195 | 25,24 dB | **49,93 dB** | 47,76 → 65,44 |
+  | Shaun of the Dead | 30 | 40,75 dB | **43,62 dB** | 46,79 → 53,79 |
+  | Red Notice | 105 | 36,21 dB | 36,21 dB | unchanged |
+  | Extraction | 30 | 50,51 dB | 50,51 dB | unchanged |
+
+  Per frame it is sharper still: of Glass Onion's 13 frames with steep
+  objects, four were damaged and nine were already right — 33,82 → 63,29 and
+  32,54 → 63,99 and 34,09 → 64,37 and 48,50 → 63,39 dB, the rest identical.
+  Shaun's frame 581 goes 23,51 → 58,90 dB. The switch position is a discrete
+  parameter and its optimum is sharp: sweeping it over ±3 slots gives 24,7,
+  27,1, **49,9**, 25,2, 21,6 and 19,3 dB. Where the two matrices at the switch
+  are nearly equal the reading is inert, which is why two titles with steep
+  objects do not move at all: they differ by 1,5·10⁻⁴ and 1,1·10⁻⁶ at most.
+
+  Steep is not rare — 737 503 of 32 493 245 object updates, 2,3 per cent.
+  `--steep-as-printed` restores the printed reading for measurement, and the
+  unit tests pin both. Evidence:
+  `docs/audit/evidence/remediation/steep-offset-differential.json`.
 - **QMF bank** (clause 7): 64 bands, 640-tap prototype QWIN, analysis
   `Q[sb] = sum_j u[j] exp(i pi (sb + 1/2)(j - 1/2)/64)`. The synthesis phase
   must be `(j - 2n + 1/2)` as in the matrix equation of clause 7.3, not the

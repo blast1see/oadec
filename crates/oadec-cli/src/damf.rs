@@ -27,6 +27,10 @@ pub struct Options {
     /// JOC: read a sparse matrix exactly as clause 6.6.2 prints it, rather
     /// than as Dolby's decoder reads it. For measuring the difference.
     pub sparse_as_printed: bool,
+    /// JOC: put the steep switch of clause 6.6.5 where the printed
+    /// pseudo-code puts it, one slot after the offset names, rather than
+    /// where Dolby's decoder puts it. For measuring the difference.
+    pub steep_as_printed: bool,
     pub keep_duplicates: bool,
     pub bed_conform: bool,
     pub all_events: bool,

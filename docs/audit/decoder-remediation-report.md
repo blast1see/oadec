@@ -6,8 +6,8 @@ before-state; where its numbers move, this report says so and the audit stays as
 the record of what was measured on the day.
 
 Two defects were demonstrated by the audit and both are fixed. A third turned up
-while closing one of the coverage gaps, and one of the audit's own conclusions
-turned out to be wrong. Beyond them the audit left a number of areas untested
+while closing one of the coverage gaps, a fourth while measuring what was left
+of the third, and one of the audit's own conclusions turned out to be wrong. Beyond them the audit left a number of areas untested
 rather than failing, and those are treated as what they are: coverage gaps,
 unknown proprietary behaviour, or reference-decoder disagreement, each pursued
 on its own terms and none of them promoted to a pass without evidence.
@@ -389,9 +389,12 @@ was already right: 50 to 57 dB, unchanged.
 
 ### Remaining limitation
 
-The first of the three frames still lags its neighbours by 22 dB after both
-corrections, where the other two reach parity. It is a loud, dense passage.
-Something in the sparse path is still not right and it is recorded as open.
+The first of the three frames still lagged its neighbours by 22 dB after both
+corrections, where the other two reached parity. Half of that gap turned out
+not to belong to sparse mode at all: the same frame is also the only steep
+frame in that clip, and defect 4 below took it from 16,53 dB to 30,63 dB
+against neighbours at 38 to 48. What is left is 10 to 15 dB and is recorded as
+open.
 
 ### What is still unexercised
 
@@ -400,6 +403,109 @@ occur**, so two of the four branches of clause 6.6.5 pseudo-code 6 — smooth
 with two points and steep with two points — have never run on real material.
 Downmix configurations 1, 2 and 4 never occur; 28 streams use configuration 3
 and three use 0. No EMDF container was found in `auxdata` in any of 49 streams.
+
+---
+
+## Defect 4 — the steep interpolation switched one time slot too late
+
+Not in the audit either, and not in the list of things this work set out to do.
+It was found while measuring what was left of defect 3: the frame that would not
+come right is the only frame in that clip carrying steep objects, and the
+question "what else is different about it" had one answer.
+
+### Symptom
+
+On frames where an object's matrix changes sharply, the objects diverge from
+Dolby's for one QMF time slot, and the filter bank spreads that slot over about
+ten. On the worst frames measured the per-object median falls to 23 to 34 dB
+where the frames either side are 60 to 65.
+
+### Root cause
+
+Clause 6.3.4.4 defines `joc_offset_ts = joc_offset_ts_bits + 1`. The offset is
+one-based: the smallest value the five transmitted bits can carry names the
+first time slot. The `ts` of clause 6.6.5 counts from zero, and its pseudo-code
+compares the two directly:
+
+```
+if (ts < joc_offset_ts[obj][0]) {
+  joc_mix_mtx_interp[obj][ts][ch][sb] = joc_mix_mtx_prev[obj][ch][sb];
+}
+```
+
+so the previous matrix is held for one slot too many. Dolby's decoder switches
+at the slot the offset names, which is `ts < joc_offset_ts - 1`. Nothing else
+about the syntax changes: the parse still reports `joc_offset_ts` exactly as
+clause 6.3.4.4 defines it, and `verify --json` still counts the transmitted
+values.
+
+### Reproduction and reference result
+
+`evidence/remediation/steep-offset-differential.json`. Each clip is decoded
+twice from the same binary, once with `--steep-as-printed` and once without,
+and both are compared per object against Dolby's object decoder in the window
+`tools/objcmp.py` already used.
+
+Eight titles. Four carry steep objects; the other four are the negative control
+and are bit-identical under the two readings, because a stream with no steep
+object cannot reach the code that changed.
+
+| Title | Steep objects | Worst, as printed | Worst, corrected | Median |
+|---|---:|---:|---:|---|
+| Glass Onion | 195 | 25,24 dB | **49,93 dB** | 47,76 → 65,44 |
+| Shaun of the Dead | 30 | 40,75 dB | **43,62 dB** | 46,79 → 53,79 |
+| Red Notice | 105 | 36,21 dB | 36,21 dB | unchanged |
+| Extraction | 30 | 50,51 dB | 50,51 dB | unchanged |
+
+Per frame it is sharper. Of Glass Onion's thirteen frames with steep objects,
+four were damaged and nine were already right:
+
+| Frame | as printed | corrected |
+|---|---:|---:|
+| 752 | 48,50 dB | 63,39 dB |
+| 824 | 33,82 dB | 63,29 dB |
+| 907 | 32,54 dB | 63,99 dB |
+| 929 | 34,09 dB | 64,37 dB |
+| the other nine | 58 to 65 dB | identical |
+
+and Shaun of the Dead's frame 581 goes from 23,51 dB to 58,90.
+
+Where the two matrices either side of the switch are nearly equal the reading
+makes no audible difference, which is why two titles that do carry steep
+objects do not move: their two decodes differ by at most 1,5·10⁻⁴ and 1,1·10⁻⁶.
+That is the shape a one-slot correction should have.
+
+### Why this is not a metric tuned on one sample
+
+The switch position is a discrete parameter, so it can be swept. Moving it over
+±3 slots on the title with the most steep objects gives a single sharp optimum
+with nothing near it:
+
+| Shift, slots | −3 | −2 | **−1** | 0 (as printed) | +1 | +2 |
+|---|---:|---:|---:|---:|---:|---:|
+| Worst object, dB | 24,69 | 27,09 | **49,93** | 25,24 | 21,64 | 19,28 |
+| Median, dB | 46,88 | 49,23 | **65,44** | 47,76 | 43,64 | 41,96 |
+| Correlation-structure delta | 0,0007 | 0,0007 | **0,0001** | 0,0007 | 0,0012 | 0,0023 |
+
+Both immediate neighbours are more than 22 dB worse. And the reading is not
+free-floating: it is what a one-based offset against a zero-based slot index
+gives, with no tunable quantity in it.
+
+### Tests added
+
+`steep_switches_one_slot_before_the_printed_reading` in `oadec-joc` pins both
+readings and the one slot they disagree about.
+`every_interpolation_branch_matches_pseudocode_6` now asks for
+`SteepReading::AsPrinted` explicitly, so the printed pseudo-code stays pinned
+as printed and the deviation stays visible as a deviation.
+
+### Remaining limitation
+
+This is agreement with one decoder family, as the matrix alignment and the
+sparse corrections are. It is `PASS-TOL`, not `PASS`. Steep interpolation is
+737 503 of 32 493 245 object updates — 2,3 per cent — so this reaches most
+streams, but the two-data-point steep branch still has no material and stays
+`N/T`.
 
 ---
 
@@ -477,8 +583,10 @@ run that cannot reach the media now fails, and CI runs the check that it does.
 
 ## What is still open
 
-- **Sparse JOC**, on one of the three frames that carry it: 22 dB below its
-  neighbours after both corrections. The other two reach parity.
+- **Sparse JOC**, on one of the three frames that carry it: 10 to 15 dB below
+  its neighbours after the two sparse corrections and the steep one. It was
+  22 dB before defect 4 was found in the same frame. The other two reach
+  parity.
 - **The second reason Dolby refuses three titles.** `2ch_control_enabled` is
   necessary and not sufficient; the rest is taken before any audio is decoded
   and is not in the major sync.
@@ -488,7 +596,9 @@ run that cannot reach the media now fails, and CI runs the check that it does.
   offers, even for an object authored to move four times within a frame. The
   branches are covered by a unit test against the printed pseudo-code, which
   proves the implementation matches clause 6.6.5 and not that Dolby agrees
-  with it.
+  with it — and defect 4 is exactly a case where it does not, on the branch
+  that could be measured. The two-point branches carry the same offset field
+  and the same correction is applied to it, unmeasured.
 - **Downmix configurations 1, 2 and 4**: reachable, and no material.
   Relabelling cannot make any, because they size the matrix for seven channels;
   neither can the encoder, whose job description has no core-layout or

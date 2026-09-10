@@ -28,6 +28,16 @@ Semantic Versioning.
   real sparse material available this moves the objects from -13,5 to +1,1 dB
   against Dolby's to 16,5 to 51,5 dB. `--sparse-as-printed` restores the
   printed reading.
+- **The steep interpolation switched one time slot too late.** `joc_offset_ts`
+  is one-based (clause 6.3.4.4 defines it as the transmitted bits plus one) and
+  the `ts` of clause 6.6.5 counts from zero, but the printed pseudo-code
+  compares them directly. Dolby's decoder switches at the slot the offset
+  names. Steep is 737 503 of 32 493 245 object updates, so this reaches most
+  streams: Glass Onion's worst object goes from 25,24 dB against Dolby's
+  objects to 49,93 and its median from 47,76 to 65,44; Shaun of the Dead's
+  frame 581 from 23,51 dB to 58,90. Titles with no steep object are
+  bit-identical either way. `--steep-as-printed` restores the printed
+  reading.
 - The EMDF container is looked for where TS 103 420 clause 8.2 puts it, the
   last dependent substream, and `auxdata` is read where clause 4.4.4 puts it.
   `eac3-joc-config` no longer skips dependent substreams, which would have made

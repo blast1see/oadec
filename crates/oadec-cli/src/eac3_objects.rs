@@ -19,7 +19,7 @@ use oadec_emdf::joc::{Joc, SparseReading};
 use oadec_emdf::oamd::{BedChannel, Oamd};
 use oadec_joc::{
     Analysis, BANDS, Carry, Complex, DELAY, JocDecoder, LOW_DELAY, MATRIX_ALIGN, Quadrature,
-    Synthesis,
+    SteepReading, Synthesis,
 };
 use oadec_spatial::{Program, Timeline};
 
@@ -134,6 +134,7 @@ impl Pipeline {
         chans: &[ChannelLoc],
         clip_gain: bool,
         flat_quadrature: bool,
+        steep: SteepReading,
     ) -> Result<Self> {
         let mut joc_inputs = vec![usize::MAX; joc.num_channels];
         for (coded, loc) in chans.iter().enumerate() {
@@ -200,6 +201,7 @@ impl Pipeline {
             .and_then(|v| v.parse().ok())
             .unwrap_or(LOW_DELAY - MATRIX_ALIGN);
         joc_decoder.set_lag(lag);
+        joc_decoder.set_steep_reading(steep);
         Ok(Self {
             joc: joc_decoder,
             analysis: (0..joc.num_channels).map(|_| Analysis::new()).collect(),
@@ -486,6 +488,11 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
                 &frame.layout.channels,
                 opts.clip_gain,
                 opts.flat_quadrature,
+                if opts.steep_as_printed {
+                    SteepReading::AsPrinted
+                } else {
+                    SteepReading::Measured
+                },
             )?);
             sink = Some(Sink::create(dir, &name, &p, rate, opts)?);
             eprintln!(
