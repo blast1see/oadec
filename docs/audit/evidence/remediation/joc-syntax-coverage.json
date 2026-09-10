@@ -207,7 +207,8 @@
    "Two departures from clause 6.6.2's printed pseudo-code fix it. An unselected channel takes the code that dequantises to zero gain (48 coarse, 96 fine) rather than the printed 50 or 100, which dequantise to a gain of 0,4 and pour four of the five downmix channels into every object. And the channel index accumulates from the resolved index of the previous band rather than from the transmitted one.",
    "Both are needed: the off-channel value alone recovers 10 to 19 dB, the index alone recovers nothing because the off-channel error dominates, and together they give 15,5, 49,0 and 65,0 dB.",
    "Frames with no sparse object are bit-identical before and after, and all 33 work streams decode to byte-identical PCM and DAMF."
-  ]
+  ],
+  "superseded_for_sparse_by": "evidence/remediation/sparse-differential.json, which measures every sparse frame in the library across four clips and three readings. The figures below are the two-correction state on the two Extraction clips and are kept as the record of what was measured then."
  },
  "still_unexercised": {
   "two_data_points": "0 of 32 493 245 object updates",

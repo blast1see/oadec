@@ -1,0 +1,585 @@
+{
+ "what": "The three readings of clause 6.6.2 pseudo-code 2 against Dolby, on every sparse frame there is",
+ "utc": "2026-09-10T12:26:50.502017+00:00",
+ "commit": "a41f0ebccb07ba791532f1e5057b9b4eb099aa58",
+ "binary_sha256": "4093f3626ba92f2b763f87c8e795f816e72e86eb5d75f951ae7021ff292004ff",
+ "reference": "Dolby Reference Player 3.2.0 gst-plugins, dlbac3dec out-ch-config=21, drc suppressed, start-up delay dropped",
+ "readings": {
+  "as_printed": "clause 6.6.2 pseudo-code 2 exactly as printed (--sparse-as-printed)",
+  "two_corrections": "the unselected channel takes the zero-gain code and the channel index accumulates from the resolved previous index",
+  "three_corrections": "and the coefficient chain runs unbroken across the bands whatever channel each one selects, instead of restarting at the offset"
+ },
+ "clips": [
+  {
+   "clip": "extraction-sparse",
+   "sparse_frames": [
+    75
+   ],
+   "window": [
+    73,
+    74,
+    75,
+    76
+   ],
+   "frames": {
+    "73": {
+     "as_printed": {
+      "median_sdr_db": 38.48,
+      "worst_sdr_db": 29.77
+     },
+     "two_corrections": {
+      "median_sdr_db": 38.48,
+      "worst_sdr_db": 29.77
+     },
+     "three_corrections": {
+      "median_sdr_db": 38.48,
+      "worst_sdr_db": 29.77
+     }
+    },
+    "74": {
+     "as_printed": {
+      "median_sdr_db": 48.19,
+      "worst_sdr_db": 33.47
+     },
+     "two_corrections": {
+      "median_sdr_db": 48.19,
+      "worst_sdr_db": 33.55
+     },
+     "three_corrections": {
+      "median_sdr_db": 48.19,
+      "worst_sdr_db": 33.55
+     }
+    },
+    "75": {
+     "as_printed": {
+      "median_sdr_db": 7.54,
+      "worst_sdr_db": 0.07
+     },
+     "two_corrections": {
+      "median_sdr_db": 30.63,
+      "worst_sdr_db": 16.15
+     },
+     "three_corrections": {
+      "median_sdr_db": 34.55,
+      "worst_sdr_db": 25.5
+     }
+    },
+    "76": {
+     "as_printed": {
+      "median_sdr_db": 46.18,
+      "worst_sdr_db": 30.07
+     },
+     "two_corrections": {
+      "median_sdr_db": 46.18,
+      "worst_sdr_db": 30.07
+     },
+     "three_corrections": {
+      "median_sdr_db": 46.18,
+      "worst_sdr_db": 30.07
+     }
+    }
+   },
+   "clip_median_outside_the_window": {
+    "as_printed": 44.41,
+    "two_corrections": 44.41,
+    "three_corrections": 44.41
+   }
+  },
+  {
+   "clip": "extraction-sparse2",
+   "sparse_frames": [
+    65,
+    83
+   ],
+   "window": [
+    63,
+    64,
+    65,
+    66,
+    81,
+    82,
+    83,
+    84
+   ],
+   "frames": {
+    "63": {
+     "as_printed": {
+      "median_sdr_db": 56.54,
+      "worst_sdr_db": 42.28
+     },
+     "two_corrections": {
+      "median_sdr_db": 56.54,
+      "worst_sdr_db": 42.28
+     },
+     "three_corrections": {
+      "median_sdr_db": 56.54,
+      "worst_sdr_db": 42.28
+     }
+    },
+    "64": {
+     "as_printed": {
+      "median_sdr_db": -0.09,
+      "worst_sdr_db": -21.33
+     },
+     "two_corrections": {
+      "median_sdr_db": 49.75,
+      "worst_sdr_db": 38.58
+     },
+     "three_corrections": {
+      "median_sdr_db": 55.24,
+      "worst_sdr_db": 41.66
+     }
+    },
+    "65": {
+     "as_printed": {
+      "median_sdr_db": -3.23,
+      "worst_sdr_db": -30.01
+     },
+     "two_corrections": {
+      "median_sdr_db": 45.72,
+      "worst_sdr_db": 30.6
+     },
+     "three_corrections": {
+      "median_sdr_db": 53.12,
+      "worst_sdr_db": 30.6
+     }
+    },
+    "66": {
+     "as_printed": {
+      "median_sdr_db": 19.6,
+      "worst_sdr_db": -6.31
+     },
+     "two_corrections": {
+      "median_sdr_db": 54.97,
+      "worst_sdr_db": 41.25
+     },
+     "three_corrections": {
+      "median_sdr_db": 56.2,
+      "worst_sdr_db": 41.25
+     }
+    },
+    "81": {
+     "as_printed": {
+      "median_sdr_db": 53.75,
+      "worst_sdr_db": 47.74
+     },
+     "two_corrections": {
+      "median_sdr_db": 53.75,
+      "worst_sdr_db": 47.74
+     },
+     "three_corrections": {
+      "median_sdr_db": 53.75,
+      "worst_sdr_db": 47.74
+     }
+    },
+    "82": {
+     "as_printed": {
+      "median_sdr_db": -6.53,
+      "worst_sdr_db": -28.32
+     },
+     "two_corrections": {
+      "median_sdr_db": 48.39,
+      "worst_sdr_db": -12.97
+     },
+     "three_corrections": {
+      "median_sdr_db": 56.7,
+      "worst_sdr_db": 47.28
+     }
+    },
+    "83": {
+     "as_printed": {
+      "median_sdr_db": -13.48,
+      "worst_sdr_db": -40.41
+     },
+     "two_corrections": {
+      "median_sdr_db": 51.52,
+      "worst_sdr_db": -1.23
+     },
+     "three_corrections": {
+      "median_sdr_db": 55.64,
+      "worst_sdr_db": 50.87
+     }
+    },
+    "84": {
+     "as_printed": {
+      "median_sdr_db": 8.76,
+      "worst_sdr_db": -13.45
+     },
+     "two_corrections": {
+      "median_sdr_db": 51.62,
+      "worst_sdr_db": 29.44
+     },
+     "three_corrections": {
+      "median_sdr_db": 55.79,
+      "worst_sdr_db": 48.92
+     }
+    }
+   },
+   "clip_median_outside_the_window": {
+    "as_printed": 57.77,
+    "two_corrections": 57.77,
+    "three_corrections": 57.77
+   }
+  },
+  {
+   "clip": "extraction-sparse3",
+   "sparse_frames": [
+    62
+   ],
+   "window": [
+    60,
+    61,
+    62,
+    63
+   ],
+   "frames": {
+    "60": {
+     "as_printed": {
+      "median_sdr_db": 53.5,
+      "worst_sdr_db": 45.95
+     },
+     "two_corrections": {
+      "median_sdr_db": 53.5,
+      "worst_sdr_db": 45.95
+     },
+     "three_corrections": {
+      "median_sdr_db": 53.5,
+      "worst_sdr_db": 45.95
+     }
+    },
+    "61": {
+     "as_printed": {
+      "median_sdr_db": 52.05,
+      "worst_sdr_db": 42.56
+     },
+     "two_corrections": {
+      "median_sdr_db": 52.05,
+      "worst_sdr_db": 42.56
+     },
+     "three_corrections": {
+      "median_sdr_db": 52.05,
+      "worst_sdr_db": 42.56
+     }
+    },
+    "62": {
+     "as_printed": {
+      "median_sdr_db": 5.66,
+      "worst_sdr_db": -8.53
+     },
+     "two_corrections": {
+      "median_sdr_db": 32.28,
+      "worst_sdr_db": -9.23
+     },
+     "three_corrections": {
+      "median_sdr_db": 46.28,
+      "worst_sdr_db": 22.78
+     }
+    },
+    "63": {
+     "as_printed": {
+      "median_sdr_db": 50.37,
+      "worst_sdr_db": 40.87
+     },
+     "two_corrections": {
+      "median_sdr_db": 50.37,
+      "worst_sdr_db": 40.87
+     },
+     "three_corrections": {
+      "median_sdr_db": 50.37,
+      "worst_sdr_db": 40.87
+     }
+    }
+   },
+   "clip_median_outside_the_window": {
+    "as_printed": 52.0,
+    "two_corrections": 52.0,
+    "three_corrections": 52.0
+   }
+  },
+  {
+   "clip": "glassonion-sparse",
+   "sparse_frames": [
+    83,
+    86,
+    87,
+    88,
+    89
+   ],
+   "window": [
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90
+   ],
+   "frames": {
+    "81": {
+     "as_printed": {
+      "median_sdr_db": 51.33,
+      "worst_sdr_db": 34.97
+     },
+     "two_corrections": {
+      "median_sdr_db": 51.33,
+      "worst_sdr_db": 34.97
+     },
+     "three_corrections": {
+      "median_sdr_db": 51.33,
+      "worst_sdr_db": 34.97
+     }
+    },
+    "82": {
+     "as_printed": {
+      "median_sdr_db": -4.75,
+      "worst_sdr_db": -26.92
+     },
+     "two_corrections": {
+      "median_sdr_db": 34.31,
+      "worst_sdr_db": 0.11
+     },
+     "three_corrections": {
+      "median_sdr_db": 51.55,
+      "worst_sdr_db": 33.84
+     }
+    },
+    "83": {
+     "as_printed": {
+      "median_sdr_db": -7.53,
+      "worst_sdr_db": -52.67
+     },
+     "two_corrections": {
+      "median_sdr_db": 28.84,
+      "worst_sdr_db": -0.79
+     },
+     "three_corrections": {
+      "median_sdr_db": 54.34,
+      "worst_sdr_db": 28.84
+     }
+    },
+    "84": {
+     "as_printed": {
+      "median_sdr_db": 15.79,
+      "worst_sdr_db": -12.43
+     },
+     "two_corrections": {
+      "median_sdr_db": 40.99,
+      "worst_sdr_db": 23.38
+     },
+     "three_corrections": {
+      "median_sdr_db": 49.67,
+      "worst_sdr_db": 38.34
+     }
+    },
+    "85": {
+     "as_printed": {
+      "median_sdr_db": -2.23,
+      "worst_sdr_db": -36.57
+     },
+     "two_corrections": {
+      "median_sdr_db": 21.71,
+      "worst_sdr_db": -9.09
+     },
+     "three_corrections": {
+      "median_sdr_db": 50.53,
+      "worst_sdr_db": 39.84
+     }
+    },
+    "86": {
+     "as_printed": {
+      "median_sdr_db": -7.26,
+      "worst_sdr_db": -68.09
+     },
+     "two_corrections": {
+      "median_sdr_db": 12.6,
+      "worst_sdr_db": -15.19
+     },
+     "three_corrections": {
+      "median_sdr_db": 50.34,
+      "worst_sdr_db": 39.05
+     }
+    },
+    "87": {
+     "as_printed": {
+      "median_sdr_db": -4.78,
+      "worst_sdr_db": -28.64
+     },
+     "two_corrections": {
+      "median_sdr_db": 8.8,
+      "worst_sdr_db": -13.09
+     },
+     "three_corrections": {
+      "median_sdr_db": 68.42,
+      "worst_sdr_db": 45.29
+     }
+    },
+    "88": {
+     "as_printed": {
+      "median_sdr_db": -4.04,
+      "worst_sdr_db": -31.67
+     },
+     "two_corrections": {
+      "median_sdr_db": 9.28,
+      "worst_sdr_db": -19.4
+     },
+     "three_corrections": {
+      "median_sdr_db": 62.01,
+      "worst_sdr_db": 43.4
+     }
+    },
+    "89": {
+     "as_printed": {
+      "median_sdr_db": -16.34,
+      "worst_sdr_db": -43.08
+     },
+     "two_corrections": {
+      "median_sdr_db": 22.0,
+      "worst_sdr_db": -17.66
+     },
+     "three_corrections": {
+      "median_sdr_db": 57.92,
+      "worst_sdr_db": 49.66
+     }
+    },
+    "90": {
+     "as_printed": {
+      "median_sdr_db": 12.58,
+      "worst_sdr_db": -12.87
+     },
+     "two_corrections": {
+      "median_sdr_db": 42.9,
+      "worst_sdr_db": 8.28
+     },
+     "three_corrections": {
+      "median_sdr_db": 55.4,
+      "worst_sdr_db": 34.65
+     }
+    }
+   },
+   "clip_median_outside_the_window": {
+    "as_printed": 58.86,
+    "two_corrections": 58.86,
+    "three_corrections": 58.86
+   }
+  },
+  {
+   "clip": "rednotice-sparse",
+   "sparse_frames": [
+    70
+   ],
+   "window": [
+    68,
+    69,
+    70,
+    71
+   ],
+   "frames": {
+    "68": {
+     "as_printed": {
+      "median_sdr_db": 54.71,
+      "worst_sdr_db": 34.65
+     },
+     "two_corrections": {
+      "median_sdr_db": 54.71,
+      "worst_sdr_db": 34.65
+     },
+     "three_corrections": {
+      "median_sdr_db": 54.71,
+      "worst_sdr_db": 34.65
+     }
+    },
+    "69": {
+     "as_printed": {
+      "median_sdr_db": 50.74,
+      "worst_sdr_db": 27.06
+     },
+     "two_corrections": {
+      "median_sdr_db": 55.33,
+      "worst_sdr_db": 35.57
+     },
+     "three_corrections": {
+      "median_sdr_db": 55.33,
+      "worst_sdr_db": 35.59
+     }
+    },
+    "70": {
+     "as_printed": {
+      "median_sdr_db": 0.85,
+      "worst_sdr_db": -23.08
+     },
+     "two_corrections": {
+      "median_sdr_db": 48.89,
+      "worst_sdr_db": 10.64
+     },
+     "three_corrections": {
+      "median_sdr_db": 55.93,
+      "worst_sdr_db": 37.89
+     }
+    },
+    "71": {
+     "as_printed": {
+      "median_sdr_db": 58.21,
+      "worst_sdr_db": 39.09
+     },
+     "two_corrections": {
+      "median_sdr_db": 58.21,
+      "worst_sdr_db": 39.09
+     },
+     "three_corrections": {
+      "median_sdr_db": 58.21,
+      "worst_sdr_db": 39.09
+     }
+    }
+   },
+   "clip_median_outside_the_window": {
+    "as_printed": 59.59,
+    "two_corrections": 59.59,
+    "three_corrections": 59.59
+   }
+  }
+ ],
+ "summary": {
+  "sparse_frames_in_the_library": 10,
+  "sparse_frames_measured": 10,
+  "sparse_object_updates": 150,
+  "clips": 5,
+  "worst_deficit_against_the_clip_s_own_level_db": {
+   "as_printed": -75.2,
+   "two_corrections": -50.06,
+   "three_corrections": -9.86
+  },
+  "deficits_db": {
+   "as_printed": [
+    -75.2,
+    -71.25,
+    -58.74,
+    -46.34,
+    -36.87
+   ],
+   "two_corrections": [
+    -50.06,
+    -19.72,
+    -13.78,
+    -12.05,
+    -10.7
+   ],
+   "three_corrections": [
+    -9.86,
+    -9.19,
+    -5.72,
+    -4.88,
+    -4.65
+   ]
+  },
+  "note": "The deficit is the lowest frame of each clip's sparse window minus that clip's median outside the window, so it measures the sparse frames against the same decode of the same material rather than against another clip.",
+  "still_open": {
+   "clip": "extraction-sparse",
+   "frame": 75,
+   "what_is_left": "a two-slot disagreement where the sparse matrix is applied; the only frame in the library that is both sparse and steep with a large offset"
+  },
+  "streams_without_sparse_objects": "bit-identical under all three readings"
+ }
+}
