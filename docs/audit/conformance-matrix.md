@@ -155,7 +155,7 @@ Every `after` here points at a file under `evidence/remediation/`. The report is
 | Corruption never silently accepted, TrueHD | PASS with 2 silent | **PASS** | `decode-exit-codes.json` | — |
 | Dolby presentation 16 refusal | N/T, "not causal" | N/T, one cause found | `presentation16-differential.json` | `2ch_control_enabled` is necessary, not sufficient; the second reason is unknown |
 | Sparse JOC | N/T | **PASS-TOL** | `sparse-settled.json` | 825 sparse objects in 55 frames with no steep object present sit at the level of the rest of their clip, 46,78 dB against 46,69. The one frame that stayed short is the only one that is also steep |
-| Steep interpolation switch point | PASS, unmeasured | **PASS-TOL** | `steep-offset-differential.json` | Confirmed against one decoder family, on five titles that carry steep objects |
+| Steep interpolation switch point | PASS, unmeasured | **PASS-TOL** | `steep-offset-differential.json` | Confirmed against one decoder family, on six titles that carry steep objects, disc and streaming |
 | Coarse JOC | N/T | **PASS-TOL** | `sparse-settled.json` | Held by 5 325 coarse objects in one clip, against the 75 it was first checked on |
 | Two-point interpolation | N/T | N/T | `library-syntax-scan.json` | 0 of 170 722 130 object updates, the corpus having grown five-fold |
 | Controlled object positions | N/T | **PASS** | `controlled-atmos-ground-truth.json` | Movement is the encoder resampling a trajectory onto its own grid |
