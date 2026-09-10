@@ -84,6 +84,15 @@ Semantic Versioning.
 
 ### Added
 
+- The clean experiment the presentation-16 question needed, by authoring the
+  stimulus instead of editing a finished stream. DEE writes
+  `2ch_control_enabled` clear when `presentation_2ch/drc_default_on` is false,
+  and Dolby's object path opens the result -- in the same session where it
+  refuses all three library titles that carry the flag clear. Both encodes of
+  the controlled scene are the same size, `oadec info` differs in that one line,
+  and the object audio is byte-identical. So the field that correlates perfectly
+  across six titles is **not sufficient**, and the earlier bit patch that seemed
+  to show necessity was measuring the edit rather than the field.
 - A third decoder's opinion, which is neither ours nor Dolby's. `truehdd` 0.6.1
   opens the object presentation on all six TrueHD Atmos titles, including the
   three Dolby's object path refuses, with the element counts oadec reports and
