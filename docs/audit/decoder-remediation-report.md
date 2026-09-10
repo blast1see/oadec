@@ -734,6 +734,13 @@ were replayed against the final binary rather than assumed:
 | TrueHD, 100 sites | 0 silent, 100 non-zero, 0 panics | 0 silent, 100 non-zero | — |
 
 Site for site identical to what the same replay recorded before the JOC work.
+
+The blast radius was measured rather than argued, against hashes taken before
+the corrections. All 21 corpus PCM decodes still on disk are byte-identical, as
+they must be: the corrections are in the JOC matrix and no PCM decode touches
+it. Of the fourteen object decodes, the five with no steep object are
+byte-identical in all three files of the set, and the nine whose object audio
+moved are exactly the nine that carry steep objects, from 30 of them to 1 200.
 The three TrueHD baselines are still bit-exact, the six-title object comparison
 regressed on none of them, the controlled scene reproduces its figures to the
 digit, and the media suite passes 14 of 14 in 1 262 s -- twelve as before plus
