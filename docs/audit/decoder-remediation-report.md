@@ -770,14 +770,18 @@ does, and the defined CRC-16 is not what it is reading: `oadec verify` derives
 the CRC span from the parse rather than by searching, and reports every patched
 file clean.
 
-What that leaves is a middle position, which is where the evidence actually is.
-The six unmodified titles correlate perfectly and that is untouched: every
-accepted one has `2ch_control_enabled` set, every refused one has it clear. The
-mutation cannot carry that to necessity, because the same refusal follows a
-change to the two-channel presentation's dialogue normalisation, which cannot
-gate the sixteen-channel one. So the flag is a perfect correlate with suggestive but
-unclean causal evidence — not the flat "necessary" this report claimed, and not
-the "not causal" the audit claimed.
+What that leaves is a middle position, which is where the evidence stood until
+the stimulus was authored rather than edited. The six unmodified titles
+correlate perfectly and that is untouched: every accepted one has
+`2ch_control_enabled` set, every refused one has it clear. The mutation cannot
+carry that to necessity, because the same refusal follows a change to the
+two-channel presentation's dialogue normalisation, which cannot gate the
+sixteen-channel one.
+
+Two sections below settles it the other way: DEE writes the flag clear when
+`presentation_2ch/drc_default_on` is false, and Dolby opens that stream. The
+flag is a perfect correlate that is **not sufficient**, and the refusal after
+the hand edit came from the edit.
 
 It is the third instrument to come back with a limit on it, after in-place
 rewriting of EMDF payloads, which this decoder discards outright. This one is
@@ -864,6 +868,67 @@ term from the decoder makes it fail with left 0, right 32. What is not measured
 is the multiplier itself: no material anywhere carries a factor above 1, so 32
 is normative rather than observed.
 `evidence/remediation/truehdd-second-opinion.json`.
+
+---
+
+## Authoring the stimulus instead of editing it
+
+The mutation instrument is too blunt to ask whether `2ch_control_enabled` is
+what Dolby refuses on, because the object path refuses edits to fields that
+cannot be causal. There is a way round that the earlier rounds did not take:
+stop editing a finished stream and have Dolby's own encoder write the shape you
+want to test.
+
+DEE has the knob. `encode_to_dthd/presentation_2ch/drc_default_on` set to false
+makes it write `2ch_control_enabled` clear — the shape of all three refused
+titles. Four other options in the same block were swept and none moves the flag:
+`dolby_surround_encoded`, `dolby_headphone_encoded`,
+`legacy_authoring_compatibility` false and the speech DRC profile all leave it
+set.
+
+The pair is as clean as this gets outside a bit patcher. Both encodes of the
+controlled scene are 3 354 856 bytes. The whole of `oadec info` differs in one
+line, `2ch true` becoming `2ch false`. 362 bytes differ in three and a third
+megabytes: one byte per major sync at offset +18 — the byte the field-level
+table already named as the only whole byte separating the accepted titles from
+the refused — two bytes of recomputed CRC-16 twelve bytes later, and 28 clusters
+of the two-channel presentation's own DRC data, which is what the option
+controls. **The object audio is byte-identical**: the same 23 040 000 bytes out
+of `decode -p 3 --format pcm` from both, so nothing the object programme carries
+moved.
+
+Dolby opens it.
+
+| | `2ch_control_enabled` | Dolby object path |
+|---|---|---|
+| the scene as authored | set | accepted |
+| **the scene with `drc_default_on` false** | **clear** | **accepted** |
+| the scene, surround-encoded 2ch | set | accepted |
+| the scene, headphone-encoded 2ch | set | accepted |
+| the scene, legacy compatibility off | set | accepted |
+| the scene, speech DRC on the 2ch | set | accepted |
+| Shaun of the Dead, Knives Out, Kingsman | clear | refused |
+| Pi | set | accepted |
+
+The last two rows are the positive control, run in the same session through the
+same command: an experiment whose every arm is accepted has to show the
+instrument can still say no.
+
+**So a clear `2ch_control_enabled` is not sufficient.** The six-title
+correlation is untouched, and so is the possibility that the flag matters
+together with something else. But the flag on its own is now ruled out, and the
+mutation result is explained rather than merely doubted: clearing the flag by
+hand makes Dolby refuse, clearing it at the encoder does not, so the refusal
+after the hand edit came from the edit. That is what the dynamic-range gain
+control suggested and this settles it. This report's earlier "suggestive but
+unclean" becomes **not sufficient**.
+
+What is left is the same question with one fewer answer. Nothing in the 74
+fields oadec reports separates the sets; `truehdd verify`, a conformance checker
+written by other people, does not separate them either — Shaun and Kingsman draw
+DRC warnings, Knives Out draws none, and Talk to Me draws the same warnings
+while being accepted; and the one byte that did separate them is not the cause.
+`evidence/remediation/twoch-control-authored.json`.
 
 ---
 
@@ -1092,17 +1157,17 @@ byte-identical on every one, 212 527 200 element-samples with the same MD5.
   across three corrections. It is not dither amplified by the large coefficient
   the sparse matrix carries there: our own dither's weight on that frame is
   61,70 dB against neighbours at 59,58 to 80,90 and a clip median of 59,38.
-- **The second reason Dolby refuses three titles.** A third decoder now says
-  the streams are not the problem: `truehdd` opens the object presentation on
-  all six, with the element counts oadec reports and byte-identical object
-  audio. That leaves the question as one about Dolby's software, and it is still
-  unanswered. `2ch_control_enabled` is
-  a perfect correlate across six titles whose causal evidence is suggestive and
-  not clean: the object path also refuses a legal change to the two-channel
-  presentation's dialogue normalisation, which cannot gate the sixteen-channel
-  one, while accepting a legal change to `extended_substream_info`. A
-  mutation experiment on this decoder cannot separate the flag from its
-  strictness.
+- **Why Dolby refuses three titles.** Two answers were removed this round and
+  none was found. A third decoder says the streams are not the problem:
+  `truehdd` opens the object presentation on all six, with the element counts
+  oadec reports and byte-identical object audio, and its conformance checker
+  does not separate the sets either. And `2ch_control_enabled`, the one field
+  that correlates perfectly across the six, is **not sufficient**: DEE writes a
+  stream with the flag clear when `presentation_2ch/drc_default_on` is false,
+  and Dolby opens that stream while refusing the three titles in the same
+  session. The flag may still matter in combination with something else; on its
+  own it does not. What is left is a decision taken on something oadec does not
+  parse, or on a combination of fields, and no instrument here reaches it.
 - **Why Dolby refuses one configuration 0 stream and accepts another.** There is
   a control pair now: Snatch is given six channels and Dredd sixteen objects,
   and the two agree in every field this decoder parses -- frame header,
