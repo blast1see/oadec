@@ -242,6 +242,12 @@ struct EmdfStats {
     joc_ok: u64,
     joc_errors: u64,
     joc_size_mismatch: u64,
+    /// Containers found in the independent substream of a programme that also
+    /// has dependent substreams. TS 103 420 clause 8.2 puts the container in
+    /// the last dependent substream when one exists, so this should be zero;
+    /// it is reported and never acted on, because an encoder that disagrees
+    /// with the clause is worth knowing about.
+    containers_in_independent: u64,
     joc_padding_nonzero: u64,
     joc_dmx: BTreeMap<u8, u64>,
     joc_objects: BTreeMap<usize, u64>,
@@ -640,7 +646,15 @@ fn account(
             p.first_error = Some(format!("frame {index}: CRC failure"));
         }
     }
-    p.emdf.scan(index, &d.skip_fields);
+    // TS 103 420 clause 8.2: with dependent substreams present the EMDF
+    // container carrying OAMD and JOC is in the last dependent substream. With
+    // none, `metadata_part` is the independent substream and this is exactly
+    // what it was before.
+    p.emdf
+        .scan(index, &frame.metadata_part().decoded.skip_fields);
+    if frame.parts.len() > 1 {
+        p.emdf.containers_in_independent += count_containers(&d.skip_fields);
+    }
     if let Some(g) = p.emdf.last_clipgain {
         if (g - 1.0).abs() > 1e-9 {
             p.clipgains.push((index, g));
@@ -660,6 +674,28 @@ fn account(
     }
     p.samples += d.header.samples() as u64;
     on_pcm(frame)
+}
+
+/// How many EMDF containers a substream's skip fields hold, for the evidence
+/// counter above. Nothing is parsed beyond the container itself.
+fn count_containers(skip: &[Vec<u8>]) -> u64 {
+    let data: Vec<u8> = skip.iter().flatten().copied().collect();
+    let mut pos = 0usize;
+    let mut found = 0u64;
+    while pos + 2 <= data.len() {
+        if u16::from_be_bytes([data[pos], data[pos + 1]]) != container::EMDF_SYNCWORD {
+            pos += 1;
+            continue;
+        }
+        match container::parse_emdf_with_sync(&data[pos..]) {
+            Ok((_, used)) => {
+                found += 1;
+                pos += used.max(1);
+            }
+            Err(_) => pos += 1,
+        }
+    }
+    found
 }
 
 /// The largest absolute dequantized matrix coefficient of one JOC payload.
@@ -779,6 +815,7 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "oamd_errors": e.oamd_errors,
                 "joc_errors": e.joc_errors,
                 "joc_size_mismatches": e.joc_size_mismatch,
+                "containers_in_independent_substream": e.containers_in_independent,
                 "dependent_dropped": p.program.dependent_dropped,
                 "orphan_dependents": p.program.orphan_dependents,
                 "substream_decode_errors": p.subs.values().map(|s| s.decode_errors).sum::<u64>(),
