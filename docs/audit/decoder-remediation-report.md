@@ -737,8 +737,16 @@ presentation 16 with the default channel configuration; only
 `out-ch-config=21` refuses. That is the shape all six titles show, and it is
 also the shape an edited stream shows.
 
+This needed the control it is itself about. The patched streams are wrapped in
+MP4, because the Dolby element will not take a raw elementary stream, so the
+wrapping could have been the cause. The unpatched stream wrapped with the same
+command in the same session is accepted, sixteen object channels. The wrapping
+is innocent and the refusal follows the edit.
+
 So the object path applies an integrity check over the major sync that ordinary
-decoding does not, and the defined CRC-16 is not it. What that leaves is the
+decoding does not, and the defined CRC-16 is not it: `oadec verify` derives the
+CRC span from the parse rather than by searching, and reports the patched files
+clean. What that leaves is the
 state before the correction: `2ch_control_enabled` is a perfect correlate across
 six titles with **no causal evidence in either direction**. The audit's own
 experiment — setting the flag on a refused title and seeing nothing change — is
