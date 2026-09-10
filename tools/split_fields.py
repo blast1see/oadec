@@ -72,6 +72,9 @@ def main() -> int:
     ap.add_argument("--where", action="append", default=[],
                     help="keep only rows where FIELD=VALUE (repeatable); the field is read from "
                          "the row itself, not from the bag")
+    ap.add_argument("--rank", action="store_true",
+                    help="rank every field by how many rows its best partition leaves "
+                         "unclassifiable, so the best one can be read against the rest")
     ap.add_argument("--pairs", action="store_true",
                     help="also look for a pair of fields whose combination splits the sets")
     args = ap.parse_args()
@@ -125,7 +128,7 @@ def main() -> int:
     # two hundred, any field whose rare values happen to land there "nearly
     # splits", and dozens will.
     small = min(len(yes), len(no))
-    if small < 10:
+    if small < 10 and not args.rank:
         print(f"{chr(10)}not looking for near-splits: the smaller side has {small} row(s), "
               f"where almost any field would appear to nearly split them")
         near = []
@@ -153,6 +156,27 @@ def main() -> int:
         for f in sorted(near, key=lambda x: x["rows_on_both_sides"])[:8]:
             print(f"  {f['field']}: {f['rows_on_both_sides']} row(s) on both sides; "
                   f"with={f['with']} without={f['without']}")
+
+    if args.rank:
+        # How good is the best field, next to the others? A near-split means
+        # something only if the field that achieves it is far ahead of the field
+        # that does not: on a balanced set, a field unrelated to the verdict
+        # leaves about as many rows unclassifiable as the smaller side has.
+        table = []
+        for k in sorted(keys):
+            if k in continuous or any(w in k.lower() for w in COUNTS):
+                continue
+            a, b = Counter(f.get(k) for f in yf), Counter(f.get(k) for f in nf)
+            overlap = sum(min(a[v], b[v]) for v in set(a) & set(b))
+            table.append((overlap, k, len({f.get(k) for f in yf + nf})))
+        table.sort()
+        mid = table[len(table) // 2][0] if table else 0
+        print(f"{chr(10)}{len(table)} usable fields ranked by the rows no partition of their "
+              f"values can classify:")
+        for o, k, n in table[:6]:
+            print(f"  {o:5d}  {k}  ({n} distinct values)")
+        print(f"  median across all of them: {mid}, against {min(len(yes), len(no))} for a field "
+              f"that says nothing")
 
     if args.pairs:
         # A pair of fields splits the sets when no combination of their values

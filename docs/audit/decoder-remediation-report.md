@@ -1005,6 +1005,24 @@ written when nothing was, or 31, which is what the other presentations carry,
 goes with refusal. That agrees with the verdict on **187 of 194** streams, seven
 exceptions.
 
+Unlike the configuration-0 conjunction, this one is not what a search produces
+by chance, and the way to see that is to rank every field by how many rows its
+best partition cannot classify:
+
+| field | rows it cannot classify |
+|---|---:|
+| `twoch_dialogue_norm` | **7** |
+| `twoch_mix_level` | 60 |
+| `drc_start_up_gain` | 61 |
+| `sixch_dialogue_norm` | 73 |
+| median of all 84 | 89 |
+
+A field that says nothing about the verdict leaves about 89 rows unclassifiable
+here, because that is the size of the smaller side, and the median field does
+exactly that. The best one leaves seven, and the second best leaves sixty. That
+is not a search finding one candidate among many; it is one field standing an
+order of magnitude clear of every other.
+
 It is the same family as the old reading — the flag says whether to honour the
 two-channel presentation's own control data and the dialogue norm is that data —
 which is why on six titles the two moved together and the flag looked like the
