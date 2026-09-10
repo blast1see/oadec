@@ -238,6 +238,28 @@ pub fn run(path: &Path, json: bool) -> Result<()> {
                     })
                 })
                 .collect::<Vec<_>>());
+            // The channel meaning proper. `info` has printed these since it was
+            // written and `--json` has not carried them, which makes a sweep
+            // over a library blind to exactly the fields a differential wants.
+            let cm = &ms.channel_meaning;
+            value["channel_meaning"] = serde_json::json!({
+                "heavy_drc_start_up_gain": cm.heavy_drc_start_up_gain,
+                "drc_start_up_gain": cm.drc_start_up_gain,
+                "twoch_control_enabled": cm.twoch_control_enabled,
+                "sixch_control_enabled": cm.sixch_control_enabled,
+                "eightch_control_enabled": cm.eightch_control_enabled,
+                "twoch_dialogue_norm": cm.twoch_dialogue_norm,
+                "twoch_mix_level": cm.twoch_mix_level,
+                "sixch_dialogue_norm": cm.sixch_dialogue_norm,
+                "sixch_mix_level": cm.sixch_mix_level,
+                "sixch_source_format": cm.sixch_source_format,
+                "eightch_dialogue_norm": cm.eightch_dialogue_norm,
+                "eightch_mix_level": cm.eightch_mix_level,
+                "eightch_source_format": cm.eightch_source_format,
+                "reserved1": cm.reserved1,
+                "reserved2": cm.reserved2,
+                "extra_present": cm.extra_present,
+            });
             value["sixteen_channel"] = serde_json::json!(extra.map(|x| serde_json::json!({
                 "channels": x.channels(),
                 "dyn_object_only": x.dyn_object_only,

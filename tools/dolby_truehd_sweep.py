@@ -73,26 +73,32 @@ def truehd_tracks(path: Path) -> list[int]:
         return []
 
 
+# what a stream is, rather than how much of it was read
+DROP = ("file", "file_bytes", "units", "total_unit_bytes", "duration_seconds",
+        "first_unit_offset", "first_input_timing", "last_input_timing", "crc_present_units",
+        "drc_updates", "timing_stats", "average_bit_rate", "major_syncs")
+
+
 def fields(v: dict) -> dict:
-    """The header fields worth putting next to a verdict."""
-    keep = ("substream_info", "extended_substream_info", "flags", "peak_bit_rate",
-            "variable_rate", "substreams", "samples_per_au", "sampling_frequency",
-            "has_16ch_presentation", "max_major_sync_interval",
-            "twoch_control_enabled", "sixch_control_enabled", "eightch_control_enabled",
-            "twoch_dialogue_norm", "twoch_mix_level", "sixch_dialogue_norm",
-            "sixch_mix_level", "sixch_source_format", "eightch_dialogue_norm",
-            "eightch_mix_level", "eightch_source_format", "drc_start_up_gain",
-            "heavy_drc_start_up_gain", "dialogue_norm", "mix_level", "bed_channels",
-            "dynamic_objects", "isf_objects", "elements", "reserved1", "reserved2",
-            "extra_present")
+    """Everything `info` reports about the stream, minus what depends on the cut.
+
+    A hand-picked list can only find what was picked. The question this sweep
+    exists for is whether *anything* separates the two sets, so the bag is
+    everything and the analysis decides.
+    """
     out = {}
 
     def walk(d, prefix=""):
         for k, val in (d or {}).items():
+            if k in DROP:
+                continue
+            p = f"{prefix}{k}"
             if isinstance(val, dict):
-                walk(val, f"{prefix}{k}.")
-            elif k in keep:
-                out[f"{prefix}{k}"] = val
+                walk(val, p + ".")
+            elif isinstance(val, list):
+                walk({str(i): x for i, x in enumerate(val)}, p + ".")
+            else:
+                out[p] = val
     walk(v)
     return out
 
@@ -147,7 +153,8 @@ def main() -> int:
             rows.append({"file": path.name, "track": index, "opens": ok,
                          "fields": fields(v), "error": err})
             print(f"  {'opens ' if ok else 'REFUSED'}  {path.name[:70]}", flush=True)
-            thd.unlink(missing_ok=True)
+            # the cut is kept: reading it again is seconds, cutting it again is
+            # minutes of the library's disks
             mp4.unlink(missing_ok=True)
             json.dump(rows, open(work / "sweep.json", "w"), indent=1)
 
