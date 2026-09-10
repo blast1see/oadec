@@ -830,6 +830,13 @@ Two sections below settles it the other way: DEE writes the flag clear when
 flag is a perfect correlate that is **not sufficient**, and the refusal after
 the hand edit came from the edit.
 
+There is no legal alternative for E-AC-3 either. DEE's own stream editor,
+`edit_ddp`, is described in its schema as "trim/join Dolby Digital Plus
+streams" and takes a start timecode, an end timecode and a join order -- nothing
+that touches a metadata field. What worked for TrueHD, having the encoder write
+the shape under test, has no counterpart here: the JOC syntax under question is
+not exposed by any encoder option.
+
 It is the third instrument to come back with a limit on it, after in-place
 rewriting of EMDF payloads, which this decoder discards outright. This one is
 not useless -- a legal change is taken -- but it is too blunt to single out one
@@ -1239,6 +1246,12 @@ byte-identical on every one, 212 527 200 element-samples with the same MD5.
   own it does not. Nor is the content: each refused title's own objects, decoded
   here and re-encoded by DEE, are opened. What is left is a property of how those
   three streams were written, and no instrument here reaches it.
+  One avenue is prepared and not taken: an Atmos sink is on this machine and its
+  EDID advertises TrueHD and Dolby Digital Plus at eight channels, so the three
+  refused titles can be sent to a renderer that is not Dolby'''s software. It
+  cannot answer in a machine-readable way — a sink reports what it decoded on its
+  own display and there is no return path — so it needs a person at the device.
+  `evidence/remediation/atmos-sink.json`.
 - **Why Dolby refuses one configuration 0 stream and accepts another.** There is
   a control pair now: Snatch is given six channels and Dredd sixteen objects,
   and the two agree in every field this decoder parses -- frame header,
@@ -1265,16 +1278,22 @@ byte-identical on every one, 212 527 200 element-samples with the same MD5.
 - **Downmix configurations 1 and 2**: reachable, and no material anywhere in
   the library — 0 of the 118 Dolby tracks that carry JOC, across 111 films.
   Relabelling cannot make any, because they size the matrix for seven channels;
-  neither can the encoder, whose job description has no core-layout or
-  downmix-configuration option and which writes configuration 3 at all six of
-  its data rates. Configuration 4 is no longer on this list.
+  neither can the encoder. That was read off its generated job description
+  before; it is now read off its XML schema, where the three Atmos
+  Dolby Digital Plus filters share one option set — data rate, dynamic range,
+  downmix levels, trims — with no core layout and no downmix configuration
+  anywhere in it. It writes configuration 3 at all six of its data rates.
+  Configuration 4 is no longer on this list.
 - **EMDF in `auxdata`**: implemented and unexercised. No frame of any of the 151
   streams read whole carries auxiliary user bits at all, so there is nothing for
   a container to sit in. EMDF in a dependent substream is no longer on this
   list: the configuration 4 streams carry all of theirs there.
-- **Controlled divergence**, which cannot be authored: DAMF has no field for it,
-  so the pipeline that settled positions, gain and size cannot reach it. It
-  needs a stream that already carries one, and none on hand does.
+- **Controlled divergence**, which cannot be authored through either route
+  Dolby's encoder accepts. DAMF has no field for it, and the Dolby Atmos Master
+  ADM Profile v1.0 lists `objectDivergence` at quantity **0** with "this
+  subelement shall not be used" — so writing an ADM BWF, which oadec can do and
+  DEE can read, does not reach it either. It needs a stream that already carries
+  one, and none on hand does.
 - **Object gain and object size in the wild.** Both are dropped by Dolby's
   encoders and neither appears in any real stream measured, so the decoder's
   handling of a non-zero value is implemented and unexercised.
