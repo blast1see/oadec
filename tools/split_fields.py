@@ -46,6 +46,8 @@ def main() -> int:
     ap.add_argument("--fields", default="fields",
                     help="the member holding the bag of fields, or '' for the whole row")
     ap.add_argument("--out")
+    ap.add_argument("--pairs", action="store_true",
+                    help="also look for a pair of fields whose combination splits the sets")
     args = ap.parse_args()
 
     rows = json.load(open(args.sweep, encoding="utf-8"))
@@ -103,9 +105,34 @@ def main() -> int:
             print(f"  {f['field']}: {f['rows_on_both_sides']} row(s) on both sides; "
                   f"with={f['with']} without={f['without']}")
 
+    if args.pairs:
+        # A pair of fields splits the sets when no combination of their values
+        # appears on both sides. With enough fields some pair always will, so the
+        # number that do is the first thing to look at: one is a lead, forty is
+        # arithmetic.
+        cand = [k for k in sorted(keys)
+                if k not in continuous and not any(w in k.lower() for w in COUNTS)]
+        pairs = []
+        for i, a in enumerate(cand):
+            for b in cand[i + 1:]:
+                ya = {(f.get(a), f.get(b)) for f in yf}
+                nb = {(f.get(a), f.get(b)) for f in nf}
+                if ya.isdisjoint(nb):
+                    pairs.append({"fields": [a, b], "combinations": len(ya | nb)})
+        pairs.sort(key=lambda x: x["combinations"])
+        print(f"{chr(10)}{len(pairs)} pair(s) of {len(cand)} usable fields split the sets"
+              f" ({len(cand) * (len(cand) - 1) // 2} pairs tested)")
+        for x in pairs[:8]:
+            print(f"  {x['fields'][0]} + {x['fields'][1]}: {x['combinations']} combinations "
+                  f"over {len(rows)} rows")
+        if pairs and pairs[0]["combinations"] > len(rows) // 3:
+            print("  -- every one needs a combination for a third of the rows or more, "
+                  "which is a lookup table rather than a rule")
+
     if args.out:
         json.dump({"key": args.key, "with": len(yes), "without": len(no),
-                   "splitting": found, "nearly_splitting": near},
+                   "splitting": found, "nearly_splitting": near,
+                   "splitting_pairs": pairs[:20] if args.pairs else None},
                   open(args.out, "w"), indent=1, default=str)
         print(f"\nwritten to {args.out}")
     return 0
