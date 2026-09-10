@@ -27,9 +27,10 @@ Semantic Versioning.
   index accumulates from the resolved previous index; and the coefficient chain
   runs unbroken across the bands whatever channel each one selects, instead of
   restarting at the offset every time the channel changes. Measured on every
-  sparse frame in the library -- ten frames of three streaming titles, five clips
-  -- the worst sparse frame of a clip goes from 75 dB below that clip's own
-  level to 10 dB below it. The seed of the chain is the printed 50/100 and
+  sparse frame there was, and then on fifty-five times as much: one clip of
+  Extraction 2 holds 825 sparse objects and no steep object at all, and with all
+  three corrections its sparse frames sit at 46,78 dB against Dolby where the
+  rest of the clip is 46,69. The printed reading puts them at -3,92. The seed of the chain is the printed 50/100 and
   stays there; reading it as 48/96 costs 50 dB. `--sparse-as-printed` restores
   the printed reading. The first parameter band's channel index is no longer
   taken modulo the channel count, which clause 6.6.2 does not ask for: a band

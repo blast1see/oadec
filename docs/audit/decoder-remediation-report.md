@@ -445,18 +445,28 @@ was already right: 50 to 57 dB, unchanged.
 
 ### Remaining limitation
 
-One frame of the ten is still the worst: 34,6 dB where its clip sits at 44,4
-and its immediate neighbours at 38,5 and 48,2. It is the frame this
-investigation started from, and it has moved three times — 16,5 dB after the
-first two corrections, 30,6 after defect 4 below, 34,6 after the third. What is left
-is confined to two QMF time slots, at the point where the sparse matrix is
-applied, and that frame is the only one in the library that is both sparse and
-steep with a large offset. Open.
+The material that settles it came later, from a streaming collection the user
+pointed at: 3 375 sparse objects across eleven streams, where the whole corpus
+before it had 150. One clip of Extraction 2 holds 825 of them in 55 frames and
+carries **no steep object at all**, which separates the two for the first time.
+
+| | sparse frames | the rest of the clip |
+|---|---:|---:|
+| as printed | −3,92 dB median, −10,94 worst | 45,96 dB |
+| all three corrections | **46,78 dB median, 39,18 worst** | 46,69 dB |
+
+The sparse frames sit at the level of the rest of the clip. There is nothing
+left to explain in sparse decoding itself, and the row moves to `PASS-TOL`.
+
+What remains is one frame, and it is the one that is also steep with offset 23:
+34,6 dB where its clip sits at 44,4, a two-slot disagreement at the point where
+the sparse matrix is applied. It is the only frame in the material measured that
+is both. `evidence/remediation/sparse-settled.json`.
 
 ### What is still unexercised
 
-Across 110 352 185 object updates in 50 JOC streams, the corpus having been
-more than tripled since: **two data points never occur**, so two of the four
+Across 170 722 130 object updates in 67 JOC streams, the corpus having grown
+five-fold since: **two data points never occur**, so two of the four
 branches of clause 6.6.5 pseudo-code 6 — smooth with two points and steep with
 two points — have never run on real material. Downmix configurations 1 and 2
 never occur; configuration 4 does, in three library titles, and has a section
@@ -568,7 +578,7 @@ as printed and the deviation stays visible as a deviation.
 
 This is agreement with one decoder family, as the matrix alignment and the
 sparse corrections are. It is `PASS-TOL`, not `PASS`. Steep interpolation is
-3 900 553 of 110 352 185 object updates — 3,5 per cent — so this reaches most
+6 352 123 of 170 722 130 object updates — 3,7 per cent — so this reaches most
 streams, but the two-data-point steep branch still has no material and stays
 `N/T`.
 
@@ -922,11 +932,12 @@ the two that hold the measurement flags.
 
 ## What is still open
 
-- **Sparse JOC**, on one of the library's ten sparse frames: 34,6 dB where its
-  clip sits at 44,4. The disagreement is two QMF slots wide and sits where the
-  sparse matrix is applied. That frame has moved from 1,05 to 16,5 to 30,6 to
-  34,6 dB across three separate corrections; the other nine end within 5,7 dB
-  of their clips' own level. It is not dither amplified by the large coefficient
+- **The one frame that is both sparse and steep**: 34,6 dB where its clip sits
+  at 44,4, a two-slot disagreement at the point where the sparse matrix is
+  applied. Sparse decoding itself is settled -- 825 sparse objects in a clip
+  with no steep object sit at their clip's own level -- so what is left belongs
+  to the combination. That frame has moved from 1,05 to 16,5 to 30,6 to 34,6 dB
+  across three corrections. It is not dither amplified by the large coefficient
   the sparse matrix carries there: our own dither's weight on that frame is
   61,70 dB against neighbours at 59,58 to 80,90 and a clip median of 59,38.
 - **The second reason Dolby refuses three titles.** `2ch_control_enabled` is
@@ -944,7 +955,7 @@ the two that hold the measurement flags.
   because Dolby discards any payload rewritten in place.
   `evidence/remediation/configuration-0-refusal-pair.json`.
 - **Two-data-point interpolation**, and with it the smooth-2 and steep-2
-  branches of clause 6.6.5: 0 of 110 352 185 object updates, and no way to make
+  branches of clause 6.6.5: 0 of 170 722 130 object updates, and no way to make
   any. Dolby's encoder writes one data point per frame at every data rate it
   offers, even for an object authored to move four times within a frame. The
   branches are covered by a unit test against the printed pseudo-code, which
