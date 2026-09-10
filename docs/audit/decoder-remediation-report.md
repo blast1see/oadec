@@ -720,16 +720,38 @@ patched Pi reports nothing but the 84 trailing bytes the 50 MB cut already had,
 so the patch is clean. Clearing the flag turns an accepted title into a refused
 one, on both accepted titles tested.
 
-That reading is **withdrawn.** It holds only if the decoder honours an edited
-major sync at all, and it does not.
+That reading does not survive as stated. It holds only if a refusal after
+editing one field says something about that field, and the object path refuses
+edits to fields that cannot be causal.
 
-Four more fields were edited the same way, in every major sync of the same file,
-with the same CRC-16 repaired and `oadec verify` reporting the same nothing: the
-16-bit `reserved` field that no decoder should act on, `peak_data_rate` one unit
-lower, `variable_rate` from 1 to 0, and the `heavy_drc_start_up_gain` at the top
-of `channel_meaning`. **All four are refused**, exactly as clearing
-`2ch_control_enabled` is. None of them has anything to do with presentation
-availability.
+Nine more bits were changed the same way, in every major sync of the same file,
+with the CRC-16 repaired and `oadec verify` reporting the same nothing:
+
+| edited | object path |
+|---|---|
+| `2ch_control_enabled`, cleared | refused |
+| `reserved`, made non-zero | refused |
+| `flags`, an undefined bit set | refused |
+| `peak_data_rate`, one unit lower | refused |
+| `variable_rate`, 1 to 0 | refused |
+| `heavy_drc_start_up_gain` | refused |
+| `eightch_dialogue_norm` | refused |
+| `extended_substream_info`, 3 to 11 | refused |
+| **`twoch_dialogue_norm`, another legal level** | **refused** |
+| **`extended_substream_info`, 3 to 2** | **accepted** |
+
+The last line is what stops this being "any edit refuses": a legal value change,
+through the same patcher and the same wrapping, is taken. The machinery works.
+Most of what refuses looks like values the decoder does not expect — a reserved
+field made non-zero, an undefined flag, a peak rate below the stream's own, a
+variable-rate stream declaring itself constant, a four-bit field given a fifth
+bit.
+
+But `twoch_dialogue_norm` is the clear line. It is a legal
+dialogue-normalisation level, it belongs to the **two-channel** presentation,
+and changing it to another legal level makes the **sixteen-channel** object
+output refuse. A field of one presentation cannot determine whether another
+presentation exists.
 
 The refusal is specific to the object path, which is what makes it look like the
 real thing. The same edited streams decode at presentation 2, and at
@@ -751,8 +773,9 @@ file clean.
 What that leaves is a middle position, which is where the evidence actually is.
 The six unmodified titles correlate perfectly and that is untouched: every
 accepted one has `2ch_control_enabled` set, every refused one has it clear. The
-mutation cannot carry that to necessity, because the same refusal follows edits
-that cannot be causal. So the flag is a perfect correlate with suggestive but
+mutation cannot carry that to necessity, because the same refusal follows a
+change to the two-channel presentation's dialogue normalisation, which cannot
+gate the sixteen-channel one. So the flag is a perfect correlate with suggestive but
 unclean causal evidence — not the flat "necessary" this report claimed, and not
 the "not causal" the audit claimed.
 
@@ -994,8 +1017,9 @@ the two that hold the measurement flags.
   61,70 dB against neighbours at 59,58 to 80,90 and a clip median of 59,38.
 - **The second reason Dolby refuses three titles.** `2ch_control_enabled` is
   a perfect correlate across six titles whose causal evidence is suggestive and
-  not clean: the object path also refuses edits to a DRC start-up gain and a mix
-  level, which cannot be causal, while accepting at least one legal change. A
+  not clean: the object path also refuses a legal change to the two-channel
+  presentation's dialogue normalisation, which cannot gate the sixteen-channel
+  one, while accepting a legal change to `extended_substream_info`. A
   mutation experiment on this decoder cannot separate the flag from its
   strictness.
 - **Why Dolby refuses one configuration 0 stream and accepts another.** There is
