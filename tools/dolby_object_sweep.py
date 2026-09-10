@@ -117,13 +117,19 @@ def main() -> int:
             raw = work / f"{tag}.f32"
             size, err = dolby_objects(ec3, raw)
             samples = v.get("samples") or 0
-            channels = round(size / 4 / samples) if samples else 0
+            # The plugin pads its output by the decoder delay, so a very short cut
+            # gives a ratio that is not an integer. Record it and say so rather
+            # than rounding a five-second clip into a false refusal.
+            ratio = size / 4 / samples if samples else 0.0
+            channels = round(ratio)
+            exact = abs(ratio - channels) < 0.05
             rows.append({"file": path.name, "track": index,
                          "downmix_configs": joc.get("downmix_configs"),
                          "objects": joc.get("objects_per_payload"),
                          "joc_payloads": (v.get("emdf") or {}).get("joc_payloads"),
                          "samples": samples, "dolby_bytes": size,
-                         "dolby_channels": channels, "error": err})
+                         "dolby_channels": channels, "channel_ratio": round(ratio, 4),
+                         "ratio_is_clean": exact, "error": err})
             print(f"  {channels:2d} ch  cfg {joc.get('downmix_configs')}  {path.name[:70]}",
                   flush=True)
             raw.unlink(missing_ok=True)
@@ -131,7 +137,11 @@ def main() -> int:
             json.dump(rows, open(work / "sweep.json", "w"), indent=1)
 
     opened = [r for r in rows if r["dolby_channels"] >= 16]
-    refused = [r for r in rows if 0 < r["dolby_channels"] < 16]
+    refused = [r for r in rows if 0 < r["dolby_channels"] < 16 and r["ratio_is_clean"]]
+    unclear = [r for r in rows if 0 < r["dolby_channels"] < 16 and not r["ratio_is_clean"]]
+    for r in unclear:
+        print(f"  check by hand ({r['channel_ratio']} channels, the cut is too short): "
+              f"{r['file']} #{r['track']}")
     print(f"\n{len(rows)} JOC tracks: {len(opened)} opened as objects, {len(refused)} refused")
     for r in refused:
         print(f"  refused: {r['file']} #{r['track']} -> {r['dolby_channels']} channels")

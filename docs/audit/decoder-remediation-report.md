@@ -848,6 +848,13 @@ that touches a metadata field. What worked for TrueHD, having the encoder write
 the shape under test, has no counterpart here: the JOC syntax under question is
 not exposed by any encoder option.
 
+A fourth has since joined them, and it is the one that looked safest: `dialnorm`
+is a header field, not a payload, and its frame CRC is recomputable, so a patched
+stream is well-formed rather than merely edited -- the patcher round-trips byte
+for byte. Dolby refuses it anyway, and refuses it for a legal value that is not
+the one under suspicion, which is the arm that turns a false positive into a
+dead instrument.
+
 It is the third instrument to come back with a limit on it, after in-place
 rewriting of EMDF payloads, which this decoder discards outright. This one is
 not useless -- a legal change is taken -- but it is too blunt to single out one
@@ -1007,6 +1014,83 @@ oadec and Dolby agree on all fifteen active objects of it at 43,81 to 111,05 dB,
 correlation 0,999 98 or better, the sixteenth silent in both. So that refusal is
 not about the object programme either.
 `evidence/remediation/configuration-0-refusal-pair.json`.
+
+### Asking the whole library instead of one pair
+
+The configuration-0 refusal had been chased with a control pair: one stream
+refused, one accepted, and a list of everything that does not differ between
+them. Two streams are enough to list what is the same and not enough to find
+what is not. Dolby's decoder is on this machine and five seconds of audio is
+cheap, so the question can be put to every Dolby Digital Plus track in the
+library at once.
+
+| | |
+|---|---:|
+| files | 210 |
+| tracks carrying JOC | 226 |
+| opened by Dolby as sixteen objects | 223 |
+| refused | **2** |
+
+**Snatch is not a singleton.** The King (2019), a streaming release made by a
+different chain on a different day, gets the same six channels. Whatever the
+property is, it is not one disc's accident.
+
+A third came back at 15 channels and was not a refusal: F1 The Movie, from a
+five-second head that yielded under a second of audio, where the plugin's
+decoder-delay padding makes the ratio of bytes to samples land between the
+integers. Twenty seconds from ten minutes in gives 15,976, which is sixteen. The
+sweep now records the raw ratio and says *check by hand* rather than rounding a
+short clip into a refusal.
+
+### One conjunction, and no way to test it
+
+With nine configuration-0 streams instead of two — seven opened, two refused —
+there is enough to ask which field splits them. Exactly one does, out of
+everything `info`, `emdf` and `oamd` report: **`dialnorm`**, 31 in both refused
+and 23 to 27 in every accepted one.
+
+Neither half of that is the answer on its own:
+
+| | |
+|---|---|
+| configuration 0 alone | 9 streams, Dolby opens 7 |
+| `dialnorm` 31 alone | 90 of the 223 streams Dolby opens carry it |
+| configuration 0 **and** `dialnorm` 31 | 2 streams, both refused |
+
+No stream in the library is configuration 0 with `dialnorm` 31 and opened, and
+none is configuration 0 with a lower `dialnorm` and refused.
+
+And unlike everything else this report has wanted to test, `dialnorm` looked
+reachable. It is not in an EMDF payload — which Dolby discards when rewritten —
+but five bits of `bsi()` at bit 45 of an E-AC-3 syncframe, with a recomputable
+frame CRC. `tools/ec3_patch_dialnorm.py` round-trips: patching Dredd from 25 to
+31 and back to 25 reproduces the original file byte for byte, so the repair is
+exact, and `oadec verify` calls every patched file clean.
+
+| | `dialnorm` | Dolby |
+|---|---:|---|
+| Dredd, as it stands | 25 | 16 objects |
+| Dredd, patched to 31 | 31 | **6 channels** |
+| **Dredd, patched to 20** | **20** | **6 channels** |
+| Togo, as it stands | 27 | 16 objects |
+| Togo, patched to 31 | 31 | 6 channels |
+| Snatch, as it stands | 31 | 6 channels |
+| Snatch, patched to 27 | 27 | 6 channels |
+| The King, as it stands | 31 | 6 channels |
+| The King, patched to 27 | 27 | 6 channels |
+
+The third row is the experiment. Without it the reading is "`dialnorm` 31 causes
+the refusal", supported by two streams turning refused when set to 31 — and it
+would be wrong. **Every edited stream is refused whatever the new value says,
+and no edit makes a refused stream accepted.** The object path is reacting to
+the edit.
+
+So a header field of E-AC-3 is no more testable on this decoder than a payload
+field is, and this is the fourth instrument to come back with a limit on it. The
+open item is better posed and no closer to an answer: two streams out of 226
+rather than one, a conjunction with no counterexample in the library, and no way
+to ask whether the conjunction is the reason.
+`evidence/remediation/dolby-object-sweep.json`.
 
 ### And the content is not it either
 
@@ -1293,12 +1377,19 @@ byte-identical on every one, 212 527 200 element-samples with the same MD5.
   the same title has none, and Dolby refuses that cut too. What is left is a
   field oadec does not parse or a decision taken on content, and the obvious
   experiment -- change one field and watch the refusal move -- is not available,
-  because Dolby discards any payload rewritten in place. What is available is the
-  re-encode, and it answers the same thing it answered for the TrueHD titles:
-  Snatch's own objects, decoded here and re-encoded by DEE, come back as sixteen
-  objects that Dolby opens, on both the head clip and a mid-file cut, with Dredd
-  at sixteen either way as the control. So it is not the content.
-  `evidence/remediation/configuration-0-refusal-pair.json`.
+  because Dolby discards any payload rewritten in place, and a header field is no
+  better: every stream whose `dialnorm` is rewritten is refused whatever the new
+  value says. Three things are known. It is not the content — Snatch's own
+  objects, re-encoded by DEE, come back as sixteen objects Dolby opens, on the
+  head clip and a mid-file cut alike. It is not one disc's accident — a
+  library-wide sweep of Dolby's object path over 226 JOC tracks finds a second
+  refusal, The King (2019), a streaming release. And the two refused streams are
+  the only ones anywhere that are configuration 0 **and** carry `dialnorm` 31;
+  neither half is enough on its own, since Dolby opens seven configuration-0
+  streams and 90 streams with `dialnorm` 31. That conjunction has no
+  counterexample in 226 streams and no way to be tested.
+  `evidence/remediation/configuration-0-refusal-pair.json`,
+  `evidence/remediation/dolby-object-sweep.json`.
 - **Two-data-point interpolation**, and with it the smooth-2 and steep-2
   branches of clause 6.6.5: 0 of 170 722 130 object updates, and no way to make
   any that could be measured. A synthetic payload carrying two data points is
