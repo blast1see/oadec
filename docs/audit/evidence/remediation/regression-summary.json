@@ -24,12 +24,12 @@
   "Presentation 3 against Dolby's object decoder: 5 075 800 frames of 12 objects, 0 differing samples, maximum difference 0.",
   "TrueHD is lossless, so nothing but zero would do."
  ],
- "utc": "2026-09-10T13:35:35.253778+00:00",
+ "utc": "2026-09-10T19:24:39.917905+00:00",
  "media_suite": {
   "command": "OADEC_MEDIA=E:/oadec-work cargo test --release -p oadec-cli --test real -- --ignored",
-  "result": "14 passed, 0 failed",
-  "seconds": 1262.24,
-  "note": "run after every change of this round: the steep switch point, the sparse chain, the first-band modulo and the core options reaching the object path. Two of the fourteen are new and hold that last one."
+  "result": "15 passed, 0 failed",
+  "seconds": 861.76,
+  "note": "run after every change of this round, the last of them the configuration 4 input mapping, the sparse-and-steep counter and the container dump. The fifteenth test is the one that holds downmix configuration 4."
  },
  "joc_objects": {
   "evidence": "joc-objects-vs-dolby.json",
