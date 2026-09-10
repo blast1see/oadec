@@ -1,0 +1,141 @@
+{
+ "what": "The frame the open list called an outlier, measured against its neighbours instead of against a median",
+ "utc": "2026-09-10T23:13:39.744527+00:00",
+ "commit": "189c5f4d17bcf23853c555217e8e3b3679f6abab",
+ "the_claim_being_checked": "one frame at 34,6 dB where its clip sits at 44,4 -- the last thing in the sparse work that had not been explained, and the only remaining open item about the decoder itself rather than about coverage or a vendor tool",
+ "where_it_is": "Extraction (2020), frame 63325. It was described alongside Glass Onion, whose sparse frames carry no steep object at all and measure 50 to 68 dB from four different clip windows; the frame in question is in another title",
+ "what_the_frame_is": "sparse, steep and coarse at once: fifteen objects all three, in a clip that carries 15 sparse, 240 steep and 45 coarse objects",
+ "every_sparse_frame_there_is": {
+  "glass-onion": {
+   "sparse_objects": 75,
+   "windows": [
+    {
+     "window_from": 237123,
+     "clip_median_db": 50.2,
+     "sparse_frames_db": {
+      "237183": 54.19,
+      "237186": 50.34,
+      "237187": 68.11,
+      "237188": 61.88,
+      "237189": 58.04
+     },
+     "worst_sparse_db": 50.34
+    }
+   ]
+  },
+  "extraction": {
+   "sparse_objects": 60,
+   "windows": [
+    {
+     "window_from": 63265,
+     "clip_median_db": 40.53,
+     "sparse_frames_db": {
+      "63325": 34.55
+     },
+     "worst_sparse_db": 34.55
+    },
+    {
+     "window_from": 69002,
+     "clip_median_db": 51.32,
+     "sparse_frames_db": {
+      "69062": 45.25
+     },
+     "worst_sparse_db": 45.25
+    },
+    {
+     "window_from": 208255,
+     "clip_median_db": 58.14,
+     "sparse_frames_db": {
+      "208315": 53.18,
+      "208333": 55.64
+     },
+     "worst_sparse_db": 53.18
+    }
+   ]
+  },
+  "red-notice": {
+   "sparse_objects": 15,
+   "windows": [
+    {
+     "window_from": 22460,
+     "clip_median_db": 56.14,
+     "sparse_frames_db": {
+      "22520": 55.93
+     },
+     "worst_sparse_db": 55.93
+    }
+   ]
+  }
+ },
+ "the_two_readings_it_could_have_been": {
+  "measured": [
+   {
+    "reading": "as-decoded",
+    "clip_median_db": 40.53,
+    "target_frame_db": 34.55,
+    "neighbour_before_db": 49.18,
+    "neighbour_after_db": 46.74
+   },
+   {
+    "reading": "steep-as-printed",
+    "clip_median_db": 40.53,
+    "target_frame_db": 18.43,
+    "neighbour_before_db": 49.18,
+    "neighbour_after_db": 46.74
+   },
+   {
+    "reading": "sparse-as-printed",
+    "clip_median_db": 40.53,
+    "target_frame_db": 7.54,
+    "neighbour_before_db": 49.17,
+    "neighbour_after_db": 46.74
+   },
+   {
+    "reading": "both-as-printed",
+    "clip_median_db": 40.53,
+    "target_frame_db": 1.05,
+    "neighbour_before_db": 49.18,
+    "neighbour_after_db": 46.74
+   },
+   {
+    "reading": "no-dither",
+    "clip_median_db": 41.03,
+    "target_frame_db": 34.9,
+    "neighbour_before_db": 49.49,
+    "neighbour_after_db": 47.17
+   },
+   {
+    "reading": "flat-quadrature",
+    "clip_median_db": 13.79,
+    "target_frame_db": 19.24,
+    "neighbour_before_db": 14.83,
+    "neighbour_after_db": 17.43
+   }
+  ],
+  "reading": "both corrections are doing work on this frame and neither alternative is better: as decoded 34,55 dB, with the printed steep reading 18,43, with the printed sparse reading 7,54, with both 1,05 -- which is the figure the first round recorded before any of them. Dither is not it either: 34,90 with dither off"
+ },
+ "and_then_the_question_that_settles_it": {
+  "method": "rank every frame of the window by the same measure, instead of comparing one frame with a median",
+  "ninety_nine_frame_window": {
+   "median_db": 40.53,
+   "frame_63325_db": 34.55,
+   "rank_worst_first": "10 of 99",
+   "the_worst_frames": [
+    22.85,
+    24.05,
+    24.54,
+    26.34,
+    28.07
+   ],
+   "none_of_those_is_sparse": true
+  },
+  "three_hundred_frame_window": {
+   "median_db": 41.65,
+   "frame_63325_db": 34.89,
+   "rank_worst_first": "48 of 299",
+   "the_worst_frame_db": 21.37
+  }
+ },
+ "conclusion": "there is no outlier. Frame 63325 is the tenth worst of 99 frames in the window it was measured in and the forty-eighth of 299 in a wider one, in a passage where this decoder and Dolby's agree less well throughout -- the window sits at 40 to 42 dB where Extraction 2's sparse clip sits at 46,78 and Glass Onion's at 58. A frame six decibels under its window's median, with forty-seven frames beneath it, is not something left to explain",
+ "the_mistake": "comparing one frame with a clip median and never asking where it ranked among its neighbours. A median says what a typical frame does; it says nothing about the spread, and this passage's spread runs from 21 to 60 dB"
+}

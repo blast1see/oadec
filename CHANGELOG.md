@@ -107,6 +107,13 @@ Semantic Versioning.
   for the other refusal, the configuration 0 stream Dolby gives six channels:
   its own objects come back as sixteen that Dolby opens, on the head clip and on
   a mid-file cut, with the accepted title at sixteen either way.
+- The last open question about the decoder itself, closed by asking one more
+  question of it. A frame that had been reported as an unexplained outlier --
+  34,6 dB where its clip sat at 44,4 -- turns out to be the tenth worst of the 99
+  frames in its window and the 48th of 299 in a wider one, in a passage where
+  this decoder and Dolby's agree at 40 dB throughout. Nine frames of that window
+  are worse and none is sparse. The mistake was comparing one frame with a
+  median and never asking where it ranked among its neighbours.
 - Confirmation for the titles Dolby will not open. The object output for those
   streams used to have nothing to check it against, which is why the refusal
   mattered here at all. All 89 of them decode to object audio byte-identical to
