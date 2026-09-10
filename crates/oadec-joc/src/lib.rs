@@ -550,6 +550,43 @@ mod tests {
         let ts = usize::from(OFFSET) - 1;
         assert!((coefficient(&printed, ts, 0, 0, NCH) - before).abs() < 1e-12);
         assert!((coefficient(&measured, ts, 0, 0, NCH) - after).abs() < 1e-12);
+
+        // Both offsets of the two-data-point branch take the same correction.
+        // No stream measured carries that branch, so this pins the code and
+        // not agreement with Dolby.
+        const O0: u8 = 7;
+        const O1: u8 = 17;
+        let mut two = JocDecoder::new(NCH, 1);
+        two.update(
+            &one_object(Slope::Steep, 2, [O0, O1], &[[96, 96, 96, 96, 96]; 2], NCH),
+            NUM_TS,
+        );
+        two.update(
+            &one_object(
+                Slope::Steep,
+                2,
+                [O0, O1],
+                &[[40, 40, 40, 40, 40], [170, 170, 170, 170, 170]],
+                NCH,
+            ),
+            NUM_TS,
+        );
+        // `one_object` adds the data-point index to every value, so the first
+        // frame ends at 97 and the second frame's points are 40 and 171
+        let (prev, dp0, dp1) = (dequantize(97, 1), dequantize(40, 1), dequantize(171, 1));
+        for ts in 0..NUM_TS {
+            let want = if ts + 1 < usize::from(O0) {
+                prev
+            } else if ts + 1 < usize::from(O1) {
+                dp0
+            } else {
+                dp1
+            };
+            assert!(
+                (coefficient(&two, ts, 0, 0, NCH) - want).abs() < 1e-12,
+                "two data points, ts {ts}"
+            );
+        }
     }
 
     /// The two branches with two data points reach the second matrix and the
