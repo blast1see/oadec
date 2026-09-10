@@ -1,5 +1,5 @@
 {
- "what": "Whether the Dolby TrueHD object path honours an edited major sync, which every presentation-16 experiment in this project assumed",
+ "what": "How strictly the Dolby TrueHD object path reads the major sync, and whether a presentation-16 experiment that edits one field of it can mean what it seems to",
  "utc": "2026-09-10T19:35:37.891509+00:00",
  "commit": "955063b1c93d12303c39c86f6c3e640fcfd30993",
  "why": "the remediation corrected the audit on 2ch_control_enabled by flipping the flag from 1 to 0 on two accepted titles and watching Dolby refuse them. That direction is only informative if the decoder honours an edited major sync at all. Nobody had checked, and the same assumption had just failed for EMDF payloads.",
@@ -35,6 +35,30 @@
    "bit": 144,
    "where": "channel_meaning, a DRC gain",
    "object_path": "refused"
+  },
+  {
+   "field": "extended_substream_info",
+   "bit": 135,
+   "where": "3 to 2, a legal value",
+   "object_path": "ACCEPTED"
+  },
+  {
+   "field": "extended_substream_info",
+   "bit": 132,
+   "where": "3 to 11, which sets a bit the field does not define",
+   "object_path": "refused"
+  },
+  {
+   "field": "flags",
+   "bit": 84,
+   "where": "0x1000 to 0x1800, an undefined flag",
+   "object_path": "refused"
+  },
+  {
+   "field": "channel_meaning, deeper",
+   "bit": 190,
+   "where": "a mix level or source format",
+   "object_path": "refused"
   }
  ],
  "the_refusal_is_specific_to_the_object_path": {
@@ -44,15 +68,20 @@
   "reading": "the edited stream is not rejected as broken. Ordinary decoding takes it. Only the object output refuses, which is the same shape the six titles show: all of them decode at presentation 16 until out-ch-config 21 is asked for."
  },
  "consequence": {
-  "withdrawn": "\"2ch_control_enabled is necessary: clearing it turns an accepted title into a refused one\". Changing the DRC start-up gain does the same, and so does changing the peak data rate by one unit. The experiment cannot separate the field from the edit.",
-  "restored": "the state before that correction: the flag is a perfect correlate across six titles with no causal evidence in either direction. The audit's own experiment -- setting the flag on a refused title and seeing no change -- is equally uninformative, for the same reason.",
-  "what_is_new": "the object path applies an integrity check over the major sync that ordinary decoding does not, and the defined CRC-16 is not it: five different fields, four of them unrelated to presentations, all trip it with that CRC repaired.",
-  "instrument": "in-place rewriting of the TrueHD major sync joins in-place rewriting of EMDF payloads: both are usable against oadec and neither reaches the Dolby object decoder. Every question that needs one is closed by that."
+  "not_withdrawn_outright": "the six unmodified titles still correlate perfectly: every accepted one has 2ch_control_enabled set and every refused one has it clear. That observation is untouched.",
+  "weakened": "the mutation experiment cannot carry it to necessity. Clearing the flag on an accepted title refuses -- and so does changing a DRC gain, which cannot be causal. A refusal after editing one field is weak evidence that the field is the reason, when editing unrelated fields refuses too.",
+  "what_is_new": "the object path reads the major sync far more strictly than ordinary decoding does: the same edited streams decode at presentation 2 and at presentation 16 with the default channel configuration.",
+  "status": "`2ch_control_enabled` is a perfect correlate with suggestive but not clean causal evidence. It is not the flat 'necessary' the earlier round claimed, and not the 'not causal' the audit claimed."
  },
  "the_control_this_needed_itself": {
   "why": "the patched streams were wrapped in MP4 for the Dolby element, which will not take a raw elementary stream. If that wrapping were the cause, every conclusion here would be the same mistake it is about.",
   "test": "the unpatched stream wrapped with the same command in the same session: ffmpeg -c:a copy -strict -2 -movflags faststart -f mp4",
   "result": "accepted, sixteen object channels",
   "reading": "the wrapping is innocent; the refusal follows the edit"
+ },
+ "it_is_not_that_any_edit_refuses": {
+  "note": "`extended_substream_info` changed from 3 to 2 -- a legal value -- is accepted, with the same patcher, the same CRC repair and the same MP4 wrapping. So the machinery works end to end, and the refusals are field-sensitive rather than a reaction to editing as such.",
+  "the_pattern": "what refuses looks like values the decoder does not expect: a reserved field made non-zero, an undefined flag bit, a peak data rate below the stream's own, variable_rate cleared on a variable-rate stream, and the four-bit extended_substream_info given a bit it does not define. What is accepted is the one plainly legal change tried.",
+  "but": "two of the refusals are legal values with no bearing on presentation availability: the heavy DRC start-up gain and a channel_meaning mix level. A decoder that refuses the object presentation because a DRC gain changed is not telling you about presentations."
  }
 }

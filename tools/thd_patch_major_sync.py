@@ -6,13 +6,14 @@
 The bit is an absolute offset from the start of the format sync, so any field of
 the major sync can be reached; 150 is `2ch_control_enabled`.
 
-**It does not reach Dolby's object decoder.** That path refuses any stream whose
-major sync was edited, whatever the field -- the 16-bit `reserved` area, the
-peak data rate, the variable-rate flag and the DRC start-up gain all produce
-"Selected Dolby TrueHD presentation is not available" with the CRC repaired,
-while the same streams decode at presentation 2 and at presentation 16 with the
-default channel configuration. So this measures oadec, and a refusal from that
-decoder says nothing about the field that was changed. See
+**A refusal from Dolby's object path is weak evidence about the field changed.**
+That path reads the major sync far more strictly than ordinary decoding: of nine
+bits tried, eight are refused with the CRC repaired -- including a DRC start-up
+gain and a mix level, which cannot bear on presentation availability -- while a
+legal change to `extended_substream_info` is accepted, and every edited stream
+still decodes at presentation 2 and at presentation 16 with the default channel
+configuration. So the machinery works, and what it cannot do is single out one
+field. See
 `docs/audit/evidence/remediation/major-sync-rewrite-rejected.json`.
 """
 import sys
