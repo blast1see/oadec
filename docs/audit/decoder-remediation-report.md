@@ -980,8 +980,10 @@ the two that hold the measurement flags.
   neither can the encoder, whose job description has no core-layout or
   downmix-configuration option and which writes configuration 3 at all six of
   its data rates. Configuration 4 is no longer on this list.
-- **EMDF in `auxdata`**, and **EMDF in a dependent substream**: both implemented
-  and neither exercised, because no stream on hand carries either.
+- **EMDF in `auxdata`**: implemented and unexercised. No frame of any of the 151
+  streams read whole carries auxiliary user bits at all, so there is nothing for
+  a container to sit in. EMDF in a dependent substream is no longer on this
+  list: the configuration 4 streams carry all of theirs there.
 - **Controlled divergence**, which cannot be authored: DAMF has no field for it,
   so the pipeline that settled positions, gain and size cannot reach it. It
   needs a stream that already carries one, and none on hand does.
