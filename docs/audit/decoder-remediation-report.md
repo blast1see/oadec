@@ -874,9 +874,14 @@ The measurement shows the behaviour, not the field that causes it.
 turns its upmix off, and that the library's one configuration 0 stream has a
 second reason for being refused because relabelling it to 3 does not help.
 Neither is supported by that experiment, because dropping to the core's six
-channels is also what discarding the payload gives. The first claim survives on
-other evidence -- the stream that genuinely carries configuration 0 is decoded
-to six channels unmodified -- and the second does not.
+channels is also what discarding the payload gives.
+
+Neither survives. A second stream carrying configuration 0 unmodified turned up
+later, in material the earlier sweeps had not read: Dolby decodes **Dredd's**
+configuration 0 to sixteen objects, and ours agree with its to 52,44 dB at worst
+and 54,38 median, with an inter-object correlation structure identical to four
+decimal places. The configuration does not turn Dolby's upmix off. Something
+about the other stream does, and that is where the question goes back to.
 
 **What it does not touch.** Defect 4 rests on unmodified streams from five
 titles decoded by both decoders. So do the sparse corrections, the matrix

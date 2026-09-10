@@ -166,12 +166,18 @@ that the decoder relies on. Clause numbers refer to that document.
   five library tracks carry it and Green Book's objects come out at 50,13 dB
   worst against Dolby's. Configurations 1 and 2 occur in no track of any file --
   0 of the 118 that carry JOC, across 111 films and 226 Dolby tracks.
-- **Configuration 0 is all but extinct, and Dolby will not upmix it.** Of the
-  113 object-carrying E-AC-3 tracks in the library, 112 use configuration 3
-  and one uses 0. The one that carries 0 is decoded to six channels rather
-  than sixteen objects: `Channel-based decoding joc_enable(1),
-  jocd_out_mode(1)`. oadec follows clause 6.6, which draws no distinction, and
-  reconstructs the objects either way.
+- **Configuration 0 is rare, and Dolby does upmix it.** It appears twice in the
+  material read so far: Snatch, a hybrid disc remux, and Dredd. Dolby gives
+  Snatch six channels rather than sixteen objects -- `Channel-based decoding
+  joc_enable(1), jocd_out_mode(1)` -- and that single observation used to carry
+  the claim that the configuration itself turns its upmix off. It does not.
+  Dolby decodes **Dredd's** configuration 0 to sixteen objects, and ours agree
+  with its to **52,44 dB** at worst and 54,38 median, the closest agreement of
+  any title measured here, with an inter-object correlation structure identical
+  to four decimal places. So whatever makes Dolby refuse Snatch belongs to
+  Snatch. oadec follows clause 6.6, which draws no distinction, and reconstructs
+  the objects either way.
+  `docs/audit/evidence/remediation/configuration-0-vs-dolby.json`.
 
   **Relabelling does not test this, and neither does any other in-place
   rewrite.** A configuration 3 stream relabelled as 0 also drops to six

@@ -1,0 +1,26 @@
+{
+ "what": "Downmix configuration 0 against Dolby, on a second stream that carries it",
+ "utc": "2026-09-10T18:41:50.974814+00:00",
+ "commit": "6f393aab01226a9bc1331ad1682b2d020300c9fa",
+ "binary_sha256": "b584f75aae4566ad74f93703d2ff1bf28860c612fce2258238e60f3532dd7432",
+ "why": "the library held exactly one configuration 0 stream, Snatch, and Dolby gives it six channels rather than sixteen objects. That single observation carried the claim that the configuration itself turns Dolby's upmix off, and with it the divergence recorded against oadec, which follows clause 6.6 and reconstructs objects either way. One stream is not a class.",
+ "stream": "Dredd (2012), Dolby Digital Plus track 2 of the disc remux, ten minutes: 18 750 frames, acmod 7 + LFE, no dependent substream, 18 750 JOC payloads all at configuration 0, 15 objects, 12 bands, dense, fine",
+ "dolby": {
+  "channels_out": 16,
+  "note": "the decoder negotiates 16 channels on its source pad and writes them, which is the object output. It does not fall back to the core six the way it does on Snatch."
+ },
+ "against_dolby": {
+  "lag_samples": 0,
+  "lag_corr": 0.9999,
+  "objects_worst_sdr_db": 52.44,
+  "objects_median_sdr_db": 54.38,
+  "lfe_sdr_db": 122.16,
+  "corr_structure_max_abs_delta": 0.0
+ },
+ "reading": [
+  "configuration 0 is decoded to objects by Dolby, and our objects agree with its to 52,44 dB at worst -- the closest agreement of any title measured in this project.",
+  "so the configuration is not why Snatch gets six channels. Whatever that is, it belongs to that stream. The earlier conclusion came from the only configuration 0 stream there was.",
+  "configuration 0 moves from a documented divergence with no reference to a measured agreement."
+ ],
+ "provenance": "the stream was pointed out by the user, from a drive the earlier sweeps had not read"
+}

@@ -98,8 +98,10 @@ Semantic Versioning.
   withdraws the support for one earlier conclusion -- relabelling a working
   stream from configuration 3 to 0 makes Dolby drop to six channels, but so
   does discarding the payload, and the experiment cannot tell them apart. The
-  claim itself survives on the one stream that genuinely carries configuration
-  0 unmodified.
+  claim does not survive either: a second stream carrying configuration 0
+  unmodified, Dredd, is decoded to sixteen objects by Dolby and agrees with ours
+  to 52,44 dB at worst. Whatever makes it refuse the other one belongs to that
+  stream.
 - The parsers now report where they found things: `Frame::skip_bits` gives the
   bit offset of each skip field, and `container::Payload::data_bit` the bit
   offset of a payload's first byte. Between them a tool can reach a field

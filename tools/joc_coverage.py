@@ -32,7 +32,7 @@ from pathlib import Path
 
 FFMPEG = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
 FFPROBE = shutil.which("ffprobe") or r"C:\ffmpeg\bin\ffprobe.exe"
-MEDIA = {".mkv", ".m2ts", ".mp4", ".ts"}
+MEDIA = {".mkv", ".mka", ".m2ts", ".mp4", ".ts"}
 KEYS = ("sparse_objects", "dense_objects", "fine_quantized_objects",
         "coarse_quantized_objects", "two_data_points", "steep_objects",
         "seq_count_zero", "absent_objects", "errors", "size_mismatches",
