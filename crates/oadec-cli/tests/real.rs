@@ -1137,3 +1137,68 @@ fn the_steep_switch_is_measured_where_the_branch_is_the_common_case() {
     }
     assert!(compared >= 4, "only {compared} elements carried audio");
 }
+
+/// A title Dolby's object mode refuses still has something to check it against.
+///
+/// That mode opens 105 of the library's 194 object presentations and refuses
+/// 89, so for nearly half of them Dolby's decoder cannot be the reference. An
+/// independent one can: TrueHD is lossless and presentation 3 carries the
+/// objects as coded channels, so two correct decoders must produce the same
+/// bytes. All 89 refused titles were compared that way and all 89 matched;
+/// `clips/thd-refused-aqp.thd` is one of them, kept with the reference beside
+/// it so the agreement is a gate rather than a measurement taken once.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn a_title_dolby_will_not_open_still_has_a_reference() {
+    let media = media_dir();
+    let file = media.join("clips/thd-refused-aqp.thd");
+    let reference = media.join("ref-truehdd/refused/thd-refused-aqp.atmos.audio");
+    require(&file);
+    assert!(
+        reference.exists(),
+        "{} is missing, so nothing checks this title",
+        reference.display()
+    );
+
+    let base = std::env::temp_dir().join("oadec-refused-aqp");
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args([
+            "decode",
+            "-p",
+            "3",
+            "--format",
+            "damf",
+            "--no-bed-conform",
+            "-o",
+        ])
+        .arg(&base)
+        .arg(&file)
+        .output()
+        .expect("run oadec decode");
+    assert!(
+        matches!(out.status.code(), Some(0) | Some(7)),
+        "the refused title did not decode: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let audio = base.with_extension("atmos.audio");
+    let ours = std::fs::read(&audio).expect("decoded object audio");
+    let theirs = std::fs::read(&reference).expect("reference object audio");
+    for ext in [".atmos", ".atmos.metadata", ".atmos.audio"] {
+        let _ = std::fs::remove_file(std::env::temp_dir().join(format!("oadec-refused-aqp{ext}")));
+    }
+    assert_eq!(
+        ours.len(),
+        theirs.len(),
+        "the object audio is {} bytes and the reference is {}",
+        ours.len(),
+        theirs.len()
+    );
+    let differing = ours.iter().zip(&theirs).filter(|(a, b)| a != b).count();
+    assert_eq!(
+        differing,
+        0,
+        "{differing} of {} bytes differ from the independent decoder's output",
+        ours.len()
+    );
+}

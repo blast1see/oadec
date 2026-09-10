@@ -60,6 +60,35 @@ def dolby_objects(ec3: Path, out: Path) -> tuple[int, str]:
     return size, "" if r.returncode == 0 else (r.stdout + r.stderr)[-200:]
 
 
+# what a stream is, rather than how much of it was read
+DROP = ("file", "seconds", "speed", "duration", "samples", "frames", "units", "payloads",
+        "containers", "bytes", "first_error", "bit_rate", "syncs", "errors", "count",
+        "independent_frames", "dependent_frames", "other_program_frames", "transients")
+
+
+def fields(v: dict) -> dict:
+    """Everything `info` reports about the stream, minus what depends on the cut.
+
+    A hand-picked list can only find what was picked, and the question is whether
+    anything at all separates the two sets.
+    """
+    out = {}
+
+    def walk(d, prefix=""):
+        for k, val in (d or {}).items():
+            if any(w in k.lower() for w in DROP):
+                continue
+            p = f"{prefix}{k}"
+            if isinstance(val, dict):
+                walk(val, p + ".")
+            elif isinstance(val, list):
+                walk({str(i): x for i, x in enumerate(val)}, p + ".")
+            else:
+                out[p] = val
+    walk(v)
+    return out
+
+
 def info(path: Path) -> dict:
     r = subprocess.run([OADEC, "info", "--json", str(path)], capture_output=True, text=True,
                        timeout=900)
@@ -128,8 +157,9 @@ def main() -> int:
                          "objects": joc.get("objects_per_payload"),
                          "joc_payloads": (v.get("emdf") or {}).get("joc_payloads"),
                          "samples": samples, "dolby_bytes": size,
+                         "opens": channels >= 16 and exact,
                          "dolby_channels": channels, "channel_ratio": round(ratio, 4),
-                         "ratio_is_clean": exact, "error": err})
+                         "ratio_is_clean": exact, "fields": fields(v), "error": err})
             print(f"  {channels:2d} ch  cfg {joc.get('downmix_configs')}  {path.name[:70]}",
                   flush=True)
             raw.unlink(missing_ok=True)
