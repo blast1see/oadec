@@ -60,8 +60,8 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | Frame CRC | TS 102 366 clause 6.10.1 | `eac3/frame.rs:288` | flipped bit gives 1 CRC failure in `verify` | PASS |
 | CRC failure affects the exit code | — | `cli/integrity.rs`, used by every delivery path | every path now decides with the list `verify` uses; 29 of 33 corpus streams moved from exit 0 to exit 7, each one already non-conformant to `verify`; `evidence/remediation/decode-exit-codes.json` | PASS [was PARTIAL] |
 | Independent substream decode | Annex E | `cli/eac3.rs:465` | three-way comparison, closer to Dolby than FFmpeg on every channel | PASS-TOL |
-| **Dependent substream decode** | Annex E clause E.2.8.2 | `eac3/program.rs`, `ProgramDecoder` | 40 of 40 eight-channel library tracks decode to 8 channels, FFmpeg agreeing on the count for every one; 320 channel comparisons, 0 mismatched; `evidence/remediation/ddp71-channel-compare.json` | **PASS** [was FAIL] |
-| Custom channel map | Annex E clause E.1.3.1.8, table E.1.4 | `eac3/program.rs`, `chanmap_locations` | two maps found in the wild: 0x1a00 (Ls, Rs, Lrs/Rrs → 7.1) on 35 titles and 0xa010 (L, R, Vhl/Vhr → 5.1.2) on 5, both agreeing with FFmpeg's layout | PASS [was N/I] |
+| **Dependent substream decode** | Annex E clause E.2.8.2 | `eac3/program.rs`, `ProgramDecoder` | 40 of 40 eight-channel library tracks decode to 8 channels, FFmpeg agreeing on the count for every one; 320 channel comparisons, 0 mismatched; `evidence/remediation/ddp71-channel-compare.json`. Authored ground truth as well: a DD+ 7.1 stream Dolby's encoder made from eight tones, one per channel, decodes so that every channel carries its own tone at -20,0 dBFS with the next one 108 to 191 dB below, FFmpeg agreeing channel for channel, and `--core-only` shows the matrixed 5.1 the defect used to deliver; `evidence/remediation/ddp71-authored-tones.json` | **PASS** [was FAIL] |
+| Custom channel map | Annex E clause E.1.3.1.8, table E.1.4 | `eac3/program.rs`, `chanmap_locations` | two maps found in the wild: 0x1a00 (Ls, Rs, Lrs/Rrs → 7.1) on 35 titles and 0xa010 (L, R, Vhl/Vhr → 5.1.2) on 5, both agreeing with FFmpeg's layout. The identity of each merged channel is now proven from the signal rather than from agreement: `evidence/remediation/ddp71-authored-tones.json` | PASS [was N/I] |
 | Coupling and default band structure | Annex E, Table E.1.12 | `eac3/frame.rs:880` | absolute subband indexing; stereo corpus decodes | PASS |
 | Enhanced coupling, amplitude only | TS 102 366 V1.4.1 | `eac3/frame.rs:1352` | default; injected material decodes, media test passes | PASS |
 | Enhanced coupling, angle and chaos | A/52:2018 clause E.3.5.5 | `eac3/ecpl.rs:94`, behind `--ecpl-spec` | no decoder anywhere implements it, so there is no oracle | N/T |
@@ -143,9 +143,9 @@ Every `after` here points at a file under `evidence/remediation/`. The report is
 
 | Area | Before | After | Evidence | Remaining gap |
 |---|---|---|---|---|
-| E-AC-3 dependent substreams | FAIL | **PASS** | `ddp71-channel-compare.json` | Multiple dependents per programme implemented, unexercised |
+| E-AC-3 dependent substreams | FAIL | **PASS** | `ddp71-channel-compare.json`, `ddp71-authored-tones.json` | Multiple dependents per programme implemented, unexercised |
 | DD+ 7.1 output | FAIL | **PASS** | `dependent-substream-before-after.json` | — |
-| Dependent channel map | N/I | **PASS** | `ddp71-channel-compare.json` | Whether the map counts the LFE is a documented reading |
+| Dependent channel map | N/I | **PASS** | `ddp71-authored-tones.json` | Whether the map counts the LFE is a documented reading |
 | EMDF in the last dependent substream | N/I, unreachable | **PASS** | `library-syntax-scan.json` | The configuration 4 streams have both: 18 750 dependent frames and 18 750 containers, none of them in the independent substream. The encoder agrees with clause 8.2, and a decoder that filters dependents out finds no metadata at all in these streams |
 | EMDF in auxiliary data | N/I | N/T | `library-syntax-scan.json` | 0 frames carry auxiliary user bits in any of the 151 streams read whole: 49 in the working directory, 78 across sixteen library titles and 24 streaming ones |
 | JOC configuration 4 | N/T, unreachable | **PASS-TOL** | `library-syntax-scan.json`, `library-configurations.json` | Five library tracks carry it, all 5.1.2 through a dependent substream. Its input mapping was wrong and is fixed |
