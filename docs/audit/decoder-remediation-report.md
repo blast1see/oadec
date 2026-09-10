@@ -1621,6 +1621,19 @@ clean decode on both paths. Eight of the 159 are named by the channel-map
 validation this branch added, on a path that had never run on any input before.
 `evidence/remediation/fuzz-dependent-substream.json`.
 
+The same gap turned out to exist twice more, in unit tests rather than
+campaigns. The object metadata parser had only an arbitrary-bytes pass, where
+almost nothing reaches the deeper syntax because almost nothing parses at all;
+it now gets the exhaustive single-bit pass over a payload that does parse that
+the JOC parser already had. And a TrueHD access unit had none: a random buffer
+with a sync word in it fails the major-sync CRC and stops, so `channel_meaning`
+and `extra_channel_meaning` were only ever parsed from well-formed input. All
+528 single-bit corruptions of a valid Atmos access unit are now tried, 427 of
+which still parse, against two invariants — every offset a parse reports stays
+inside the buffer, and a flip inside the major sync must reach the caller, since
+a CRC-16 detects every single-bit error. Both flip tests fail rather than skip
+when no base payload is found, for the reason the media suite taught.
+
 The blast radius was measured rather than argued, against hashes taken before
 the corrections. All 21 corpus PCM decodes still on disk are byte-identical, as
 they must be: the corrections are in the JOC matrix and no PCM decode touches
