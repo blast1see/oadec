@@ -11,19 +11,28 @@ that had never been decoded finally was, and the steep interpolation switch,
 found while measuring what the sparse corrections left behind. Clause 6.6.2
 yielded a third fault of its own on the way.
 
-Conclusions were overturned in both directions. One of the audit's was wrong.
-So was one of this report's: it claimed `2ch_control_enabled` was necessary for
-Dolby to open an object presentation, and a cleaner experiment shows it is not
-even sufficient. Where a claim moved, the sentence that moved it is here rather
-than in a rewritten paragraph.
+Conclusions were overturned in both directions, and more of this report's than
+the audit's. `2ch_control_enabled` was called necessary here and is neither
+necessary nor a correlate. A field pair that isolated two refused streams was
+reported as a finding and is what a search of that size produces by chance. A
+frame was carried for three rounds as an unexplained outlier and is the tenth
+worst of the ninety-nine in its window. Where a claim moved, the sentence that
+moved it is here rather than in a rewritten paragraph.
+
+Each of those came from asking one more question of a measurement that already
+looked finished: does the instrument hear the change at all, would chance have
+produced this, and where does this sit among its neighbours. They are the three
+things this round would tell its earlier self.
 
 Beyond the defects the audit left a number of areas untested rather than
 failing, and those are treated as what they are: coverage gaps, unknown
 proprietary behaviour, or reference-decoder disagreement, each pursued on its
-own terms and none promoted to a pass without evidence. Two of them are now
-settled against authored ground truth rather than against another decoder, and
-one instrument that failed here was replaced by a better one: instead of editing
-a finished stream, have Dolby's encoder write the shape under test.
+own terms and none promoted to a pass without evidence. Three are now settled
+against authored ground truth rather than against another decoder; two questions
+that had been chased on six titles were put to the whole library instead, which
+changed the answer to both; and one instrument that failed here was replaced by
+a better one — instead of editing a finished stream, have Dolby's encoder write
+the shape under test.
 
 Evidence is under `evidence/remediation/`. Every status change points at a file
 there.
