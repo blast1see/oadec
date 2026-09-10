@@ -1,0 +1,930 @@
+{
+ "what": "JOC object reconstruction against Dolby, after the substream and integrity work",
+ "utc": "2026-09-10T10:37:46.994403+00:00",
+ "note": "The three titles the audit measured are compared against its stored figures; the other three had Dolby object references on hand and are held out.",
+ "summary": {
+  "titles": 6,
+  "measured": 6,
+  "regressed": 0,
+  "held_out": 3,
+  "worst_sdr_db": 25.24,
+  "worst_correlation_structure_delta": 0.0014,
+  "lags": [
+   0
+  ]
+ },
+ "titles": [
+  {
+   "name": "disclosure-web-head",
+   "lag_samples": 0,
+   "lag_corr": 1.0,
+   "compared_samples": 1200000,
+   "objects_worst_sdr_db": 35.25,
+   "objects_median_sdr_db": 40.24,
+   "lfe_sdr_db": 89.47,
+   "max_obj_vs_obj_corr_ours": 0.9493,
+   "max_obj_vs_obj_corr_dolby": 0.9492,
+   "mean_obj_corr_ours": 0.0881,
+   "mean_obj_corr_dolby": 0.0881,
+   "corr_structure_max_abs_delta": 0.001,
+   "pairs_over_0_9_ours": 1,
+   "pairs_over_0_9_dolby": 1,
+   "per_object": [
+    {
+     "obj": 0,
+     "r": 1.0,
+     "sdr_db": 89.47,
+     "rms_ours": 0.001025,
+     "rms_dolby": 0.001025,
+     "silence_pct": 0.09
+    },
+    {
+     "obj": 1,
+     "r": 0.999851,
+     "sdr_db": 35.25,
+     "rms_ours": 0.002814,
+     "rms_dolby": 0.002815,
+     "silence_pct": 2.62
+    },
+    {
+     "obj": 2,
+     "r": 1.0,
+     "sdr_db": 66.68,
+     "rms_ours": 0.010819,
+     "rms_dolby": 0.010819,
+     "silence_pct": 0.11
+    },
+    {
+     "obj": 3,
+     "r": 1.0,
+     "sdr_db": 67.05,
+     "rms_ours": 0.011765,
+     "rms_dolby": 0.011765,
+     "silence_pct": 0.07
+    },
+    {
+     "obj": 4,
+     "r": 0.999996,
+     "sdr_db": 51.37,
+     "rms_ours": 0.004248,
+     "rms_dolby": 0.004248,
+     "silence_pct": 1.82
+    },
+    {
+     "obj": 5,
+     "r": 0.99995,
+     "sdr_db": 39.88,
+     "rms_ours": 0.002919,
+     "rms_dolby": 0.002923,
+     "silence_pct": 10.7
+    },
+    {
+     "obj": 6,
+     "r": 0.999976,
+     "sdr_db": 43.14,
+     "rms_ours": 0.004724,
+     "rms_dolby": 0.004725,
+     "silence_pct": 4.19
+    },
+    {
+     "obj": 7,
+     "r": 0.999911,
+     "sdr_db": 37.49,
+     "rms_ours": 0.001697,
+     "rms_dolby": 0.001698,
+     "silence_pct": 10.36
+    },
+    {
+     "obj": 8,
+     "r": 0.999951,
+     "sdr_db": 40.03,
+     "rms_ours": 0.006071,
+     "rms_dolby": 0.006067,
+     "silence_pct": 79.53
+    },
+    {
+     "obj": 9,
+     "r": 0.999953,
+     "sdr_db": 40.24,
+     "rms_ours": 0.00593,
+     "rms_dolby": 0.005927,
+     "silence_pct": 80.42
+    },
+    {
+     "obj": 10,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 11,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 12,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 13,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 14,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 15,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    }
+   ],
+   "decode_exit": 7,
+   "audit": {
+    "lag_samples": 0,
+    "objects_worst_sdr_db": 35.25,
+    "objects_median_sdr_db": 40.24,
+    "corr_structure_max_abs_delta": 0.001
+   },
+   "worst_sdr_change_db": -0.0,
+   "median_sdr_change_db": -0.0,
+   "verdict": "PASS"
+  },
+  {
+   "name": "kingsman-joc-head",
+   "lag_samples": 0,
+   "lag_corr": 0.999999,
+   "compared_samples": 1200000,
+   "objects_worst_sdr_db": 35.54,
+   "objects_median_sdr_db": 39.59,
+   "lfe_sdr_db": 109.57,
+   "max_obj_vs_obj_corr_ours": 0.9395,
+   "max_obj_vs_obj_corr_dolby": 0.9395,
+   "mean_obj_corr_ours": 0.1088,
+   "mean_obj_corr_dolby": 0.1088,
+   "corr_structure_max_abs_delta": 0.0001,
+   "pairs_over_0_9_ours": 2,
+   "pairs_over_0_9_dolby": 2,
+   "per_object": [
+    {
+     "obj": 0,
+     "r": 1.0,
+     "sdr_db": 109.57,
+     "rms_ours": 0.010026,
+     "rms_dolby": 0.010026,
+     "silence_pct": 9.93
+    },
+    {
+     "obj": 1,
+     "r": 0.999958,
+     "sdr_db": 40.79,
+     "rms_ours": 0.006126,
+     "rms_dolby": 0.006126,
+     "silence_pct": 11.09
+    },
+    {
+     "obj": 2,
+     "r": 0.999961,
+     "sdr_db": 41.12,
+     "rms_ours": 0.006828,
+     "rms_dolby": 0.006827,
+     "silence_pct": 11.08
+    },
+    {
+     "obj": 3,
+     "r": 0.999907,
+     "sdr_db": 37.28,
+     "rms_ours": 0.013278,
+     "rms_dolby": 0.013278,
+     "silence_pct": 4.56
+    },
+    {
+     "obj": 4,
+     "r": 0.999861,
+     "sdr_db": 35.54,
+     "rms_ours": 0.002847,
+     "rms_dolby": 0.002846,
+     "silence_pct": 22.4
+    },
+    {
+     "obj": 5,
+     "r": 0.999918,
+     "sdr_db": 37.85,
+     "rms_ours": 0.005875,
+     "rms_dolby": 0.005875,
+     "silence_pct": 2.12
+    },
+    {
+     "obj": 6,
+     "r": 0.999893,
+     "sdr_db": 36.69,
+     "rms_ours": 0.004321,
+     "rms_dolby": 0.004321,
+     "silence_pct": 23.79
+    },
+    {
+     "obj": 7,
+     "r": 0.999945,
+     "sdr_db": 39.59,
+     "rms_ours": 0.007149,
+     "rms_dolby": 0.007148,
+     "silence_pct": 4.5
+    },
+    {
+     "obj": 8,
+     "r": 0.999937,
+     "sdr_db": 38.97,
+     "rms_ours": 0.004052,
+     "rms_dolby": 0.004052,
+     "silence_pct": 23.54
+    },
+    {
+     "obj": 9,
+     "r": 0.999956,
+     "sdr_db": 40.55,
+     "rms_ours": 0.004157,
+     "rms_dolby": 0.004156,
+     "silence_pct": 18.14
+    },
+    {
+     "obj": 10,
+     "r": 0.999951,
+     "sdr_db": 40.12,
+     "rms_ours": 0.00718,
+     "rms_dolby": 0.00718,
+     "silence_pct": 2.93
+    },
+    {
+     "obj": 11,
+     "r": 0.999988,
+     "sdr_db": 46.06,
+     "rms_ours": 0.010668,
+     "rms_dolby": 0.010667,
+     "silence_pct": 4.55
+    },
+    {
+     "obj": 12,
+     "r": 0.999988,
+     "sdr_db": 46.22,
+     "rms_ours": 0.012308,
+     "rms_dolby": 0.012308,
+     "silence_pct": 2.32
+    },
+    {
+     "obj": 13,
+     "r": 0.999921,
+     "sdr_db": 38.04,
+     "rms_ours": 0.006026,
+     "rms_dolby": 0.006025,
+     "silence_pct": 3.75
+    },
+    {
+     "obj": 14,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 15,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    }
+   ],
+   "decode_exit": 7,
+   "audit": {
+    "lag_samples": 0,
+    "objects_worst_sdr_db": 35.54,
+    "objects_median_sdr_db": 39.59,
+    "corr_structure_max_abs_delta": 0.0001
+   },
+   "worst_sdr_change_db": -0.0,
+   "median_sdr_change_db": -0.0,
+   "verdict": "PASS"
+  },
+  {
+   "name": "knivesout-joc-head",
+   "lag_samples": 0,
+   "lag_corr": 0.999999,
+   "compared_samples": 1200000,
+   "objects_worst_sdr_db": 35.72,
+   "objects_median_sdr_db": 41.23,
+   "lfe_sdr_db": null,
+   "max_obj_vs_obj_corr_ours": 0.9999,
+   "max_obj_vs_obj_corr_dolby": 0.9999,
+   "mean_obj_corr_ours": 0.1759,
+   "mean_obj_corr_dolby": 0.1759,
+   "corr_structure_max_abs_delta": 0.0007,
+   "pairs_over_0_9_ours": 6,
+   "pairs_over_0_9_dolby": 6,
+   "per_object": [
+    {
+     "obj": 0,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 1,
+     "r": 0.999997,
+     "sdr_db": 52.57,
+     "rms_ours": 0.001262,
+     "rms_dolby": 0.001262,
+     "silence_pct": 23.22
+    },
+    {
+     "obj": 2,
+     "r": 0.999901,
+     "sdr_db": 37.02,
+     "rms_ours": 0.000248,
+     "rms_dolby": 0.000248,
+     "silence_pct": 19.34
+    },
+    {
+     "obj": 3,
+     "r": 0.999963,
+     "sdr_db": 41.27,
+     "rms_ours": 0.00025,
+     "rms_dolby": 0.00025,
+     "silence_pct": 19.08
+    },
+    {
+     "obj": 4,
+     "r": 0.999866,
+     "sdr_db": 35.72,
+     "rms_ours": 0.0002,
+     "rms_dolby": 0.0002,
+     "silence_pct": 18.65
+    },
+    {
+     "obj": 5,
+     "r": 0.999995,
+     "sdr_db": 49.71,
+     "rms_ours": 0.000882,
+     "rms_dolby": 0.000882,
+     "silence_pct": 24.17
+    },
+    {
+     "obj": 6,
+     "r": 0.999962,
+     "sdr_db": 41.23,
+     "rms_ours": 0.0002,
+     "rms_dolby": 0.0002,
+     "silence_pct": 20.46
+    },
+    {
+     "obj": 7,
+     "r": 0.999945,
+     "sdr_db": 39.55,
+     "rms_ours": 0.000201,
+     "rms_dolby": 0.000201,
+     "silence_pct": 18.32
+    },
+    {
+     "obj": 8,
+     "r": 0.999943,
+     "sdr_db": 39.45,
+     "rms_ours": 0.000161,
+     "rms_dolby": 0.000161,
+     "silence_pct": 19.47
+    },
+    {
+     "obj": 9,
+     "r": 0.999997,
+     "sdr_db": 53.0,
+     "rms_ours": 0.001514,
+     "rms_dolby": 0.001514,
+     "silence_pct": 3.62
+    },
+    {
+     "obj": 10,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 11,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 12,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 13,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 14,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 15,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    }
+   ],
+   "decode_exit": 7,
+   "audit": {
+    "lag_samples": 0,
+    "objects_worst_sdr_db": 35.72,
+    "objects_median_sdr_db": 41.23,
+    "corr_structure_max_abs_delta": 0.0007
+   },
+   "worst_sdr_change_db": -0.0,
+   "median_sdr_change_db": -0.0,
+   "verdict": "PASS"
+  },
+  {
+   "name": "extraction-nf-head",
+   "lag_samples": 0,
+   "lag_corr": 1.0,
+   "compared_samples": 1200000,
+   "objects_worst_sdr_db": 50.51,
+   "objects_median_sdr_db": 53.51,
+   "lfe_sdr_db": 84.21,
+   "max_obj_vs_obj_corr_ours": 0.8458,
+   "max_obj_vs_obj_corr_dolby": 0.8458,
+   "mean_obj_corr_ours": 0.0816,
+   "mean_obj_corr_dolby": 0.0816,
+   "corr_structure_max_abs_delta": 0.0014,
+   "pairs_over_0_9_ours": 0,
+   "pairs_over_0_9_dolby": 0,
+   "per_object": [
+    {
+     "obj": 0,
+     "r": 1.0,
+     "sdr_db": 84.21,
+     "rms_ours": 0.000359,
+     "rms_dolby": 0.000359,
+     "silence_pct": 61.0
+    },
+    {
+     "obj": 1,
+     "r": 1.0,
+     "sdr_db": 75.6,
+     "rms_ours": 0.002827,
+     "rms_dolby": 0.002827,
+     "silence_pct": 5.15
+    },
+    {
+     "obj": 2,
+     "r": 1.0,
+     "sdr_db": 70.17,
+     "rms_ours": 0.005032,
+     "rms_dolby": 0.005032,
+     "silence_pct": 0.89
+    },
+    {
+     "obj": 3,
+     "r": 1.0,
+     "sdr_db": 65.89,
+     "rms_ours": 0.005706,
+     "rms_dolby": 0.005706,
+     "silence_pct": 0.83
+    },
+    {
+     "obj": 4,
+     "r": 0.999996,
+     "sdr_db": 50.62,
+     "rms_ours": 0.002593,
+     "rms_dolby": 0.002591,
+     "silence_pct": 3.91
+    },
+    {
+     "obj": 5,
+     "r": 0.999998,
+     "sdr_db": 52.98,
+     "rms_ours": 0.002751,
+     "rms_dolby": 0.00275,
+     "silence_pct": 5.98
+    },
+    {
+     "obj": 6,
+     "r": 0.999997,
+     "sdr_db": 51.44,
+     "rms_ours": 0.002262,
+     "rms_dolby": 0.002261,
+     "silence_pct": 3.87
+    },
+    {
+     "obj": 7,
+     "r": 0.999998,
+     "sdr_db": 53.51,
+     "rms_ours": 0.00285,
+     "rms_dolby": 0.002849,
+     "silence_pct": 6.26
+    },
+    {
+     "obj": 8,
+     "r": 0.999997,
+     "sdr_db": 50.78,
+     "rms_ours": 0.003706,
+     "rms_dolby": 0.003701,
+     "silence_pct": 6.19
+    },
+    {
+     "obj": 9,
+     "r": 0.999996,
+     "sdr_db": 50.51,
+     "rms_ours": 0.00454,
+     "rms_dolby": 0.004536,
+     "silence_pct": 5.89
+    },
+    {
+     "obj": 10,
+     "r": 0.999999,
+     "sdr_db": 57.43,
+     "rms_ours": 8e-05,
+     "rms_dolby": 8e-05,
+     "silence_pct": 92.2
+    },
+    {
+     "obj": 11,
+     "r": 0.999999,
+     "sdr_db": 59.22,
+     "rms_ours": 0.000144,
+     "rms_dolby": 0.000144,
+     "silence_pct": 92.19
+    },
+    {
+     "obj": 12,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 13,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 14,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 15,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    }
+   ],
+   "decode_exit": 7,
+   "verdict": "HELD OUT"
+  },
+  {
+   "name": "glassonion-nf-head",
+   "lag_samples": 0,
+   "lag_corr": 1.0,
+   "compared_samples": 1200000,
+   "objects_worst_sdr_db": 25.24,
+   "objects_median_sdr_db": 47.76,
+   "lfe_sdr_db": null,
+   "max_obj_vs_obj_corr_ours": 0.7637,
+   "max_obj_vs_obj_corr_dolby": 0.7638,
+   "mean_obj_corr_ours": 0.0542,
+   "mean_obj_corr_dolby": 0.0542,
+   "corr_structure_max_abs_delta": 0.0007,
+   "pairs_over_0_9_ours": 0,
+   "pairs_over_0_9_dolby": 0,
+   "per_object": [
+    {
+     "obj": 0,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 1,
+     "r": 1.0,
+     "sdr_db": 72.37,
+     "rms_ours": 0.005665,
+     "rms_dolby": 0.005665,
+     "silence_pct": 21.03
+    },
+    {
+     "obj": 2,
+     "r": 0.999996,
+     "sdr_db": 50.58,
+     "rms_ours": 0.001864,
+     "rms_dolby": 0.001864,
+     "silence_pct": 21.09
+    },
+    {
+     "obj": 3,
+     "r": 1.0,
+     "sdr_db": 66.8,
+     "rms_ours": 0.005195,
+     "rms_dolby": 0.005195,
+     "silence_pct": 21.05
+    },
+    {
+     "obj": 4,
+     "r": 0.999992,
+     "sdr_db": 47.76,
+     "rms_ours": 0.001476,
+     "rms_dolby": 0.001476,
+     "silence_pct": 21.11
+    },
+    {
+     "obj": 5,
+     "r": 0.999915,
+     "sdr_db": 37.7,
+     "rms_ours": 0.000601,
+     "rms_dolby": 0.000601,
+     "silence_pct": 21.31
+    },
+    {
+     "obj": 6,
+     "r": 0.999924,
+     "sdr_db": 38.16,
+     "rms_ours": 0.000531,
+     "rms_dolby": 0.000531,
+     "silence_pct": 21.39
+    },
+    {
+     "obj": 7,
+     "r": 0.999347,
+     "sdr_db": 28.84,
+     "rms_ours": 2.9e-05,
+     "rms_dolby": 2.9e-05,
+     "silence_pct": 63.65
+    },
+    {
+     "obj": 8,
+     "r": 1.0,
+     "sdr_db": 67.56,
+     "rms_ours": 0.020159,
+     "rms_dolby": 0.020159,
+     "silence_pct": 60.38
+    },
+    {
+     "obj": 9,
+     "r": 0.998508,
+     "sdr_db": 25.24,
+     "rms_ours": 2.3e-05,
+     "rms_dolby": 2.3e-05,
+     "silence_pct": 64.18
+    },
+    {
+     "obj": 10,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 11,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 12,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 13,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 14,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 15,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    }
+   ],
+   "decode_exit": 7,
+   "verdict": "HELD OUT"
+  },
+  {
+   "name": "br2049-joc-head",
+   "lag_samples": 0,
+   "lag_corr": 0.999947,
+   "compared_samples": 1200000,
+   "objects_worst_sdr_db": 37.63,
+   "objects_median_sdr_db": 42.08,
+   "lfe_sdr_db": 58.61,
+   "max_obj_vs_obj_corr_ours": 0.9249,
+   "max_obj_vs_obj_corr_dolby": 0.9246,
+   "mean_obj_corr_ours": 0.1306,
+   "mean_obj_corr_dolby": 0.1305,
+   "corr_structure_max_abs_delta": 0.0009,
+   "pairs_over_0_9_ours": 1,
+   "pairs_over_0_9_dolby": 1,
+   "per_object": [
+    {
+     "obj": 0,
+     "r": 0.999999,
+     "sdr_db": 58.61,
+     "rms_ours": 0.108171,
+     "rms_dolby": 0.108169,
+     "silence_pct": 0.0
+    },
+    {
+     "obj": 1,
+     "r": 0.999974,
+     "sdr_db": 42.83,
+     "rms_ours": 0.12345,
+     "rms_dolby": 0.12349,
+     "silence_pct": 0.0
+    },
+    {
+     "obj": 2,
+     "r": 0.999975,
+     "sdr_db": 42.9,
+     "rms_ours": 0.125446,
+     "rms_dolby": 0.125537,
+     "silence_pct": 0.0
+    },
+    {
+     "obj": 3,
+     "r": 0.99999,
+     "sdr_db": 47.12,
+     "rms_ours": 0.022638,
+     "rms_dolby": 0.022641,
+     "silence_pct": 0.01
+    },
+    {
+     "obj": 4,
+     "r": 0.999914,
+     "sdr_db": 37.63,
+     "rms_ours": 0.01596,
+     "rms_dolby": 0.015968,
+     "silence_pct": 0.27
+    },
+    {
+     "obj": 5,
+     "r": 0.999971,
+     "sdr_db": 42.3,
+     "rms_ours": 0.088355,
+     "rms_dolby": 0.088393,
+     "silence_pct": 0.0
+    },
+    {
+     "obj": 6,
+     "r": 0.999959,
+     "sdr_db": 40.87,
+     "rms_ours": 0.052829,
+     "rms_dolby": 0.052836,
+     "silence_pct": 0.2
+    },
+    {
+     "obj": 7,
+     "r": 0.999924,
+     "sdr_db": 38.17,
+     "rms_ours": 0.015478,
+     "rms_dolby": 0.015475,
+     "silence_pct": 0.13
+    },
+    {
+     "obj": 8,
+     "r": 0.999972,
+     "sdr_db": 42.47,
+     "rms_ours": 0.095833,
+     "rms_dolby": 0.095836,
+     "silence_pct": 0.0
+    },
+    {
+     "obj": 9,
+     "r": 0.999969,
+     "sdr_db": 42.08,
+     "rms_ours": 0.046552,
+     "rms_dolby": 0.046545,
+     "silence_pct": 0.06
+    },
+    {
+     "obj": 10,
+     "r": 0.999947,
+     "sdr_db": 39.73,
+     "rms_ours": 0.037598,
+     "rms_dolby": 0.037601,
+     "silence_pct": 0.02
+    },
+    {
+     "obj": 11,
+     "r": 0.999934,
+     "sdr_db": 38.82,
+     "rms_ours": 0.035921,
+     "rms_dolby": 0.03593,
+     "silence_pct": 0.08
+    },
+    {
+     "obj": 12,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 13,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 14,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    },
+    {
+     "obj": 15,
+     "r": 0.0,
+     "sdr_db": null,
+     "rms_ours": 0.0,
+     "rms_dolby": 0.0,
+     "silence_pct": 100.0
+    }
+   ],
+   "decode_exit": 0,
+   "verdict": "HELD OUT"
+  }
+ ]
+}

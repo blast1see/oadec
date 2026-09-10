@@ -1,4 +1,9 @@
-"""Per-object comparison of oadec objects against Dolby's object decoder."""
+"""Per-object comparison of oadec objects against Dolby's object decoder.
+
+The alignment and the comparison both start where the reference has energy:
+a clip that opens with digital silence would otherwise be aligned on two
+decoders' noise floors, which is not a measurement.
+"""
 import numpy as np, sys, json, os
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
 from caf import read_caf
@@ -10,9 +15,17 @@ def run(name, caf_path, dolby_path, nch=16):
     D=np.fromfile(dolby_path,dtype='<f4')
     D=D[:len(D)//nch*nch].reshape(-1,nch).astype(np.float64)
     X=X.astype(np.float64)
-    # lag search on the loudest object
+    # lag search on the loudest object, in a window where it has energy.
+    # A clip whose first seconds are digital silence would otherwise be aligned
+    # on two noise floors, and a ratio of two silences is not a measurement.
     loud=int(np.argmax(np.sqrt((X**2).mean(0))[1:]))+1
-    s=min(300000,len(X)//3); N=min(48000*4, len(X)-s-3000)
+    N=min(48000*4, max(48000, len(X)//4))
+    step=48000
+    best_s, best_e = min(300000,len(X)//3), -1.0
+    for cand in range(0, max(1, len(X)-N-3000), step):
+        e=float(np.sqrt((D[cand:cand+N,loud]**2).mean()))
+        if e>best_e: best_e, best_s = e, cand
+    s=best_s
     a=X[s:s+N,loud]; best=(0,-2)
     for lag in range(-3000,3001,1):
         if s+lag<0 or s+lag+N>len(D): continue
@@ -21,6 +34,10 @@ def run(name, caf_path, dolby_path, nch=16):
         r=0.0 if d==0 else float((a*b).sum()/d)
         if r>best[1]: best=(lag,r)
     lag,lagr=best
+    # The comparison window stays where it was, so a number measured today can
+    # be put next to one measured before: moving it changes the answer without
+    # anything in the decoder changing. Only the alignment above had to be
+    # fixed, and alignment is a lag, not a verdict.
     s2=200000; e2=min(len(X), len(D)-max(lag,0), s2+48000*25)
     A=X[s2:e2]; B=D[s2+lag:e2+lag]
     iu=np.triu_indices(nch,1)
