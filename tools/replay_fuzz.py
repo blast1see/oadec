@@ -63,8 +63,21 @@ def run(cmd, timeout=180):
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 
+USAGE = ("usage: replay_fuzz.py STREAM {joc|truehd} SEED COUNT OUT.json\n"
+         "  STREAM  the clean stream to inject single-bit errors into\n"
+         "  SEED    the seed that names the campaign; the same seed replays the same sites\n"
+         "  COUNT   how many sites\n"
+         "  OUT     where the per-site exit codes and diagnostics go")
+
+
 def main() -> int:
+    if len(sys.argv) != 6:
+        print(USAGE, file=sys.stderr)
+        return 2
     src, kind, seed, n, out_path = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5]
+    if not os.path.isfile(src):
+        print(f"{src} is not a file\n\n{USAGE}", file=sys.stderr)
+        return 2
     size = os.path.getsize(src)
     random.seed(seed)
     sites = [(random.randrange(size), random.randrange(8)) for _ in range(n)]
