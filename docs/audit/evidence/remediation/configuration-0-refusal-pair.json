@@ -1,0 +1,25 @@
+{
+ "what": "Why Dolby's decoder refuses one configuration 0 stream and accepts another: a control pair, and every field that fails to separate them",
+ "utc": "2026-09-10T18:57:18.672358+00:00",
+ "commit": "61490b370d7e52e460229782fe678e4e3a1c6713",
+ "pair": {
+  "refused": "Snatch, a hybrid disc remux: Dolby writes six channels, mask 0x0c0f",
+  "accepted": "Dredd: Dolby writes sixteen object channels, and our objects agree to 52,44 dB"
+ },
+ "both": "E-AC-3, acmod 7 + LFE, 768 kbit/s, no dependent substream, joc_dmx_config_idx 0, 15 JOC objects, 16 OAMD objects, one EMDF container per frame",
+ "fields_that_do_not_separate_them": {
+  "frame and programme": "acmod, lfeon, bit rate, channel list, chanmap, substream layout, CRC and tail counters -- identical",
+  "emdf container": "version 0, key_id 0, four payloads with ids 1, 2, 11 and 14 -- identical",
+  "payload configuration": "sample offset, duration, group id, discard_unknown_payload, payload_frame_aligned and create_duplicate, per payload -- identical",
+  "small payloads": "payload 2 is 04 94 80 in both. Payload 1 is 02 00 in Snatch and 02 69 80 in Dredd, but Disclosure -- a configuration 3 stream Dolby accepts -- has the two-byte form 03 00, so the length is not the discriminator",
+  "oamd": "16 objects, bed at the same position, same gain and size, same block structure",
+  "joc header": "same configuration, object count, band count, quantisation and slope distribution",
+  "sequence counter": "Snatch has 48 zeros, but all 48 are its first 48 frames and a mid-file cut of the same title has none at all -- and Dolby refuses that cut too, so the zeros are not the cause"
+ },
+ "what_this_changes": [
+  "the refusal is not about the configuration: a second stream at configuration 0 is accepted",
+  "it is not about the sequence counter, which the earlier work had already doubted and which a mid-file cut now rules out directly",
+  "the question is now properly posed, with a control that differs in nothing this decoder can read. What is left is a field oadec does not parse, or a decision the decoder takes on content"
+ ],
+ "instrument_note": "the obvious next experiment -- change one field of Snatch and see whether the refusal moves -- is not available: Dolby discards any EMDF payload rewritten in place. See payload-rewrite-rejected.json"
+}

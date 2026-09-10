@@ -220,6 +220,36 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
                 }
                 Ok(c) => {
                     s.containers += 1;
+                    if opts.dump.is_some_and(|n| dumped < n) {
+                        // the container's own header, which nothing else
+                        // reports and which two streams can differ in while
+                        // every field above them matches
+                        println!(
+                            "  container: version {}, key_id {}, protection {:?}, {} payloads {:?}",
+                            c.version,
+                            c.key_id,
+                            c.protection,
+                            c.payloads.len(),
+                            c.payloads
+                                .iter()
+                                .map(|p| (
+                                    p.id,
+                                    p.data.len(),
+                                    p.config.sample_offset,
+                                    p.config.duration,
+                                    p.config.group_id,
+                                    p.config.discard_unknown_payload,
+                                    p.config.payload_frame_aligned,
+                                    p.config.create_duplicate,
+                                ))
+                                .collect::<Vec<_>>()
+                        );
+                        for p in &c.payloads {
+                            if p.data.len() <= 8 {
+                                println!("    payload {} = {:02x?}", p.id, p.data);
+                            }
+                        }
+                    }
                     for p in &c.payloads {
                         *s.payload_ids.entry(p.id).or_default() += 1;
                         if p.id == PAYLOAD_ID_JOC {
