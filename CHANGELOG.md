@@ -31,7 +31,10 @@ Semantic Versioning.
   -- the worst sparse frame of a clip goes from 75 dB below that clip's own
   level to 10 dB below it. The seed of the chain is the printed 50/100 and
   stays there; reading it as 48/96 costs 50 dB. `--sparse-as-printed` restores
-  the printed reading.
+  the printed reading. The first parameter band's channel index is no longer
+  taken modulo the channel count, which clause 6.6.2 does not ask for: a band
+  whose index names no channel now selects none of them instead of wrapping
+  onto a real one. No conforming stream can tell the difference.
 - **The steep interpolation switched one time slot too late.** `joc_offset_ts`
   is one-based (clause 6.3.4.4 defines it as the transmitted bits plus one) and
   the `ts` of clause 6.6.5 counts from zero, but the printed pseudo-code
