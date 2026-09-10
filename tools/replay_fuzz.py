@@ -63,7 +63,7 @@ def run(cmd, timeout=180):
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 
-USAGE = ("usage: replay_fuzz.py STREAM {joc|truehd} SEED COUNT OUT.json\n"
+USAGE = ("usage: replay_fuzz.py STREAM {joc|ddp71|truehd} SEED COUNT OUT.json\n"
          "  STREAM  the clean stream to inject single-bit errors into\n"
          "  SEED    the seed that names the campaign; the same seed replays the same sites\n"
          "  COUNT   how many sites\n"
@@ -124,6 +124,15 @@ def commands(kind, mutated, work):
         return [("verify", [BIN, "verify", mutated]),
                 ("decode_pcm", [BIN, "decode", mutated, "--format", "pcm", "-o", out + ".f32"]),
                 ("decode_damf", [BIN, "decode", mutated, "--format", "damf", "-o", out])]
+    if kind == "ddp71":
+        # the programme path, which merges dependent substreams, and the
+        # independent-only path beside it: a corruption that reaches one and not
+        # the other is worth seeing separately
+        return [("verify", [BIN, "verify", mutated]),
+                ("decode_programme", [BIN, "decode", mutated, "--format", "pcm",
+                                      "-o", out + ".f32"]),
+                ("decode_core_only", [BIN, "decode", mutated, "--format", "pcm", "--core-only",
+                                      "-o", out + ".core.f32"])]
     return [("verify", [BIN, "verify", mutated]),
             ("decode_pcm", [BIN, "decode", mutated, "-p", "3", "--format", "pcm", "-o", out + ".pcm"])]
 
