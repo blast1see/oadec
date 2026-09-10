@@ -158,5 +158,5 @@ Every `after` here points at a file under `evidence/remediation/`. The report is
 | Two-point interpolation | N/T | N/T | `joc-syntax-coverage.json` | 0 of 32 493 245 object updates |
 | Controlled object positions | N/T | **PASS** | `controlled-atmos-ground-truth.json` | Movement, gain, size and divergence are named follow-ups |
 | TrueHD bit exactness | PASS | **PASS** | `regression-summary.json` | — |
-| JOC objects against Dolby | PASS-TOL | **PASS-TOL** | `joc-objects-vs-dolby.json` | — |
+| JOC objects against Dolby | PASS-TOL | **PASS-TOL** | `joc-objects-vs-dolby.json` | Six titles, none regressed; Glass Onion's worst object moved 25,24 to 49,93 dB with the steep correction. The worst of the six is 35,25 dB and the difference that remains is E-AC-3 dither |
 | Media suite reports honestly | FAIL | **PASS** | CI job `media-suite-refuses-to-pass-without-media` | — |
