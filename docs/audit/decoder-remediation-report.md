@@ -727,7 +727,9 @@ run that cannot reach the media now fails, and CI runs the check that it does.
   clip sits at 44,4. The disagreement is two QMF slots wide and sits where the
   sparse matrix is applied. That frame has moved from 1,05 to 16,5 to 30,6 to
   34,6 dB across three separate corrections; the other nine end within 5,7 dB
-  of their clips' own level.
+  of their clips' own level. It is not dither amplified by the large coefficient
+  the sparse matrix carries there: our own dither's weight on that frame is
+  61,70 dB against neighbours at 59,58 to 80,90 and a clip median of 59,38.
 - **The second reason Dolby refuses three titles.** `2ch_control_enabled` is
   necessary and not sufficient; the rest is taken before any audio is decoded
   and is not in the major sync.
