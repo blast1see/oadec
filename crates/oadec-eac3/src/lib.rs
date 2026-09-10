@@ -16,6 +16,7 @@ pub mod error;
 pub mod frame;
 pub mod header;
 pub mod imdct;
+pub mod program;
 pub mod tables;
 pub mod tpnp;
 pub mod vq;
@@ -27,3 +28,7 @@ pub use frame::{
     Block, BlockInfo, Coverage, EcplBlock, EcplChannel, Frame, Noise, Options, Partial, Transient,
 };
 pub use header::{BLOCK_SAMPLES, FrameHeader, SYNC_WORD, StreamType, Syntax};
+pub use program::{
+    ChannelLoc, DependentLocations, LocationError, MAX_PROGRAM_CHANNELS, chanmap_locations,
+    dependent_locations, independent_locations,
+};

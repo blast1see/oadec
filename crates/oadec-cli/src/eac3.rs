@@ -8,7 +8,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use oadec_eac3::{Coverage, Decoded, Decoder, FrameHeader, Options, Syntax, find_sync};
+use oadec_eac3::{ChannelLoc, Coverage, Decoded, Decoder, FrameHeader, Options, Syntax, find_sync};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::joc::{Joc, Slope, SparseIndexMode};
 use oadec_emdf::oamd::Oamd;
@@ -164,43 +164,41 @@ fn syntax_name(h: &FrameHeader) -> &'static str {
     }
 }
 
-fn interchange_rank(name: &str) -> u8 {
-    match name {
-        "L" | "Ch1" => 0,
-        "R" | "Ch2" => 1,
-        "C" => 2,
-        "LFE" => 3,
-        "S" => 4,
-        "Ls" => 5,
-        "Rs" => 6,
-        _ => 7,
-    }
-}
-
 /// Output channel indices (into the coded order) for the requested order.
-fn output_order(names: &[&str], order: Order) -> Vec<usize> {
-    let mut idx: Vec<usize> = (0..names.len()).collect();
+///
+/// Interchange order is the order of the WAVE mask bits, which each channel
+/// location carries with it, so the order and the mask below can never
+/// disagree.
+fn output_order(chans: &[ChannelLoc], order: Order) -> Vec<usize> {
+    let mut idx: Vec<usize> = (0..chans.len()).collect();
     if order == Order::Interchange {
-        idx.sort_by_key(|&i| interchange_rank(names[i]));
+        idx.sort_by_key(|&i| chans[i].interchange_rank());
     }
     idx
 }
 
 /// WAVE channel mask bits in WAVE order.
-fn channel_mask(names: &[&str]) -> u32 {
-    names
-        .iter()
-        .map(|n| match *n {
-            "L" | "Ch1" => 0x1,
-            "R" | "Ch2" => 0x2,
-            "C" => 0x4,
-            "LFE" => 0x8,
-            "S" => 0x100,
-            "Ls" => 0x200,
-            "Rs" => 0x400,
-            _ => 0,
-        })
-        .fold(0, |a, b| a | b)
+///
+/// Zero when the programme holds a location WAVE cannot name (the
+/// surround-direct and wide pairs, the second LFE): a mask with fewer bits set
+/// than there are channels is not a valid `WAVEFORMATEXTENSIBLE`, and zero is
+/// the format's own way of saying the assignment is not stated.
+fn channel_mask(chans: &[ChannelLoc]) -> u32 {
+    let mask = chans.iter().fold(0, |a, c| a | c.wave_mask());
+    if mask.count_ones() as usize == chans.len() {
+        mask
+    } else {
+        let unnamed: Vec<&str> = chans
+            .iter()
+            .filter(|c| c.wave_mask() == 0)
+            .map(|c| c.name())
+            .collect();
+        eprintln!(
+            "warning: WAVE has no channel mask bit for {}; writing an unassigned mask",
+            unnamed.join(", ")
+        );
+        0
+    }
 }
 
 #[derive(Debug, Default)]
@@ -950,11 +948,11 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<()> {
         },
         |d| {
             if !header_written {
-                let names = Decoder::channel_names(&d.header);
-                order = output_order(&names, opts.order);
-                channels = names.len() as u16;
+                let chans = Decoder::channel_locations(&d.header);
+                order = output_order(&chans, opts.order);
+                channels = chans.len() as u16;
                 rate = d.header.sample_rate;
-                let ordered: Vec<&str> = order.iter().map(|&i| names[i]).collect();
+                let ordered: Vec<ChannelLoc> = order.iter().map(|&i| chans[i]).collect();
                 mask = channel_mask(&ordered);
                 if wav {
                     write_float_wav_header(&mut out, channels, rate, mask, 0)?;
@@ -1135,8 +1133,9 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
         },
         |d| {
             if order.is_empty() {
-                names = Decoder::channel_names(&d.header);
-                order = output_order(&names, opts.order);
+                let chans = Decoder::channel_locations(&d.header);
+                names = chans.iter().map(|c| c.name()).collect();
+                order = output_order(&chans, opts.order);
                 stats = vec![ChannelStats::default(); order.len()];
             }
             let n = d.pcm[0].len();
