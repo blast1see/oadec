@@ -22,6 +22,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import objcmp  # noqa: E402
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
+from oadec_bin import find as find_oadec  # noqa: E402
+
 # clip -> Dolby object dump, and the name the audit filed its result under
 TITLES = [
     ("clips/disclosure-web-head.ec3", "ref-oar/disclosure-web-obj.f32", "disclosure-web-head"),
@@ -36,7 +42,7 @@ TITLES = [
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--work", required=True)
-    ap.add_argument("--binary", default=r"target\release\oadec.exe")
+    ap.add_argument("--binary", default=find_oadec(required=False))
     ap.add_argument("--baseline",
                     default=str(Path(__file__).resolve().parent.parent
                                 / "docs/audit/evidence/06-11-joc-objects-vs-dolby.json"))

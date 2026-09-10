@@ -33,6 +33,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ec3_structure  # noqa: E402
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
+from oadec_bin import find as find_oadec  # noqa: E402
+
 FFMPEG = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
 FFPROBE = shutil.which("ffprobe") or r"C:\ffmpeg\bin\ffprobe.exe"
 
@@ -265,7 +271,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("manifest")
     ap.add_argument("--roots", nargs="+", required=True)
-    ap.add_argument("--binary", default=r"target\release\oadec.exe")
+    ap.add_argument("--binary", default=find_oadec(required=False))
     ap.add_argument("--out", required=True)
     ap.add_argument("--seconds", type=float, default=10.0)
     ap.add_argument("--start", type=float, default=600.0,

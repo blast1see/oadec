@@ -30,6 +30,12 @@ import tempfile
 from collections import Counter
 from pathlib import Path
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
+from oadec_bin import find as find_oadec  # noqa: E402
+
 FFMPEG = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
 FFPROBE = shutil.which("ffprobe") or r"C:\ffmpeg\bin\ffprobe.exe"
 MEDIA = {".mkv", ".mka", ".m2ts", ".mp4", ".ts"}
@@ -85,7 +91,7 @@ def dolby_tracks(path: Path) -> list[int]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("paths", nargs="+")
-    ap.add_argument("--binary", default=r"target\release\oadec.exe")
+    ap.add_argument("--binary", default=find_oadec(required=False))
     ap.add_argument("--out", required=True)
     ap.add_argument("--library", action="store_true",
                     help="the paths are media trees or media files, not elementary streams")

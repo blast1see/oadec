@@ -33,10 +33,16 @@ import subprocess
 import sys
 from pathlib import Path
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
+from oadec_bin import find as find_oadec  # noqa: E402
+
 MEDIA = {".mkv", ".m2ts", ".mp4", ".ts"}
 FFMPEG = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
 FFPROBE = shutil.which("ffprobe") or r"C:\ffmpeg\bin\ffprobe.exe"
-OADEC = shutil.which("oadec") or r"target\release\oadec.exe"
+OADEC = find_oadec()
 PLAYER = Path(r"C:\Program Files\Dolby\Dolby Reference Player")
 GST = PLAYER / "gst-launch-1.0.exe"
 REFUSAL = "not available"
@@ -109,6 +115,10 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
+    if not GST.is_file():
+        raise SystemExit(
+            f"the Dolby Reference Player is not at {PLAYER}, so `dlbtruehddec` cannot be asked "
+            "anything. Install it, or point PLAYER at it.")
     work = Path(args.out)
     work.mkdir(parents=True, exist_ok=True)
 
