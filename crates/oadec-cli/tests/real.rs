@@ -981,3 +981,159 @@ fn the_merged_channels_carry_the_tones_they_were_authored_with() {
         );
     }
 }
+
+/// The steep switch point, on a stream where the branch under test is the rule.
+///
+/// The six titles that settled defect 4 carry steep objects in two to four per
+/// cent of their object updates, so the measurement is always a handful of
+/// frames against a clip. `clips/joc-onset-steep.ec3` was authored here to be
+/// different: eight objects arriving out of silence mid-file make Dolby's
+/// encoder write steep for 1 410 of its 4 695 object updates. A sweep every
+/// half frame gives fifteen and teleporting between corners gives forty-five,
+/// all three of those in the first frames — so it is the arrival of level, not
+/// movement, that this encoder answers with the steep branch.
+///
+/// Against Dolby's decode of that stream, the reading this decoder uses has to
+/// beat the one clause 6.6.5 prints, on every element that carries audio.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn the_steep_switch_is_measured_where_the_branch_is_the_common_case() {
+    /// Interleaved samples of a CAF file, as `f64` in −1..1, with its channel
+    /// count. The DAMF audio this decoder writes is 24-bit; Dolby's raw object
+    /// dump is headerless 32-bit float.
+    fn caf(path: &std::path::Path) -> (Vec<f64>, usize) {
+        let b = std::fs::read(path).expect("caf");
+        assert_eq!(&b[..4], b"caff", "{} is not a CAF", path.display());
+        let (mut at, mut channels, mut bits) = (8usize, 0usize, 0usize);
+        while at + 12 <= b.len() {
+            let kind = &b[at..at + 4];
+            let size = i64::from_be_bytes(b[at + 4..at + 12].try_into().unwrap());
+            let body = at + 12;
+            let len = if size < 0 {
+                b.len() - body
+            } else {
+                size as usize
+            };
+            if kind == b"desc" {
+                channels = u32::from_be_bytes(b[body + 24..body + 28].try_into().unwrap()) as usize;
+                bits = u32::from_be_bytes(b[body + 28..body + 32].try_into().unwrap()) as usize;
+            } else if kind == b"data" {
+                let start = body + 4; // mEditCount
+                let bytes = bits / 8;
+                let n = (b.len().min(body + len) - start) / bytes;
+                let mut out = Vec::with_capacity(n);
+                for i in 0..n {
+                    let o = start + i * bytes;
+                    let v = match bytes {
+                        3 => {
+                            // CAF is big-endian unless mFormatFlags says otherwise
+                            let raw = i32::from(b[o]) << 16
+                                | i32::from(b[o + 1]) << 8
+                                | i32::from(b[o + 2]);
+                            let signed = if raw & 0x80_0000 != 0 {
+                                raw - 0x100_0000
+                            } else {
+                                raw
+                            };
+                            f64::from(signed) / 8_388_608.0
+                        }
+                        4 => f64::from(f32::from_le_bytes(b[o..o + 4].try_into().unwrap())),
+                        _ => panic!("{bits} bits per sample is not handled"),
+                    };
+                    out.push(v);
+                }
+                return (out, channels);
+            }
+            at = body + len;
+        }
+        panic!("{} has no data chunk", path.display());
+    }
+
+    fn floats(path: &std::path::Path) -> Vec<f64> {
+        std::fs::read(path)
+            .expect("raw floats")
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .copied()
+            .map(|c| f64::from(f32::from_le_bytes(c)))
+            .collect()
+    }
+
+    fn sdr(reference: &[f64], test: &[f64], ch: usize, n: usize, width: usize) -> f64 {
+        let (mut r, mut e) = (0.0, 0.0);
+        for i in 0..n {
+            let a = reference[i * width + ch];
+            let d = test[i * width + ch] - a;
+            r += a * a;
+            e += d * d;
+        }
+        if e == 0.0 {
+            200.0
+        } else {
+            10.0 * (r.max(1e-30) / e.max(1e-30)).log10()
+        }
+    }
+
+    let media = media_dir();
+    let file = media.join("clips/joc-onset-steep.ec3");
+    let dolby = media.join("ref-drp/joc/joc-onset-steep.f32");
+    require(&file);
+    assert!(
+        dolby.exists(),
+        "{} is missing, so the reading cannot be judged",
+        dolby.display()
+    );
+
+    let mut ours = Vec::new();
+    for (tag, args) in [
+        ("measured", &[][..]),
+        ("printed", &["--steep-as-printed"][..]),
+    ] {
+        let base = std::env::temp_dir().join(format!("oadec-steep-{tag}"));
+        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["decode", "--format", "damf", "--no-bed-conform"])
+            .args(args)
+            .arg("-o")
+            .arg(&base)
+            .arg(&file)
+            .output()
+            .expect("run oadec decode");
+        assert!(
+            matches!(out.status.code(), Some(0) | Some(7)),
+            "the {tag} reading did not decode: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let (samples, channels) = caf(&base.with_extension("atmos.audio"));
+        assert_eq!(
+            channels, 16,
+            "the object programme is not sixteen elements wide"
+        );
+        ours.push(samples);
+        for ext in [".atmos", ".atmos.metadata", ".atmos.audio"] {
+            let _ =
+                std::fs::remove_file(std::env::temp_dir().join(format!("oadec-steep-{tag}{ext}")));
+        }
+    }
+    let reference = floats(&dolby);
+    let n = (reference.len() / 16)
+        .min(ours[0].len() / 16)
+        .min(ours[1].len() / 16);
+    assert!(n > 48_000 * 5, "only {n} frames to compare");
+
+    let mut compared = 0;
+    for ch in 0..16 {
+        if (0..n).all(|i| reference[i * 16 + ch] == 0.0) {
+            continue;
+        }
+        let measured = sdr(&reference, &ours[0], ch, n, 16);
+        let printed = sdr(&reference, &ours[1], ch, n, 16);
+        assert!(
+            measured > printed + 1.0,
+            "element {ch}: the reading in use is {measured:.2} dB from Dolby and the printed one \
+             {printed:.2}, so the correction of defect 4 is not showing where it should"
+        );
+        compared += 1;
+    }
+    assert!(compared >= 4, "only {compared} elements carried audio");
+}

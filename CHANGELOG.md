@@ -107,6 +107,18 @@ Semantic Versioning.
   for the other refusal, the configuration 0 stream Dolby gives six channels:
   its own objects come back as sixteen that Dolby opens, on the head clip and on
   a mid-file cut, with the accepted title at sixteen either way.
+- Material where the steep branch of clause 6.6.5 is the rule instead of the
+  exception, and a gate on it. Three authored scenes say what provokes it: a
+  sweep every half frame gives 15 steep objects of 4 695, teleporting between
+  opposite corners gives 45 and all of them in the first three frames, and
+  objects arriving out of silence mid-file give **1 410**, from frame 63 to the
+  end. This encoder answers movement with smooth interpolation and the arrival
+  of level with the steep branch, which is why film soundtracks carry steep
+  objects at all. On the third scene, against Dolby's decode of the stream its
+  own encoder wrote, the reading in use is 51,39 dB median where the printed one
+  is 45,93, better on five elements of five -- kept as a media test that fails
+  when the two readings are swapped. Neither sparse matrices nor two data points
+  could be authored at any data rate or from any scene tried.
 - A library-wide answer to what Dolby's own object decoder opens: 226 Dolby
   Digital Plus tracks across 210 files, 223 opened as sixteen objects and **two**
   refused. The one stream known to be refused is not a singleton -- The King
