@@ -1,8 +1,8 @@
 {
+ "what": "Integrity is detected and does not reach the exit code: the before-state, reproduced",
+ "note": "The audit kept only totals. Both site lists are reproducible from fuzz2.py's random.seed over the file size: seed 1 for the JOC run, recorded in the evidence, and seed 7 for the TrueHD run, recovered by searching for the seed whose 100 sites contain both stored silent accepts. The 99 sites stored in 09-01-fuzz-joc.json are exactly the 99 this replay finds silent, with no overlap with the 21 that exit non-zero.",
  "before": {
-  "what": "Integrity is detected and does not reach the exit code: the before-state, reproduced",
   "utc": "2026-09-10T07:10:38.615991+00:00",
-  "note": "The audit kept only totals. Both site lists are reproducible from fuzz2.py's random.seed over the file size: seed 1 for the JOC run, recorded in the evidence, and seed 7 for the TrueHD run, recovered by searching for the seed whose 100 sites contain both stored silent accepts. The 99 sites stored in 09-01-fuzz-joc.json are exactly the 99 this replay finds silent, with no overlap with the 21 that exit non-zero.",
   "joc": {
    "source": "E:/oadec-work/audit/tmp/fz-joc.ec3",
    "seed": 1,
@@ -3736,5 +3736,3774 @@
    "TrueHD, 100 flips: verify exits 7 on all 100. decode -p 3 exits non-zero on 95, reports a segment problem and exits 0 on 3, and says nothing on 2.",
    "The detection exists everywhere. It is the delivery paths that drop it."
   ]
- }
+ },
+ "after": {
+  "utc": "2026-09-10T08:02:26.488716+00:00",
+  "binary_sha256": "41e17f44eb4e7c2d5242050b2124b2af20c14f367774dfe16b569ba7610a2f42",
+  "commit": "e98fe6b5b0192feb59dc37aae18b148183ac6726",
+  "joc": {
+   "source": "E:/oadec-work/audit/tmp/fz-joc.ec3",
+   "seed": 1,
+   "trials": 120,
+   "summary": {
+    "verify": {
+     "silent": 0,
+     "nonzero_exit": 120,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_pcm": {
+     "silent": 0,
+     "nonzero_exit": 120,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_damf": {
+     "silent": 0,
+     "nonzero_exit": 120,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    }
+   },
+   "detail": [
+    {
+     "offset": 70445,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 133729,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 259750,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 247592,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 110076,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 255777,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 204372,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 318472,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 364816,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 139633,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 309934,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 166424,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 11703,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 340549,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 199860,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 221310,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 276629,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 229579,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 289857,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 181246,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 354863,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 398955,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 151929,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 218198,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 97468,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 63381,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 378265,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 266190,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 159052,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 308061,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 264914,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 308806,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 251777,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 389929,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 217219,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 192478,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 45333,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 348000,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 85825,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 194260,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 384180,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 246058,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 161758,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 339296,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 88391,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 6449,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 282914,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 212050,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 302930,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 240717,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 345618,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 201163,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 271936,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 223394,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 252235,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 298843,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 264618,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 254240,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 217277,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 830,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 240200,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 120379,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 288754,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 48025,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 17017,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 43638,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 237501,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 395389,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 130840,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 57403,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 180576,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 36446,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 83689,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 276499,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 344277,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 339844,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 238394,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 260305,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 59868,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 163580,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 180010,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 98586,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 57022,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 382810,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 317534,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 10914,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 9366,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 76788,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 376876,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 233658,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 285580,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 330706,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 117018,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 207040,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 345937,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 30820,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 65894,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 24872,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 37081,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 162719,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 389987,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 218194,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 68362,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 293977,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 309636,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 298991,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 89924,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 198164,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 181891,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 107878,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 310068,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 258133,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 349153,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 155227,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 9017,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 320931,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 147509,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 82295,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    },
+    {
+     "offset": 171830,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 decode errors"
+     }
+    },
+    {
+     "offset": 177783,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_damf": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     }
+    }
+   ]
+  },
+  "truehd": {
+   "source": "E:/oadec-work/audit/tmp/fz-thd.thd",
+   "seed": 7,
+   "trials": 100,
+   "summary": {
+    "verify": {
+     "silent": 0,
+     "nonzero_exit": 100,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_pcm": {
+     "silent": 0,
+     "nonzero_exit": 100,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    }
+   },
+   "detail": [
+    {
+     "offset": 169781,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 207001,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 37977,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 191726,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 191674: matrix 0 writes channel 10 beyond max_matrix_chan 5"
+     }
+    },
+    {
+     "offset": 266042,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 265968: invalid restart sync word 0x3485 in substream 1"
+     }
+    },
+    {
+     "offset": 19658,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 227355,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 36624,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "Result:            NON-CONFORMANT"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": false,
+      "first": ""
+     }
+    },
+    {
+     "offset": 47559,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 47504: invalid restart sync word 0x1557 in substream 1"
+     }
+    },
+    {
+     "offset": 30990,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "Result:            NON-CONFORMANT"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 117041,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 302568,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "Result:            NON-CONFORMANT"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 25999,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "Result:            NON-CONFORMANT"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 24422,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 151838,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 151776: invalid restart sync word 0x3680 in substream 1"
+     }
+    },
+    {
+     "offset": 75631,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 299323,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 293736,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 54030,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 195243,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 287175,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 295891,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 324539,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 260264,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 164703,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 307003,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 306874: bit read out of bounds: 3 bits requested at bit 239 with 1 available"
+     }
+    },
+    {
+     "offset": 189573,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 130247,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 366474,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 42915,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 275354,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 275256: channel 6: huff_lsbs 12 exceeds max_lsbs 7"
+     }
+    },
+    {
+     "offset": 180080,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 150962,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 61900,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 86487,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 79683,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 221091,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 350337,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 350194: bit read out of bounds: 8 bits requested at bit 364 with 4 available"
+     }
+    },
+    {
+     "offset": 292592,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 178322,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 311620,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 311574: channel 3: FIR coeff_q 13 differs from IIR coeff_q 8"
+     }
+    },
+    {
+     "offset": 304032,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 36051,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 141525,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 365450,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 365324: Huffman code without a terminating bit"
+     }
+    },
+    {
+     "offset": 31808,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "segment problems: 1"
+     }
+    },
+    {
+     "offset": 339281,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 149210,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 350566,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "Result:            NON-CONFORMANT"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 11829,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 186365,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 320297,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 258837,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 114403,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 114370: block size 248 outside 8..=40 for 40 samples per access unit"
+     }
+    },
+    {
+     "offset": 67811,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 208612,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 260312,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 87223,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 210577,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "segment problems: 1"
+     }
+    },
+    {
+     "offset": 71788,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 288473,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "Result:            NON-CONFORMANT"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": false,
+      "first": ""
+     }
+    },
+    {
+     "offset": 370355,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 370286: invalid restart sync word 0x1639 in substream 1"
+     }
+    },
+    {
+     "offset": 188099,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 120980,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 43507,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 79323,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 345252,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 6324,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 308870,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 137754,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 2146,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 219648,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 319717,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 65793,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 239412,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 208703,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 206632,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 252456,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 32635,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 35309,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 231015,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 57634,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 314954,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 314830: bit read out of bounds: 3 bits requested at bit 239 with 1 available"
+     }
+    },
+    {
+     "offset": 53676,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 297157,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 281342,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 190636,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 190464: filter order 14 exceeds 8"
+     }
+    },
+    {
+     "offset": 36865,
+     "bit": 3,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 321949,
+     "bit": 6,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 77883,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 182132,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 248591,
+     "bit": 1,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 60478,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 244312,
+     "bit": 7,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 253668,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 45028,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 53575,
+     "bit": 5,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    },
+    {
+     "offset": 388157,
+     "bit": 4,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "segment problems: 1"
+     }
+    },
+    {
+     "offset": 250935,
+     "bit": 2,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 parse errors"
+     },
+     "decode_pcm": {
+      "exit": 2,
+      "reported": true,
+      "first": "error: decoding access unit at byte 250922: channel 0: huff_lsbs 23 exceeds max_lsbs 7"
+     }
+    },
+    {
+     "offset": 270707,
+     "bit": 0,
+     "verify": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 CRC failures"
+     },
+     "decode_pcm": {
+      "exit": 7,
+      "reported": true,
+      "first": "1 lossless check failures"
+     }
+    }
+   ]
+  }
+ },
+ "change": {
+  "joc": {
+   "verify": {
+    "silent": "0 -> 0",
+    "nonzero_exit": "120 -> 120",
+    "panics": "0 -> 0"
+   },
+   "decode_pcm": {
+    "silent": "0 -> 0",
+    "nonzero_exit": "21 -> 120",
+    "panics": "0 -> 0"
+   },
+   "decode_damf": {
+    "silent": "99 -> 0",
+    "nonzero_exit": "21 -> 120",
+    "panics": "0 -> 0"
+   }
+  },
+  "truehd": {
+   "verify": {
+    "silent": "0 -> 0",
+    "nonzero_exit": "100 -> 100",
+    "panics": "0 -> 0"
+   },
+   "decode_pcm": {
+    "silent": "2 -> 0",
+    "nonzero_exit": "95 -> 100",
+    "panics": "0 -> 0"
+   }
+  }
+ },
+ "reading_after": [
+  "All 120 JOC corruptions now exit non-zero from verify, from decode --format pcm and from decode --format damf. Silent accepts: 99 -> 0.",
+  "All 100 TrueHD corruptions now exit non-zero from verify and from decode -p 3. Silent accepts: 2 -> 0; flagged-but-exit-0: 3 -> 0.",
+  "No panics in either campaign, before or after."
+ ]
 }

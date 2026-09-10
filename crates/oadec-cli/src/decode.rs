@@ -11,6 +11,7 @@ use clap::ValueEnum;
 use oadec_truehd::{AccessUnit, ChannelLabel, DecodeStats, Decoder, Unit};
 
 use crate::input;
+use crate::integrity::Findings;
 
 /// Output container.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -166,6 +167,35 @@ pub fn format_duration(seconds: f64) -> String {
     )
 }
 
+/// The faults a TrueHD pass found, in the form a delivery path reports.
+///
+/// `verify` reads all of these through `scan::Failures`; a decode used to read
+/// one of them. The extractor summary is the part that used to be dropped
+/// outright: `for_each_unit` returns it and every caller but `verify` threw it
+/// away, so a decode that resynchronised past a corrupt major sync said nothing
+/// at all.
+pub fn truehd_findings(pass: &input::PassSummary, stats: Option<&DecodeStats>) -> Findings {
+    let mut f = Findings::default();
+    f.note(
+        pass.stats.major_sync_crc_failures,
+        "major sync CRC failures",
+    );
+    f.note(pass.stats.resyncs, "resynchronisations");
+    f.note(pass.stats.skipped_bytes, "bytes skipped");
+    f.note(
+        pass.trailing_bytes,
+        "trailing bytes that formed no access unit",
+    );
+    if let Some(s) = stats {
+        f.note(s.lossless_mismatches, "lossless check failures");
+        f.note(s.segment_problems, "substream segment problems");
+        f.note(s.max_bits_violations, "max_bits violations");
+        f.note(s.invalid_branches, "invalid seamless branches");
+        f.first_problem(s.first_problem.as_deref());
+    }
+    f
+}
+
 /// Prints the decoder summary to stderr.
 pub fn print_summary(session: &Session, elapsed: f64) {
     let Some(stats) = session.stats() else {
@@ -243,7 +273,7 @@ fn write_wav_header(
 }
 
 /// Runs the command.
-pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<()> {
+pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
     let file = File::create(output).with_context(|| format!("creating {}", output.display()))?;
     let mut out = BufWriter::with_capacity(4 << 20, file);
@@ -254,7 +284,7 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<()> {
     let mut rate = 0u32;
     let mut mask = 0u32;
     let mut buf = Vec::with_capacity(160 * 16 * 3);
-    input::for_each_unit(path, |unit| {
+    let pass = input::for_each_unit(path, |unit| {
         let Some(frame) = session.decode(&unit)? else {
             return Ok(());
         };
@@ -297,8 +327,5 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<()> {
         out.flush()?;
     }
     print_summary(&session, started.elapsed().as_secs_f64());
-    if session.stats().is_some_and(|s| s.lossless_mismatches != 0) {
-        bail!("lossless check failures were reported");
-    }
-    Ok(())
+    Ok(truehd_findings(&pass, session.stats()).report())
 }

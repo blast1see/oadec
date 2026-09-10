@@ -18,6 +18,7 @@ use oadec_emdf::oamd::Oamd;
 use serde_json::{Value, json};
 
 use crate::decode::{Format, Order, format_duration};
+use crate::integrity::Findings;
 
 /// Whether the file starts with an AC-3 family sync word.
 pub fn is_eac3(path: &Path) -> Result<bool> {
@@ -774,6 +775,63 @@ fn program_parts(p: &Pass, h: &FrameHeader) -> Vec<Value> {
     parts
 }
 
+/// The same faults `is_clean` weighs, in the form a delivery path reports.
+fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
+    let mut f = Findings::default();
+    f.note(p.decode_errors, "frames failed to decode");
+    f.note(p.crc_failures, "CRC failures");
+    f.note(p.tail_overruns, "frames ending inside the frame tail");
+    f.note(sync_errors, "sync errors");
+    f.note(skipped, "bytes skipped");
+    f.note(
+        p.emdf.oamd_errors,
+        "Object Audio Metadata payloads failed to parse",
+    );
+    f.note(p.emdf.joc_errors, "JOC payloads failed to parse");
+    f.note(
+        p.emdf.joc_size_mismatch,
+        "JOC payloads whose declared size was wrong",
+    );
+    f.note(
+        p.program.dependent_dropped,
+        "dependent substream frames dropped",
+    );
+    f.note(
+        p.program.orphan_dependents,
+        "dependent frames with no independent substream",
+    );
+    f.note(
+        p.program.misaligned,
+        "misaligned dependent substream frames",
+    );
+    f.note(p.program.location_errors, "unreadable channel maps");
+    f.note(
+        p.program.over_capacity,
+        "channels past the sixteen a programme may carry",
+    );
+    f.note(
+        p.program.layout_changes,
+        "mid-stream channel layout changes",
+    );
+    for (key, sub) in &p.subs {
+        let id = key.1;
+        f.note(
+            sub.decode_errors,
+            &format!("frames of dependent substream {id} failed to decode"),
+        );
+        f.note(
+            sub.crc_failures,
+            &format!("CRC failures in dependent substream {id}"),
+        );
+        f.note(
+            sub.tail_overruns,
+            &format!("frames of dependent substream {id} ending inside the frame tail"),
+        );
+    }
+    f.first_problem(p.first_error.as_deref());
+    f
+}
+
 fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64, json: bool) {
     let Some((h, bsi)) = &p.first else {
         eprintln!("{}: no decodable frames", path.display());
@@ -1203,7 +1261,7 @@ fn write_float_wav_header(
 
 /// `oadec decode` for AC-3 family streams: 32-bit float samples, as raw
 /// little-endian PCM or as WAVE.
-pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<()> {
+pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> {
     if matches!(opts.format, Format::Damf | Format::Adm) {
         bail!("object output of E-AC-3 JOC streams is not implemented yet");
     }
@@ -1270,10 +1328,7 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<()> {
         started.elapsed().as_secs_f64(),
         false,
     );
-    if p.decode_errors > 0 {
-        bail!("{} frames failed to decode", p.decode_errors);
-    }
-    Ok(())
+    Ok(findings(&p, sync_errors, skipped).report())
 }
 
 /// Options of `compare` for AC-3 family streams.
@@ -1518,6 +1573,7 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
         }
     }
     print_pass(path, &p, sync_errors, skipped, elapsed, false);
+    let clean = findings(&p, sync_errors, skipped).report();
     // drain the rest of the reference to learn its length
     let mut tail = [0u8; 1 << 16];
     let mut extra = 0u64;
@@ -1581,5 +1637,5 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
             "DIFFERENT"
         }
     );
-    Ok(equal_length && (close || dither_level))
+    Ok(equal_length && (close || dither_level) && clean)
 }

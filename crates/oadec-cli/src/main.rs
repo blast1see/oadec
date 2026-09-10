@@ -12,6 +12,7 @@ mod ecpl_inject;
 mod emdf;
 mod info;
 mod input;
+mod integrity;
 mod joc_config;
 mod oamd;
 mod scan;
@@ -364,7 +365,13 @@ fn main() -> ExitCode {
                     },
                 )
             }
-            .map(|()| ExitCode::SUCCESS),
+            .map(|clean| {
+                if clean {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::from(EXIT_NONCONFORMANT)
+                }
+            }),
             Command::Compare {
                 file,
                 reference,
