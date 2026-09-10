@@ -721,6 +721,28 @@ run that cannot reach the media now fails, and CI runs the check that it does.
 
 ---
 
+## The gates, re-run at the end
+
+Every change of this round touches the JOC decode, and the last of them --
+the first parameter band's channel index -- changes it only for malformed
+input, which is exactly what a bit-flip campaign produces. So both campaigns
+were replayed against the final binary rather than assumed:
+
+| Campaign | verify | `decode --format pcm` | `decode --format damf` |
+|---|---|---|---|
+| JOC, 120 sites | 0 silent, 120 non-zero, 0 panics | 0 silent, 120 non-zero | 0 silent, 120 non-zero |
+| TrueHD, 100 sites | 0 silent, 100 non-zero, 0 panics | 0 silent, 100 non-zero | — |
+
+Site for site identical to what the same replay recorded before the JOC work.
+The three TrueHD baselines are still bit-exact, the six-title object comparison
+regressed on none of them, the controlled scene reproduces its figures to the
+digit, and the media suite passes 14 of 14 in 1 262 s -- twelve as before plus
+the two that hold the measurement flags.
+`evidence/remediation/decode-exit-codes.json`,
+`evidence/remediation/regression-summary.json`.
+
+---
+
 ## What is still open
 
 - **Sparse JOC**, on one of the library's ten sparse frames: 34,6 dB where its
