@@ -83,6 +83,12 @@ comes from a measurement that can be repeated:
   E-AC-3 output is judged with `tools/three_way.py`: oadec must sit within
   the distance the Dolby decode and FFmpeg have from each other, channel by
   channel.
+- **A library, not a corpus.** `tools/dolby_object_sweep.py` and
+  `tools/dolby_truehd_sweep.py` put a question to every Dolby track on the
+  machine at once, recording what Dolby's own object decoder does with each and
+  every field `info --json` reports about it. `tools/split_fields.py` then asks
+  which field, if any, separates two outcomes — and says when the answer is
+  what chance would have produced, which on a lopsided set it usually is.
 
 The real-media suite is opt-in. Point `OADEC_MEDIA` at a work directory
 that holds the streams and references and run:
