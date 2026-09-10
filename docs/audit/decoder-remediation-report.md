@@ -5,7 +5,7 @@ is still open. The audit itself is in this directory, committed unedited as the
 before-state; where its numbers move, this report says so and the audit stays as
 the record of what was measured on the day.
 
-Two defects were demonstrated. Both are fixed. Beyond them the audit left a
+Two defects were demonstrated by the audit. Both are fixed, and a third turned up while closing one of the coverage gaps. Beyond them the audit left a
 number of areas untested rather than failing, and those are treated as what they
 are: coverage gaps, unknown proprietary behaviour, or reference-decoder
 disagreement, each pursued on its own terms and none of them promoted to a pass
@@ -321,6 +321,84 @@ and requires every one to exit non-zero without panicking.
 EMDF protection words are still parsed and not verified. They are a second,
 independent check on the container and would catch corruption the frame CRC
 misses; nothing uses them yet.
+
+---
+
+## Defect 3 — sparse JOC matrices, found while closing a coverage gap
+
+Not in the audit. The audit filed sparse mode as untested — the literal reading
+matched the printed pseudo-code, no stream in the corpus used it — and closing
+that gap turned it into a demonstrated defect.
+
+### Symptom
+
+Frames carrying sparse matrices decode to objects that bear almost no relation
+to Dolby's. Per-object median distance on the three frames of real sparse
+material available, against the frames either side of them:
+
+| Frame | oadec | frames either side |
+|---|---:|---:|
+| Extraction 63 325 | 1,05 dB | 38-48 dB |
+| Extraction 208 315 | −3,23 dB | 55-58 dB |
+| Extraction 208 333 | −13,48 dB | 54-56 dB |
+
+### Why the audit could not see it
+
+It scanned head clips. Sparse matrices occur 150 times in 32 493 245 object
+updates across the whole library, only in streaming material, tens of thousands
+of frames in. Three megabytes off the front of fifteen clips contains none of
+it, and neither does any other head clip. `tools/joc_coverage.py` reads whole
+files; `verify --json` reports the frames where each rare branch occurs, and
+`tools/ec3_cut.py` turns one of those frame numbers into a clip that starts on
+a syncframe boundary and contains it.
+
+### Root cause
+
+Clause 6.6.2 pseudo-code 2 is wrong in two places.
+
+It puts the value `offset`, 50 coarse or 100 fine, on the channels a band does
+not select. Clause 6.6.4 dequantises with `(q - nquant/2) * 820 /
+(4096 (1 + quant_idx))`, so 50 and 100 both come out at 0,4004 — every
+unselected channel contributes four tenths of a downmix channel to the object,
+which is the opposite of what a sparse representation is for. The code that
+means zero gain is 48/96, the same value dense mode starts from.
+
+And it forms the channel index of band `pb` from the **transmitted** previous
+value rather than the resolved one. That reading was already in the source,
+behind `SparseIndexMode::Cumulative`, unused and unsettled — because on its own
+it is worth nothing measurable, the off-channel error swamping it entirely.
+
+### Reference result
+
+`evidence/remediation/joc-syntax-coverage.json`. Against Dolby's own object
+decoder:
+
+| Frame | as printed | off-channel zero | both corrections |
+|---|---:|---:|---:|
+| Extraction 63 325 | 1,05 dB | 12,33 dB | **16,53 dB** |
+| Extraction 208 315 | −3,23 dB | 7,51 dB | **45,72 dB** |
+| Extraction 208 333 | −13,48 dB | 5,61 dB | **51,52 dB** |
+
+Frames carrying no sparse object are bit-identical either way, and all 33 work
+streams decode to byte-identical PCM and DAMF. `--sparse-as-printed` keeps the
+printed reading reachable so the difference stays measurable.
+
+Coarse quantisation, tested the same way on a clip carrying 75 coarse objects,
+was already right: 50 to 57 dB, unchanged.
+
+### Remaining limitation
+
+The first of the three frames still lags its neighbours by 22 dB after both
+corrections, where the other two reach parity. It is a loud, dense passage.
+Something in the sparse path is still not right and it is recorded as open.
+
+### What is still unexercised
+
+Across 32 493 245 object updates in 31 JOC streams: **two data points never
+occur**, so two of the four branches of clause 6.6.5 pseudo-code 6 — smooth
+with two points and steep with two points — have never run on real material.
+Downmix configurations 1, 2 and 4 never occur; 28 streams use configuration 3
+and three use 0. No EMDF container was found in `auxdata` in any of 49 streams.
 
 ---
 
