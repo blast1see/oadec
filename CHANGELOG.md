@@ -135,7 +135,7 @@ Semantic Versioning.
   for the other refusal, the configuration 0 stream Dolby gives six channels:
   its own objects come back as sixteen that Dolby opens, on the head clip and on
   a mid-file cut, with the accepted title at sixteen either way.
-- A measurement of the test suite, by writing bugs into the decoder. Twenty-two
+- A measurement of the test suite, by writing bugs into the decoder. Twenty-four
   load-bearing constants and expressions changed one at a time, and four real
   holes found and fixed: the object-metadata sample-offset and ramp-duration
   tables had no test at all, the TrueHD major-sync polynomial could be changed

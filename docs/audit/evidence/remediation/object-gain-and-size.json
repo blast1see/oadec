@@ -35,7 +35,7 @@
   "streams_with_object_size": []
  },
  "the_disagreement_it_uncovered": {
-  "what_the_counter_printed": "thirteen TrueHD streams of 198 reported a parse error, always at access unit 0, always an object element whose declared size runs past its payload. The byte counts differ between titles -- 9, 34, 51 -- so it is not one bad payload copied around",
+  "what_the_counter_printed": "thirteen TrueHD streams of 198 reported a parse error, always an object element whose declared size runs past its payload, and always at the very head: access unit 0 in every one of them, with Green Book carrying a second in access unit 1 (bisected, not assumed). The byte counts differ between titles -- 9, 34, 51 -- so it is not one bad payload copied around",
   "titles": [
    "American Psycho (2000) Unrated_1.thd",
    "Avengers Infinity War (2018)_1.thd",
