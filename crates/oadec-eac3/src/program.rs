@@ -899,7 +899,8 @@ mod tests {
     fn every_counter_in_the_verdict_can_make_a_stream_unclean() {
         assert!(ProgramStats::default().is_clean(), "an empty pass is clean");
 
-        let makes_it_unclean: [(&str, fn(&mut ProgramStats)); 6] = [
+        type Set = fn(&mut ProgramStats);
+        let makes_it_unclean: [(&str, Set); 6] = [
             ("orphan_dependents", |s| s.orphan_dependents = 1),
             ("layout_changes", |s| s.layout_changes = 1),
             ("misaligned", |s| s.misaligned = 1),
@@ -920,7 +921,7 @@ mod tests {
             "a decode error left the programme looking clean"
         );
 
-        let leaves_it_clean: [(&str, fn(&mut ProgramStats)); 3] = [
+        let leaves_it_clean: [(&str, Set); 3] = [
             ("other_program_frames", |s| s.other_program_frames = 1),
             ("lfe_implied", |s| s.lfe_implied = 1),
             ("groups", |s| s.groups = 1),
