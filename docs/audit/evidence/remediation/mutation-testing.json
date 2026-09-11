@@ -1,12 +1,12 @@
 {
  "what": "Whether the test suite would catch a bug, measured by writing bugs into the decoder",
  "utc": "2026-09-11T00:16:56.259727+00:00",
- "commit": "3f6bcd510486b2c526f43a6c13663d48e3a25344",
+ "commit": "164baf7ae87f0ff39dad987ef1fcc6a1bda5ae49",
  "why": "a green suite says nothing about what it would have caught. Everything else in this report measures the decoder; this measures the thing that measures the decoder",
  "method": "`tools/mutants.py`: change one load-bearing constant, run `cargo test --workspace`, record whether anything failed and which test, undo it with `git checkout --`. Each mutation is a bug someone could write -- a table entry off by one, an index base, a scale factor, a channel mapped to the wrong input -- not a random character. The run refuses to start on a dirty tree",
  "result": {
-  "mutations": 21,
-  "caught_by_a_unit_test": 20,
+  "mutations": 22,
+  "caught_by_a_unit_test": 21,
   "survived_the_unit_suite": 1,
   "skipped": 0
  },
@@ -179,6 +179,14 @@
     "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean"
    ],
    "tests_that_failed": 1
+  },
+  {
+   "mutation": "a mid-stream sampling-rate change is allowed again",
+   "caught": true,
+   "by": [
+    "au::tests::a_rate_change_at_a_major_sync_is_refused_like_any_other_layout_change"
+   ],
+   "tests_that_failed": 1
   }
  ],
  "the_four_holes_it_found": {
@@ -197,6 +205,7 @@
   "why_no_unit_test_can_catch_it": "there is no specification behind it. It was fitted against Dolby's decoder, so only a comparison with another decoder can judge it",
   "what_does_catch_it": "the media suite. With the alignment changed by one slot, `the_steep_switch_is_measured_where_the_branch_is_the_common_case` fails: the reading in use gives 52,44 dB against Dolby and the printed one 52,07, and the gate asks for a decibel of margin"
  },
- "reading": "twenty of twenty-one are caught by unit tests and the twenty-first by a media test. That is a measurement of the suite rather than a claim about it, and the four holes it found were real: two transcribed tables with no test at all, a polynomial whose only two uses agreed with each other, and the function that decides the exit code",
- "what_this_does_not_measure": "agreement with Dolby. A mutation pass can only say whether the suite notices a change, not whether the unmutated value is right. Everything load-bearing that has no specification behind it -- the matrix alignment is the clearest case -- still rests on the differential comparisons, not on this"
+ "reading": "twenty-one of twenty-two are caught by unit tests and the twenty-second by a media test. That is a measurement of the suite rather than a claim about it, and the four holes it found were real: two transcribed tables with no test at all, a polynomial whose only two uses agreed with each other, and the function that decides the exit code",
+ "what_this_does_not_measure": "agreement with Dolby. A mutation pass can only say whether the suite notices a change, not whether the unmutated value is right. Everything load-bearing that has no specification behind it -- the matrix alignment is the clearest case -- still rests on the differential comparisons, not on this",
+ "grown_with_the_code": "the pass is re-run whenever something load-bearing is added, so the count grows rather than standing still. The sampling-rate guard was the most recent: dropping the rate from the list of fields that make a configuration unusable is caught by `a_rate_change_at_a_major_sync_is_refused_like_any_other_layout_change`"
 }
