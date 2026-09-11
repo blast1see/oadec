@@ -249,10 +249,19 @@ def from_adm(path: str, with_sha256: bool = False) -> Scene:
     else:
         findings += axml.check_chna(doc, chna, channels)
         links = axml.track_chain(doc, chna, channels)
+    from . import profile as _profile
+    findings += _profile.check(doc, fs, channels, chna)
     creator = tool = None
     db = c.chunk("dbmd")
     if db is not None:
         creator, tool = _dbmd_strings(riff.chunk_bytes(path, db))
+    for atu in doc.elements.get("audioTrackUID", []):
+        sr = atu.attrs.get("sampleRate")
+        bd = atu.attrs.get("bitDepth")
+        if sr is not None and c.fmt is not None and sr != str(c.fmt.sample_rate):
+            findings.append(riff.Finding("uid-sample-rate", f"{atu.id} sampleRate {sr} != fmt {c.fmt.sample_rate}"))
+        if bd is not None and c.fmt is not None and bd != str(c.fmt.bits_per_sample):
+            findings.append(riff.Finding("uid-bit-depth", f"{atu.id} bitDepth {bd} != fmt {c.fmt.bits_per_sample}"))
 
     tracks: list[Track] = []
     by_track_index = {}
