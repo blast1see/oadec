@@ -75,6 +75,12 @@ MUTANTS = [
      'crates/oadec-emdf/src/oamd.rs',
      '    32, 64, 128, 256, 320, 480, 1000, 1001, 1024, 1600, 1601, 1602, 1920, 2000, 2002, 2048,',
      '    33, 64, 128, 256, 320, 480, 1000, 1001, 1024, 1600, 1601, 1602, 1920, 2000, 2002, 2048,'),
+    # The one that survives this pass on purpose. `MATRIX_ALIGN` has no clause
+    # behind it, so no unit test can judge it without writing down the number
+    # the code already holds. Two media tests do judge it, differentially
+    # against Dolby: `the_steep_switch_is_measured_where_the_branch_is_the
+    # _common_case` and `the_matrix_alignment_is_the_best_one_on_a_clip_it_was
+    # _not_fitted_on`.
     ('the matrix alignment, 10 -> 9',
      'crates/oadec-joc/src/quadrature.rs',
      'pub const MATRIX_ALIGN: usize = 10;',

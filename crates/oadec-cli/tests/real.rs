@@ -982,6 +982,82 @@ fn the_merged_channels_carry_the_tones_they_were_authored_with() {
     }
 }
 
+/// Interleaved samples of a CAF file, as `f64` in −1..1, with its channel
+/// count. The DAMF audio this decoder writes is 24-bit; Dolby's raw object
+/// dump is headerless 32-bit float.
+fn caf(path: &std::path::Path) -> (Vec<f64>, usize) {
+    let b = std::fs::read(path).expect("caf");
+    assert_eq!(&b[..4], b"caff", "{} is not a CAF", path.display());
+    let (mut at, mut channels, mut bits) = (8usize, 0usize, 0usize);
+    while at + 12 <= b.len() {
+        let kind = &b[at..at + 4];
+        let size = i64::from_be_bytes(b[at + 4..at + 12].try_into().unwrap());
+        let body = at + 12;
+        let len = if size < 0 {
+            b.len() - body
+        } else {
+            size as usize
+        };
+        if kind == b"desc" {
+            channels = u32::from_be_bytes(b[body + 24..body + 28].try_into().unwrap()) as usize;
+            bits = u32::from_be_bytes(b[body + 28..body + 32].try_into().unwrap()) as usize;
+        } else if kind == b"data" {
+            let start = body + 4; // mEditCount
+            let bytes = bits / 8;
+            let n = (b.len().min(body + len) - start) / bytes;
+            let mut out = Vec::with_capacity(n);
+            for i in 0..n {
+                let o = start + i * bytes;
+                let v = match bytes {
+                    3 => {
+                        // CAF is big-endian unless mFormatFlags says otherwise
+                        let raw =
+                            i32::from(b[o]) << 16 | i32::from(b[o + 1]) << 8 | i32::from(b[o + 2]);
+                        let signed = if raw & 0x80_0000 != 0 {
+                            raw - 0x100_0000
+                        } else {
+                            raw
+                        };
+                        f64::from(signed) / 8_388_608.0
+                    }
+                    4 => f64::from(f32::from_le_bytes(b[o..o + 4].try_into().unwrap())),
+                    _ => panic!("{bits} bits per sample is not handled"),
+                };
+                out.push(v);
+            }
+            return (out, channels);
+        }
+        at = body + len;
+    }
+    panic!("{} has no data chunk", path.display());
+}
+
+fn floats(path: &std::path::Path) -> Vec<f64> {
+    std::fs::read(path)
+        .expect("raw floats")
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .copied()
+        .map(|c| f64::from(f32::from_le_bytes(c)))
+        .collect()
+}
+
+fn sdr(reference: &[f64], test: &[f64], ch: usize, n: usize, width: usize) -> f64 {
+    let (mut r, mut e) = (0.0, 0.0);
+    for i in 0..n {
+        let a = reference[i * width + ch];
+        let d = test[i * width + ch] - a;
+        r += a * a;
+        e += d * d;
+    }
+    if e == 0.0 {
+        200.0
+    } else {
+        10.0 * (r.max(1e-30) / e.max(1e-30)).log10()
+    }
+}
+
 /// The steep switch point, on a stream where the branch under test is the rule.
 ///
 /// The six titles that settled defect 4 carry steep objects in two to four per
@@ -998,83 +1074,6 @@ fn the_merged_channels_carry_the_tones_they_were_authored_with() {
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn the_steep_switch_is_measured_where_the_branch_is_the_common_case() {
-    /// Interleaved samples of a CAF file, as `f64` in −1..1, with its channel
-    /// count. The DAMF audio this decoder writes is 24-bit; Dolby's raw object
-    /// dump is headerless 32-bit float.
-    fn caf(path: &std::path::Path) -> (Vec<f64>, usize) {
-        let b = std::fs::read(path).expect("caf");
-        assert_eq!(&b[..4], b"caff", "{} is not a CAF", path.display());
-        let (mut at, mut channels, mut bits) = (8usize, 0usize, 0usize);
-        while at + 12 <= b.len() {
-            let kind = &b[at..at + 4];
-            let size = i64::from_be_bytes(b[at + 4..at + 12].try_into().unwrap());
-            let body = at + 12;
-            let len = if size < 0 {
-                b.len() - body
-            } else {
-                size as usize
-            };
-            if kind == b"desc" {
-                channels = u32::from_be_bytes(b[body + 24..body + 28].try_into().unwrap()) as usize;
-                bits = u32::from_be_bytes(b[body + 28..body + 32].try_into().unwrap()) as usize;
-            } else if kind == b"data" {
-                let start = body + 4; // mEditCount
-                let bytes = bits / 8;
-                let n = (b.len().min(body + len) - start) / bytes;
-                let mut out = Vec::with_capacity(n);
-                for i in 0..n {
-                    let o = start + i * bytes;
-                    let v = match bytes {
-                        3 => {
-                            // CAF is big-endian unless mFormatFlags says otherwise
-                            let raw = i32::from(b[o]) << 16
-                                | i32::from(b[o + 1]) << 8
-                                | i32::from(b[o + 2]);
-                            let signed = if raw & 0x80_0000 != 0 {
-                                raw - 0x100_0000
-                            } else {
-                                raw
-                            };
-                            f64::from(signed) / 8_388_608.0
-                        }
-                        4 => f64::from(f32::from_le_bytes(b[o..o + 4].try_into().unwrap())),
-                        _ => panic!("{bits} bits per sample is not handled"),
-                    };
-                    out.push(v);
-                }
-                return (out, channels);
-            }
-            at = body + len;
-        }
-        panic!("{} has no data chunk", path.display());
-    }
-
-    fn floats(path: &std::path::Path) -> Vec<f64> {
-        std::fs::read(path)
-            .expect("raw floats")
-            .as_chunks::<4>()
-            .0
-            .iter()
-            .copied()
-            .map(|c| f64::from(f32::from_le_bytes(c)))
-            .collect()
-    }
-
-    fn sdr(reference: &[f64], test: &[f64], ch: usize, n: usize, width: usize) -> f64 {
-        let (mut r, mut e) = (0.0, 0.0);
-        for i in 0..n {
-            let a = reference[i * width + ch];
-            let d = test[i * width + ch] - a;
-            r += a * a;
-            e += d * d;
-        }
-        if e == 0.0 {
-            200.0
-        } else {
-            10.0 * (r.max(1e-30) / e.max(1e-30)).log10()
-        }
-    }
-
     let media = media_dir();
     let file = media.join("clips/joc-onset-steep.ec3");
     let dolby = media.join("ref-drp/joc/joc-onset-steep.f32");
@@ -1351,4 +1350,99 @@ fn verify_and_decode_agree_about_a_truncated_object_metadata_element() {
             "verify stopped reporting the object-metadata tally"
         );
     }
+}
+
+/// The matrix alignment, asked of a clip it was never fitted on.
+///
+/// `MATRIX_ALIGN` has no clause behind it. Clause 6.6.6 pairs matrix slot `ts`
+/// with subband slot `ts` and never mentions that the analysis bank the decoder
+/// runs is not the one the encoder ran, so there is no normative value and a
+/// unit test could only assert that the code holds the number the code holds.
+/// It was measured instead, swept against Dolby's object decoder on three
+/// titles, and a mutation pass finds it undetectable by every unit test for
+/// exactly that reason.
+///
+/// So it is guarded the only way it can be: differentially, against another
+/// decoder. This is the second such guard and the independent one. The clip is
+/// a real web stream cut clean from its head, carrying 480 steep objects,
+/// and it played no part in fitting the constant.
+///
+/// The assertion is an ordering, not a threshold: the value in use must score
+/// better against Dolby than either neighbouring slot. Nothing is tuned, and if
+/// the override below ever stopped working all three decodes would be identical
+/// and the strict comparison would fail rather than pass quietly. When written
+/// the margins were 2,83 dB over one slot early and 2,66 dB over one slot late,
+/// on a mean of 44,66 dB across ten elements.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn the_matrix_alignment_is_the_best_one_on_a_clip_it_was_not_fitted_on() {
+    let media = media_dir();
+    let file = media.join("clips/joc-steep-jackal.ec3");
+    let dolby = media.join("ref-drp/joc/joc-steep-jackal.f32");
+    require(&file);
+    assert!(
+        dolby.exists(),
+        "{} is missing, so the alignment cannot be judged",
+        dolby.display()
+    );
+    let reference = floats(&dolby);
+
+    // `MATRIX_ALIGN` has one consumer, the default of this override, so moving
+    // the override moves the alignment without touching the source
+    let score = |lag: Option<&str>| -> (f64, usize) {
+        let tag = lag.unwrap_or("default");
+        let base = std::env::temp_dir().join(format!("oadec-align-{tag}"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_oadec"));
+        cmd.args(["decode", "--format", "damf", "--no-bed-conform", "-o"])
+            .arg(&base)
+            .arg(&file);
+        if let Some(v) = lag {
+            cmd.env("OADEC_JOC_LAG", v);
+        }
+        let out = cmd.output().expect("run oadec decode");
+        assert!(
+            matches!(out.status.code(), Some(0) | Some(7)),
+            "the {tag} alignment did not decode: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let (ours, channels) = caf(&base.with_extension("atmos.audio"));
+        for ext in [".atmos", ".atmos.metadata", ".atmos.audio"] {
+            let _ =
+                std::fs::remove_file(std::env::temp_dir().join(format!("oadec-align-{tag}{ext}")));
+        }
+        assert_eq!(
+            channels, 16,
+            "the object programme is not sixteen elements wide"
+        );
+
+        let n = (reference.len() / 16).min(ours.len() / 16);
+        assert!(n > 48_000 * 5, "only {n} frames to compare");
+        let mut total = 0.0;
+        let mut counted = 0usize;
+        for ch in 0..16 {
+            if (0..n).all(|i| reference[i * 16 + ch] == 0.0) {
+                continue;
+            }
+            total += sdr(&reference, &ours, ch, n, 16);
+            counted += 1;
+        }
+        assert!(counted >= 4, "only {counted} elements carried audio");
+        (total / counted as f64, counted)
+    };
+
+    // the neighbours are derived from the constant rather than written down, so
+    // the comparison stays "this value beats the slots either side of it" even
+    // if the value is ever re-measured. That is not circular: the constant picks
+    // which three alignments to try, and Dolby's output picks the winner
+    let default_lag = oadec_joc::LOW_DELAY - oadec_joc::MATRIX_ALIGN;
+    let (in_use, elements) = score(None);
+    let (one_slot_late, _) = score(Some(&(default_lag - 1).to_string()));
+    let (one_slot_early, _) = score(Some(&(default_lag + 1).to_string()));
+
+    assert!(
+        in_use > one_slot_early && in_use > one_slot_late,
+        "over {elements} elements the alignment in use scores {in_use:.2} dB against Dolby, \
+         one slot early {one_slot_early:.2} and one slot late {one_slot_late:.2}; the fitted \
+         value is no longer the best one and the constant needs re-measuring, not a nudge"
+    );
 }
