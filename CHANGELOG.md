@@ -81,9 +81,23 @@ Semantic Versioning.
 - The media suite fails when it cannot reach the media. It used to report
   "10 passed" in 0.00 s with `OADEC_MEDIA` unset, and CI now has a job that
   fails if that comes back.
+- **A TrueHD sampling-rate change is refused instead of ignored.** The guard on
+  a mid-stream configuration change compared the samples per access unit, which
+  is `40 * (fs / 44100)` truncated and therefore cannot tell 48 kHz from
+  44,1 kHz, 96 from 88,2, or 192 from 176,4. A spliced stream that changed
+  family decoded with exit 0 and a WAVE header carrying the rate of the first
+  major sync. The rate is now compared in its own right, by a named list of the
+  fields that make a configuration unusable, and the diagnostic says which field
+  changed and at which byte.
 
 ### Added
 
+- **96 kHz TrueHD, decoded and checked.** Every stream this project had measured
+  was 48 kHz, so the doubled-rate branch had never run on real material. One
+  track in 221 across 525 library files is 96 kHz; all three of its presentations
+  come out byte-identical to `truehdd` and presentation 2 is bit-exact against
+  FFmpeg over 2 880 000 samples on eight channels. 192, 176,4, 88,2 and 44,1 kHz
+  have no material anywhere and stay untested.
 - Authored ground truth for the dependent-substream merge. A Dolby Digital Plus
   7.1 stream made by Dolby's own encoder from eight tones, one per channel,
   decodes so that every channel carries its own tone at -20,0 dBFS with the

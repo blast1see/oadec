@@ -111,6 +111,10 @@ MUTANTS = [
      'crates/oadec-eac3/src/program.rs',
      '        self.orphan_dependents == 0',
      '        self.other_program_frames == 0 && self.orphan_dependents == 0'),
+    ('a mid-stream sampling-rate change is allowed again',
+     'crates/oadec-truehd/src/au.rs',
+     '        } else if self.sampling_frequency != next.sampling_frequency {',
+     '        } else if false && self.sampling_frequency != next.sampling_frequency {'),
 ]
 
 

@@ -57,6 +57,35 @@ impl StreamConfig {
             presentations: ms.presentation_map(),
         })
     }
+
+    /// Why a later major sync's configuration cannot replace this one, if it cannot.
+    ///
+    /// A major sync repeats the configuration already in force, which is how a
+    /// decoder joins a stream in progress. What it may not do here is *change*
+    /// it: the decoder carries per-substream filter and matrix state, and the
+    /// output it feeds carries one sample rate and one channel count.
+    ///
+    /// The sample count per access unit does not settle the rate. It is
+    /// `40 * (fs / 44100)` with the division truncated, so 48 kHz and 44,1 kHz
+    /// both give 40, 96 and 88,2 both give 80, and 192 and 176,4 both give 160.
+    /// Comparing the count alone let a stream cross between the two families
+    /// unremarked, and the output kept the rate of the first major sync -- so
+    /// the samples were right and the file said the wrong thing about them. The
+    /// rate is therefore compared in its own right.
+    #[must_use]
+    pub fn incompatible_with(&self, next: &Self) -> Option<&'static str> {
+        if self.substreams != next.substreams {
+            Some("the substream count")
+        } else if self.substream_info != next.substream_info {
+            Some("substream_info")
+        } else if self.samples_per_au != next.samples_per_au {
+            Some("the samples per access unit")
+        } else if self.sampling_frequency != next.sampling_frequency {
+            Some("the sampling frequency")
+        } else {
+            None
+        }
+    }
 }
 
 /// The 32-bit access-unit header.
@@ -256,6 +285,87 @@ impl AccessUnit {
 mod tests {
     use super::*;
     use crate::testutil::{atmos_major_sync, build_au};
+
+    /// The same major sync with a different `audio_sampling_frequency_1`.
+    ///
+    /// The nibble is rewritten in the bytes and the CRC-16 recomputed, which is
+    /// what `tools/thd_patch_major_sync.py` does to a real file -- so the
+    /// fixture and the reproduction differ only in which stream they are applied
+    /// to.
+    fn major_sync_at_rate(code: u8) -> Vec<u8> {
+        let mut bytes = atmos_major_sync();
+        bytes[4] = (bytes[4] & 0x0F) | (code << 4);
+        let end = bytes.len() - 2;
+        let crc = oadec_bits::CRC16_MAJOR_SYNC.update_bytes(0, &bytes[..end]);
+        bytes[end..].copy_from_slice(&crc.to_be_bytes());
+        bytes
+    }
+
+    /// A major sync may repeat the configuration in force; it may not change it.
+    ///
+    /// The rate is the case that got through. `samples_per_au` is
+    /// `40 * (fs / 44100)` truncated, so it cannot tell 48 kHz from 44,1 kHz,
+    /// 96 from 88,2, or 192 from 176,4 -- and comparing only the count meant a
+    /// stream could cross between the two families with nothing said, while the
+    /// output file kept the rate of the first major sync. `verify` did report
+    /// it, through the whole `format_info`; `decode` did not, and `decode` is
+    /// what writes the header that would then be wrong.
+    #[test]
+    fn a_rate_change_at_a_major_sync_is_refused_like_any_other_layout_change() {
+        let at = |code: u8| {
+            StreamConfig::from_major_sync(
+                &crate::sync::MajorSync::parse(&major_sync_at_rate(code)).unwrap(),
+            )
+            .unwrap()
+        };
+
+        let base = at(0);
+        assert_eq!(base.sampling_frequency, 48_000);
+        assert_eq!(base.samples_per_au, 40);
+        assert_eq!(
+            base.incompatible_with(&base),
+            None,
+            "a repeat is not a change"
+        );
+
+        // the three pairs the sample count cannot separate, in both directions
+        for (a, b, fs_a, fs_b) in [
+            (0u8, 8u8, 48_000, 44_100),
+            (1, 9, 96_000, 88_200),
+            (2, 10, 192_000, 176_400),
+        ] {
+            let (x, y) = (at(a), at(b));
+            assert_eq!((x.sampling_frequency, y.sampling_frequency), (fs_a, fs_b));
+            assert_eq!(
+                x.samples_per_au, y.samples_per_au,
+                "the count cannot tell {fs_a} from {fs_b}"
+            );
+            assert_eq!(x.incompatible_with(&y), Some("the sampling frequency"));
+            assert_eq!(y.incompatible_with(&x), Some("the sampling frequency"));
+        }
+
+        // and a change the count does see is still named by the field it is
+        let (base48, at96) = (at(0), at(1));
+        assert_eq!(
+            base48.incompatible_with(&at96),
+            Some("the samples per access unit")
+        );
+
+        // the rest of the list, so that widening or narrowing it fails here
+        let mut fewer = base.clone();
+        fewer.substreams -= 1;
+        assert_eq!(base.incompatible_with(&fewer), Some("the substream count"));
+        let mut other_info = base.clone();
+        other_info.substream_info ^= 0x01;
+        assert_eq!(base.incompatible_with(&other_info), Some("substream_info"));
+
+        // flags are followed rather than refused -- the decoder applies the new
+        // value to the extra-data parse, the heavy DRC read and the restricted
+        // 8-channel mode -- so they are deliberately not on the list
+        let mut other_flags = base.clone();
+        other_flags.flags ^= 0x1000;
+        assert_eq!(base.incompatible_with(&other_flags), None);
+    }
 
     #[test]
     fn frames_a_major_sync_unit_and_a_minor_unit() {
