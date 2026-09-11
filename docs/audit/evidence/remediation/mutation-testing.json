@@ -1,0 +1,228 @@
+{
+ "what": "Whether the test suite would catch a bug, measured by writing bugs into the decoder",
+ "utc": "2026-09-11T00:16:56.259727+00:00",
+ "commit": "d2b24dd5b41b112675011ca10f3b2f0eae518ed3",
+ "why": "a green suite says nothing about what it would have caught. Everything else in this report measures the decoder; this measures the thing that measures the decoder",
+ "method": "`tools/mutants.py`: change one load-bearing constant, run `cargo test --workspace`, record whether anything failed and which test, undo it with `git checkout --`. Each mutation is a bug someone could write -- a table entry off by one, an index base, a scale factor, a channel mapped to the wrong input -- not a random character. The run refuses to start on a dirty tree",
+ "result": {
+  "mutations": 24,
+  "caught_by_a_unit_test": 23,
+  "survived_the_unit_suite": 1,
+  "skipped": 0
+ },
+ "per_mutation": [
+  {
+   "mutation": "the block-offset step, 32 -> 31",
+   "caught": true,
+   "by": [
+    "program::tests::an_update_starts_at_sample_offset_plus_thirty_two_per_block_factor"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the steep switch, one slot back -> none",
+   "caught": true,
+   "by": [
+    "tests::steep_switches_one_slot_before_the_printed_reading"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the steep switch, one slot back -> two",
+   "caught": true,
+   "by": [
+    "tests::an_offset_the_frame_cannot_hold_leaves_the_previous_matrix_alone",
+    "tests::steep_switches_one_slot_before_the_printed_reading"
+   ],
+   "tests_that_failed": 2
+  },
+  {
+   "mutation": "dequantisation, nquant 96 -> 95",
+   "caught": true,
+   "by": [
+    "tests::dequantization_ranges_match_the_note_of_clause_6_6_4"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "dequantisation, the 820 scale -> 821",
+   "caught": true,
+   "by": [
+    "tests::dequantization_ranges_match_the_note_of_clause_6_6_4"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the smooth ramp, ts + 1 -> ts",
+   "caught": true,
+   "by": [
+    "tests::every_interpolation_branch_matches_pseudocode_6"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the WAVE mask of the left channel",
+   "caught": true,
+   "by": [
+    "program::tests::a_dependent_substream_replaces_the_surrounds_and_adds_the_rear_pair",
+    "program::tests::a_seven_one_programme_sorts_into_wave_order"
+   ],
+   "tests_that_failed": 2
+  },
+  {
+   "mutation": "the interchange rank of an unmapped location, 32 -> 0",
+   "caught": true,
+   "by": [
+    "program::tests::interchange_rank_follows_the_mask_bit"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the JOC input of the left surround, 3 -> 4",
+   "caught": true,
+   "by": [
+    "program::tests::the_joc_downmix_inputs_cover_seven_channels"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the height pair of configuration 4 mapped like configuration 1",
+   "caught": true,
+   "by": [
+    "program::tests::the_joc_downmix_inputs_cover_seven_channels"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the OAMD sample-offset table, 8 -> 9",
+   "caught": true,
+   "by": [
+    "oamd::tests::the_timing_tables_are_the_ones_the_clauses_print"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the ramp-duration table, 32 -> 33",
+   "caught": true,
+   "by": [
+    "oamd::tests::the_timing_tables_are_the_ones_the_clauses_print"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the matrix alignment, 10 -> 9",
+   "caught": false,
+   "by": [],
+   "tests_that_failed": 0
+  },
+  {
+   "mutation": "the sparse chain, measured -> as printed",
+   "caught": true,
+   "by": [
+    "joc::tests::a_first_band_index_naming_no_channel_selects_none_of_them",
+    "joc::tests::sparse_object_places_the_vector_on_one_channel_per_band"
+   ],
+   "tests_that_failed": 2
+  },
+  {
+   "mutation": "the TrueHD major-sync CRC polynomial, 0x002D -> 0x002F",
+   "caught": true,
+   "by": [
+    "crc::tests::the_major_sync_polynomial_is_the_one_that_reads_real_streams"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the restart-header CRC polynomial, 0x1D -> 0x1F",
+   "caught": true,
+   "by": [
+    "crc::tests::restart_crc_over_a_bit_range_matches_the_reference"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the substream CRC initial value, 0xA2 -> 0xA3",
+   "caught": true,
+   "by": [
+    "crc::tests::substream_crc_equals_the_textbook_formulation"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the DAMF y coordinate, front and back swapped",
+   "caught": true,
+   "by": [
+    "program::tests::positions_convert_to_damf_coordinates"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "a dropped dependent substream no longer makes a stream unclean",
+   "caught": true,
+   "by": [
+    "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the programme verdict ignores a dropped dependent substream",
+   "caught": true,
+   "by": [
+    "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the programme verdict counts a second programme as unclean",
+   "caught": true,
+   "by": [
+    "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "a mid-stream sampling-rate change is allowed again",
+   "caught": true,
+   "by": [
+    "au::tests::a_rate_change_at_a_major_sync_is_refused_like_any_other_layout_change"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the TrueHD verdict stops reading a counter",
+   "caught": true,
+   "by": [
+    "scan::tests::every_counter_in_the_truehd_verdict_can_make_a_stream_unclean"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "an inactive object counts as an authored mute",
+   "caught": true,
+   "by": [
+    "oamd::tests::a_non_unity_gain_and_a_non_zero_size_are_counted_and_an_inactive_object_is_not"
+   ],
+   "tests_that_failed": 1
+  }
+ ],
+ "the_four_holes_it_found": {
+  "the_oamd_sample_offset_table": "changing the first value from 8 to 9 left every test passing",
+  "the_ramp_duration_table": "changing the first value from 32 to 33 left every test passing",
+  "why_those_two": "both are transcribed numbers from tables 23 and 25 with no structure to check them against, which is exactly the kind of constant a typo survives in, and both reach the timing of every metadata update",
+  "fixed_by": "`the_timing_tables_are_the_ones_the_clauses_print`, which writes both tables out again rather than reading the constants it pins. The mutations are caught now",
+  "and_it_found_something_on_its_first_run": "the last entry of table 25 is 2048 while clause 5.6.2.9 puts `ramp_duration_bits` in [0, 2047], so the index reaches one duration the explicit field cannot express. The first version of that assertion had it backwards and failed",
+  "the_major_sync_polynomial": "0x002D could become 0x002F with nothing failing. The polynomial is used in exactly two places and both of them write and check with the same constant, so the two moved together and no comparison ever disagreed -- a test that computes its expectation from the code under test measures nothing",
+  "fixed_by_2": "`the_major_sync_polynomial_is_the_one_that_reads_real_streams`, three answers written down as literals (0x0000, 0xC59E, 0x704A) plus `assert_ne!` against the neighbouring polynomial 0x002F, so the assertions are known to be about 0x002D and not about any CRC-16. Those answers are in this crate's own formulation, `table[crc >> 8] ^ (crc << 8) ^ byte`, which differs from the textbook MSB-first form on a message without its CRC appended -- and the major sync compares against a stored value rather than checking for a zero remainder, so it is the message-alone answer that has to be right",
+  "the_verdict_itself": "`is_clean` could be short-circuited to `true` in the library and again in the command line, where the file had no test module at all. That is the worst place for a hole in this round: the second defect fixed here was precisely that corruption reached the counters and not the exit code",
+  "fixed_by_3": "`every_counter_in_the_verdict_can_make_a_stream_unclean` in `oadec-eac3` and `every_input_to_the_verdict_can_make_a_stream_unclean` in `oadec-cli`. Both pin the whole list, including the inputs that must *not* count -- a second programme is legal and an implied LFE is a documented reading -- so the tests fail on a verdict that grows too strict as well as one that grows too lax"
+ },
+ "the_survivor_that_should_survive": {
+  "mutation": "the matrix alignment, 10 -> 9",
+  "why_no_unit_test_can_catch_it": "there is no clause behind it. Clause 6.6.6 pairs matrix slot ts with subband slot ts and never mentions that the analysis bank the decoder runs is not the one the encoder ran, so a unit test could only assert that the code holds the number the code holds -- the circularity the major-sync polynomial exposed earlier in this round",
+  "what_catches_it": "two media tests, both differential against Dolby. The first is indirect and was the only one until this round closed the gap; the second is direct and on a clip the constant played no part in fitting. See matrix-alignment-second-guard.json",
+  "verified_not_assumed": "the whole suite was re-run with the alignment moved, and the constant was also changed in the source and reverted: both make the guards fail"
+ },
+ "reading": "twenty-three of twenty-four are caught by unit tests and the twenty-fourth by a media test. That is a measurement of the suite rather than a claim about it, and the four holes it found were real: two transcribed tables with no test at all, a polynomial whose only two uses agreed with each other, and the function that decides the exit code",
+ "what_this_does_not_measure": "agreement with Dolby. A mutation pass can only say whether the suite notices a change, not whether the unmutated value is right. Everything load-bearing that has no specification behind it -- the matrix alignment is the clearest case -- still rests on the differential comparisons, not on this",
+ "grown_with_the_code": "the pass is re-run whenever something load-bearing is added, so the count grows rather than standing still. Three of the twenty-four were added the day the code they cover was written: dropping the rate from the list of fields that make a configuration unusable, dropping a counter from the TrueHD verdict, and counting an inactive object's default mute as an authored one -- each caught by the test written beside it"
+}

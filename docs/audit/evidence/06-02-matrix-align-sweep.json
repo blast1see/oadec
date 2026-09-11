@@ -1,0 +1,74 @@
+[
+ {
+  "joc_lag": 0,
+  "matrix_align": 18,
+  "worst": 31.45,
+  "median": 37.91,
+  "mean": 38.53,
+  "objects": 15
+ },
+ {
+  "joc_lag": 4,
+  "matrix_align": 14,
+  "worst": 36.95,
+  "median": 41.01,
+  "mean": 42.56,
+  "objects": 15
+ },
+ {
+  "joc_lag": 6,
+  "matrix_align": 12,
+  "worst": 41.93,
+  "median": 44.2,
+  "mean": 45.53,
+  "objects": 15
+ },
+ {
+  "joc_lag": 7,
+  "matrix_align": 11,
+  "worst": 42.51,
+  "median": 46.03,
+  "mean": 47.2,
+  "objects": 15
+ },
+ {
+  "joc_lag": 8,
+  "matrix_align": 10,
+  "worst": 42.8,
+  "median": 49.24,
+  "mean": 48.21,
+  "objects": 15
+ },
+ {
+  "joc_lag": 9,
+  "matrix_align": 9,
+  "worst": 42.51,
+  "median": 46.38,
+  "mean": 47.23,
+  "objects": 15
+ },
+ {
+  "joc_lag": 10,
+  "matrix_align": 8,
+  "worst": 41.24,
+  "median": 44.75,
+  "mean": 45.59,
+  "objects": 15
+ },
+ {
+  "joc_lag": 12,
+  "matrix_align": 6,
+  "worst": 37.24,
+  "median": 41.05,
+  "mean": 42.68,
+  "objects": 15
+ },
+ {
+  "joc_lag": 18,
+  "matrix_align": 0,
+  "worst": 30.03,
+  "median": 36.44,
+  "mean": 37.18,
+  "objects": 15
+ }
+]

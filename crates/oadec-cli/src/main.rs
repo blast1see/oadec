@@ -3,6 +3,7 @@
 // the `verify --json` report is one big `json!` literal
 #![recursion_limit = "256"]
 
+mod author;
 mod compare;
 mod damf;
 mod decode;
@@ -12,7 +13,9 @@ mod ecpl_inject;
 mod emdf;
 mod info;
 mod input;
+mod integrity;
 mod joc_config;
+mod joc_offset;
 mod oamd;
 mod scan;
 mod thd_demux;
@@ -105,6 +108,11 @@ enum Command {
         /// equipment"); the DAMF output needs no such marker.
         #[arg(long)]
         dolby_origin_tag: bool,
+        /// E-AC-3: write only the 5.1-compatible channels of the independent
+        /// substream instead of the whole programme, which is what a decoder
+        /// limited to 5.1 produces (clause E.2.8.2).
+        #[arg(long)]
+        core_only: bool,
         /// E-AC-3: substitute zeros instead of dither for zero-bit mantissas.
         #[arg(long)]
         no_dither: bool,
@@ -127,6 +135,16 @@ enum Command {
         /// decoder does; for measuring what the correction changes.
         #[arg(long)]
         flat_quadrature: bool,
+        /// JOC: read a sparse matrix exactly as clause 6.6.2 prints it,
+        /// rather than as Dolby's decoder reads it; for measuring the
+        /// difference the two corrections make.
+        #[arg(long)]
+        sparse_as_printed: bool,
+        /// JOC: put the steep switch of clause 6.6.5 one slot after the
+        /// offset names, the way the printed pseudo-code reads, rather than
+        /// where Dolby's decoder puts it; for measuring the difference.
+        #[arg(long)]
+        steep_as_printed: bool,
     },
     /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
     /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
@@ -154,6 +172,11 @@ enum Command {
         /// Bytes to skip at the start of the reference (a container header).
         #[arg(long, default_value_t = 0)]
         reference_skip: u64,
+        /// E-AC-3: compare only the 5.1-compatible channels of the independent
+        /// substream instead of the whole programme, which is what a reference
+        /// decoder limited to 5.1 produces (clause E.2.8.2).
+        #[arg(long)]
+        core_only: bool,
         /// E-AC-3: substitute zeros instead of dither for zero-bit mantissas.
         #[arg(long)]
         no_dither: bool,
@@ -175,9 +198,24 @@ enum Command {
     Eac3Blocks {
         /// Raw E-AC-3 (.ec3/.eac3/.ac3) elementary stream.
         file: PathBuf,
-        /// Index of the decoded frame (independent substream 0).
+        /// Index of the frame group (an independent substream and the
+        /// dependent substreams that follow it), counted from 0.
         #[arg(long)]
         frame: u64,
+        /// Which substream of the group: 0 is the independent one.
+        #[arg(long, default_value_t = 0)]
+        part: usize,
+    },
+    /// Write a Dolby Atmos master from a scene description, so a decode can be
+    /// checked against authored metadata rather than against another decoder.
+    #[command(hide = true)]
+    AtmosAuthor {
+        /// Scene description (JSON).
+        scene: PathBuf,
+        /// Output base name; `.atmos`, `.atmos.metadata` and `.atmos.audio`
+        /// are appended.
+        #[arg(short, long)]
+        output: PathBuf,
     },
     /// Split a Blu-ray audio dump that interleaves TrueHD access units with
     /// the AC-3 core frames of the same track into the two streams.
@@ -228,6 +266,20 @@ enum Command {
         /// The configuration to write: 0 and 3 are the ones encoders use.
         #[arg(long)]
         dmx_config: u8,
+    },
+    /// Rewrite `joc_offset_ts_bits` (clause 6.3.4.4) in every JOC payload of an
+    /// E-AC-3 stream and change nothing else, to ask a decoder where it puts
+    /// the steep switch when the field says something different.
+    Eac3JocOffset {
+        /// Raw E-AC-3 elementary stream carrying JOC.
+        file: PathBuf,
+        /// Where to write the rewritten stream.
+        #[arg(short, long)]
+        output: PathBuf,
+        /// The value to transmit, 0 to 31; the decoder's `joc_offset_ts` is
+        /// one more than this (clause 6.3.4.4).
+        #[arg(long)]
+        offset_ts_bits: u8,
     },
 }
 
@@ -288,27 +340,48 @@ fn main() -> ExitCode {
                 no_bed_conform,
                 all_events,
                 dolby_origin_tag,
+                core_only,
                 no_dither,
                 no_tpnp,
                 ecpl_spec,
                 no_clip_gain,
                 flat_quadrature,
+                sparse_as_printed,
+                steep_as_printed,
             } => if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
             {
-                eac3_objects::run(
-                    &file,
-                    &output,
-                    &damf::Options {
-                        keep_duplicates,
-                        bed_conform: !no_bed_conform,
-                        all_events,
-                        adm: format == Format::Adm,
-                        dolby_origin_tag,
-                        clip_gain: !no_clip_gain,
-                        flat_quadrature,
-                    },
-                )
+                if core_only {
+                    // The object programme is the whole programme and the JOC
+                    // downmix needs every channel of it, so the two cannot be
+                    // asked for together.
+                    Err(anyhow::anyhow!(
+                        "--core-only writes the 5.1-compatible channels of the independent \
+                         substream, which is not an object programme; drop it, or ask for \
+                         --format wav or pcm"
+                    ))
+                } else {
+                    eac3_objects::run(
+                        &file,
+                        &output,
+                        &damf::Options {
+                            keep_duplicates,
+                            bed_conform: !no_bed_conform,
+                            all_events,
+                            adm: format == Format::Adm,
+                            dolby_origin_tag,
+                            clip_gain: !no_clip_gain,
+                            flat_quadrature,
+                            sparse_as_printed,
+                            steep_as_printed,
+                            core: oadec_eac3::Options {
+                                dither: !no_dither,
+                                tpnp: !no_tpnp,
+                                ecpl_full: ecpl_spec,
+                            },
+                        },
+                    )
+                }
             } else if eac3::is_eac3(&file).unwrap_or(false) {
                 eac3::decode(
                     &file,
@@ -316,6 +389,7 @@ fn main() -> ExitCode {
                     &eac3::DecodeOptions {
                         format,
                         order,
+                        core_only,
                         dither: !no_dither,
                         tpnp: !no_tpnp,
                         ecpl_full: ecpl_spec,
@@ -334,6 +408,10 @@ fn main() -> ExitCode {
                         // TrueHD carries no JOC, so neither of these apply.
                         clip_gain: false,
                         flat_quadrature: false,
+                        sparse_as_printed: false,
+                        steep_as_printed: false,
+                        // TrueHD carries no E-AC-3 core.
+                        core: oadec_eac3::Options::default(),
                     },
                 )
             } else {
@@ -348,7 +426,13 @@ fn main() -> ExitCode {
                     },
                 )
             }
-            .map(|()| ExitCode::SUCCESS),
+            .map(|clean| {
+                if clean {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::from(EXIT_NONCONFORMANT)
+                }
+            }),
             Command::Compare {
                 file,
                 reference,
@@ -358,6 +442,7 @@ fn main() -> ExitCode {
                 keep_duplicates,
                 report,
                 reference_skip,
+                core_only,
                 no_dither,
                 no_tpnp,
                 ecpl_spec,
@@ -372,6 +457,7 @@ fn main() -> ExitCode {
                         ecpl_full: ecpl_spec,
                         report,
                         skip: reference_skip,
+                        core_only,
                         dither: !no_dither,
                         worst,
                     },
@@ -397,8 +483,11 @@ fn main() -> ExitCode {
                     ExitCode::from(EXIT_NONCONFORMANT)
                 }
             }),
-            Command::Eac3Blocks { file, frame } => {
-                eac3::blocks(&file, frame).map(|()| ExitCode::SUCCESS)
+            Command::Eac3Blocks { file, frame, part } => {
+                eac3::blocks(&file, frame, part).map(|()| ExitCode::SUCCESS)
+            }
+            Command::AtmosAuthor { scene, output } => {
+                author::run(&scene, &output).map(|()| ExitCode::SUCCESS)
             }
             Command::ThdDemux { file, output, core } => {
                 thd_demux::run(&file, &output, core.as_deref()).map(|()| ExitCode::SUCCESS)
@@ -426,6 +515,11 @@ fn main() -> ExitCode {
                 output,
                 dmx_config,
             } => joc_config::run(&file, &output, dmx_config).map(|()| ExitCode::SUCCESS),
+            Command::Eac3JocOffset {
+                file,
+                output,
+                offset_ts_bits,
+            } => joc_offset::run(&file, &output, offset_ts_bits).map(|()| ExitCode::SUCCESS),
         };
     match result {
         Ok(code) => code,

@@ -1,0 +1,140 @@
+{
+ "what": "Authored ground truth for the dependent-substream merge: eight channels that name themselves, encoded by Dolby's own Dolby Digital Plus 7.1 encoder, decoded back and asked which channel carries which tone",
+ "utc": "2026-09-10T20:38:43.102347+00:00",
+ "commit": "45cb95b1f4d0ef01a92c0124d550057630ec670c",
+ "why": "every earlier check of the channel map compared oadec against another decoder. Agreement shows that two implementations do the same thing; it cannot show that either places a channel where the stream says it belongs. A signal that identifies itself can",
+ "material": {
+  "authored": "twelve seconds, eight channels, one sine per channel at -20 dBFS: 400, 630, 1000, 55, 1600, 2500, 4000 and 6300 Hz, written as a 24-bit WAVE-extensible file",
+  "encoder": "DEE 5.2.1 `pcm_to_ddp` with `encoder_mode` ddp71 at 1024 kbit/s, loudness measured and not corrected (ddp71 refuses correction, and measuring leaves the samples alone), surround attenuation off",
+  "stream": "E-AC-3 bsid 16, an independent substream with acmod 7 + LFE and a dependent with acmod 5 and chanmap 0x1a00, 375 frames each, 0 CRC failures, 0 decode errors",
+  "clip": "E:/oadec-work/clips/ddp71-tones.ec3"
+ },
+ "result_the_channels_carry_what_was_authored": {
+  "method": "projection onto a windowed complex exponential, four seconds starting one second in, for all eight tones in all eight decoded channels",
+  "every_channel": "carries exactly one tone at -20,0 dBFS -- its authored level to the first decimal -- and every other tone is at least 108 dB below it",
+  "margins_db": [
+   117.73,
+   122.84,
+   112.6,
+   122.15,
+   154.68,
+   191.12,
+   107.9,
+   127.61
+  ],
+  "matrix_db": [
+   [
+    -20.0,
+    -213.13,
+    -142.98,
+    -183.33,
+    -137.73,
+    -163.15,
+    -182.6,
+    -159.49
+   ],
+   [
+    -182.81,
+    -20.0,
+    -186.09,
+    -186.9,
+    -142.84,
+    -185.33,
+    -190.67,
+    -158.99
+   ],
+   [
+    -221.79,
+    -184.38,
+    -20.0,
+    -191.66,
+    -142.92,
+    -132.6,
+    -163.06,
+    -224.82
+   ],
+   [
+    -142.39,
+    -170.16,
+    -193.98,
+    -20.24,
+    -226.91,
+    -217.28,
+    -217.29,
+    -220.12
+   ],
+   [
+    -219.86,
+    -221.08,
+    -180.08,
+    -206.12,
+    -217.27,
+    -192.25,
+    -20.0,
+    -174.68
+   ],
+   [
+    -214.28,
+    -234.62,
+    -230.04,
+    -213.63,
+    -211.12,
+    -222.0,
+    -219.59,
+    -20.0
+   ],
+   [
+    -182.28,
+    -212.41,
+    -177.55,
+    -203.44,
+    -20.0,
+    -127.9,
+    -158.38,
+    -171.1
+   ],
+   [
+    -212.39,
+    -206.17,
+    -177.79,
+    -205.05,
+    -219.78,
+    -20.0,
+    -147.61,
+    -166.8
+   ]
+  ],
+  "column_order": [
+   "L",
+   "R",
+   "C",
+   "LFE",
+   "Lrs",
+   "Rrs",
+   "Ls",
+   "Rs"
+  ],
+  "and_ffmpeg": "gives the identical assignment, channel for channel, from the same stream. Two independent decoders and the authored signal all agree"
+ },
+ "result_the_core_alone_is_a_matrix": {
+  "why_it_matters": "this is what defect 1 delivered silently: not merely two channels short, but surrounds that are a mix of three signals",
+  "core_left_surround": {
+   "the back-left tone": -20.0,
+   "the side-left tone": -21.2,
+   "the side-right tone": -26.2
+  },
+  "core_right_surround": {
+   "the back-right tone": -20.0,
+   "the side-right tone": -21.2,
+   "the side-left tone": -26.2
+  },
+  "merged": "the same two channels, after the dependent is merged, carry a single tone each at -20,0 with everything else more than 150 dB down, and the back pair arrives as two new channels. Clause E.2.8.2's replace-and-add, measured"
+ },
+ "a_thing_learned_about_the_encoder": {
+  "observation": "DEE reads an eight-channel WAV as L, R, C, LFE, Ls, Rs, Lrs, Rrs -- the side pair fifth and sixth, the back pair seventh and eighth. The WAVE channel mask orders them the other way round: mask 0x63F is L, R, C, LFE, BL, BR, SL, SR",
+  "control": "the same audio encoded again with the channel mask set to zero places the tones identically, so the encoder is not reading the mask at all",
+  "why_it_is_recorded": "it silently swaps the side and back pairs of anything encoded from a correctly-tagged WAVE file, and it was nearly read as a decoder fault here before the FFmpeg control was run"
+ },
+ "regression_test": "crates/oadec-cli/tests/real.rs, `the_merged_channels_carry_the_tones_they_were_authored_with`: every channel within 1 dB of -20 and at least 60 dB above the loudest tone belonging to another channel. Swapping the side and back pairs in the expectation makes it fail by 197 dB",
+ "evidence_hierarchy": "this moves the dependent-substream channel map from `two decoders agree` to `authored ground truth with a reference encoder`, which is the top row of the hierarchy this project uses"
+}

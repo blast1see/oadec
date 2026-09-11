@@ -1,0 +1,240 @@
+{
+ "what": "What Dolby's own object decoder does with every Dolby Digital Plus track in one library, and whether the one stream it was known to refuse is a class or a singleton",
+ "utc": "2026-09-10T21:32:48.277486+00:00",
+ "commit": "48f993e3d6a74f89104423e5fce2f15ae70d54e3",
+ "why": "the refusal had been chased with a control pair of two streams. Two is enough to list what does not differ and not enough to find what does. The decoder is on this machine and a five second clip is cheap, so the whole library can be asked",
+ "method": "`tools/dolby_object_sweep.py`: five seconds of every Dolby Digital Plus track that carries JOC, through `dlbac3parse ! dlbac3dec out-ch-config=21` in object mode, with the channel count computed from the bytes written and the sample count oadec reports",
+ "sweep": {
+  "files": 210,
+  "joc_tracks": 226,
+  "opened_as_objects": 223,
+  "refused": [
+   "Snatch (2000), disc remux, track 2",
+   "The King (2019), streaming release, track 1"
+  ],
+  "configurations": {
+   "(3,)": 212,
+   "(4,)": 5,
+   "(0,)": 9
+  },
+  "a_third_that_was_not_one": "F1 The Movie came back at 15 channels from a five-second head, which is a ratio and not a layout: the plugin pads its output by the decoder delay and the cut was under a second of audio. A twenty-second cut from ten minutes in gives 15,976, which is sixteen. The sweep now records the raw ratio and says `check by hand` instead of rounding a short clip into a refusal"
+ },
+ "so_it_is_two_not_one": "Snatch is not a singleton. The King (2019) is a streaming release made by a different chain on a different day, and Dolby gives it the same six channels. Whatever the property is, it is not one disc's accident",
+ "the_conjunction": {
+  "downmix_configuration_0_alone_is_not_it": "9 streams carry it and Dolby opens 7 of them",
+  "dialnorm_31_alone_is_not_it": "90 of the 223 streams Dolby opens carry dialnorm 31",
+  "together": "across all nine configuration-0 streams, dialnorm is the only field of everything oadec reports that splits the two refused from the seven opened: 31 in both refused, 23 to 27 in every accepted one. No stream anywhere in the library is configuration 0 with dialnorm 31 and opened, and none is configuration 0 with a lower dialnorm and refused",
+  "fields_that_split": [
+   {
+    "field": "info.dialnorm",
+    "refused": "[31]",
+    "accepted": [
+     "[23]",
+     "[25]",
+     "[26]",
+     "[27]"
+    ]
+   },
+   {
+    "field": "verdict",
+    "refused": "refused",
+    "accepted": [
+     "accepted"
+    ]
+   }
+  ],
+  "per_stream": [
+   {
+    "file": "Snatch (2000).mkv",
+    "track": 2,
+    "dialnorm": [
+     31
+    ],
+    "dolby_channels": 6
+   },
+   {
+    "file": "Captain Marvel (2019).mkv",
+    "track": 2,
+    "dialnorm": [
+     27
+    ],
+    "dolby_channels": 16
+   },
+   {
+    "file": "Edge of Tomorrow (2014).mkv",
+    "track": 2,
+    "dialnorm": [
+     23
+    ],
+    "dolby_channels": 16
+   },
+   {
+    "file": "Finch (2021).mkv",
+    "track": 1,
+    "dialnorm": [
+     27
+    ],
+    "dolby_channels": 16
+   },
+   {
+    "file": "The Magnificent Seven (2016).mkv",
+    "track": 2,
+    "dialnorm": [
+     23
+    ],
+    "dolby_channels": 16
+   },
+   {
+    "file": "Togo (2019).mkv",
+    "track": 1,
+    "dialnorm": [
+     27
+    ],
+    "dolby_channels": 16
+   },
+   {
+    "file": "Babylon (2022).mkv",
+    "track": 2,
+    "dialnorm": [
+     26
+    ],
+    "dolby_channels": 16
+   },
+   {
+    "file": "Dredd (2012).mkv",
+    "track": 2,
+    "dialnorm": [
+     25
+    ],
+    "dolby_channels": 16
+   },
+   {
+    "file": "The King (2019).mkv",
+    "track": 1,
+    "dialnorm": [
+     31
+    ],
+    "dolby_channels": 6
+   }
+  ],
+  "how_much_it_is_worth": "less than it reads. The conjunction holds exactly over all 225 streams whose verdict is clean -- configuration 0 and dialnorm 31 are the two Dolby refuses and nothing else -- but there are only two refused streams, and about 25 200 ways to choose two rows from 225. A search over the 13 530 field pairs formable from what `info` reports is of the same order, so a conjunction that isolates exactly those two is what such a search is expected to produce by chance. It is a candidate, not a finding, and it will stay one until either a third refused stream appears or a mutation instrument does"
+ },
+ "and_it_cannot_be_tested_here": {
+  "why_it_looked_testable": "dialnorm is not in an EMDF payload, which Dolby discards when rewritten. It is five bits of `bsi()` at bit 45 of an E-AC-3 syncframe and the frame CRC-16 is recomputable, so a patched stream is well-formed rather than merely edited",
+  "the_tool_is_right": "`tools/ec3_patch_dialnorm.py` round-trips: patching Dredd from 25 to 31 and back to 25 reproduces the original file byte for byte, so the CRC repair is exact. `oadec verify` calls every patched file clean",
+  "arms": [
+   {
+    "dialnorm": [
+     25
+    ],
+    "config": [
+     0
+    ],
+    "clean": true,
+    "channels": 16,
+    "ratio": 15.977,
+    "arm": "Dredd, as it stands"
+   },
+   {
+    "dialnorm": [
+     31
+    ],
+    "config": [
+     0
+    ],
+    "clean": true,
+    "channels": 6,
+    "ratio": 5.991,
+    "arm": "Dredd, dialnorm 31"
+   },
+   {
+    "dialnorm": [
+     20
+    ],
+    "config": [
+     0
+    ],
+    "clean": true,
+    "channels": 6,
+    "ratio": 5.991,
+    "arm": "Dredd, dialnorm 20 (a legal value that is not 31)"
+   },
+   {
+    "dialnorm": [
+     31
+    ],
+    "config": [
+     0
+    ],
+    "clean": true,
+    "channels": 6,
+    "ratio": 5.991,
+    "arm": "Snatch, as it stands"
+   },
+   {
+    "dialnorm": [
+     27
+    ],
+    "config": [
+     0
+    ],
+    "clean": true,
+    "channels": 6,
+    "ratio": 5.991,
+    "arm": "Snatch, dialnorm 27"
+   },
+   {
+    "dialnorm": [
+     31
+    ],
+    "config": [
+     0
+    ],
+    "clean": true,
+    "channels": 6,
+    "ratio": 5.992,
+    "arm": "The King, as it stands"
+   },
+   {
+    "dialnorm": [
+     27
+    ],
+    "config": [
+     0
+    ],
+    "clean": true,
+    "channels": 6,
+    "ratio": 5.992,
+    "arm": "The King, dialnorm 27"
+   },
+   {
+    "dialnorm": [
+     27
+    ],
+    "config": [
+     0
+    ],
+    "clean": true,
+    "channels": 16,
+    "ratio": 15.979,
+    "arm": "Togo, as it stands"
+   },
+   {
+    "dialnorm": [
+     31
+    ],
+    "config": [
+     0
+    ],
+    "clean": true,
+    "channels": 6,
+    "ratio": 5.992,
+    "arm": "Togo, dialnorm 31"
+   }
+  ],
+  "the_control_is_what_matters": "Dredd patched from 25 to 31 is refused -- and Dredd patched from 25 to **20**, a legal value that is not 31, is refused as well. Every edited stream is refused whatever the new value says, and no edit makes a refused stream accepted: Snatch and The King stay at six channels when their dialnorm is set to 27. The object path is reacting to the edit, not to the value",
+  "without_that_arm": "the reading would have been `dialnorm 31 causes the refusal`, supported by two streams turning refused when set to 31. It would have been wrong",
+  "so": "this is the fourth instrument to come back with a limit on it, after in-place EMDF payload rewriting, TrueHD major-sync rewriting and the mutation experiment those two killed. A header field of E-AC-3 is no more testable on this decoder than a payload field"
+ },
+ "status": "the open item is better posed and no closer to an answer. It is two streams out of 226, not one; the property is a conjunction with no counterexample in the library; and the conjunction cannot be tested causally with any instrument here"
+}

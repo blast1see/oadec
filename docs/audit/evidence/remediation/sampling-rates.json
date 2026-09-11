@@ -1,0 +1,92 @@
+{
+ "what": "The one lossless Dolby track in the library that is not 48 kHz, decoded against two independent decoders -- and the guard that a rate change gets past",
+ "utc": "2026-09-11T00:51:07.018135+00:00",
+ "commit": "2cec165bd7b49701b72f08aaf36c1ffb529bb246",
+ "binary_sha256": "71705dc39c0261234a25349261b803b015768dc12d801f1a14fa5625daddf164",
+ "why": "every TrueHD stream measured in this project is 48 kHz, so `samples_per_au` had only ever been 40 and the doubled-rate arithmetic of `FormatInfo::samples_per_au` had never run on real material. Nothing in the audit names a sampling rate at all",
+ "the_gap_measured_first": {
+  "method": "ffprobe over every mkv of every library root, keeping the truehd and mlp tracks; and the first major sync of all 204 TrueHD files already on disk read byte by byte",
+  "files": 525,
+  "lossless_dolby_tracks": 221,
+  "at_48k": 220,
+  "at_96k": 1,
+  "the_one": "The Revenant (2015).mkv, track 1: Dolby TrueHD Audio w/ Advanced Upsampling / 7.1 / 96 kHz / 3587 kbps / 18-bit",
+  "thd_files_on_disk": {
+   "read": 204,
+   "at_48k": 204
+  },
+  "reading": "one track in 221 is not 48 kHz, and it is 96 kHz. 192, 176,4, 88,2 and 44,1 kHz occur nowhere in 525 files"
+ },
+ "ninety_six_kilohertz": {
+  "clip": "30 s from the head, 13 052 334 bytes, raw elementary stream",
+  "what_oadec_reads": {
+   "format": "96000 Hz, 80 samples per access unit",
+   "access_units": 36000,
+   "expected_access_units": "30 s x 1200 per second",
+   "substreams": 3,
+   "major_syncs": 282,
+   "presentations": [
+    "0: L R",
+    "1: L R C LFE Ls Rs",
+    "2: L R C LFE Ls Rs Lb Rb"
+   ],
+   "verify": "CLEAN, exit 0; 0 CRC failures, 0 parity failures, 0 sample-count mismatches",
+   "lossless_checks": "281 performed, 0 failed"
+  },
+  "against_truehdd": [
+   {
+    "presentation": 0,
+    "bytes": 17280000,
+    "md5": "dae72af954aa0030b3340d41330eac79",
+    "verdict": "byte-identical"
+   },
+   {
+    "presentation": 1,
+    "bytes": 51840000,
+    "md5": "7732ea701f5294eaa476e73b9ad13bbe",
+    "verdict": "byte-identical"
+   },
+   {
+    "presentation": 2,
+    "bytes": 69120000,
+    "md5": "c39589bcdc775ee98ec2dbf2c774bb5e",
+    "verdict": "byte-identical"
+   }
+  ],
+  "against_ffmpeg": {
+   "presentation": 2,
+   "compared": "2 880 000 samples x 8 channels (0:00:30.000)",
+   "mismatching_samples": 0,
+   "max_difference": 0,
+   "result": "BIT-EXACT"
+  },
+  "reading": "the doubled-rate path decodes, and does so bit-exactly against two decoders that are not this one. 2 880 000 samples is 30 s at 96 kHz, so the sample count is right as well as the samples"
+ },
+ "the_defect_it_uncovered": {
+  "symptom": "a stream whose sampling frequency changes at a major sync decodes with no diagnostic and exit 0, and the output file carries the rate of the *first* major sync",
+  "reproduction": {
+   "material": "the head of pi.thd, 17 114 access units, 141 major syncs, 3 633 396 bytes. `tools/thd_patch_major_sync.py` sets bit 32 -- the top bit of `audio_sampling_frequency_1` -- turning code 0 (48 kHz) into code 8 (44,1 kHz) and repairing the CRC-16; 47 719 major syncs rewritten, 0 without a CRC match. The spliced file is the original up to byte 1 101 614 and the patched copy after it, the two being the same length",
+   "before": {
+    "decode -p 2 --format wav": "exit 0, no diagnostic, WAVE header 8 channels at 48000 Hz",
+    "info": "prints 48000 Hz and a duration of 0:00:15.523, which is 17 114 x 40 samples read at 44,1 kHz -- the two halves of one command disagreeing",
+    "verify": "exit 7, NON-CONFORMANT, Framing: 0 errors, 94 configuration changes"
+   },
+   "so_the_detection_existed": "`scan` compares the whole `format_info` and reports it. The decoder did not, and the decoder is what writes the header that is then wrong"
+  },
+  "root_cause": "`Decoder::decode` guarded a configuration change by comparing `substreams`, `substream_info` and `samples_per_au`. The sample count is `40 * (fs / 44100)` with the division truncated, so 48 kHz and 44,1 kHz both give 40, 96 and 88,2 both give 80, and 192 and 176,4 both give 160. Each of the three pairs crosses the guard",
+  "fix": "`StreamConfig::incompatible_with` -- the list of fields that make a later major sync's configuration unusable, in one named place with its own test, returning which field it was. `sampling_frequency` joins the three, and the diagnostic names the field instead of saying stream layout",
+  "after": "exit 2 with `decoding access unit at byte 1101614: the sampling frequency changed at a major sync (not supported yet)` -- the byte named is the splice",
+  "regression_test": "`a_rate_change_at_a_major_sync_is_refused_like_any_other_layout_change` in oadec-truehd. It rebuilds the major sync at each of the six rate codes the way the tool rebuilds a real one, asserts that the three same-count pairs are refused in both directions, that the count still catches what it can catch, and that the rest of the list is what it is -- including `flags`, which is deliberately *not* on it because the decoder applies a new value rather than refusing it",
+  "severity": "recoverable-error territory by the wording of the exit-code policy, but the class was already fatal: a substream-count change has returned an error from this guard since it was written. Making the rate alone exit 7 with the good prefix kept would change the error policy of the whole TrueHD decode path, not this one case, so it was left as it stands and is recorded here instead",
+  "observed_and_not_acted_on": "a fatal decode leaves the partial file behind with its `data` chunk declaring 0 bytes, because the header is only patched on success. It under-claims rather than over-claims, and it predates this fix"
+ },
+ "negative_controls": {
+  "the_two_single_rate_controls": "the same head at 48 kHz and the same head patched wholly to 44,1 kHz both decode with exit 0 before and after the fix, and their outputs are byte-identical across the change",
+  "the_rate_is_only_a_label": "the two controls WAVE files differ in exactly five bytes, all of them in the `fmt ` chunk sample rate and byte rate. The samples do not depend on the rate code, which is why the old guard could miss it and still produce correct audio",
+  "truehdd_on_the_patched_stream": "opens it and agrees byte for byte, 16 429 440 bytes -- so the 44,1 kHz reading is not this decoder's invention",
+  "ninety_six_kilohertz_after_the_fix": "all three presentations still byte-identical to truehdd",
+  "gates": "presentation 2 against FFmpeg, presentation 3 against truehdd and presentation 3 against Dolby: three PASS",
+  "suite": "clippy exit 0, cargo fmt --check exit 0, workspace tests exit 0, 17 ok lines"
+ },
+ "what_is_still_untested": "192 kHz, 176,4 kHz, 88,2 kHz and 44,1 kHz on real material: none exists in 525 files. The 44,1 kHz reading here comes from a patched stream, which demonstrates the parse and the guard and not that a real 44,1 kHz stream decodes. 96 kHz is the only doubled rate this project can claim"
+}

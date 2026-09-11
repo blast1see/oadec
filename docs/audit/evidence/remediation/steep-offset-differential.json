@@ -1,0 +1,506 @@
+{
+ "what": "Where the steep interpolation of TS 103 420 clause 6.6.5 puts its switch",
+ "utc": "2026-09-10T12:00:32.256288+00:00",
+ "commit": "15856355d127d84d3ce521b9c7ea39f1610fde21",
+ "binary_sha256": "291ad497935e360df56dab2f6d32aee86e1a38816a764949ff522feb18f391c7",
+ "titles": [
+  {
+   "title": "glassonion-nf-head",
+   "steep_objects": 195,
+   "offset_ts": {
+    "1": 15,
+    "11": 15,
+    "19": 15,
+    "2": 15,
+    "20": 45,
+    "5": 15,
+    "6": 45,
+    "7": 15,
+    "8": 15
+   },
+   "steep_frames": [
+    629,
+    635,
+    641,
+    746,
+    752,
+    824,
+    829,
+    834,
+    841,
+    864,
+    878,
+    907,
+    929
+   ],
+   "as_printed": {
+    "objects_worst_sdr_db": 25.24,
+    "objects_median_sdr_db": 47.76,
+    "corr_structure_max_abs_delta": 0.0007,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {
+     "629": 64.91,
+     "635": 60.67,
+     "641": 59.91,
+     "746": 62.35,
+     "752": 48.5,
+     "824": 33.82,
+     "829": 58.45,
+     "834": 62.44,
+     "841": 62.7,
+     "864": 60.79,
+     "878": 63.63,
+     "907": 32.54,
+     "929": 34.09
+    }
+   },
+   "measured": {
+    "objects_worst_sdr_db": 49.93,
+    "objects_median_sdr_db": 65.44,
+    "corr_structure_max_abs_delta": 0.0001,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {
+     "629": 64.91,
+     "635": 60.67,
+     "641": 59.91,
+     "746": 62.35,
+     "752": 63.39,
+     "824": 63.29,
+     "829": 58.45,
+     "834": 62.44,
+     "841": 62.7,
+     "864": 60.79,
+     "878": 63.63,
+     "907": 63.99,
+     "929": 64.37
+    }
+   },
+   "verdict": "IMPROVED"
+  },
+  {
+   "title": "shaun-joc1024-head",
+   "steep_objects": 30,
+   "offset_ts": {
+    "15": 15,
+    "20": 15
+   },
+   "steep_frames": [
+    0,
+    581
+   ],
+   "as_printed": {
+    "objects_worst_sdr_db": 40.75,
+    "objects_median_sdr_db": 46.79,
+    "corr_structure_max_abs_delta": 0.0002,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {
+     "0": 14.23,
+     "581": 23.51
+    }
+   },
+   "measured": {
+    "objects_worst_sdr_db": 43.62,
+    "objects_median_sdr_db": 53.79,
+    "corr_structure_max_abs_delta": 0.0002,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {
+     "0": 14.23,
+     "581": 58.9
+    }
+   },
+   "verdict": "IMPROVED"
+  },
+  {
+   "title": "rednotice-nf-head",
+   "steep_objects": 105,
+   "offset_ts": {
+    "12": 30,
+    "18": 15,
+    "19": 15,
+    "2": 15,
+    "6": 15,
+    "8": 15
+   },
+   "steep_frames": [
+    39,
+    44,
+    221,
+    252,
+    283,
+    480,
+    487
+   ],
+   "as_printed": {
+    "objects_worst_sdr_db": 36.21,
+    "objects_median_sdr_db": 41.24,
+    "corr_structure_max_abs_delta": 0.0001,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {
+     "39": 55.55,
+     "44": 54.84,
+     "221": 36.74,
+     "252": 48.71,
+     "283": 40.25,
+     "480": 42.8,
+     "487": 44.72
+    }
+   },
+   "measured": {
+    "objects_worst_sdr_db": 36.21,
+    "objects_median_sdr_db": 41.24,
+    "corr_structure_max_abs_delta": 0.0001,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {
+     "39": 55.55,
+     "44": 54.84,
+     "221": 36.74,
+     "252": 48.71,
+     "283": 40.25,
+     "480": 42.8,
+     "487": 44.72
+    }
+   },
+   "verdict": "UNCHANGED"
+  },
+  {
+   "title": "extraction-nf-head",
+   "steep_objects": 30,
+   "offset_ts": {
+    "19": 15,
+    "8": 15
+   },
+   "steep_frames": [
+    39,
+    44
+   ],
+   "as_printed": {
+    "objects_worst_sdr_db": 50.51,
+    "objects_median_sdr_db": 53.51,
+    "corr_structure_max_abs_delta": 0.0014,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {
+     "39": 55.55,
+     "44": 54.84
+    }
+   },
+   "measured": {
+    "objects_worst_sdr_db": 50.51,
+    "objects_median_sdr_db": 53.51,
+    "corr_structure_max_abs_delta": 0.0014,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {
+     "39": 55.55,
+     "44": 54.84
+    }
+   },
+   "verdict": "UNCHANGED"
+  },
+  {
+   "title": "disclosure-web-head",
+   "steep_objects": 0,
+   "offset_ts": {},
+   "steep_frames": [],
+   "as_printed": {
+    "objects_worst_sdr_db": 35.25,
+    "objects_median_sdr_db": 40.24,
+    "corr_structure_max_abs_delta": 0.001,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {}
+   },
+   "measured": {
+    "objects_worst_sdr_db": 35.25,
+    "objects_median_sdr_db": 40.24,
+    "corr_structure_max_abs_delta": 0.001,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {}
+   },
+   "verdict": "UNCHANGED"
+  },
+  {
+   "title": "kingsman-joc-head",
+   "steep_objects": 0,
+   "offset_ts": {},
+   "steep_frames": [],
+   "as_printed": {
+    "objects_worst_sdr_db": 35.54,
+    "objects_median_sdr_db": 39.59,
+    "corr_structure_max_abs_delta": 0.0001,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {}
+   },
+   "measured": {
+    "objects_worst_sdr_db": 35.54,
+    "objects_median_sdr_db": 39.59,
+    "corr_structure_max_abs_delta": 0.0001,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {}
+   },
+   "verdict": "UNCHANGED"
+  },
+  {
+   "title": "knivesout-joc-head",
+   "steep_objects": 0,
+   "offset_ts": {},
+   "steep_frames": [],
+   "as_printed": {
+    "objects_worst_sdr_db": 35.72,
+    "objects_median_sdr_db": 41.23,
+    "corr_structure_max_abs_delta": 0.0007,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {}
+   },
+   "measured": {
+    "objects_worst_sdr_db": 35.72,
+    "objects_median_sdr_db": 41.23,
+    "corr_structure_max_abs_delta": 0.0007,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {}
+   },
+   "verdict": "UNCHANGED"
+  },
+  {
+   "title": "br2049-joc-head",
+   "steep_objects": 0,
+   "offset_ts": {},
+   "steep_frames": [],
+   "as_printed": {
+    "objects_worst_sdr_db": 37.63,
+    "objects_median_sdr_db": 42.08,
+    "corr_structure_max_abs_delta": 0.0009,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {}
+   },
+   "measured": {
+    "objects_worst_sdr_db": 37.63,
+    "objects_median_sdr_db": 42.08,
+    "corr_structure_max_abs_delta": 0.0009,
+    "lag_samples": 0,
+    "steep_frames_sdr_db": {}
+   },
+   "verdict": "UNCHANGED"
+  }
+ ],
+ "specification": {
+  "clause_6_3_4_4": "joc_offset_ts = joc_offset_ts_bits + 1, so the offset is one-based",
+  "clause_6_6_5": "the printed pseudo-code holds the previous matrix while ts < joc_offset_ts, and ts counts from zero",
+  "reading_measured": "the switch is at the slot the one-based offset names: ts < joc_offset_ts - 1",
+  "note": "the two readings differ by exactly one QMF time slot per steep data point; neither the parse nor any other field changes"
+ },
+ "method": [
+  "decode each clip twice from the same binary, once with --steep-as-printed and once without",
+  "compare per object against Dolby object decoder dumps with tools/objcmp.py, in the window it already used",
+  "measure the frames verify names as carrying steep objects, per frame, median over the fifteen objects",
+  "sweep the switch position over +/-3 slots on the title with the most steep objects"
+ ],
+ "switch_position_sweep": {
+  "title": "glassonion-nf-head",
+  "note": "the shift is applied to every steep data point in the file; 0 is the printed reading and -1 is the shipped one",
+  "rows": [
+   {
+    "shift_slots": -3,
+    "objects_worst_sdr_db": 24.69,
+    "objects_median_sdr_db": 46.88,
+    "corr_structure_max_abs_delta": 0.0007
+   },
+   {
+    "shift_slots": -2,
+    "objects_worst_sdr_db": 27.09,
+    "objects_median_sdr_db": 49.23,
+    "corr_structure_max_abs_delta": 0.0007
+   },
+   {
+    "shift_slots": -1,
+    "objects_worst_sdr_db": 49.93,
+    "objects_median_sdr_db": 65.44,
+    "corr_structure_max_abs_delta": 0.0001
+   },
+   {
+    "shift_slots": 0,
+    "objects_worst_sdr_db": 25.24,
+    "objects_median_sdr_db": 47.76,
+    "corr_structure_max_abs_delta": 0.0007
+   },
+   {
+    "shift_slots": 1,
+    "objects_worst_sdr_db": 21.64,
+    "objects_median_sdr_db": 43.64,
+    "corr_structure_max_abs_delta": 0.0012
+   },
+   {
+    "shift_slots": 2,
+    "objects_worst_sdr_db": 19.28,
+    "objects_median_sdr_db": 41.96,
+    "corr_structure_max_abs_delta": 0.0023
+   }
+  ]
+ },
+ "sparse_clips": {
+  "note": "the two clips cut for the sparse work also carry steep objects, and one of their frames is both sparse and steep with offset 23; this is the frame the remediation report left open at 22 dB below its neighbours",
+  "extraction-sparse.ec3": {
+   "as_printed": {
+    "73": 38.48,
+    "74": 48.19,
+    "75": 16.53,
+    "76": 46.18
+   },
+   "measured": {
+    "73": 38.48,
+    "74": 48.19,
+    "75": 30.63,
+    "76": 46.18
+   }
+  },
+  "extraction-sparse2.ec3": {
+   "note": "no steep objects; unchanged",
+   "as_printed": {
+    "64": 49.75,
+    "65": 45.72,
+    "82": 48.39,
+    "83": 51.52
+   },
+   "measured": {
+    "64": 49.75,
+    "65": 45.72,
+    "82": 48.39,
+    "83": 51.52
+   }
+  }
+ },
+ "audio_difference_between_the_two_readings": {
+  "note": "samples that differ at all, of 614 144 (sparse clips) or the clip length",
+  "glassonion-nf-head": {
+   "differing_samples": 38881,
+   "max_abs": 0.00104284
+  },
+  "rednotice-nf-head": {
+   "differing_samples": 2140,
+   "max_abs": 0.00014651
+  },
+  "extraction-nf-head": {
+   "differing_samples": 477,
+   "max_abs": 1.07e-06
+  },
+  "disclosure-web-head": {
+   "differing_samples": 0,
+   "max_abs": 0.0,
+   "why": "no steep objects, so the reading cannot reach it"
+  }
+ },
+ "corpus": {
+  "object_updates": 32493245,
+  "steep": 737503,
+  "note": "from evidence/remediation/joc-syntax-coverage.json: 2,3 per cent of all object updates in 31 JOC streams"
+ },
+ "summary": {
+  "titles_with_steep_objects": 6,
+  "improved": 4,
+  "unchanged": 6,
+  "regressed": 0,
+  "best_single_frame": {
+   "title": "shaun-joc1024-head",
+   "frame": 581,
+   "before_db": 23.51,
+   "after_db": 58.9
+  },
+  "best_title": {
+   "title": "glassonion-nf-head",
+   "worst_before_db": 25.24,
+   "worst_after_db": 49.93,
+   "median_before_db": 47.76,
+   "median_after_db": 65.44
+  },
+  "verdict": "the switch position is a discrete parameter with a sharp optimum one slot before the printed reading; the neighbouring positions are 22 dB worse and the printed one is 25 dB worse"
+ },
+ "later_titles": {
+  "utc": "2026-09-10T13:45:04.302192+00:00",
+  "why": "the corpus scan that measured which outputs the corrections changed named two more streams with heavy steep content, and one of them had no Dolby reference yet",
+  "jackal-s01e07-head": {
+   "steep_objects": 840,
+   "steep_frames": 56,
+   "offset_ts_values": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    17,
+    18,
+    19,
+    20,
+    22,
+    23,
+    24
+   ],
+   "as_printed": {
+    "objects_worst_sdr_db": 26.77,
+    "objects_median_sdr_db": 37.89,
+    "corr_structure_max_abs_delta": 0.0006
+   },
+   "measured": {
+    "objects_worst_sdr_db": 35.12,
+    "objects_median_sdr_db": 39.34,
+    "corr_structure_max_abs_delta": 0.0003
+   },
+   "per_frame": {
+    "654": [
+     34.56,
+     36.3
+    ],
+    "667": [
+     44.28,
+     44.28
+    ],
+    "694": [
+     50.12,
+     50.12
+    ],
+    "707": [
+     26.51,
+     37.76
+    ],
+    "710": [
+     31.46,
+     39.18
+    ],
+    "715": [
+     37.9,
+     37.9
+    ],
+    "746": [
+     41.99,
+     41.99
+    ]
+   },
+   "reading": "a fifth independent title, with more steep objects than any measured before, and the same shape: the damaged frames recover and the rest do not move"
+  },
+  "pi-head-joc384": {
+   "steep_objects": 1199,
+   "verdict": "NOT MEASURED",
+   "why": "the Dolby reference for this stream could not be aligned with our twelve object channels -- worst 8,78 dB under both readings, identical, which is a comparison that has not found the right pairing rather than a decoder result. Recorded so that nobody reads a conclusion out of it."
+  }
+ },
+ "a_sixth_title_from_another_source": {
+  "utc": "2026-09-10T19:28:54.296726+00:00",
+  "why": "the five titles behind this correction are disc remuxes and streaming rips of one encoder family. The streaming collection carries 2 451 570 steep objects of its own, and a clip of Extraction 2 is dense with them",
+  "clip": "Extraction 2 (2023), frames 153 100 to 153 500 of its first Dolby track",
+  "as_printed": {
+   "objects_worst_sdr_db": 21.74,
+   "objects_median_sdr_db": 27.11,
+   "corr_structure_max_abs_delta": 0.0023
+  },
+  "measured": {
+   "objects_worst_sdr_db": 30.3,
+   "objects_median_sdr_db": 36.7,
+   "corr_structure_max_abs_delta": 0.001
+  },
+  "reading": "better on every measure: 8,6 dB on the worst object, 9,6 on the median, and the inter-object correlation structure halved. The absolute figures are lower than the other titles because the clip is also dense with sparse and coarse objects; the comparison that matters is between the two readings of the same clip."
+ }
+}

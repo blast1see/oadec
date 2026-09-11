@@ -1,0 +1,582 @@
+{
+ "what": "E-AC-3 dependent substreams are never decoded: the before-state, reproduced",
+ "source": {
+  "file": "E:\\oadec-work\\audit\\tmp\\ddp71-1917-head.ec3",
+  "sha256": "b8c436b61baa242fcbb73bf7ac02924205374767c076723ba7a2147200cd8e4e",
+  "bytes": 11520000,
+  "title": "1917 (2019) UHD remux, secondary Dolby Digital Plus 7.1 track, first 60 s"
+ },
+ "structure": {
+  "file": "E:\\oadec-work\\audit\\tmp\\ddp71-1917-head.ec3",
+  "bytes": 11520000,
+  "bytes_consumed": 11520000,
+  "frames": 3750,
+  "groups": 1875,
+  "independent_frames": 1875,
+  "dependent_frames": 1875,
+  "substreams": {
+   "type 0 id 0": 1875,
+   "type 1 id 0": 1875
+  },
+  "distinct_group_shapes": 1,
+  "first_group": [
+   {
+    "syntax": "AC-3",
+    "strmtyp": 0,
+    "substreamid": 0,
+    "bsid": 6,
+    "bytes": 2560,
+    "fscod": 0,
+    "blocks": 6,
+    "acmod": 7,
+    "lfeon": 1,
+    "bsmod": 0,
+    "dialnorm": -26,
+    "bit_rate": 640000,
+    "chanmape": null,
+    "chanmap": null,
+    "channels": [
+     "L",
+     "C",
+     "R",
+     "Ls",
+     "Rs",
+     "LFE"
+    ]
+   },
+   {
+    "syntax": "E-AC-3",
+    "strmtyp": 1,
+    "substreamid": 0,
+    "bsid": 16,
+    "bytes": 3584,
+    "fscod": 0,
+    "fscod2": null,
+    "blocks": 6,
+    "acmod": 5,
+    "lfeon": 0,
+    "dialnorm": -26,
+    "compr": 0,
+    "chanmape": 1,
+    "chanmap": 6656,
+    "channels": [
+     "Ls",
+     "Rs",
+     "Lrs",
+     "Rrs"
+    ]
+   }
+  ],
+  "programme_channels": [
+   "L",
+   "C",
+   "R",
+   "Ls",
+   "Rs",
+   "LFE",
+   "Lrs",
+   "Rrs"
+  ],
+  "programme_sources": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    1,
+    0
+   ],
+   [
+    1,
+    1
+   ],
+   [
+    0,
+    5
+   ],
+   [
+    1,
+    2
+   ],
+   [
+    1,
+    3
+   ]
+  ],
+  "group_bytes": 6144
+ },
+ "before": {
+  "utc": "2026-09-10T07:10:16.564270+00:00",
+  "binary_sha256": "9dca54db61aeb91844e3e841e830768bf720c14cc52c3a489ab1c912d7ca5165",
+  "commit": "a3889744fe126947ad809398c6772ca61712ee29",
+  "oadec": {
+   "channels": 6,
+   "channel_names": [
+    "L",
+    "C",
+    "R",
+    "Ls",
+    "Rs",
+    "LFE"
+   ],
+   "samples": 2880000,
+   "pcm_bytes": 69120000,
+   "verify_result": "CLEAN",
+   "verify_exit": 0,
+   "independent_frames": 1875,
+   "dependent_frames": 1875,
+   "failures": {
+    "crc_failures": 0,
+    "decode_errors": 0,
+    "joc_errors": 0,
+    "joc_size_mismatches": 0,
+    "oamd_errors": 0,
+    "skipped_bytes": 0,
+    "sync_errors": 0,
+    "tail_overruns": 0
+   }
+  },
+  "ffmpeg": {
+   "channels": 8,
+   "layout": "7.1",
+   "order": [
+    "FL",
+    "FR",
+    "FC",
+    "LFE",
+    "BL",
+    "BR",
+    "SL",
+    "SR"
+   ],
+   "samples": 2880000,
+   "pcm_bytes": 92160000,
+   "command": "ffmpeg -drc_scale 0 -i <file> -f f32le -acodec pcm_f32le"
+  },
+  "pairing_matrix_sdr_db": [
+   [
+    63.8,
+    -2.56,
+    -11.53,
+    -7.3,
+    -20.38,
+    -20.08,
+    -4.84,
+    -5.12
+   ],
+   [
+    -4.4,
+    65.86,
+    -14.16,
+    -7.28,
+    -22.27,
+    -21.86,
+    -7.36,
+    -7.09
+   ],
+   [
+    0.24,
+    -0.54,
+    53.39,
+    -1.47,
+    -8.95,
+    -9.17,
+    -1.14,
+    -0.59
+   ],
+   [
+    -1.88,
+    -0.03,
+    -7.83,
+    141.94,
+    -15.32,
+    -14.52,
+    -2.5,
+    -3.5
+   ],
+   [
+    -0.88,
+    -1.56,
+    -9.06,
+    -4.06,
+    -16.49,
+    -16.08,
+    16.86,
+    -2.41
+   ],
+   [
+    -1.42,
+    -1.53,
+    -8.8,
+    -5.22,
+    -16.85,
+    -16.18,
+    -2.64,
+    16.79
+   ]
+  ],
+  "pairing": [
+   {
+    "a": "L",
+    "best": "FL",
+    "best_sdr_db": 63.8,
+    "runner_up": "FR",
+    "runner_up_sdr_db": -2.56,
+    "margin_db": 66.36
+   },
+   {
+    "a": "R",
+    "best": "FR",
+    "best_sdr_db": 65.86,
+    "runner_up": "FL",
+    "runner_up_sdr_db": -4.4,
+    "margin_db": 70.26
+   },
+   {
+    "a": "C",
+    "best": "FC",
+    "best_sdr_db": 53.39,
+    "runner_up": "FL",
+    "runner_up_sdr_db": 0.24,
+    "margin_db": 53.15
+   },
+   {
+    "a": "LFE",
+    "best": "LFE",
+    "best_sdr_db": 141.94,
+    "runner_up": "FR",
+    "runner_up_sdr_db": -0.03,
+    "margin_db": 141.97
+   },
+   {
+    "a": "Ls",
+    "best": "SL",
+    "best_sdr_db": 16.86,
+    "runner_up": "FL",
+    "runner_up_sdr_db": -0.88,
+    "margin_db": 17.74
+   },
+   {
+    "a": "Rs",
+    "best": "SR",
+    "best_sdr_db": 16.79,
+    "runner_up": "FL",
+    "runner_up_sdr_db": -1.42,
+    "margin_db": 18.21
+   }
+  ]
+ },
+ "after": {
+  "utc": "2026-09-10T07:38:25.143172+00:00",
+  "binary_sha256": "c1d88e2788a78c61d882cc14f144bcc50472a9b9525f2ba56ff7590f50f432de",
+  "commit": "b1c47ff710501bef5bf420ac7cd3b9c15e92c9ab",
+  "oadec": {
+   "channels": 8,
+   "channel_names": [
+    "L",
+    "C",
+    "R",
+    "Ls",
+    "Rs",
+    "LFE",
+    "Lrs",
+    "Rrs"
+   ],
+   "samples": 2880000,
+   "pcm_bytes": 92160000,
+   "verify_result": "CLEAN",
+   "verify_exit": 0,
+   "program": [
+    {
+     "acmod": 7,
+     "bit_rate": 640000,
+     "chanmap": null,
+     "channels": [
+      "L",
+      "C",
+      "R",
+      "Ls",
+      "Rs",
+      "LFE"
+     ],
+     "crc_failures": 0,
+     "decode_errors": 0,
+     "frames": 1875,
+     "lfeon": true,
+     "merged": true,
+     "substream": "independent 0",
+     "syntax": "AC-3",
+     "tail_overruns": 0
+    },
+    {
+     "acmod": 5,
+     "bit_rate": 896000,
+     "chanmap": [
+      "0x1a00"
+     ],
+     "channels": [
+      "Ls",
+      "Rs",
+      "Lrs",
+      "Rrs"
+     ],
+     "crc_failures": 0,
+     "decode_errors": 0,
+     "first_error": null,
+     "frames": 1875,
+     "lfe_implied": 0,
+     "lfeon": false,
+     "merged": true,
+     "substream": "dependent 0",
+     "syntax": "E-AC-3",
+     "tail_overruns": 0,
+     "unread_bits": [
+      18,
+      1281
+     ]
+    }
+   ],
+   "failures": {
+    "channels_over_capacity": 0,
+    "crc_failures": 0,
+    "decode_errors": 0,
+    "dependent_dropped": 0,
+    "joc_errors": 0,
+    "joc_size_mismatches": 0,
+    "layout_changes": 0,
+    "location_errors": 0,
+    "misaligned_substreams": 0,
+    "oamd_errors": 0,
+    "orphan_dependents": 0,
+    "skipped_bytes": 0,
+    "substream_crc_failures": 0,
+    "substream_decode_errors": 0,
+    "substream_tail_overruns": 0,
+    "sync_errors": 0,
+    "tail_overruns": 0
+   }
+  },
+  "core_only": {
+   "pcm_bytes": 69120000,
+   "byte_identical_to_pre_change_decode": true
+  },
+  "pairing_matrix_sdr_db": [
+   [
+    63.8,
+    -2.56,
+    -11.53,
+    -7.3,
+    -20.38,
+    -20.08,
+    -4.84,
+    -5.12
+   ],
+   [
+    -4.4,
+    65.86,
+    -14.16,
+    -7.28,
+    -22.27,
+    -21.86,
+    -7.36,
+    -7.09
+   ],
+   [
+    0.24,
+    -0.54,
+    53.39,
+    -1.47,
+    -8.95,
+    -9.17,
+    -1.14,
+    -0.59
+   ],
+   [
+    -1.88,
+    -0.03,
+    -7.83,
+    141.94,
+    -15.32,
+    -14.52,
+    -2.5,
+    -3.5
+   ],
+   [
+    0.05,
+    -0.01,
+    -0.3,
+    -0.3,
+    59.92,
+    -3.33,
+    -0.01,
+    -0.05
+   ],
+   [
+    -0.14,
+    -0.08,
+    -1.0,
+    0.01,
+    -3.82,
+    60.12,
+    -0.02,
+    0.04
+   ],
+   [
+    -0.83,
+    -1.52,
+    -8.9,
+    -3.91,
+    -16.43,
+    -15.95,
+    66.61,
+    -2.36
+   ],
+   [
+    -1.32,
+    -1.46,
+    -8.57,
+    -5.13,
+    -16.68,
+    -16.11,
+    -2.57,
+    67.56
+   ]
+  ],
+  "pairing": [
+   {
+    "a": "L",
+    "best": "FL",
+    "best_sdr_db": 63.8,
+    "runner_up": "FR",
+    "runner_up_sdr_db": -2.56,
+    "margin_db": 66.36
+   },
+   {
+    "a": "R",
+    "best": "FR",
+    "best_sdr_db": 65.86,
+    "runner_up": "FL",
+    "runner_up_sdr_db": -4.4,
+    "margin_db": 70.26
+   },
+   {
+    "a": "C",
+    "best": "FC",
+    "best_sdr_db": 53.39,
+    "runner_up": "FL",
+    "runner_up_sdr_db": 0.24,
+    "margin_db": 53.15
+   },
+   {
+    "a": "LFE",
+    "best": "LFE",
+    "best_sdr_db": 141.94,
+    "runner_up": "FR",
+    "runner_up_sdr_db": -0.03,
+    "margin_db": 141.97
+   },
+   {
+    "a": "Lrs",
+    "best": "BL",
+    "best_sdr_db": 59.92,
+    "runner_up": "FL",
+    "runner_up_sdr_db": 0.05,
+    "margin_db": 59.87
+   },
+   {
+    "a": "Rrs",
+    "best": "BR",
+    "best_sdr_db": 60.12,
+    "runner_up": "SR",
+    "runner_up_sdr_db": 0.04,
+    "margin_db": 60.08
+   },
+   {
+    "a": "Ls",
+    "best": "SL",
+    "best_sdr_db": 66.61,
+    "runner_up": "FL",
+    "runner_up_sdr_db": -0.83,
+    "margin_db": 67.44
+   },
+   {
+    "a": "Rs",
+    "best": "SR",
+    "best_sdr_db": 67.56,
+    "runner_up": "FL",
+    "runner_up_sdr_db": -1.32,
+    "margin_db": 68.88
+   }
+  ],
+  "unambiguous": true
+ },
+ "change": {
+  "channels": "6 -> 8",
+  "verify": "CLEAN exit 0 -> CLEAN exit 0",
+  "per_channel_sdr_db": {
+   "L": {
+    "reference": "FL",
+    "before": 63.8,
+    "after": 63.8,
+    "note": ""
+   },
+   "R": {
+    "reference": "FR",
+    "before": 65.86,
+    "after": 65.86,
+    "note": ""
+   },
+   "C": {
+    "reference": "FC",
+    "before": 53.39,
+    "after": 53.39,
+    "note": ""
+   },
+   "LFE": {
+    "reference": "LFE",
+    "before": 141.94,
+    "after": 141.94,
+    "note": ""
+   },
+   "Lrs": {
+    "reference": "BL",
+    "before": null,
+    "after": 59.92,
+    "note": "absent before"
+   },
+   "Rrs": {
+    "reference": "BR",
+    "before": null,
+    "after": 60.12,
+    "note": "absent before"
+   },
+   "Ls": {
+    "reference": "SL",
+    "before": 16.86,
+    "after": 66.61,
+    "note": ""
+   },
+   "Rs": {
+    "reference": "SR",
+    "before": 16.79,
+    "after": 67.56,
+    "note": ""
+   }
+  }
+ },
+ "reading": [
+  "All eight programme channels now pair with FFmpeg's, each beating its runner-up by at least 53 dB, so the identity is measured rather than assumed.",
+  "L, R, C and LFE are unchanged at 63.80, 65.86, 53.39 and 141.94 dB: merging did not touch the core.",
+  "Ls and Rs go from 16.86 and 16.79 dB against SL and SR to 66.61 and 67.56 dB, because the dependent substream's discrete surrounds replace the core's matrixed ones (clause E.2.8.2).",
+  "Lrs and Rrs did not exist in the output before and now match BL and BR at 59.92 and 60.12 dB.",
+  "--core-only reproduces the pre-change 5.1 decode byte for byte, so the compatibility decode is still available for reference comparisons."
+ ]
+}

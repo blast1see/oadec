@@ -9,6 +9,15 @@
 //! to hand the same decoder the same audio under both labels, which is what
 //! this does.
 //!
+//! **This does not work against the Dolby decoder.** It discards a payload that
+//! has been rewritten and holds the previous matrix, whatever the new value
+//! says, most likely because it verifies the EMDF protection words that
+//! clause H.2.2.4.3 of TS 102 366 leaves implementation-dependent. Dropping to
+//! the core's six channels is what that fallback looks like, and it is
+//! indistinguishable from honouring configuration 0. See
+//! `docs/audit/evidence/remediation/payload-rewrite-rejected.json`. The tool is
+//! kept because it is a working instrument against this decoder.
+//!
 //! The field is the first three bits of the JOC payload, the payload sits at a
 //! bit offset inside an EMDF container, and the container sits at a byte
 //! offset inside a skip field that itself starts at a bit offset in the frame.
@@ -20,8 +29,8 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
+use oadec_eac3::Syntax;
 use oadec_eac3::frame::{Frame, Noise, Options as FrameOptions};
-use oadec_eac3::{StreamType, Syntax};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC};
 
 use crate::eac3::for_each_frame;
@@ -30,7 +39,7 @@ use crate::eac3::for_each_frame;
 const CONFIG_BITS: u32 = 3;
 
 /// Writes `n` bits of `value` at bit offset `at`.
-fn put_bits(buf: &mut [u8], at: usize, n: u32, value: u32) {
+pub fn put_bits(buf: &mut [u8], at: usize, n: u32, value: u32) {
     for i in 0..n as usize {
         let bit = (value >> (n as usize - 1 - i)) & 1 == 1;
         let p = at + i;
@@ -44,7 +53,7 @@ fn put_bits(buf: &mut [u8], at: usize, n: u32, value: u32) {
 }
 
 /// The frame check of clause 7.10, as in `eac3-ecpl-inject`.
-fn crc16(bytes: &[u8]) -> u16 {
+pub fn crc16(bytes: &[u8]) -> u16 {
     let mut crc = 0u16;
     for &b in bytes {
         crc ^= u16::from(b) << 8;
@@ -94,7 +103,10 @@ pub fn run(path: &Path, out: &Path, config: u8) -> Result<()> {
     let mut untouched = 0u64;
     let (frames, sync_errors, skipped) = for_each_frame(path, |_offset, bytes, header| {
         let mut frame = bytes.to_vec();
-        if header.syntax == Syntax::Eac3 && header.stream_type != StreamType::Dependent {
+        // Dependent substreams are rewritten too: with one present, clause 8.2
+        // of TS 103 420 puts the JOC payload there, so skipping them would make
+        // this tool a no-op on exactly the streams it exists to interrogate.
+        if header.syntax == Syntax::Eac3 {
             let opts = FrameOptions {
                 dither: false,
                 ..FrameOptions::default()

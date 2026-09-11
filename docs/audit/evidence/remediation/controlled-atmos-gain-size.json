@@ -1,0 +1,1049 @@
+{
+ "what": "Controlled Atmos ground truth for object gain and object size, the two follow-up coverage items the first round named. Positions are static and repeat the scene that already recovered exactly, so they are the control.",
+ "utc": "2026-09-10T12:58:45.760251+00:00",
+ "commit": "5165edf41780024c6291aa589b1e7b686dc156ac",
+ "binary_sha256": "4093f3626ba92f2b763f87c8e795f816e72e86eb5d75f951ae7021ff292004ff",
+ "scene": "docs/audit/evidence/remediation/controlled-atmos-gain-size-scene.json",
+ "pipeline": [
+  "oadec atmos-author controlled-atmos-gain-size-scene.json -o gainsize",
+  "atmos_info -i gainsize.atmos --validate 1              (Dolby's validator, exit 0)",
+  "dee.exe --xml gainsize-joc.xml                          (encode_to_atmos_ddp, 768 kbit/s, DRC off)",
+  "dee.exe --xml gainsize-thd.xml                          (encode_to_dthd)",
+  "oadec decode [-p 3] --format damf --no-bed-conform",
+  "tools/ground_truth.py, extended to read gain and size back and to measure the essence level"
+ ],
+ "authored": [
+  {
+   "object": "gain 0 dB, point source",
+   "gain_db": 0,
+   "size": 0.0,
+   "tone_hz": 440.0,
+   "level_dbfs_peak": -20.0
+  },
+  {
+   "object": "gain -3 dB, point source",
+   "gain_db": -3,
+   "size": 0.0,
+   "tone_hz": 880.0,
+   "level_dbfs_peak": -20.0
+  },
+  {
+   "object": "gain -6 dB, point source",
+   "gain_db": -6,
+   "size": 0.0,
+   "tone_hz": 1320.0,
+   "level_dbfs_peak": -20.0
+  },
+  {
+   "object": "gain -12 dB, point source",
+   "gain_db": -12,
+   "size": 0.0,
+   "tone_hz": 1760.0,
+   "level_dbfs_peak": -20.0
+  },
+  {
+   "object": "gain -24 dB, point source",
+   "gain_db": -24,
+   "size": 0.0,
+   "tone_hz": 2200.0,
+   "level_dbfs_peak": -20.0
+  },
+  {
+   "object": "size 0.25, gain 0 dB",
+   "gain_db": 0,
+   "size": 0.25,
+   "tone_hz": 2640.0,
+   "level_dbfs_peak": -20.0
+  },
+  {
+   "object": "size 0.5, gain 0 dB",
+   "gain_db": 0,
+   "size": 0.5,
+   "tone_hz": 3080.0,
+   "level_dbfs_peak": -20.0
+  },
+  {
+   "object": "size 1.0, gain 0 dB",
+   "gain_db": 0,
+   "size": 1.0,
+   "tone_hz": 3520.0,
+   "level_dbfs_peak": -20.0
+  }
+ ],
+ "truehd_atmos": {
+  "summary": {
+   "scene": "docs/audit/evidence/remediation/controlled-atmos-gain-size-scene.json",
+   "decoded": "E:\\oadec-work\\audit\\remediation\\truth\\gainsize-thd-decoded",
+   "sample_rate": 48000.0,
+   "decoded_channels": 16,
+   "authored_objects": 8,
+   "identified_by_signal": 8,
+   "objects_with_every_position_recovered": 5,
+   "static_objects": 8,
+   "static_positions_exact": 5,
+   "worst_position_error": 1.0,
+   "event_offsets_samples": [
+    0
+   ],
+   "encoder_time_shift_samples": [],
+   "gain_checks": 8,
+   "gain_recovered": 4,
+   "size_checks": 8,
+   "size_recovered": 5,
+   "levels_minus_authored_db": [
+    -9.73,
+    -4.58,
+    -3.14,
+    0.3,
+    0.3,
+    0.61,
+    0.75,
+    0.75
+   ]
+  },
+  "objects": [
+   {
+    "authored": "gain 0 dB, point source",
+    "signal": {
+     "kind": "tone",
+     "hz": 440.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 0,
+    "element_id": 10,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       -1.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       -1.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true,
+      "authored_gain_db": 0,
+      "recovered_gain_db": 0,
+      "gain_matches": true,
+      "authored_size": 0.0,
+      "recovered_size": 0.0,
+      "size_matches": true
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -19.7,
+    "level_minus_authored_db": 0.3,
+    "gain_is_in_the_audio": false,
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "gain -3 dB, point source",
+    "signal": {
+     "kind": "tone",
+     "hz": 880.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 1,
+    "element_id": 11,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true,
+      "authored_gain_db": -3,
+      "recovered_gain_db": 0,
+      "gain_matches": false,
+      "authored_size": 0.0,
+      "recovered_size": 0.0,
+      "size_matches": true
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -19.39,
+    "level_minus_authored_db": 0.61,
+    "gain_is_in_the_audio": false,
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "gain -6 dB, point source",
+    "signal": {
+     "kind": "tone",
+     "hz": 1320.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 4,
+    "element_id": 14,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       1.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       1.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true,
+      "authored_gain_db": -6,
+      "recovered_gain_db": 0,
+      "gain_matches": false,
+      "authored_size": 0.0,
+      "recovered_size": 0.0,
+      "size_matches": true
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -19.7,
+    "level_minus_authored_db": 0.3,
+    "gain_is_in_the_audio": false,
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "gain -12 dB, point source",
+    "signal": {
+     "kind": "tone",
+     "hz": 1760.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 5,
+    "element_id": 15,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       -1.0,
+       -1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       -1.0,
+       -1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true,
+      "authored_gain_db": -12,
+      "recovered_gain_db": 0,
+      "gain_matches": false,
+      "authored_size": 0.0,
+      "recovered_size": 0.0,
+      "size_matches": true
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -19.25,
+    "level_minus_authored_db": 0.75,
+    "gain_is_in_the_audio": false,
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "gain -24 dB, point source",
+    "signal": {
+     "kind": "tone",
+     "hz": 2200.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 9,
+    "element_id": 19,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       1.0,
+       -1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       1.0,
+       -1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true,
+      "authored_gain_db": -24,
+      "recovered_gain_db": 0,
+      "gain_matches": false,
+      "authored_size": 0.0,
+      "recovered_size": 0.0,
+      "size_matches": true
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -19.25,
+    "level_minus_authored_db": 0.75,
+    "gain_is_in_the_audio": false,
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "size 0.25, gain 0 dB",
+    "signal": {
+     "kind": "tone",
+     "hz": 2640.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 3,
+    "element_id": 13,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       1.0,
+       1.0
+      ],
+      "recovered_pos": [
+       -1.0,
+       1.0,
+       1.0
+      ],
+      "position_error": 1.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": false,
+      "authored_gain_db": 0,
+      "recovered_gain_db": 0,
+      "gain_matches": true,
+      "authored_size": 0.25,
+      "recovered_size": 0.0,
+      "size_matches": false
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -23.14,
+    "level_minus_authored_db": -3.14,
+    "gain_is_in_the_audio": false,
+    "verdict": "POSITION DIFFERS",
+    "static": true
+   },
+   {
+    "authored": "size 0.5, gain 0 dB",
+    "signal": {
+     "kind": "tone",
+     "hz": 3080.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 8,
+    "element_id": 18,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       -1.0,
+       1.0
+      ],
+      "recovered_pos": [
+       -1.0,
+       -1.0,
+       1.0
+      ],
+      "position_error": 1.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": false,
+      "authored_gain_db": 0,
+      "recovered_gain_db": 0,
+      "gain_matches": true,
+      "authored_size": 0.5,
+      "recovered_size": 0.0,
+      "size_matches": false
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -24.58,
+    "level_minus_authored_db": -4.58,
+    "gain_is_in_the_audio": false,
+    "verdict": "POSITION DIFFERS",
+    "static": true
+   },
+   {
+    "authored": "size 1.0, gain 0 dB",
+    "signal": {
+     "kind": "tone",
+     "hz": 3520.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 2,
+    "element_id": 12,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       0.0,
+       0.5
+      ],
+      "recovered_pos": [
+       -1.0,
+       0.0,
+       0.0
+      ],
+      "position_error": 1.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": false,
+      "authored_gain_db": 0,
+      "recovered_gain_db": 0,
+      "gain_matches": true,
+      "authored_size": 1.0,
+      "recovered_size": 0.0,
+      "size_matches": false
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -29.73,
+    "level_minus_authored_db": -9.73,
+    "gain_is_in_the_audio": false,
+    "verdict": "POSITION DIFFERS",
+    "static": true
+   }
+  ]
+ },
+ "eac3_joc": {
+  "summary": {
+   "scene": "docs/audit/evidence/remediation/controlled-atmos-gain-size-scene.json",
+   "decoded": "E:\\oadec-work\\audit\\remediation\\truth\\gainsize-joc-decoded",
+   "sample_rate": 48000.0,
+   "decoded_channels": 16,
+   "authored_objects": 8,
+   "identified_by_signal": 8,
+   "objects_with_every_position_recovered": 5,
+   "static_objects": 8,
+   "static_positions_exact": 5,
+   "worst_position_error": 1.0,
+   "event_offsets_samples": [
+    0
+   ],
+   "encoder_time_shift_samples": [],
+   "gain_checks": 8,
+   "gain_recovered": 4,
+   "size_checks": 8,
+   "size_recovered": 5,
+   "levels_minus_authored_db": [
+    -9.45,
+    -4.58,
+    -2.96,
+    0.33,
+    0.33,
+    0.62,
+    0.77,
+    0.77
+   ]
+  },
+  "objects": [
+   {
+    "authored": "gain 0 dB, point source",
+    "signal": {
+     "kind": "tone",
+     "hz": 440.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 0,
+    "element_id": 10,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       -1.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       -1.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true,
+      "authored_gain_db": 0,
+      "recovered_gain_db": 0,
+      "gain_matches": true,
+      "authored_size": 0.0,
+      "recovered_size": 0.0,
+      "size_matches": true
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -19.67,
+    "level_minus_authored_db": 0.33,
+    "gain_is_in_the_audio": false,
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "gain -3 dB, point source",
+    "signal": {
+     "kind": "tone",
+     "hz": 880.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 1,
+    "element_id": 11,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true,
+      "authored_gain_db": -3,
+      "recovered_gain_db": 0,
+      "gain_matches": false,
+      "authored_size": 0.0,
+      "recovered_size": 0.0,
+      "size_matches": true
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -19.38,
+    "level_minus_authored_db": 0.62,
+    "gain_is_in_the_audio": false,
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "gain -6 dB, point source",
+    "signal": {
+     "kind": "tone",
+     "hz": 1320.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 4,
+    "element_id": 14,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       1.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       1.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true,
+      "authored_gain_db": -6,
+      "recovered_gain_db": 0,
+      "gain_matches": false,
+      "authored_size": 0.0,
+      "recovered_size": 0.0,
+      "size_matches": true
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -19.67,
+    "level_minus_authored_db": 0.33,
+    "gain_is_in_the_audio": false,
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "gain -12 dB, point source",
+    "signal": {
+     "kind": "tone",
+     "hz": 1760.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 5,
+    "element_id": 15,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       -1.0,
+       -1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       -1.0,
+       -1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true,
+      "authored_gain_db": -12,
+      "recovered_gain_db": 0,
+      "gain_matches": false,
+      "authored_size": 0.0,
+      "recovered_size": 0.0,
+      "size_matches": true
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -19.23,
+    "level_minus_authored_db": 0.77,
+    "gain_is_in_the_audio": false,
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "gain -24 dB, point source",
+    "signal": {
+     "kind": "tone",
+     "hz": 2200.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 9,
+    "element_id": 19,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       1.0,
+       -1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       1.0,
+       -1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true,
+      "authored_gain_db": -24,
+      "recovered_gain_db": 0,
+      "gain_matches": false,
+      "authored_size": 0.0,
+      "recovered_size": 0.0,
+      "size_matches": true
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -19.23,
+    "level_minus_authored_db": 0.77,
+    "gain_is_in_the_audio": false,
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "size 0.25, gain 0 dB",
+    "signal": {
+     "kind": "tone",
+     "hz": 2640.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 3,
+    "element_id": 13,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       1.0,
+       1.0
+      ],
+      "recovered_pos": [
+       -1.0,
+       1.0,
+       1.0
+      ],
+      "position_error": 1.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": false,
+      "authored_gain_db": 0,
+      "recovered_gain_db": 0,
+      "gain_matches": true,
+      "authored_size": 0.25,
+      "recovered_size": 0.0,
+      "size_matches": false
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -22.96,
+    "level_minus_authored_db": -2.96,
+    "gain_is_in_the_audio": false,
+    "verdict": "POSITION DIFFERS",
+    "static": true
+   },
+   {
+    "authored": "size 0.5, gain 0 dB",
+    "signal": {
+     "kind": "tone",
+     "hz": 3080.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 8,
+    "element_id": 18,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       -1.0,
+       1.0
+      ],
+      "recovered_pos": [
+       -1.0,
+       -1.0,
+       1.0
+      ],
+      "position_error": 1.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": false,
+      "authored_gain_db": 0,
+      "recovered_gain_db": 0,
+      "gain_matches": true,
+      "authored_size": 0.5,
+      "recovered_size": 0.0,
+      "size_matches": false
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -24.58,
+    "level_minus_authored_db": -4.58,
+    "gain_is_in_the_audio": false,
+    "verdict": "POSITION DIFFERS",
+    "static": true
+   },
+   {
+    "authored": "size 1.0, gain 0 dB",
+    "signal": {
+     "kind": "tone",
+     "hz": 3520.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 2,
+    "element_id": 12,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       0.0,
+       0.5
+      ],
+      "recovered_pos": [
+       -1.0,
+       0.0,
+       0.0
+      ],
+      "position_error": 1.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": false,
+      "authored_gain_db": 0,
+      "recovered_gain_db": 0,
+      "gain_matches": true,
+      "authored_size": 1.0,
+      "recovered_size": 0.0,
+      "size_matches": false
+     }
+    ],
+    "authored_signal_dbfs": -20.0,
+    "decoded_level_dbfs": -29.45,
+    "level_minus_authored_db": -9.45,
+    "gain_is_in_the_audio": false,
+    "verdict": "POSITION DIFFERS",
+    "static": true
+   }
+  ]
+ },
+ "tone_power": {
+  "method": "total power at each authored tone frequency summed over every decoded element, measured on eight seconds after the first half second. The authored dbfs is a peak amplitude, so an undisturbed tone reads 3,01 dB lower as RMS; that constant is the measurement convention and not a loss.",
+  "codecs": [
+   {
+    "codec": "TrueHD Atmos",
+    "base": "E:/oadec-work/audit/remediation/truth/gainsize-thd-decoded",
+    "tones": [
+     {
+      "object": "gain 0 dB, point source",
+      "hz": 440.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": 0,
+      "authored_size": 0.0,
+      "elements_carrying_it": 1,
+      "loudest_element": 1,
+      "loudest_dbfs": -23.02,
+      "total_dbfs": -23.02,
+      "total_minus_authored_db": -3.02
+     },
+     {
+      "object": "gain -3 dB, point source",
+      "hz": 880.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": -3,
+      "authored_size": 0.0,
+      "elements_carrying_it": 1,
+      "loudest_element": 2,
+      "loudest_dbfs": -23.02,
+      "total_dbfs": -23.02,
+      "total_minus_authored_db": -3.02
+     },
+     {
+      "object": "gain -6 dB, point source",
+      "hz": 1320.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": -6,
+      "authored_size": 0.0,
+      "elements_carrying_it": 1,
+      "loudest_element": 5,
+      "loudest_dbfs": -23.02,
+      "total_dbfs": -23.02,
+      "total_minus_authored_db": -3.02
+     },
+     {
+      "object": "gain -12 dB, point source",
+      "hz": 1760.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": -12,
+      "authored_size": 0.0,
+      "elements_carrying_it": 1,
+      "loudest_element": 6,
+      "loudest_dbfs": -23.02,
+      "total_dbfs": -23.02,
+      "total_minus_authored_db": -3.02
+     },
+     {
+      "object": "gain -24 dB, point source",
+      "hz": 2200.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": -24,
+      "authored_size": 0.0,
+      "elements_carrying_it": 1,
+      "loudest_element": 10,
+      "loudest_dbfs": -23.02,
+      "total_dbfs": -23.02,
+      "total_minus_authored_db": -3.02
+     },
+     {
+      "object": "size 0.25, gain 0 dB",
+      "hz": 2640.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": 0,
+      "authored_size": 0.25,
+      "elements_carrying_it": 7,
+      "loudest_element": 8,
+      "loudest_dbfs": -26.83,
+      "total_dbfs": -23.32,
+      "total_minus_authored_db": -3.32
+     },
+     {
+      "object": "size 0.5, gain 0 dB",
+      "hz": 3080.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": 0,
+      "authored_size": 0.5,
+      "elements_carrying_it": 8,
+      "loudest_element": 11,
+      "loudest_dbfs": -28.39,
+      "total_dbfs": -23.62,
+      "total_minus_authored_db": -3.62
+     },
+     {
+      "object": "size 1.0, gain 0 dB",
+      "hz": 3520.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": 0,
+      "authored_size": 1.0,
+      "elements_carrying_it": 11,
+      "loudest_element": 7,
+      "loudest_dbfs": -33.42,
+      "total_dbfs": -24.22,
+      "total_minus_authored_db": -4.22
+     }
+    ]
+   },
+   {
+    "codec": "E-AC-3 JOC",
+    "base": "E:/oadec-work/audit/remediation/truth/gainsize-joc-decoded",
+    "tones": [
+     {
+      "object": "gain 0 dB, point source",
+      "hz": 440.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": 0,
+      "authored_size": 0.0,
+      "elements_carrying_it": 1,
+      "loudest_element": 1,
+      "loudest_dbfs": -23.01,
+      "total_dbfs": -23.01,
+      "total_minus_authored_db": -3.01
+     },
+     {
+      "object": "gain -3 dB, point source",
+      "hz": 880.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": -3,
+      "authored_size": 0.0,
+      "elements_carrying_it": 1,
+      "loudest_element": 2,
+      "loudest_dbfs": -23.01,
+      "total_dbfs": -23.01,
+      "total_minus_authored_db": -3.01
+     },
+     {
+      "object": "gain -6 dB, point source",
+      "hz": 1320.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": -6,
+      "authored_size": 0.0,
+      "elements_carrying_it": 1,
+      "loudest_element": 5,
+      "loudest_dbfs": -23.01,
+      "total_dbfs": -23.01,
+      "total_minus_authored_db": -3.01
+     },
+     {
+      "object": "gain -12 dB, point source",
+      "hz": 1760.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": -12,
+      "authored_size": 0.0,
+      "elements_carrying_it": 1,
+      "loudest_element": 6,
+      "loudest_dbfs": -23.09,
+      "total_dbfs": -23.09,
+      "total_minus_authored_db": -3.09
+     },
+     {
+      "object": "gain -24 dB, point source",
+      "hz": 2200.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": -24,
+      "authored_size": 0.0,
+      "elements_carrying_it": 1,
+      "loudest_element": 10,
+      "loudest_dbfs": -23.09,
+      "total_dbfs": -23.09,
+      "total_minus_authored_db": -3.09
+     },
+     {
+      "object": "size 0.25, gain 0 dB",
+      "hz": 2640.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": 0,
+      "authored_size": 0.25,
+      "elements_carrying_it": 7,
+      "loudest_element": 8,
+      "loudest_dbfs": -26.7,
+      "total_dbfs": -23.21,
+      "total_minus_authored_db": -3.21
+     },
+     {
+      "object": "size 0.5, gain 0 dB",
+      "hz": 3080.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": 0,
+      "authored_size": 0.5,
+      "elements_carrying_it": 8,
+      "loudest_element": 9,
+      "loudest_dbfs": -28.4,
+      "total_dbfs": -23.4,
+      "total_minus_authored_db": -3.4
+     },
+     {
+      "object": "size 1.0, gain 0 dB",
+      "hz": 3520.0,
+      "authored_dbfs": -20.0,
+      "authored_gain_db": 0,
+      "authored_size": 1.0,
+      "elements_carrying_it": 11,
+      "loudest_element": 7,
+      "loudest_dbfs": -33.24,
+      "total_dbfs": -23.96,
+      "total_minus_authored_db": -3.96
+     }
+    ]
+   }
+  ]
+ },
+ "findings": [
+  {
+   "what": "object gain is dropped by both encoders",
+   "evidence": "all five gain-varied objects come back with gain 0 in the metadata and with their essence at the authored level; the total tone power is the same, -23,02 dBFS, for the object authored at 0 dB and for the one authored at -24 dB. The encoded bitstream itself carries gain Db(0): `oadec emdf --dump 1` on the E-AC-3 encode reads it straight out of the OAMD payload, before any of this decoder's DAMF writing.",
+   "whose behaviour": "the encoder"
+  },
+  {
+   "what": "object size is rendered into the spatial coding, not carried",
+   "evidence": "the metadata comes back with size 0 in both codecs, and the object is spread: a point source is carried by one element, size 0,25 by seven, size 0,5 by eight and size 1,0 by eleven. The total tone power is within 0,3 to 1,2 dB of the authored level, so the spreading loses almost nothing. The element the spread object is loudest in reports a position at the room edge rather than the authored one, which is what a spread across the room gives.",
+   "whose behaviour": "the encoder"
+  },
+  {
+   "what": "the control holds",
+   "evidence": "the five point sources recover their authored positions exactly, at event offset zero, one element each, in both codecs, exactly as the positions-and-timing round measured.",
+   "whose behaviour": "the decoder"
+  },
+  {
+   "what": "no real stream carries a non-zero object gain or size either",
+   "evidence": "Pi decoded from TrueHD and Disclosure decoded from E-AC-3 JOC both come back with gain 0 and size 0,0 on every object of every event.",
+   "whose behaviour": "observed"
+  },
+  {
+   "what": "divergence cannot be authored through this pipeline at all",
+   "evidence": "OAMD carries object_divergence in the extended object element and oadec parses it, but the Dolby Atmos Master Format has no divergence field, so a DAMF master cannot express one. It stays N/T and no amount of authoring will change that; it would need a stream that carries it.",
+   "whose behaviour": "a format limit"
+  }
+ ]
+}

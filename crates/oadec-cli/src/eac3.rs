@@ -8,13 +8,17 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use oadec_eac3::{Coverage, Decoded, Decoder, FrameHeader, Options, Syntax, find_sync};
+use oadec_eac3::{
+    ChannelLoc, Coverage, Decoder, FrameHeader, Options, ProgramDecoder, ProgramFrame, Syntax,
+    find_sync,
+};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
-use oadec_emdf::joc::{Joc, Slope, SparseIndexMode};
+use oadec_emdf::joc::{Joc, Slope, SparseReading};
 use oadec_emdf::oamd::Oamd;
 use serde_json::{Value, json};
 
 use crate::decode::{Format, Order, format_duration};
+use crate::integrity::Findings;
 
 /// Whether the file starts with an AC-3 family sync word.
 pub fn is_eac3(path: &Path) -> Result<bool> {
@@ -164,43 +168,61 @@ fn syntax_name(h: &FrameHeader) -> &'static str {
     }
 }
 
-fn interchange_rank(name: &str) -> u8 {
-    match name {
-        "L" | "Ch1" => 0,
-        "R" | "Ch2" => 1,
-        "C" => 2,
-        "LFE" => 3,
-        "S" => 4,
-        "Ls" => 5,
-        "Rs" => 6,
-        _ => 7,
+/// The channels a decode writes and the samples of each, in programme order.
+///
+/// The whole programme by default. With `core_only` the independent
+/// substream's own channels, which is the 5.1-compatible downmix a decoder
+/// limited to 5.1 would produce and clause E.2.8.2 allows -- useful for
+/// comparing against a reference decoder that only renders that far.
+fn output_channels(frame: &ProgramFrame, core_only: bool) -> (Vec<ChannelLoc>, Vec<&[f32]>) {
+    if core_only {
+        let part = &frame.parts[0];
+        return (
+            part.locations.clone(),
+            part.decoded.pcm.iter().map(Vec::as_slice).collect(),
+        );
     }
+    (
+        frame.layout.channels.clone(),
+        (0..frame.channels()).map(|i| frame.channel(i)).collect(),
+    )
 }
 
 /// Output channel indices (into the coded order) for the requested order.
-fn output_order(names: &[&str], order: Order) -> Vec<usize> {
-    let mut idx: Vec<usize> = (0..names.len()).collect();
+///
+/// Interchange order is the order of the WAVE mask bits, which each channel
+/// location carries with it, so the order and the mask below can never
+/// disagree.
+fn output_order(chans: &[ChannelLoc], order: Order) -> Vec<usize> {
+    let mut idx: Vec<usize> = (0..chans.len()).collect();
     if order == Order::Interchange {
-        idx.sort_by_key(|&i| interchange_rank(names[i]));
+        idx.sort_by_key(|&i| chans[i].interchange_rank());
     }
     idx
 }
 
 /// WAVE channel mask bits in WAVE order.
-fn channel_mask(names: &[&str]) -> u32 {
-    names
-        .iter()
-        .map(|n| match *n {
-            "L" | "Ch1" => 0x1,
-            "R" | "Ch2" => 0x2,
-            "C" => 0x4,
-            "LFE" => 0x8,
-            "S" => 0x100,
-            "Ls" => 0x200,
-            "Rs" => 0x400,
-            _ => 0,
-        })
-        .fold(0, |a, b| a | b)
+///
+/// Zero when the programme holds a location WAVE cannot name (the
+/// surround-direct and wide pairs, the second LFE): a mask with fewer bits set
+/// than there are channels is not a valid `WAVEFORMATEXTENSIBLE`, and zero is
+/// the format's own way of saying the assignment is not stated.
+fn channel_mask(chans: &[ChannelLoc]) -> u32 {
+    let mask = chans.iter().fold(0, |a, c| a | c.wave_mask());
+    if mask.count_ones() as usize == chans.len() {
+        mask
+    } else {
+        let unnamed: Vec<&str> = chans
+            .iter()
+            .filter(|c| c.wave_mask() == 0)
+            .map(|c| c.name())
+            .collect();
+        eprintln!(
+            "warning: WAVE has no channel mask bit for {}; writing an unassigned mask",
+            unnamed.join(", ")
+        );
+        0
+    }
 }
 
 #[derive(Debug, Default)]
@@ -215,22 +237,57 @@ struct EmdfStats {
     payload_ids: BTreeMap<u32, u64>,
     oamd_ok: u64,
     oamd_errors: u64,
+    /// Object gains other than unity, by decibel value, over updates that
+    /// signalled one; the mutes counted apart, because table 28's default for
+    /// an inactive object *is* a mute; and updates carrying a non-zero
+    /// `object_size`. Both Dolby encoders drop these two fields, so an
+    /// authored stream cannot carry either and only the wild can answer
+    /// whether anything does.
+    oamd_gain_size: oadec_emdf::oamd::GainSizeCounts,
     joc: u64,
     first_error: Option<String>,
     // JOC side information statistics
     joc_ok: u64,
     joc_errors: u64,
     joc_size_mismatch: u64,
+    /// Frames carrying auxiliary data user bits (clause 4.4.4), and how many
+    /// bytes of them, and how many EMDF containers they hold. Annex H names
+    /// `auxdata` as a place a container may be carried, next to the skip
+    /// fields, so this is what says whether anything in the wild uses it.
+    auxdata_frames: u64,
+    auxdata_bytes: u64,
+    containers_in_auxdata: u64,
+    auxdata_overruns: u64,
+    /// Containers found in the independent substream of a programme that also
+    /// has dependent substreams. TS 103 420 clause 8.2 puts the container in
+    /// the last dependent substream when one exists, so this should be zero;
+    /// it is reported and never acted on, because an encoder that disagrees
+    /// with the clause is worth knowing about.
+    containers_in_independent: u64,
     joc_padding_nonzero: u64,
     joc_dmx: BTreeMap<u8, u64>,
     joc_objects: BTreeMap<usize, u64>,
     joc_bands: BTreeMap<usize, u64>,
     joc_absent_objects: u64,
     joc_sparse: u64,
+    /// Objects that are sparse and steep at once.
+    joc_sparse_steep: u64,
     joc_dense: u64,
     joc_two_dpoints: u64,
     joc_steep: u64,
     joc_fine: u64,
+    joc_coarse: u64,
+    /// The four temporal-interpolation branches of clause 6.6.5, pseudo-code 6,
+    /// counted separately: slope smooth or steep crossed with one or two data
+    /// points. Two of them have never been seen in any stream measured, and a
+    /// total that only says "2 760 steep" cannot tell you which.
+    joc_interp: BTreeMap<&'static str, u64>,
+    /// The distribution of `joc_offset_ts`, the time slot a steep slope
+    /// switches at.
+    joc_offset_ts: BTreeMap<u8, u64>,
+    /// The first frames carrying each rare branch, capped. Counts say whether a
+    /// stream exercises a branch; these say where to cut a clip that does.
+    joc_rare_frames: BTreeMap<&'static str, Vec<u64>>,
     joc_seq_zero: u64,
     joc_clipgain: BTreeMap<u32, u64>,
     /// Per clip gain bucket: the largest and the summed peak matrix
@@ -242,6 +299,16 @@ struct EmdfStats {
 }
 
 impl EmdfStats {
+    /// Records where a rare syntax branch occurred, up to a cap: the counts
+    /// answer "does anything use this", the frame numbers answer "where do I
+    /// cut a clip that does".
+    fn note_rare(&mut self, what: &'static str, frame: u64) {
+        let seen = self.joc_rare_frames.entry(what).or_default();
+        if seen.len() < 64 && seen.last() != Some(&frame) {
+            seen.push(frame);
+        }
+    }
+
     fn scan(&mut self, frame_index: u64, skip_fields: &[Vec<u8>]) {
         self.last_clipgain = None;
         let total: usize = skip_fields.iter().map(Vec::len).sum();
@@ -273,7 +340,7 @@ impl EmdfStats {
                         *self.payload_ids.entry(p.id).or_default() += 1;
                         if p.id == PAYLOAD_ID_JOC {
                             self.joc += 1;
-                            match Joc::parse(&p.data, SparseIndexMode::Literal) {
+                            match Joc::parse(&p.data, SparseReading::default()) {
                                 Ok(j) => {
                                     self.joc_ok += 1;
                                     if !j.size_ok(p.data.len()) {
@@ -301,6 +368,11 @@ impl EmdfStats {
                                     e.2 += 1;
                                     if j.seq_count == 0 {
                                         self.joc_seq_zero += 1;
+                                        // clause 6.3.3.3: the first frame of
+                                        // the bitstream, or the first after a
+                                        // splice. Where they are is what a cut
+                                        // between two of them needs.
+                                        self.note_rare("seq-count-zero", frame_index);
                                     }
                                     for o in &j.objects {
                                         match o {
@@ -310,17 +382,49 @@ impl EmdfStats {
                                                     1;
                                                 if o.sparse {
                                                     self.joc_sparse += 1;
+                                                    self.note_rare("sparse", frame_index);
+                                                    // the combination is what
+                                                    // the one unexplained frame
+                                                    // has, and a clip that
+                                                    // carries more of them is
+                                                    // what turns an anomaly of
+                                                    // one into a measurement
+                                                    if o.slope == Slope::Steep {
+                                                        self.joc_sparse_steep += 1;
+                                                        self.note_rare(
+                                                            "sparse-and-steep",
+                                                            frame_index,
+                                                        );
+                                                    }
                                                 } else {
                                                     self.joc_dense += 1;
                                                 }
                                                 if o.num_dpoints == 2 {
                                                     self.joc_two_dpoints += 1;
+                                                    self.note_rare("two-data-points", frame_index);
                                                 }
                                                 if o.slope == Slope::Steep {
                                                     self.joc_steep += 1;
                                                 }
                                                 if o.quant_idx == 1 {
                                                     self.joc_fine += 1;
+                                                } else {
+                                                    self.joc_coarse += 1;
+                                                    self.note_rare("coarse", frame_index);
+                                                }
+                                                let branch = match (o.slope, o.num_dpoints) {
+                                                    (Slope::Smooth, 1) => "smooth-1",
+                                                    (Slope::Smooth, _) => "smooth-2",
+                                                    (Slope::Steep, 1) => "steep-1",
+                                                    (Slope::Steep, _) => "steep-2",
+                                                };
+                                                *self.joc_interp.entry(branch).or_default() += 1;
+                                                if branch != "smooth-1" {
+                                                    self.note_rare(branch, frame_index);
+                                                }
+                                                for ts in o.offset_ts.iter().take(o.num_dpoints) {
+                                                    *self.joc_offset_ts.entry(*ts).or_default() +=
+                                                        1;
                                                 }
                                             }
                                         }
@@ -337,7 +441,17 @@ impl EmdfStats {
                         }
                         if p.id == PAYLOAD_ID_OAMD {
                             match Oamd::parse(&p.data) {
-                                Ok(_) => self.oamd_ok += 1,
+                                Ok(oamd) => {
+                                    self.oamd_ok += 1;
+                                    let counts = oamd.gain_and_size_counts();
+                                    if !counts.gains_db.is_empty() {
+                                        self.note_rare("oamd-object-gain", frame_index);
+                                    }
+                                    if counts.sized > 0 {
+                                        self.note_rare("oamd-object-size", frame_index);
+                                    }
+                                    self.oamd_gain_size.add(&counts);
+                                }
                                 Err(e) => {
                                     self.oamd_errors += 1;
                                     if self.first_error.is_none() {
@@ -415,6 +529,28 @@ fn merge(into: &mut Coverage, c: &Coverage) {
     into.rematrixing |= c.rematrixing;
 }
 
+/// What one substream of a programme carried, for the substreams that are
+/// parsed but whose audio does not reach the output.
+#[derive(Debug, Default)]
+struct SubStats {
+    frames: u64,
+    decode_errors: u64,
+    crc_failures: u64,
+    tail_overruns: u64,
+    /// Smallest and largest number of bits of a frame the parser left unread.
+    /// A well-formed frame is consumed nearly to its end, so a systematic
+    /// misparse of syntax that has never run shows up here as wild or negative
+    /// slack long before it shows up as bad audio.
+    slack_bits: Option<(i64, i64)>,
+    first_error: Option<String>,
+    header: Option<FrameHeader>,
+    /// Channel locations, from the custom channel map or from `acmod`.
+    locations: Vec<ChannelLoc>,
+    /// Every distinct `chanmap` seen, so a mid-stream change is visible.
+    chanmaps: BTreeMap<u16, u64>,
+    lfe_implied: u64,
+}
+
 /// Summary of a full pass over a stream.
 #[derive(Debug, Default)]
 struct Pass {
@@ -422,6 +558,13 @@ struct Pass {
     independent: u64,
     dependent: u64,
     substreams: BTreeMap<(u8, u8), u64>,
+    /// The dependent substreams of the programme, keyed by
+    /// `(strmtyp, substreamid)`.
+    subs: BTreeMap<(u8, u8), SubStats>,
+    /// What assembling the programme found.
+    program: oadec_eac3::ProgramStats,
+    /// The programme's channels and where each comes from.
+    layout: Option<oadec_eac3::ProgramLayout>,
     samples: u64,
     decode_errors: u64,
     crc_failures: u64,
@@ -445,16 +588,63 @@ struct Pass {
     clipgains: Vec<(u64, f64)>,
 }
 
-/// Decodes every frame of independent substream 0 (parsing the others) and
-/// collects statistics; `on_pcm` receives the decoded frames in order.
+/// Folds what one substream of a group carried into [`SubStats`].
+///
+/// The bit slack is the point. Clause E.1.3.1 syntax that only dependent
+/// substreams carry -- `chanmape`, `chanmap`, and the branches guarded on
+/// `strmtyp` -- never ran on real material until this pass reached it, because
+/// the filter that used to sit here dropped the frame before it was parsed at
+/// all. A single bit wrong there does not give a slightly wrong frame:
+/// `Frame::parse` seeks the audio blocks to the bit position the `bsi` ended
+/// at, so the whole frame is misread, and the frame CRC will not catch it
+/// because the CRC is over the bytes and never touches the parse. Bit slack
+/// does catch it.
+fn account_sub(sub: &mut SubStats, index: u64, part: &oadec_eac3::Part) {
+    let d = &part.decoded;
+    sub.frames += 1;
+    if sub.header.is_none() {
+        sub.header = Some(d.header.clone());
+    }
+    let slack = (d.header.frame_bytes as i64) * 8 - d.used_bits as i64;
+    sub.slack_bits = Some(match sub.slack_bits {
+        None => (slack, slack),
+        Some((lo, hi)) => (lo.min(slack), hi.max(slack)),
+    });
+    if !d.crc_ok {
+        sub.crc_failures += 1;
+        if sub.first_error.is_none() {
+            sub.first_error = Some(format!("group {index}: CRC failure"));
+        }
+    }
+    if d.tail_overrun {
+        sub.tail_overruns += 1;
+        if sub.first_error.is_none() {
+            sub.first_error = Some(format!(
+                "group {index}: the audio blocks end inside the frame tail"
+            ));
+        }
+    }
+    if let Some(m) = d.bsi.chanmap {
+        *sub.chanmaps.entry(m).or_default() += 1;
+    }
+    if part.lfe_implied {
+        sub.lfe_implied += 1;
+    }
+    if sub.locations.is_empty() {
+        sub.locations = part.locations.clone();
+    }
+}
+
+/// Decodes the programme carried by independent substream 0 and the dependent
+/// substreams that follow it, and collects statistics; `on_pcm` receives the
+/// merged frame groups in order.
 fn pass(
     path: &Path,
     opts: Options,
-    mut on_pcm: impl FnMut(&Decoded) -> Result<()>,
+    mut on_pcm: impl FnMut(&ProgramFrame) -> Result<()>,
 ) -> Result<(Pass, u64, u64)> {
-    let mut decoder = Decoder::new(opts);
+    let mut dec = ProgramDecoder::new(opts);
     let mut p = Pass::default();
-    let mut pending: std::collections::VecDeque<u64> = std::collections::VecDeque::new();
     let (frames, sync_errors, skipped) = for_each_frame(path, |_offset, bytes, header| {
         let key = (header.stream_type as u8, header.substream_id);
         *p.substreams.entry(key).or_default() += 1;
@@ -462,40 +652,34 @@ fn pass(
             oadec_eac3::StreamType::Dependent => p.dependent += 1,
             _ => p.independent += 1,
         }
-        // only independent substream 0 is decoded
-        if header.stream_type == oadec_eac3::StreamType::Dependent || header.substream_id != 0 {
-            return Ok(());
-        }
-        let index = p.frames;
-        p.frames += 1;
-        // Enhanced coupling makes the decoder hold a frame back, so the frame
-        // it hands out is not always the one just fed in; the queue keeps the
-        // index that belongs to each released frame.
-        pending.push_back(index);
-        match decoder.decode(bytes) {
-            Ok(Some(d)) => {
-                let at = pending.pop_front().unwrap_or(index);
-                account(&mut p, at, &d, &mut on_pcm)?;
-            }
-            Ok(None) => {}
-            Err(e) => {
-                pending.pop_back();
-                p.decode_errors += 1;
-                if p.first_error.is_none() {
-                    p.first_error = Some(format!("frame {index}: {e}"));
-                }
-                while let Some(d) = decoder.flush()? {
-                    let at = pending.pop_front().unwrap_or(index);
-                    account(&mut p, at, &d, &mut on_pcm)?;
-                }
-                decoder.reset();
-            }
+        dec.push(bytes, header)?;
+        while let Some(frame) = dec.pop() {
+            account(&mut p, &frame, &mut on_pcm)?;
         }
         Ok(())
     })?;
-    while let Some(d) = decoder.flush()? {
-        let at = pending.pop_front().unwrap_or(p.frames);
-        account(&mut p, at, &d, &mut on_pcm)?;
+    dec.finish()?;
+    while let Some(frame) = dec.pop() {
+        account(&mut p, &frame, &mut on_pcm)?;
+    }
+    p.program = dec.stats().clone();
+    p.layout = dec.layout().cloned();
+    // decode errors of the independent substream are the ones that stop a
+    // decode; a dependent substream's are reported against that substream
+    p.decode_errors = p
+        .program
+        .decode_errors
+        .iter()
+        .filter(|((t, _), _)| *t != 1)
+        .map(|(_, n)| *n)
+        .sum();
+    for ((t, id), n) in &p.program.decode_errors {
+        if *t == 1 {
+            p.subs.entry((*t, *id)).or_default().decode_errors = *n;
+        }
+    }
+    if p.first_error.is_none() {
+        p.first_error = p.program.first_error.clone();
     }
     let _ = frames;
     Ok((p, sync_errors, skipped))
@@ -504,10 +688,15 @@ fn pass(
 /// Folds one decoded frame into the pass statistics.
 fn account(
     p: &mut Pass,
-    index: u64,
-    d: &Decoded,
-    on_pcm: &mut impl FnMut(&Decoded) -> Result<()>,
+    frame: &ProgramFrame,
+    on_pcm: &mut impl FnMut(&ProgramFrame) -> Result<()>,
 ) -> Result<()> {
+    let index = frame.index;
+    let d = frame.core();
+    p.frames += 1;
+    for part in frame.parts.iter().skip(1) {
+        account_sub(p.subs.entry(part.key).or_default(), index, part);
+    }
     if p.first.is_none() {
         p.first = Some((d.header.clone(), d.bsi.clone()));
     }
@@ -544,7 +733,26 @@ fn account(
             p.first_error = Some(format!("frame {index}: CRC failure"));
         }
     }
-    p.emdf.scan(index, &d.skip_fields);
+    // TS 103 420 clause 8.2: with dependent substreams present the EMDF
+    // container carrying OAMD and JOC is in the last dependent substream. With
+    // none, `metadata_part` is the independent substream and this is exactly
+    // what it was before.
+    p.emdf
+        .scan(index, &frame.metadata_part().decoded.skip_fields);
+    if frame.parts.len() > 1 {
+        p.emdf.containers_in_independent += count_containers(&d.skip_fields);
+    }
+    for part in &frame.parts {
+        if !part.decoded.auxdata.is_empty() {
+            p.emdf.auxdata_frames += 1;
+            p.emdf.auxdata_bytes += part.decoded.auxdata.len() as u64;
+            p.emdf.containers_in_auxdata +=
+                count_containers(std::slice::from_ref(&part.decoded.auxdata));
+        }
+        if part.decoded.auxdata_overrun {
+            p.emdf.auxdata_overruns += 1;
+        }
+    }
     if let Some(g) = p.emdf.last_clipgain {
         if (g - 1.0).abs() > 1e-9 {
             p.clipgains.push((index, g));
@@ -563,7 +771,29 @@ fn account(
         e.2 += 1;
     }
     p.samples += d.header.samples() as u64;
-    on_pcm(d)
+    on_pcm(frame)
+}
+
+/// How many EMDF containers a substream's skip fields hold, for the evidence
+/// counter above. Nothing is parsed beyond the container itself.
+fn count_containers(skip: &[Vec<u8>]) -> u64 {
+    let data: Vec<u8> = skip.iter().flatten().copied().collect();
+    let mut pos = 0usize;
+    let mut found = 0u64;
+    while pos + 2 <= data.len() {
+        if u16::from_be_bytes([data[pos], data[pos + 1]]) != container::EMDF_SYNCWORD {
+            pos += 1;
+            continue;
+        }
+        match container::parse_emdf_with_sync(&data[pos..]) {
+            Ok((_, used)) => {
+                found += 1;
+                pos += used.max(1);
+            }
+            Err(_) => pos += 1,
+        }
+    }
+    found
 }
 
 /// The largest absolute dequantized matrix coefficient of one JOC payload.
@@ -592,6 +822,111 @@ fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
         && p.emdf.oamd_errors == 0
         && p.emdf.joc_errors == 0
         && p.emdf.joc_size_mismatch == 0
+        // A dependent substream that was seen and whose channels did not reach
+        // the output means the programme was truncated, whatever the frames
+        // that did decode looked like. A second programme is legal and is not
+        // counted here.
+        && p.program.is_clean()
+        && p.subs
+            .values()
+            .all(|s| s.decode_errors == 0 && s.crc_failures == 0 && s.tail_overruns == 0)
+}
+
+/// One line per substream of the selected programme, in bitstream order:
+/// what it codes, what its channels are, and whether they reached the output.
+fn program_parts(p: &Pass, h: &FrameHeader) -> Vec<Value> {
+    let mut parts = vec![json!({
+        "substream": "independent 0",
+        "syntax": syntax_name(h),
+        "acmod": h.acmod,
+        "lfeon": h.lfeon,
+        "chanmap": Value::Null,
+        "channels": Decoder::channel_names(h),
+        "frames": p.frames,
+        "merged": true,
+        "bit_rate": h.bit_rate(),
+        "crc_failures": p.crc_failures,
+        "decode_errors": p.decode_errors,
+        "tail_overruns": p.tail_overruns,
+    })];
+    for ((t, id), sub) in &p.subs {
+        let sh = sub.header.as_ref();
+        parts.push(json!({
+            "substream": format!("{} {id}", if *t == 1 { "dependent" } else { "independent" }),
+            "syntax": sh.map(syntax_name),
+            "acmod": sh.map(|h| h.acmod),
+            "lfeon": sh.map(|h| h.lfeon),
+            "chanmap": sub.chanmaps.keys().map(|m| format!("0x{m:04x}")).collect::<Vec<_>>(),
+            "channels": sub.locations.iter().map(|c| c.name()).collect::<Vec<_>>(),
+            "frames": sub.frames,
+            "merged": true,
+            "bit_rate": sh.map(oadec_eac3::FrameHeader::bit_rate),
+            "crc_failures": sub.crc_failures,
+            "decode_errors": sub.decode_errors,
+            "tail_overruns": sub.tail_overruns,
+            "lfe_implied": sub.lfe_implied,
+            "unread_bits": sub.slack_bits.map(|(lo, hi)| json!([lo, hi])),
+            "first_error": sub.first_error,
+        }));
+    }
+    parts
+}
+
+/// The same faults `is_clean` weighs, in the form a delivery path reports.
+fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
+    let mut f = Findings::default();
+    f.note(p.decode_errors, "frames failed to decode");
+    f.note(p.crc_failures, "CRC failures");
+    f.note(p.tail_overruns, "frames ending inside the frame tail");
+    f.note(sync_errors, "sync errors");
+    f.note(skipped, "bytes skipped");
+    f.note(
+        p.emdf.oamd_errors,
+        "Object Audio Metadata payloads failed to parse",
+    );
+    f.note(p.emdf.joc_errors, "JOC payloads failed to parse");
+    f.note(
+        p.emdf.joc_size_mismatch,
+        "JOC payloads whose declared size was wrong",
+    );
+    f.note(
+        p.program.dependent_dropped,
+        "dependent substream frames dropped",
+    );
+    f.note(
+        p.program.orphan_dependents,
+        "dependent frames with no independent substream",
+    );
+    f.note(
+        p.program.misaligned,
+        "misaligned dependent substream frames",
+    );
+    f.note(p.program.location_errors, "unreadable channel maps");
+    f.note(
+        p.program.over_capacity,
+        "channels past the sixteen a programme may carry",
+    );
+    f.note(
+        p.program.layout_changes,
+        "mid-stream channel layout changes",
+    );
+    for (key, sub) in &p.subs {
+        let id = key.1;
+        f.note(
+            sub.decode_errors,
+            &format!("frames of dependent substream {id} failed to decode"),
+        );
+        f.note(
+            sub.crc_failures,
+            &format!("CRC failures in dependent substream {id}"),
+        );
+        f.note(
+            sub.tail_overruns,
+            &format!("frames of dependent substream {id} ending inside the frame tail"),
+        );
+    }
+    f.first_problem(p.first_error.as_deref());
+    f
 }
 
 fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64, json: bool) {
@@ -599,7 +934,10 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
         eprintln!("{}: no decodable frames", path.display());
         return;
     };
-    let names = Decoder::channel_names(h);
+    let names = p.layout.as_ref().map_or_else(
+        || Decoder::channel_names(h),
+        oadec_eac3::ProgramLayout::names,
+    );
     let duration = p.samples as f64 / f64::from(h.sample_rate);
     let joc = bsi.joc_extension();
     if json {
@@ -632,7 +970,18 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "oamd_errors": e.oamd_errors,
                 "joc_errors": e.joc_errors,
                 "joc_size_mismatches": e.joc_size_mismatch,
+                "dependent_dropped": p.program.dependent_dropped,
+                "orphan_dependents": p.program.orphan_dependents,
+                "substream_decode_errors": p.subs.values().map(|s| s.decode_errors).sum::<u64>(),
+                "substream_crc_failures": p.subs.values().map(|s| s.crc_failures).sum::<u64>(),
+                "substream_tail_overruns": p.subs.values().map(|s| s.tail_overruns).sum::<u64>(),
+                "location_errors": p.program.location_errors,
+                "misaligned_substreams": p.program.misaligned,
+                "channels_over_capacity": p.program.over_capacity,
+                "layout_changes": p.program.layout_changes,
             },
+            "program": program_parts(p, h),
+            "other_program_frames": p.program.other_program_frames,
             "coverage": coverage_list(&p.coverage),
             "aht_frames": p.aht_frames,
             "spx_frames": p.spx_frames,
@@ -665,10 +1014,20 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "skip_bytes": e.skip_bytes,
                 "containers": e.containers,
                 "container_errors": e.container_errors,
+                "containers_in_independent_substream": e.containers_in_independent,
+                "auxdata_frames": e.auxdata_frames,
+                "auxdata_bytes": e.auxdata_bytes,
+                "containers_in_auxdata": e.containers_in_auxdata,
+                "auxdata_overruns": e.auxdata_overruns,
                 "false_syncs": e.false_syncs,
                 "payload_ids": payload_ids,
                 "oamd_ok": e.oamd_ok,
                 "oamd_errors": e.oamd_errors,
+                "oamd_object_gains_db": e.oamd_gain_size.gains_db.iter()
+                    .map(|(db, n)| (db.to_string(), *n))
+                    .collect::<BTreeMap<_, _>>(),
+                "oamd_muted_updates": e.oamd_gain_size.muted,
+                "oamd_sized_updates": e.oamd_gain_size.sized,
                 "joc_payloads": e.joc,
             },
             "joc": (e.joc > 0).then(|| json!({
@@ -680,11 +1039,22 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "objects_per_payload": e.joc_objects.keys().collect::<Vec<_>>(),
                 "bands": e.joc_bands.keys().collect::<Vec<_>>(),
                 "sparse_objects": e.joc_sparse,
+                "sparse_and_steep_objects": e.joc_sparse_steep,
                 "dense_objects": e.joc_dense,
                 "absent_objects": e.joc_absent_objects,
                 "steep_objects": e.joc_steep,
                 "fine_quantized_objects": e.joc_fine,
+                "coarse_quantized_objects": e.joc_coarse,
                 "two_data_points": e.joc_two_dpoints,
+                "interpolation_branches": e.joc_interp.iter()
+                    .map(|(k, v)| ((*k).to_string(), Value::from(*v)))
+                    .collect::<serde_json::Map<String, Value>>(),
+                "rare_branch_frames": e.joc_rare_frames.iter()
+                    .map(|(k, v)| ((*k).to_string(), Value::from(v.clone())))
+                    .collect::<serde_json::Map<String, Value>>(),
+                "offset_ts": e.joc_offset_ts.iter()
+                    .map(|(k, v)| (k.to_string(), Value::from(*v)))
+                    .collect::<serde_json::Map<String, Value>>(),
                 "seq_count_zero": e.joc_seq_zero,
                 // clause 6.3.3.2, x1000 so the ladder stays exact in JSON
                 "clipgain_x1000": e.joc_clipgain.keys().collect::<Vec<_>>(),
@@ -710,13 +1080,22 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
         h.blocks,
         h.bit_rate() / 1000
     );
-    println!(
-        "Channels:          {} (acmod {}{}): {}",
-        names.len(),
-        h.acmod,
-        if h.lfeon { " + LFE" } else { "" },
-        names.join(" ")
-    );
+    if p.subs.is_empty() {
+        println!(
+            "Channels:          {} (acmod {}{}): {}",
+            names.len(),
+            h.acmod,
+            if h.lfeon { " + LFE" } else { "" },
+            names.join(" ")
+        );
+    } else {
+        println!(
+            "Channels:          {} (programme, {} substreams): {}",
+            names.len(),
+            p.subs.len() + 1,
+            names.join(" ")
+        );
+    }
     println!(
         "Frames:            {} decoded ({} independent, {} dependent in the file), {} sync errors, {} bytes skipped",
         p.frames, p.independent, p.dependent, sync_errors, skipped
@@ -734,6 +1113,76 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             .collect::<Vec<_>>()
             .join(", ")
     );
+    if !p.subs.is_empty() {
+        println!(
+            "Programme:         independent 0: {} acmod {}{}, {} kbit/s -> {}, {} frames",
+            syntax_name(h),
+            h.acmod,
+            if h.lfeon { " + LFE" } else { "" },
+            h.bit_rate() / 1000,
+            Decoder::channel_names(h).join(" "),
+            p.frames
+        );
+        for ((t, id), sub) in &p.subs {
+            let kind = if *t == 1 { "dependent" } else { "independent" };
+            let map = sub
+                .chanmaps
+                .keys()
+                .map(|m| format!("chanmap 0x{m:04x}"))
+                .collect::<Vec<_>>()
+                .join(" then ");
+            let chans = sub
+                .locations
+                .iter()
+                .map(|c| c.name())
+                .collect::<Vec<_>>()
+                .join(" ");
+            println!(
+                "                   {kind} {id}: {} acmod {}{}{} -> {}",
+                sub.header.as_ref().map_or("?", |h| syntax_name(h)),
+                sub.header.as_ref().map_or(0, |h| h.acmod),
+                sub.header
+                    .as_ref()
+                    .map_or("", |h| if h.lfeon { " + LFE" } else { "" }),
+                if map.is_empty() {
+                    String::new()
+                } else {
+                    format!(", {map}")
+                },
+                if chans.is_empty() { "?" } else { &chans }
+            );
+            let slack = sub
+                .slack_bits
+                .map_or_else(|| "-".to_string(), |(lo, hi)| format!("{lo} to {hi}"));
+            println!(
+                "                     {} frames merged, {} CRC failures, {} decode errors, {} bits unread",
+                sub.frames, sub.crc_failures, sub.decode_errors, slack
+            );
+            if sub.lfe_implied > 0 {
+                println!(
+                    "                     {} frames whose channel map left the LFE implied",
+                    sub.lfe_implied
+                );
+            }
+        }
+    }
+    if !p.program.is_clean() {
+        println!(
+            "Programme faults:  {} dependent frames dropped, {} misaligned, {} channel map errors, {} channels past sixteen, {} layout changes, {} orphan dependents",
+            p.program.dependent_dropped,
+            p.program.misaligned,
+            p.program.location_errors,
+            p.program.over_capacity,
+            p.program.layout_changes,
+            p.program.orphan_dependents
+        );
+    }
+    if p.program.other_program_frames > 0 {
+        println!(
+            "Other programmes:  {} frames skipped (only the first independent substream is decoded)",
+            p.program.other_program_frames
+        );
+    }
     println!(
         "Dialnorm:          {}",
         p.dialnorm
@@ -827,6 +1276,15 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             e.joc_fine
         );
     }
+    if p.emdf.oamd_ok > 0 {
+        println!(
+            "OAMD gain/size:    {} non-unity gains {:?}, {} mutes, {} non-zero sizes",
+            p.emdf.oamd_gain_size.gains_db.values().sum::<u64>(),
+            p.emdf.oamd_gain_size.gains_db,
+            p.emdf.oamd_gain_size.muted,
+            p.emdf.oamd_gain_size.sized
+        );
+    }
     println!(
         "Integrity:         {} decode errors, {} CRC failures, {} frames ending inside the frame tail",
         p.decode_errors, p.crc_failures, p.tail_overruns
@@ -891,6 +1349,8 @@ pub struct DecodeOptions {
     pub dither: bool,
     pub tpnp: bool,
     pub ecpl_full: bool,
+    /// Write only the independent substream's channels.
+    pub core_only: bool,
 }
 
 fn write_float_wav_header(
@@ -927,7 +1387,7 @@ fn write_float_wav_header(
 
 /// `oadec decode` for AC-3 family streams: 32-bit float samples, as raw
 /// little-endian PCM or as WAVE.
-pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<()> {
+pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> {
     if matches!(opts.format, Format::Damf | Format::Adm) {
         bail!("object output of E-AC-3 JOC streams is not implemented yet");
     }
@@ -948,24 +1408,25 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<()> {
             tpnp: opts.tpnp,
             ecpl_full: opts.ecpl_full,
         },
-        |d| {
+        |frame| {
+            let (chans, pcm) = output_channels(frame, opts.core_only);
             if !header_written {
-                let names = Decoder::channel_names(&d.header);
-                order = output_order(&names, opts.order);
-                channels = names.len() as u16;
-                rate = d.header.sample_rate;
-                let ordered: Vec<&str> = order.iter().map(|&i| names[i]).collect();
+                order = output_order(&chans, opts.order);
+                channels = chans.len() as u16;
+                rate = frame.core().header.sample_rate;
+                let ordered: Vec<ChannelLoc> = order.iter().map(|&i| chans[i]).collect();
                 mask = channel_mask(&ordered);
                 if wav {
                     write_float_wav_header(&mut out, channels, rate, mask, 0)?;
                 }
                 header_written = true;
             }
-            let n = d.pcm[0].len();
-            let mut buf = Vec::with_capacity(n * order.len() * 4);
+            let n = frame.samples();
+            let ordered: Vec<&[f32]> = order.iter().map(|&ch| pcm[ch]).collect();
+            let mut buf = Vec::with_capacity(n * ordered.len() * 4);
             for i in 0..n {
-                for &ch in &order {
-                    buf.extend_from_slice(&d.pcm[ch][i].to_le_bytes());
+                for c in &ordered {
+                    buf.extend_from_slice(&c[i].to_le_bytes());
                 }
             }
             data_len += buf.len() as u64;
@@ -993,10 +1454,7 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<()> {
         started.elapsed().as_secs_f64(),
         false,
     );
-    if p.decode_errors > 0 {
-        bail!("{} frames failed to decode", p.decode_errors);
-    }
-    Ok(())
+    Ok(findings(&p, sync_errors, skipped).report())
 }
 
 /// Options of `compare` for AC-3 family streams.
@@ -1005,6 +1463,8 @@ pub struct CompareOptions {
     pub order: Order,
     pub tpnp: bool,
     pub ecpl_full: bool,
+    /// Compare only the independent substream's channels.
+    pub core_only: bool,
     pub report: usize,
     /// Bytes to skip at the start of the reference.
     pub skip: u64,
@@ -1013,26 +1473,42 @@ pub struct CompareOptions {
     pub worst: usize,
 }
 
-/// Prints the side information of every block of frame `index` (decoded
-/// frames of independent substream 0 are counted from 0).
-pub fn blocks(path: &Path, index: u64) -> Result<()> {
-    let mut count = 0u64;
+/// Prints the side information of every block of one substream of frame group
+/// `index`.
+///
+/// Groups are counted from 0 and are what clause E.1.3.1.2 describes: an
+/// independent substream and the dependent substreams that immediately follow
+/// it. `part` selects within the group, 0 being the independent substream, so
+/// `--part 1` reads the dependent substream of a 7.1 stream, which is the only
+/// way to check a `bsi` path by hand.
+pub fn blocks(path: &Path, index: u64, part: usize) -> Result<()> {
+    let mut group = 0u64;
+    let mut in_group = 0usize;
+    let mut started = false;
     let mut found = false;
     for_each_frame(path, |offset, bytes, header| {
-        if found
-            || header.stream_type == oadec_eac3::StreamType::Dependent
-            || header.substream_id != 0
-        {
+        if found {
             return Ok(());
         }
-        if count != index {
-            count += 1;
+        if header.stream_type == oadec_eac3::StreamType::Dependent {
+            if !started {
+                return Ok(());
+            }
+            in_group += 1;
+        } else {
+            if started {
+                group += 1;
+            }
+            started = true;
+            in_group = 0;
+        }
+        if group != index || in_group != part {
             return Ok(());
         }
         found = true;
         let mut noise = oadec_eac3::Noise::default();
         println!(
-            "frame {index} at byte {offset}: {} bytes, {:?}",
+            "group {index} part {part} at byte {offset}: {} bytes, {:?}",
             header.frame_bytes, header
         );
         let blocks = match oadec_eac3::Frame::parse_partial(bytes, &mut noise, Options::default()) {
@@ -1088,7 +1564,7 @@ pub fn blocks(path: &Path, index: u64) -> Result<()> {
         Ok(())
     })?;
     if !found {
-        bail!("frame {index} not found ({count} decodable frames)");
+        bail!("group {index} part {part} not found");
     }
     Ok(())
 }
@@ -1133,13 +1609,14 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
             tpnp: opts.tpnp,
             ecpl_full: opts.ecpl_full,
         },
-        |d| {
+        |frame| {
+            let (chans, pcm) = output_channels(frame, opts.core_only);
             if order.is_empty() {
-                names = Decoder::channel_names(&d.header);
-                order = output_order(&names, opts.order);
+                names = chans.iter().map(|c| c.name()).collect();
+                order = output_order(&chans, opts.order);
                 stats = vec![ChannelStats::default(); order.len()];
             }
-            let n = d.pcm[0].len();
+            let n = frame.samples();
             ours_samples += n as u64;
             if ref_exhausted {
                 return Ok(());
@@ -1167,7 +1644,7 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
                         rbuf[o + 2],
                         rbuf[o + 3],
                     ]));
-                    let v = f64::from(d.pcm[ch][i]);
+                    let v = f64::from(pcm[ch][i]);
                     let s = &mut stats[k];
                     let diff = (v - r).abs();
                     if diff > block_worst[i / 256].0 {
@@ -1222,6 +1699,7 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
         }
     }
     print_pass(path, &p, sync_errors, skipped, elapsed, false);
+    let clean = findings(&p, sync_errors, skipped).report();
     // drain the rest of the reference to learn its length
     let mut tail = [0u8; 1 << 16];
     let mut extra = 0u64;
@@ -1285,5 +1763,78 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
             "DIFFERENT"
         }
     );
-    Ok(equal_length && (close || dither_level))
+    Ok(equal_length && (close || dither_level) && clean)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every input the exit code is decided from, one at a time.
+    ///
+    /// This function had no test at all: a mutation pass short-circuited it to
+    /// `true` and nothing failed. It is what turns a pass over a stream into an
+    /// exit code, and the second defect of this round was that corruption
+    /// reached the counters and not the exit. The list is the whole content, so
+    /// the list is what is pinned.
+    #[test]
+    fn every_input_to_the_verdict_can_make_a_stream_unclean() {
+        assert!(is_clean(&Pass::default(), 0, 0), "an empty pass is clean");
+        assert!(
+            !is_clean(&Pass::default(), 1, 0),
+            "a sync error left it clean"
+        );
+        assert!(
+            !is_clean(&Pass::default(), 0, 1),
+            "skipped bytes left it clean"
+        );
+
+        type Set = fn(&mut Pass);
+        let unclean: [(&str, Set); 7] = [
+            ("decode_errors", |p| p.decode_errors = 1),
+            ("crc_failures", |p| p.crc_failures = 1),
+            ("tail_overruns", |p| p.tail_overruns = 1),
+            ("emdf.oamd_errors", |p| p.emdf.oamd_errors = 1),
+            ("emdf.joc_errors", |p| p.emdf.joc_errors = 1),
+            ("emdf.joc_size_mismatch", |p| p.emdf.joc_size_mismatch = 1),
+            ("program.dependent_dropped", |p| {
+                p.program.dependent_dropped = 1
+            }),
+        ];
+        for (name, set) in unclean {
+            let mut pass = Pass::default();
+            set(&mut pass);
+            assert!(
+                !is_clean(&pass, 0, 0),
+                "{name} left the stream looking clean"
+            );
+        }
+
+        // a fault in a dependent substream counts as much as one in the core
+        for (name, set) in [
+            (
+                "decode_errors",
+                (|s: &mut SubStats| s.decode_errors = 1) as fn(&mut SubStats),
+            ),
+            ("crc_failures", |s: &mut SubStats| s.crc_failures = 1),
+            ("tail_overruns", |s: &mut SubStats| s.tail_overruns = 1),
+        ] {
+            let mut pass = Pass::default();
+            let mut sub = SubStats::default();
+            set(&mut sub);
+            pass.subs.insert((1, 0), sub);
+            assert!(
+                !is_clean(&pass, 0, 0),
+                "a dependent substream's {name} left the stream clean"
+            );
+        }
+
+        // and a second programme is legal, so it does not
+        let mut other = Pass::default();
+        other.program.other_program_frames = 1;
+        assert!(
+            is_clean(&other, 0, 0),
+            "a second programme should not make a stream unclean"
+        );
+    }
 }

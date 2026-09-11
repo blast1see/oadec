@@ -1,0 +1,88 @@
+{
+ "what": "Why Dolby's TrueHD decoder refuses the object presentation on three Atmos titles",
+ "utc": "2026-09-10T10:43:44.731673+00:00",
+ "commit": "b1423c14e58c9af2b79c4407d7cb220250a19311",
+ "reference": "Dolby Reference Player 3.2.0 gst-plugins, dlbtruehddec out-ch-config=21 presentation=16",
+ "what_the_refusal_actually_is": "The decoder says 'Selected Dolby TrueHD presentation is not available' and the pipeline fails to preroll, so the decision is taken from the major sync before any audio is decoded. It is specific to the object output: the same three titles decode at presentation=16 when out-ch-config is left at its default, and only the combination out-ch-config=21 with presentation=16 is refused.",
+ "header_differential": {
+  "method": "Every field oadec reports from the major sync and the 16-channel declaration, across all six titles.",
+  "fields_compared": 74,
+  "fields_identical_across_both_sets": 42,
+  "fields_that_separate_accepted_from_refused": 0,
+  "note": "Shaun of the Dead and Knives Out are indistinguishable from Pi and Braveheart at this level: four substreams, extended_substream_info 3, flags 0x1000, presentation masks 1/3/7/15, and a 16-channel declaration of 12 channels, 11 dynamic objects, dialogue norm 31, mix level 35. One is accepted and the other refused."
+ },
+ "byte_differential": {
+  "method": "The first 96 bytes of the first major sync of each title, byte by byte and bit by bit.",
+  "whole_bytes_that_separate": [
+   18
+  ],
+  "byte_18": {
+   "accepted": "0x02",
+   "refused": "0x00"
+  },
+  "field": "Byte +18 opens channel_meaning: six bits of heavy_drc_start_up_gain, then 2ch_control_enabled, then 6ch_control_enabled. The separating bit is 2ch_control_enabled, which is the field the audit correlated and then eliminated."
+ },
+ "causal_experiment": {
+  "method": "The flag is flipped in every major sync of the file and the major sync CRC-16 repaired; nothing else is touched. `oadec verify` on the patched Pi reports no failure but the 84 trailing bytes the 50 MB cut already had, so the patch is clean. 1 001 major syncs patched, 0 CRC spans not found.",
+  "results": [
+   {
+    "title": "Pi",
+    "flag": "1 (original)",
+    "dolby": "accepted"
+   },
+   {
+    "title": "Pi",
+    "flag": "0 (cleared)",
+    "dolby": "REFUSED"
+   },
+   {
+    "title": "Braveheart",
+    "flag": "1 (original)",
+    "dolby": "accepted"
+   },
+   {
+    "title": "Braveheart",
+    "flag": "0 (cleared)",
+    "dolby": "REFUSED"
+   },
+   {
+    "title": "Shaun of the Dead",
+    "flag": "0 (original)",
+    "dolby": "refused"
+   },
+   {
+    "title": "Shaun of the Dead",
+    "flag": "1 (set)",
+    "dolby": "refused"
+   },
+   {
+    "title": "Knives Out",
+    "flag": "0 (original)",
+    "dolby": "refused"
+   },
+   {
+    "title": "Knives Out",
+    "flag": "1 (set)",
+    "dolby": "refused"
+   },
+   {
+    "title": "Kingsman",
+    "flag": "0 (original)",
+    "dolby": "refused"
+   },
+   {
+    "title": "Kingsman",
+    "flag": "1 (set)",
+    "dolby": "refused"
+   }
+  ]
+ },
+ "conclusion": [
+  "2ch_control_enabled is necessary. Clearing it turns an accepted title into a refused one, on both accepted titles tested, with the CRC repaired and every other integrity check still passing.",
+  "It is not sufficient. Setting it on any of the three refused titles leaves them refused, which is what the audit measured and why it concluded the field was not causal. Testing only that direction could not have found the necessity.",
+  "So the refused titles have at least one further reason, and it is not in the major sync: no field oadec reports separates the sets, and Shaun of the Dead and Knives Out match Pi and Braveheart field for field.",
+  "Nothing here says oadec is wrong. oadec decodes all six, and the three it cannot have confirmed are the three Dolby will not open in object mode."
+ ],
+ "still_open": "The second reason. It is taken before any audio is decoded and is not visible in the major sync.",
+ "later_note": "The causal experiment below is weakened, not withdrawn. Dolby's object path reads the major sync strictly: eight of nine edited bits are refused with the defined CRC-16 repaired, including a DRC start-up gain and a mix level that cannot bear on presentation availability, while a legal change to extended_substream_info is accepted. So clearing 2ch_control_enabled refusing does not single that field out. The correlation across six unmodified titles is untouched. See major-sync-rewrite-rejected.json. The page below stays as the record of what was measured on the day."
+}

@@ -1,0 +1,774 @@
+{
+ "what": "A controlled Atmos programme, authored with known object positions and event times, encoded by Dolby's own encoder and decoded back",
+ "utc": "2026-09-10T10:37:46.966222+00:00",
+ "commit": "13ca3518a572e313f4f6917ddb43d70d9536e1d8",
+ "binary_sha256": "027ef0365f29cf6f7e19680e357a99f7586749191f55004b60760dc7ef69a368",
+ "scene": "docs/audit/evidence/remediation/controlled-atmos-scene.json",
+ "pipeline": [
+  "oadec atmos-author scene.json -o scene   (writes the DAMF master)",
+  "atmos_info -i scene.atmos                 (Dolby's validator, exit 0)",
+  "dee.exe --xml joc.xml                     (encode_to_atmos_ddp, 768 kbit/s, DRC off)",
+  "dee.exe --xml thd.xml                     (encode_to_dthd, 16 spatial clusters)",
+  "oadec decode -p 3 --format damf --no-bed-conform",
+  "tools/ground_truth.py scene.json decoded"
+ ],
+ "masters": {
+  "scene.atmos": 454,
+  "scene.atmos.audio": 12960068,
+  "scene-joc.ec3": 961536,
+  "scene-thd.mlp": 3354856
+ },
+ "truehd": {
+  "summary": {
+   "scene": "docs/audit/evidence/remediation/controlled-atmos-scene.json",
+   "decoded": "E:\\oadec-work\\audit\\remediation\\truth\\thd-decoded",
+   "sample_rate": 48000.0,
+   "decoded_channels": 16,
+   "authored_objects": 8,
+   "identified_by_signal": 8,
+   "objects_with_every_position_recovered": 8,
+   "static_objects": 7,
+   "static_positions_exact": 7,
+   "worst_position_error": 0.033333,
+   "event_offsets_samples": [
+    -768,
+    -384,
+    0
+   ],
+   "encoder_time_shift_samples": [
+    2688,
+    5760,
+    44544,
+    140544
+   ]
+  },
+  "objects": [
+   {
+    "authored": "front-left",
+    "signal": {
+     "kind": "tone",
+     "hz": 440.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 0,
+    "element_id": 10,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       -1.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       -1.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "front-centre",
+    "signal": {
+     "kind": "tone",
+     "hz": 880.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 1,
+    "element_id": 11,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "front-right",
+    "signal": {
+     "kind": "tone",
+     "hz": 1320.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 2,
+    "element_id": 12,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       1.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       1.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "rear-left",
+    "signal": {
+     "kind": "tone",
+     "hz": 1760.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 3,
+    "element_id": 13,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       -1.0,
+       -1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       -1.0,
+       -1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "rear-right",
+    "signal": {
+     "kind": "tone",
+     "hz": 2200.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 5,
+    "element_id": 15,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       1.0,
+       -1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       1.0,
+       -1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "top-front",
+    "signal": {
+     "kind": "tone",
+     "hz": 2640.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 4,
+    "element_id": 14,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       1.0,
+       1.0
+      ],
+      "recovered_pos": [
+       0.0,
+       1.0,
+       1.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "top-rear",
+    "signal": {
+     "kind": "tone",
+     "hz": 3080.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 6,
+    "element_id": 16,
+    "recovered_events": 2,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       -1.0,
+       1.0
+      ],
+      "recovered_pos": [
+       0.0,
+       -1.0,
+       1.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "centre-of-room, moved at three sample anchors",
+    "signal": {
+     "kind": "impulses",
+     "at": [
+      48000,
+      96000,
+      240000
+     ],
+     "dbfs": -6.0
+    },
+    "decoded_channel": 7,
+    "element_id": 17,
+    "recovered_events": 15,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       0.0,
+       0.5
+      ],
+      "recovered_pos": [
+       -1.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 1.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true,
+      "closest_recovered_pos": [
+       0.0,
+       0.0,
+       0.53333336
+      ],
+      "closest_position_error": 0.033333,
+      "closest_at_sample": 44544,
+      "encoder_time_shift_samples": 44544
+     },
+     {
+      "authored_sample": 48000,
+      "authored_pos": [
+       -1.0,
+       0.0,
+       0.5
+      ],
+      "recovered_pos": [
+       -0.70967746,
+       0.0,
+       0.53333336
+      ],
+      "position_error": 0.290323,
+      "nearest_event_sample": 47616,
+      "event_offset_samples": -384,
+      "position_matches": true,
+      "closest_recovered_pos": [
+       -0.96774197,
+       0.0,
+       0.53333336
+      ],
+      "closest_position_error": 0.033333,
+      "closest_at_sample": 50688,
+      "encoder_time_shift_samples": 2688
+     },
+     {
+      "authored_sample": 96000,
+      "authored_pos": [
+       1.0,
+       0.0,
+       0.5
+      ],
+      "recovered_pos": [
+       0.16129029,
+       0.0,
+       0.53333336
+      ],
+      "position_error": 0.83871,
+      "nearest_event_sample": 95232,
+      "event_offset_samples": -768,
+      "position_matches": true,
+      "closest_recovered_pos": [
+       1.0,
+       0.0,
+       0.53333336
+      ],
+      "closest_position_error": 0.033333,
+      "closest_at_sample": 236544,
+      "encoder_time_shift_samples": 140544
+     },
+     {
+      "authored_sample": 240000,
+      "authored_pos": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       0.29032254,
+       0.70967746,
+       0.13333334
+      ],
+      "position_error": 0.290323,
+      "nearest_event_sample": 239616,
+      "event_offset_samples": -384,
+      "position_matches": true,
+      "closest_recovered_pos": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "closest_position_error": 0.0,
+      "closest_at_sample": 245760,
+      "encoder_time_shift_samples": 5760
+     }
+    ],
+    "verdict": "PASS",
+    "static": false
+   }
+  ]
+ },
+ "eac3_joc": {
+  "summary": {
+   "scene": "docs/audit/evidence/remediation/controlled-atmos-scene.json",
+   "decoded": "E:\\oadec-work\\audit\\remediation\\truth\\joc-decoded",
+   "sample_rate": 48000.0,
+   "decoded_channels": 16,
+   "authored_objects": 8,
+   "identified_by_signal": 8,
+   "objects_with_every_position_recovered": 8,
+   "static_objects": 7,
+   "static_positions_exact": 7,
+   "worst_position_error": 0.033333,
+   "event_offsets_samples": [
+    -640,
+    0,
+    512
+   ],
+   "encoder_time_shift_samples": [
+    5504,
+    43904,
+    44288,
+    140288
+   ]
+  },
+  "objects": [
+   {
+    "authored": "front-left",
+    "signal": {
+     "kind": "tone",
+     "hz": 440.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 0,
+    "element_id": 10,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       -1.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       -1.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "front-centre",
+    "signal": {
+     "kind": "tone",
+     "hz": 880.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 1,
+    "element_id": 11,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "front-right",
+    "signal": {
+     "kind": "tone",
+     "hz": 1320.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 2,
+    "element_id": 12,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       1.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       1.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "rear-left",
+    "signal": {
+     "kind": "tone",
+     "hz": 1760.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 3,
+    "element_id": 13,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       -1.0,
+       -1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       -1.0,
+       -1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "rear-right",
+    "signal": {
+     "kind": "tone",
+     "hz": 2200.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 5,
+    "element_id": 15,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       1.0,
+       -1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       1.0,
+       -1.0,
+       0.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "top-front",
+    "signal": {
+     "kind": "tone",
+     "hz": 2640.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 4,
+    "element_id": 14,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       1.0,
+       1.0
+      ],
+      "recovered_pos": [
+       0.0,
+       1.0,
+       1.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "top-rear",
+    "signal": {
+     "kind": "tone",
+     "hz": 3080.0,
+     "dbfs": -20.0
+    },
+    "decoded_channel": 6,
+    "element_id": 16,
+    "recovered_events": 1,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       -1.0,
+       1.0
+      ],
+      "recovered_pos": [
+       0.0,
+       -1.0,
+       1.0
+      ],
+      "position_error": 0.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true
+     }
+    ],
+    "verdict": "PASS",
+    "static": true
+   },
+   {
+    "authored": "centre-of-room, moved at three sample anchors",
+    "signal": {
+     "kind": "impulses",
+     "at": [
+      48000,
+      96000,
+      240000
+     ],
+     "dbfs": -6.0
+    },
+    "decoded_channel": 7,
+    "element_id": 17,
+    "recovered_events": 15,
+    "checks": [
+     {
+      "authored_sample": 0,
+      "authored_pos": [
+       0.0,
+       0.0,
+       0.5
+      ],
+      "recovered_pos": [
+       -1.0,
+       1.0,
+       0.0
+      ],
+      "position_error": 1.0,
+      "nearest_event_sample": 0,
+      "event_offset_samples": 0,
+      "position_matches": true,
+      "closest_recovered_pos": [
+       0.0,
+       0.0,
+       0.46666667
+      ],
+      "closest_position_error": 0.033333,
+      "closest_at_sample": 44288,
+      "encoder_time_shift_samples": 44288
+     },
+     {
+      "authored_sample": 48000,
+      "authored_pos": [
+       -1.0,
+       0.0,
+       0.5
+      ],
+      "recovered_pos": [
+       -0.70967746,
+       0.0,
+       0.46666667
+      ],
+      "position_error": 0.290323,
+      "nearest_event_sample": 47360,
+      "event_offset_samples": -640,
+      "position_matches": true,
+      "closest_recovered_pos": [
+       -1.0,
+       0.0,
+       0.46666667
+      ],
+      "closest_position_error": 0.033333,
+      "closest_at_sample": 91904,
+      "encoder_time_shift_samples": 43904
+     },
+     {
+      "authored_sample": 96000,
+      "authored_pos": [
+       1.0,
+       0.0,
+       0.5
+      ],
+      "recovered_pos": [
+       0.16129029,
+       0.0,
+       0.46666667
+      ],
+      "position_error": 0.83871,
+      "nearest_event_sample": 96512,
+      "event_offset_samples": 512,
+      "position_matches": true,
+      "closest_recovered_pos": [
+       1.0,
+       0.0,
+       0.46666667
+      ],
+      "closest_position_error": 0.033333,
+      "closest_at_sample": 236288,
+      "encoder_time_shift_samples": 140288
+     },
+     {
+      "authored_sample": 240000,
+      "authored_pos": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "recovered_pos": [
+       0.29032254,
+       0.70967746,
+       0.13333334
+      ],
+      "position_error": 0.290323,
+      "nearest_event_sample": 239360,
+      "event_offset_samples": -640,
+      "position_matches": true,
+      "closest_recovered_pos": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "closest_position_error": 0.0,
+      "closest_at_sample": 245504,
+      "encoder_time_shift_samples": 5504
+     }
+    ],
+    "verdict": "PASS",
+    "static": false
+   }
+  ]
+ },
+ "reading": [
+  "Dolby's own validator accepts the authored master, so the ground truth is a valid Atmos programme and not a fixture only this decoder understands.",
+  "Both codecs: all eight objects identified from their audio alone, so the encoder's spatial coding renumbering them does not matter.",
+  "Both codecs: all seven static positions recovered exactly, error 0,0, at event offset 0 samples. That is the result the whole exercise was for -- the first object metadata this project has checked against authored numbers rather than against another decoder.",
+  "The eighth object moves, and every authored position along its path comes back within 0,033 in room units, which is one position quantisation step. Its times do not: the encoder resamples the trajectory onto its own grid and shifts each authored position by 2 688 to 140 544 samples. That is an encoder property, reported separately, and the decoder faithfully reports what the encoder wrote.",
+  "TrueHD and JOC agree on all of it, which is worth saying because the two carry objects in completely different ways: TrueHD as lossless channels, JOC as a parametric reconstruction from a five-channel downmix."
+ ],
+ "follow_up": [
+  "Movement: authored trajectories with the encoder's resampling characterised rather than merely reported.",
+  "Gain: authored steps at 0, -3, -6 and -12 dB and ramps between them.",
+  "Size, divergence and distance: authored values against the quantisation the format allows.",
+  "These need no new pipeline; the master, the encoders and the comparison all work."
+ ]
+}

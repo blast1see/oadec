@@ -1,0 +1,115 @@
+{
+ "what": "The three corrections to clause 6.6.2, measured on a clip with 825 sparse objects and no steep ones -- fifty-five times the sparse material the first round had, and none of the confound",
+ "utc": "2026-09-10T19:04:15.231854+00:00",
+ "commit": "f43d5b0b3897a12bea27249896866804dd3a057f",
+ "why": "the library held ten sparse frames, one of which was also the only frame that was both sparse and steep with a large offset, and that one stayed 9,9 dB below its clip after all three corrections. Whether the residual belonged to sparse decoding or to the combination could not be told apart with ten frames, one of them confounded.",
+ "material": {
+  "source": "a streaming Atmos collection the user pointed at, twelve titles scanned whole: 60 369 945 object updates, 3 375 sparse objects and 83 535 coarse across eleven streams -- against 150 sparse in the whole corpus before it",
+  "clip": "Extraction 2 (2023), frames 197 050 to 197 450 of its first Dolby track: 825 sparse objects in 55 frames and **no steep object anywhere in the clip**, so the two are separated for the first time"
+ },
+ "against_dolby": {
+  "method": "per frame, median over the fifteen objects. The affected set is each sparse frame and the one before it, because the written objects lag the side information",
+  "as_printed": {
+   "sparse_frames_median_db": -3.92,
+   "sparse_frames_worst_db": -10.94,
+   "rest_of_the_clip_db": 45.96,
+   "frames": 91
+  },
+  "three_corrections": {
+   "sparse_frames_median_db": 46.78,
+   "sparse_frames_worst_db": 39.18,
+   "rest_of_the_clip_db": 46.69,
+   "frames": 91
+  }
+ },
+ "reading": "with all three corrections the sparse frames sit at the level of the rest of the clip: 46,78 dB against 46,69. There is nothing left to explain in sparse decoding itself. The frame that stayed short in the earlier evidence is the one that is also steep, and its residual belongs to that combination.",
+ "corpus": {
+  "streaming_scan": {
+   "streams_scanned": 24,
+   "streams_decoded": 24,
+   "streams_carrying_joc": 17,
+   "auxdata_frames": 0,
+   "containers_in_auxdata": 0,
+   "auxdata_overruns": 0,
+   "object_updates": 60369945,
+   "sparse": 3375,
+   "dense": 60366570,
+   "fine": 60286410,
+   "coarse": 83535,
+   "steep": 2451570,
+   "two_data_points": 0,
+   "interpolation_branches": {
+    "smooth-1": 57918375,
+    "steep-1": 2451570
+   },
+   "downmix_configs": {
+    "3": 17
+   },
+   "parse_errors": 0,
+   "size_mismatches": 0,
+   "non_zero_padding": 0,
+   "streams_with_sparse": [
+    "Bicaklar Cekildi Gizemli Bir Seruven (2022).mka#0",
+    "Bicaklar Cekildi Gizemli Bir Seruven (2022).mka#1",
+    "Extraction 2 (2023).mka#0",
+    "Extraction 2 (2023).mka#1",
+    "Extraction (2020).mka#1",
+    "Oluler Ordusu (2021).mka#1",
+    "Rebel Ridge (2024).mka#0",
+    "Rebel Ridge (2024).mka#1",
+    "Red Notice (2021).mka#0",
+    "Red Notice (2021).mka#1",
+    "Triple Frontier (2019).mka#1"
+   ],
+   "streams_with_coarse": [
+    "Bicaklar Cekildi Gizemli Bir Seruven (2022).mka#0",
+    "Bicaklar Cekildi Gizemli Bir Seruven (2022).mka#1",
+    "Bird Box (2018).mka#1",
+    "Extraction 2 (2023).mka#0",
+    "Extraction 2 (2023).mka#1",
+    "Extraction (2020).mka#1",
+    "Okja (2017).mka#1",
+    "Oluler Ordusu (2021).mka#1",
+    "Rebel Ridge (2024).mka#0",
+    "Rebel Ridge (2024).mka#1",
+    "Red Notice (2021).mka#0",
+    "Red Notice (2021).mka#1",
+    "Triple Frontier (2019).mka#1"
+   ],
+   "streams_with_two_data_points": []
+  },
+  "combined_object_updates": 170722130,
+  "combined_sparse": 3540,
+  "combined_coarse": 92550,
+  "two_data_points": 0,
+  "auxdata_frames": 0
+ },
+ "the_combination_is_not_the_cause_either": {
+  "utc": "2026-09-10T19:08:55.092237+00:00",
+  "why": "with sparse decoding settled, the one frame that stays short is the one that is also steep. Whether that combination is inherently wrong needed more than one example of it.",
+  "counter": "`verify --json` now reports `sparse_and_steep_objects` and the frames they occur in, beside the other rare-branch positions",
+  "material": "Extraction 2 carries 120 objects that are sparse and steep at once, across eight frames. A clip around two of them, frames 116 and 123 of the cut, was measured",
+  "result": {
+   "clip_median_db": 48.76,
+   "frame_115_db": 58.29,
+   "frame_116_db": 51.32,
+   "frame_122_db": 63.83,
+   "frame_123_db": 49.57,
+   "neighbours_db": [
+    58.81,
+    58.83,
+    59.39,
+    59.21,
+    56.19,
+    56.74
+   ]
+  },
+  "reading": "the sparse-and-steep frames sit at or above their clip's level. The combination is not the cause. Nor is a large switch offset: both clips carry offsets across the whole range including 23 and 24.",
+  "so": "the remaining frame is an outlier of one. It is not sparse decoding, not steep decoding, not the two together, not a large offset and not dither. It stays open as a single frame rather than as a class."
+ },
+ "coarse_quantisation_comes_with_it": {
+  "note": "the same clip is 5 325 coarse objects against 675 fine, so the 46,78 dB it measures is a coarse-quantisation result as much as a sparse one. Coarse had been checked on a clip carrying 75 coarse objects; this is seventy-one times as many, in one measurement, and it sits at the level of the rest of the clip.",
+  "coarse_objects": 5325,
+  "fine_objects": 675
+ }
+}

@@ -1,0 +1,133 @@
+{
+ "what": "Whether Dolby's decoder honours a field rewritten in place inside an EMDF payload, which every in-place rewriting experiment in this project has assumed",
+ "utc": "2026-09-10T15:38:23.871538+00:00",
+ "commit": "d2ff67d94c2a7d17cc25f9d2f79355732c140956",
+ "clip": "clips/glassonion-nf-head.ec3, 195 steep objects in 13 frames",
+ "instrument": "oadec eac3-joc-offset rewrites joc_offset_ts_bits (clause 6.3.4.4) in place, five bits per steep data point, and redoes the frame check. oadec verify reads the new value back on all 195 fields and reports the stream clean.",
+ "design": "the same clip rewritten to several values, each decoded by the Dolby Reference Player's object decoder and by oadec, and the two compared frame by frame",
+ "dolby_moves_the_same_distance_whatever_is_written": {
+  "note": "Dolby's decode of the rewritten stream against its decode of the original, per frame, in dB. `inf` is bit-identical. The three frames that are bit-identical under bits 19 are exactly the three whose fifteen objects already transmitted 19, so the tool did not change them: 45 of the 195 fields carry joc_offset_ts 20.",
+  "frames": {
+   "628": {
+    "bits_3": 62.1,
+    "bits_11": 62.1,
+    "bits_19": 62.1
+   },
+   "634": {
+    "bits_3": 61.8,
+    "bits_11": 61.8,
+    "bits_19": 61.8
+   },
+   "640": {
+    "bits_3": 53.8,
+    "bits_11": 53.8,
+    "bits_19": 53.8
+   },
+   "745": {
+    "bits_3": 55.9,
+    "bits_11": 55.9,
+    "bits_19": 55.9
+   },
+   "751": {
+    "bits_3": 46.7,
+    "bits_11": 46.7,
+    "bits_19": 46.7
+   },
+   "823": {
+    "bits_3": 61.9,
+    "bits_11": 61.9,
+    "bits_19": "inf"
+   },
+   "824": {
+    "bits_3": 31.0,
+    "bits_11": 31.0,
+    "bits_19": "inf"
+   },
+   "828": {
+    "bits_3": 36.8,
+    "bits_11": 36.8,
+    "bits_19": 36.8
+   },
+   "833": {
+    "bits_3": 38.8,
+    "bits_11": 38.8,
+    "bits_19": 38.8
+   },
+   "840": {
+    "bits_3": 26.8,
+    "bits_11": 26.8,
+    "bits_19": 26.8
+   },
+   "863": {
+    "bits_3": 34.5,
+    "bits_11": 34.5,
+    "bits_19": 34.5
+   },
+   "877": {
+    "bits_3": 40.9,
+    "bits_11": 40.9,
+    "bits_19": 40.9
+   },
+   "906": {
+    "bits_3": 67.8,
+    "bits_11": 67.8,
+    "bits_19": "inf"
+   },
+   "907": {
+    "bits_3": 46.3,
+    "bits_11": 46.3,
+    "bits_19": "inf"
+   },
+   "928": {
+    "bits_3": 66.2,
+    "bits_11": 66.2,
+    "bits_19": "inf"
+   },
+   "929": {
+    "bits_3": 46.4,
+    "bits_11": 46.4,
+    "bits_19": "inf"
+   }
+  },
+  "reading": "a decoder following the field would move a different distance for a switch at slot 3 and a switch at slot 11. Dolby moves the same distance, to one decimal, in every frame. What it does depends on whether the payload was touched, not on what was written into it."
+ },
+ "what_dolby_does_instead": {
+  "method": "the same clip rewritten to each value in turn, decoded by oadec, compared with Dolby's decode of the stream that transmits 11, over the thirteen frames that carry steep objects. A value of 22 or more puts the switch past the end of a 24-slot frame, so the previous matrix is held for the whole of it.",
+  "ours_transmitted_vs_dolbys_11_db": {
+   "0": 22.76,
+   "4": 23.74,
+   "8": 24.91,
+   "11": 26.62,
+   "14": 29.04,
+   "18": 36.9,
+   "22": 60.93,
+   "26": 60.95,
+   "31": 60.95
+  },
+  "reading": "there is no optimum at 11 or anywhere near it; agreement rises monotonically and saturates where our switch stops firing at all. Dolby holds the previous matrix on a rewritten payload."
+ },
+ "mechanism": {
+  "most_likely": "the EMDF protection words. `container.rs` parses protection_bits_primary and cannot verify it: clause H.2.2.4.3 of TS 102 366 says its calculation 'is implementation dependent and is not defined in the present document'. A decoder that does compute it will find every in-place payload rewrite invalid.",
+  "corroboration": "frame-level rewriting is not the problem: `oadec eac3-ecpl-inject` rewrites audio data and redoes the same frame check, and Dolby decodes those streams normally. It is rewriting inside the EMDF container that is rejected.",
+  "not_ruled_out": "some other integrity field over the payload, or a length or ordering check. The measurement shows the behaviour, not the field that causes it."
+ },
+ "consequences": [
+  {
+   "claim": "relabelling a configuration 3 stream as 0 makes the Dolby decoder drop to six channels, so the configuration alone turns its upmix off",
+   "status": "NOT SUPPORTED by that experiment",
+   "why": "dropping to the core's six channels is also what a decoder does when it discards the JOC payload, which is what it does with any rewritten payload. The experiment cannot tell the two apart.",
+   "what_survives": "the one stream in the library that genuinely carries configuration 0 is decoded to six channels unmodified, which is untouched by this and remains the evidence for the claim"
+  },
+  {
+   "claim": "the configuration 0 stream relabelled to 3 is still refused, so it has a second reason",
+   "status": "NOT SUPPORTED by that experiment",
+   "why": "the relabelled stream is a rewritten payload and would be refused whatever it said"
+  },
+  {
+   "claim": "the steep switch point is one slot before the printed reading",
+   "status": "UNAFFECTED",
+   "why": "it rests on unmodified streams from five titles decoded by both decoders, not on any rewrite"
+  }
+ ],
+ "instrument_status": "`eac3-joc-offset` is kept: it is a working instrument against oadec itself, and it is what measured this. It is not usable against the Dolby decoder, and neither is `eac3-joc-config`. Both now say so."
+}

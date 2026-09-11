@@ -13,38 +13,25 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use oadec_eac3::{Decoded, Decoder, Options as CoreOptions, StreamType};
+use oadec_eac3::{ChannelLoc, Decoded, ProgramDecoder, ProgramFrame};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
-use oadec_emdf::joc::{Joc, SparseIndexMode};
+use oadec_emdf::joc::{Joc, SparseReading};
 use oadec_emdf::oamd::{BedChannel, Oamd};
 use oadec_joc::{
     Analysis, BANDS, Carry, Complex, DELAY, JocDecoder, LOW_DELAY, MATRIX_ALIGN, Quadrature,
-    Synthesis,
+    SteepReading, Synthesis,
 };
 use oadec_spatial::{Program, Timeline};
 
 use crate::damf::{Options, Sink};
 use crate::decode::format_duration;
 use crate::eac3::for_each_frame;
+use crate::integrity::Findings;
 
 /// Samples the core decoder emits before the first frame's audio proper (the
 /// first block's half window). The Dolby decoder drops them; the metadata
 /// timing counts from the first frame's first sample as it does.
 const DECODER_DELAY: usize = 256;
-
-/// The JOC input channel of a coded channel (table 53).
-fn joc_input_index(name: &str) -> Option<usize> {
-    match name {
-        "L" => Some(0),
-        "R" => Some(1),
-        "C" => Some(2),
-        "Ls" => Some(3),
-        "Rs" => Some(4),
-        "Lb" => Some(5),
-        "Rb" => Some(6),
-        _ => None,
-    }
-}
 
 fn to_i24(v: f64) -> i32 {
     (v * 8_388_608.0).round().clamp(-8_388_608.0, 8_388_607.0) as i32
@@ -73,6 +60,14 @@ struct Pipeline {
     slots_in: Vec<[Complex; BANDS]>,
     slots_out: Vec<[Complex; BANDS]>,
     frames: u64,
+    /// Frames whose sequence counter said the stream had been spliced, so the
+    /// matrix history before them was forgotten (clause 6.3.3.3).
+    splices: u64,
+    /// Frames whose sequence counter did not follow the previous one and did
+    /// not say so with a zero. Reported, not acted on: the counter wraps at
+    /// 1 023 and a stream that simply miscounts is not a splice.
+    seq_gaps: u64,
+    last_seq: Option<u16>,
     /// One per JOC input channel: holds the subband samples back so that
     /// they meet the matrix they were coded with, and takes the 90-degree
     /// phase shift back out of the channels that carry one.
@@ -136,13 +131,14 @@ impl Pipeline {
     fn new(
         joc: &Joc,
         program: &Program,
-        names: &[&str],
+        chans: &[ChannelLoc],
         clip_gain: bool,
         flat_quadrature: bool,
+        steep: SteepReading,
     ) -> Result<Self> {
         let mut joc_inputs = vec![usize::MAX; joc.num_channels];
-        for (coded, name) in names.iter().enumerate() {
-            if let Some(i) = joc_input_index(name)
+        for (coded, loc) in chans.iter().enumerate() {
+            if let Some(i) = loc.joc_input(joc.dmx_config)
                 && i < joc.num_channels
             {
                 joc_inputs[i] = coded;
@@ -150,12 +146,12 @@ impl Pipeline {
         }
         if joc_inputs.contains(&usize::MAX) {
             bail!(
-                "the core channels {:?} do not cover the {}-channel JOC downmix",
-                names,
+                "the programme channels {:?} do not cover the {}-channel JOC downmix",
+                chans.iter().map(|c| c.name()).collect::<Vec<_>>(),
                 joc.num_channels
             );
         }
-        let lfe = names.iter().position(|n| *n == "LFE");
+        let lfe = chans.iter().position(|c| *c == ChannelLoc::Lfe);
         // element order: beds, then ISF, then dynamic objects (as the program lists them)
         let mut sources = Vec::new();
         let mut next_object = 0usize;
@@ -205,6 +201,7 @@ impl Pipeline {
             .and_then(|v| v.parse().ok())
             .unwrap_or(LOW_DELAY - MATRIX_ALIGN);
         joc_decoder.set_lag(lag);
+        joc_decoder.set_steep_reading(steep);
         Ok(Self {
             joc: joc_decoder,
             analysis: (0..joc.num_channels).map(|_| Analysis::new()).collect(),
@@ -216,6 +213,9 @@ impl Pipeline {
             slots_in: vec![[Complex::default(); BANDS]; joc.num_channels],
             slots_out: vec![[Complex::default(); BANDS]; joc.num_objects],
             frames: 0,
+            splices: 0,
+            seq_gaps: 0,
+            last_seq: None,
             quad: carry.iter().map(|c| Quadrature::new(*c)).collect(),
             slots_rot: vec![[Complex::default(); BANDS]; joc.num_channels],
             low_delay,
@@ -236,11 +236,27 @@ impl Pipeline {
     }
 
     /// Feeds one frame of core PCM (per coded channel) and its JOC payload.
-    fn frame(&mut self, pcm: &[Vec<f32>], joc: Option<&Joc>) {
+    fn frame(&mut self, pcm: &[&[f32]], joc: Option<&Joc>) {
         let samples = pcm[0].len();
         let num_ts = samples / BANDS;
         match joc {
             Some(j) => {
+                // Clause 6.3.3.3: the sequence counter increments every frame
+                // and wraps to 1 at 1 023; zero means the first frame of the
+                // bitstream or the first frame after a splice. The matrices
+                // from before a splice do not belong to what follows it, and
+                // clause 6.6.5 requires the history to be zero before the
+                // first frame, so it is forgotten here.
+                if j.seq_count == 0 && self.frames > 0 {
+                    self.joc.reset();
+                    self.splices += 1;
+                } else if let Some(prev) = self.last_seq {
+                    let want = if prev >= 1023 { 1 } else { prev + 1 };
+                    if j.seq_count != want {
+                        self.seq_gaps += 1;
+                    }
+                }
+                self.last_seq = Some(j.seq_count);
                 self.joc.update(j, num_ts);
                 self.clip_gain = if self.apply_clip_gain {
                     j.clipgain
@@ -344,8 +360,12 @@ impl Pipeline {
     }
 }
 
-/// Extracts the OAMD and JOC payloads of a frame's skip fields.
-fn frame_payloads(d: &Decoded) -> (Vec<(Oamd, u32)>, Option<Joc>, u64) {
+/// Extracts the OAMD and JOC payloads of one substream's skip fields.
+///
+/// Which substream is [`ProgramFrame::metadata_part`]: the last dependent one
+/// when the programme has any, else the independent one (TS 103 420 clause
+/// 8.2).
+fn frame_payloads(d: &Decoded, sparse: SparseReading) -> (Vec<(Oamd, u32)>, Option<Joc>, u64) {
     let mut oamd = Vec::new();
     let mut joc = None;
     let mut errors = 0u64;
@@ -372,7 +392,7 @@ fn frame_payloads(d: &Decoded) -> (Vec<(Oamd, u32)>, Option<Joc>, u64) {
                             Err(_) => errors += 1,
                         }
                     } else if p.id == PAYLOAD_ID_JOC {
-                        match Joc::parse(&p.data, SparseIndexMode::Literal) {
+                        match Joc::parse(&p.data, sparse) {
                             Ok(j) => joc = Some(j),
                             Err(_) => errors += 1,
                         }
@@ -390,7 +410,7 @@ fn frame_payloads(d: &Decoded) -> (Vec<(Oamd, u32)>, Option<Joc>, u64) {
 
 /// Runs the object output for an E-AC-3 JOC stream; `base` is the output path
 /// without extension.
-pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
+pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
     let dir = base
         .parent()
@@ -403,7 +423,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
         .to_string();
     std::fs::create_dir_all(dir)?;
 
-    let mut decoder = Decoder::new(CoreOptions::default());
+    let mut decoder = ProgramDecoder::new(opts.core);
     let mut timeline = Timeline::new(opts.all_events);
     let mut sink: Option<Sink> = None;
     let mut pipeline: Option<Pipeline> = None;
@@ -412,20 +432,40 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
     let mut payload_errors: u64 = 0;
     let mut frames_without_joc: u64 = 0;
     let mut frames_without_oamd: u64 = 0;
-    let mut decode_errors: u64 = 0;
+    let mut crc_failures: u64 = 0;
+    let mut tail_overruns: u64 = 0;
     let mut first_error: Option<String> = None;
     let mut rate = 48_000u32;
-    let mut index: u64 = 0;
     let mut rows_written: u64 = 0;
 
-    // Enhanced coupling makes the decoder hold a frame back, so the frame it
-    // hands out is not always the one just fed in; `pending` keeps the index
-    // that belongs to each released frame, and the flush loops make sure none
-    // is dropped on an error or at the end of the stream.
-    let mut pending: std::collections::VecDeque<u64> = std::collections::VecDeque::new();
-    let mut handle = |frame_index: u64, d: &Decoded| -> Result<()> {
+    let mut handle = |frame: &ProgramFrame| -> Result<()> {
+        let frame_index = frame.index;
+        let d = frame.core();
         rate = d.header.sample_rate;
-        let (oamds, joc, errors) = frame_payloads(d);
+        for part in &frame.parts {
+            if !part.decoded.crc_ok {
+                crc_failures += 1;
+                if first_error.is_none() {
+                    first_error = Some(format!("group {frame_index}: CRC failure"));
+                }
+            }
+            if part.decoded.tail_overrun {
+                tail_overruns += 1;
+                if first_error.is_none() {
+                    first_error = Some(format!(
+                        "group {frame_index}: the audio blocks end inside the frame tail"
+                    ));
+                }
+            }
+        }
+        let (oamds, joc, errors) = frame_payloads(
+            &frame.metadata_part().decoded,
+            if opts.sparse_as_printed {
+                SparseReading::AsPrinted
+            } else {
+                SparseReading::Measured
+            },
+        );
         payload_errors += errors;
         if joc.is_none() {
             frames_without_joc += 1;
@@ -442,13 +482,17 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
                 bail!("the first frame carries no Object Audio Metadata");
             };
             let p = Program::from_oamd(o);
-            let names = Decoder::channel_names(&d.header);
             pipeline = Some(Pipeline::new(
                 j,
                 &p,
-                &names,
+                &frame.layout.channels,
                 opts.clip_gain,
                 opts.flat_quadrature,
+                if opts.steep_as_printed {
+                    SteepReading::AsPrinted
+                } else {
+                    SteepReading::Measured
+                },
             )?);
             sink = Some(Sink::create(dir, &name, &p, rate, opts)?);
             eprintln!(
@@ -497,8 +541,9 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
                 payload_errors += 1;
             }
         }
-        pl.frame(&d.pcm, joc.as_ref());
-        core_samples += d.pcm[0].len() as u64;
+        let channels: Vec<&[f32]> = (0..frame.channels()).map(|i| frame.channel(i)).collect();
+        pl.frame(&channels, joc.as_ref());
+        core_samples += frame.samples() as u64;
         let n = pl.ready_rows();
         if n > 0 {
             let rows = pl.take_rows(n);
@@ -508,38 +553,19 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
         Ok(())
     };
 
-    for_each_frame(path, |_offset, bytes, header| {
-        if header.stream_type == StreamType::Dependent || header.substream_id != 0 {
-            return Ok(());
-        }
-        let frame_index = index;
-        index += 1;
-        pending.push_back(frame_index);
-        match decoder.decode(bytes) {
-            Ok(Some(d)) => {
-                let at = pending.pop_front().unwrap_or(frame_index);
-                handle(at, &d)?;
-            }
-            Ok(None) => {}
-            Err(e) => {
-                pending.pop_back();
-                decode_errors += 1;
-                if first_error.is_none() {
-                    first_error = Some(format!("frame {frame_index}: {e}"));
-                }
-                while let Some(d) = decoder.flush()? {
-                    let at = pending.pop_front().unwrap_or(frame_index);
-                    handle(at, &d)?;
-                }
-                decoder.reset();
-            }
+    let (_, sync_errors, skipped) = for_each_frame(path, |_offset, bytes, header| {
+        decoder.push(bytes, header)?;
+        while let Some(frame) = decoder.pop() {
+            handle(&frame)?;
         }
         Ok(())
     })?;
-    while let Some(d) = decoder.flush()? {
-        let at = pending.pop_front().unwrap_or(index);
-        handle(at, &d)?;
+    decoder.finish()?;
+    while let Some(frame) = decoder.pop() {
+        handle(&frame)?;
     }
+    let stats = decoder.stats().clone();
+    let decode_errors: u64 = stats.decode_errors.values().sum();
     // `handle` borrows the pipeline and the sink; end that borrow.
     let _ = &mut handle;
 
@@ -586,6 +612,12 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
         frames_without_joc,
         frames_without_oamd
     );
+    if pl.splices > 0 || pl.seq_gaps > 0 {
+        eprintln!(
+            "splices: {} frames restarted the sequence counter, {} did not follow the previous one",
+            pl.splices, pl.seq_gaps
+        );
+    }
     eprintln!(
         "core: {} frames decoded, {} decode errors, {:.2} s ({:.0}x realtime)",
         pl.frames,
@@ -597,11 +629,23 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
             0.0
         }
     );
-    if let Some(e) = first_error {
-        eprintln!("first problem: {e}");
-    }
-    if decode_errors > 0 {
-        bail!("{decode_errors} frames failed to decode");
-    }
-    Ok(())
+    let mut f = Findings::default();
+    f.note(decode_errors, "frames failed to decode");
+    f.note(crc_failures, "CRC failures");
+    f.note(tail_overruns, "frames ending inside the frame tail");
+    f.note(sync_errors, "sync errors");
+    f.note(skipped, "bytes skipped");
+    f.note(payload_errors, "metadata payload errors");
+    f.note(
+        stats.dependent_dropped,
+        "dependent substream frames dropped",
+    );
+    f.note(
+        stats.orphan_dependents,
+        "dependent frames with no independent substream",
+    );
+    f.note(stats.location_errors, "unreadable channel maps");
+    f.note(stats.layout_changes, "mid-stream channel layout changes");
+    f.first_problem(first_error.or_else(|| stats.first_error.clone()).as_deref());
+    Ok(f.report())
 }

@@ -6,14 +6,262 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **E-AC-3 dependent substreams are decoded.** A Dolby Digital Plus 7.1
+  programme used to come out as its 5.1 core with `verify` calling the file
+  clean; it now decodes to all eight channels, and each one pairs with FFmpeg's
+  by at least 53 dB. Across the 40 eight-channel tracks in one library, 40 give
+  eight channels and 320 channel comparisons give no mismatch. Two custom
+  channel maps occur in the wild and the file name does not say which: 0x1a00
+  is 7.1 and 0xa010 is 5.1.2.
+- **Corruption reaches the exit code.** `verify` caught every one of 220
+  injected bit errors and exited 7; `decode --format damf` produced Atmos
+  objects and metadata with exit 0 and no diagnostic on 99 of them. Every
+  delivery path now decides with the list `verify` uses and exits 7, and
+  `docs/exit-codes.md` writes the policy down. Replaying both campaigns: 0
+  silent, 0 panics.
+- **Sparse JOC matrices.** Clause 6.6.2's pseudo-code is wrong in three places,
+  and Dolby's decoder disagrees with all three: an unselected channel takes the
+  code that dequantises to zero gain, not the printed 50 or 100; the channel
+  index accumulates from the resolved previous index; and the coefficient chain
+  runs unbroken across the bands whatever channel each one selects, instead of
+  restarting at the offset every time the channel changes. Measured on every
+  sparse frame there was, and then on fifty-five times as much: one clip of
+  Extraction 2 holds 825 sparse objects and no steep object at all, and with all
+  three corrections its sparse frames sit at 46,78 dB against Dolby where the
+  rest of the clip is 46,69. The printed reading puts them at -3,92. The seed of the chain is the printed 50/100 and
+  stays there; reading it as 48/96 costs 50 dB. `--sparse-as-printed` restores
+  the printed reading. The first parameter band's channel index is no longer
+  taken modulo the channel count, which clause 6.6.2 does not ask for: a band
+  whose index names no channel now selects none of them instead of wrapping
+  onto a real one. No conforming stream can tell the difference.
+- **The steep interpolation switched one time slot too late.** `joc_offset_ts`
+  is one-based (clause 6.3.4.4 defines it as the transmitted bits plus one) and
+  the `ts` of clause 6.6.5 counts from zero, but the printed pseudo-code
+  compares them directly. Dolby's decoder switches at the slot the offset
+  names. Steep is 737 503 of 32 493 245 object updates, so this reaches most
+  streams: Glass Onion's worst object goes from 25,24 dB against Dolby's
+  objects to 49,93 and its median from 47,76 to 65,44; Shaun of the Dead's
+  frame 581 from 23,51 dB to 58,90. Titles with no steep object are
+  bit-identical either way. `--steep-as-printed` restores the printed
+  reading.
+- **The JOC downmix input mapping was written for configuration 1 alone.**
+  Table 47 of TS 103 420 ends configuration 1 in the rear surround pair and
+  configurations 2 and 4 in the top front pair; reading all three the same way
+  leaves a configuration 4 stream's height channels unmapped. It refused the
+  decode rather than producing wrong output, and it had never fired because
+  configuration 4 needs a seven-channel downmix, which needs a dependent
+  substream, which this release is the first to decode. Three library titles
+  carry configuration 4 and their objects now come out at 50,13 dB worst
+  against Dolby's. Reading every Dolby track of every file rather than the first
+  finds five such tracks in the library and none at all at configurations 1
+  and 2: `tools/joc_config_sweep.py`. Swapping the top front pair costs 29 dB, so the order is
+  measured.
+- **Dolby's object path reads the TrueHD major sync far more strictly than
+  ordinary decoding does.** Of nine bits edited with the defined CRC-16
+  repaired, eight are refused -- reserved bits, an undefined flag, a lower peak
+  data rate, a cleared variable-rate flag, a DRC start-up gain, a mix level --
+  while a legal change to `extended_substream_info` is accepted, and every one
+  of the edited streams still decodes at presentation 2 and at presentation 16
+  with the default channel configuration. That weakens the reading that
+  `2ch_control_enabled` is necessary for the object presentation: clearing it
+  refuses, but so does changing a dynamic-range gain, which cannot be causal.
+  The correlation across six unmodified titles is untouched.
+- **`--no-dither`, `--no-tpnp` and `--ecpl-spec` reach the object path.**
+  `decode --format damf` on an E-AC-3 stream built the core decoder with its
+  defaults and ignored all three, so three measurement flags read as applied and
+  were not. `--core-only` is now refused with an object output rather than
+  quietly ignored: the object programme is the whole programme. Two media tests
+  hold both.
+- The EMDF container is looked for where TS 103 420 clause 8.2 puts it, the
+  last dependent substream, and `auxdata` is read where clause 4.4.4 puts it.
+  `eac3-joc-config` no longer skips dependent substreams, which would have made
+  it a silent no-op on exactly the streams it exists to interrogate.
+- The media suite fails when it cannot reach the media. It used to report
+  "10 passed" in 0.00 s with `OADEC_MEDIA` unset, and CI now has a job that
+  fails if that comes back.
+- **`verify` reads the object metadata it was counting.** On TrueHD it walked
+  the Evolution payloads, tallied their ids and bytes, and never parsed one, so
+  a malformed Object Audio Metadata payload was invisible to it. Thirteen
+  library titles of 198 carry a truncated element in their first access unit --
+  `truehdd` warns about the same one -- and on every one of them
+  `decode --format damf` exited 7 naming the fault while `verify` said CLEAN at
+  exit 0, after printing that `verify` reports the same faults. It does now: the
+  payloads are parsed, their errors count towards the verdict, and the tally is
+  printed beside the other integrity lines.
+- **A TrueHD sampling-rate change is refused instead of ignored.** The guard on
+  a mid-stream configuration change compared the samples per access unit, which
+  is `40 * (fs / 44100)` truncated and therefore cannot tell 48 kHz from
+  44,1 kHz, 96 from 88,2, or 192 from 176,4. A spliced stream that changed
+  family decoded with exit 0 and a WAVE header carrying the rate of the first
+  major sync. The rate is now compared in its own right, by a named list of the
+  fields that make a configuration unusable, and the diagnostic says which field
+  changed and at which byte.
+
 ### Added
 
-- `oadec eac3-joc-config`, which rewrites `joc_dmx_config_idx` in every JOC
-  payload and changes nothing else, so that a decoder can be handed the same
-  audio under a different downmix configuration. It answers a question the
-  notes had left open: relabelling a working stream from configuration 3 to 0
-  makes the Dolby decoder drop from sixteen object channels to six, so the
-  configuration alone turns its upmix off.
+- **Object gain and object size are counted rather than assumed absent.** Both
+  fields are parsed and neither had ever been seen in a real stream, which was
+  an impression rather than a measurement. One function counts them for both
+  codecs -- gains other than 0 dB by decibel value, mutes apart, non-zero sizes
+  -- and `verify`, `info` and `oamd` all report it.
+- **A second, independent guard on the JOC matrix alignment.** `MATRIX_ALIGN`
+  is fitted rather than specified, so no unit test can judge it and the mutation
+  pass reports it undetectable by design. It had one guard, an indirect margin
+  in a single media test with a single stored reference. It now has a direct one
+  on a real stream that played no part in fitting it: the alignment in use must
+  beat the slot either side of it against Dolby's object decoder, with the
+  neighbours derived from the constant and no threshold anywhere. On that clip
+  the fitted value wins by 2,66 and 2,83 dB.
+- **96 kHz TrueHD, decoded and checked.** Every stream this project had measured
+  was 48 kHz, so the doubled-rate branch had never run on real material. One
+  track in 221 across 525 library files is 96 kHz; all three of its presentations
+  come out byte-identical to `truehdd` and presentation 2 is bit-exact against
+  FFmpeg over 2 880 000 samples on eight channels. 192, 176,4, 88,2 and 44,1 kHz
+  have no material anywhere and stay untested.
+- Authored ground truth for the dependent-substream merge. A Dolby Digital Plus
+  7.1 stream made by Dolby's own encoder from eight tones, one per channel,
+  decodes so that every channel carries its own tone at -20,0 dBFS with the
+  loudest tone belonging to another channel 108 to 191 dB below, and FFmpeg
+  gives the identical assignment. `--core-only` on the same clip shows what the
+  defect delivered: a left surround holding the back-left tone at -20,0, the
+  side-left at -21,2 and the side-right at -26,2. Clause E.2.8.2's
+  replace-and-add, measured. Kept as a media test that fails by 197 dB if the
+  side and back pairs are swapped.
+- The clean experiment the presentation-16 question needed, by authoring the
+  stimulus instead of editing a finished stream. DEE writes
+  `2ch_control_enabled` clear when `presentation_2ch/drc_default_on` is false,
+  and Dolby's object path opens the result -- in the same session where it
+  refuses all three library titles that carry the flag clear. Both encodes of
+  the controlled scene are the same size, `oadec info` differs in that one line,
+  and the object audio is byte-identical. So the field that correlates perfectly
+  across six titles is **not sufficient**, and the earlier bit patch that seemed
+  to show necessity was measuring the edit rather than the field. Nor is the
+  content: each refused title's own objects, decoded here and re-encoded by DEE,
+  are opened by the same object path that refuses the originals. The same holds
+  for the other refusal, the configuration 0 stream Dolby gives six channels:
+  its own objects come back as sixteen that Dolby opens, on the head clip and on
+  a mid-file cut, with the accepted title at sixteen either way.
+- A measurement of the test suite, by writing bugs into the decoder. Twenty-four
+  load-bearing constants and expressions changed one at a time, and four real
+  holes found and fixed: the object-metadata sample-offset and ramp-duration
+  tables had no test at all, the TrueHD major-sync polynomial could be changed
+  untouched because everything that used it both wrote and checked with it, and
+  the clean-or-not verdict could be short-circuited to true in both the library
+  and the command line. One survivor should survive, because the matrix
+  alignment has no specification behind it and only the media suite can judge
+  it. `tools/mutants.py` refuses to start on a dirty tree and undoes every
+  mutation through git.
+- A corruption campaign for the dependent-substream path, which the two existing
+  ones cannot reach because neither of their streams has a dependent substream.
+  150 single-bit sites: no panic, no silent success, exit 7 everywhere -- and no
+  exercise of the parser at all, because every one lands under the frame CRC. So
+  a second campaign repairs the CRC after the flip and stays inside `bsi`, where
+  the parse is the only thing that can notice: 200 sites, 0 panics, 159 reported
+  and 41 silent with the audio byte-identical to the clean decode, which is what
+  a well-formed stream saying something different should produce. Silently
+  corrupted output: 0 of 350 across both.
+- Defect 4's premise, read off the streams instead of a decoder. A frame is 24
+  time slots, so a zero-based index into it takes 0 to 23 and a one-based one
+  takes 1 to 24. Over 515 205 steep objects in three whole streams the offset
+  takes every value from 1 to 24, never 0 and never more than 24. And the printed
+  reading does not merely mistime the 19 950 that carry 24: it never applies
+  their data point at all, because a switch at slot 24 of a frame whose slots are
+  0 to 23 never happens. That is one steep object in twenty-five whose
+  transmitted matrix the printed reading discards.
+- The last open question about the decoder itself, closed by asking one more
+  question of it. A frame that had been reported as an unexplained outlier --
+  34,6 dB where its clip sat at 44,4 -- turns out to be the tenth worst of the 99
+  frames in its window and the 48th of 299 in a wider one, in a passage where
+  this decoder and Dolby's agree at 40 dB throughout. Nine frames of that window
+  are worse and none is sparse. The mistake was comparing one frame with a
+  median and never asking where it ranked among its neighbours.
+- Confirmation for the titles Dolby will not open. The object output for those
+  streams used to have nothing to check it against, which is why the refusal
+  mattered here at all. All 89 of them decode to object audio byte-identical to
+  `truehdd`'s, with 14 that Dolby opens as a control: 103 of 103, over 3,9 GB.
+  The refused set is not an unconfirmed set.
+- The same question put to the TrueHD side of the library, and the answer it
+  gives about a standing claim. Dolby's object path opens 105 of 194 object
+  presentations across 186 files and refuses 89, so the `presentation=16`
+  refusal is 46 per cent of a catalogue rather than three odd titles -- stable
+  across runs and cut lengths, specific to the object mode, and opened by two
+  other decoders. **`2ch_control_enabled` is retired**: perfect across six
+  titles, it is clear in 76 that Dolby opens and 83 it refuses. The best
+  predictor left is `twoch_dialogue_norm`, 32 to 37 with opening and 63 or 31
+  with refusal, agreeing on 187 of 194 -- the same family of field, and still a
+  correlation no instrument here can test.
+- Material where the steep branch of clause 6.6.5 is the rule instead of the
+  exception, and a gate on it. Three authored scenes say what provokes it: a
+  sweep every half frame gives 15 steep objects of 4 695, teleporting between
+  opposite corners gives 45 and all of them in the first three frames, and
+  objects arriving out of silence mid-file give **1 410**, from frame 63 to the
+  end. This encoder answers movement with smooth interpolation and the arrival
+  of level with the steep branch, which is why film soundtracks carry steep
+  objects at all. On the third scene, against Dolby's decode of the stream its
+  own encoder wrote, the reading in use is 51,39 dB median where the printed one
+  is 45,93, better on five elements of five -- kept as a media test that fails
+  when the two readings are swapped. Neither sparse matrices nor two data points
+  could be authored at any data rate or from any scene tried.
+- A library-wide answer to what Dolby's own object decoder opens: 226 Dolby
+  Digital Plus tracks across 210 files, 223 opened as sixteen objects and **two**
+  refused. The one stream known to be refused is not a singleton -- The King
+  (2019), a streaming release, gets the same six channels. With nine
+  configuration-0 streams instead of two, exactly one field splits the refused
+  from the opened: `dialnorm`, 31 in both refused and 23 to 27 in every accepted
+  one. Neither half is the answer alone, since Dolby opens seven configuration-0
+  streams and 90 streams carrying `dialnorm` 31. That conjunction is a candidate
+  and not a finding: with two refused streams among 225 there are 25 200 ways to
+  choose two rows, and a search over 13 530 field pairs is of the same order, so
+  a pair that isolates exactly those two is what chance produces. `tools/ec3_patch_dialnorm.py`
+  can move the field and repair the frame CRC exactly -- it round-trips byte for
+  byte -- and the answer is still no: Dolby refuses a patched stream for a legal
+  value that is not 31, so it is reacting to the edit. A fourth instrument with
+  a limit on it, and a false positive caught by its control.
+- A third decoder's opinion, which is neither ours nor Dolby's. `truehdd` 0.6.1
+  opens the object presentation on all six TrueHD Atmos titles, including the
+  three Dolby's object path refuses, with the element counts oadec reports and
+  `.atmos.audio` files that carry the same MD5 -- 212 527 200 element-samples,
+  zero differing. That does not say why Dolby refuses, but it separates *Dolby
+  refuses these three* from *these three are not object programmes*. The
+  presentation-3 baseline now covers six titles rather than three.
+- A unit test for the OAMD event-timing equation of TS 103 420 clause 5.3.2,
+  `start_sample = sample_offset + 32 x block_offset_factor`, over seven
+  combinations. It is the one field whose value the two decoders disagree
+  about: `truehdd` drops the second term, which puts one event in five 32
+  samples early. Modulo the 1 536-sample codec frame the clause names, oadec's
+  event positions take four distinct residues over seven streams and
+  `truehdd`'s take seven, so the streams say the same thing the clause does.
+- `oadec atmos-author`, which writes a Dolby Atmos master from a scene
+  description so that a decode can be checked against authored metadata rather
+  than against another decoder. A second scene settles object gain and object
+  size: Dolby's encoders carry neither. An object authored at -24 dB comes back
+  at the same level as one authored at 0 dB with gain 0 in its metadata, and a
+  sized object is spread over seven to eleven encoded objects with size 0 and
+  its energy within a decibel of what went in. `tools/ground_truth.py` reads
+  both fields back and measures the essence level. Dolby's `atmos_info` accepts the master; DEE
+  encodes it both ways; seven static object positions come back exactly, at
+  sample offset zero, through both TrueHD Atmos and E-AC-3 JOC.
+- `--core-only` on `decode` and `compare`, which writes the independent
+  substream's channels alone -- the 5.1-compatible decode clause E.2.8.2
+  allows, and what a reference decoder limited to 5.1 produces.
+- `verify --json` reports the programme's substreams, the JOC syntax each
+  stream uses branch by branch, and the frames where the rare branches occur,
+  so a clip that exercises one can be cut.
+
+- `oadec eac3-joc-offset`, which rewrites `joc_offset_ts_bits` (clause 6.3.4.4)
+  in every JOC payload and changes nothing else, beside the existing
+  `eac3-joc-config`. Both are instruments against oadec itself and **neither
+  works against the Dolby decoder**: it discards a payload that has been
+  rewritten and holds the previous matrix, whatever the new value says. That
+  withdraws the support for one earlier conclusion -- relabelling a working
+  stream from configuration 3 to 0 makes Dolby drop to six channels, but so
+  does discarding the payload, and the experiment cannot tell them apart. The
+  claim does not survive either: a second stream carrying configuration 0
+  unmodified, Dredd, is decoded to sixteen objects by Dolby and agrees with ours
+  to 52,44 dB at worst. Whatever makes it refuse the other one belongs to that
+  stream.
 - The parsers now report where they found things: `Frame::skip_bits` gives the
   bit offset of each skip field, and `container::Payload::data_bit` the bit
   offset of a payload's first byte. Between them a tool can reach a field

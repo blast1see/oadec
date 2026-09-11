@@ -1007,3 +1007,46 @@ it sample for sample; see `docs/evidence/2026-09-10.md`.
 This is the only Dolby decoder here that works in the object domain, and it
 is what settled the JOC matrix alignment and the low-band quadrature filter;
 see `docs/evidence/2026-09-09-c.md`.
+
+**Cut from the head, never from the middle.** A twenty-second cut taken ten
+minutes into a raw `.thd` is refused with *the same message a genuine refusal
+gives*, because a byte seek lands inside an access unit and the preroll never
+finds the presentation. Pi from the head is accepted and Pi from 600 seconds is
+not. A sweep that seeks reports every title as refused and looks like a
+discovery.
+
+**The object mode opens about half of what it is given.** Over 194 object
+presentations in 186 library files, `out-ch-config=21` with `presentation=16`
+opens 105 and refuses 89, and no field `oadec info --json` reports — nor any
+pair of them, of 3 486 tried — separates the two sets. The verdict is stable
+across runs and cut lengths and is specific to the object mode: the same clip
+decodes at `presentation=16` with the default channel configuration and at
+`presentation=2` with `out-ch-config=21`. See
+`docs/audit/evidence/remediation/truehd-object-sweep.json`.
+
+**`gst-launch` treats a backslash as an escape** inside a property value, so
+every path handed to `filesrc` or `filesink` has to be written with forward
+slashes. A Windows path fails at `gst_base_src_start` with "Failed to start",
+which reads like a missing file rather than a quoting problem.
+
+## Two things DEE will not do the obvious way
+
+**`pcm_to_ddp` with `encoder_mode` ddp71 refuses loudness correction**:
+"Correction is supported only by encoder_mode=ddp". Use `measure_only`, which
+is better for a level-sensitive comparison anyway because it leaves the samples
+alone. That block also rejects `metering_mode` 1770-4, which the Atmos filters
+accept; 1770-3 works.
+
+**DEE ignores the WAVE channel mask.** An eight-channel file is read as
+L, R, C, LFE, Ls, Rs, Lrs, Rrs — side pair fifth and sixth, back pair seventh
+and eighth — where mask 0x63F orders them L, R, C, LFE, BL, BR, SL, SR.
+Encoding the same audio again with the mask set to zero places the tones
+identically, so it is not reading the mask at all. It silently swaps the side
+and back pairs of anything encoded from a correctly tagged file.
+
+**One knob moves `2ch_control_enabled`.** In `encode_to_dthd`, setting
+`presentation_2ch/drc_default_on` to false makes the encoder write the flag
+clear; `dolby_surround_encoded`, `dolby_headphone_encoded`,
+`legacy_authoring_compatibility` false and the speech DRC profile all leave it
+set. That is the only way found to author a stream with the flag clear, and it
+is what showed the flag is not why the object path refuses anything.

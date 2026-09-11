@@ -1,0 +1,27 @@
+{
+ "key": "opens",
+ "with": 105,
+ "without": 89,
+ "splitting": [],
+ "nearly_splitting": [
+  {
+   "field": "channel_meaning.twoch_dialogue_norm",
+   "rows_on_both_sides": 7,
+   "with": {
+    "33": 25,
+    "37": 72,
+    "36": 2,
+    "34": 3,
+    "32": 2,
+    "31": 1
+   },
+   "without": {
+    "63": 53,
+    "37": 5,
+    "31": 30,
+    "33": 1
+   }
+  }
+ ],
+ "splitting_pairs": []
+}

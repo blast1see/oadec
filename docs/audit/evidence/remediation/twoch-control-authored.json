@@ -1,0 +1,61 @@
+{
+ "what": "Whether a clear `2ch_control_enabled` is what makes Dolby's TrueHD object path refuse a stream. Asked by authoring the stimulus with Dolby's own encoder instead of editing a finished stream, which is the instrument that failed",
+ "utc": "2026-09-10T20:21:13.864418+00:00",
+ "commit": "4efe1c4ae77adbf73ad2998ef995d90f281c5e7a",
+ "why_this_and_not_a_mutation": "the flag correlates perfectly across six titles: set in the three Dolby opens, clear in the three it refuses. Clearing it in every major sync of an accepted title makes Dolby refuse -- but so does changing a dynamic-range gain, and so does changing the two-channel presentation's dialogue normalisation, neither of which can gate the sixteen-channel presentation. The object path reads an edited major sync far more strictly than ordinary decoding does, so a refusal after an edit says little about the field edited. An encoder writing the stream itself has no such problem",
+ "the_knob": {
+  "found": "`encode_to_dthd/presentation_2ch/drc_default_on`. With it false, DEE writes `2ch_control_enabled` clear",
+  "sweep": {
+   "drc_default_on false": "2ch control false",
+   "format dolby_surround_encoded": "2ch control true",
+   "format dolby_headphone_encoded": "2ch control true",
+   "legacy_authoring_compatibility false": "2ch control true",
+   "presentation_2ch drc_profile speech": "2ch control true, DRC start-up gain -1"
+  }
+ },
+ "how_clean_the_pair_is": {
+  "material": "the controlled scene authored here, encoded twice by DEE from the same master",
+  "same_size": "3 354 856 bytes both",
+  "oadec_info_differs_in": "one line: `2ch true` becomes `2ch false`. Nothing else, including the file length",
+  "differing_bytes": 362,
+  "where": "100 major syncs contribute one byte each at offset +18 -- the byte the field-level difference table already named as the only whole byte separating the accepted titles from the refused -- and two bytes of recomputed CRC-16 twelve bytes later. The remaining 28 clusters are the two-channel presentation's own DRC data, which is what the option controls",
+  "object_audio": "byte-identical. `decode -p 3 --format pcm` gives the same 23 040 000 bytes from both, so nothing the object programme carries changed"
+ },
+ "result": {
+  "scene, 2ch control true": "accepted",
+  "scene, 2ch control false": "accepted",
+  "scene, dolby_surround_encoded": "accepted",
+  "scene, dolby_headphone_encoded": "accepted",
+  "scene, legacy_authoring_compatibility false": "accepted",
+  "scene, 2ch drc_profile speech": "accepted"
+ },
+ "positive_control": {
+  "why": "an experiment whose every arm is accepted has to show that the instrument can still say no, or `accepted` might only mean `the pipeline did not run`",
+  "run": "the same command, the same session, on the library titles",
+  "Shaun of the Dead": "REFUSED",
+  "Knives Out": "REFUSED",
+  "Kingsman": "REFUSED",
+  "Pi": "accepted"
+ },
+ "reading": "a clear `2ch_control_enabled` is **not sufficient** to make Dolby's object path refuse. A stream with the flag clear, written legally by Dolby's own encoder, with object audio byte-identical to the accepted control, is opened. The six-title correlation is untouched and so is the possibility that the flag matters in combination with something else, but the flag on its own is now ruled out as the cause",
+ "and_it_explains_the_mutation": "clearing the flag by hand made Dolby refuse; clearing it at the encoder does not. So the refusal after the hand edit came from the edit, not from the field -- which is what the dynamic-range gain control suggested and this settles. The report's `suggestive but unclean` becomes `not sufficient`",
+ "what_stays_open": "why Dolby refuses those three titles. Three answers are now excluded: the streams are not undecodable (truehdd opens all six), the flag that correlates is not sufficient (Dolby opens a stream DEE wrote with it clear), and the content is not it (each refused title's own objects, re-encoded by DEE, are opened). What is left is a property of how the originals were written that neither the 74 fields oadec reports nor a third-party conformance checker separates",
+ "command": "gst-launch-1.0 filesrc ! qtdemux ! capssetter caps=audio/x-true-hd ! dlbtruehdparse ! dlbtruehddec out-ch-config=21 presentation=16 ! fakesink, Dolby Reference Player 3.2.0",
+ "files": {
+  "xml": "E:/oadec-work/audit/remediation/truth/thd-drc-off.xml",
+  "stream": "E:/oadec-work/audit/remediation/truth/scene-drc-off.mlp",
+  "sweep": "E:/oadec-work/audit/remediation/truth/p2ch-sweep.json"
+ },
+ "the_content_is_not_it_either": {
+  "why": "with the one correlating field ruled out, the next question is whether the refusal is about what those streams carry or about how they were written. The objects are recoverable: oadec decodes them and truehdd confirms them byte for byte, so they can be handed back to Dolby's encoder and asked again",
+  "method": "`decode -p 3 --format damf --no-bed-conform` on each title, then `dee encode_to_dthd` from that DAMF set with `spatial_clusters` matched to the element count, then the same object-path command",
+  "result": {
+   "Shaun of the Dead": "accepted (12 elements)",
+   "Knives Out": "accepted (12 elements)",
+   "Kingsman": "accepted (14 elements)",
+   "Pi": "accepted (12 elements), the control"
+  },
+  "reading": "the three refused titles' own objects, re-encoded by Dolby's encoder, are opened by Dolby's object path. So the refusal is not about the object programme: not the objects, not their count, not their metadata. It belongs to how the original streams were written",
+  "limit": "a re-encode keeps the content and replaces the container: DEE writes its own major sync, presentation structure and DRC. That is the point of the experiment and also its boundary -- it says the content is acceptable, not that any particular field of the original is the trigger"
+ }
+}

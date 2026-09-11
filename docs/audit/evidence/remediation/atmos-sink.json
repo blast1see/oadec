@@ -1,0 +1,58 @@
+{
+ "what": "An Atmos playback device on the machine, and what it can and cannot settle",
+ "utc": "2026-09-10T19:52:49.819917+00:00",
+ "commit": "01846d85455b9c752a433ca663fcb345dae5818b",
+ "device": {
+  "sink": "TCL TS8132 soundbar, seen over HDMI as EP-HDMI-RX",
+  "path": "NVIDIA GeForce RTX 4070 SUPER HDMI audio endpoint",
+  "mpv_device": "wasapi/{8ff19f11-40c5-4444-9762-490395ddb6b1}"
+ },
+ "what_it_advertises": {
+  "method": "the audio data block of its EDID CEA extension, read from the registry",
+  "descriptors": [
+   {
+    "format": "LPCM",
+    "channels": 2,
+    "rates": "to 192 kHz",
+    "depths": "16/20/24"
+   },
+   {
+    "format": "LPCM",
+    "channels": 8,
+    "rates": "to 192 kHz",
+    "depths": "16/20/24"
+   },
+   {
+    "format": "MLP (TrueHD)",
+    "channels": 8,
+    "rates": "to 192 kHz"
+   },
+   {
+    "format": "E-AC-3",
+    "channels": 8,
+    "rates": "48 kHz"
+   },
+   {
+    "format": "AC-3",
+    "channels": 6,
+    "rates": "32/44,1/48 kHz",
+    "max_bitrate_kbps": 640
+   }
+  ],
+  "reading": "it takes both formats this project decodes as bitstreams, so a TrueHD Atmos or a Dolby Digital Plus Atmos stream can be sent to it whole"
+ },
+ "what_it_could_settle": [
+  "whether an independent renderer opens the object presentation of the three titles Dolby's software refuses at presentation 16. If it does, the refusal is a property of that software rather than of the streams, which is the open question.",
+  "whether it renders the configuration 0 stream Dolby's software gives six channels for."
+ ],
+ "what_it_cannot_do": "give a machine-readable answer. A sink reports what it decoded on its own display and nowhere else: there is no return path for that over HDMI. So every reading is a person looking at the front panel, which makes it a yes/no observation rather than a per-object measurement.",
+ "how": "mpv --audio-device='wasapi/{8ff19f11-40c5-4444-9762-490395ddb6b1}' --audio-exclusive=yes --audio-spdif=truehd --no-video --start=<a loud passage> --length=20 <file>, and --audio-spdif=eac3 for the Dolby Digital Plus streams",
+ "status": "prepared, not run: the reading needs a person at the device",
+ "prepared": {
+  "script": "tools/atmos_sink_check.ps1",
+  "listing_mode": "pwsh tools/atmos_sink_check.ps1 lists the devices and stops",
+  "play_mode": "pwsh tools/atmos_sink_check.ps1 -Play -Device 'wasapi/{8ff19f11-40c5-4444-9762-490395ddb6b1}'",
+  "what_it_does": "sends each of the six titles to the sink as a TrueHD bitstream, three that Dolby opens and three it refuses, pausing after each so the display can be read",
+  "what_to_record": "what the display names the format, and whether it differs between the accepted and the refused set"
+ }
+}

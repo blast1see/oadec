@@ -1,0 +1,40 @@
+{
+ "what": "Defect 4's premise -- that `joc_offset_ts` is one-based -- read off the values the streams transmit, without asking any decoder",
+ "utc": "2026-09-10T23:31:40.045865+00:00",
+ "commit": "2369f643009d2d9a8b4ee4c59db6aca9036768ef",
+ "why": "the correction was settled by agreeing with Dolby on six titles, which is a differential. The field's own range settles the same question on its own, and it was never looked at",
+ "method": "`verify --json` reports the distribution of `joc_offset_ts` over a whole stream. Zero is the placeholder for a smooth object, which uses no offset; the non-zero values are the steep ones. A frame is 24 QMF time slots",
+ "streams": {
+  "Glass Onion": {
+   "steep_objects": 181080,
+   "distinct_offsets": 24,
+   "minimum": 1,
+   "maximum": 24,
+   "every_value_1_to_24_present": true,
+   "above_24": 0,
+   "at_24": 7410
+  },
+  "Extraction": {
+   "steep_objects": 143730,
+   "distinct_offsets": 24,
+   "minimum": 1,
+   "maximum": 24,
+   "every_value_1_to_24_present": true,
+   "above_24": 0,
+   "at_24": 4620
+  },
+  "Red Notice": {
+   "steep_objects": 190395,
+   "distinct_offsets": 24,
+   "minimum": 1,
+   "maximum": 24,
+   "every_value_1_to_24_present": true,
+   "above_24": 0,
+   "at_24": 7920
+  }
+ },
+ "total_steep_objects": 515205,
+ "the_argument": "a zero-based index into a 24-slot frame takes the values 0 to 23. A one-based one takes 1 to 24. Over 515 205 steep objects in three whole streams the field takes every value from 1 to 24, never 0, and never anything above 24. That is what a one-based field looks like and not what a zero-based one looks like",
+ "and_the_printed_reading_discards_data": "under the reading clause 6.6.5 prints, the switch happens when `ts` reaches the transmitted value. For a value of 24 in a frame whose slots are 0 to 23 that never happens, so the data point the encoder transmitted is never applied and the object holds the previous frame's matrix for the whole frame. Between 3,2 and 4,2 per cent of every stream's steep objects carry that value: 19 950 of the 515 205 here. A reading that throws away transmitted data on one steep object in twenty-five is wrong on its own terms",
+ "what_this_adds": "defect 4 was `PASS-TOL`, resting on agreement with one decoder family. The premise under it no longer rests on that: the streams say the field is one-based and the printed reading discards what they transmit. The measurement against Dolby remains what shows the correction is right in detail"
+}

@@ -218,6 +218,36 @@ mod tests {
             .collect()
     }
 
+    /// The major-sync polynomial, pinned by its answers.
+    ///
+    /// A mutation pass changed it from 0x002D to 0x002F and every test still
+    /// passed: the only places it was used both wrote and checked with the same
+    /// constant, so the two moved together and nothing disagreed. What breaks
+    /// that circle is a value written down rather than computed at test time.
+    ///
+    /// Note which CRC this is. `update_byte` puts the message byte into the low
+    /// end of the register after the shift — `table[crc >> 8] ^ (crc << 8) ^
+    /// byte` — where the textbook MSB-first form puts it into the table index,
+    /// `(crc << 8) ^ table[(crc >> 8) ^ byte]`. The two agree on a message with
+    /// its own CRC appended, which is why the E-AC-3 frame check works either
+    /// way, and they disagree on a message alone. TrueHD's major sync compares
+    /// against a stored value rather than checking for a zero remainder, so it
+    /// is the message-alone answer that has to be right, and these are it.
+    #[test]
+    fn the_major_sync_polynomial_is_the_one_that_reads_real_streams() {
+        assert_eq!(CRC16_MAJOR_SYNC.update_bytes(0, b""), 0x0000);
+        assert_eq!(CRC16_MAJOR_SYNC.update_bytes(0, b"123456789"), 0xC59E);
+        let zero_to_fifteen: Vec<u8> = (0u8..16).collect();
+        assert_eq!(CRC16_MAJOR_SYNC.update_bytes(0, &zero_to_fifteen), 0x704A);
+
+        // and the same three under the polynomial one bit away, so that the
+        // assertions above are known to be about 0x002D and not about anything
+        // a CRC-16 would give
+        let nearby = Crc16::new(0x002F);
+        assert_ne!(nearby.update_bytes(0, b"123456789"), 0xC59E);
+        assert_ne!(nearby.update_bytes(0, &zero_to_fifteen), 0x704A);
+    }
+
     /// Textbook (xor-then-shift) CRC-8, as computed by a generic library.
     fn textbook_crc8(poly: u8, init: u8, bytes: &[u8]) -> u8 {
         let mut crc = init;

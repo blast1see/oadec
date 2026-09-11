@@ -1,0 +1,745 @@
+{
+ "what": "Whether this decoder's object output is right on the 89 library titles Dolby's object mode refuses -- asked of a decoder that opens them",
+ "utc": "2026-09-10T22:25:10.394280+00:00",
+ "commit": "76aa200b06711c2c8c3558ab07a278d901051d17",
+ "why": "the report has said since the first round that the titles Dolby refuses are the ones whose object output has never been confirmed. That was true when they were three and there was no third decoder. It is not true now",
+ "method": "the same twenty-second cuts the sweep took, decoded twice -- `oadec decode -p 3 --format damf --no-bed-conform` and `truehdd decode --presentation 3` -- and the two `.atmos.audio` files compared by hash. TrueHD is lossless and presentation 3 carries the objects as coded channels, so two correct decoders must agree exactly",
+ "result": {
+  "streams_compared": 103,
+  "byte_identical": 103,
+  "refused_by_dolby": {
+   "compared": 89,
+   "identical": 89
+  },
+  "opened_by_dolby_as_a_control": {
+   "compared": 14,
+   "identical": 14
+  },
+  "object_audio_bytes": 3898547084
+ },
+ "reading": "every one of the 89 streams Dolby's object mode refuses decodes here to object audio byte-identical to an independent decoder's, and so do the fourteen it opens that were taken as a control. The refusal says nothing about whether this decoder is right about those streams. It is the last claim in this report that treated the refused set as unconfirmed, and it is withdrawn",
+ "what_it_does_not_say": "that Dolby is wrong. Two non-Dolby decoders agreeing is weaker than either agreeing with Dolby, and the reason that mode refuses them is still unknown",
+ "per_stream": [
+  {
+   "file": "A Quiet Place (2018).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "A Quiet Place Part II (2020).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Everything Everywhere All at Once (2022).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Hamnet (2025).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "Knives Out (2019).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 27205988,
+   "identical": true
+  },
+  {
+   "file": "Shaun of the Dead (2004).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "The Fifth Element (1997).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34401668,
+   "identical": true
+  },
+  {
+   "file": "The Kings Man (2021).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "1917 (2019).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Aliens (1986) Special Edition.mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Apocalypse Now (1979) Final Cut.mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34486628,
+   "identical": true
+  },
+  {
+   "file": "Avengers Endgame (2019).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Ford v Ferrari (2019).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Forrest Gump (1994).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 33694628,
+   "identical": true
+  },
+  {
+   "file": "Indiana Jones and the Kingdom of the Crystal Skull (2008).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Indiana Jones and the Last Crusade (1989).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Indiana Jones and the Temple of Doom (1984).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Iron Man (2008).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Lawrence of Arabia (1962).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "Leon (1994) International Cut.mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Mad Max Fury Road (2015).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34444868,
+   "identical": true
+  },
+  {
+   "file": "Monsters Inc (2001).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Parasite (2019).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 46080068,
+   "identical": true
+  },
+  {
+   "file": "Pirates of the Caribbean At Worlds End (2007).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Pirates of the Caribbean Dead Mans Chest (2006).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Pirates of the Caribbean On Stranger Tides (2011).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Pirates of the Caribbean The Curse of the Black Pearl (2003).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Raiders of the Lost Ark (1981).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Ratatouille (2007).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40194068,
+   "identical": true
+  },
+  {
+   "file": "Requiem for A Dream (2000).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 46080068,
+   "identical": true
+  },
+  {
+   "file": "Rush (2013).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Schindlers List (1993).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Sicario Day of The Soldado (2018).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Snatch (2000).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "Spider-Man Across the Spider-Verse (2023).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Spider-Man Into the Spider-Verse (2018).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34545668,
+   "identical": true
+  },
+  {
+   "file": "Spider-Man No Way Home (2021).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Star Wars Episode IV A New Hope (1977).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "The Green Mile (1999).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "The Hobbit An Unexpected Journey (2012).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "The Hobbit The Battle of the Five Armies (2014).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "The Lord of the Rings The Fellowship of the Ring (2001) Extended.mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "Top Gun Maverick (2022) IMAX.mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "Toy Story 3 (2010).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Up (2009).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "V for Vendetta (2005).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "WALL-E (2008).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 17638388,
+   "identical": true
+  },
+  {
+   "file": "Whiplash (2014).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "Annihilation (2018).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Ant-Man (2015).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Ant-Man and the Wasp (2018).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Ant-Man and the Wasp Quantumania (2023).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Big Fish (2003).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Black Panther (2018).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Black Panther Wakanda Forever (2022).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Black Widow (2021).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Captain America Civil War (2016).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Captain America The First Avenger (2011).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Captain America The Winter Soldier (2014).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Cruella (2021).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Doctor Strange (2016).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Doctor Strange in the Multiverse of Madness (2022).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Guardians of the Galaxy (2014).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Guardians of the Galaxy Vol 2 (2017).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Guardians of the Galaxy Vol 3 (2023).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Iron Man 2 (2010).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Iron Man 3 (2013).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Ready Player One (2018).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "Shang-Chi and the Legend of the Ten Rings (2021).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Spider-Man Far from Home (2019).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Spider-Man Homecoming (2017).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "T2 Trainspotting (2017).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "The Batman (2022).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "The Others (2001).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34545668,
+   "identical": true
+  },
+  {
+   "file": "Thor (2011).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Thor Love and Thunder (2022).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Thor Ragnarok (2017).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Thor The Dark World (2013).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Alita Battle Angel (2019).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "District 9 (2009).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "Dredd (2012).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 45851588,
+   "identical": true
+  },
+  {
+   "file": "John Wick (2014).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 46080068,
+   "identical": true
+  },
+  {
+   "file": "John Wick Chapter 2 (2017).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 46078148,
+   "identical": true
+  },
+  {
+   "file": "John Wick Chapter 3 Parabellum (2019).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 46066628,
+   "identical": true
+  },
+  {
+   "file": "Legends of the Fall (1994).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Mission Impossible Rogue Nation (2015).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "The Northman (2022).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Lee Cronin's The Mummy (2026).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34518308,
+   "identical": true
+  },
+  {
+   "file": "Zombieland (2009).mkv",
+   "track": 1,
+   "dolby": "refused",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Avatar Fire and Ash (2025).mkv",
+   "track": 1,
+   "dolby": "opened",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Talk to Me (2023).mkv",
+   "track": 1,
+   "dolby": "opened",
+   "bytes": 46080068,
+   "identical": true
+  },
+  {
+   "file": "Avengers Infinity War (2018).mkv",
+   "track": 1,
+   "dolby": "opened",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Braveheart (1995).mkv",
+   "track": 1,
+   "dolby": "opened",
+   "bytes": 30813188,
+   "identical": true
+  },
+  {
+   "file": "Furiosa A Mad Max Saga (2024).mkv",
+   "track": 1,
+   "dolby": "opened",
+   "bytes": 34558628,
+   "identical": true
+  },
+  {
+   "file": "Indiana Jones and the Dial of Destiny (2023).mkv",
+   "track": 5,
+   "dolby": "opened",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Okja (2017).mkv",
+   "track": 1,
+   "dolby": "opened",
+   "bytes": 34560068,
+   "identical": true
+  },
+  {
+   "file": "Star Wars Episode VI Return of the Jedi (1983).mkv",
+   "track": 1,
+   "dolby": "opened",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "The Incredibles (2004).mkv",
+   "track": 1,
+   "dolby": "opened",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "American Psycho (2000) Unrated.mkv",
+   "track": 1,
+   "dolby": "opened",
+   "bytes": 46080068,
+   "identical": true
+  },
+  {
+   "file": "Eternals (2021).mkv",
+   "track": 1,
+   "dolby": "opened",
+   "bytes": 40318388,
+   "identical": true
+  },
+  {
+   "file": "Thunderbolts (2025).mkv",
+   "track": 1,
+   "dolby": "opened",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Master and Commander The Far Side of the World (2003).mkv",
+   "track": 1,
+   "dolby": "opened",
+   "bytes": 40320068,
+   "identical": true
+  },
+  {
+   "file": "Titanic (1997).mkv",
+   "track": 3,
+   "dolby": "opened",
+   "bytes": 40279748,
+   "identical": true
+  }
+ ]
+}

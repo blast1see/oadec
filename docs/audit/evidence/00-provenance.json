@@ -1,0 +1,15 @@
+{
+  "utc": "2026-09-10T05:09:11.762469+00:00",
+  "commit": "860c76dfb7c345494b424f0513c301e868e34b46",
+  "commit_subject": "docs: bring the status table, the plan and the changelog up to what was measured",
+  "worktree_clean": true,
+  "describe": "v0.2.0-2-g152dc62",
+  "binary": "target\\release\\oadec.exe",
+  "binary_sha256": "9dca54db61aeb91844e3e841e830768bf720c14cc52c3a489ab1c912d7ca5165",
+  "binary_bytes": 2135040,
+  "oadec_version": "oadec 0.2.0",
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+  "ffmpeg": "ffmpeg version 2026-09-02-git-9fc8c785e2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+  "truehdd": "truehdd b54f209 (truehd library 0.7.1) Built: 2026-08-15 08:27:23 UTC"
+}
