@@ -1696,8 +1696,8 @@ by one, an index base, a scale factor, a channel mapped to the wrong input — r
 the unit tests, records whether anything failed and which test, and undoes the
 change. It refuses to start on a dirty tree.
 
-Twenty-one mutations, all of which apply. Twenty are caught, each naming its
-test, and getting there took four real holes out of the suite.
+Twenty-two mutations, all of which apply. Twenty-one are caught, each naming
+its test, and getting there took four real holes out of the suite.
 
 Two were tables: changing the first `sample_offset` from 8 to 9, or the first
 `ramp_duration` from 32 to 33, left every test passing. Both are transcribed
@@ -1726,7 +1726,9 @@ it was fitted against Dolby's decoder, so no unit test can judge it. The media
 suite does: with the alignment moved one slot, the steep gate fails at 52,44 dB
 against 52,07 where a decibel of margin is asked for.
 
-So twenty-one of twenty-one are caught, twenty by unit tests and one by media.
+So twenty-two of twenty-two are caught, twenty-one by unit tests and one by
+media. The pass grows with the code: the sampling-rate guard below was added to
+it the day it was written, and dropping the rate from that list is caught.
 One of them had been reporting itself as *skipped* rather than caught or
 survived, because its search text carried a literal backslash-n instead of a
 newline. A skip is the one outcome that means nothing, which is why the summary
