@@ -1578,6 +1578,37 @@ alignment and the quadrature. None of them involves a rewrite.
 
 ---
 
+## Does the suite have teeth?
+
+Everything above measures the decoder. This measures the thing that measures it,
+because a green suite says nothing about what it would have caught.
+`tools/mutants.py` writes one bug into the decoder at a time — a table entry off
+by one, an index base, a scale factor, a channel mapped to the wrong input — runs
+the unit tests, records whether anything failed and which test, and undoes the
+change. It refuses to start on a dirty tree.
+
+Fourteen mutations. Eleven were caught at once, each naming its test. Three
+survived, and two of them were real holes: changing the first `sample_offset`
+from 8 to 9, or the first `ramp_duration` from 32 to 33, left every test
+passing. Both are transcribed numbers from tables 23 and 25 with no structure to
+check them against, which is exactly the kind of constant a typo survives in, and
+both reach the timing of every metadata update. They are pinned now by a test
+that writes both tables out again rather than reading the constants it checks —
+and that test found something on its first run: the last entry of table 25 is
+2048 while clause 5.6.2.9 puts `ramp_duration_bits` in [0, 2047], so the index
+reaches one duration the explicit field cannot express, and the first version of
+the assertion had it backwards.
+
+The third survivor should survive. `MATRIX_ALIGN` has no specification behind
+it; it was fitted against Dolby's decoder, so no unit test can judge it. The
+media suite does: with the alignment moved one slot, the steep gate fails at
+52,44 dB against 52,07 where a decibel of margin is asked for.
+
+So fourteen of fourteen are caught, thirteen by unit tests and one by media.
+`evidence/remediation/mutation-testing.json`.
+
+---
+
 ## The gates, re-run at the end
 
 Every change of this round touches the JOC decode, and the last of them --

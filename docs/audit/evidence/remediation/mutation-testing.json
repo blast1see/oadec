@@ -1,0 +1,133 @@
+{
+ "what": "Whether the test suite would catch a bug, measured by writing bugs into the decoder",
+ "utc": "2026-09-11T00:03:46.318596+00:00",
+ "commit": "f578e0239164ec9eb589ce486b8637d6d6dd3bad",
+ "why": "a green suite says nothing about what it would have caught. Everything else in this report measures the decoder; this measures the thing that measures the decoder",
+ "method": "`tools/mutants.py`: change one load-bearing constant, run `cargo test --workspace`, record whether anything failed and which test, undo it with `git checkout --`. Each mutation is a bug someone could write -- a table entry off by one, an index base, a scale factor, a channel mapped to the wrong input -- not a random character. The run refuses to start on a dirty tree",
+ "result": {
+  "mutations": 14,
+  "caught_by_a_unit_test": 12,
+  "survived_the_unit_suite": 1,
+  "skipped": 1
+ },
+ "per_mutation": [
+  {
+   "mutation": "the block-offset step, 32 -> 31",
+   "caught": true,
+   "by": [
+    "program::tests::an_update_starts_at_sample_offset_plus_thirty_two_per_block_factor"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the steep switch, one slot back -> none",
+   "caught": true,
+   "by": [
+    "tests::steep_switches_one_slot_before_the_printed_reading"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the steep switch, one slot back -> two",
+   "caught": true,
+   "by": [
+    "tests::an_offset_the_frame_cannot_hold_leaves_the_previous_matrix_alone",
+    "tests::steep_switches_one_slot_before_the_printed_reading"
+   ],
+   "tests_that_failed": 2
+  },
+  {
+   "mutation": "dequantisation, nquant 96 -> 95",
+   "caught": true,
+   "by": [
+    "tests::dequantization_ranges_match_the_note_of_clause_6_6_4"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "dequantisation, the 820 scale -> 821",
+   "caught": true,
+   "by": [
+    "tests::dequantization_ranges_match_the_note_of_clause_6_6_4"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the smooth ramp, ts + 1 -> ts",
+   "caught": true,
+   "by": [
+    "tests::every_interpolation_branch_matches_pseudocode_6"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the WAVE mask of the left channel",
+   "caught": true,
+   "by": [
+    "program::tests::a_dependent_substream_replaces_the_surrounds_and_adds_the_rear_pair",
+    "program::tests::a_seven_one_programme_sorts_into_wave_order"
+   ],
+   "tests_that_failed": 2
+  },
+  {
+   "mutation": "the interchange rank of an unmapped location, 32 -> 0",
+   "caught": true,
+   "by": [
+    "program::tests::interchange_rank_follows_the_mask_bit"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the height pair of configuration 4 mapped like configuration 1",
+   "caught": true,
+   "by": [
+    "program::tests::the_joc_downmix_inputs_cover_seven_channels"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the OAMD sample-offset table, 8 -> 9",
+   "caught": true,
+   "by": [
+    "oamd::tests::the_timing_tables_are_the_ones_the_clauses_print"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the ramp-duration table, 32 -> 33",
+   "caught": true,
+   "by": [
+    "oamd::tests::the_timing_tables_are_the_ones_the_clauses_print"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the matrix alignment, 10 -> 9",
+   "caught": false,
+   "by": [],
+   "tests_that_failed": 0
+  },
+  {
+   "mutation": "the sparse chain, measured -> as printed",
+   "caught": true,
+   "by": [
+    "joc::tests::a_first_band_index_naming_no_channel_selects_none_of_them",
+    "joc::tests::sparse_object_places_the_vector_on_one_channel_per_band"
+   ],
+   "tests_that_failed": 2
+  }
+ ],
+ "the_two_holes_it_found": {
+  "the_oamd_sample_offset_table": "changing the first value from 8 to 9 left every test passing",
+  "the_ramp_duration_table": "changing the first value from 32 to 33 left every test passing",
+  "why_those_two": "both are transcribed numbers from tables 23 and 25 with no structure to check them against, which is exactly the kind of constant a typo survives in, and both reach the timing of every metadata update",
+  "fixed_by": "`the_timing_tables_are_the_ones_the_clauses_print`, which writes both tables out again rather than reading the constants it pins. The mutations are caught now",
+  "and_it_found_something_on_its_first_run": "the last entry of table 25 is 2048 while clause 5.6.2.9 puts `ramp_duration_bits` in [0, 2047], so the index reaches one duration the explicit field cannot express. The first version of that assertion had it backwards and failed"
+ },
+ "the_survivor_that_should_survive": {
+  "mutation": "the matrix alignment, 10 -> 9",
+  "why_no_unit_test_can_catch_it": "there is no specification behind it. It was fitted against Dolby's decoder, so only a comparison with another decoder can judge it",
+  "what_does_catch_it": "the media suite. With the alignment changed by one slot, `the_steep_switch_is_measured_where_the_branch_is_the_common_case` fails: the reading in use gives 52,44 dB against Dolby and the printed one 52,07, and the gate asks for a decibel of margin"
+ },
+ "reading": "all fourteen are caught, thirteen by unit tests and one by a media test. That is a measurement of the suite rather than a claim about it, and the two holes it found were real"
+}
