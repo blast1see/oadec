@@ -107,12 +107,15 @@ Semantic Versioning.
   for the other refusal, the configuration 0 stream Dolby gives six channels:
   its own objects come back as sixteen that Dolby opens, on the head clip and on
   a mid-file cut, with the accepted title at sixteen either way.
-- A measurement of the test suite, by writing bugs into the decoder. Fourteen
-  load-bearing constants changed one at a time: eleven caught at once, two real
-  holes found and fixed (the object-metadata sample-offset and ramp-duration
-  tables had no test at all), and one survivor that should survive, because the
-  matrix alignment has no specification behind it and only the media suite can
-  judge it. `tools/mutants.py` refuses to start on a dirty tree and undoes every
+- A measurement of the test suite, by writing bugs into the decoder. Twenty-one
+  load-bearing constants and expressions changed one at a time, and four real
+  holes found and fixed: the object-metadata sample-offset and ramp-duration
+  tables had no test at all, the TrueHD major-sync polynomial could be changed
+  untouched because everything that used it both wrote and checked with it, and
+  the clean-or-not verdict could be short-circuited to true in both the library
+  and the command line. One survivor should survive, because the matrix
+  alignment has no specification behind it and only the media suite can judge
+  it. `tools/mutants.py` refuses to start on a dirty tree and undoes every
   mutation through git.
 - A corruption campaign for the dependent-substream path, which the two existing
   ones cannot reach because neither of their streams has a dependent substream.
