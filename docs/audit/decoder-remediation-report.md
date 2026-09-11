@@ -1587,8 +1587,11 @@ by one, an index base, a scale factor, a channel mapped to the wrong input — r
 the unit tests, records whether anything failed and which test, and undoes the
 change. It refuses to start on a dirty tree.
 
-Fourteen mutations, all of which apply. Eleven were caught at once, each naming
-its test. Three survived, and two of them were real holes: changing the first `sample_offset`
+Twenty-one mutations, all of which apply. Twenty are caught, each naming its
+test. Five survived a first pass and four of them were real holes.
+
+Two were tables: changing the first `sample_offset` from 8 to 9, or the first
+`ramp_duration` from 32 to 33, left every test passing: changing the first `sample_offset`
 from 8 to 9, or the first `ramp_duration` from 32 to 33, left every test
 passing. Both are transcribed numbers from tables 23 and 25 with no structure to
 check them against, which is exactly the kind of constant a typo survives in, and
@@ -1599,12 +1602,23 @@ and that test found something on its first run: the last entry of table 25 is
 reaches one duration the explicit field cannot express, and the first version of
 the assertion had it backwards.
 
-The third survivor should survive. `MATRIX_ALIGN` has no specification behind
-it; it was fitted against Dolby's decoder, so no unit test can judge it. The
-media suite does: with the alignment moved one slot, the steep gate fails at
-52,44 dB against 52,07 where a decibel of margin is asked for.
+The other two were worse. **The major-sync polynomial** could go from 0x002D to
+0x002F untouched, because the only places it is used both write and check with
+the same constant, so the two moved together and nothing disagreed; three answers
+are written down now, with a neighbouring polynomial asserted to give different
+ones. And **the verdict itself** could be short-circuited to `true` with nothing
+failing — in the library and again in the command line, where the file had no
+test module at all. That is the worst place for it: the second defect of this
+round was precisely that corruption reached the counters and not the exit. Every
+input to both is pinned now, including the ones that must *not* count, since a
+second programme is legal and an implied LFE is a documented reading.
 
-So fourteen of fourteen are caught, thirteen by unit tests and one by media.
+The last survivor should survive. `MATRIX_ALIGN` has no specification behind it;
+it was fitted against Dolby's decoder, so no unit test can judge it. The media
+suite does: with the alignment moved one slot, the steep gate fails at 52,44 dB
+against 52,07 where a decibel of margin is asked for.
+
+So twenty-one of twenty-one are caught, twenty by unit tests and one by media.
 One of the fourteen had been reporting itself as *skipped* rather than caught or
 survived, because its search text carried a literal backslash-n instead of a
 newline. A skip is the one outcome that means nothing, which is why the summary

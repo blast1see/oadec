@@ -1,12 +1,12 @@
 {
  "what": "Whether the test suite would catch a bug, measured by writing bugs into the decoder",
- "utc": "2026-09-11T00:05:32.537559+00:00",
- "commit": "73a119b05ddb4e13d75337f25a52311815d69ae8",
+ "utc": "2026-09-11T00:16:56.259727+00:00",
+ "commit": "3f6bcd510486b2c526f43a6c13663d48e3a25344",
  "why": "a green suite says nothing about what it would have caught. Everything else in this report measures the decoder; this measures the thing that measures the decoder",
  "method": "`tools/mutants.py`: change one load-bearing constant, run `cargo test --workspace`, record whether anything failed and which test, undo it with `git checkout --`. Each mutation is a bug someone could write -- a table entry off by one, an index base, a scale factor, a channel mapped to the wrong input -- not a random character. The run refuses to start on a dirty tree",
  "result": {
-  "mutations": 14,
-  "caught_by_a_unit_test": 13,
+  "mutations": 21,
+  "caught_by_a_unit_test": 20,
   "survived_the_unit_suite": 1,
   "skipped": 0
  },
@@ -123,6 +123,62 @@
     "joc::tests::sparse_object_places_the_vector_on_one_channel_per_band"
    ],
    "tests_that_failed": 2
+  },
+  {
+   "mutation": "the TrueHD major-sync CRC polynomial, 0x002D -> 0x002F",
+   "caught": true,
+   "by": [
+    "crc::tests::the_major_sync_polynomial_is_the_one_that_reads_real_streams"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the restart-header CRC polynomial, 0x1D -> 0x1F",
+   "caught": true,
+   "by": [
+    "crc::tests::restart_crc_over_a_bit_range_matches_the_reference"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the substream CRC initial value, 0xA2 -> 0xA3",
+   "caught": true,
+   "by": [
+    "crc::tests::substream_crc_equals_the_textbook_formulation"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the DAMF y coordinate, front and back swapped",
+   "caught": true,
+   "by": [
+    "program::tests::positions_convert_to_damf_coordinates"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "a dropped dependent substream no longer makes a stream unclean",
+   "caught": true,
+   "by": [
+    "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the programme verdict ignores a dropped dependent substream",
+   "caught": true,
+   "by": [
+    "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the programme verdict counts a second programme as unclean",
+   "caught": true,
+   "by": [
+    "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean"
+   ],
+   "tests_that_failed": 1
   }
  ],
  "the_two_holes_it_found": {
