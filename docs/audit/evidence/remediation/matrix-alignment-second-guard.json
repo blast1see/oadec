@@ -1,0 +1,40 @@
+{
+ "what": "A second and independent guard on the JOC matrix alignment, on a clip the constant was never fitted on",
+ "utc": "2026-09-11T04:34:37.680378+00:00",
+ "commit": "38900eec8cf55a7b887552bb4d6df9a101259226",
+ "binary_sha256": "f5aae50bc34f87b9776159d2bb3b2aa14d8e8efa414539378d41373110f95c74",
+ "why": "`MATRIX_ALIGN` is the one mutation the unit suite cannot catch, and that is correct rather than a hole: clause 6.6.6 pairs matrix slot `ts` with subband slot `ts` and never mentions that the analysis bank the decoder runs is not the one the encoder ran, so there is no normative value. A unit test could only assert that the code holds the number the code already holds. What was wrong was the *breadth* of the guard: one media test, indirect, on one clip with one stored reference",
+ "the_first_guard_measured": {
+  "method": "`MATRIX_ALIGN` has a single consumer, the default of the `OADEC_JOC_LAG` override, so moving the override is the mutation without touching the tree. The whole media suite was re-run that way",
+  "result": "19 passed, 1 failed of 20",
+  "the_one": "the_steep_switch_is_measured_where_the_branch_is_the_common_case, at 52,44 dB against 52,07",
+  "why_it_is_indirect": "that test is about defect 4. It requires the corrected steep reading to beat the printed one by a decibel; a wrong alignment degrades both and collapses the margin. It catches the change as a side effect",
+  "the_risk_named": "it was also the only test in the suite scoring object output against a Dolby object reference at all, so the constant rested on one test and one file"
+ },
+ "the_second_guard": {
+  "clip": "`clips/joc-steep-jackal.ec3`: 900 frame groups cut clean from the head of a real web stream, 28,8 s, downmix configuration 3, 15 objects, 480 steep objects, `verify` CLEAN with no skipped bytes",
+  "independence": "the constant was fitted on three titles from three encoders; this is a fourth and played no part in it",
+  "reference": "`ref-drp/joc/joc-steep-jackal.f32`, Dolby's own object decoder through `dlbac3dec out-ch-config=21` with DRC suppressed and `drop-delay=true`, 88 379 328 bytes, sixteen elements",
+  "assertion": "an ordering, not a threshold: the alignment in use must score better against Dolby than the slot either side of it. The neighbours are derived from the constant rather than written down, so the test stays meaningful if the constant is ever re-measured. Nothing is tuned, and if the override stopped working all three decodes would be identical and the strict comparison would fail rather than pass quietly",
+  "not_circular": "the constant chooses which three alignments to try; Dolby's output chooses the winner"
+ },
+ "the_sweep_on_the_new_clip": {
+  "units": "mean SDR in dB against Dolby, over the ten elements carrying audio",
+  "two_slots_late": 40.02,
+  "one_slot_late": 41.83,
+  "in_use": 44.66,
+  "one_slot_early": 42.0,
+  "two_slots_early": 40.14,
+  "margins": {
+   "over_one_slot_late": 2.83,
+   "over_one_slot_early": 2.66
+  },
+  "reading": "sharp, symmetric and centred where the original three-title sweep put it. The fitted value is the best one on material it was never fitted on"
+ },
+ "the_test_catches_the_real_mutation": {
+  "method": "not the override this time: `MATRIX_ALIGN` was changed to 9 in the source, the suite run, and the source reverted",
+  "result": "FAILED — 'over 10 elements the alignment in use scores 42.00 dB against Dolby, one slot early 40.14 and one slot late 44.66; the fitted value is no longer the best one and the constant needs re-measuring, not a nudge'",
+  "on_a_clean_tree": "passes"
+ },
+ "what_this_does_not_claim": "that 10 is correct in some absolute sense. It claims that 10 beats 9 and 11 against Dolby on four titles now instead of three, which is the strongest statement available for a constant with no clause behind it. An absolute threshold was considered and rejected: the distance to Dolby moves about a decibel per slot and is dominated by E-AC-3 dither, so a floor able to separate the slots would have to be tuned to within a decibel of the answer, per clip"
+}

@@ -1798,13 +1798,48 @@ round was precisely that corruption reached the counters and not the exit. Every
 input to both is pinned now, including the ones that must *not* count, since a
 second programme is legal and an implied LFE is a documented reading.
 
-The last survivor should survive. `MATRIX_ALIGN` has no specification behind it;
-it was fitted against Dolby's decoder, so no unit test can judge it. The media
-suite does: with the alignment moved one slot, the steep gate fails at 52,44 dB
-against 52,07 where a decibel of margin is asked for.
+The last survivor should survive, and the reason is worth being exact about.
+`MATRIX_ALIGN` has no clause behind it. Clause 6.6.6 pairs matrix slot `ts` with
+subband slot `ts` and never mentions that the analysis bank the decoder runs is
+not the one the encoder ran, so there is no normative value; the constant is a
+measurement, swept against Dolby's object decoder. A unit test could therefore
+only assert that the code holds the number the code already holds, which is the
+circularity the major-sync polynomial exposed earlier in this round.
 
-So twenty-four of twenty-four are caught, twenty-three by unit tests and one by
-media. The pass grows with the code: three of the twenty-four cover work from
+It is guarded the only way it can be, differentially against another decoder,
+and now twice. The first guard was measured rather than assumed: the whole media
+suite was re-run with the alignment moved one slot, and **one test of the twenty
+then in it** failed, at 52,44 dB against 52,07 where a decibel of margin is asked
+for. That is an indirect guard -- a defect-4 test whose margin happens to
+collapse -- and it was the only test in the suite scoring object output against a
+Dolby object reference at all, so the alignment rested on one test and one stored
+file.
+
+The second guard fixes that and is independent. A real web stream, cut clean
+from its head and carrying 480 steep objects, played no part in fitting the
+constant; Dolby's object decoder opens it and the reference is stored beside the
+first. The assertion is an ordering rather than a threshold: the alignment in use
+must score better against Dolby than the slot either side of it, with the
+neighbours derived from the constant rather than written down. Nothing is tuned.
+
+The answer on that clip is the interesting part. The fitted value is the best one
+on material it was never fitted on, and by a comfortable margin:
+
+| Alignment | Mean against Dolby, ten elements |
+|---|---:|
+| two slots late | 40,02 dB |
+| one slot late | 41,83 dB |
+| **in use** | **44,66 dB** |
+| one slot early | 42,00 dB |
+| two slots early | 40,14 dB |
+
+Sharp, symmetric, and centred where the original sweep put it. With the constant
+changed to 9 in the source the test fails and says so in the terms that matter:
+the value in use scores 42,00 dB, one slot late 44,66, so the fitted value is no
+longer the best one.
+
+So twenty-four of twenty-four are caught, twenty-three by unit tests and the
+twenty-fourth by media, on two tests now rather than one. The pass grows with the code: three of the twenty-four cover work from
 this round and were added the day it was written -- the sampling-rate guard, the
 TrueHD verdict, and the rule that keeps an inactive object's default mute from
 being counted as an authored one.
@@ -1834,7 +1869,11 @@ were replayed against the final binary rather than assumed:
 | TrueHD, 100 sites | 0 silent, 100 non-zero, 0 panics | 0 silent, 100 non-zero | — |
 | DD+ 7.1, 150 sites | 0 silent, 150 non-zero, 0 panics | 0 silent, 150 non-zero | 0 silent, 150 non-zero |
 
-Site for site identical to what the same replay recorded before the JOC work.
+Site for site identical to what the same replay recorded before the JOC work,
+and re-run once more at the end of the branch: the object-metadata work gave
+`verify` a new class of fault to count, which could have moved an exit code on a
+corrupted stream, and did not. All 370 sites reproduce.
+`evidence/remediation/final-regression.json`.
 
 The third campaign is new, because neither of the first two has a dependent
 substream and `program.rs` is the largest and newest code here. It says the right

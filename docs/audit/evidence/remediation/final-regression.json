@@ -1,0 +1,98 @@
+{
+ "what": "The corruption campaigns and the TrueHD gates, replayed against the final branch binary",
+ "utc": "2026-09-11T04:37:45.359155+00:00",
+ "commit": "38900eec8cf55a7b887552bb4d6df9a101259226",
+ "binary_sha256": "f5aae50bc34f87b9776159d2bb3b2aa14d8e8efa414539378d41373110f95c74",
+ "why": "the branch changed after the last replay: verify now parses object metadata, which could move an exit code on a corrupted stream. A recorded result from an older binary is not a gate on this one",
+ "campaigns": {
+  "joc_120_sites": {
+   "source": "E:/oadec-work/audit/tmp/fz-joc.ec3",
+   "seed": 1,
+   "trials": 120,
+   "summary": {
+    "verify": {
+     "silent": 0,
+     "nonzero_exit": 120,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_pcm": {
+     "silent": 0,
+     "nonzero_exit": 120,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_damf": {
+     "silent": 0,
+     "nonzero_exit": 120,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    }
+   }
+  },
+  "truehd_100_sites": {
+   "source": "E:/oadec-work/audit/tmp/fz-thd.thd",
+   "seed": 7,
+   "trials": 100,
+   "summary": {
+    "verify": {
+     "silent": 0,
+     "nonzero_exit": 100,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_pcm": {
+     "silent": 0,
+     "nonzero_exit": 100,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    }
+   }
+  },
+  "ddp71_150_sites": {
+   "source": "E:/oadec-work/audit/remediation/ddp71-fuzz.ec3",
+   "seed": 20260911,
+   "trials": 150,
+   "summary": {
+    "verify": {
+     "silent": 0,
+     "nonzero_exit": 150,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_programme": {
+     "silent": 0,
+     "nonzero_exit": 150,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_core_only": {
+     "silent": 0,
+     "nonzero_exit": 150,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    }
+   }
+  }
+ },
+ "gates": {
+  "gates": [
+   {
+    "gate": "truehd-presentation-2-vs-ffmpeg",
+    "verdict": "PASS",
+    "detail": "decoded 126895 access units, 5075800 samples x 8 channels (0:01:45.746), 0 dropped duplicates\nlossless checks: 1000 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: L R C LFE Lb Rb Ls Rs\nspeed: 0.87 s (122x realtime)\ncompared 5075800 samples x 8 channels (0:01:45.746) with the reference\nmismatching samples: 0 (max difference 0)\nlengths agree\nresult: BIT-EXACT\nintegrity: 84 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "gate": "truehd-presentation-3-vs-truehdd",
+    "verdict": "PASS",
+    "detail": "reference 182728800 bytes, ours 182728800 bytes, common 182728800\ndiffering 4 KiB blocks: 0\nresult: BIT-EXACT"
+   },
+   {
+    "gate": "truehd-presentation-3-vs-dolby",
+    "verdict": "PASS",
+    "detail": "12 channels: 5075800 frames, 0 differing samples, max |diff| 0\nresult: BIT-EXACT"
+   }
+  ]
+ },
+ "reading": "370 injected single-bit errors across three campaigns and every delivery path: 0 silent, 0 reported-but-exit-0, 0 panics, every site a non-zero exit. Identical to what the same campaigns recorded before the object-metadata work, so that work moved no exit code"
+}

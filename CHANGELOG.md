@@ -106,6 +106,14 @@ Semantic Versioning.
   an impression rather than a measurement. One function counts them for both
   codecs -- gains other than 0 dB by decibel value, mutes apart, non-zero sizes
   -- and `verify`, `info` and `oamd` all report it.
+- **A second, independent guard on the JOC matrix alignment.** `MATRIX_ALIGN`
+  is fitted rather than specified, so no unit test can judge it and the mutation
+  pass reports it undetectable by design. It had one guard, an indirect margin
+  in a single media test with a single stored reference. It now has a direct one
+  on a real stream that played no part in fitting it: the alignment in use must
+  beat the slot either side of it against Dolby's object decoder, with the
+  neighbours derived from the constant and no threshold anywhere. On that clip
+  the fitted value wins by 2,66 and 2,83 dB.
 - **96 kHz TrueHD, decoded and checked.** Every stream this project had measured
   was 48 kHz, so the doubled-rate branch had never run on real material. One
   track in 221 across 525 library files is 96 kHz; all three of its presentations
