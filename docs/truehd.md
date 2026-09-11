@@ -20,6 +20,15 @@ the real streams decide.
 * Segments follow in order; the block of extra data (Evolution frames with the
   Object Audio Metadata) sits after the last segment with its own header nibble
   and parity byte.
+* The major sync's `audio_sampling_frequency_1` gives the rate: codes 0-2 are
+  48/96/192 kHz and codes 8-10 are 44,1/88,2/176,4 kHz. An access unit holds
+  `40 * (fs / 44100)` samples with the division truncated, so the count is 40,
+  80 or 160 and **cannot identify the rate**: each count belongs to two rates,
+  one from each family. That is why a configuration change is checked against
+  the rate itself and not against the count -- otherwise a stream can cross
+  between the families mid-file, decode correctly, and be written out with the
+  wrong rate on its header. Only 48 and 96 kHz have ever been read here: one
+  track in 221 across a 525-file library is 96 kHz, and none is anything else.
 
 ## Substream segments
 

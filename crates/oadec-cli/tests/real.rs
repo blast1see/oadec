@@ -1202,3 +1202,78 @@ fn a_title_dolby_will_not_open_still_has_a_reference() {
         ours.len()
     );
 }
+
+/// The only stream in the library that is not 48 kHz.
+///
+/// Every TrueHD file this project had measured was 48 kHz, so
+/// `FormatInfo::samples_per_au` had only ever returned 40 and the doubled-rate
+/// branch had never run on real material. One lossless Dolby track in 221,
+/// across 525 library files, is 96 kHz. Losing it would take the whole branch
+/// back to untested, so the clip and an independent decoder's output are kept.
+///
+/// The reference is `truehdd`'s, in the stream's own channel order, which is why
+/// the decode asks for `--order stream`: the two orders differ for 7.1, side and
+/// back changing places, and this test is about samples rather than ordering.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn ninety_six_kilohertz_decodes_byte_for_byte_like_forty_eight() {
+    let media = media_dir();
+    let file = media.join("clips/thd-96k-revenant.thd");
+    require(&file);
+
+    // 30 s at 96 kHz, and the access unit holds twice what it holds at 48
+    let info = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .arg("info")
+        .arg(&file)
+        .output()
+        .expect("run oadec info");
+    assert!(info.status.success(), "info failed on the 96 kHz clip");
+    let text = String::from_utf8_lossy(&info.stdout);
+    assert!(
+        text.contains("96000 Hz, 80 samples per access unit"),
+        "the rate or the sample count is not what the major sync says:\n{text}"
+    );
+
+    for (presentation, channels) in [(0, 2usize), (1, 6), (2, 8)] {
+        let reference = media.join(format!(
+            "ref-truehdd/hires/thd-96k-revenant-p{presentation}.pcm"
+        ));
+        assert!(
+            reference.exists(),
+            "{} is missing, so nothing checks this presentation",
+            reference.display()
+        );
+        let out_path = std::env::temp_dir().join(format!("oadec-96k-p{presentation}.pcm"));
+        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["decode", "-p"])
+            .arg(presentation.to_string())
+            .args(["--format", "pcm", "--order", "stream", "-o"])
+            .arg(&out_path)
+            .arg(&file)
+            .output()
+            .expect("run oadec decode");
+        assert!(
+            out.status.success(),
+            "presentation {presentation} did not decode: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+
+        let ours = std::fs::read(&out_path).expect("decoded pcm");
+        let theirs = std::fs::read(&reference).expect("reference pcm");
+        let _ = std::fs::remove_file(&out_path);
+
+        // 30 s x 96 000 samples x the channels x three bytes
+        assert_eq!(
+            ours.len(),
+            2_880_000 * channels * 3,
+            "presentation {presentation} is {} bytes, not 30 s of {channels} channels",
+            ours.len()
+        );
+        let differing = ours.iter().zip(&theirs).filter(|(a, b)| a != b).count();
+        assert_eq!(
+            (ours.len(), differing),
+            (theirs.len(), 0),
+            "presentation {presentation} differs from the independent decoder"
+        );
+    }
+}

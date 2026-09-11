@@ -186,10 +186,11 @@ fn print_text(scan: &Scan) {
     }
     let f = &scan.failures;
     println!(
-        "Integrity:        header parity failures {}, major sync CRC failures {}, framing errors {}, extra-data parity failures {}, resyncs {}, skipped bytes {}, trailing bytes {}",
+        "Integrity:        header parity failures {}, major sync CRC failures {}, framing errors {}, configuration changes {}, extra-data parity failures {}, resyncs {}, skipped bytes {}, trailing bytes {}",
         f.header_parity,
         f.major_sync_crc,
         f.framing_errors,
+        f.config_changes,
         f.extra_evolution_parity + f.extra_header_parity,
         f.resyncs,
         f.skipped_bytes,

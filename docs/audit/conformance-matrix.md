@@ -30,7 +30,9 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | Lossless check word | Dolby | `oadec-truehd/src/decoder.rs:337` | corruption in substreams 0, 1, 2 and 3 all caught at `-p 3` | PASS |
 | `verify` performs a lossless check | — | `oadec-cli/src/scan.rs:411` | `verify --json` exposes no lossless statistic; parity and CRC catch everything tested | PARTIAL |
 | Seamless branch and duplicate access units | Dolby | `oadec-truehd/src/timing.rs:64`, `:240` | Braveheart and the synthetic splice clip clean in the media suite | PASS |
-| Sampling-rate change at a major sync | Dolby | `oadec-truehd/src/decoder.rs:641` | only the samples-per-access-unit count is compared, so 48 to 44,1 kHz passes and the WAV header keeps the first rate | PARTIAL |
+| Sampling-rate change at a major sync | Dolby | `oadec-truehd/src/decoder.rs:641`, now `au.rs` `StreamConfig::incompatible_with` | the rate is compared in its own right: a spliced stream that changes 48 to 44,1 kHz at byte 1 101 614 is refused there by name, where it used to decode silently with the first rate on the header; `evidence/remediation/sampling-rates.json` | **PASS** [PARTIAL] |
+| Sampling frequencies above 48 kHz | Dolby | `oadec-truehd/src/sync.rs:76` | the library's one 96 kHz track: all three presentations byte-identical to `truehdd`, presentation 2 bit-exact against FFmpeg over 2 880 000 samples x 8 channels; `evidence/remediation/sampling-rates.json` | **PASS** [not rated] |
+| Sampling frequencies of the 44,1 kHz family, and 192 kHz | Dolby | same | no material in 525 library files; the 44,1 kHz reading is exercised only by a patched stream, which proves the parse and not a real decode | N/T |
 | Mid-stream layout change | Dolby | `oadec-truehd/src/decoder.rs:641` | explicit hard error, "not supported yet" | N/I |
 | `block_header_crc` | not public | `oadec-truehd/src/block.rs:255` | recorded, cannot be checked | UNK |
 | 24-bit output, sign extension | — | `oadec-cli/src/decode.rs:271` | range over 40.6 M samples −8 217 040 to 7 877 136, none at full scale | PASS |

@@ -1503,6 +1503,115 @@ note "no stream to test". There is a stream now, and it holds.
 
 ---
 
+## One track in two hundred and twenty-one
+
+Every TrueHD stream this project had measured is 48 kHz. That is not a claim
+anyone made; it is what a scan says, and the reason it went unnoticed is that
+nothing in the audit names a sampling rate at all. `FormatInfo::samples_per_au` scales
+the count with the rate -- 40 samples at the base rates, 80 and 160 at the
+doubled ones -- and the doubled branch had never run on anything.
+
+So the first question was whether the library holds any. Every mkv of every
+root, with the lossless Dolby tracks kept:
+
+| | |
+|---|---:|
+| files | 525 |
+| TrueHD or MLP tracks | 221 |
+| at 48 kHz | 220 |
+| at 96 kHz | **1** |
+
+One, and the first major sync of all 204 TrueHD files already on disk reads 48
+kHz too. It is The
+Revenant, whose track announces itself as *Dolby TrueHD Audio w/ Advanced
+Upsampling / 7.1 / 96 kHz / 3587 kbps / 18-bit*. Thirty seconds of it reads as
+96 000 Hz at 80 samples per access unit, 36 000 access units for thirty seconds
+at twelve hundred a second, three substreams, and `verify` says CLEAN.
+
+The decode is the answer, and two decoders that are not this one give it:
+
+| Presentation | Channels | Against `truehdd` | Against FFmpeg |
+|---|---|---|---|
+| 0 | L R | byte-identical | — |
+| 1 | L R C LFE Ls Rs | byte-identical | — |
+| 2 | L R C LFE Ls Rs Lb Rb | byte-identical | BIT-EXACT, 0 of 2 880 000 x 8 |
+
+2 880 000 samples is thirty seconds at 96 kHz, so the count is right as well as
+the samples. The doubled-rate path works, on the one piece of material in the
+library that can say so.
+
+### And the field nobody was comparing
+
+Looking for the material also made the next thing reachable. The audit had left
+a row at PARTIAL reading "only the samples-per-access-unit count is compared, so
+48 to 44,1 kHz passes and the WAV header keeps the first rate". That was read
+off the source. With a rate to compare against it can be run instead.
+
+The sample count is `40 * (fs / 44100)` with the division truncated. Three pairs
+collide:
+
+| | count |
+|---|---:|
+| 48 kHz and 44,1 kHz | 40 |
+| 96 kHz and 88,2 kHz | 80 |
+| 192 kHz and 176,4 kHz | 160 |
+
+A stream can cross between the two families and the guard sees nothing. The
+reproduction is a splice: the head of Pi, with every major sync after byte
+1 101 614 patched from rate code 0 to code 8 and the CRC-16 repaired, so the
+first 48 major syncs say 48 kHz and the remaining 93 say 44,1. `decode` took it
+with exit 0, no diagnostic, and a WAVE header announcing 48 000 Hz over fifteen
+and a half seconds of audio. `info` was stranger still: it printed 48 000 Hz and
+a duration of 0:00:15,523, which is the same access units read at 44,1 -- one
+command disagreeing with itself.
+
+`verify` had it all along: *Framing: 0 errors, 94 configuration changes*,
+NON-CONFORMANT, exit 7. `scan` compares the whole `format_info`. The decoder
+compared three fields of it and not the fourth, and the decoder is the one that
+writes the header that is then wrong. That is defect 2's shape again in a
+smaller place: the detection existed and did not reach the output.
+
+The fix is `StreamConfig::incompatible_with` -- the list of fields that make a
+later major sync unusable, in one named place, returning which field it was. The
+rate joins the three and the message says so:
+
+```
+error: decoding access unit at byte 1101614: the sampling frequency changed at
+a major sync (not supported yet)
+```
+
+The byte it names is the splice. The test rebuilds the major sync at each of the
+six rate codes the way the patch tool rebuilds a real one, and asserts all three
+colliding pairs are refused in both directions, that the sample count still
+catches what it can, and that the rest of the list is what it is -- `flags`
+included, deliberately *not* on it, because the decoder applies a new value
+rather than refusing it.
+
+Two controls say the fix did not cost anything. The same head at 48 kHz and the
+same head patched wholly to 44,1 kHz both decode with exit 0 before and after,
+byte-identical across the change, and `truehdd` opens the patched one and agrees
+byte for byte -- so the 44,1 kHz reading is not this decoder's invention. The
+two WAVE files differ in exactly five bytes, all in the `fmt ` chunk. The rate
+is a label, not an input to the arithmetic, which is exactly why a decoder could
+get it wrong and still sound right.
+
+One thing is recorded rather than changed. The failure is fatal and exits 2,
+where the exit-code policy's wording would put a recoverable error at 7 with the
+good prefix kept. The class was already fatal -- a substream-count change has
+returned an error from this guard since it was written -- and moving the rate
+alone to 7 would change the error policy of the whole TrueHD decode path rather
+than this one case. Alongside it: a fatal decode leaves the partial file with its
+`data` chunk declaring zero bytes, because the header is only patched on success.
+It under-claims rather than over-claims, and it predates this.
+
+What this does not reach: 192 kHz, 176,4, 88,2 and 44,1 on real material, none of
+which exists in 525 files. The 44,1 kHz reading here comes from a patched stream,
+which demonstrates the parse and the guard and not that a real 44,1 kHz stream
+decodes. 96 kHz is the only doubled rate this project can claim.
+`evidence/remediation/sampling-rates.json`.
+
+---
+
 ## An instrument that does not work, and what rested on it
 
 Every conclusion in this project that came from rewriting a field inside an EMDF
@@ -1808,6 +1917,13 @@ the two sweeps read, this decoder reported no failure of any kind.
   encoders and neither appears in any real stream measured. The parse of a
   non-zero value is unit-tested against hand-built payloads, including the reuse
   and differential forms; what has never happened is a real stream carrying one.
+- **Sampling rates other than 48 and 96 kHz.** 192 kHz, and the whole 44,1 kHz
+  family, occur in no track of the 525 files scanned -- 221 lossless Dolby
+  tracks, 220 of them at 48 kHz and one at 96. The 44,1 kHz reading was
+  exercised by patching a stream's rate code and repairing the CRC, which
+  demonstrates the parse and the guard that now refuses a change of it; it does
+  not demonstrate that a stream authored at 44,1 kHz decodes, because there is
+  none. `evidence/remediation/sampling-rates.json`.
 - **EMDF protection words** are parsed and not verified, and cannot be:
   clause H.2.2.4.3 says "calculation of the value of the
   `protection_bits_primary` field is implementation dependent and is not
