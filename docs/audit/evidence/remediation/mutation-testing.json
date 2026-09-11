@@ -1,14 +1,14 @@
 {
  "what": "Whether the test suite would catch a bug, measured by writing bugs into the decoder",
- "utc": "2026-09-11T00:03:46.318596+00:00",
- "commit": "f578e0239164ec9eb589ce486b8637d6d6dd3bad",
+ "utc": "2026-09-11T00:05:32.537559+00:00",
+ "commit": "73a119b05ddb4e13d75337f25a52311815d69ae8",
  "why": "a green suite says nothing about what it would have caught. Everything else in this report measures the decoder; this measures the thing that measures the decoder",
  "method": "`tools/mutants.py`: change one load-bearing constant, run `cargo test --workspace`, record whether anything failed and which test, undo it with `git checkout --`. Each mutation is a bug someone could write -- a table entry off by one, an index base, a scale factor, a channel mapped to the wrong input -- not a random character. The run refuses to start on a dirty tree",
  "result": {
   "mutations": 14,
-  "caught_by_a_unit_test": 12,
+  "caught_by_a_unit_test": 13,
   "survived_the_unit_suite": 1,
-  "skipped": 1
+  "skipped": 0
  },
  "per_mutation": [
   {
@@ -74,6 +74,14 @@
    "caught": true,
    "by": [
     "program::tests::interchange_rank_follows_the_mask_bit"
+   ],
+   "tests_that_failed": 1
+  },
+  {
+   "mutation": "the JOC input of the left surround, 3 -> 4",
+   "caught": true,
+   "by": [
+    "program::tests::the_joc_downmix_inputs_cover_seven_channels"
    ],
    "tests_that_failed": 1
   },

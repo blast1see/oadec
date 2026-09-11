@@ -1587,8 +1587,8 @@ by one, an index base, a scale factor, a channel mapped to the wrong input — r
 the unit tests, records whether anything failed and which test, and undoes the
 change. It refuses to start on a dirty tree.
 
-Fourteen mutations. Eleven were caught at once, each naming its test. Three
-survived, and two of them were real holes: changing the first `sample_offset`
+Fourteen mutations, all of which apply. Eleven were caught at once, each naming
+its test. Three survived, and two of them were real holes: changing the first `sample_offset`
 from 8 to 9, or the first `ramp_duration` from 32 to 33, left every test
 passing. Both are transcribed numbers from tables 23 and 25 with no structure to
 check them against, which is exactly the kind of constant a typo survives in, and
@@ -1605,6 +1605,10 @@ media suite does: with the alignment moved one slot, the steep gate fails at
 52,44 dB against 52,07 where a decibel of margin is asked for.
 
 So fourteen of fourteen are caught, thirteen by unit tests and one by media.
+One of the fourteen had been reporting itself as *skipped* rather than caught or
+survived, because its search text carried a literal backslash-n instead of a
+newline. A skip is the one outcome that means nothing, which is why the summary
+prints it; that is how this was noticed.
 `evidence/remediation/mutation-testing.json`.
 
 ---
