@@ -103,6 +103,14 @@ MUTANTS = [
      'crates/oadec-cli/src/eac3.rs',
      '    p.decode_errors == 0',
      '    true || p.decode_errors == 0'),
+    ('the programme verdict ignores a dropped dependent substream',
+     'crates/oadec-eac3/src/program.rs',
+     '            && self.dependent_dropped == 0',
+     '            && true'),
+    ('the programme verdict counts a second programme as unclean',
+     'crates/oadec-eac3/src/program.rs',
+     '        self.orphan_dependents == 0',
+     '        self.other_program_frames == 0 && self.orphan_dependents == 0'),
 ]
 
 
