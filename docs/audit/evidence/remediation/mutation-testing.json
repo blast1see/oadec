@@ -181,17 +181,22 @@
    "tests_that_failed": 1
   }
  ],
- "the_two_holes_it_found": {
+ "the_four_holes_it_found": {
   "the_oamd_sample_offset_table": "changing the first value from 8 to 9 left every test passing",
   "the_ramp_duration_table": "changing the first value from 32 to 33 left every test passing",
   "why_those_two": "both are transcribed numbers from tables 23 and 25 with no structure to check them against, which is exactly the kind of constant a typo survives in, and both reach the timing of every metadata update",
   "fixed_by": "`the_timing_tables_are_the_ones_the_clauses_print`, which writes both tables out again rather than reading the constants it pins. The mutations are caught now",
-  "and_it_found_something_on_its_first_run": "the last entry of table 25 is 2048 while clause 5.6.2.9 puts `ramp_duration_bits` in [0, 2047], so the index reaches one duration the explicit field cannot express. The first version of that assertion had it backwards and failed"
+  "and_it_found_something_on_its_first_run": "the last entry of table 25 is 2048 while clause 5.6.2.9 puts `ramp_duration_bits` in [0, 2047], so the index reaches one duration the explicit field cannot express. The first version of that assertion had it backwards and failed",
+  "the_major_sync_polynomial": "0x002D could become 0x002F with nothing failing. The polynomial is used in exactly two places and both of them write and check with the same constant, so the two moved together and no comparison ever disagreed -- a test that computes its expectation from the code under test measures nothing",
+  "fixed_by_2": "`the_major_sync_polynomial_is_the_one_that_reads_real_streams`, three answers written down as literals (0x0000, 0xC59E, 0x704A) plus `assert_ne!` against the neighbouring polynomial 0x002F, so the assertions are known to be about 0x002D and not about any CRC-16. Those answers are in this crate's own formulation, `table[crc >> 8] ^ (crc << 8) ^ byte`, which differs from the textbook MSB-first form on a message without its CRC appended -- and the major sync compares against a stored value rather than checking for a zero remainder, so it is the message-alone answer that has to be right",
+  "the_verdict_itself": "`is_clean` could be short-circuited to `true` in the library and again in the command line, where the file had no test module at all. That is the worst place for a hole in this round: the second defect fixed here was precisely that corruption reached the counters and not the exit code",
+  "fixed_by_3": "`every_counter_in_the_verdict_can_make_a_stream_unclean` in `oadec-eac3` and `every_input_to_the_verdict_can_make_a_stream_unclean` in `oadec-cli`. Both pin the whole list, including the inputs that must *not* count -- a second programme is legal and an implied LFE is a documented reading -- so the tests fail on a verdict that grows too strict as well as one that grows too lax"
  },
  "the_survivor_that_should_survive": {
   "mutation": "the matrix alignment, 10 -> 9",
   "why_no_unit_test_can_catch_it": "there is no specification behind it. It was fitted against Dolby's decoder, so only a comparison with another decoder can judge it",
   "what_does_catch_it": "the media suite. With the alignment changed by one slot, `the_steep_switch_is_measured_where_the_branch_is_the_common_case` fails: the reading in use gives 52,44 dB against Dolby and the printed one 52,07, and the gate asks for a decibel of margin"
  },
- "reading": "all fourteen are caught, thirteen by unit tests and one by a media test. That is a measurement of the suite rather than a claim about it, and the two holes it found were real"
+ "reading": "twenty of twenty-one are caught by unit tests and the twenty-first by a media test. That is a measurement of the suite rather than a claim about it, and the four holes it found were real: two transcribed tables with no test at all, a polynomial whose only two uses agreed with each other, and the function that decides the exit code",
+ "what_this_does_not_measure": "agreement with Dolby. A mutation pass can only say whether the suite notices a change, not whether the unmutated value is right. Everything load-bearing that has no specification behind it -- the matrix alignment is the clearest case -- still rests on the differential comparisons, not on this"
 }

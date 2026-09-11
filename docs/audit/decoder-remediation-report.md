@@ -1588,14 +1588,13 @@ the unit tests, records whether anything failed and which test, and undoes the
 change. It refuses to start on a dirty tree.
 
 Twenty-one mutations, all of which apply. Twenty are caught, each naming its
-test. Five survived a first pass and four of them were real holes.
+test, and getting there took four real holes out of the suite.
 
 Two were tables: changing the first `sample_offset` from 8 to 9, or the first
-`ramp_duration` from 32 to 33, left every test passing: changing the first `sample_offset`
-from 8 to 9, or the first `ramp_duration` from 32 to 33, left every test
-passing. Both are transcribed numbers from tables 23 and 25 with no structure to
-check them against, which is exactly the kind of constant a typo survives in, and
-both reach the timing of every metadata update. They are pinned now by a test
+`ramp_duration` from 32 to 33, left every test passing. Both are transcribed
+numbers from tables 23 and 25 with no structure to check them against, which is
+exactly the kind of constant a typo survives in, and both reach the timing of
+every metadata update. They are pinned now by a test
 that writes both tables out again rather than reading the constants it checks —
 and that test found something on its first run: the last entry of table 25 is
 2048 while clause 5.6.2.9 puts `ramp_duration_bits` in [0, 2047], so the index
@@ -1619,10 +1618,15 @@ suite does: with the alignment moved one slot, the steep gate fails at 52,44 dB
 against 52,07 where a decibel of margin is asked for.
 
 So twenty-one of twenty-one are caught, twenty by unit tests and one by media.
-One of the fourteen had been reporting itself as *skipped* rather than caught or
+One of them had been reporting itself as *skipped* rather than caught or
 survived, because its search text carried a literal backslash-n instead of a
 newline. A skip is the one outcome that means nothing, which is why the summary
 prints it; that is how this was noticed.
+
+What this round cannot say is whether the unmutated values are *right*. A
+mutation pass measures whether the suite notices a change, nothing more.
+Everything load-bearing with no clause behind it still rests on the differential
+comparisons above, not on this.
 `evidence/remediation/mutation-testing.json`.
 
 ---
