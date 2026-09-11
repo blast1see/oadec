@@ -61,6 +61,11 @@ def scan(binary: str, path: Path) -> dict | None:
         "containers_in_auxdata": e.get("containers_in_auxdata"),
         "auxdata_overruns": e.get("auxdata_overruns"),
         "containers": e.get("containers"),
+        # object gain and object size: parsed, never seen, and countable only
+        # over real streams because both Dolby encoders drop the two fields
+        "oamd_object_gains_db": e.get("oamd_object_gains_db", {}),
+        "oamd_muted_updates": e.get("oamd_muted_updates"),
+        "oamd_sized_updates": e.get("oamd_sized_updates"),
         "containers_in_independent_substream": e.get("containers_in_independent_substream"),
         "frames": d["frames"],
         "samples": d["samples"],
@@ -139,6 +144,10 @@ def main() -> int:
         total["auxdata_frames"] += row.get("auxdata_frames") or 0
         total["containers_in_auxdata"] += row.get("containers_in_auxdata") or 0
         total["auxdata_overruns"] += row.get("auxdata_overruns") or 0
+        total["oamd_muted_updates"] += row.get("oamd_muted_updates") or 0
+        total["oamd_sized_updates"] += row.get("oamd_sized_updates") or 0
+        for db, n in (row.get("oamd_object_gains_db") or {}).items():
+            total[f"gain_db:{db}"] += n
         if not row["carries_joc"]:
             continue
         for k in KEYS:
@@ -159,6 +168,10 @@ def main() -> int:
         "auxdata_frames": total["auxdata_frames"],
         "containers_in_auxdata": total["containers_in_auxdata"],
         "auxdata_overruns": total["auxdata_overruns"],
+        "oamd_object_gains_db": {k.split(":", 1)[1]: v for k, v in total.items()
+                                 if k.startswith("gain_db:")},
+        "oamd_muted_updates": total["oamd_muted_updates"],
+        "oamd_sized_updates": total["oamd_sized_updates"],
         "object_updates": updates,
         "sparse": total["sparse_objects"],
         "dense": total["dense_objects"],
@@ -174,6 +187,10 @@ def main() -> int:
         "streams_with_sparse": [r["stream"] for r in with_joc if r["joc"]["sparse_objects"]],
         "streams_with_coarse": [r["stream"] for r in with_joc if r["joc"]["coarse_quantized_objects"]],
         "streams_with_two_data_points": [r["stream"] for r in with_joc if r["joc"]["two_data_points"]],
+        "streams_with_object_gain": [r["stream"] for r in rows
+                                     if r.get("oamd_object_gains_db")],
+        "streams_with_object_size": [r["stream"] for r in rows
+                                     if r.get("oamd_sized_updates")],
     }
     json.dump({"summary": summary, "streams": rows}, open(a.out, "w"), indent=1)
     print(json.dumps(summary, indent=1))

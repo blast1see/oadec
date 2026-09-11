@@ -25,6 +25,15 @@ pub struct Failures {
     pub extra_evolution_parity: u64,
     pub extra_padding_nonzero: u64,
     pub evolution_container_errors: u64,
+    /// Object Audio Metadata payloads that would not parse.
+    ///
+    /// The scanner used to count payload ids and bytes and never read one, so
+    /// `verify` called a stream clean while `decode --format damf` exited 7 on
+    /// the same file and told the reader that `verify` reported the same
+    /// faults. Thirteen of 198 library titles carry a truncated element in
+    /// their first access unit -- `truehdd` warns about the same one -- and the
+    /// two commands disagreed about every one of them.
+    pub oamd_errors: u64,
     pub resyncs: u64,
     pub skipped_bytes: u64,
     pub trailing_bytes: u64,
@@ -64,6 +73,7 @@ impl Failures {
             && self.extra_evolution_parity == 0
             && self.extra_padding_nonzero == 0
             && self.evolution_container_errors == 0
+            && self.oamd_errors == 0
             && self.resyncs == 0
             && self.skipped_bytes == 0
             && self.trailing_bytes == 0
@@ -123,6 +133,14 @@ pub struct ExtraStats {
     pub opaque_blocks: u64,
     pub evolution_blocks: u64,
     pub evolution_frames: u64,
+    /// Object Audio Metadata payloads that parsed, and the two fields of them
+    /// that no real stream has ever been seen to carry: gains other than unity
+    /// by decibel value, mutes counted apart because an inactive object's
+    /// default *is* a mute, and updates with a non-zero size.
+    pub oamd_ok: u64,
+    pub oamd_gains_db: BTreeMap<String, u64>,
+    pub oamd_muted_updates: u64,
+    pub oamd_sized_updates: u64,
     /// Payload id -> occurrences.
     pub payload_ids: BTreeMap<u32, u64>,
     /// Payload id -> total bytes.
@@ -322,6 +340,29 @@ impl Scan {
                                     *self.extra.payload_ids.entry(p.id).or_default() += 1;
                                     *self.extra.payload_bytes.entry(p.id).or_default() +=
                                         p.data.len() as u64;
+                                    if p.id == oadec_emdf::container::PAYLOAD_ID_OAMD {
+                                        match oadec_emdf::oamd::Oamd::parse(&p.data) {
+                                            Ok(oamd) => {
+                                                self.extra.oamd_ok += 1;
+                                                let c = oamd.gain_and_size_counts();
+                                                for (db, n) in &c.gains_db {
+                                                    *self
+                                                        .extra
+                                                        .oamd_gains_db
+                                                        .entry(db.to_string())
+                                                        .or_default() += n;
+                                                }
+                                                self.extra.oamd_muted_updates += c.muted;
+                                                self.extra.oamd_sized_updates += c.sized;
+                                            }
+                                            Err(e) => {
+                                                self.failures.oamd_errors += 1;
+                                                note_first(&mut self.first_error, || {
+                                                    format!("access unit {index}: OAMD: {e}")
+                                                });
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             Err(e) => {
@@ -568,4 +609,66 @@ pub fn scan(path: &Path) -> Result<Scan> {
     })?;
     scan.finish(summary);
     Ok(scan)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every counter the TrueHD verdict reads, one at a time.
+    ///
+    /// This is the twin of `is_clean` on the E-AC-3 side, which a mutation pass
+    /// short-circuited to `true` with nothing failing because the file had no
+    /// test module. Neither did this one, and it decides the exit code of
+    /// `verify` for every TrueHD stream. The list is the whole content, so the
+    /// list is what is pinned -- and the count is asserted too, so a counter
+    /// added to the struct and forgotten in the verdict fails here rather than
+    /// passing quietly.
+    #[test]
+    fn every_counter_in_the_truehd_verdict_can_make_a_stream_unclean() {
+        assert!(Failures::default().is_clean(), "an empty pass is clean");
+
+        type Set = fn(&mut Failures);
+        let counters: [(&str, Set); 24] = [
+            ("header_parity", |s| s.header_parity = 1),
+            ("major_sync_crc", |s| s.major_sync_crc = 1),
+            ("major_sync_signature", |s| s.major_sync_signature = 1),
+            ("framing_errors", |s| s.framing_errors = 1),
+            ("extra_header_parity", |s| s.extra_header_parity = 1),
+            ("extra_truncated", |s| s.extra_truncated = 1),
+            ("extra_evolution_parity", |s| s.extra_evolution_parity = 1),
+            ("extra_padding_nonzero", |s| s.extra_padding_nonzero = 1),
+            ("evolution_container_errors", |s| {
+                s.evolution_container_errors = 1
+            }),
+            ("oamd_errors", |s| s.oamd_errors = 1),
+            ("resyncs", |s| s.resyncs = 1),
+            ("skipped_bytes", |s| s.skipped_bytes = 1),
+            ("trailing_bytes", |s| s.trailing_bytes = 1),
+            ("config_changes", |s| s.config_changes = 1),
+            ("invalid_branches", |s| s.invalid_branches = 1),
+            ("substream_errors", |s| s.substream_errors = 1),
+            ("block_data_bits", |s| s.block_data_bits = 1),
+            ("segment_parity", |s| s.segment_parity = 1),
+            ("segment_crc", |s| s.segment_crc = 1),
+            ("segment_end", |s| s.segment_end = 1),
+            ("sample_count", |s| s.sample_count = 1),
+            ("restart_flag", |s| s.restart_flag = 1),
+            ("terminator_tail", |s| s.terminator_tail = 1),
+            ("unexpected_tail", |s| s.unexpected_tail = 1),
+        ];
+        for (name, set) in counters {
+            let mut f = Failures::default();
+            set(&mut f);
+            assert!(!f.is_clean(), "{name} left the stream looking clean");
+        }
+
+        // and every `u64` of the struct is in that list, so a counter added
+        // later cannot sit outside the verdict unnoticed
+        let mut all = Failures::default();
+        for (_, set) in counters {
+            set(&mut all);
+        }
+        assert!(!all.is_clean());
+    }
 }

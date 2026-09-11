@@ -1,0 +1,71 @@
+{
+ "what": "Whether any real stream carries an object gain or an object size -- and the disagreement that counting them uncovered",
+ "utc": "2026-09-11T01:44:38.520217+00:00",
+ "commit": "a00435217d4e0c5e4bde159fbc7d6af19a0b04f1",
+ "binary_sha256": "a23f4f36df1e4fe9fcddf8b2f45395a0bde4c5446c047d853e54f8b9a992f453",
+ "why": "the open row said both fields are 'dropped by Dolby's encoders and neither appears in any real stream measured'. That was an impression: nothing counted them. Both encoders really do drop them, so no stream authored here can carry one and only a stream someone else made can answer it -- which makes this a question about a library, not a corpus",
+ "method": "one function, `Oamd::gain_and_size_counts`, used by both codecs so the two cannot drift: gains other than 0 dB by decibel value, mutes counted apart because table 28's default for an inactive object *is* a mute, and updates whose `object_size` is not zero. Updates whose basic status is `Default` are skipped for the same reason. `tools/thd_gain_size.py` runs it over TrueHD through `oadec oamd --json`; `tools/joc_coverage.py` reads it out of `oadec info --json` for E-AC-3",
+ "truehd": {
+  "whole_streams": {
+   "streams": 6,
+   "oamd_payloads": 1344146,
+   "non_unity_gains": 0,
+   "muted_updates": 0,
+   "non_zero_sizes": 0,
+   "parse_errors": 0
+  },
+  "twenty_second_heads": {
+   "streams": 198,
+   "oamd_payloads": 129346,
+   "non_unity_gains": 0,
+   "muted_updates": 0,
+   "non_zero_sizes": 0,
+   "parse_errors": 14
+  },
+  "why_they_are_reported_apart": "a head clip says what the first twenty seconds of many films use; a whole stream says what a whole film uses. Merging them would let breadth pass itself off as depth"
+ },
+ "eac3": {
+  "streams": 19,
+  "streams_carrying_joc": 11,
+  "object_gains_db": {},
+  "muted_updates": 0,
+  "non_zero_sizes": 0,
+  "object_updates": 32150620,
+  "streams_with_object_gain": [],
+  "streams_with_object_size": []
+ },
+ "the_disagreement_it_uncovered": {
+  "what_the_counter_printed": "thirteen TrueHD streams of 198 reported a parse error, always at access unit 0, always an object element whose declared size runs past its payload. The byte counts differ between titles -- 9, 34, 51 -- so it is not one bad payload copied around",
+  "titles": [
+   "American Psycho (2000) Unrated_1.thd",
+   "Avengers Infinity War (2018)_1.thd",
+   "Black Panther (2018)_1.thd",
+   "Coco (2017)_1.thd",
+   "Deadpool 2 (2018)_1.thd",
+   "Green Book (2018)_1.thd",
+   "Guardians.of.the.Galaxy.Vol.2.2017.U_1.thd",
+   "John Wick Chapter 2 (2017)_1.thd",
+   "Pirates.of.the.Caribbean.Dead.Men.Te_1.thd",
+   "The Avengers (2012)_1.thd",
+   "The Incredibles (2004)_1.thd",
+   "The Matrix (1999)_1.thd",
+   "Thor Ragnarok (2017)_1.thd"
+  ],
+  "a_second_opinion": "`truehdd` reads the same clip and warns `Truncated oa_element_md with id 1`, so a decoder that is neither ours nor Dolby's agrees the element is truncated. The material is at fault, not the parse",
+  "the_decoder_fault": {
+   "decode --format damf": "exit 7, '1 metadata payload errors', names it, and adds \"`oadec verify` reports the same faults\"",
+   "verify": "exit 0, CLEAN",
+   "why": "`verify` walked the Evolution payloads and counted their ids and their bytes without ever reading one, so the whole OAMD syntax was invisible to the command the audit treats as the reference for integrity",
+   "so_it_is_defect_2_again": "the third time, and the first pointing the other way: there the object path was silent and `verify` saw everything. Detection existing somewhere in a program is not detection reaching the verdict a reader acts on"
+  },
+  "fix": "`scan.rs` parses OAMD payloads, counts their errors into `Failures`, and `Failures::is_clean` reads the new counter. `verify` and `info` print the tally beside the other integrity lines",
+  "after": "the same title is NON-CONFORMANT at exit 7 with the fault named; a clean title is still CLEAN at exit 0",
+  "regression_test": "`verify_and_decode_agree_about_a_truncated_object_metadata_element`, on a two-second cut of one of the thirteen -- two seconds being enough because the fault is in access unit 0. It requires both commands to exit 7, requires `verify` to name the fault, and requires a clean stream to still pass both, so the rule is not 'always 7'"
+ },
+ "and_a_verdict_with_no_test": {
+  "what": "`Failures::is_clean` on the TrueHD side decides the exit code of `verify` for every TrueHD stream, over 24 counters, and `scan.rs` had no test module at all -- the exact twin of the E-AC-3 verdict a mutation pass caught earlier in this round",
+  "checked_first": "all 24 `u64` counters of the struct appear in `is_clean`; none was silently omitted",
+  "now": "`every_counter_in_the_truehd_verdict_can_make_a_stream_unclean` pins each of the 24 one at a time, and the array's length is part of the test, so a counter added later and forgotten in the verdict fails here"
+ },
+ "reading": "no object gain and no object size anywhere: 0 of each over 1473492 object-metadata payloads in 6 whole TrueHD streams and 198 heads, and 0 of each over 32150620 object updates in 19 whole E-AC-3 streams. The row stays open, because a count of zero over a large sample is a stronger statement of the same negative and not a positive. What changed is that it now has a denominator"
+}

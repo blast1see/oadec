@@ -11,6 +11,8 @@
 //! against the previous update block of the same object in the same payload
 //! (block 0 always carries a full update, so no state crosses payloads).
 
+use std::collections::BTreeMap;
+
 use oadec_bits::{BitError, BitReader};
 use thiserror::Error;
 
@@ -395,6 +397,44 @@ impl Status {
             2 => Self::Reuse,
             _ => Self::Mixed,
         }
+    }
+}
+
+/// How many object updates carry a gain that is not unity, and a size that is
+/// not zero.
+///
+/// Both fields are parsed and neither has ever been seen in a real stream.
+/// Dolby's Digital Plus and TrueHD encoders drop them, so nothing authored
+/// through either can carry one, and the parse is held by hand-built payloads
+/// alone. Counting them over whole streams is the only way to turn "never seen"
+/// into a number.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct GainSizeCounts {
+    /// Gains other than 0 dB, by decibel value.
+    pub gains_db: BTreeMap<i8, u64>,
+    /// Updates whose gain is a mute, counted apart: table 28's default for an
+    /// object that is not active *is* a mute, so a mute is not evidence that
+    /// anything authored one. Updates whose basic status is `Default` are not
+    /// counted here at all, for the same reason.
+    pub muted: u64,
+    /// Updates carrying a non-zero `object_size`.
+    pub sized: u64,
+}
+
+impl GainSizeCounts {
+    /// Adds `other` into this.
+    pub fn add(&mut self, other: &Self) {
+        for (db, n) in &other.gains_db {
+            *self.gains_db.entry(*db).or_default() += n;
+        }
+        self.muted += other.muted;
+        self.sized += other.sized;
+    }
+
+    /// Whether anything at all was carried.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.gains_db.is_empty() && self.muted == 0 && self.sized == 0
     }
 }
 
@@ -1045,6 +1085,34 @@ impl Oamd {
         })
     }
 
+    /// Counts the object gains that are not unity and the sizes that are not
+    /// zero. See [`GainSizeCounts`] for why the two are asked about together
+    /// and why a mute is counted apart.
+    #[must_use]
+    pub fn gain_and_size_counts(&self) -> GainSizeCounts {
+        let mut counts = GainSizeCounts::default();
+        for e in &self.elements {
+            let Element::Object(o) = &e.element else {
+                continue;
+            };
+            for updates in &o.objects {
+                for u in updates {
+                    if u.basic_status != Status::Default {
+                        match u.basic.gain {
+                            Gain::Db(0) => {}
+                            Gain::Db(db) => *counts.gains_db.entry(db).or_default() += 1,
+                            Gain::MinusInfinity => counts.muted += 1,
+                        }
+                    }
+                    if u.render_status != Status::Default && u.render.size != [0.0_f32; 3] {
+                        counts.sized += 1;
+                    }
+                }
+            }
+        }
+        counts
+    }
+
     /// The object element, if any.
     #[must_use]
     pub fn object_element(&self) -> Option<&ObjectElement> {
@@ -1197,6 +1265,50 @@ mod tests {
         b.push(1, 1);
         b.push(1, 0);
         b
+    }
+
+    /// What a stream would have to carry for the two open rows to close.
+    ///
+    /// Object gain and object size are parsed and have never been seen in any
+    /// real stream: both Dolby encoders drop them, so nothing authored through
+    /// either can carry one and only a stream someone else made can answer it.
+    /// Counting them is how "never seen" becomes a number, and a counter with
+    /// no test is a number nobody should trust.
+    ///
+    /// The fixture has all three cases in it: a bed object at -6 dB, a dynamic
+    /// object at unity with a full-scale size, and a third that is not active.
+    /// The inactive one must **not** count as a mute, because table 28's
+    /// default for an object that is not active is a mute -- counting it would
+    /// make every ordinary stream look as though it carried authored gains.
+    #[test]
+    fn a_non_unity_gain_and_a_non_zero_size_are_counted_and_an_inactive_object_is_not() {
+        let bytes = payload(3, false, &[(ELEMENT_OBJECT, object_element_body())]);
+        let oamd = Oamd::parse(&bytes).unwrap();
+
+        // the fixture says what is in it, so the counts are read off that
+        let obj = oamd.object_element().unwrap();
+        assert_eq!(obj.objects[0][0].basic.gain, Gain::Db(-6));
+        assert_eq!(obj.objects[1][0].basic.gain, Gain::Db(0));
+        assert_eq!(obj.objects[1][0].render.size, [1.0, 1.0, 1.0]);
+        assert!(obj.objects[2][0].not_active);
+
+        let counts = oamd.gain_and_size_counts();
+        assert_eq!(counts.gains_db, BTreeMap::from([(-6_i8, 1_u64)]));
+        assert_eq!(counts.sized, 1);
+        assert_eq!(
+            counts.muted, 0,
+            "an object that is not active carries table 28's mute and must not \
+             be counted as an authored one"
+        );
+        assert!(!counts.is_empty());
+
+        // and adding is adding
+        let mut total = GainSizeCounts::default();
+        total.add(&counts);
+        total.add(&counts);
+        assert_eq!(total.gains_db, BTreeMap::from([(-6_i8, 2_u64)]));
+        assert_eq!(total.sized, 2);
+        assert!(GainSizeCounts::default().is_empty());
     }
 
     #[test]

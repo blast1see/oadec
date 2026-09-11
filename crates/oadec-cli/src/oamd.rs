@@ -52,6 +52,18 @@ pub struct OamdSummary {
     pub snapped: u64,
     pub zone_constraints: BTreeMap<u8, u64>,
     pub additional_table_data: u64,
+    /// Gains other than 0 dB, by decibel value written as a string; see
+    /// [`oadec_emdf::oamd::GainSizeCounts`] for why the two are asked about
+    /// together and why a mute is counted apart.
+    pub object_gains_db: BTreeMap<String, u64>,
+    /// Mutes, counted apart because an inactive object's default *is* a mute.
+    pub muted_updates: u64,
+    /// Updates carrying a non-zero `object_size`.
+    pub sized_updates: u64,
+    /// The first access units carrying each of the two, capped, so a clip can
+    /// be cut from one if anything ever does.
+    pub first_gain_units: Vec<u64>,
+    pub first_size_units: Vec<u64>,
     pub payloads_with_trim: u64,
     pub payloads_with_extended: u64,
     pub payloads_with_unknown_elements: u64,
@@ -75,6 +87,14 @@ fn status_name(s: Status) -> &'static str {
         Status::Full => "full",
         Status::Reuse => "reuse",
         Status::Mixed => "mixed",
+    }
+}
+
+/// Records where a rare value occurred, up to a cap. The counts answer "does
+/// anything carry this", these answer "where do I cut a clip that does".
+fn note_unit(seen: &mut Vec<u64>, unit: u64) {
+    if seen.len() < 64 && seen.last() != Some(&unit) {
+        seen.push(unit);
     }
 }
 
@@ -113,6 +133,18 @@ impl OamdSummary {
             Some(p) if *p != program => self.program_changes += 1,
             _ => {}
         }
+        let counts = oamd.gain_and_size_counts();
+        if !counts.gains_db.is_empty() {
+            note_unit(&mut self.first_gain_units, unit_index);
+        }
+        if counts.sized > 0 {
+            note_unit(&mut self.first_size_units, unit_index);
+        }
+        for (db, n) in &counts.gains_db {
+            *self.object_gains_db.entry(db.to_string()).or_default() += n;
+        }
+        self.muted_updates += counts.muted;
+        self.sized_updates += counts.sized;
         let mut unknown = false;
         for e in &oamd.elements {
             *self.element_ids.entry(e.id).or_default() += 1;
@@ -170,6 +202,7 @@ impl OamdSummary {
                             if !u.additional_table_data.is_empty() {
                                 self.additional_table_data += 1;
                             }
+
                             if u.render_status != Status::Default {
                                 if u.render.differential {
                                     self.differential_positions += 1;
@@ -427,6 +460,21 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             summary.screen_referenced,
             summary.snapped,
             summary.additional_table_data
+        );
+        println!(
+            "Gain and size:     {} non-unity gains {:?}, {} mutes, {} non-zero sizes{}",
+            summary.object_gains_db.values().sum::<u64>(),
+            summary.object_gains_db,
+            summary.muted_updates,
+            summary.sized_updates,
+            if summary.first_gain_units.is_empty() && summary.first_size_units.is_empty() {
+                String::new()
+            } else {
+                format!(
+                    " (first access units: gain {:?}, size {:?})",
+                    summary.first_gain_units, summary.first_size_units
+                )
+            }
         );
         println!("Distances:         {:?}", summary.distances);
         println!("Zone constraints:  {:?}", summary.zone_constraints);
