@@ -1734,3 +1734,76 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
     );
     Ok(equal_length && (close || dither_level) && clean)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every input the exit code is decided from, one at a time.
+    ///
+    /// This function had no test at all: a mutation pass short-circuited it to
+    /// `true` and nothing failed. It is what turns a pass over a stream into an
+    /// exit code, and the second defect of this round was that corruption
+    /// reached the counters and not the exit. The list is the whole content, so
+    /// the list is what is pinned.
+    #[test]
+    fn every_input_to_the_verdict_can_make_a_stream_unclean() {
+        assert!(is_clean(&Pass::default(), 0, 0), "an empty pass is clean");
+        assert!(
+            !is_clean(&Pass::default(), 1, 0),
+            "a sync error left it clean"
+        );
+        assert!(
+            !is_clean(&Pass::default(), 0, 1),
+            "skipped bytes left it clean"
+        );
+
+        type Set = fn(&mut Pass);
+        let unclean: [(&str, Set); 7] = [
+            ("decode_errors", |p| p.decode_errors = 1),
+            ("crc_failures", |p| p.crc_failures = 1),
+            ("tail_overruns", |p| p.tail_overruns = 1),
+            ("emdf.oamd_errors", |p| p.emdf.oamd_errors = 1),
+            ("emdf.joc_errors", |p| p.emdf.joc_errors = 1),
+            ("emdf.joc_size_mismatch", |p| p.emdf.joc_size_mismatch = 1),
+            ("program.dependent_dropped", |p| {
+                p.program.dependent_dropped = 1
+            }),
+        ];
+        for (name, set) in unclean {
+            let mut pass = Pass::default();
+            set(&mut pass);
+            assert!(
+                !is_clean(&pass, 0, 0),
+                "{name} left the stream looking clean"
+            );
+        }
+
+        // a fault in a dependent substream counts as much as one in the core
+        for (name, set) in [
+            (
+                "decode_errors",
+                (|s: &mut SubStats| s.decode_errors = 1) as fn(&mut SubStats),
+            ),
+            ("crc_failures", |s: &mut SubStats| s.crc_failures = 1),
+            ("tail_overruns", |s: &mut SubStats| s.tail_overruns = 1),
+        ] {
+            let mut pass = Pass::default();
+            let mut sub = SubStats::default();
+            set(&mut sub);
+            pass.subs.insert((1, 0), sub);
+            assert!(
+                !is_clean(&pass, 0, 0),
+                "a dependent substream's {name} left the stream clean"
+            );
+        }
+
+        // and a second programme is legal, so it does not
+        let mut other = Pass::default();
+        other.program.other_program_frames = 1;
+        assert!(
+            is_clean(&other, 0, 0),
+            "a second programme should not make a stream unclean"
+        );
+    }
+}
