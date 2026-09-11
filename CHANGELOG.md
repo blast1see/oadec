@@ -81,6 +81,15 @@ Semantic Versioning.
 - The media suite fails when it cannot reach the media. It used to report
   "10 passed" in 0.00 s with `OADEC_MEDIA` unset, and CI now has a job that
   fails if that comes back.
+- **`verify` reads the object metadata it was counting.** On TrueHD it walked
+  the Evolution payloads, tallied their ids and bytes, and never parsed one, so
+  a malformed Object Audio Metadata payload was invisible to it. Thirteen
+  library titles of 198 carry a truncated element in their first access unit --
+  `truehdd` warns about the same one -- and on every one of them
+  `decode --format damf` exited 7 naming the fault while `verify` said CLEAN at
+  exit 0, after printing that `verify` reports the same faults. It does now: the
+  payloads are parsed, their errors count towards the verdict, and the tally is
+  printed beside the other integrity lines.
 - **A TrueHD sampling-rate change is refused instead of ignored.** The guard on
   a mid-stream configuration change compared the samples per access unit, which
   is `40 * (fs / 44100)` truncated and therefore cannot tell 48 kHz from
@@ -92,6 +101,11 @@ Semantic Versioning.
 
 ### Added
 
+- **Object gain and object size are counted rather than assumed absent.** Both
+  fields are parsed and neither had ever been seen in a real stream, which was
+  an impression rather than a measurement. One function counts them for both
+  codecs -- gains other than 0 dB by decibel value, mutes apart, non-zero sizes
+  -- and `verify`, `info` and `oamd` all report it.
 - **96 kHz TrueHD, decoded and checked.** Every stream this project had measured
   was 48 kHz, so the doubled-rate branch had never run on real material. One
   track in 221 across 525 library files is 96 kHz; all three of its presentations

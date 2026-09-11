@@ -196,6 +196,17 @@ fn print_text(scan: &Scan) {
         f.skipped_bytes,
         f.trailing_bytes
     );
+    if scan.extra.oamd_ok > 0 || f.oamd_errors > 0 {
+        println!(
+            "Object metadata:  {} payloads parsed, {} errors; {} non-unity gains {:?}, {} mutes, {} non-zero sizes",
+            scan.extra.oamd_ok,
+            f.oamd_errors,
+            scan.extra.oamd_gains_db.values().sum::<u64>(),
+            scan.extra.oamd_gains_db,
+            scan.extra.oamd_muted_updates,
+            scan.extra.oamd_sized_updates
+        );
+    }
     if let Some(err) = &scan.first_error {
         println!("First error:      {err}");
     }

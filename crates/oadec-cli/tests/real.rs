@@ -1277,3 +1277,78 @@ fn ninety_six_kilohertz_decodes_byte_for_byte_like_forty_eight() {
         );
     }
 }
+
+/// The two commands must not disagree about the same file.
+///
+/// `decode --format damf` ends by telling the reader that "`oadec verify`
+/// reports the same faults". On a title whose first access unit carries a
+/// truncated object-metadata element that sentence was false: the object path
+/// parsed the payload, counted the error and exited 7, while `verify` counted
+/// payload ids without ever reading one and said CLEAN at exit 0. Thirteen of
+/// 198 library titles are in that state and `truehdd` warns about the same
+/// element, so the payload really is truncated and it was `verify` that could
+/// not see it.
+///
+/// The fixture is two seconds off the head of one of the thirteen, which is
+/// enough because the fault is in access unit 0.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn verify_and_decode_agree_about_a_truncated_object_metadata_element() {
+    let media = media_dir();
+    let file = media.join("clips/thd-truncated-oamd.thd");
+    require(&file);
+
+    let verify = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .arg("verify")
+        .arg(&file)
+        .output()
+        .expect("run oadec verify");
+    let verify_text = String::from_utf8_lossy(&verify.stdout).to_string();
+    assert_eq!(
+        verify.status.code(),
+        Some(7),
+        "verify called a stream with a truncated element clean:\n{verify_text}"
+    );
+    assert!(
+        verify_text.contains("runs past the payload"),
+        "verify exited 7 without naming the fault:\n{verify_text}"
+    );
+
+    let base = std::env::temp_dir().join("oadec-truncated-oamd");
+    let decode = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", "-p", "3", "--format", "damf", "-o"])
+        .arg(&base)
+        .arg(&file)
+        .output()
+        .expect("run oadec decode");
+    for ext in [".atmos", ".atmos.metadata", ".atmos.audio"] {
+        let _ =
+            std::fs::remove_file(std::env::temp_dir().join(format!("oadec-truncated-oamd{ext}")));
+    }
+    assert_eq!(
+        decode.status.code(),
+        Some(7),
+        "the object path did not report the truncated element: {}",
+        String::from_utf8_lossy(&decode.stderr)
+    );
+
+    // and a clean stream still passes both, so the rule is not "always 7"
+    let clean = media.join("thd/pi.thd");
+    if clean.exists() {
+        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .arg("verify")
+            .arg(&clean)
+            .output()
+            .expect("run oadec verify");
+        assert_eq!(
+            out.status.code(),
+            Some(0),
+            "a clean stream stopped being clean:\n{}",
+            String::from_utf8_lossy(&out.stdout)
+        );
+        assert!(
+            String::from_utf8_lossy(&out.stdout).contains("Object metadata:"),
+            "verify stopped reporting the object-metadata tally"
+        );
+    }
+}

@@ -115,6 +115,14 @@ MUTANTS = [
      'crates/oadec-truehd/src/au.rs',
      '        } else if self.sampling_frequency != next.sampling_frequency {',
      '        } else if false && self.sampling_frequency != next.sampling_frequency {'),
+    ('the TrueHD verdict stops reading a counter',
+     'crates/oadec-cli/src/scan.rs',
+     '            && self.oamd_errors == 0',
+     '            && true'),
+    ('an inactive object counts as an authored mute',
+     'crates/oadec-emdf/src/oamd.rs',
+     '                    if u.basic_status != Status::Default {',
+     '                    if true {'),
 ]
 
 

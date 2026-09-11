@@ -237,6 +237,13 @@ struct EmdfStats {
     payload_ids: BTreeMap<u32, u64>,
     oamd_ok: u64,
     oamd_errors: u64,
+    /// Object gains other than unity, by decibel value, over updates that
+    /// signalled one; the mutes counted apart, because table 28's default for
+    /// an inactive object *is* a mute; and updates carrying a non-zero
+    /// `object_size`. Both Dolby encoders drop these two fields, so an
+    /// authored stream cannot carry either and only the wild can answer
+    /// whether anything does.
+    oamd_gain_size: oadec_emdf::oamd::GainSizeCounts,
     joc: u64,
     first_error: Option<String>,
     // JOC side information statistics
@@ -434,7 +441,17 @@ impl EmdfStats {
                         }
                         if p.id == PAYLOAD_ID_OAMD {
                             match Oamd::parse(&p.data) {
-                                Ok(_) => self.oamd_ok += 1,
+                                Ok(oamd) => {
+                                    self.oamd_ok += 1;
+                                    let counts = oamd.gain_and_size_counts();
+                                    if !counts.gains_db.is_empty() {
+                                        self.note_rare("oamd-object-gain", frame_index);
+                                    }
+                                    if counts.sized > 0 {
+                                        self.note_rare("oamd-object-size", frame_index);
+                                    }
+                                    self.oamd_gain_size.add(&counts);
+                                }
                                 Err(e) => {
                                     self.oamd_errors += 1;
                                     if self.first_error.is_none() {
@@ -1006,6 +1023,11 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "payload_ids": payload_ids,
                 "oamd_ok": e.oamd_ok,
                 "oamd_errors": e.oamd_errors,
+                "oamd_object_gains_db": e.oamd_gain_size.gains_db.iter()
+                    .map(|(db, n)| (db.to_string(), *n))
+                    .collect::<BTreeMap<_, _>>(),
+                "oamd_muted_updates": e.oamd_gain_size.muted,
+                "oamd_sized_updates": e.oamd_gain_size.sized,
                 "joc_payloads": e.joc,
             },
             "joc": (e.joc > 0).then(|| json!({
@@ -1252,6 +1274,15 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             e.joc_two_dpoints,
             e.joc_steep,
             e.joc_fine
+        );
+    }
+    if p.emdf.oamd_ok > 0 {
+        println!(
+            "OAMD gain/size:    {} non-unity gains {:?}, {} mutes, {} non-zero sizes",
+            p.emdf.oamd_gain_size.gains_db.values().sum::<u64>(),
+            p.emdf.oamd_gain_size.gains_db,
+            p.emdf.oamd_gain_size.muted,
+            p.emdf.oamd_gain_size.sized
         );
     }
     println!(

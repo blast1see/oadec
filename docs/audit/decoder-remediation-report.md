@@ -1612,6 +1612,82 @@ decodes. 96 kHz is the only doubled rate this project can claim.
 
 ---
 
+## Counting what was only ever said to be absent
+
+Object gain and object size are two OAMD fields that no real stream has ever
+been seen to carry. That claim was an impression rather than a number, so a
+counter went in: gains other than 0 dB by decibel value, mutes counted apart
+because table 28's default for an inactive object *is* a mute, and updates
+carrying a non-zero size. It reads the same way on both codecs and it is one
+function, `Oamd::gain_and_size_counts`, so the two paths cannot drift.
+
+It was run over everything on hand. The third row counts object updates rather
+than payloads, because that is what the E-AC-3 scanner reports.
+
+| Sample | Streams | Payloads or updates | Non-unity gains | Non-zero sizes |
+|---|---:|---:|---:|---:|
+| TrueHD, whole streams | 6 | 1 344 146 | 0 | 0 |
+| TrueHD, twenty-second heads | 198 | 129 346 | 0 | 0 |
+| E-AC-3, whole streams | 19 | 32 150 620 | 0 | 0 |
+
+Zero, everywhere. The row stays open, because a count of zero over a large
+sample is a stronger statement of the same negative and not a positive -- what
+changed is that it now has a denominator. The heads and the whole streams are
+kept apart on purpose: a twenty-second cut says what the opening of many films
+uses, a whole stream says what a film uses, and merging them would let breadth
+pass itself off as depth.
+
+Two details of the rule matter, because the wrong ones would have produced a
+large and meaningless number. A mute is counted apart from a gain, since table
+28's default for an object that is not active *is* a mute; and an update whose
+basic status is `Default` is not counted at all, for the same reason. One head
+clip alone carries 5 176 inactive updates against 3 602 signalled ones. Count
+those as authored mutes and every ordinary stream looks as though it were full
+of gain decisions.
+
+### The two commands that disagreed about the same file
+
+Running the counter over every TrueHD stream on hand printed something unasked
+for: thirteen streams of 198 reported a parse error, always at **access unit
+0**, and always the same shape.
+
+```
+access unit 0: malformed OAMD: element 1 of 9 bytes runs past the payload
+```
+
+The byte counts differ between titles -- 9, 34, 51 -- so it is not one bad
+payload copied around. `truehdd` reads the same clip and warns
+`Truncated oa_element_md with id 1`, so a decoder that is neither ours nor
+Dolby's agrees the element really is truncated. These are ordinary library
+titles and the fault is in the first access unit of the film.
+
+That is a fact about the material. What it uncovered is a fact about this
+decoder. On one of those titles:
+
+| Command | Exit | Says |
+|---|---|---|
+| `decode --format damf` | 7 | 1 metadata payload error, names it, and adds *"`oadec verify` reports the same faults"* |
+| `verify` | 0 | **CLEAN** |
+
+The sentence was false. `verify` walks the Evolution payloads, counts their ids
+and their bytes, and never reads one, so the whole OAMD syntax was invisible to
+the command the audit treats as the reference for integrity. Thirteen titles,
+and the two commands disagreed about every one of them.
+
+This is defect 2's shape for the third time, and the first time pointing the
+other way: there the object path was silent and `verify` saw everything; here
+the object path saw it and `verify` was silent. The lesson survives the
+reversal. Detection existing somewhere in a program is not detection reaching
+the verdict a reader acts on, and the only way to know which is which is to ask
+two commands about one file and compare.
+
+`verify` parses the payloads now, counts their errors into the verdict, and
+prints the tally beside the other integrity lines. The same title is
+NON-CONFORMANT at exit 7 with the fault named, a clean title is still CLEAN at
+exit 0, and a media test holds the pair together on a two-second cut of one of
+the thirteen -- two seconds being enough, because the fault is in access unit 0.
+
+
 ## An instrument that does not work, and what rested on it
 
 Every conclusion in this project that came from rewriting a field inside an EMDF
@@ -1916,9 +1992,16 @@ the two sweeps read, this decoder reported no failure of any kind.
   DEE can read, does not reach it either. It needs a stream that already carries
   one, and none on hand does.
 - **Object gain and object size in the wild.** Both are dropped by Dolby's
-  encoders and neither appears in any real stream measured. The parse of a
-  non-zero value is unit-tested against hand-built payloads, including the reuse
-  and differential forms; what has never happened is a real stream carrying one.
+  encoders, so nothing authored here can carry one, and the parse of a non-zero
+  value is unit-tested against hand-built payloads including the reuse and
+  differential forms. What has never happened is a real stream carrying one, and
+  that is now a number rather than an impression: **0** non-unity gains and **0**
+  non-zero sizes over 1 473 492 object-metadata payloads in six whole TrueHD
+  streams and 198 heads, and over 32 150 620 object updates in nineteen whole
+  E-AC-3 streams. A count of zero with a denominator is a stronger statement of
+  the same negative, not a positive; the row stays open until a stream carries
+  one.
+  `evidence/remediation/object-gain-and-size.json`.
 - **Sampling rates other than 48 and 96 kHz.** 192 kHz, and the whole 44,1 kHz
   family, occur in no track of the 525 files scanned -- 221 lossless Dolby
   tracks, 220 of them at 48 kHz and one at 96. The 44,1 kHz reading was
