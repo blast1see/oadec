@@ -184,10 +184,13 @@ def set_interpolation(src: str, out: str, spec, fs: int) -> None:
 
 
 def remove_child(src: str, out: str, ac_id: str, index: int, tag: str) -> None:
+    """``tag`` may carry an attribute selector, e.g. ``position coordinate="Z"``."""
+    name = tag.split()[0]
+
     def fn(k, block):
         if k != index:
             return None
-        new = re.sub(r"\s*<%s\b[^>]*>.*?</%s>" % (tag, tag), "", block, count=1, flags=re.S)
+        new = re.sub(r"\s*<%s(?=[\s>/])[^>]*>.*?</%s>" % (re.escape(tag), name), "", block, count=1, flags=re.S)
         if new == block:
             raise KeyError(f"block {index} of {ac_id} has no <{tag}>")
         return new
@@ -388,4 +391,30 @@ def damf_set_header(base: str, out: str, key: str, value: str) -> None:
     if new == text:
         raise KeyError(key)
     with open(out + ".atmos", "w", encoding="utf-8", newline="\n") as f:
+        f.write(new)
+
+
+def poke_sample(src: str, out: str, track: int, frame: int, delta: int) -> None:
+    """Add ``delta`` to one 24-bit sample of one track."""
+    def tf(raw: bytes, fmt) -> bytes:
+        a = np.frombuffer(raw, dtype=np.uint8).reshape(-1, fmt.channels, 3).copy()
+        b = a[frame, track, :]
+        v = int(b[0]) | (int(b[1]) << 8) | (int(b[2]) << 16)
+        if v >= 1 << 23:
+            v -= 1 << 24
+        v += delta
+        a[frame, track, :] = np.frombuffer((v & 0xFFFFFF).to_bytes(3, "little"), dtype=np.uint8)
+        return a.tobytes()
+    rebuild(src, out, pcm_transform=tf)
+
+
+def damf_edit_text(base: str, out: str, fn) -> None:
+    """Free-form edit of the ``.atmos.metadata`` text of a copied DAMF set."""
+    damf_copy(base, out)
+    with open(out + ".atmos.metadata", encoding="utf-8") as f:
+        text = f.read()
+    new = fn(text)
+    if new == text:
+        raise ValueError("metadata edit changed nothing")
+    with open(out + ".atmos.metadata", "w", encoding="utf-8", newline="\n") as f:
         f.write(new)

@@ -168,3 +168,15 @@ class MoreMutations(unittest.TestCase):
         s = normalise.from_damf(os.path.join(self.dir.name, "y"))
         self.assertEqual(s.source["sample_rate"], 44100)
         self.assertTrue(any(f.kind == "damf-rate" for f in s.findings), s.findings)
+
+
+class AttributeQualifiedRemove(unittest.TestCase):
+    def test_remove_child_with_attribute_selector(self):
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "s.wav")
+            out = os.path.join(d, "o.wav")
+            _adm_file(src)
+            mutate.remove_child(src, out, "AC_00031001", 1, 'position coordinate="Z"')
+            e = normalise.from_adm(out).objects[0].events[1]
+            self.assertFalse(e.z_present)
+            self.assertEqual(e.pos, (0.5, 0.25, 0.0))
