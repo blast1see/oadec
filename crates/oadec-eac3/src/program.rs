@@ -885,6 +885,55 @@ impl ProgramDecoder {
 
 #[cfg(test)]
 mod tests {
+
+    /// Each counter the verdict reads, one at a time.
+    ///
+    /// A mutation pass short-circuited the verdict to `true` and no test
+    /// noticed, which is the worst place for that to be possible: the whole
+    /// point of the first defect was that a truncated programme used to be
+    /// called clean. The list is what makes the difference, so the list is what
+    /// is pinned -- and `other_program_frames` and `lfe_implied` are in it as
+    /// the two that must *not* count, since a second programme is legal and an
+    /// implied LFE is a documented reading.
+    #[test]
+    fn every_counter_in_the_verdict_can_make_a_stream_unclean() {
+        assert!(ProgramStats::default().is_clean(), "an empty pass is clean");
+
+        let makes_it_unclean: [(&str, fn(&mut ProgramStats)); 6] = [
+            ("orphan_dependents", |s| s.orphan_dependents = 1),
+            ("layout_changes", |s| s.layout_changes = 1),
+            ("misaligned", |s| s.misaligned = 1),
+            ("over_capacity", |s| s.over_capacity = 1),
+            ("location_errors", |s| s.location_errors = 1),
+            ("dependent_dropped", |s| s.dependent_dropped = 1),
+        ];
+        for (name, set) in makes_it_unclean {
+            let mut stats = ProgramStats::default();
+            set(&mut stats);
+            assert!(!stats.is_clean(), "{name} left the programme looking clean");
+        }
+
+        let mut with_errors = ProgramStats::default();
+        with_errors.decode_errors.insert((1, 0), 1);
+        assert!(
+            !with_errors.is_clean(),
+            "a decode error left the programme looking clean"
+        );
+
+        let leaves_it_clean: [(&str, fn(&mut ProgramStats)); 3] = [
+            ("other_program_frames", |s| s.other_program_frames = 1),
+            ("lfe_implied", |s| s.lfe_implied = 1),
+            ("groups", |s| s.groups = 1),
+        ];
+        for (name, set) in leaves_it_clean {
+            let mut stats = ProgramStats::default();
+            set(&mut stats);
+            assert!(
+                stats.is_clean(),
+                "{name} should not make a programme unclean"
+            );
+        }
+    }
     use super::*;
     use crate::header::Syntax;
     use crate::tables::CHANMAP_LOCATIONS;
