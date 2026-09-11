@@ -3,7 +3,7 @@
 //! typed error, never in a panic.
 
 use oadec_emdf::container;
-use oadec_emdf::joc::{Joc, SparseIndexMode};
+use oadec_emdf::joc::{Joc, SparseReading};
 use oadec_emdf::oamd::Oamd;
 
 /// xorshift64, so the cases are reproducible without a dependency.
@@ -40,7 +40,7 @@ fn arbitrary_bytes_never_panic_the_metadata_parsers() {
         if Oamd::parse(&data).is_ok() {
             oamd_ok += 1;
         }
-        if Joc::parse(&data, SparseIndexMode::Literal).is_ok() {
+        if Joc::parse(&data, SparseReading::AsPrinted).is_ok() {
             joc_ok += 1;
         }
         if container::parse_evolution(&data).is_ok() {
@@ -60,21 +60,55 @@ fn a_jocs_own_bytes_flipped_one_bit_at_a_time_never_panic() {
     for _ in 0..200_000 {
         let len = 1 + (rng.next() % 60) as usize;
         let data = rng.bytes(len);
-        if Joc::parse(&data, SparseIndexMode::Literal).is_ok() {
+        if Joc::parse(&data, SparseReading::AsPrinted).is_ok() {
             base = Some(data);
             break;
         }
     }
-    let Some(base) = base else {
-        eprintln!("no random payload parsed as JOC; bit-flip pass skipped");
-        return;
-    };
+    // Failing beats skipping. A test that quietly does nothing when its
+    // material stops appearing is the shape this project has met once already, in
+    // a media suite that printed "10 passed" with nothing decoded.
+    let base = base.expect("no random payload parsed as JOC, so the bit-flip pass had no base");
     for byte in 0..base.len() {
         for bit in 0..8 {
             let mut data = base.clone();
             data[byte] ^= 1 << bit;
-            let _ = Joc::parse(&data, SparseIndexMode::Literal);
-            let _ = Joc::parse(&data, SparseIndexMode::Cumulative);
+            let _ = Joc::parse(&data, SparseReading::AsPrinted);
+            let _ = Joc::parse(&data, SparseReading::Measured);
+        }
+    }
+}
+
+#[test]
+fn an_oamds_own_bytes_flipped_one_bit_at_a_time_never_panic() {
+    // The JOC payload gets this treatment above. The object metadata parser is
+    // the larger of the two -- a program assignment, a variable number of
+    // elements, each with its own size and its own optional blocks -- and it
+    // only had the arbitrary-bytes pass, where almost nothing reaches the deeper
+    // syntax because almost nothing parses at all. Starting from a payload that
+    // does parse puts the corruption inside the structure instead of in front
+    // of it.
+    let mut rng = Rng(0x2545_F491_4F6C_DD1D);
+    let mut base: Option<Vec<u8>> = None;
+    for _ in 0..500_000 {
+        let len = 4 + (rng.next() % 120) as usize;
+        let data = rng.bytes(len);
+        if let Ok(o) = Oamd::parse(&data) {
+            // one that carries an object element, not merely a header that
+            // happened to be well formed
+            if o.object_element().is_some() {
+                base = Some(data);
+                break;
+            }
+        }
+    }
+    let base = base
+        .expect("no random payload parsed as OAMD with an object element, so the pass had no base");
+    for byte in 0..base.len() {
+        for bit in 0..8 {
+            let mut data = base.clone();
+            data[byte] ^= 1 << bit;
+            let _ = Oamd::parse(&data);
         }
     }
 }

@@ -69,6 +69,24 @@ pub fn dequantize(q: u8, quant_idx: u8) -> f64 {
     (f64::from(q) - nquant / 2.0) * 820.0 / (4096.0 * (1.0 + f64::from(quant_idx)))
 }
 
+/// Where the steep interpolation of clause 6.6.5 puts its switch.
+///
+/// `joc_offset_ts` is one-based: clause 6.3.4.4 defines it as
+/// `joc_offset_ts_bits + 1`, so the smallest transmittable offset names the
+/// first time slot. The `ts` of clause 6.6.5 counts from zero, and its
+/// pseudo-code compares the two directly, which places the switch one slot
+/// after the offset names. Dolby's decoder switches at the slot the offset
+/// names. See `docs/joc.md`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SteepReading {
+    /// `ts < joc_offset_ts`, exactly as clause 6.6.5 prints it.
+    AsPrinted,
+    /// `ts < joc_offset_ts - 1`: the one-based offset against the zero-based
+    /// slot index, which is what Dolby's decoder does.
+    #[default]
+    Measured,
+}
+
 /// Object reconstruction state: the previous frame's matrices.
 #[derive(Debug, Clone)]
 pub struct JocDecoder {
@@ -87,6 +105,8 @@ pub struct JocDecoder {
     /// back across the frame boundary still meets the matrix it was coded
     /// with: `[obj][ts]`.
     carried: Vec<Vec<[[f64; BANDS]; MAX_CHANNELS]>>,
+    /// Which reading of the steep switch point to apply.
+    steep: SteepReading,
 }
 
 impl JocDecoder {
@@ -103,7 +123,14 @@ impl JocDecoder {
             interp: Vec::new(),
             lag: 0,
             carried: Vec::new(),
+            steep: SteepReading::default(),
         }
+    }
+
+    /// Chooses between the printed and the measured reading of the steep
+    /// switch point (clause 6.6.5). The default is [`SteepReading::Measured`].
+    pub fn set_steep_reading(&mut self, steep: SteepReading) {
+        self.steep = steep;
     }
 
     /// Tells the decoder that the subband samples it will be given run
@@ -203,6 +230,7 @@ impl JocDecoder {
             dq.push(m);
         }
         let prev = self.prev[obj];
+        let steep = self.steep;
         let interp = &mut self.interp[obj];
         let n = num_ts as f64;
         match info.slope {
@@ -236,8 +264,11 @@ impl JocDecoder {
                 }
             }
             Slope::Steep => {
-                let o0 = usize::from(info.offset_ts[0]);
-                let o1 = usize::from(info.offset_ts[1]);
+                // `joc_offset_ts` is one-based and `ts` is not; see
+                // `SteepReading`.
+                let back = usize::from(steep == SteepReading::Measured);
+                let o0 = usize::from(info.offset_ts[0]).saturating_sub(back);
+                let o1 = usize::from(info.offset_ts[1]).saturating_sub(back);
                 for ts in 0..num_ts {
                     let src: &[[f64; BANDS]; MAX_CHANNELS] = if info.num_dpoints == 1 {
                         if ts < o0 { &prev } else { &dq[0] }
@@ -283,6 +314,355 @@ impl JocDecoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use oadec_emdf::joc::{Joc, JocObject};
+
+    /// One frame of side information for a single object, with the branch of
+    /// clause 6.6.5 the test wants.
+    fn one_object(
+        slope: Slope,
+        num_dpoints: usize,
+        offset_ts: [u8; 2],
+        dp: &[[u8; 5]],
+        nch: usize,
+    ) -> Joc {
+        let mut mtx_q = Vec::new();
+        for (d, row) in dp.iter().enumerate().take(num_dpoints) {
+            let mut m = [[0u8; oadec_emdf::joc::MAX_BANDS]; oadec_emdf::joc::MAX_CHANNELS];
+            for (ch, slot) in m.iter_mut().enumerate().take(nch) {
+                // a distinct value per channel, per band and per data point, so
+                // that a branch reading the wrong one of the three shows up
+                for (pb, v) in slot.iter_mut().enumerate().take(4) {
+                    *v = row[ch] + pb as u8 + d as u8;
+                }
+            }
+            mtx_q.push(m);
+        }
+        Joc {
+            dmx_config: 3,
+            num_channels: nch,
+            num_objects: 1,
+            ext_config: 0,
+            clipgain: 1.0,
+            seq_count: 1,
+            objects: vec![Some(JocObject {
+                num_bands: 3,
+                sparse: false,
+                quant_idx: 1,
+                slope,
+                num_dpoints,
+                offset_ts,
+                mtx_q,
+                sparse_channel: None,
+            })],
+            bits_used: 0,
+            padding_zero: true,
+        }
+    }
+
+    /// The matrix coefficient the decoder would apply to channel `ch`,
+    /// subband `sb`, time slot `ts`, read out through the public interface: a
+    /// unit impulse in one channel comes out of `reconstruct` as that
+    /// coefficient.
+    fn coefficient(d: &JocDecoder, ts: usize, ch: usize, sb: usize, nch: usize) -> f64 {
+        let mut input = vec![[Complex::default(); BANDS]; nch];
+        input[ch][sb] = Complex { re: 1.0, im: 0.0 };
+        let mut out = vec![[Complex::default(); BANDS]; 1];
+        d.reconstruct(ts, &input, &mut out);
+        out[0][sb].re
+    }
+
+    /// Clause 6.6.5, pseudo-code 6, restated here rather than shared with the
+    /// implementation, so that the test can disagree with it.
+    fn expected(
+        branch: (Slope, usize, [u8; 2]),
+        points: (f64, f64, f64),
+        ts: usize,
+        num_ts: usize,
+    ) -> f64 {
+        let (slope, num_dpoints, offset_ts) = branch;
+        let (prev, d0, d1) = points;
+        match slope {
+            Slope::Smooth if num_dpoints == 1 => {
+                prev + (ts as f64 + 1.0) * (d0 - prev) / num_ts as f64
+            }
+            Slope::Smooth => {
+                let ts_2 = num_ts / 2;
+                if ts < ts_2 {
+                    prev + (ts as f64 + 1.0) * (d0 - prev) / ts_2 as f64
+                } else {
+                    d0 + (ts - ts_2 + 1) as f64 * (d1 - d0) / (num_ts - ts_2) as f64
+                }
+            }
+            Slope::Steep if num_dpoints == 1 => {
+                if ts < usize::from(offset_ts[0]) {
+                    prev
+                } else {
+                    d0
+                }
+            }
+            Slope::Steep => {
+                if ts < usize::from(offset_ts[0]) {
+                    prev
+                } else if ts < usize::from(offset_ts[1]) {
+                    d0
+                } else {
+                    d1
+                }
+            }
+        }
+    }
+
+    /// All four branches of clause 6.6.5, pseudo-code 6, read exactly as the
+    /// clause prints them.
+    ///
+    /// Two of them -- smooth and steep with two data points -- have never
+    /// occurred in any real stream measured: 0 of 32 493 245 object updates in
+    /// 31 JOC streams. No encoder on hand emits them either; DEE 5.2.1 writes
+    /// one data point at every data rate it offers, even for objects moving
+    /// four times per frame. So this is the only thing holding them: it proves
+    /// the implementation matches the printed pseudo-code, and not that Dolby
+    /// agrees with the printed pseudo-code -- on the steep switch point it
+    /// does not, which is why the reading is selectable and why the default is
+    /// the other one. See `steep_switches_one_slot_before_the_printed_reading`.
+    #[test]
+    fn every_interpolation_branch_matches_pseudocode_6() {
+        const NCH: usize = 5;
+        const NUM_TS: usize = 24;
+        let cases: [(Slope, usize, [u8; 2]); 4] = [
+            (Slope::Smooth, 1, [0, 0]),
+            (Slope::Smooth, 2, [0, 0]),
+            (Slope::Steep, 1, [7, 0]),
+            (Slope::Steep, 2, [7, 17]),
+        ];
+        for (slope, num_dpoints, offset_ts) in cases {
+            let mut d = JocDecoder::new(NCH, 1);
+            d.set_steep_reading(SteepReading::AsPrinted);
+            // the history is zero before the first frame (clause 6.6.5)
+            let first = one_object(
+                slope,
+                num_dpoints,
+                offset_ts,
+                &[[120, 90, 150, 60, 100]; 2],
+                NCH,
+            );
+            d.update(&first, NUM_TS);
+            // a second frame, so `prev` is not zero for the branch under test
+            let second = one_object(
+                slope,
+                num_dpoints,
+                offset_ts,
+                &[[80, 130, 40, 170, 96]; 2],
+                NCH,
+            );
+            let prev_q = [120u8, 90, 150, 60, 100];
+            let dp_q = [80u8, 130, 40, 170, 96];
+            d.update(&second, NUM_TS);
+
+            let map = band_map(3);
+            for ts in 0..NUM_TS {
+                for ch in 0..NCH {
+                    for sb in [0usize, 17, 63] {
+                        let pb = usize::from(map[sb]);
+                        // the first frame's last data point is what `prev` holds
+                        let prev = dequantize(prev_q[ch] + (num_dpoints - 1) as u8 + pb as u8, 1);
+                        let d0 = dequantize(dp_q[ch] + pb as u8, 1);
+                        let d1 = dequantize(dp_q[ch] + 1 + pb as u8, 1);
+                        let want =
+                            expected((slope, num_dpoints, offset_ts), (prev, d0, d1), ts, NUM_TS);
+                        let got = coefficient(&d, ts, ch, sb, NCH);
+                        assert!(
+                            (got - want).abs() < 1e-12,
+                            "{slope:?} with {num_dpoints} data point(s), ts {ts}, ch {ch}, sb {sb}: {got} != {want}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// The default reading switches one slot before the printed one, at the
+    /// slot `joc_offset_ts` names rather than the slot after it.
+    ///
+    /// `joc_offset_ts` is `joc_offset_ts_bits + 1` (clause 6.3.4.4) and `ts`
+    /// counts from zero, so comparing the two directly, as pseudo-code 6
+    /// prints it, is one-based against zero-based. Dolby's decoder switches
+    /// at the named slot. Measured on four titles: Glass Onion's worst object
+    /// moves from 25,24 dB to 49,93 dB against Dolby's object decoder and its
+    /// median from 47,76 to 65,44; Shaun of the Dead's frame 581 from 23,51 dB
+    /// to 58,90; the two titles whose steep objects fall outside the window do
+    /// not move at all. A sweep of the switch position over +/-3 slots has its
+    /// optimum exactly here and nowhere near it: the neighbouring positions
+    /// give 27,09 and 25,24 dB where this one gives 49,93. See `docs/joc.md`.
+    #[test]
+    fn steep_switches_one_slot_before_the_printed_reading() {
+        const NCH: usize = 5;
+        const NUM_TS: usize = 24;
+        const OFFSET: u8 = 7;
+        let mut printed = JocDecoder::new(NCH, 1);
+        printed.set_steep_reading(SteepReading::AsPrinted);
+        let mut measured = JocDecoder::new(NCH, 1);
+        for d in [&mut printed, &mut measured] {
+            d.update(
+                &one_object(
+                    Slope::Steep,
+                    1,
+                    [OFFSET, 0],
+                    &[[96, 96, 96, 96, 96]; 2],
+                    NCH,
+                ),
+                NUM_TS,
+            );
+            d.update(
+                &one_object(
+                    Slope::Steep,
+                    1,
+                    [OFFSET, 0],
+                    &[[40, 40, 40, 40, 40]; 2],
+                    NCH,
+                ),
+                NUM_TS,
+            );
+        }
+        let before = dequantize(96, 1);
+        let after = dequantize(40, 1);
+        assert!((before - after).abs() > 1e-9, "the test needs two values");
+        for ts in 0..NUM_TS {
+            let want_printed = if ts < usize::from(OFFSET) {
+                before
+            } else {
+                after
+            };
+            let want_measured = if ts + 1 < usize::from(OFFSET) {
+                before
+            } else {
+                after
+            };
+            assert!(
+                (coefficient(&printed, ts, 0, 0, NCH) - want_printed).abs() < 1e-12,
+                "printed reading, ts {ts}"
+            );
+            assert!(
+                (coefficient(&measured, ts, 0, 0, NCH) - want_measured).abs() < 1e-12,
+                "measured reading, ts {ts}"
+            );
+        }
+        // the one slot the two readings disagree about
+        let ts = usize::from(OFFSET) - 1;
+        assert!((coefficient(&printed, ts, 0, 0, NCH) - before).abs() < 1e-12);
+        assert!((coefficient(&measured, ts, 0, 0, NCH) - after).abs() < 1e-12);
+
+        // Both offsets of the two-data-point branch take the same correction.
+        // No stream measured carries that branch, so this pins the code and
+        // not agreement with Dolby.
+        const O0: u8 = 7;
+        const O1: u8 = 17;
+        let mut two = JocDecoder::new(NCH, 1);
+        two.update(
+            &one_object(Slope::Steep, 2, [O0, O1], &[[96, 96, 96, 96, 96]; 2], NCH),
+            NUM_TS,
+        );
+        two.update(
+            &one_object(
+                Slope::Steep,
+                2,
+                [O0, O1],
+                &[[40, 40, 40, 40, 40], [170, 170, 170, 170, 170]],
+                NCH,
+            ),
+            NUM_TS,
+        );
+        // `one_object` adds the data-point index to every value, so the first
+        // frame ends at 97 and the second frame's points are 40 and 171
+        let (prev, dp0, dp1) = (dequantize(97, 1), dequantize(40, 1), dequantize(171, 1));
+        for ts in 0..NUM_TS {
+            let want = if ts + 1 < usize::from(O0) {
+                prev
+            } else if ts + 1 < usize::from(O1) {
+                dp0
+            } else {
+                dp1
+            };
+            assert!(
+                (coefficient(&two, ts, 0, 0, NCH) - want).abs() < 1e-12,
+                "two data points, ts {ts}"
+            );
+        }
+    }
+
+    /// The two branches with two data points reach the second matrix and the
+    /// two with one do not, which is the whole difference between them and the
+    /// reason a test that only checked the endpoints would pass either way.
+    #[test]
+    fn the_second_data_point_is_reached_only_when_there_is_one() {
+        const NCH: usize = 5;
+        const NUM_TS: usize = 24;
+        for (slope, offset_ts) in [(Slope::Smooth, [0u8, 0]), (Slope::Steep, [7, 17])] {
+            let mut d = JocDecoder::new(NCH, 1);
+            d.set_steep_reading(SteepReading::AsPrinted);
+            d.update(
+                &one_object(slope, 2, offset_ts, &[[96, 96, 96, 96, 96]; 2], NCH),
+                NUM_TS,
+            );
+            // first data point 40, second 170, so the two are far apart
+            let joc = one_object(
+                slope,
+                2,
+                offset_ts,
+                &[[40, 40, 40, 40, 40], [170, 170, 170, 170, 170]],
+                NCH,
+            );
+            d.update(&joc, NUM_TS);
+            let last = coefficient(&d, NUM_TS - 1, 0, 0, NCH);
+            let second = dequantize(joc.objects[0].as_ref().unwrap().mtx_q[1][0][0], 1);
+            assert!(
+                (last - second).abs() < 1e-12,
+                "{slope:?}: the last slot should hold the second data point, {last} != {second}"
+            );
+        }
+    }
+
+    /// A switch offset the frame cannot hold.
+    ///
+    /// `joc_offset_ts_bits` is five bits and clause 6.3.4.4 adds one, so the
+    /// field carries 1 to 32 while a frame is 24 time slots. Every value from 1
+    /// to 24 occurs in real streams and nothing above 24 does -- which is how
+    /// the field is known to be one-based -- but a malformed stream can transmit
+    /// 25 to 32, and the decoder has to do something defined with it.
+    ///
+    /// What it does is hold the previous matrix for the whole frame, which is
+    /// the limit of the rule rather than a special case: the switch is at a slot
+    /// this frame never reaches.
+    #[test]
+    fn an_offset_the_frame_cannot_hold_leaves_the_previous_matrix_alone() {
+        const NCH: usize = 5;
+        const NUM_TS: usize = 24;
+        for offset in 25u8..=32 {
+            let mut d = JocDecoder::new(NCH, 1);
+            // Two frames of the same matrix first, so that every slot the
+            // reconstruction can reach -- including the ones the lag takes from
+            // the frame before -- already holds it. Steep with offset 1
+            // switches at the first slot, so there is no ramp anywhere in them.
+            // 96 is the code that dequantises to zero gain at quant_idx 1, so
+            // it would make this hold nothing and prove nothing
+            let settle = one_object(Slope::Steep, 1, [1, 0], &[[150, 150, 150, 150, 150]], NCH);
+            d.update(&settle, NUM_TS);
+            d.update(&settle, NUM_TS);
+            let held = coefficient(&d, NUM_TS - 1, 0, 0, NCH);
+            assert!(
+                held.abs() > 1e-9,
+                "the matrix to hold is zero, so nothing is being tested"
+            );
+            let joc = one_object(Slope::Steep, 1, [offset, 0], &[[30, 30, 30, 30, 30]], NCH);
+            d.update(&joc, NUM_TS);
+            for ts in 0..NUM_TS {
+                let got = coefficient(&d, ts, 0, 0, NCH);
+                assert!(
+                    (got - held).abs() < 1e-12,
+                    "offset {offset}, slot {ts}: {got} is not the matrix that was held, {held}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn band_map_matches_the_examples_of_table_54() {

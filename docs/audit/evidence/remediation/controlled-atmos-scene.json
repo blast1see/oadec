@@ -1,0 +1,55 @@
+{
+ "_what": "A controlled Atmos programme whose object positions and event times are known exactly. This file is the ground truth: the master is authored from it, encoded by Dolby's encoder, decoded by oadec, and the recovered metadata is compared with the numbers here rather than with anything a decoder produced.",
+ "_coordinates": "DAMF room coordinates. x -1 left to 1 right, y -1 back to 1 front, z 0 floor to 1 ceiling.",
+ "_signals": "Each object carries a signal that identifies it, because an encoder's spatial coding is free to renumber objects and an object recognisable from its audio survives that.",
+ "sample_rate": 48000,
+ "duration_samples": 480000,
+ "bed": ["LFE"],
+ "objects": [
+  {
+   "name": "front-left",
+   "signal": { "kind": "tone", "hz": 440.0, "dbfs": -20.0 },
+   "events": [{ "sample": 0, "pos": [-1.0, 1.0, 0.0], "gain_db": 0 }]
+  },
+  {
+   "name": "front-centre",
+   "signal": { "kind": "tone", "hz": 880.0, "dbfs": -20.0 },
+   "events": [{ "sample": 0, "pos": [0.0, 1.0, 0.0], "gain_db": 0 }]
+  },
+  {
+   "name": "front-right",
+   "signal": { "kind": "tone", "hz": 1320.0, "dbfs": -20.0 },
+   "events": [{ "sample": 0, "pos": [1.0, 1.0, 0.0], "gain_db": 0 }]
+  },
+  {
+   "name": "rear-left",
+   "signal": { "kind": "tone", "hz": 1760.0, "dbfs": -20.0 },
+   "events": [{ "sample": 0, "pos": [-1.0, -1.0, 0.0], "gain_db": 0 }]
+  },
+  {
+   "name": "rear-right",
+   "signal": { "kind": "tone", "hz": 2200.0, "dbfs": -20.0 },
+   "events": [{ "sample": 0, "pos": [1.0, -1.0, 0.0], "gain_db": 0 }]
+  },
+  {
+   "name": "top-front",
+   "signal": { "kind": "tone", "hz": 2640.0, "dbfs": -20.0 },
+   "events": [{ "sample": 0, "pos": [0.0, 1.0, 1.0], "gain_db": 0 }]
+  },
+  {
+   "name": "top-rear",
+   "signal": { "kind": "tone", "hz": 3080.0, "dbfs": -20.0 },
+   "events": [{ "sample": 0, "pos": [0.0, -1.0, 1.0], "gain_db": 0 }]
+  },
+  {
+   "name": "centre-of-room, moved at three sample anchors",
+   "signal": { "kind": "impulses", "at": [48000, 96000, 240000], "dbfs": -6.0 },
+   "events": [
+    { "sample": 0, "pos": [0.0, 0.0, 0.5], "gain_db": 0 },
+    { "sample": 48000, "pos": [-1.0, 0.0, 0.5], "gain_db": 0 },
+    { "sample": 96000, "pos": [1.0, 0.0, 0.5], "gain_db": 0 },
+    { "sample": 240000, "pos": [0.0, 1.0, 0.0], "gain_db": 0 }
+   ]
+  }
+ ]
+}

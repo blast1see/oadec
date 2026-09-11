@@ -440,6 +440,83 @@ mod tests {
         assert_eq!(p.elements(), 4);
     }
 
+    /// One payload carrying `sample_offset` and one update block with the
+    /// given `block_offset_factor`, for a one-object programme.
+    fn one_update(sample_offset: u16, block_offset_factor: u8) -> Oamd {
+        use oadec_emdf::oamd::{
+            BasicInfo, BlockTiming, Element, ElementMd, ObjectElement, ObjectInfoBlock,
+            ProgramAssignment, RenderInfo, Status, UpdateTiming,
+        };
+        Oamd {
+            version: 0,
+            object_count: 1,
+            program: ProgramAssignment {
+                dyn_object_only: true,
+                dynamic_objects: 1,
+                ..ProgramAssignment::default()
+            },
+            alternate_object_data_present: false,
+            elements: vec![ElementMd {
+                id: 1,
+                size_bytes: 1,
+                alternate_id: None,
+                discard_unknown: false,
+                element: Element::Object(ObjectElement {
+                    timing: UpdateTiming {
+                        sample_offset,
+                        blocks: vec![BlockTiming {
+                            block_offset_factor,
+                            ramp_duration: 0,
+                        }],
+                    },
+                    reserved: None,
+                    objects: vec![vec![ObjectInfoBlock {
+                        not_active: false,
+                        in_bed_or_isf: false,
+                        basic_status: Status::Full,
+                        basic: BasicInfo::DEFAULT,
+                        render_status: Status::Full,
+                        render: RenderInfo::DEFAULT,
+                        additional_table_data: Vec::new(),
+                    }]],
+                }),
+                size_ok: true,
+                padding_bits: 0,
+                padding_zero: true,
+            }],
+            padding_bits: 0,
+            padding_zero: true,
+        }
+    }
+
+    /// Clause 5.3.2: `start_sample = sample_offset + 32 * block_offset_factor`.
+    /// The other public decoder reads `sample_offset` and drops the second
+    /// term, which puts one event in five 32 samples early on real streams.
+    #[test]
+    fn an_update_starts_at_sample_offset_plus_thirty_two_per_block_factor() {
+        for (base, container, so, bof) in [
+            (0, 0, 0, 0),
+            (0, 0, 24, 0),
+            (0, 0, 0, 1),
+            (0, 0, 8, 1),
+            (0, 0, 0, 63),
+            (1536, 0, 16, 2),
+            (1536, 40, 31, 7),
+        ] {
+            let oamd = one_update(so, bof);
+            let mut t = Timeline::new(true);
+            let mut seen = Vec::new();
+            t.push(&oamd, base, container, |e| seen.push(e.sample_pos))
+                .expect("the payload is well formed");
+            assert_eq!(seen.len(), 1, "one object, one update block");
+            assert_eq!(
+                seen[0],
+                base + container + u64::from(so) + u64::from(bof) * 32,
+                "base {base}, container {container}, sample_offset {so}, block_offset_factor {bof}"
+            );
+        }
+    }
+
     #[test]
     fn positions_convert_to_damf_coordinates() {
         assert_eq!(damf_position([0.0, 0.0, 0.0]), [-1.0, 1.0, 0.0]);

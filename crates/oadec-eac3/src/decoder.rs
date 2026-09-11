@@ -18,6 +18,12 @@ pub struct Decoded {
     pub pcm: Vec<Vec<f32>>,
     /// Skip field bytes per audio block.
     pub skip_fields: Vec<Vec<u8>>,
+    /// The frame's auxiliary data user bits (clause 4.4.4), which annex H names
+    /// as a place an EMDF container may be carried.
+    pub auxdata: Vec<u8>,
+    /// `auxdatae` was set but `auxdatal` claimed more bits than the frame has
+    /// between its audio blocks and its tail.
+    pub auxdata_overrun: bool,
     pub coverage: Coverage,
     pub crc_ok: bool,
     /// Bits used by the audio blocks, of the frame total.
@@ -92,6 +98,14 @@ impl Decoder {
             names.push("LFE");
         }
         names
+    }
+
+    /// Locations of the output channels in coded order for a header, which is
+    /// [`Self::channel_names`] in the form that carries a WAVE mask bit and an
+    /// interchange rank with it.
+    #[must_use]
+    pub fn channel_locations(header: &FrameHeader) -> Vec<crate::program::ChannelLoc> {
+        crate::program::independent_locations(header)
     }
 
     /// Decodes one complete syncframe.
@@ -172,6 +186,8 @@ impl Decoder {
             bsi: frame.bsi,
             pcm: Vec::new(),
             skip_fields: frame.skip_fields,
+            auxdata: frame.auxdata,
+            auxdata_overrun: frame.auxdata_overrun,
             coverage: frame.coverage,
             crc_ok: frame.crc_ok,
             transproc: frame.transproc.clone(),

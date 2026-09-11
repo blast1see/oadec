@@ -186,15 +186,27 @@ fn print_text(scan: &Scan) {
     }
     let f = &scan.failures;
     println!(
-        "Integrity:        header parity failures {}, major sync CRC failures {}, framing errors {}, extra-data parity failures {}, resyncs {}, skipped bytes {}, trailing bytes {}",
+        "Integrity:        header parity failures {}, major sync CRC failures {}, framing errors {}, configuration changes {}, extra-data parity failures {}, resyncs {}, skipped bytes {}, trailing bytes {}",
         f.header_parity,
         f.major_sync_crc,
         f.framing_errors,
+        f.config_changes,
         f.extra_evolution_parity + f.extra_header_parity,
         f.resyncs,
         f.skipped_bytes,
         f.trailing_bytes
     );
+    if scan.extra.oamd_ok > 0 || f.oamd_errors > 0 {
+        println!(
+            "Object metadata:  {} payloads parsed, {} errors; {} non-unity gains {:?}, {} mutes, {} non-zero sizes",
+            scan.extra.oamd_ok,
+            f.oamd_errors,
+            scan.extra.oamd_gains_db.values().sum::<u64>(),
+            scan.extra.oamd_gains_db,
+            scan.extra.oamd_muted_updates,
+            scan.extra.oamd_sized_updates
+        );
+    }
     if let Some(err) = &scan.first_error {
         println!("First error:      {err}");
     }
@@ -238,6 +250,28 @@ pub fn run(path: &Path, json: bool) -> Result<()> {
                     })
                 })
                 .collect::<Vec<_>>());
+            // The channel meaning proper. `info` has printed these since it was
+            // written and `--json` has not carried them, which makes a sweep
+            // over a library blind to exactly the fields a differential wants.
+            let cm = &ms.channel_meaning;
+            value["channel_meaning"] = serde_json::json!({
+                "heavy_drc_start_up_gain": cm.heavy_drc_start_up_gain,
+                "drc_start_up_gain": cm.drc_start_up_gain,
+                "twoch_control_enabled": cm.twoch_control_enabled,
+                "sixch_control_enabled": cm.sixch_control_enabled,
+                "eightch_control_enabled": cm.eightch_control_enabled,
+                "twoch_dialogue_norm": cm.twoch_dialogue_norm,
+                "twoch_mix_level": cm.twoch_mix_level,
+                "sixch_dialogue_norm": cm.sixch_dialogue_norm,
+                "sixch_mix_level": cm.sixch_mix_level,
+                "sixch_source_format": cm.sixch_source_format,
+                "eightch_dialogue_norm": cm.eightch_dialogue_norm,
+                "eightch_mix_level": cm.eightch_mix_level,
+                "eightch_source_format": cm.eightch_source_format,
+                "reserved1": cm.reserved1,
+                "reserved2": cm.reserved2,
+                "extra_present": cm.extra_present,
+            });
             value["sixteen_channel"] = serde_json::json!(extra.map(|x| serde_json::json!({
                 "channels": x.channels(),
                 "dyn_object_only": x.dyn_object_only,

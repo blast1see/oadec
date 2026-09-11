@@ -638,13 +638,10 @@ impl Decoder {
     pub fn decode(&mut self, unit: &[u8]) -> Result<Decoded<'_>> {
         let (au, config) = AccessUnit::parse(unit, Some(&self.config))?;
         if let Some(ms) = &au.major_sync {
-            if config.substreams != self.config.substreams
-                || config.substream_info != self.config.substream_info
-                || config.samples_per_au != self.config.samples_per_au
-            {
-                return Err(Error::malformed(
-                    "stream layout changed at a major sync (not supported yet)",
-                ));
+            if let Some(what) = self.config.incompatible_with(&config) {
+                return Err(Error::malformed(format!(
+                    "{what} changed at a major sync (not supported yet)"
+                )));
             }
             self.parser.update(&config);
             self.core

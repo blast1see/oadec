@@ -24,6 +24,18 @@ pub struct Options {
     /// 3 and 4 back out with a plain rotation in every subband, the lowest
     /// one included, instead of the low-band filter the Dolby decoder uses.
     pub flat_quadrature: bool,
+    /// JOC: read a sparse matrix exactly as clause 6.6.2 prints it, rather
+    /// than as Dolby's decoder reads it. For measuring the difference.
+    pub sparse_as_printed: bool,
+    /// JOC: put the steep switch of clause 6.6.5 where the printed
+    /// pseudo-code puts it, one slot after the offset names, rather than
+    /// where Dolby's decoder puts it. For measuring the difference.
+    pub steep_as_printed: bool,
+    /// E-AC-3 only: how the core is decoded. `decode --format damf` on an
+    /// E-AC-3 stream used to ignore `--no-dither`, `--no-tpnp` and
+    /// `--ecpl-spec` entirely, which made three measurement flags read as
+    /// applied while the object path decoded with the defaults.
+    pub core: oadec_eac3::Options,
     pub keep_duplicates: bool,
     pub bed_conform: bool,
     pub all_events: bool,
@@ -177,7 +189,7 @@ impl Sink {
 }
 
 /// Runs the object output; `base` is the output path without extension.
-pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
+pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
     let dir = base
         .parent()
@@ -202,7 +214,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
     let mut program_mismatch = false;
     let mut index: u64 = 0;
 
-    input::for_each_unit(path, |unit| {
+    let pass = input::for_each_unit(path, |unit| {
         let unit_index = index;
         index += 1;
         let (au, cfg) = AccessUnit::parse(&unit.bytes, config.as_ref())?;
@@ -317,16 +329,16 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<()> {
     if let Some(e) = &first_payload_error {
         eprintln!("first payload error: {e}");
     }
-    if let Some(s) = session.stats() {
-        if s.valid_branches + s.invalid_branches + s.duplicates > 0 {
-            eprintln!(
-                "timing: {} input timing jumps, {} seamless branches, {} restarts, {} duplicates dropped",
-                s.input_jumps, s.valid_branches, s.invalid_branches, s.duplicates
-            );
-        }
-        if s.lossless_mismatches != 0 {
-            bail!("lossless check failures were reported");
-        }
+    if let Some(s) = session.stats()
+        && s.valid_branches + s.invalid_branches + s.duplicates > 0
+    {
+        eprintln!(
+            "timing: {} input timing jumps, {} seamless branches, {} restarts, {} duplicates dropped",
+            s.input_jumps, s.valid_branches, s.invalid_branches, s.duplicates
+        );
     }
-    Ok(())
+    let mut f = crate::decode::truehd_findings(&pass, session.stats());
+    f.note(payload_errors, "metadata payload errors");
+    f.first_problem(first_payload_error.as_deref());
+    Ok(f.report())
 }

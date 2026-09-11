@@ -145,7 +145,7 @@ pub fn run(path: &Path, reference: &Path, opts: &Options) -> Result<bool> {
     let mut reference_short = false;
     let mut sample_index: u64 = 0;
     let mut channels = 0usize;
-    input::for_each_unit(path, |unit| {
+    let pass = input::for_each_unit(path, |unit| {
         if reference_short {
             return Ok(());
         }
@@ -201,5 +201,6 @@ pub fn run(path: &Path, reference: &Path, opts: &Options) -> Result<bool> {
     }
     let equal = mismatches == 0 && !reference_short && leftover_samples == 0 && compared > 0;
     println!("result: {}", if equal { "BIT-EXACT" } else { "DIFFERENT" });
-    Ok(equal)
+    let clean = crate::decode::truehd_findings(&pass, session.stats()).report();
+    Ok(equal && clean)
 }

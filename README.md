@@ -42,7 +42,7 @@ pre-noise processing and the JOC clip gain. Design and milestones:
 ```text
 cargo build --release
 oadec info    film.thd                            # what the stream declares
-oadec verify  film.thd                            # every integrity rule; exit 7 on failure
+oadec verify  film.thd                            # every integrity rule; exit 7 on failure (docs/exit-codes.md)
 oadec decode  film.thd -p 2 -o film-7.1.wav       # a channel presentation as WAVE
 oadec decode  film.thd --format damf -o out/film  # objects + metadata as a DAMF set
 oadec decode  film.thd --format adm  -o out/film  # objects + metadata as ADM BWF
@@ -83,6 +83,12 @@ comes from a measurement that can be repeated:
   E-AC-3 output is judged with `tools/three_way.py`: oadec must sit within
   the distance the Dolby decode and FFmpeg have from each other, channel by
   channel.
+- **A library, not a corpus.** `tools/dolby_object_sweep.py` and
+  `tools/dolby_truehd_sweep.py` put a question to every Dolby track on the
+  machine at once, recording what Dolby's own object decoder does with each and
+  every field `info --json` reports about it. `tools/split_fields.py` then asks
+  which field, if any, separates two outcomes — and says when the answer is
+  what chance would have produced, which on a lopsided set it usually is.
 
 The real-media suite is opt-in. Point `OADEC_MEDIA` at a work directory
 that holds the streams and references and run:
@@ -90,6 +96,10 @@ that holds the streams and references and run:
 ```text
 cargo test --release -p oadec-cli --test real -- --ignored
 ```
+
+Those tests are `#[ignore]`d, so a plain `cargo test` never touches the media.
+Asking for `--ignored` without setting `OADEC_MEDIA` fails: a conformance suite
+that cannot reach its material must say so rather than report a pass.
 
 ## What it does not do
 
