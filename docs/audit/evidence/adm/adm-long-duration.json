@@ -1,0 +1,192 @@
+{
+  "id": "adm-long-duration",
+  "title": "Whole-film Pi (1:24:08, 242 322 080 frames): ledger, timing drift, RF64 container",
+  "topics": [
+    "long-duration",
+    "rf64"
+  ],
+  "evidence_class": "MEASURED",
+  "structural_result": "PASS",
+  "semantic_result": "PASS",
+  "classification": "no drift; identical PCM",
+  "method": "run_decode.py (whole film) + run_compare.py --pcm full + run_container.py",
+  "inputs": [
+    {
+      "path": "E:\\oadec-work\\audit\\adm\\big\\pi\\compare.json",
+      "bytes": 8018600,
+      "sha256": "30ec20ca2eb6f01ac26cb49890e3d3836c05a35b8ea0b272f1c9c9386ce5ce9b",
+      "mtime": "2026-09-12T05:31:40Z"
+    },
+    {
+      "path": "E:\\oadec-work\\audit\\adm\\big\\pi\\container.json",
+      "bytes": 6001,
+      "sha256": "0ed343e1b60e6f6c86069768fb45cbf977d20bfc700e77e15902a18454e91d79",
+      "mtime": "2026-09-12T05:20:50Z"
+    }
+  ],
+  "tolerance": null,
+  "generated_by": "docs/audit/adm/tools/build_evidence.py",
+  "utc": "2026-09-12T06:06:49Z",
+  "frames": 242322080,
+  "channels": 21,
+  "ledger": {
+    "classes": {
+      "bed_event": 2,
+      "matched": 30576,
+      "inexpressible_change": 11
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 30576
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 11,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 242322080,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 30576
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 61174,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 30576,
+      "inexact_duration": 22,
+      "examples": []
+    }
+  },
+  "adm_run": {
+    "exit": 0,
+    "seconds": 190.875,
+    "stderr_tail": "decoded 6058052 access units, 242322080 samples x 12 channels (1:24:08.377), 0 dropped duplicates\nlossless checks: 47718 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 190.82 s (26x realtime)\nADM BWF: 242322080 frames x 21 channels (1:24:08.377) in E:/oadec-work/audit/adm/big/pi\\pi.wav, 30587 object blocks, 15278169042 bytes, RF64\nmetadata: 157763 payloads in 157763 access units, 30589 events (0 restating payloads, 0 out-of-order events), 0 payload errors\n",
+    "outputs": [
+      {
+        "path": "E:\\oadec-work\\audit\\adm\\big\\pi\\pi.wav",
+        "bytes": 15278169042,
+        "sha256": "8ff5bbd3c8e1264a2e63a472a4695d7b7c9c00169a3dfc6009b74fef18d20e5e",
+        "mtime": "2026-09-11T21:58:27Z"
+      }
+    ],
+    "binary": "292f5f91b7b26052957dc6dd83f778829400c8dd545de780e4f359e54147506b"
+  },
+  "damf_run": {
+    "exit": 0,
+    "seconds": 184.859,
+    "stderr_tail": "decoded 6058052 access units, 242322080 samples x 12 channels (1:24:08.377), 0 dropped duplicates\nlossless checks: 47718 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 184.51 s (27x realtime)\nDAMF: 242322080 frames x 21 channels (1:24:08.377) in E:/oadec-work/audit/adm/big/pi\\pi.atmos.audio\nmetadata: 157763 payloads in 157763 access units, 30589 events (0 restating payloads, 0 out-of-order events), 0 payload errors\n",
+    "outputs": [
+      {
+        "path": "E:\\oadec-work\\audit\\adm\\big\\pi\\pi.atmos",
+        "bytes": 901,
+        "sha256": "774d066b3b21771c14c03d9857d85227f1ef900a91da9bbcac12fc1bcf254ba0",
+        "mtime": "2026-09-11T21:55:22Z"
+      },
+      {
+        "path": "E:\\oadec-work\\audit\\adm\\big\\pi\\pi.atmos.metadata",
+        "bytes": 2156288,
+        "sha256": "e4a538ef6e92e94e75ecd622914344a197a1b7c7729b5c3b0a41c2ed6b50c67a",
+        "mtime": "2026-09-11T21:58:26Z"
+      },
+      {
+        "path": "E:\\oadec-work\\audit\\adm\\big\\pi\\pi.atmos.audio",
+        "bytes": 15266291108,
+        "sha256": "70d79bf78a9d932358e58c337e12c64699097c3e8c485dda870f04b4a32ff384",
+        "mtime": "2026-09-11T21:58:26Z"
+      }
+    ],
+    "binary": "292f5f91b7b26052957dc6dd83f778829400c8dd545de780e4f359e54147506b"
+  },
+  "container": {
+    "fourcc": "RF64",
+    "ds64": {
+      "riff_size": 15278169034,
+      "data_size": 15266291040,
+      "sample_count": 242322080,
+      "table": []
+    },
+    "data": {
+      "size_field": 4294967295,
+      "size": 15266291040,
+      "offset": 80,
+      "frames": 242322080,
+      "duration_s": 5048.376666666667
+    },
+    "programme_span_samples": {
+      "start": 0,
+      "end": 242322080,
+      "matches_frames": true
+    },
+    "u32_overflow": {
+      "riff_size_needed": 15278169034,
+      "exceeds_u32": true,
+      "data_exceeds_u32": true
+    }
+  },
+  "first_last_events": {
+    "1": {
+      "first": 0,
+      "last": 241675840,
+      "n": 2822
+    },
+    "2": {
+      "first": 0,
+      "last": 241923136,
+      "n": 1175
+    },
+    "3": {
+      "first": 0,
+      "last": 241675840,
+      "n": 2356
+    },
+    "4": {
+      "first": 0,
+      "last": 241678912,
+      "n": 1939
+    },
+    "5": {
+      "first": 0,
+      "last": 241675840,
+      "n": 3831
+    },
+    "6": {
+      "first": 0,
+      "last": 241680448,
+      "n": 2454
+    },
+    "7": {
+      "first": 0,
+      "last": 241678912,
+      "n": 3979
+    },
+    "8": {
+      "first": 0,
+      "last": 241678912,
+      "n": 3248
+    },
+    "9": {
+      "first": 0,
+      "last": 241678912,
+      "n": 3815
+    },
+    "10": {
+      "first": 0,
+      "last": 241680448,
+      "n": 3028
+    },
+    "11": {
+      "first": 0,
+      "last": 241923136,
+      "n": 1940
+    }
+  },
+  "drift": "every matched ADM block rtime equals its DAMF samplePos exactly (time_mismatch 0), so the drift between first and last event is 0 samples"
+}

@@ -1,0 +1,149 @@
+{
+  "id": "00-provenance",
+  "title": "Provenance of the ADM audit",
+  "topics": [
+    "provenance"
+  ],
+  "evidence_class": "MEASURED",
+  "structural_result": null,
+  "semantic_result": null,
+  "classification": "record",
+  "method": "git, sha256, --version, pip freeze",
+  "inputs": [],
+  "tolerance": null,
+  "generated_by": "docs/audit/adm/tools/build_evidence.py",
+  "utc": "2026-09-12T06:06:49Z",
+  "git": {
+    "head": "12bcc34f2872b05074e70270468089f5804add43",
+    "branch": "adm-audit",
+    "describe": "v0.2.0-123-g4465986-dirty",
+    "status": "M docs/audit/adm/README.md\n M docs/audit/adm/tools/build_evidence.py"
+  },
+  "oadec_binaries_used": [
+    {
+      "path": "target\\release\\oadec.exe",
+      "bytes": 2482176,
+      "sha256": "292f5f91b7b26052957dc6dd83f778829400c8dd545de780e4f359e54147506b",
+      "mtime": "2026-09-11T20:44:08Z"
+    }
+  ],
+  "note_on_binaries": "the release binary on disk before the audit (sha256 f5aae50b...) predated the merge commit 796e022 and was rebuilt from HEAD before any decode; every artefact records the sha256 of the binary that made it",
+  "tools": {
+    "conversion_tool": {
+      "path": "C:\\Program Files\\Dolby\\Dolby Atmos Conversion Tool\\cmdline_atmos_conversion_tool.exe",
+      "bytes": 8075264,
+      "sha256": "d42fa4849da47d862f4425c9bf3a1c43cc5663351e8e7c98d83cf4ffe9fdac90",
+      "mtime": "2023-07-10T04:22:42Z",
+      "version": "000001FC92A07178 v2.1.2_07765940"
+    },
+    "dee": {
+      "path": "C:\\dee\\dee.exe",
+      "bytes": 4233728,
+      "sha256": "65485b6d35fa534b25109ab6f238971aaded73fc99c7f7fb119d1a5d5299234e",
+      "mtime": "2022-07-08T15:39:32Z"
+    },
+    "atmos_info_5.7.2": {
+      "path": "C:\\Program Files\\Dolby Media Encoder\\resources\\dee\\atmos_info.exe",
+      "bytes": 9032688,
+      "sha256": "473ddbf40d18a80c4274d67ff7e7e08d2589776b2d0cbdd306a87627ed3b6297",
+      "mtime": "2024-10-17T19:30:32Z",
+      "version": "[2026-09-12 09:06:49.168] AtmosInfo Tool (version 2.0.0)"
+    },
+    "atmos_info_1.1": {
+      "path": "C:\\dee\\atmos_info.exe",
+      "bytes": 5764608,
+      "sha256": "611d2ce260458e08b7095e0a3e2bf37b3dbdaab98181d408f859e2766dd93508",
+      "mtime": "2022-07-08T15:39:29Z",
+      "version": "AtmosInfo Tool (version 1.1)"
+    },
+    "bwf_info": {
+      "path": "C:\\dee\\bwf_info.exe",
+      "bytes": 2524160,
+      "sha256": "45ed0aabe466d64c104ab8d0de05a763ccc2ba15ed1757dc3965ec4a0daf7c90",
+      "mtime": "2022-07-08T15:39:30Z",
+      "version": "Broadcast Wave Format Info."
+    },
+    "ear_render": {
+      "path": "E:\\oadec-work\\audit\\adm\\venv\\Scripts\\ear-render.exe",
+      "bytes": 108356,
+      "sha256": "0152d7ee952e8f8b3001507645d4a6153fd6c08be68aeeb5880b36a87d87f533",
+      "mtime": "2026-09-11T20:45:11Z"
+    },
+    "truehdd": {
+      "path": "%USERPROFILE%\\.cargo\\bin\\truehdd.exe",
+      "bytes": 3413504,
+      "sha256": "5e928fb361a289ea942f09e03bbf1f0858580fd38b15c9f04fd811c0de840d48",
+      "mtime": "2026-08-15T08:30:50Z",
+      "version": "truehdd b54f209 (truehd library 0.7.1) Built: 2026-08-15 08:27:23 UTC"
+    }
+  },
+  "ffmpeg": [
+    "ffmpeg version 2026-09-02-git-9fc8c785e2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers"
+  ],
+  "python": {
+    "utc": "2026-09-12T06:06:49Z",
+    "python": "3.12.10",
+    "executable": "E:\\oadec-work\\audit\\adm\\venv\\Scripts\\python.exe",
+    "platform": "Windows-11-10.0.26100-SP0",
+    "machine": "AMD64",
+    "packages": {
+      "numpy": "1.26.4",
+      "lxml": "4.9.4",
+      "scipy": "1.17.1",
+      "ear": "2.1.0"
+    }
+  },
+  "pip_freeze": [
+    "attrs==21.4.0",
+    "ear==2.1.0",
+    "lxml==4.9.4",
+    "multipledispatch==0.6.0",
+    "numpy==1.26.4",
+    "ruamel.yaml==0.19.1",
+    "scipy==1.17.1",
+    "setuptools==79.0.1",
+    "six==1.17.0"
+  ],
+  "specs": [
+    {
+      "path": "E:\\oadec-work\\specs\\dolby_atmos_master_adm_profile_v1.0.txt",
+      "bytes": 38747,
+      "sha256": "168db86ef31f826b1c7495846862aa5bd3572ca54f3725e784601dc340fca493",
+      "mtime": "2026-09-07T12:18:24Z"
+    },
+    {
+      "path": "E:\\oadec-work\\specs\\dolby_atmos_master_adm_profile_v1.0.pdf",
+      "bytes": 508462,
+      "sha256": "c6a8e235c0c5f406292a95e6eb139d6cdfce24d8df8c1c857378c727fd1f7e85",
+      "mtime": "2026-09-06T20:36:49Z"
+    },
+    {
+      "path": "E:\\oadec-work\\specs\\itu_bs2076-3.pdf",
+      "bytes": 4600607,
+      "sha256": "337e78d026331dd8a5cc89f2e87e32b1ef31ac2443a6d21d3b849e847a0c79a1",
+      "mtime": "2026-09-06T20:34:33Z"
+    },
+    {
+      "path": "E:\\oadec-work\\specs\\ts_103420v010201p.pdf",
+      "bytes": 613225,
+      "sha256": "e532bfc4f8be4a97c7c9cdd9f6bcc40634ecf8ef93a1dc490fcb15c16265daa7",
+      "mtime": "2026-09-06T20:34:21Z"
+    },
+    {
+      "path": "E:\\oadec-work\\specs\\ebu_tech3285s7.pdf",
+      "bytes": 570654,
+      "sha256": "f54f6466067cc2a3b15839d28534e8c2e7ab6162cdeba79fb9ccdd990b6c5afb",
+      "mtime": "2026-09-06T20:34:27Z"
+    },
+    {
+      "path": "E:\\oadec-work\\specs\\ebu_tech3306v1_1.pdf",
+      "bytes": 196286,
+      "sha256": "b267870a54e82cbf45754ea171161465512888796c76b859e6cbf0bb3eff00af",
+      "mtime": "2026-09-11T20:45:32Z"
+    }
+  ],
+  "spec_gaps": [
+    "ITU-R BS.2088 (BW64) not on disk and not downloadable from this machine; RF64 structure taken from EBU Tech 3306",
+    "Dolby Atmos Master ADM Profile v1.1 not on disk; v1.0 (22 July 2019) used"
+  ]
+}
