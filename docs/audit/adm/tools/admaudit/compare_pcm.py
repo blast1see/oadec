@@ -230,3 +230,74 @@ def _finish(acc: _StreamAcc) -> TrackCompare:
         corr=corr, sha256_a=acc.ha.hexdigest(), sha256_b=acc.hb.hexdigest(),
         identical=(acc.na == acc.nb and differing == 0),
     )
+
+
+def wav_frames(path: str, container, block_frames: int = 1 << 18):
+    """Yield ``(n, ch)`` int32 arrays of interleaved 24-bit LE frames from a RIFF/RF64 file."""
+    fmt = container.fmt
+    ch = fmt.channels
+    frames = container.frames or 0
+    with open(path, "rb") as f:
+        done = 0
+        while done < frames:
+            n = min(block_frames, frames - done)
+            f.seek(container.data.data_offset + done * fmt.block_align)
+            raw = np.frombuffer(f.read(n * fmt.block_align), dtype=np.uint8).reshape(n, ch, 3)
+            v = raw[:, :, 0].astype(np.int32) | (raw[:, :, 1].astype(np.int32) << 8) | (raw[:, :, 2].astype(np.int32) << 16)
+            yield np.where(v >= 1 << 23, v - (1 << 24), v).astype(np.int32)
+            done += n
+
+
+def caf_frames(path: str, info, block_frames: int = 1 << 18):
+    """Yield ``(n, ch)`` int32 arrays of interleaved 24-bit frames from a CAF file."""
+    ch = info.channels
+    bpf = info.bytes_per_frame
+    with open(path, "rb") as f:
+        done = 0
+        while done < info.frames:
+            n = min(block_frames, info.frames - done)
+            f.seek(info.data_offset + done * bpf)
+            raw = np.frombuffer(f.read(n * bpf), dtype=np.uint8).reshape(n, ch, 3)
+            if info.big_endian:
+                v = (raw[:, :, 0].astype(np.int32) << 16) | (raw[:, :, 1].astype(np.int32) << 8) | raw[:, :, 2].astype(np.int32)
+            else:
+                v = raw[:, :, 0].astype(np.int32) | (raw[:, :, 1].astype(np.int32) << 8) | (raw[:, :, 2].astype(np.int32) << 16)
+            yield np.where(v >= 1 << 23, v - (1 << 24), v).astype(np.int32)
+            done += n
+
+
+def compare_interleaved(frames_a, frames_b, pairs: list) -> list:
+    """One pass over two interleaved frame streams; ``pairs`` = [(track in a, track in b)].
+
+    Returns one ``TrackCompare`` per pair, identical to ``compare_tracks`` on the
+    extracted tracks, but the files are read once instead of once per track.
+    """
+    accs = [_StreamAcc() for _ in pairs]
+    ita, itb = iter(frames_a), iter(frames_b)
+    bufa = bufb = None
+    done_a = done_b = False
+    while True:
+        while (bufa is None or bufa.shape[0] == 0) and not done_a:
+            try:
+                bufa = next(ita)
+            except StopIteration:
+                done_a = True
+                bufa = None
+        while (bufb is None or bufb.shape[0] == 0) and not done_b:
+            try:
+                bufb = next(itb)
+            except StopIteration:
+                done_b = True
+                bufb = None
+        na = 0 if bufa is None else bufa.shape[0]
+        nb = 0 if bufb is None else bufb.shape[0]
+        if na == 0 and nb == 0:
+            break
+        n = min(na, nb) if (na and nb) else max(na, nb)
+        for acc, (ta, tb) in zip(accs, pairs):
+            a = bufa[:n, ta] if na else np.zeros(0, dtype=np.int32)
+            b = bufb[:n, tb] if nb else np.zeros(0, dtype=np.int32)
+            acc.feed(a, b)
+        bufa = bufa[n:] if na else None
+        bufb = bufb[n:] if nb else None
+    return [_finish(acc) for acc in accs]

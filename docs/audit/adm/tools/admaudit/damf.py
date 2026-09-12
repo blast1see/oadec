@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from .riff import Finding
 
 _KV = re.compile(r"^(\s*)(-\s*)?([A-Za-z_][A-Za-z0-9_]*):\s*(.*?)\s*$")
-_EVENT = re.compile(r"^\s*-\s*ID:\s*(\d+)\s*$")
 _LIST = re.compile(r"^\[(.*)\]$")
 
 
@@ -131,28 +130,45 @@ class RawEvent:
     fields: dict
     present: set
     line_no: int
+    id_inherited: bool = False
+    pos_inherited: bool = False
 
 
 def read_metadata(path: str) -> tuple:
-    """``(sample_rate, [RawEvent])`` in file order."""
+    """``(sample_rate, [RawEvent])`` in file order.
+
+    Two grammars occur: oadec writes ``- ID: n`` followed by an explicit
+    ``samplePos`` on every event; the Dolby Atmos Conversion Tool starts an event
+    with either ``- ID:`` or ``- samplePos:`` and lets the other one be inherited
+    from the previous event (a first event may even carry no fields at all).
+    """
     fs = None
     events: list[RawEvent] = []
     cur: RawEvent | None = None
+    prev_id: int | None = None
+    prev_pos: int | None = None
     with open(path, "r", encoding="utf-8") as f:
         for n, line in enumerate(f, 1):
             line = line.rstrip("\r\n")
             if not line.strip():
                 continue
-            m = _EVENT.match(line)
-            if m:
-                cur = RawEvent(int(m.group(1)), None, {}, set(), n)
-                events.append(cur)
-                continue
             m = _KV.match(line)
             if not m:
                 raise DamfError(f"{path}:{n}: cannot parse {line!r}")
             _indent, dash, key, value = m.groups()
-            if cur is None or (dash and key != "ID"):
+            if dash:
+                if key == "ID":
+                    cur = RawEvent(int(value), prev_pos, {}, set(), n, False, prev_pos is not None)
+                elif key == "samplePos":
+                    if prev_id is None:
+                        raise DamfError(f"{path}:{n}: samplePos-first event with no previous ID")
+                    cur = RawEvent(prev_id, int(value), {}, set(), n, True, False)
+                else:
+                    raise DamfError(f"{path}:{n}: an event must start with ID or samplePos, not {key!r}")
+                events.append(cur)
+                prev_id, prev_pos = cur.id, cur.sample_pos
+                continue
+            if cur is None:
                 if key == "sampleRate":
                     fs = int(value)
                     continue
@@ -161,8 +177,12 @@ def read_metadata(path: str) -> tuple:
                 raise DamfError(f"{path}:{n}: unexpected {key!r} outside an event")
             if key == "samplePos":
                 cur.sample_pos = int(value)
+                cur.pos_inherited = False
+                prev_pos = cur.sample_pos
             elif key == "ID":
-                raise DamfError(f"{path}:{n}: ID inside an event body")
+                cur.id = int(value)
+                cur.id_inherited = False
+                prev_id = cur.id
             else:
                 cur.fields[key] = _scalar(value)
                 cur.present.add(key)

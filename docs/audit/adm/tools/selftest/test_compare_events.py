@@ -154,3 +154,18 @@ class Float32Precision(unittest.TestCase):
         L = ce.reconcile(d, a)
         self.assertEqual(L.classes["value_mismatch"], 1)
         self.assertEqual(L.items[0].fields, {"pos"})
+
+
+class AbsorbedBySynthetic(unittest.TestCase):
+    """A late first DAMF state that the writer holds from 0 and then pops (the
+    synthetic block equals it) is a loss of the event *time*, not an unexplained
+    absence: it gets its own class so the report can count it."""
+
+    def test_late_first_state_absorbed_into_the_synthetic_block(self):
+        d, a = scenes([dev(2000, x=0.5)], [blk(0, FRAMES, x=0.5)])
+        L = ce.reconcile(d, a)
+        self.assertEqual(L.classes["synthetic_block0"], 1)
+        self.assertEqual(L.classes["absorbed_by_synthetic"], 1)
+        self.assertEqual(L.classes.get("unexplained_missing", 0), 0)
+        self.assertEqual(L.defects, [])
+        self.assertEqual(L.time_lost_events, 1)

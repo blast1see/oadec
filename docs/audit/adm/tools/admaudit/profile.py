@@ -243,7 +243,7 @@ def check(doc: axml.AdmDoc, fs: int, channels: int, chna=None) -> list:
                     F("profile-unknown-subelement", f"{where} <{tag}> is not listed in table 11")
                 if tag == "position" and c.get("screenEdgeLock") is not None:
                     F("profile-forbidden-subelement", f"{where} position screenEdgeLock (table 11)")
-                if tag == "diffuse" and (c.text or "").strip() not in ("0", "1"):
+                if tag == "diffuse" and _f((c.text or "").strip()) not in (0.0, 1.0):
                     F("profile-diffuse", f"{where} diffuse {c.text!r} not 0/1 (table 11)")
             for name, rect in zip(blk.zones, blk.zone_rects):
                 if name not in ZONES:

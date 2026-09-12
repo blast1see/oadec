@@ -101,3 +101,34 @@ class Streaming(unittest.TestCase):
         s = cp.compare_streams(iter([a]), iter([a[:9000]]))
         self.assertEqual((s.samples_a, s.samples_b, s.length_delta), (10000, 9000, -1000))
         self.assertFalse(s.identical)
+
+
+class Interleaved(unittest.TestCase):
+    def test_all_channels_compared_in_one_pass_equal_per_track_results(self):
+        import os, tempfile
+        from admaudit import riff, caf
+        from selftest.test_riff import _chunk, _fmt, _pcm24, _riff
+        from selftest.test_caf import _caf
+        n = 5000
+        tr = [tone(n, 440), tone(n, 880), tone(n, 1320)]
+        tr_b = [t.copy() for t in tr]
+        tr_b[1][123] += 5
+        frames_a = list(zip(*[t.tolist() for t in tr]))
+        frames_b = list(zip(*[t.tolist() for t in tr_b]))
+        with tempfile.TemporaryDirectory() as d:
+            wav = os.path.join(d, "a.wav")
+            with open(wav, "wb") as f:
+                f.write(_riff(_chunk(b"fmt ", _fmt(channels=3)) + _chunk(b"data", _pcm24([v for fr in frames_a for v in fr]))))
+            cafp = os.path.join(d, "b.caf")
+            with open(cafp, "wb") as f:
+                f.write(_caf(3, frames_b))
+            c = riff.scan(wav)
+            info = caf.read_header(cafp)
+            res = cp.compare_interleaved(cp.wav_frames(wav, c, 512), cp.caf_frames(cafp, info, 700), [(0, 0), (1, 1), (2, 2)])
+            self.assertEqual(len(res), 3)
+            self.assertTrue(res[0].identical)
+            self.assertEqual((res[1].differing, res[1].first_diff, res[1].max_abs), (1, 123, 5))
+            whole = cp.compare_tracks(tr[1], tr_b[1])
+            self.assertEqual(res[1].sha256_a, whole.sha256_a)
+            self.assertEqual(res[1].sha256_b, whole.sha256_b)
+            self.assertAlmostEqual(res[1].corr, whole.corr, places=9)
