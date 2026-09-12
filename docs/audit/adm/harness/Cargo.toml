@@ -1,0 +1,17 @@
+[package]
+name = "adm_harness"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Audit harness: drives oadec's ADM and DAMF writers with controlled events and OAMD structs"
+
+# Not a member of the oadec workspace on purpose: the audit must not touch the
+# production crates.  Build with an external target directory, e.g.
+#   CARGO_TARGET_DIR=E:/oadec-work/audit/adm/target cargo build --release
+[workspace]
+
+[dependencies]
+oadec-spatial = { path = "../../../../crates/oadec-spatial" }
+oadec-emdf = { path = "../../../../crates/oadec-emdf" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

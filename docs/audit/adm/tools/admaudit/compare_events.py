@@ -11,6 +11,8 @@ Classes that are lossy by construction of the Dolby Atmos Master ADM profile
   superseded_same_pos   two DAMF states at one sample; only the last survives
   beyond_end            a DAMF state at or after the end of the audio
   synthetic_block0      an ADM block at 0 with no DAMF state at 0
+  absorbed_by_synthetic a late first state held from 0 by that block and then dropped:
+                        the state survives, the time of its arrival does not
 
 Defect classes: time_mismatch, value_mismatch, unexplained_missing,
 unexplained_extra.  Independently of the classes, differences in gain,
@@ -58,6 +60,7 @@ class Ledger:
     identity: dict = field(default_factory=dict)
     tiling: dict = field(default_factory=dict)
     bed_changes_lost: int = 0
+    time_lost_events: int = 0
     presence_differences: list = field(default_factory=list)
     per_object: dict = field(default_factory=dict)
 
@@ -70,6 +73,7 @@ class Ledger:
             "identity": self.identity,
             "tiling": self.tiling,
             "bed_changes_lost": self.bed_changes_lost,
+            "time_lost_events": self.time_lost_events,
             "presence_differences": self.presence_differences,
             "per_object": self.per_object,
             "items": [_item_json(i) for i in self.items],
@@ -221,6 +225,16 @@ def reconcile_object(k: int, D: list, A: list, frames: int | None, mode: str, po
             items.append(LedgerItem("inexpressible_change", k, s.t, s.ref, b.ref, s.t, b.t, fields=set(s.changed)))
         else:
             items.append(LedgerItem("matched", k, s.t, s.ref, b.ref, s.t, b.t, detail={"inexpressible": sorted(inex)} if inex else {}))
+    # 5a. a late first state that the writer holds from sample 0 (synthetic block) and then drops as a
+    #     duplicate: the state survives, its time does not
+    absorbed = []
+    if A and A[0].t == 0 and D and D[0].t > 0:
+        for s in list(unmatched_states):
+            if not expressible_diff(s, A[0], pos_tol) and s.t not in blocks_at:
+                items.append(LedgerItem("absorbed_by_synthetic", k, s.t, s.ref, A[0].ref, s.t, 0, detail={"time_lost_samples": s.t}))
+                unmatched_states.remove(s)
+                absorbed.append(s)
+                ledger.time_lost_events += 1
     # 5. states without a block: time mismatch if an unused block of equal content lies within the window
     for s in unmatched_states:
         best = None
@@ -255,7 +269,7 @@ def reconcile_object(k: int, D: list, A: list, frames: int | None, mode: str, po
     order = {"synthetic_block0": 0}
     items.sort(key=lambda i: (i.t if i.t is not None else -1, order.get(i.cls, 1)))
     counts = Counter(i.cls for i in items)
-    expected_blocks = len(D) - counts["superseded_same_pos"] - counts["beyond_end"] - counts["trailing_popped"] + counts["synthetic_block0"]
+    expected_blocks = len(D) - counts["superseded_same_pos"] - counts["beyond_end"] - counts["trailing_popped"] - counts["absorbed_by_synthetic"] + counts["synthetic_block0"]
     ident = {"damf_states": len(D), "adm_blocks": len(A), "expected_blocks": expected_blocks, "ok": expected_blocks == len(A) and counts["unexplained_missing"] == 0 and counts["unexplained_extra"] == 0}
     ledger.per_object[k] = {"classes": dict(counts), "identity": ident, "tiling": _tiling(A, frames)}
     ledger.items.extend(items)

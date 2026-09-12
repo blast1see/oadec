@@ -165,3 +165,43 @@ class Reader(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+DOLBY_STYLE = """sampleRate: 48000
+events:
+  - ID: 3
+    samplePos: 0
+    active: true
+    importance: 1
+    gain: 0
+    rampLength: 0
+  - ID: 10
+  - ID: 11
+    samplePos: 1536
+    pos: [-0.5, 1, 0]
+  - ID: 13
+    pos: [0.5, 1, 0]
+  - samplePos: 3072
+    pos: [1, 1, 0]
+  - ID: 11
+    samplePos: 4608
+    pos: [0, 1, 0]
+"""
+
+
+class DolbyGrammar(unittest.TestCase):
+    """The Dolby Atmos Conversion Tool omits samplePos (inherited from the previous
+    event) and even ID (inherited from the previous event); a first event may carry
+    no fields at all."""
+
+    def test_inherited_id_and_sample_position(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "x.atmos.metadata")
+            with open(p, "w", newline="\n") as f:
+                f.write(DOLBY_STYLE)
+            fs, raw = damf.read_metadata(p)
+            self.assertEqual([(e.id, e.sample_pos) for e in raw], [(3, 0), (10, 0), (11, 1536), (13, 1536), (13, 3072), (11, 4608)])
+            self.assertTrue(raw[3].pos_inherited)
+            self.assertTrue(raw[4].id_inherited)
+            self.assertFalse(raw[5].id_inherited)
+            self.assertEqual(raw[1].fields, {})

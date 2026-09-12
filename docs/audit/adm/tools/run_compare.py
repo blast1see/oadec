@@ -49,18 +49,24 @@ def pcm_compare(d: normalise.Scene, a: normalise.Scene, damf_base: str, adm_path
     fs = info.sample_rate
     n_win = int(window_seconds * fs)
     pairs = track_pairs(d, a)
+    live = [(dt, at, role, label) for dt, at, role, label in pairs if at is not None]
     for dt, at, role, label in pairs:
         if at is None:
             out["pairs"].append({"role": role, "label": label, "damf_track": dt, "adm_track": None, "error": "no ADM counterpart"})
-            continue
-        if mode == "window":
+    if mode == "window":
+        for dt, at, role, label in live:
             x = np.concatenate(list(_take(caf.read_track(d.source["audio_path"], info, dt, block_frames=n_win), n_win)))
             y = np.concatenate(list(_take(riff.read_track(adm_path, c, at, block_frames=n_win), n_win)))
             r = compare_pcm.compare_tracks(x, y).to_json()
-        else:
-            r = compare_pcm.compare_streams(caf.read_track(d.source["audio_path"], info, dt), riff.read_track(adm_path, c, at)).to_json()
-        r.update({"role": role, "label": label, "damf_track": dt, "adm_track": at})
-        out["pairs"].append(r)
+            r.update({"role": role, "label": label, "damf_track": dt, "adm_track": at})
+            out["pairs"].append(r)
+    else:
+        # one pass over both files for every declared pair (a full film is read once, not once per track)
+        results = compare_pcm.compare_interleaved(compare_pcm.caf_frames(d.source["audio_path"], info), compare_pcm.wav_frames(adm_path, c), [(dt, at) for dt, at, _r, _l in live])
+        for (dt, at, role, label), res in zip(live, results):
+            r = res.to_json()
+            r.update({"role": role, "label": label, "damf_track": dt, "adm_track": at})
+            out["pairs"].append(r)
     # pairing matrix on a window over every track of both files
     dt_all = [np.concatenate(list(_take(caf.read_track(d.source["audio_path"], info, i, block_frames=n_win), n_win))) for i in range(info.channels)]
     at_all = [np.concatenate(list(_take(riff.read_track(adm_path, c, i, block_frames=n_win), n_win))) for i in range(c.fmt.channels)]
