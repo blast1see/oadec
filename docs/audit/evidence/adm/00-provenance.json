@@ -12,12 +12,12 @@
   "inputs": [],
   "tolerance": null,
   "generated_by": "docs/audit/adm/tools/build_evidence.py",
-  "utc": "2026-09-12T05:21:06Z",
+  "utc": "2026-09-12T06:06:49Z",
   "git": {
-    "head": "23e82041e01e09f7dd314d89fa4fa00954311397",
+    "head": "12bcc34f2872b05074e70270468089f5804add43",
     "branch": "adm-audit",
-    "describe": "v0.2.0-122-gfc124e1-dirty",
-    "status": "M docs/audit/adm/tools/build_evidence.py\n?? docs/audit/adm-conformance-matrix.md\n?? docs/audit/adm/tools/build_matrix.py\n?? docs/audit/adm/tools/matrix_rows.py\n?? docs/audit/evidence/adm/"
+    "describe": "v0.2.0-123-g4465986-dirty",
+    "status": "M docs/audit/adm/README.md\n M docs/audit/adm/tools/build_evidence.py"
   },
   "oadec_binaries_used": [
     {
@@ -34,7 +34,7 @@
       "bytes": 8075264,
       "sha256": "d42fa4849da47d862f4425c9bf3a1c43cc5663351e8e7c98d83cf4ffe9fdac90",
       "mtime": "2023-07-10T04:22:42Z",
-      "version": "00000246D186FA88 v2.1.2_07765940"
+      "version": "000001FC92A07178 v2.1.2_07765940"
     },
     "dee": {
       "path": "C:\\dee\\dee.exe",
@@ -47,7 +47,7 @@
       "bytes": 9032688,
       "sha256": "473ddbf40d18a80c4274d67ff7e7e08d2589776b2d0cbdd306a87627ed3b6297",
       "mtime": "2024-10-17T19:30:32Z",
-      "version": "[2026-09-12 08:21:05.751] AtmosInfo Tool (version 2.0.0)"
+      "version": "[2026-09-12 09:06:49.168] AtmosInfo Tool (version 2.0.0)"
     },
     "atmos_info_1.1": {
       "path": "C:\\dee\\atmos_info.exe",
@@ -81,7 +81,7 @@
     "ffmpeg version 2026-09-02-git-9fc8c785e2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers"
   ],
   "python": {
-    "utc": "2026-09-12T05:21:05Z",
+    "utc": "2026-09-12T06:06:49Z",
     "python": "3.12.10",
     "executable": "E:\\oadec-work\\audit\\adm\\venv\\Scripts\\python.exe",
     "platform": "Windows-11-10.0.26100-SP0",

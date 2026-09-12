@@ -13,9 +13,9 @@
   "inputs": [
     {
       "path": "E:\\oadec-work\\audit\\adm\\big\\pi\\compare.json",
-      "bytes": 8721924,
-      "sha256": "2394fcc84e3135316767ce4493f93ea04fe9ccd53392745b19d3fa220d4f7f1a",
-      "mtime": "2026-09-12T05:10:36Z"
+      "bytes": 8018600,
+      "sha256": "30ec20ca2eb6f01ac26cb49890e3d3836c05a35b8ea0b272f1c9c9386ce5ce9b",
+      "mtime": "2026-09-12T05:31:40Z"
     },
     {
       "path": "E:\\oadec-work\\audit\\adm\\big\\pi\\container.json",
@@ -26,7 +26,7 @@
   ],
   "tolerance": null,
   "generated_by": "docs/audit/adm/tools/build_evidence.py",
-  "utc": "2026-09-12T05:21:06Z",
+  "utc": "2026-09-12T06:06:49Z",
   "frames": 242322080,
   "channels": 21,
   "ledger": {
@@ -56,7 +56,7 @@
     },
     "bed_changes_lost": 0,
     "time_lost_events": 0,
-    "max_matched_pos_delta": 0.0,
+    "max_matched_pos_delta": null,
     "timecodes": {
       "timecodes": 61174,
       "re_encode_mismatches": 0,

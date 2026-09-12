@@ -27,7 +27,7 @@
   ],
   "tolerance": null,
   "generated_by": "docs/audit/adm/tools/build_evidence.py",
-  "utc": "2026-09-12T05:21:06Z",
+  "utc": "2026-09-12T06:06:49Z",
   "harness": {
     "C02-gain": {
       "why": "B: constant -6 dB, +3 dB and -inf gain on active objects; a gain change mid-stream",

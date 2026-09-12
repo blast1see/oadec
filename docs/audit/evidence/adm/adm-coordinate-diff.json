@@ -13,7 +13,7 @@
   "inputs": [],
   "tolerance": null,
   "generated_by": "docs/audit/adm/tools/build_evidence.py",
-  "utc": "2026-09-12T05:21:06Z",
+  "utc": "2026-09-12T06:06:49Z",
   "pi-head50m/default": {
     "value_mismatches": [],
     "max_matched_pos_delta_f32": null,
@@ -12287,7 +12287,7 @@
   },
   "pi-full-film": {
     "value_mismatches": [],
-    "max_matched_pos_delta_f32": 0.0,
+    "max_matched_pos_delta_f32": null,
     "trajectory_loss": {
       "1": {
         "max_e": {

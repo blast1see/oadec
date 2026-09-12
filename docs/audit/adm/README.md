@@ -127,6 +127,7 @@ python build_matrix.py --repo <repo>
 | `adm-render-comparison.json` | EAR speaker-output comparisons |
 | `adm-long-duration.json` | whole-film Pi: hashes, sizes, ledger, first/last events, drift |
 | `adm-conformance-matrix.json` | the rendered matrix rows, scores, verdicts and the numbers used |
+| `adm-work-inventory.json` | size and SHA-256 of every file of the work directory before it was deleted; run records, validator logs, DEE job files, DAMF headers and harness summaries verbatim; hashes and command lines extracted from the large derived reports |
 | `manifest.json` | id, title, class, results and hash of every evidence file |
 
 ## Large temporary files
@@ -136,4 +137,7 @@ The whole-film ADM (`pi.wav`, 15 278 169 042 bytes, SHA-256
 RF64 threshold files of harness cases C22 / C22b and the rendered speaker WAVs were generated
 on `E:` and deleted after the measurements were captured; the evidence files keep the hashes,
 sizes, sample counts, chunk measurements, drift figures, first/last event positions and the
-run records needed to reproduce every conclusion. No media is stored in the repository.
+run records needed to reproduce every conclusion. The remaining reproducible work tree
+(`E:\oadec-work\audit\adm\work`, 11 GB of per-clip DAMF/ADM decodes, Dolby reference
+outputs and harness outputs) was inventoried into `adm-work-inventory.json` and then deleted.
+No media is stored in the repository.

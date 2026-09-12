@@ -14,7 +14,7 @@
   "inputs": [],
   "tolerance": null,
   "generated_by": "docs/audit/adm/tools/build_evidence.py",
-  "utc": "2026-09-12T05:21:06Z",
+  "utc": "2026-09-12T06:06:49Z",
   "pi-head50m/default": {
     "classes": {
       "bed_event": 2,
@@ -1191,7 +1191,7 @@
     },
     "bed_changes_lost": 0,
     "time_lost_events": 0,
-    "max_matched_pos_delta": 0.0,
+    "max_matched_pos_delta": null,
     "timecodes": {
       "timecodes": 61174,
       "re_encode_mismatches": 0,

@@ -263,9 +263,82 @@ def main() -> int:
                        evidence_class="MEASURED", structural_result="PASS", semantic_result="PASS", classification="no drift; identical PCM",
                        method="run_decode.py (whole film) + run_compare.py --pcm full + run_container.py", inputs=inp(f"{W}/big/pi/compare.json", f"{W}/big/pi/container.json"), generated_by=gen)
 
+    # ---------------------------------------------------------------- work-directory inventory
+    # Written before the reproducible work tree is deleted: every file's size and
+    # SHA-256, every small record verbatim (run records, validator logs, DEE job
+    # files, DAMF headers, harness summaries) and, for the large derived JSONs,
+    # every hash and command line they contain.
+    inv = work_inventory(W)
+    evidence.write(out, "adm-work-inventory", inv, title="Inventory of the audit work directory before deletion: hashes of every file, run records and job files verbatim, hashes and command lines extracted from the large derived reports",
+                   topics=["provenance"], evidence_class="MEASURED", structural_result=None, semantic_result=None, classification="record",
+                   method="sha256 of every file under work/ and big/; JSON/XML/atmos/txt/log files up to 64 KB embedded; larger JSON reduced to their sha256 strings and argv lists", inputs=[], generated_by=gen)
+
     m = evidence.manifest(out)
     print(f"wrote {len(m['files'])} evidence files to {out}")
     return 0
+
+
+
+
+def work_inventory(W: str) -> dict:
+    import hashlib
+    import re
+    sha_re = re.compile(r"\b[0-9a-f]{64}\b")
+    embed_ext = (".json", ".xml", ".atmos", ".metadata", ".txt", ".log", ".md", ".py")
+    files = []
+    totals = {"files": 0, "bytes": 0, "embedded": 0, "reduced": 0}
+    for root_name in ("work", "big"):
+        root = os.path.join(W, root_name)
+        if not os.path.isdir(root):
+            continue
+        for dp, dn, fn in os.walk(root):
+            for f in sorted(fn):
+                p = os.path.join(dp, f)
+                rel = os.path.relpath(p, W).replace(os.sep, "/")
+                size = os.path.getsize(p)
+                h = hashlib.sha256()
+                with open(p, "rb") as fh:
+                    for chunk in iter(lambda: fh.read(8 << 20), b""):
+                        h.update(chunk)
+                rec = {"path": rel, "bytes": size, "sha256": h.hexdigest(), "mtime": provenance.file_record(p)["mtime"]}
+                low = f.lower()
+                if low.endswith(embed_ext):
+                    with open(p, encoding="utf-8", errors="replace") as fh:
+                        txt = fh.read()
+                    if size <= 64 * 1024:
+                        if low.endswith(".json"):
+                            try:
+                                rec["content"] = json.loads(txt)
+                            except Exception:
+                                rec["text"] = txt
+                        else:
+                            rec["text"] = txt
+                        totals["embedded"] += 1
+                    else:
+                        rec["sha256_strings"] = sorted(set(sha_re.findall(txt)))
+                        argvs = []
+                        if low.endswith(".json"):
+                            try:
+                                j = json.loads(txt)
+                            except Exception:
+                                j = None
+
+                            def find_argv(o):
+                                if isinstance(o, dict):
+                                    if isinstance(o.get("argv"), list):
+                                        argvs.append(o["argv"])
+                                    for v in o.values():
+                                        find_argv(v)
+                                elif isinstance(o, list):
+                                    for v in o:
+                                        find_argv(v)
+                            find_argv(j)
+                        rec["argv"] = argvs
+                        totals["reduced"] += 1
+                files.append(rec)
+                totals["files"] += 1
+                totals["bytes"] += size
+    return {"root": W, "totals": totals, "files": files}
 
 
 def _trim_tool(t):
