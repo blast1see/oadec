@@ -16,6 +16,7 @@ faithful image of a DAMF event is ``interpolationLength = ramp / fs``.
 """
 from __future__ import annotations
 
+import bisect
 import copy
 from dataclasses import dataclass, field
 
@@ -69,23 +70,23 @@ def segments(events: list, semantics: str, key: str, carry_mid_ramp: bool = True
     return out
 
 
-def value_at(events: list, t: int, semantics: str, key: str, carry_mid_ramp: bool = True) -> float:
-    segs = segments(events, semantics, key, carry_mid_ramp)
+def value_from_segments(segs: list, starts: list, t: int) -> float:
+    """Value at ``t`` given ``segments()`` output and its list of start times."""
     if not segs:
         raise ValueError("no events")
-    if t < segs[0][0]:
+    if t < starts[0]:
         return segs[0][1]
-    seg = segs[0]
-    for s in segs:
-        if s[0] <= t:
-            seg = s
-        else:
-            break
-    start, v0, v1, r = seg
+    i = bisect.bisect_right(starts, t) - 1
+    start, v0, v1, r = segs[i]
     if r <= 0:
         return v1
     frac = min(max((t - start) / r, 0.0), 1.0)
     return v0 + (v1 - v0) * frac
+
+
+def value_at(events: list, t: int, semantics: str, key: str, carry_mid_ramp: bool = True) -> float:
+    segs = segments(events, semantics, key, carry_mid_ramp)
+    return value_from_segments(segs, [s[0] for s in segs], t)
 
 
 @dataclass
@@ -133,13 +134,17 @@ def loss(damf_events: list, adm_events: list, frames: int | None, fractions=(0.2
             times.append((b.t + L, "adm-ramp-end"))
     seen = set()
     per_axis = {k: [] for k in keys}
+    segs_d = {k: segments(D, damf_semantics, k, carry_mid_ramp) for k in keys}
+    segs_a = {k: segments(A, "adm", k, carry_mid_ramp) for k in keys}
+    starts_d = {k: [s[0] for s in segs_d[k]] for k in keys}
+    starts_a = {k: [s[0] for s in segs_a[k]] for k in keys}
     for t, kind in sorted(times):
         for k in keys:
             if (t, k) in seen:
                 continue
             seen.add((t, k))
-            vd = value_at(D, t, damf_semantics, k, carry_mid_ramp)
-            va = value_at(A, t, "adm", k, carry_mid_ramp)
+            vd = value_from_segments(segs_d[k], starts_d[k], t)
+            va = value_from_segments(segs_a[k], starts_a[k], t)
             e = abs(vd - va)
             rep.probes.append(Probe(t, k, vd, va, e, kind))
             per_axis[k].append(e)

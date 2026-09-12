@@ -314,7 +314,9 @@ def stage_report(work: str, only: set | None) -> None:
                 continue
             _log(f"report {name} {tool}")
             try:
-                cmp_ = compare(rec["damf"], wav, 0.0, "effective", "window", 20.0, f"{name}/{tool}")
+                # Dolby re-serialises positions with up to one float32 ulp of drift (measured on S1:
+                # max 5.96e-8), so Dolby outputs are compared at 1e-6 and the worst delta is kept
+                cmp_ = compare(rec["damf"], wav, 1e-6, "effective", "window", 20.0, f"{name}/{tool}")
                 cmp_small = {k: cmp_[k] for k in ("ledger", "trajectory_loss", "timecode_roundtrip", "pcm")}
                 cmp_small["ledger"] = {kk: cmp_small["ledger"][kk] for kk in ("classes", "defects", "loss", "identity_ok", "tiling", "bed_changes_lost", "loss_items")} if "loss_items" in cmp_small["ledger"] else cmp_small["ledger"]
             except Exception as e:  # noqa: BLE001
@@ -335,9 +337,13 @@ def stage_report(work: str, only: set | None) -> None:
             if only is not None and name not in only:
                 continue
             _log(f"report reverse {name}")
-            ref_damf = os.path.join(PIHEAD, "nbc" if "nbc" in name else "default", "pi-head50m")
+            if name == "ct-S1":
+                ref_damf = os.path.join(work, "stimuli", "S1-ramps", "S1-ramps")
+            else:
+                ref_damf = os.path.join(PIHEAD, "nbc" if "nbc" in name else "default", "pi-head50m")
             d_back = normalise.from_damf(base)
             d_ref = normalise.from_damf(ref_damf)
+            matched_ev = _match_damf_events(d_ref, d_back)
             from admaudit import compare_events
             # compare Dolby's DAMF (as ADM-like "b" side) with oadec's DAMF: reuse the ledger by treating the
             # read-back states as blocks with ramp carried in 'interp'
@@ -361,6 +367,7 @@ def stage_report(work: str, only: set | None) -> None:
                 "events_back": {k: len(v) for k, v in back_events.items()}, "events_ref": {k: len(v) for k, v in ref_events.items()},
                 "ramp_hist_back": ramp_hist_back, "ramp_hist_ref": ramp_hist_ref,
                 "event_times_equal": times_equal, "positions_equal_at_1e-6": pos_equal,
+                "time_matched": matched_ev,
                 "bed_events_back": [(b.label, len(b.events), [ (e.t, e.gain["db"]) for e in b.events]) for b in d_back.beds],
             }
     vp = os.path.join(work, "validate", "validate.json")
@@ -370,6 +377,39 @@ def stage_report(work: str, only: set | None) -> None:
     with open(os.path.join(work, "f5-report.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(rep, f, indent=1, default=str)
     _log(f"report written: {os.path.join(work, 'f5-report.json')}")
+
+
+def _match_damf_events(ref: normalise.Scene, back: normalise.Scene) -> dict:
+    """Per object: states matched by sample time between oadec's DAMF and Dolby's read-back DAMF."""
+    out = {"objects": {}, "totals": {"ref": 0, "back": 0, "matched": 0, "missing_in_back": 0, "extra_in_back": 0, "pos_mismatch_1e-6": 0, "max_pos_delta": 0.0, "gain_mismatch": 0, "ramp_back_hist": {}}}
+    back_by = {o.ordinal: o for o in back.objects}
+    for o in ref.objects:
+        bo = back_by.get(o.ordinal)
+        bt = {e.t: e for e in (bo.events if bo else [])}
+        rt = {e.t: e for e in o.events}
+        matched = [t for t in rt if t in bt]
+        missing = sorted(set(rt) - set(bt))
+        extra = sorted(set(bt) - set(rt))
+        posmis = 0
+        maxd = 0.0
+        gainmis = 0
+        for t in matched:
+            a, b = rt[t], bt[t]
+            if all(v is not None for v in b.pos) and all(v is not None for v in a.pos):
+                d = max(abs(float(x) - float(y)) for x, y in zip(a.pos, b.pos))
+                maxd = max(maxd, d)
+                if d > 1e-6:
+                    posmis += 1
+            if a.gain["present"] and b.gain["present"] and abs(a.gain["lin"] - b.gain["lin"]) > 1e-6:
+                gainmis += 1
+        for e in (bo.events if bo else []):
+            k = str(e.ramp)
+            out["totals"]["ramp_back_hist"][k] = out["totals"]["ramp_back_hist"].get(k, 0) + 1
+        out["objects"][o.ordinal] = {"ref": len(rt), "back": len(bt), "matched": len(matched), "missing_in_back": missing[:20], "extra_in_back": extra[:20], "pos_mismatch_1e-6": posmis, "max_pos_delta": maxd, "gain_mismatch": gainmis}
+        T = out["totals"]
+        T["ref"] += len(rt); T["back"] += len(bt); T["matched"] += len(matched); T["missing_in_back"] += len(missing); T["extra_in_back"] += len(extra)
+        T["pos_mismatch_1e-6"] += posmis; T["max_pos_delta"] = max(T["max_pos_delta"], maxd); T["gain_mismatch"] += gainmis
+    return out
 
 
 def main() -> int:

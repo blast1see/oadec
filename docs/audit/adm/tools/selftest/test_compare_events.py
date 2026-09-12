@@ -169,3 +169,17 @@ class AbsorbedBySynthetic(unittest.TestCase):
         self.assertEqual(L.classes.get("unexplained_missing", 0), 0)
         self.assertEqual(L.defects, [])
         self.assertEqual(L.time_lost_events, 1)
+
+
+class GainTolerance(unittest.TestCase):
+    def test_a_ten_decimal_linear_gain_equals_its_decibel_source(self):
+        # Dolby writes <gain>0.7079457641</gain> for -3 dB; 10^(-3/20) = 0.70794578438...
+        d, a = scenes([dev(0, gain_db=-3)], [blk(0, FRAMES)])
+        a.objects[0].events[0].gain = {"present": True, "lin": 0.7079457641, "db": -3.0000000024, "minus_inf": False}
+        L = ce.reconcile(d, a)
+        self.assertEqual(L.loss.get("gain", 0), 0)
+
+    def test_a_real_gain_difference_still_counts(self):
+        d, a = scenes([dev(0, gain_db=-3)], [blk(0, FRAMES)])
+        L = ce.reconcile(d, a)
+        self.assertEqual(L.loss.get("gain", 0), 1)
