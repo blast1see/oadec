@@ -1,0 +1,1203 @@
+{
+  "id": "adm-event-timing",
+  "title": "Event timing: DAMF samplePos vs ADM rtime (integer samples), block tiling, timecode re-encoding, and raw OAMD update times including 32 x block_offset_factor",
+  "topics": [
+    "timing",
+    "block-offset",
+    "tiling"
+  ],
+  "evidence_class": "MEASURED",
+  "structural_result": "PASS",
+  "semantic_result": "PASS",
+  "classification": "sample-exact",
+  "method": "compare_events.reconcile + run_oamd_timing.py",
+  "inputs": [],
+  "tolerance": null,
+  "generated_by": "docs/audit/adm/tools/build_evidence.py",
+  "utc": "2026-09-12T05:21:06Z",
+  "pi-head50m/default": {
+    "classes": {
+      "bed_event": 2,
+      "matched": 119,
+      "trailing_popped": 2,
+      "inexpressible_change": 9
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 117
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 11,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 5075800,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 117
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 256,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 117,
+      "inexact_duration": 11,
+      "examples": []
+    },
+    "raw_oamd_crosscheck": {
+      "units": 3306,
+      "sample_offset_hist": {
+        "0": 15876,
+        "24": 7932,
+        "16": 7932,
+        "8": 7932
+      },
+      "block_offset_factor_hist": {
+        "0": 31740,
+        "1": 7932
+      },
+      "ramp_hist": {
+        "32": 12,
+        "1536": 39660
+      },
+      "totals": {
+        "oamd_updates": 36366,
+        "oamd_distinct_times": 36366,
+        "damf_states": 130,
+        "adm_blocks": 128,
+        "damf_times_in_oamd": 130,
+        "adm_times_in_oamd": 128,
+        "adm_times_not_in_oamd": 0,
+        "damf_times_not_in_oamd": 0,
+        "events_with_block_offset": 7271,
+        "pos_max_delta_damf": 9.034999999998905e-05,
+        "pos_max_delta_adm": 9.034759999998476e-05,
+        "pos_checked": 130
+      },
+      "block_offset_times": {
+        "count": 661,
+        "in_adm": 15,
+        "in_damf": 15,
+        "examples_missing_from_adm": [
+          4672,
+          12352,
+          20032,
+          27712,
+          35392,
+          43072,
+          50752,
+          58432,
+          66112,
+          73792
+        ]
+      },
+      "coded_bed_objects": 1,
+      "pos_ok": true,
+      "coordinate_map": "X = 2x-1, Y = 2(0.5-y), Z = z (dump prints 4 decimals of x,y in 0..1 -> 1e-4 in room units; tolerance 1.5e-4)"
+    }
+  },
+  "pi-head50m/nbc": {
+    "classes": {
+      "bed_event": 2,
+      "matched": 119,
+      "trailing_popped": 2,
+      "inexpressible_change": 9
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 117
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 11,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 5075800,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 117
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 256,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 117,
+      "inexact_duration": 11,
+      "examples": []
+    }
+  },
+  "thd/braveheart-h": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 132
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 121
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 11,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 1161120,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 121
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 264,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 0,
+      "inexact_duration": 0,
+      "examples": []
+    },
+    "raw_oamd_crosscheck": {
+      "units": 756,
+      "sample_offset_hist": {
+        "0": 3636,
+        "16": 1812,
+        "8": 1812,
+        "24": 1812
+      },
+      "block_offset_factor_hist": {
+        "0": 7260,
+        "1": 1812
+      },
+      "ramp_hist": {
+        "1536": 9072
+      },
+      "totals": {
+        "oamd_updates": 8316,
+        "oamd_distinct_times": 8316,
+        "damf_states": 132,
+        "adm_blocks": 132,
+        "damf_times_in_oamd": 132,
+        "adm_times_in_oamd": 132,
+        "adm_times_not_in_oamd": 0,
+        "damf_times_not_in_oamd": 0,
+        "events_with_block_offset": 1661,
+        "pos_max_delta_damf": 9.676000000002904e-05,
+        "pos_max_delta_adm": 9.67627000000304e-05,
+        "pos_checked": 132
+      },
+      "block_offset_times": {
+        "count": 151,
+        "in_adm": 18,
+        "in_damf": 18,
+        "examples_missing_from_adm": [
+          3072,
+          10752,
+          18432,
+          26112,
+          33792,
+          41472,
+          49152,
+          56832,
+          64512,
+          72192
+        ]
+      },
+      "coded_bed_objects": 1,
+      "pos_ok": true,
+      "coordinate_map": "X = 2x-1, Y = 2(0.5-y), Z = z (dump prints 4 decimals of x,y in 0..1 -> 1e-4 in room units; tolerance 1.5e-4)"
+    }
+  },
+  "thd/fast-thd": {
+    "classes": {
+      "bed_event": 2,
+      "matched": 1566,
+      "trailing_popped": 10
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 1551
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 480000,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 1551
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 3132,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 0,
+      "inexact_duration": 0,
+      "examples": []
+    }
+  },
+  "thd/gainsize-thd": {
+    "classes": {
+      "bed_event": 2,
+      "matched": 15,
+      "trailing_popped": 15
+    },
+    "defects": [],
+    "loss": {},
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 480000,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {},
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 30,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 0,
+      "inexact_duration": 0,
+      "examples": []
+    }
+  },
+  "thd/kingsman-h": {
+    "classes": {
+      "bed_event": 3,
+      "matched": 95,
+      "inexpressible_change": 24,
+      "trailing_popped": 2
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 106
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 13,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 544800,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 106
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 238,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 12,
+      "inexact_duration": 24,
+      "examples": []
+    },
+    "raw_oamd_crosscheck": {
+      "units": 356,
+      "sample_offset_hist": {
+        "0": 2002,
+        "16": 994,
+        "8": 994,
+        "24": 994
+      },
+      "block_offset_factor_hist": {
+        "0": 3990,
+        "1": 994
+      },
+      "ramp_hist": {
+        "1536": 4970,
+        "1472": 14
+      },
+      "totals": {
+        "oamd_updates": 4628,
+        "oamd_distinct_times": 4628,
+        "damf_states": 121,
+        "adm_blocks": 119,
+        "damf_times_in_oamd": 121,
+        "adm_times_in_oamd": 119,
+        "adm_times_not_in_oamd": 0,
+        "damf_times_not_in_oamd": 0,
+        "events_with_block_offset": 923,
+        "pos_max_delta_damf": 9.676000000002904e-05,
+        "pos_max_delta_adm": 9.67627000000304e-05,
+        "pos_checked": 121
+      },
+      "block_offset_times": {
+        "count": 71,
+        "in_adm": 8,
+        "in_damf": 8,
+        "examples_missing_from_adm": [
+          3072,
+          10752,
+          18432,
+          26112,
+          33792,
+          41472,
+          49152,
+          56832,
+          64512,
+          79872
+        ]
+      },
+      "coded_bed_objects": 1,
+      "pos_ok": true,
+      "coordinate_map": "X = 2x-1, Y = 2(0.5-y), Z = z (dump prints 4 decimals of x,y in 0..1 -> 1e-4 in room units; tolerance 1.5e-4)"
+    }
+  },
+  "thd/knivesout-h": {
+    "classes": {
+      "bed_event": 3,
+      "matched": 19,
+      "trailing_popped": 6,
+      "inexpressible_change": 16
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 24
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 11,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 2386440,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 24
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 70,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 8,
+      "inexact_duration": 16,
+      "examples": []
+    },
+    "raw_oamd_crosscheck": {
+      "units": 1555,
+      "sample_offset_hist": {
+        "0": 7476,
+        "16": 3732,
+        "8": 3732,
+        "24": 3720
+      },
+      "block_offset_factor_hist": {
+        "0": 14928,
+        "1": 3732
+      },
+      "ramp_hist": {
+        "1536": 18648,
+        "1472": 12
+      },
+      "totals": {
+        "oamd_updates": 17105,
+        "oamd_distinct_times": 17105,
+        "damf_states": 41,
+        "adm_blocks": 35,
+        "damf_times_in_oamd": 41,
+        "adm_times_in_oamd": 35,
+        "adm_times_not_in_oamd": 0,
+        "damf_times_not_in_oamd": 0,
+        "events_with_block_offset": 3421,
+        "pos_max_delta_damf": 0.0,
+        "pos_max_delta_adm": 0.0,
+        "pos_checked": 41
+      },
+      "block_offset_times": {
+        "count": 311,
+        "in_adm": 1,
+        "in_damf": 1,
+        "examples_missing_from_adm": [
+          3072,
+          10752,
+          18432,
+          26112,
+          33792,
+          41472,
+          56832,
+          64512,
+          72192,
+          79872
+        ]
+      },
+      "coded_bed_objects": 1,
+      "pos_ok": true,
+      "coordinate_map": "X = 2x-1, Y = 2(0.5-y), Z = z (dump prints 4 decimals of x,y in 0..1 -> 1e-4 in room units; tolerance 1.5e-4)"
+    }
+  },
+  "thd/scene-thd": {
+    "classes": {
+      "bed_event": 2,
+      "matched": 28,
+      "trailing_popped": 15
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 13
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 480000,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 13
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 56,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 0,
+      "inexact_duration": 0,
+      "examples": []
+    }
+  },
+  "thd/shaun-head20m": {
+    "classes": {
+      "bed_event": 2,
+      "matched": 247,
+      "trailing_popped": 7,
+      "inexpressible_change": 4
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 240
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 11,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 1943480,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 240
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 502,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 0,
+      "inexact_duration": 11,
+      "examples": []
+    },
+    "raw_oamd_crosscheck": {
+      "units": 1266,
+      "sample_offset_hist": {
+        "0": 6084,
+        "8": 3036,
+        "24": 3036,
+        "16": 3036
+      },
+      "block_offset_factor_hist": {
+        "0": 12156,
+        "1": 3036
+      },
+      "ramp_hist": {
+        "1152": 12,
+        "1536": 15180
+      },
+      "totals": {
+        "oamd_updates": 13926,
+        "oamd_distinct_times": 13926,
+        "damf_states": 258,
+        "adm_blocks": 251,
+        "damf_times_in_oamd": 258,
+        "adm_times_in_oamd": 251,
+        "adm_times_not_in_oamd": 0,
+        "damf_times_not_in_oamd": 0,
+        "events_with_block_offset": 2783,
+        "pos_max_delta_damf": 9.676000000002904e-05,
+        "pos_max_delta_adm": 9.67627000000304e-05,
+        "pos_checked": 258
+      },
+      "block_offset_times": {
+        "count": 253,
+        "in_adm": 38,
+        "in_damf": 38,
+        "examples_missing_from_adm": [
+          8832,
+          16512,
+          24192,
+          31872,
+          39552,
+          47232,
+          54912,
+          62592,
+          70272,
+          77952
+        ]
+      },
+      "coded_bed_objects": 1,
+      "pos_ok": true,
+      "coordinate_map": "X = 2x-1, Y = 2(0.5-y), Z = z (dump prints 4 decimals of x,y in 0..1 -> 1e-4 in room units; tolerance 1.5e-4)"
+    }
+  },
+  "thd/talktome-head": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 29
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 14
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 1920000,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 14
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 58,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 0,
+      "inexact_duration": 0,
+      "examples": []
+    },
+    "raw_oamd_crosscheck": {
+      "units": 1250,
+      "sample_offset_hist": {
+        "0": 8000,
+        "16": 4000,
+        "8": 4000,
+        "24": 4000
+      },
+      "block_offset_factor_hist": {
+        "0": 16000,
+        "1": 4000
+      },
+      "ramp_hist": {
+        "1536": 20000
+      },
+      "totals": {
+        "oamd_updates": 18750,
+        "oamd_distinct_times": 18750,
+        "damf_states": 29,
+        "adm_blocks": 29,
+        "damf_times_in_oamd": 29,
+        "adm_times_in_oamd": 29,
+        "adm_times_not_in_oamd": 0,
+        "damf_times_not_in_oamd": 0,
+        "events_with_block_offset": 3750,
+        "pos_max_delta_damf": 1.9360000000023803e-05,
+        "pos_max_delta_adm": 1.9364499999952045e-05,
+        "pos_checked": 29
+      },
+      "block_offset_times": {
+        "count": 250,
+        "in_adm": 0,
+        "in_damf": 0,
+        "examples_missing_from_adm": [
+          3072,
+          10752,
+          18432,
+          26112,
+          33792,
+          41472,
+          49152,
+          56832,
+          64512,
+          72192
+        ]
+      },
+      "coded_bed_objects": 1,
+      "pos_ok": true,
+      "coordinate_map": "X = 2x-1, Y = 2(0.5-y), Z = z (dump prints 4 decimals of x,y in 0..1 -> 1e-4 in room units; tolerance 1.5e-4)"
+    }
+  },
+  "joc/disclosure-web-head": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 27
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 12
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 1498880,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 12
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 54,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 12,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/extraction-nf-head": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 49
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 34
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 1498880,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 34
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 98,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 34,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/fast-joc": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 1566
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 1551
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 480512,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 1551
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 3132,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 1551,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/gainsize-joc": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 15
+    },
+    "defects": [],
+    "loss": {},
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 480512,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {},
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 30,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 0,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/glassonion-nf-head": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 27
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 12
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 1498880,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 12
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 54,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 12,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/greenbook-cfg4-head": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 22
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 7
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 2879744,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 7
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 44,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 7,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/joc-steep-jackal": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 37
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 22
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 1382144,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 22
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 74,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 22,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/kingsman-joc-head": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 169
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 154
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 1498880,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 154
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 338,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 154,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/knivesout-joc-head": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 35
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 20
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 1498880,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 20
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 70,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 20,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/onset-768": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 61
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 46
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 480512,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 46
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 122,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 46,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/scene-joc": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 29
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 14
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 480512,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 14
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 58,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 14,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/snatch-joc-head": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 140
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 125
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 1919744,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 125
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 280,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 125,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/talktome-joc-head": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 51
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 36
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 1498880,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 36
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 102,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 36,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "joc/teleport-768": {
+    "classes": {
+      "bed_event": 1,
+      "matched": 1261
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 1246
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 15,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 480512,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 1246
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": null,
+    "timecodes": {
+      "timecodes": 2522,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 1246,
+      "inexact_duration": 15,
+      "examples": []
+    }
+  },
+  "pi-full-film": {
+    "classes": {
+      "bed_event": 2,
+      "matched": 30576,
+      "inexpressible_change": 11
+    },
+    "defects": [],
+    "loss": {
+      "ramp": 30576
+    },
+    "identity_ok": true,
+    "tiling": {
+      "objects": 11,
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "last_end": 242322080,
+      "overrun_objects": 0,
+      "blocks_shorter_than_interp": 0,
+      "tile_dec": {
+        "0": 30576
+      },
+      "unsorted_objects": 0
+    },
+    "bed_changes_lost": 0,
+    "time_lost_events": 0,
+    "max_matched_pos_delta": 0.0,
+    "timecodes": {
+      "timecodes": 61174,
+      "re_encode_mismatches": 0,
+      "inexact_rtime": 30576,
+      "inexact_duration": 22,
+      "examples": []
+    }
+  }
+}

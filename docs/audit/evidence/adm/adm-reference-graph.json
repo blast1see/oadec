@@ -1,0 +1,1043 @@
+{
+  "id": "adm-reference-graph",
+  "title": "Reference-graph, chna and Dolby-profile rule findings for every ADM file (empty lists = no finding)",
+  "topics": [
+    "axml",
+    "chna",
+    "profile"
+  ],
+  "evidence_class": "MEASURED",
+  "structural_result": "PASS",
+  "semantic_result": null,
+  "classification": "structural",
+  "method": "axml.check_references + axml.check_chna + profile.check on every produced ADM",
+  "inputs": [],
+  "tolerance": null,
+  "generated_by": "docs/audit/adm/tools/build_evidence.py",
+  "utc": "2026-09-12T05:21:06Z",
+  "pi-head50m/default": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 12,
+      "audioPackFormat": 12,
+      "audioChannelFormat": 21,
+      "audioStreamFormat": 21,
+      "audioTrackFormat": 21,
+      "audioTrackUID": 21
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        319775400
+      ],
+      [
+        "axml",
+        81695
+      ],
+      [
+        "chna",
+        844
+      ],
+      [
+        "dbmd",
+        545
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "pi-head50m/nbc": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 12,
+      "audioPackFormat": 12,
+      "audioChannelFormat": 12,
+      "audioStreamFormat": 12,
+      "audioTrackFormat": 12,
+      "audioTrackUID": 12
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        182728800
+      ],
+      [
+        "axml",
+        68417
+      ],
+      [
+        "chna",
+        484
+      ],
+      [
+        "dbmd",
+        527
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "thd/braveheart-h": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 12,
+      "audioPackFormat": 12,
+      "audioChannelFormat": 21,
+      "audioStreamFormat": 21,
+      "audioTrackFormat": 21,
+      "audioTrackUID": 21
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        73150560
+      ],
+      [
+        "axml",
+        80318
+      ],
+      [
+        "chna",
+        844
+      ],
+      [
+        "dbmd",
+        545
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "thd/fast-thd": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        36000000
+      ],
+      [
+        "axml",
+        672210
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "thd/gainsize-thd": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        36000000
+      ],
+      [
+        "axml",
+        43967
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "thd/kingsman-h": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 14,
+      "audioPackFormat": 14,
+      "audioChannelFormat": 23,
+      "audioStreamFormat": 23,
+      "audioTrackFormat": 23,
+      "audioTrackUID": 23
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        37591200
+      ],
+      [
+        "axml",
+        81191
+      ],
+      [
+        "chna",
+        924
+      ],
+      [
+        "dbmd",
+        549
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "thd/knivesout-h": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 12,
+      "audioPackFormat": 12,
+      "audioChannelFormat": 21,
+      "audioStreamFormat": 21,
+      "audioTrackFormat": 21,
+      "audioTrackUID": 21
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        150345720
+      ],
+      [
+        "axml",
+        44808
+      ],
+      [
+        "chna",
+        844
+      ],
+      [
+        "dbmd",
+        545
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "thd/scene-thd": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        36000000
+      ],
+      [
+        "axml",
+        49003
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "thd/shaun-head20m": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 12,
+      "audioPackFormat": 12,
+      "audioChannelFormat": 21,
+      "audioStreamFormat": 21,
+      "audioTrackFormat": 21,
+      "audioTrackUID": 21
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        122439240
+      ],
+      [
+        "axml",
+        133453
+      ],
+      [
+        "chna",
+        844
+      ],
+      [
+        "dbmd",
+        545
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "thd/talktome-head": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        144000000
+      ],
+      [
+        "axml",
+        48975
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/disclosure-web-head": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        112416000
+      ],
+      [
+        "axml",
+        48056
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/extraction-nf-head": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        112416000
+      ],
+      [
+        "axml",
+        55755
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/fast-joc": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        36038400
+      ],
+      [
+        "axml",
+        672210
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/gainsize-joc": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        36038400
+      ],
+      [
+        "axml",
+        43967
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/glassonion-nf-head": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        112416000
+      ],
+      [
+        "axml",
+        48164
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/greenbook-cfg4-head": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        215980800
+      ],
+      [
+        "axml",
+        46251
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/joc-steep-jackal": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        103660800
+      ],
+      [
+        "axml",
+        51553
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/kingsman-joc-head": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        112416000
+      ],
+      [
+        "axml",
+        105656
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/knivesout-joc-head": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        112416000
+      ],
+      [
+        "axml",
+        51017
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/onset-768": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        36038400
+      ],
+      [
+        "axml",
+        59846
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/scene-joc": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        36038400
+      ],
+      [
+        "axml",
+        49245
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/snatch-joc-head": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        143980800
+      ],
+      [
+        "axml",
+        92512
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/talktome-joc-head": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        112416000
+      ],
+      [
+        "axml",
+        57106
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "joc/teleport-768": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 16,
+      "audioPackFormat": 16,
+      "audioChannelFormat": 25,
+      "audioStreamFormat": 25,
+      "audioTrackFormat": 25,
+      "audioTrackUID": 25
+    },
+    "chunks": [
+      [
+        "JUNK",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        36038400
+      ],
+      [
+        "axml",
+        479844
+      ],
+      [
+        "chna",
+        1004
+      ],
+      [
+        "dbmd",
+        553
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  },
+  "pi-full-film": {
+    "adm_findings": [],
+    "damf_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 12,
+      "audioPackFormat": 12,
+      "audioChannelFormat": 21,
+      "audioStreamFormat": 21,
+      "audioTrackFormat": 21,
+      "audioTrackUID": 21
+    },
+    "chunks": [
+      [
+        "ds64",
+        28
+      ],
+      [
+        "fmt ",
+        16
+      ],
+      [
+        "data",
+        15266291040
+      ],
+      [
+        "axml",
+        11876508
+      ],
+      [
+        "chna",
+        844
+      ],
+      [
+        "dbmd",
+        545
+      ]
+    ],
+    "dbmd_creator": "Created using oadec"
+  }
+}

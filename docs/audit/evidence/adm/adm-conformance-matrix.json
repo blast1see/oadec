@@ -1,0 +1,911 @@
+{
+ "rows": [
+  {
+   "feature": "Object PCM",
+   "source": "TrueHD object-presentation channels / JOC reconstructed object signals",
+   "internal": "`Vec<i32>` rows per frame, element order",
+   "damf": "CAF 24-bit BE, one channel per element",
+   "adm": "`data` chunk 24-bit LE, one track per element",
+   "evidence": "adm-object-pcm-compare.json, adm-long-duration.json",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "sample-exact",
+   "note": "590 of 590 declared DAMF/ADM track pairs are sample-identical (SHA-256 of the samples equal) over 25 inputs including the whole-film Pi (242322080 frames); the full pairing matrix confirms every declared pair (True). The ADM carries exactly the PCM the decoder produced; JOC objects are the decoder's reconstruction, not the master (differential claim)."
+  },
+  {
+   "feature": "Bed PCM and LFE",
+   "source": "OAMD bed channels (corpus: LFE only)",
+   "internal": "bed slots, conformed to 7.1.2 by default",
+   "damf": "bed channels first",
+   "adm": "DirectSpeakers tracks first, `RC_*` labels",
+   "evidence": "adm-object-pcm-compare.json, adm-harness.json (C21, C21b)",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "label-confirmed",
+   "note": "LFE is sample-identical in every input; harness C21 codes the bed as Rss, Lss, LFE and the tones land under the matching labels with conform on ([None, None, None, 100.0, 600.0, 500.0, None, None, None, None, 440.0]) and off. LFE is identified only by the `RC_LFE` label and position [-1,1,-1] (profile table 10); a BS.2127 renderer does not recognise that label (EAR warning) - a profile-level interoperability limit shared with Dolby's own files."
+  },
+  {
+   "feature": "Channel assignment / track mapping",
+   "source": "element order: beds, ISF, dynamic objects",
+   "internal": "`Slot::Channel(i)` per element",
+   "damf": "header order",
+   "adm": "`chna` -> ATU -> AT -> AS -> AC chain",
+   "evidence": "adm-track-mapping.json, adm-reference-graph.json",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "",
+   "note": "Every chna entry resolves through a unique UID/track/stream/channel chain to the audioObject that owns it; no dangling, duplicate or orphan node in any file (25 inputs, 0 findings on the whole film)."
+  },
+  {
+   "feature": "Object count and classification",
+   "source": "OAMD program assignment (beds / ISF / dynamic)",
+   "internal": "`Program {beds, isf_objects, dynamic_objects}`",
+   "damf": "1:1",
+   "adm": "1:1 for beds and dynamic objects; ISF absent",
+   "evidence": "adm-batch-summary.json, adm-harness.json (C13)",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PARTIAL",
+   "classification": "ISF dropped silently (see ISF row)",
+   "note": "Bed, dynamic-object and total element counts agree between OAMD, DAMF and ADM on every input (all corpus beds are LFE-only). Codec channels, JOC reconstructed signals, OAMD programme objects and ADM audioObjects are counted separately in the report."
+  },
+  {
+   "feature": "Object identity over time",
+   "source": "OAMD object index",
+   "internal": "DAMF element id 10+k",
+   "damf": "ID",
+   "adm": "`Atmos_Obj_k` / `AO_100b+`, one channel format per object",
+   "evidence": "adm-object-pcm-compare.json, adm-event-timing.json, adm-long-duration.json",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "",
+   "note": "No object changes track or id through any programme: block tiling is gapless and sorted for every object (gaps 0, overlaps 0 on real material), and the PCM under each object's channel format is identical to the DAMF element from first to last sample."
+  },
+  {
+   "feature": "X / Y coordinates",
+   "source": "OAMD 6-bit codes (+ext precision), room 0..1",
+   "internal": "`damf_position`: X=2x-1, Y=2(0.5-y)",
+   "damf": "`pos`",
+   "adm": "`position X/Y`, 10 decimals",
+   "evidence": "adm-coordinate-diff.json, adm-event-timing.json (raw_oamd_crosscheck)",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "",
+   "note": "0 value mismatches at float32 precision over 36434 matched events; against the raw OAMD dump the mapping holds within 9.7e-05 (the dump's 4 decimals) on 6 TrueHD clips. No axis swap, inversion, offset or clamp."
+  },
+  {
+   "feature": "Z coordinate",
+   "source": "OAMD 5-bit signed code, -1..1",
+   "internal": "passed through",
+   "damf": "`pos[2]`",
+   "adm": "`position Z`, omitted when 0 (profile)",
+   "evidence": "adm-coordinate-diff.json",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "omission = 0 per profile table 11",
+   "note": "Absent Z is read as 0.0 by the profile rule; the comparator keeps presence separate from value and found no mismatch."
+  },
+  {
+   "feature": "Distance",
+   "source": "OAMD `object_distance` (unspecified / infinity / factor)",
+   "internal": "parsed, no field in `ObjectState`",
+   "damf": "no field",
+   "adm": "none (profile forbids `absoluteDistance`; cartesian blocks)",
+   "evidence": "adm-harness.json (C19), 01-spec-extracts.json",
+   "cls": "IMPLEMENTATION CHOICE",
+   "structural": "PASS",
+   "semantic": "N/T",
+   "classification": "parsed but discarded; not representable in DAMF or in the profile; corpus never specifies it",
+   "note": "Harness C19 pushes distance 2.0 and infinity through `Timeline::push`: nothing reaches DAMF or ADM and nothing is reported. The corpus carries `unspecified` only, so no real scene loses information today."
+  },
+  {
+   "feature": "Gain",
+   "source": "OAMD `object_gain` (dB / mute)",
+   "internal": "`ObjectState.gain`",
+   "damf": "`gain` dB",
+   "adm": "omitted on active objects; `0.0` + importance `0` on inactive",
+   "evidence": "adm-gain-diff.json, adm-harness.json (C02), adm-dolby-reference.json (S2)",
+   "cls": "MEASURED + REFERENCE",
+   "structural": "PASS",
+   "semantic": "FAIL",
+   "classification": "avoidable loss: the profile text forbids it, Dolby's converters write it anyway",
+   "note": "Harness C02: -6 dB, +3 dB, -inf and a mid-stream -12 dB change are all lost in oadec's ADM (3 losses, the change popped) while the PCM is unscaled - a muted active object becomes audible. Dolby's Conversion Tool and DEE write `<gain>` (linear) on 4 active blocks for the same DAMF and emit a block for the gain change. On real material every gain is 0 dB, so no decoded stream is affected today."
+  },
+  {
+   "feature": "Size (scalar)",
+   "source": "OAMD `object_size` width",
+   "internal": "`ObjectState.size` (one scalar)",
+   "damf": "`size`",
+   "adm": "`width`=`depth`=`height`",
+   "evidence": "adm-harness.json (C04), adm-dolby-reference.json (S2)",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "uniform size preserved; Dolby writes the same triple (+`diffuse 1`)",
+   "note": "Uniform sizes 0.25/0.5/1.0 round-trip exactly in both oadec's and Dolby's ADM. The corpus never carries a non-zero size."
+  },
+  {
+   "feature": "Width / height / depth (3-D size)",
+   "source": "OAMD `object_size[3]` (width, depth, height)",
+   "internal": "`size: r.size[0]` - first axis only (program.rs:242)",
+   "damf": "one scalar (DAMF has no 3-axis size)",
+   "adm": "three identical values (profile table 11 requires identical values)",
+   "evidence": "adm-harness.json (C04), 01-spec-extracts.json",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PARTIAL",
+   "classification": "collapse happens in the programme model, before both writers; the selected axis is an implementation choice; neither DAMF nor the profile can carry three axes",
+   "note": "Harness C04 pushes size [0.2, 0.5, 0.8] through `Timeline::push`: DAMF and ADM carry only the first axis (DAMF sizes per object: object 1: [0.2]; object 2: [0.5]), silently. Not representable downstream, but the choice of axis (first, not max or mean) and the silence are oadec's."
+  },
+  {
+   "feature": "Divergence",
+   "source": "OAMD extended-object `divergence`",
+   "internal": "parsed, not carried",
+   "damf": "no field",
+   "adm": "none (profile: `objectDivergence` shall not be used)",
+   "evidence": "01-spec-extracts.json",
+   "cls": "SPEC",
+   "structural": "PASS",
+   "semantic": "N/T",
+   "classification": "not representable in DAMF or the profile; no corpus stream carries it",
+   "note": "No test material exists and the authoring route cannot produce it; N/T, not PASS."
+  },
+  {
+   "feature": "Importance / priority",
+   "source": "OAMD `object_priority` (0..1, 1/32 steps)",
+   "internal": "`ObjectState.importance`",
+   "damf": "`importance`",
+   "adm": "omitted on active objects (profile), `0` on inactive",
+   "evidence": "adm-harness.json (C03), adm-dolby-reference.json (S3)",
+   "cls": "MEASURED + REFERENCE",
+   "structural": "PASS",
+   "semantic": "PASS-TOL",
+   "classification": "profile rule; Dolby drops it identically; corpus always 1.0",
+   "note": "Harness C03 (importance 0.5 and 0.0 on active objects): 2 losses in oadec's ADM; Dolby's converter writes importance on 0 blocks for the same stimulus. Absent importance means 10 (BS.2076 default) = full priority, which equals the corpus value 1.0."
+  },
+  {
+   "feature": "Interpolation mode",
+   "source": "OAMD: linear ramp from the update time (TS 103 420 5.6.2)",
+   "internal": "`ramp` samples",
+   "damf": "`rampLength`",
+   "adm": "`jumpPosition=1` always (profile)",
+   "evidence": "01-spec-extracts.json, adm-interpolation-diff.json",
+   "cls": "SPEC + MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "same shape (ramp starting at the event) on both sides",
+   "note": "BS.2076-3 section 9.3 and TS 103 420 figure 4 describe the same start-anchored ramp; the profile's `jumpPosition=1` is the right mode. The evaluator's self-check returns 0 against a synthetic ADM carrying the real ramps."
+  },
+  {
+   "feature": "Interpolation length",
+   "source": "OAMD `ramp_duration` (corpus: 1536, rare 32/480/1152/1472)",
+   "internal": "`ramp`",
+   "damf": "`rampLength` exact",
+   "adm": "fixed: 0 on block 1, 250 samples afterwards (`INTERPOLATION_SAMPLES`)",
+   "evidence": "adm-interpolation-diff.json, adm-dolby-reference.json (S1, reverse), adm-render-comparison.json, 01-spec-extracts.json (table 11)",
+   "cls": "SPEC + REFERENCE + MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS-TOL",
+   "classification": "profile rule (table 11 mandates 0 then 250); Dolby's converters write the same and Dolby's reader ignores any value; loss measured",
+   "note": "36158 of the matched real-material blocks carry 250 where the DAMF ramp was 1536 (or 32/1152/1472). Dolby's Conversion Tool and DEE write {'0': 8, '250': 3278} for a stimulus cycling 0/32/250/480/1536/2048; every read-back through the Conversion Tool - of oadec's ADM, of a real-ramp variant and of Dolby's own ADM - returns rampLength 0 ({'0': 128}). Metadata-domain deviation up to 1.67 room units within one block per event; rendered by EAR the fixed ramp costs, against a real-ramp variant of the same file, fast-thd: 6.9-17.4 dB; pihead: 36.5-63.0 dB (min SDR per layout), while oadec and Dolby render bit-identically (7/7 layout comparisons)."
+  },
+  {
+   "feature": "Event timing (sample positions)",
+   "source": "OAMD `sample_offset` + 32 x `block_offset_factor` + frame base",
+   "internal": "`Event.sample_pos` (integer)",
+   "damf": "`samplePos`",
+   "adm": "`rtime` hh:mm:ss.fffff (10 us), `duration` rounded independently",
+   "evidence": "adm-event-timing.json, adm-long-duration.json",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "sample-exact recovery",
+   "note": "Every ADM rtime decodes (nearest sample) to the DAMF samplePos: 0 time mismatches on 25 inputs incl. the whole film (30576 matched, 0 defects). 0 of 73014 timecodes fail to re-encode to the identical string. Blocks tile without gaps in the sample domain; rtime and duration are rounded independently (10-us `tile_dec` histogram all 0 on real material)."
+  },
+  {
+   "feature": "32 x block_offset_factor term",
+   "source": "TS 103 420 clause 5.6.2",
+   "internal": "`BLOCK_OFFSET_STEP = 32`",
+   "damf": "kept",
+   "adm": "kept",
+   "evidence": "adm-event-timing.json (raw_oamd_crosscheck)",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "",
+   "note": "Against oadec's raw OAMD dump: 711 DAMF states and 694 ADM blocks fall exactly on OAMD update times (0 / 0 do not); 80 ADM blocks sit on times that only exist with the +32 term (21506 updates in the clips carry block_offset_factor 1)."
+  },
+  {
+   "feature": "Start time / first block",
+   "source": "first OAMD update",
+   "internal": "first `Event`",
+   "damf": "first event",
+   "adm": "block 1 at 00:00:00.00000 (profile); synthetic when the first event is later",
+   "evidence": "adm-harness.json (C06), adm-dolby-reference.json (S6)",
+   "cls": "MEASURED + REFERENCE",
+   "structural": "PASS",
+   "semantic": "PASS-TOL",
+   "classification": "corner case: real material always starts at 0; when it does not, oadec holds the first state from 0 and drops the real event (time lost), Dolby writes a default (0,0,0) block then the real event",
+   "note": "Harness C06: {'bed_event': 1, 'synthetic_block0': 2, 'absorbed_by_synthetic': 2}. Both behaviours invent something for a span DAMF leaves undefined; oadec's loses the arrival time of the first state. Not observed on any decoded stream."
+  },
+  {
+   "feature": "Duration / end",
+   "source": "programme length",
+   "internal": "`frames`",
+   "damf": "audio length",
+   "adm": "last block ends at `frames`; audioProgramme end = frames",
+   "evidence": "adm-event-timing.json, adm-harness.json (C07)",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS-TOL",
+   "classification": "one writer defect on synthetic input (Q): a block can run past the programme end",
+   "note": "Real material: last block ends at the programme end for every object (True), programme span = frames, DAMF frames = ADM frames. Harness C07: an event past the end is dropped (fine) but the preceding block's duration is computed from it and overruns the end (1 object)."
+  },
+  {
+   "feature": "Event density",
+   "source": "up to 8 updates/object/frame",
+   "internal": "`Timeline` dedup (`restates`)",
+   "damf": "one event per change",
+   "adm": "one block per event minus popped/superseded, plus synthetic",
+   "evidence": "adm-event-timing.json, adm-long-duration.json",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS-TOL",
+   "classification": "ledger identity holds; ramp-only changes become duplicate blocks or are popped",
+   "note": "`adm_blocks = states - superseded - beyond_end - trailing_popped - absorbed + synthetic` holds on every input. 73 duplicate blocks and 59 trailing pops on real material, all ramp-only changes the profile cannot express. No coalescing, resampling or rate limiting."
+  },
+  {
+   "feature": "ISF (intermediate spatial format)",
+   "source": "OAMD `intermediate_spatial_format_idx`",
+   "internal": "`Program.isf_objects` (TrueHD path hardcodes 0)",
+   "damf": "`Slot::None` - audio and metadata dropped",
+   "adm": "`Slot::None` - audio and metadata dropped",
+   "evidence": "adm-harness.json (C13)",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "FAIL",
+   "classification": "silent drop; no diagnostic; no corpus stream carries ISF (N/T on real material)",
+   "note": "Harness C13 (4 ISF objects between the bed and 2 objects): the ISF tones appear in no output track ([None, None, None, 100.0, None, None, None, None, None, None, 440.0, 880.0]) and no warning is printed. On real material N/T; at the writer level a silent loss."
+  },
+  {
+   "feature": "Bed events (time-varying bed gain/active)",
+   "source": "OAMD bed object updates",
+   "internal": "`BedState` events",
+   "damf": "bed events kept",
+   "adm": "none (profile: DirectSpeakers blocks have no rtime/duration)",
+   "evidence": "adm-harness.json (C05), adm-dolby-reference.json (S8)",
+   "cls": "MEASURED + REFERENCE",
+   "structural": "PASS",
+   "semantic": "PASS-TOL",
+   "classification": "profile rule; Dolby's converters drop them identically; corpus beds never change",
+   "note": "Harness C05: 2 bed changes lost, LFE PCM unscaled; Dolby drops the same (S8, static bed gain -6 dB also ignored). 0 bed changes lost on real material - none, because the LFE beds never change."
+  },
+  {
+   "feature": "Bed configuration and speaker labels",
+   "source": "OAMD bed channel assignment",
+   "internal": "`bed_profile` (7.1.2 set only)",
+   "damf": "named channels (Lss/Rss/Lrs/Rrs/...)",
+   "adm": "`RC_*` labels + table-10 positions; other channels refused",
+   "evidence": "adm-harness.json (C14, C17, C21), adm-reference-graph.json",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS-TOL",
+   "classification": "beds beyond 7.1.2 make `AdmWriter::create` fail explicitly (good), `Ls/Rs` of a 5.1 bed are labelled as side surrounds (untested on real material: all corpus beds are LFE-only)",
+   "note": "C14: `create: bed channel Tfl is not allowed in a Dolby Atmos master ADM bed` - an explicit failure, not a silent file. Zone rectangles equal the profile tables ([] findings). The LFE-only conformed bed passes every profile rule; with `--no-bed-conform` the LFE-only set is not one of table 16's configuration sets - and neither is Dolby's own output for the same DAMF."
+  },
+  {
+   "feature": "Object IDs with `--no-bed-conform`",
+   "source": "-",
+   "internal": "`AO_` + hex(0x1001+bed+k-1)",
+   "damf": "-",
+   "adm": "objects start below `AO_100b` when the bed has fewer than 10 channels",
+   "evidence": "adm-harness.json (C11, C12, C21b), adm-dolby-reference.json (S11)",
+   "cls": "MEASURED + REFERENCE",
+   "structural": "FAIL",
+   "semantic": "PASS",
+   "classification": "profile table 17 violation; Dolby numbers objects from `AO_100b` regardless of bed size",
+   "note": "C11 (no bed): ['profile-id', 'profile-id']. The default 7.1.2 conform yields `AO_100b` and is clean; any smaller bed with conform off is not. Semantically harmless; structurally out of profile."
+  },
+  {
+   "feature": "Sample rate",
+   "source": "stream rate",
+   "internal": "`sample_rate`",
+   "damf": "`sampleRate`",
+   "adm": "`audioTrackUID sampleRate` = stream rate; 250-sample constant scaled",
+   "evidence": "adm-harness.json (C15)",
+   "cls": "MEASURED",
+   "structural": "FAIL",
+   "semantic": "PASS",
+   "classification": "profile requires 48000 (table 23); a 96 kHz or 44.1 kHz programme is written without a warning",
+   "note": "C15 (96 kHz): file written, interpolationLength 0.002604 s = 250 samples, findings ['profile-sample-rate', 'profile-sample-rate']. No Atmos material at 96 kHz exists in the library; the 44.1 kHz Pi encode is the only real case (N/T for decoded output beyond the writer)."
+  },
+  {
+   "feature": "Programme hierarchy (programme / content / object / pack)",
+   "source": "-",
+   "internal": "-",
+   "damf": "`.atmos` presentation",
+   "adm": "APR_1001 -> ACO_1001 -> AO_1001 (bed) + AO_100b.. (objects); custom DirectSpeakers pack AP_00011001; one Objects pack per object",
+   "evidence": "adm-reference-graph.json, adm-dolby-reference.json",
+   "cls": "MEASURED + REFERENCE",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "identical element inventory and ids to Dolby's converters on the same DAMF",
+   "note": "Every produced ADM passes the reference-graph, chna and profile checks with zero findings (default conform)."
+  },
+  {
+   "feature": "audioTrackUID / chna",
+   "source": "-",
+   "internal": "`ATU_` + (i+1)",
+   "damf": "-",
+   "adm": "one UID per PCM track; chna numTracks = numUIDs = channels",
+   "evidence": "adm-track-mapping.json, adm-reference-graph.json, adm-negative-controls.json (M-A7, M-A13)",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "",
+   "note": "Chain verified on every file; the negative controls show a dangling trackRef and a wrong UID sample rate are caught."
+  },
+  {
+   "feature": "axml (ADM XML)",
+   "source": "-",
+   "internal": "string building in `AdmWriter::finish`",
+   "damf": "-",
+   "adm": "ebuCore 2016 namespace, BS.2076-1 timecodes",
+   "evidence": "adm-reference-graph.json, adm-render-comparison.json",
+   "cls": "MEASURED + REFERENCE",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "well-formed, references complete, profile-conformant; the profile's audioStreamFormat double reference makes strict BS.2076 readers (EAR) refuse the file - Dolby's own files included",
+   "note": "EAR renders only after the pack reference is removed from audioStreamFormat (applied identically to oadec's and Dolby's files); with that edit oadec and Dolby render bit-identically."
+  },
+  {
+   "feature": "BW64 / RF64 structure",
+   "source": "-",
+   "internal": "RIFF + 28-byte JUNK -> ds64 when > 4 GiB",
+   "damf": "-",
+   "adm": "`RF64` FourCC, ds64 riffSize/dataSize/sampleCount, `fmt` tag 1 (24-bit), data, axml, chna, dbmd",
+   "evidence": "adm-container-validation.json, adm-long-duration.json",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "RF64 (EBU Tech 3306) rather than the BS.2088 `BW64` FourCC; readers agree",
+   "note": "Whole-film Pi: 15278169042 bytes, RF64, ds64 = {'riff_size': 15278169034, 'data_size': 15266291040, 'sample_count': 242322080, 'table': []}; ffprobe 242322080, bwf_info 242322080, ds64 sampleCount and the DAMF all give 242322080 frames; 0 container findings. Both size thresholds (data above 4 GiB; data below but RIFF above u32) promote to RF64 correctly (harness C22, C22b)."
+  },
+  {
+   "feature": "dbmd chunk",
+   "source": "-",
+   "internal": "three verbatim Dolby segments + bed mask + LFE flags",
+   "damf": "-",
+   "adm": "required by Dolby validators; creator string gates acceptance",
+   "evidence": "adm-dolby-reference.json (validate)",
+   "cls": "UNKNOWN / PROPRIETARY",
+   "structural": "UNK",
+   "semantic": "N/T",
+   "classification": "opaque; Dolby's validators accept the tagged file",
+   "note": "atmos_info 5.7.2 `--validate 1` and 1.1 accept oadec's ADM with `--dolby-origin-tag` (exit 0, no warnings) and refuse the default file on provenance only ('Content was not authored with Dolby tools'); bwf_info accepts both."
+  },
+  {
+   "feature": "Same-position and out-of-order events",
+   "source": "OAMD may restate at one time; the timeline counts out-of-order events",
+   "internal": "`Timeline.out_of_order` counter",
+   "damf": "written as they come",
+   "adm": "same position: last wins (Dolby too); out of order: skipped state and overlapping blocks (R)",
+   "evidence": "adm-harness.json (C08, C09), adm-dolby-reference.json (S13)",
+   "cls": "MEASURED + REFERENCE",
+   "structural": "PASS",
+   "semantic": "PASS-TOL",
+   "classification": "R is a writer defect on hypothetical input; 0 out-of-order events on every decoded stream",
+   "note": "C09: {'objects': 2, 'gaps': 0, 'overlaps': 1, 'starts_at_zero': True, 'ends_at_frames': True, 'last_end': 96000, 'overrun_objects': 0, 'blocks_shorter_than_interp': 0, 'tile_dec': {'50000': 1}, 'unsorted_objects': 0}. The writer never sorts; the CLI counts out-of-order events and reported 0 on every input of this audit."
+  },
+  {
+   "feature": "`--presentation` for ADM/DAMF",
+   "source": "-",
+   "internal": "forced to 3 (`cli/damf.rs:205`)",
+   "damf": "-",
+   "adm": "-",
+   "evidence": "prior audit row; not re-measured",
+   "cls": "INFERRED",
+   "structural": "PASS",
+   "semantic": "N/T",
+   "classification": "flag silently ignored (unchanged since the previous audit)",
+   "note": ""
+  },
+  {
+   "feature": "Diagnostics and exit codes",
+   "source": "-",
+   "internal": "`oadec-spatial` has no logging",
+   "damf": "-",
+   "adm": "no warning for any dropped semantic; exit 0/2/7 reflect the bitstream only",
+   "evidence": "adm-harness.json, adm-batch-summary.json",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "FAIL",
+   "classification": "silent lossy conversion",
+   "note": "None of ramp, gain, importance, 3-D size, ISF, bed events, non-48 kHz or out-of-order input produce a diagnostic; the only ADM-time failure is the unsupported bed channel (C14). Head cuts exit 7 for the truncated last access unit and the 96 kHz non-Atmos clip exits 2, both correctly."
+  },
+  {
+   "feature": "Negative controls",
+   "source": "-",
+   "internal": "-",
+   "damf": "-",
+   "adm": "-",
+   "evidence": "adm-negative-controls.json",
+   "cls": "MEASURED",
+   "structural": "PASS",
+   "semantic": "PASS",
+   "classification": "tool validation",
+   "note": "22 of 22 injected defects fired the intended detector with no specificity violation ([]); not testable on this material: ['M-A10'] (no inactive block in pi-head50m; covered by harness C16)."
+  },
+  {
+   "feature": "Renderer interoperability",
+   "source": "-",
+   "internal": "-",
+   "damf": "-",
+   "adm": "-",
+   "evidence": "adm-render-comparison.json, adm-dolby-reference.json (validate)",
+   "cls": "REFERENCE",
+   "structural": "PASS",
+   "semantic": "PASS-TOL",
+   "classification": "Dolby validators: accepted (tagged); EAR: accepted after the profile's stream-format edit; Dolby Atmos Renderer not available",
+   "note": "EAR speaker outputs of oadec's ADM and Dolby's Conversion-Tool ADM are sample-identical in 7 of 7 layout comparisons over ['fast-thd', 'pihead']. Dolby's DRP cannot open ADM or DAMF files, and no Dolby Atmos Renderer is installed, so section 26/27 rest on the Conversion Tool, DEE, atmos_info, bwf_info and EAR."
+  }
+ ],
+ "scores": [
+  {
+   "name": "PCM fidelity",
+   "value": "100",
+   "basis": "590/590 track pairs sample-identical, whole film included"
+  },
+  {
+   "name": "Object mapping",
+   "value": "100",
+   "basis": "chna chain and pairing matrix confirmed on every input; identity stable over time"
+  },
+  {
+   "name": "Bed mapping",
+   "value": "90",
+   "basis": "LFE beds exact; multi-channel beds only via harness (labels/positions per table 10 confirmed); 5.1 `Ls/Rs` labelling untested on real material"
+  },
+  {
+   "name": "Coordinate fidelity",
+   "value": "100",
+   "basis": "0 mismatches at float32 precision; raw-OAMD mapping within 9.7e-05"
+  },
+  {
+   "name": "Gain fidelity",
+   "value": "40",
+   "basis": "real material unaffected (all 0 dB); writer drops non-zero gains and mutes that Dolby's converters keep (harness C02)"
+  },
+  {
+   "name": "Size fidelity",
+   "value": "70",
+   "basis": "uniform size exact; three-axis size collapsed to the first axis in the model (C04); corpus never carries size"
+  },
+  {
+   "name": "Timing fidelity",
+   "value": "100",
+   "basis": "sample-exact against DAMF and raw OAMD incl. the +32 term; 0 drift over 1:24:08"
+  },
+  {
+   "name": "Interpolation fidelity",
+   "value": "50",
+   "basis": "mode right, length fixed at 250 by the profile; identical to Dolby; rendered loss against real ramps fast-thd: 6.9-17.4 dB; pihead: 36.5-63.0 dB"
+  },
+  {
+   "name": "ADM structural validity",
+   "value": "95",
+   "basis": "0 findings on every default-conform file; `--no-bed-conform` object IDs and non-48 kHz files violate the profile silently"
+  },
+  {
+   "name": "ADM semantic fidelity",
+   "value": "80",
+   "basis": "everything the profile can carry is carried exactly; what it cannot (ramp, bed events, importance) is lost silently; gain and ISF are lost avoidably"
+  },
+  {
+   "name": "Renderer interoperability",
+   "value": "85",
+   "basis": "Dolby validators accept (tagged); EAR bit-identical to Dolby after the profile-conflict edit; no Dolby Atmos Renderer available"
+  },
+  {
+   "name": "Overall ADM export",
+   "value": "82",
+   "basis": "a faithful Dolby-profile ADM of the decoded scene, equal to Dolby's own conversion, with the profile's losses undeclared and three writer-level defects on inputs the corpus never produces"
+  }
+ ],
+ "verdicts": {
+  "Structural ADM verdict": "MOSTLY VALID. Every default (bed-conformed, 48 kHz) file passes the container, reference-graph, chna and Dolby Atmos Master ADM profile v1.0 checks and Dolby's own validators (with the origin tag); `--no-bed-conform` object IDs and non-48 kHz programmes leave the profile without a warning.",
+  "Atmos semantic fidelity verdict": "MINOR SEMANTIC LOSS on every decoded stream tested: PCM, positions, timing and identity are exact and the file is functionally identical to Dolby's own DAMF-to-ADM conversion; the only loss on real material is the profile's fixed 250-sample ramp. For scenes the corpus does not contain (non-zero gain, ISF, 3-D size, bed events, importance) the output would be STRUCTURALLY VALID BUT SEMANTICALLY INCOMPLETE, and nothing tells the user."
+ },
+ "numbers": {
+  "inputs": 25,
+  "inputs_thd": 11,
+  "inputs_joc": 14,
+  "defects_total": 0,
+  "matched_total": 36434,
+  "loss_ramp_total": 36158,
+  "inexpressible_total": 73,
+  "popped_total": 59,
+  "bed_events_total": 36,
+  "bed_changes_lost_total": 0,
+  "timecodes_total": 73014,
+  "timecode_mismatch_total": 0,
+  "tiling_gaps": 0,
+  "tiling_overlaps": 0,
+  "tiling_overrun_objects": 0,
+  "ends_at_frames_all": true,
+  "pcm_pairs": 590,
+  "pcm_identical": 590,
+  "matrix_confirmed_all": true,
+  "oamd_clips": 6,
+  "oamd_damf_times_in": 711,
+  "oamd_damf_times_out": 0,
+  "oamd_adm_times_in": 694,
+  "oamd_adm_times_out": 0,
+  "oamd_adm_blocks_on_bo32": 80,
+  "oamd_pos_max": 9.67627000000304e-05,
+  "oamd_bof1_updates": 21506,
+  "neg_total": 22,
+  "neg_fired": 22,
+  "neg_nt": [
+   "M-A10"
+  ],
+  "neg_specificity": [],
+  "full_frames": 242322080,
+  "full_bytes": 15278169042,
+  "full_fourcc": "RF64",
+  "full_ds64": {
+   "riff_size": 15278169034,
+   "data_size": 15266291040,
+   "sample_count": 242322080,
+   "table": []
+  },
+  "full_ffprobe_frames": 242322080,
+  "full_bwf_frames": 242322080,
+  "full_container_findings": 0,
+  "full_profile_findings": 0,
+  "full_defects": 0,
+  "full_matched": 30576,
+  "full_loss_ramp": 30576,
+  "validators": {
+   "oadec-default": {
+    "atmos_info_5.7.2_validate": 1,
+    "atmos_info_1.1": 4294967295,
+    "bwf_info": 0
+   },
+   "oadec-tag": {
+    "atmos_info_5.7.2_validate": 0,
+    "atmos_info_1.1": 0,
+    "bwf_info": 0
+   },
+   "oadec-nbc": {
+    "atmos_info_5.7.2_validate": 1,
+    "atmos_info_1.1": 4294967295,
+    "bwf_info": 0
+   },
+   "oadec-realramps": {
+    "atmos_info_5.7.2_validate": 0,
+    "atmos_info_1.1": 0,
+    "bwf_info": 0
+   },
+   "ct-S0": {
+    "atmos_info_5.7.2_validate": 0,
+    "atmos_info_1.1": 0,
+    "bwf_info": 0
+   },
+   "dee-S0": {
+    "atmos_info_5.7.2_validate": 0,
+    "atmos_info_1.1": 0,
+    "bwf_info": 0
+   },
+   "ct-S2": {
+    "atmos_info_5.7.2_validate": 0,
+    "atmos_info_1.1": 0,
+    "bwf_info": 0
+   }
+  },
+  "reverse_ramp_back": {
+   "ct-S0": {
+    "0": 128
+   },
+   "ct-S1": {
+    "0": 3286
+   },
+   "dee-S0": {
+    "0": 128
+   },
+   "oadec-default": {
+    "0": 128
+   },
+   "oadec-nbc": {
+    "0": 128
+   },
+   "oadec-realramps": {
+    "0": 128
+   },
+   "oadec-tag": {
+    "0": 128
+   }
+  },
+  "reverse_matched": {
+   "ct-S0": [
+    128,
+    130
+   ],
+   "ct-S1": [
+    3286,
+    3286
+   ],
+   "dee-S0": [
+    128,
+    130
+   ],
+   "oadec-default": [
+    128,
+    130
+   ],
+   "oadec-nbc": [
+    128,
+    130
+   ],
+   "oadec-realramps": [
+    128,
+    130
+   ],
+   "oadec-tag": [
+    128,
+    130
+   ]
+  },
+  "s1_ct_interp_hist": {
+   "0": 8,
+   "250": 3278
+  },
+  "s2_ct_gain_present": 4,
+  "s3_ct_imp_present": 0,
+  "harness_cases": [
+   "C22-rf64",
+   "C22b-riff-max",
+   "C01-ramps",
+   "C02-gain",
+   "C03-importance",
+   "C04-size3d",
+   "C05-bed-events",
+   "C06-late-first",
+   "C07-beyond-end",
+   "C08-same-pos",
+   "C09-out-of-order",
+   "C10-zero-objects",
+   "C11-no-bed",
+   "C12-118-objects",
+   "C13-isf",
+   "C14-bed-tfl",
+   "C15-96k",
+   "C16-active-toggle",
+   "C17-zones",
+   "C18-snap",
+   "C19-oamd-extras",
+   "C20-ramp-only",
+   "C21-bed-order",
+   "C21b-bed-order-nbc"
+  ],
+  "c02_loss_gain": 3,
+  "c02_ct_gain_blocks": 4,
+  "c03_loss_importance": 2,
+  "c04_damf_sizes": {
+   "1": [
+    0.2
+   ],
+   "2": [
+    0.5
+   ]
+  },
+  "c04_sizes_text": "object 1: [0.2]; object 2: [0.5]",
+  "c05_bed_lost": 2,
+  "c06_classes": {
+   "bed_event": 1,
+   "synthetic_block0": 2,
+   "absorbed_by_synthetic": 2
+  },
+  "c07_tiling": {
+   "objects": 2,
+   "gaps": 0,
+   "overlaps": 0,
+   "starts_at_zero": true,
+   "ends_at_frames": false,
+   "last_end": 96040,
+   "overrun_objects": 1,
+   "blocks_shorter_than_interp": 0,
+   "tile_dec": {
+    "0": 1
+   },
+   "unsorted_objects": 0
+  },
+  "c09_tiling": {
+   "objects": 2,
+   "gaps": 0,
+   "overlaps": 1,
+   "starts_at_zero": true,
+   "ends_at_frames": true,
+   "last_end": 96000,
+   "overrun_objects": 0,
+   "blocks_shorter_than_interp": 0,
+   "tile_dec": {
+    "50000": 1
+   },
+   "unsorted_objects": 0
+  },
+  "c11_findings": [
+   "profile-id",
+   "profile-id"
+  ],
+  "c13_tones": [
+   null,
+   null,
+   null,
+   100.0,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   440.0,
+   880.0
+  ],
+  "c14_error": "create: bed channel Tfl is not allowed in a Dolby Atmos master ADM bed",
+  "c15_findings": [
+   "profile-sample-rate",
+   "profile-sample-rate"
+  ],
+  "c17_findings": [],
+  "c21_tones": [
+   null,
+   null,
+   null,
+   100.0,
+   600.0,
+   500.0,
+   null,
+   null,
+   null,
+   null,
+   440.0
+  ],
+  "renders": {
+   "fast-thd/render-report.json": {
+    "oadec vs dolby-ct @ 0+2+0": {
+     "identical": true,
+     "min_sdr_db": null,
+     "max_abs": 0
+    },
+    "oadec vs oadec-realramps @ 0+2+0": {
+     "identical": false,
+     "min_sdr_db": 17.392768069709998,
+     "max_abs": 1085480
+    },
+    "dolby-ct vs oadec-realramps @ 0+2+0": {
+     "identical": false,
+     "min_sdr_db": 17.392768069709998,
+     "max_abs": 1085480
+    },
+    "oadec vs dolby-ct @ 0+5+0": {
+     "identical": true,
+     "min_sdr_db": null,
+     "max_abs": 0
+    },
+    "oadec vs oadec-realramps @ 0+5+0": {
+     "identical": false,
+     "min_sdr_db": 8.820186861647514,
+     "max_abs": 1701467
+    },
+    "dolby-ct vs oadec-realramps @ 0+5+0": {
+     "identical": false,
+     "min_sdr_db": 8.820186861647514,
+     "max_abs": 1701467
+    },
+    "oadec vs dolby-ct @ 4+5+0": {
+     "identical": true,
+     "min_sdr_db": null,
+     "max_abs": 0
+    },
+    "oadec vs oadec-realramps @ 4+5+0": {
+     "identical": false,
+     "min_sdr_db": 8.8201864333279,
+     "max_abs": 1138504
+    },
+    "dolby-ct vs oadec-realramps @ 4+5+0": {
+     "identical": false,
+     "min_sdr_db": 8.8201864333279,
+     "max_abs": 1138504
+    },
+    "oadec vs dolby-ct @ 4+7+0": {
+     "identical": true,
+     "min_sdr_db": null,
+     "max_abs": 0
+    },
+    "oadec vs oadec-realramps @ 4+7+0": {
+     "identical": false,
+     "min_sdr_db": 6.85581978566966,
+     "max_abs": 969364
+    },
+    "dolby-ct vs oadec-realramps @ 4+7+0": {
+     "identical": false,
+     "min_sdr_db": 6.85581978566966,
+     "max_abs": 969364
+    }
+   },
+   "pihead/render-report-050.json": {
+    "oadec vs dolby-ct @ 0+5+0": {
+     "identical": true,
+     "min_sdr_db": null,
+     "max_abs": 0
+    },
+    "oadec vs oadec-realramps @ 0+5+0": {
+     "identical": false,
+     "min_sdr_db": 47.04669998998705,
+     "max_abs": 120972
+    },
+    "dolby-ct vs oadec-realramps @ 0+5+0": {
+     "identical": false,
+     "min_sdr_db": 47.04669998998705,
+     "max_abs": 120972
+    }
+   },
+   "pihead/render-report-470.json": {
+    "oadec vs dolby-ct @ 4+7+0": {
+     "identical": true,
+     "min_sdr_db": null,
+     "max_abs": 0
+    },
+    "oadec vs oadec-realramps @ 4+7+0": {
+     "identical": false,
+     "min_sdr_db": 36.53098328305199,
+     "max_abs": 186799
+    },
+    "dolby-ct vs oadec-realramps @ 4+7+0": {
+     "identical": false,
+     "min_sdr_db": 36.53098328305199,
+     "max_abs": 186799
+    },
+    "oadec vs dolby-ct @ 0+2+0": {
+     "identical": true,
+     "min_sdr_db": null,
+     "max_abs": 0
+    },
+    "oadec vs oadec-realramps @ 0+2+0": {
+     "identical": false,
+     "min_sdr_db": 63.017065704258066,
+     "max_abs": 58118
+    },
+    "dolby-ct vs oadec-realramps @ 0+2+0": {
+     "identical": false,
+     "min_sdr_db": 63.017065704258066,
+     "max_abs": 58118
+    }
+   }
+  },
+  "render_ct_total": 7,
+  "render_ct_identical": 7,
+  "render_scenes": [
+   "fast-thd",
+   "pihead"
+  ],
+  "render_realramp_sdr": {
+   "fast-thd": [
+    6.9,
+    17.4
+   ],
+   "pihead": [
+    36.5,
+    63.0
+   ]
+  },
+  "render_realramp_sdr_text": "fast-thd: 6.9-17.4 dB; pihead: 36.5-63.0 dB"
+ }
+}

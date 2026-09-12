@@ -1,0 +1,158 @@
+{
+  "utc": "2026-09-12T05:21:06Z",
+  "files": [
+    {
+      "file": "00-provenance.json",
+      "bytes": 5556,
+      "sha256": "a18640a1a3af7375bb8d47932a8e440231213a3ebea62a02aa0f2b1683339709",
+      "id": "00-provenance",
+      "title": "Provenance of the ADM audit",
+      "structural_result": null,
+      "semantic_result": null
+    },
+    {
+      "file": "01-spec-extracts.json",
+      "bytes": 26193,
+      "sha256": "bbe86be215872356584d8622c532fec7098228e0b723827267a99e53f1e7d5e2",
+      "id": "01-spec-extracts",
+      "title": "Verbatim specification extracts the audit rests on",
+      "structural_result": null,
+      "semantic_result": null
+    },
+    {
+      "file": "adm-batch-summary.json",
+      "bytes": 63207,
+      "sha256": "37f701aa1e66923ffc1db07987ceddba901f7eb6cd7b3463c8f821c162f59b0f",
+      "id": "adm-batch-summary",
+      "title": "Decode and compare summary for every TrueHD, E-AC-3 JOC and authored input",
+      "structural_result": "PASS",
+      "semantic_result": "PARTIAL"
+    },
+    {
+      "file": "adm-conformance-matrix.json",
+      "bytes": 36415,
+      "sha256": "e0c8c4af308ce072a394c43f2f0908c91c175f1993d0a79ce76484f3247f7726",
+      "id": null,
+      "title": null,
+      "structural_result": null,
+      "semantic_result": null
+    },
+    {
+      "file": "adm-container-validation.json",
+      "bytes": 32122,
+      "sha256": "517af65ba45b149142e3a72026bd2c04fc5676e3cdf5df6fb494552bdd6da493",
+      "id": "adm-container-validation",
+      "title": "BW64/RF64 container validation: our walker, ffprobe, bwf_info, atmos_info; > 4 GiB files and the two size thresholds",
+      "structural_result": "PASS",
+      "semantic_result": null
+    },
+    {
+      "file": "adm-coordinate-diff.json",
+      "bytes": 298036,
+      "sha256": "2c291455b267853aaac1a15c049a2adf80fac1367cf9043b4fae9887e6391fbf",
+      "id": "adm-coordinate-diff",
+      "title": "Coordinates: DAMF vs ADM position equality at float32 precision, and the metadata-domain trajectory deviation caused by the fixed interpolation length",
+      "structural_result": null,
+      "semantic_result": "PASS-TOL"
+    },
+    {
+      "file": "adm-dolby-reference.json",
+      "bytes": 4132729,
+      "sha256": "5b6b9e076930bce64a9bedbf1073fd7991fb3272e72fb17ad71211a5a0e50559",
+      "id": "adm-dolby-reference",
+      "title": "Dolby reference leg: Conversion Tool and DEE DAMF->ADM on controlled stimuli, ADM->DAMF read-back, atmos_info and bwf_info verdicts",
+      "structural_result": null,
+      "semantic_result": null
+    },
+    {
+      "file": "adm-event-timing.json",
+      "bytes": 27081,
+      "sha256": "5d5dd81a81a1d2e988815b3287c110ac40bde0705c6f0c43db4b74e49bcbebce",
+      "id": "adm-event-timing",
+      "title": "Event timing: DAMF samplePos vs ADM rtime (integer samples), block tiling, timecode re-encoding, and raw OAMD update times including 32 x block_offset_factor",
+      "structural_result": "PASS",
+      "semantic_result": "PASS"
+    },
+    {
+      "file": "adm-gain-diff.json",
+      "bytes": 343081,
+      "sha256": "3cf4a0a4206b6fcef94d39cbb6ff3724801d42453795c958716f0e1d36458a23",
+      "id": "adm-gain-diff",
+      "title": "Gain, importance and bed events: what DAMF carries, what oadec's ADM carries, what Dolby's converters carry",
+      "structural_result": "PASS",
+      "semantic_result": "PARTIAL"
+    },
+    {
+      "file": "adm-harness.json",
+      "bytes": 694152,
+      "sha256": "c338343165b1d760ca70da88e1cd03d68ea8a59a5f9538f59c9af5d867f88a50",
+      "id": "adm-harness",
+      "title": "Writer-level cases: the same controlled events through AdmWriter and DamfWriter (and through Dolby's converter)",
+      "structural_result": null,
+      "semantic_result": null
+    },
+    {
+      "file": "adm-interpolation-diff.json",
+      "bytes": 161166,
+      "sha256": "ab074f89dc139027dd7a9af09d69ac8e41f492b478356b37680dbb057eb24d21",
+      "id": "adm-interpolation-diff",
+      "title": "Interpolation: DAMF rampLength vs ADM interpolationLength per block, and the resulting trajectory deviation",
+      "structural_result": "PASS",
+      "semantic_result": "PASS-TOL"
+    },
+    {
+      "file": "adm-long-duration.json",
+      "bytes": 5850,
+      "sha256": "c02be559c5209db33c34bfae1a54bb83b3788f438d9fc411c7a77db9f9da558f",
+      "id": "adm-long-duration",
+      "title": "Whole-film Pi (1:24:08, 242 322 080 frames): ledger, timing drift, RF64 container",
+      "structural_result": "PASS",
+      "semantic_result": "PASS"
+    },
+    {
+      "file": "adm-negative-controls.json",
+      "bytes": 40731,
+      "sha256": "282ef87c38d963c04d94348d47c3aecea529693310faafc30961af1af1b57937",
+      "id": "adm-negative-controls",
+      "title": "Negative controls: injected defects and the detectors that fired",
+      "structural_result": null,
+      "semantic_result": null
+    },
+    {
+      "file": "adm-object-pcm-compare.json",
+      "bytes": 344734,
+      "sha256": "b4d5d97ed5797ded0540deeb9a0093a2d53adca12d57546e4f9798fa331e86f4",
+      "id": "adm-object-pcm-compare",
+      "title": "Per-track PCM identity between DAMF audio and ADM data, with the declared pairing verified against the full pairing matrix",
+      "structural_result": "PASS",
+      "semantic_result": "PASS"
+    },
+    {
+      "file": "adm-reference-graph.json",
+      "bytes": 17447,
+      "sha256": "344e1608458a178fa4b7661b266e9918c66540f324041db595332ed606d58b68",
+      "id": "adm-reference-graph",
+      "title": "Reference-graph, chna and Dolby-profile rule findings for every ADM file (empty lists = no finding)",
+      "structural_result": "PASS",
+      "semantic_result": null
+    },
+    {
+      "file": "adm-render-comparison.json",
+      "bytes": 71036,
+      "sha256": "8e9a16373a8a8f2aa0c8acc56e2438050992d65f8f39743e62ebe0f1254b75dc",
+      "id": "adm-render-comparison",
+      "title": "EBU ADM Renderer (BS.2127) speaker outputs: oadec ADM vs Dolby ADM vs a real-ramp variant",
+      "structural_result": null,
+      "semantic_result": null
+    },
+    {
+      "file": "adm-track-mapping.json",
+      "bytes": 290984,
+      "sha256": "48f876a8ac8bc077f29731784dbd25366926b3e47a77815e43c83a6d2c283918",
+      "id": "adm-track-mapping",
+      "title": "chna -> audioTrackUID -> audioTrackFormat -> audioStreamFormat -> audioChannelFormat chain per PCM track, against the DAMF declaration",
+      "structural_result": "PASS",
+      "semantic_result": "PASS"
+    }
+  ]
+}

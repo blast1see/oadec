@@ -1,0 +1,1430 @@
+{
+  "id": "adm-negative-controls",
+  "title": "Negative controls: injected defects and the detectors that fired",
+  "topics": [
+    "negative-controls"
+  ],
+  "evidence_class": "MEASURED",
+  "structural_result": null,
+  "semantic_result": null,
+  "classification": "tool validation",
+  "method": "run_negative_controls.py on the pi-head50m ADM/DAMF pair",
+  "inputs": [
+    {
+      "path": "E:\\oadec-work\\audit\\adm\\work\\negative\\negative-controls.json",
+      "bytes": 34103,
+      "sha256": "3cbf9d3c2f786125035afae9de39ca4c4610228a43f82c93ff495aa9a02b5c84",
+      "mtime": "2026-09-11T21:42:37Z"
+    }
+  ],
+  "tolerance": null,
+  "generated_by": "docs/audit/adm/tools/build_evidence.py",
+  "utc": "2026-09-12T05:21:06Z",
+  "adm": "E:\\oadec-work\\audit\\adm\\work\\pi-head50m\\default\\pi-head50m.wav",
+  "damf": "E:\\oadec-work\\audit\\adm\\work\\pi-head50m\\default\\pi-head50m",
+  "baseline": {
+    "ledger_classes": {
+      "bed_event": 2,
+      "matched": 119,
+      "trailing_popped": 2,
+      "inexpressible_change": 9
+    },
+    "defect_classes": {},
+    "defect_fields": {},
+    "loss": {
+      "ramp": 117
+    },
+    "tiling": {
+      "gaps": 0,
+      "overlaps": 0,
+      "starts_at_zero": true,
+      "ends_at_frames": true,
+      "blocks_shorter_than_interp": 0
+    },
+    "adm_findings": [],
+    "damf_findings": [],
+    "pcm_identical": 21,
+    "pcm_pairs": 21,
+    "pcm_first_diff": {},
+    "matrix_confirmed": true,
+    "timecode_mismatches": 0,
+    "selfcheck_max": 0.0,
+    "trajectory_max_e": {
+      "1": 0.0,
+      "2": 0.40511593963750003,
+      "3": 0.0,
+      "4": 0.8372395833333334,
+      "5": 0.05581597511302084,
+      "6": 0.02700775274244792,
+      "7": 0.8372395833333334,
+      "8": 0.05581597511302084,
+      "9": 0.8372395833333334,
+      "10": 1.6744791666666667,
+      "11": 1.6744791666666667
+    },
+    "trajectory_mean_e": {
+      "1": 0.0,
+      "2": 0.1078408998277778,
+      "3": 0.0,
+      "4": 0.10964764410539109,
+      "5": 0.008027737215747545,
+      "6": 0.006023685046170343,
+      "7": 0.027175914927189734,
+      "8": 0.005936834454363726,
+      "9": 0.018545821778779045,
+      "10": 0.059504976626319435,
+      "11": 0.04102045817256028
+    },
+    "presence_differences": 0
+  },
+  "controls": [
+    {
+      "id": "M-A1",
+      "description": "rtime of block 1 of AC_00031002 +1 sample (neighbour durations adjusted)",
+      "expected_detector": "ledger.time_mismatch == 1 (the shifted state also leaves the ramp-loss tally: expected)",
+      "fired": true,
+      "metric": {
+        "time_mismatch": 1
+      },
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "time_mismatch": 1,
+          "inexpressible_change": 8
+        },
+        "defect_classes": {
+          "time_mismatch": 1
+        },
+        "defect_fields": {
+          "": 1
+        },
+        "loss": {
+          "ramp": 116
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.1078408998277778,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A2",
+      "description": "X of block 1 of AC_00031002 += 0.001",
+      "expected_detector": "ledger.value_mismatch{pos} == 1",
+      "fired": true,
+      "metric": {
+        "pos": 1
+      },
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "value_mismatch": 1,
+          "inexpressible_change": 8
+        },
+        "defect_classes": {
+          "value_mismatch": 1
+        },
+        "defect_fields": {
+          "pos": 1
+        },
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.10795994744682541,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A2t",
+      "description": "same file at pos_tol 0.01 must NOT fire",
+      "expected_detector": "tolerance sanity (see M-A2t-tol)",
+      "fired": true,
+      "metric": "n/a",
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "value_mismatch": 1,
+          "inexpressible_change": 8
+        },
+        "defect_classes": {
+          "value_mismatch": 1
+        },
+        "defect_fields": {
+          "pos": 1
+        },
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.10795994744682541,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A2t-tol",
+      "description": "M-A2 file compared at pos_tol 0.01",
+      "expected_detector": "no value_mismatch at 0.01",
+      "fired": true,
+      "metric": {}
+    },
+    {
+      "id": "M-A3",
+      "description": "block lists of AC_00031002 and AC_00031004 swapped (structure untouched)",
+      "expected_detector": "ledger.value_mismatch on both objects, structural findings unchanged",
+      "fired": true,
+      "metric": {
+        "value_mismatch": 18,
+        "unexplained_extra": 3,
+        "unexplained_missing": 3
+      },
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 100,
+          "trailing_popped": 2,
+          "value_mismatch": 18,
+          "unexplained_extra": 3,
+          "unexplained_missing": 3,
+          "inexpressible_change": 7
+        },
+        "defect_classes": {
+          "value_mismatch": 18,
+          "unexplained_extra": 3,
+          "unexplained_missing": 3
+        },
+        "defect_fields": {
+          "pos": 21,
+          "": 3
+        },
+        "loss": {
+          "ramp": 114
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 2.0,
+          "3": 0.0,
+          "4": 2.0,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 1.0340501674733333,
+          "3": 0.0,
+          "4": 1.01789391484321,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A4",
+      "description": "PCM of tracks 11 and 13 swapped",
+      "expected_detector": "pcm identical pairs -2 and pairing matrix not as declared",
+      "fired": true,
+      "metric": {
+        "identical": 19,
+        "matrix_confirmed": false
+      },
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "defect_classes": {},
+        "defect_fields": {},
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [],
+        "pcm_identical": 19,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {
+          "object:obj2": 0,
+          "object:obj4": 0
+        },
+        "matrix_confirmed": false,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.1078408998277778,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A5",
+      "description": "interior block 1 of AC_00031002 deleted",
+      "expected_detector": "tiling gap +1 and unexplained_missing == 1",
+      "fired": true,
+      "metric": {
+        "gaps": 1,
+        "defects": {
+          "unexplained_missing": 1
+        }
+      },
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "unexplained_missing": 1,
+          "inexpressible_change": 8
+        },
+        "defect_classes": {
+          "unexplained_missing": 1
+        },
+        "defect_fields": {
+          "rampLength": 1
+        },
+        "loss": {
+          "ramp": 116
+        },
+        "tiling": {
+          "gaps": 1,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.11047116567723579,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A6",
+      "description": "interpolationLength of block 1 of AC_00031002 := 1536 samples (the real ramp)",
+      "expected_detector": "ledger.loss.ramp -1 and the trajectory statistics of that object change (profile checker also flags the non-250 length: expected)",
+      "fired": true,
+      "metric": {
+        "loss": {
+          "ramp": 116
+        },
+        "mean_e": [
+          0.1078408998277778,
+          0.11047116567723579
+        ]
+      },
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "defect_classes": {},
+        "defect_fields": {},
+        "loss": {
+          "ramp": 116
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [
+          "profile-interpolation-length"
+        ],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.11047116567723579,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A7",
+      "description": "chna entry of the first object track points at a non-existent track format",
+      "expected_detector": "axml/chna finding chna-dangling",
+      "fired": true,
+      "metric": [
+        "chna-dangling",
+        "chna-inconsistent"
+      ],
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "defect_classes": {},
+        "defect_fields": {},
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [
+          "chna-dangling",
+          "chna-inconsistent"
+        ],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.1078408998277778,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A8",
+      "description": "data chunk shortened by 3 bytes (not a whole frame)",
+      "expected_detector": "riff finding data-partial-frame",
+      "fired": true,
+      "metric": [
+        "data-partial-frame"
+      ],
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "defect_classes": {},
+        "defect_fields": {},
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [
+          "data-partial-frame"
+        ],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.1078408998277778,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A9a",
+      "description": "non-zero Z removed from block 4 of AC_00031005",
+      "expected_detector": "ledger.value_mismatch{pos} == 1 (z)",
+      "fired": true,
+      "metric": {
+        "pos": 1
+      },
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 118,
+          "trailing_popped": 2,
+          "inexpressible_change": 9,
+          "value_mismatch": 1
+        },
+        "defect_classes": {
+          "value_mismatch": 1
+        },
+        "defect_fields": {
+          "pos": 1
+        },
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.06666667,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.1078408998277778,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.012374823479942804,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A9b",
+      "description": "<gain>1.0</gain> added to active block 1 of AC_00031002 (effective mode: no new defect)",
+      "expected_detector": "no new defect in effective mode (the profile checker flags the lone gain element: expected, measured by M-A9bs)",
+      "fired": true,
+      "metric": {},
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "defect_classes": {},
+        "defect_fields": {},
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [
+          "profile-inactive-encoding"
+        ],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.1078408998277778,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A9bs",
+      "description": "same file: the profile checker must flag gain on an active object",
+      "expected_detector": "profile finding profile-gain-on-active or profile-inactive-encoding",
+      "fired": true,
+      "metric": [
+        "profile-inactive-encoding"
+      ],
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "defect_classes": {},
+        "defect_fields": {},
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [
+          "profile-inactive-encoding"
+        ],
+        "damf_findings": [],
+        "pcm_identical": 0,
+        "pcm_pairs": 0,
+        "pcm_first_diff": {},
+        "matrix_confirmed": null,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.1078408998277778,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A10",
+      "description": "inactive block importance 0 -> 5",
+      "fired": null,
+      "metric": "N/T: no inactive block in this file"
+    },
+    {
+      "id": "M-A11",
+      "description": "fifth decimal of rtime of block 1 of AC_00031002 +1 (10 us, less than half a sample)",
+      "expected_detector": "timecode re-encode mismatch +1 while the sample position still matches",
+      "fired": true,
+      "metric": {
+        "re_encode_mismatches": 1,
+        "defects": {}
+      },
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "defect_classes": {},
+        "defect_fields": {},
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 1,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.1078408998277778,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A12",
+      "description": "file truncated inside the axml chunk",
+      "expected_detector": "riff.ContainerError",
+      "fired": true,
+      "metric": "ContainerError: chunk 'axml' at 319775480 declares 81695 bytes but only 40847 remain",
+      "exception": "ContainerError: chunk 'axml' at 319775480 declares 81695 bytes but only 40847 remain"
+    },
+    {
+      "id": "M-A13",
+      "description": "audioTrackUID sampleRate of the first object := 44100",
+      "expected_detector": "finding uid-sample-rate",
+      "fired": true,
+      "metric": [
+        "profile-sample-rate",
+        "uid-sample-rate"
+      ],
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "defect_classes": {},
+        "defect_fields": {},
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [
+          "profile-sample-rate",
+          "uid-sample-rate"
+        ],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.1078408998277778,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-A14",
+      "description": "+1 LSB on sample 1000 of track 11",
+      "expected_detector": "exactly one pair not identical, first_diff == 1000",
+      "fired": true,
+      "metric": {
+        "object:obj2": 1000
+      },
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "defect_classes": {},
+        "defect_fields": {},
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [],
+        "pcm_identical": 20,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {
+          "object:obj2": 1000
+        },
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.1078408998277778,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-D1",
+      "description": "DAMF: the samplePos line of the second event of the first object deleted",
+      "expected_detector": "damf finding damf-no-samplepos",
+      "fired": true,
+      "metric": [
+        "damf-no-samplepos"
+      ],
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "unexplained_extra": 1,
+          "inexpressible_change": 8
+        },
+        "defect_classes": {
+          "unexplained_extra": 1
+        },
+        "defect_fields": {
+          "": 1
+        },
+        "loss": {
+          "ramp": 116
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [
+          "damf-no-samplepos"
+        ],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.42193547865040004,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.03875556165111111,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-D2",
+      "description": "DAMF: pos removed from the first event of the first object",
+      "expected_detector": "damf finding damf-first-event-incomplete",
+      "fired": true,
+      "metric": [
+        "damf-first-event-incomplete"
+      ],
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 118,
+          "trailing_popped": 2,
+          "value_mismatch": 2,
+          "inexpressible_change": 8
+        },
+        "defect_classes": {
+          "value_mismatch": 2
+        },
+        "defect_fields": {
+          "pos": 2
+        },
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [
+          "damf-first-event-incomplete"
+        ],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 1.0,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.3539656518119048,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-D3",
+      "description": "DAMF: sampleRate 44100 in the metadata",
+      "expected_detector": "damf finding damf-rate",
+      "fired": true,
+      "metric": [
+        "damf-rate"
+      ],
+      "mutated_summary": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "defect_classes": {},
+        "defect_fields": {},
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [
+          "damf-rate"
+        ],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.1078408998277778,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      },
+      "specificity": []
+    },
+    {
+      "id": "M-T1",
+      "description": "trajectory evaluator against a synthetic faithful ADM (interpolationLength = ramp) built from the DAMF",
+      "expected_detector": "max_e == 0 on the faithful file, non-zero on the written one",
+      "fired": true,
+      "metric": {
+        "selfcheck_max": 0.0,
+        "written_max_e": 1.6744791666666667
+      }
+    },
+    {
+      "id": "P-0",
+      "description": "positive control: the unmutated pair",
+      "expected_detector": "no defects, all PCM pairs identical",
+      "fired": true,
+      "metric": {
+        "ledger_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "defect_classes": {},
+        "defect_fields": {},
+        "loss": {
+          "ramp": 117
+        },
+        "tiling": {
+          "gaps": 0,
+          "overlaps": 0,
+          "starts_at_zero": true,
+          "ends_at_frames": true,
+          "blocks_shorter_than_interp": 0
+        },
+        "adm_findings": [],
+        "damf_findings": [],
+        "pcm_identical": 21,
+        "pcm_pairs": 21,
+        "pcm_first_diff": {},
+        "matrix_confirmed": true,
+        "timecode_mismatches": 0,
+        "selfcheck_max": 0.0,
+        "trajectory_max_e": {
+          "1": 0.0,
+          "2": 0.40511593963750003,
+          "3": 0.0,
+          "4": 0.8372395833333334,
+          "5": 0.05581597511302084,
+          "6": 0.02700775274244792,
+          "7": 0.8372395833333334,
+          "8": 0.05581597511302084,
+          "9": 0.8372395833333334,
+          "10": 1.6744791666666667,
+          "11": 1.6744791666666667
+        },
+        "trajectory_mean_e": {
+          "1": 0.0,
+          "2": 0.1078408998277778,
+          "3": 0.0,
+          "4": 0.10964764410539109,
+          "5": 0.008027737215747545,
+          "6": 0.006023685046170343,
+          "7": 0.027175914927189734,
+          "8": 0.005936834454363726,
+          "9": 0.018545821778779045,
+          "10": 0.059504976626319435,
+          "11": 0.04102045817256028
+        },
+        "presence_differences": 0
+      }
+    }
+  ],
+  "all_fired": true,
+  "not_testable": [
+    "M-A10"
+  ],
+  "specificity_violations": {}
+}

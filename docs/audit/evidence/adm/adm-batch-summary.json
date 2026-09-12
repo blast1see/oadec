@@ -1,0 +1,1615 @@
+{
+  "id": "adm-batch-summary",
+  "title": "Decode and compare summary for every TrueHD, E-AC-3 JOC and authored input",
+  "topics": [
+    "batch"
+  ],
+  "evidence_class": "MEASURED",
+  "structural_result": "PASS",
+  "semantic_result": "PARTIAL",
+  "classification": "real material: 0 ledger defects, PCM identical; ramp/bed/importance losses counted separately",
+  "method": "run_batch_decode.py -> run_decode.py + run_compare.py",
+  "inputs": [
+    {
+      "path": "E:\\oadec-work\\audit\\adm\\work\\thd\\batch-summary.json",
+      "bytes": 18331,
+      "sha256": "8c1f7592a8e127a0933773c79810d84970d9d1c8e9c0d1fbdbd919e96ac0b51a",
+      "mtime": "2026-09-11T21:46:07Z"
+    },
+    {
+      "path": "E:\\oadec-work\\audit\\adm\\work\\joc\\batch-summary.json",
+      "bytes": 30493,
+      "sha256": "f4fbd0130bc20539f2aab90bd13714d2384bfbbc04049323d8c4b5cafc8be648",
+      "mtime": "2026-09-11T21:47:32Z"
+    }
+  ],
+  "tolerance": null,
+  "generated_by": "docs/audit/adm/tools/build_evidence.py",
+  "utc": "2026-09-12T05:21:06Z",
+  "batches": {
+    "thd": {
+      "talktome-head": {
+        "input": "E:/oadec-work/clips/talktome-head.thd",
+        "default": {
+          "damf": {
+            "exit": 0,
+            "stdout": "j13 obj14 obj15\nspeed: 0.68 s (59x realtime)\nDAMF: 1920000 frames x 25 channels (0:00:40.000) in E:/oadec-work/audit/adm/work/thd\\talktome-head\\default\\talktome-head.atmos.audio\nmetadata: 1250 payloads in 1250 access units, 30 events (0 restating payloads, 0 out-of-order events), 0 payload errors",
+            "record": "E:/oadec-work/audit/adm/work/thd\\talktome-head\\default\\talktome-head.damf.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.687
+          },
+          "adm": {
+            "exit": 0,
+            "stdout": "(61x realtime)\nADM BWF: 1920000 frames x 25 channels (0:00:40.000) in E:/oadec-work/audit/adm/work/thd\\talktome-head\\default\\talktome-head.wav, 29 object blocks, 144050638 bytes\nmetadata: 1250 payloads in 1250 access units, 30 events (0 restating payloads, 0 out-of-order events), 0 payload errors",
+            "record": "E:/oadec-work/audit/adm/work/thd\\talktome-head\\default\\talktome-head.adm.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.671
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 29
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 14
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 58,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 0,
+              "inexact_duration": 0,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 0.2700772761250001,
+              "3": 0.8372395833333334,
+              "4": 0.8372395833333334,
+              "5": 1.6744791666666667,
+              "6": 1.6744791666666667,
+              "7": 0.8372395833333334,
+              "8": 1.6744791666666667,
+              "9": 1.6744791666666667,
+              "10": 0.8372395833333334,
+              "11": 1.6744791666666667,
+              "12": 1.6744791666666667,
+              "13": 1.6744791666666667,
+              "14": 1.6744791666666667,
+              "15": 1.6744791666666667
+            },
+            "frames": 1920000,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "shaun-head20m": {
+        "input": "E:/oadec-work/clips/shaun-head20m.thd",
+        "default": {
+          "damf": {
+            "exit": 1,
+            "stdout": "20m\\default\\shaun-head20m.atmos.audio\nmetadata: 1266 payloads in 1266 access units, 260 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 46 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/thd\\shaun-head20m\\default\\shaun-head20m.damf.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.625
+          },
+          "adm": {
+            "exit": 1,
+            "stdout": "v, 251 object blocks, 122574188 bytes\nmetadata: 1266 payloads in 1266 access units, 260 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 46 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/thd\\shaun-head20m\\default\\shaun-head20m.adm.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.546
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 2,
+              "matched": 247,
+              "trailing_popped": 7,
+              "inexpressible_change": 4
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 240
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 21,
+            "pcm_pairs": 21,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 502,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 0,
+              "inexact_duration": 11,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 0.0,
+              "3": 0.0,
+              "4": 0.0,
+              "5": 0.0,
+              "6": 0.0,
+              "7": 0.8372395833333334,
+              "8": 0.0,
+              "9": 0.8372395833333334,
+              "10": 1.6474714632703125,
+              "11": 1.512432855502604
+            },
+            "frames": 1943480,
+            "channels": 21,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "kingsman-h": {
+        "input": "E:/oadec-work/audit/tmp/kingsman-h.thd",
+        "default": {
+          "damf": {
+            "exit": 1,
+            "stdout": "gsman-h\\default\\kingsman-h.atmos.audio\nmetadata: 356 payloads in 356 access units, 124 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 658 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/thd\\kingsman-h\\default\\kingsman-h.damf.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.313
+          },
+          "adm": {
+            "exit": 1,
+            "stdout": "wav, 119 object blocks, 37673970 bytes\nmetadata: 356 payloads in 356 access units, 124 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 658 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/thd\\kingsman-h\\default\\kingsman-h.adm.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.187
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 3,
+              "matched": 95,
+              "inexpressible_change": 24,
+              "trailing_popped": 2
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 106
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 23,
+            "pcm_pairs": 23,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 238,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 12,
+              "inexact_duration": 24,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.39071180704635416,
+              "2": 1.3773941324281251,
+              "3": 0.8372395833333334,
+              "4": 0.7292086719067709,
+              "5": 1.215347820819271,
+              "6": 0.7292086761067709,
+              "7": 1.5394405550989583,
+              "8": 0.999285948359375,
+              "9": 1.215347820819271,
+              "10": 1.3773941324281251,
+              "11": 1.6744791666666667,
+              "12": 1.6744791666666667,
+              "13": 0.0
+            },
+            "frames": 544800,
+            "channels": 23,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "knivesout-h": {
+        "input": "E:/oadec-work/audit/tmp/knivesout-h.thd",
+        "default": {
+          "damf": {
+            "exit": 1,
+            "stdout": "out-h\\default\\knivesout-h.atmos.audio\nmetadata: 1555 payloads in 1555 access units, 44 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 198 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/thd\\knivesout-h\\default\\knivesout-h.damf.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.766
+          },
+          "adm": {
+            "exit": 1,
+            "stdout": "av, 35 object blocks, 150392022 bytes\nmetadata: 1555 payloads in 1555 access units, 44 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 198 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/thd\\knivesout-h\\default\\knivesout-h.adm.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.641
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 3,
+              "matched": 19,
+              "trailing_popped": 6,
+              "inexpressible_change": 16
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 24
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 21,
+            "pcm_pairs": 21,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 70,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 8,
+              "inexact_duration": 16,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 0.8372395833333334,
+              "3": 1.6744791666666667,
+              "4": 1.6744791666666667,
+              "5": 1.6744791666666667,
+              "6": 1.6744791666666667,
+              "7": 0.8372395833333334,
+              "8": 1.6744791666666667,
+              "9": 0.8372395833333334,
+              "10": 0.0,
+              "11": 0.0
+            },
+            "frames": 2386440,
+            "channels": 21,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "braveheart-h": {
+        "input": "E:/oadec-work/audit/tmp/braveheart-h.thd",
+        "default": {
+          "damf": {
+            "exit": 1,
+            "stdout": "art-h\\default\\braveheart-h.atmos.audio\nmetadata: 756 payloads in 756 access units, 133 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 312 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/thd\\braveheart-h\\default\\braveheart-h.damf.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.359
+          },
+          "adm": {
+            "exit": 1,
+            "stdout": "wav, 132 object blocks, 73232372 bytes\nmetadata: 756 payloads in 756 access units, 133 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 312 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/thd\\braveheart-h\\default\\braveheart-h.adm.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.328
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 132
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 121
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 21,
+            "pcm_pairs": 21,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 264,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 0,
+              "inexact_duration": 0,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 1.6744791666666667,
+              "3": 0.8372395833333334,
+              "4": 1.6744791666666667,
+              "5": 1.6744791666666667,
+              "6": 0.8372395833333334,
+              "7": 1.6744791666666667,
+              "8": 0.4051159375270833,
+              "9": 1.6744791666666667,
+              "10": 1.6744791666666667,
+              "11": 1.6744791666666667
+            },
+            "frames": 1161120,
+            "channels": 21,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "thd-96k-revenant": {
+        "input": "E:/oadec-work/clips/thd-96k-revenant.thd",
+        "default": {
+          "damf": {
+            "exit": 1,
+            "stdout": "exit 2 in 0.4s; 0 output file(s); record E:/oadec-work/audit/adm/work/thd\\thd-96k-revenant\\default\\thd-96k-revenant.damf.run.json\nerror: the stream has no 16-channel presentation (no extra channel meaning)",
+            "record": "E:/oadec-work/audit/adm/work/thd\\thd-96k-revenant\\default\\thd-96k-revenant.damf.run.json",
+            "oadec_exit": 2,
+            "seconds": 0.438
+          },
+          "adm": {
+            "exit": 1,
+            "stdout": "exit 2 in 0.0s; 0 output file(s); record E:/oadec-work/audit/adm/work/thd\\thd-96k-revenant\\default\\thd-96k-revenant.adm.run.json\nerror: the stream has no 16-channel presentation (no extra channel meaning)",
+            "record": "E:/oadec-work/audit/adm/work/thd\\thd-96k-revenant\\default\\thd-96k-revenant.adm.run.json",
+            "oadec_exit": 2,
+            "seconds": 0.016
+          },
+          "compare": {
+            "error": "FileNotFoundError: [Errno 2] No such file or directory: 'E:/oadec-work/audit/adm/work/thd\\\\thd-96k-revenant\\\\default\\\\thd-96k-revenant.atmos'"
+          }
+        }
+      },
+      "scene-thd": {
+        "input": "E:/oadec-work/audit/remediation/truth/scene-thd.mlp",
+        "default": {
+          "damf": {
+            "exit": 0,
+            "stdout": "11 obj12 obj13 obj14 obj15\nspeed: 0.17 s (60x realtime)\nDAMF: 480000 frames x 25 channels (0:00:10.000) in E:/oadec-work/audit/adm/work/thd\\scene-thd\\default\\scene-thd.atmos.audio\nmetadata: 313 payloads in 313 access units, 45 events (0 restating payloads, 0 out-of-order events), 0 payload errors",
+            "record": "E:/oadec-work/audit/adm/work/thd\\scene-thd\\default\\scene-thd.damf.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.188
+          },
+          "adm": {
+            "exit": 0,
+            "stdout": "eed: 0.15 s (67x realtime)\nADM BWF: 480000 frames x 25 channels (0:00:10.000) in E:/oadec-work/audit/adm/work/thd\\scene-thd\\default\\scene-thd.wav, 28 object blocks, 36050666 bytes\nmetadata: 313 payloads in 313 access units, 45 events (0 restating payloads, 0 out-of-order events), 0 payload errors",
+            "record": "E:/oadec-work/audit/adm/work/thd\\scene-thd\\default\\scene-thd.adm.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.156
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 2,
+              "matched": 28,
+              "trailing_popped": 15
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 13
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 56,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 0,
+              "inexact_duration": 0,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 0.0,
+              "3": 0.0,
+              "4": 0.0,
+              "5": 0.0,
+              "6": 0.0,
+              "7": 0.0,
+              "8": 0.9722781965286459,
+              "9": 0.0,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 480000,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "gainsize-thd": {
+        "input": "E:/oadec-work/audit/remediation/truth/gainsize-thd.mlp",
+        "default": {
+          "damf": {
+            "exit": 0,
+            "stdout": "12 obj13 obj14 obj15\nspeed: 0.19 s (54x realtime)\nDAMF: 480000 frames x 25 channels (0:00:10.000) in E:/oadec-work/audit/adm/work/thd\\gainsize-thd\\default\\gainsize-thd.atmos.audio\nmetadata: 313 payloads in 313 access units, 32 events (0 restating payloads, 0 out-of-order events), 0 payload errors",
+            "record": "E:/oadec-work/audit/adm/work/thd\\gainsize-thd\\default\\gainsize-thd.damf.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.219
+          },
+          "adm": {
+            "exit": 0,
+            "stdout": ".17 s (60x realtime)\nADM BWF: 480000 frames x 25 channels (0:00:10.000) in E:/oadec-work/audit/adm/work/thd\\gainsize-thd\\default\\gainsize-thd.wav, 15 object blocks, 36045630 bytes\nmetadata: 313 payloads in 313 access units, 32 events (0 restating payloads, 0 out-of-order events), 0 payload errors",
+            "record": "E:/oadec-work/audit/adm/work/thd\\gainsize-thd\\default\\gainsize-thd.adm.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.172
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 2,
+              "matched": 15,
+              "trailing_popped": 15
+            },
+            "defects": 0,
+            "loss": {},
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 30,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 0,
+              "inexact_duration": 0,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 0.0,
+              "3": 0.0,
+              "4": 0.0,
+              "5": 0.0,
+              "6": 0.0,
+              "7": 0.0,
+              "8": 0.0,
+              "9": 0.0,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 480000,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "fast-thd": {
+        "input": "E:/oadec-work/audit/remediation/truth/fast-thd.mlp",
+        "default": {
+          "damf": {
+            "exit": 0,
+            "stdout": "11 obj12 obj13 obj14 obj15\nspeed: 0.19 s (53x realtime)\nDAMF: 480000 frames x 25 channels (0:00:10.000) in E:/oadec-work/audit/adm/work/thd\\fast-thd\\default\\fast-thd.atmos.audio\nmetadata: 313 payloads in 313 access units, 1578 events (0 restating payloads, 0 out-of-order events), 0 payload errors",
+            "record": "E:/oadec-work/audit/adm/work/thd\\fast-thd\\default\\fast-thd.damf.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.219
+          },
+          "adm": {
+            "exit": 0,
+            "stdout": "d: 0.17 s (60x realtime)\nADM BWF: 480000 frames x 25 channels (0:00:10.000) in E:/oadec-work/audit/adm/work/thd\\fast-thd\\default\\fast-thd.wav, 1566 object blocks, 36673872 bytes\nmetadata: 313 payloads in 313 access units, 1578 events (0 restating payloads, 0 out-of-order events), 0 payload errors",
+            "record": "E:/oadec-work/audit/adm/work/thd\\fast-thd\\default\\fast-thd.adm.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.171
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 2,
+              "matched": 1566,
+              "trailing_popped": 10
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 1551
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 3132,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 0,
+              "inexact_duration": 0,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 0.24306962379062502,
+              "3": 0.540154612384375,
+              "4": 0.6751932716416666,
+              "5": 0.8102318837645833,
+              "6": 0.0,
+              "7": 0.0,
+              "8": 0.5941700561114585,
+              "9": 0.0,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 480000,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      }
+    },
+    "joc": {
+      "talktome-joc-head": {
+        "input": "E:/oadec-work/clips/talktome-joc-head.ec3",
+        "default": {
+          "damf": {
+            "exit": 1,
+            "stdout": "yloads, 52 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.89 s (35x realtime)\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/joc\\talktome-joc-head\\default\\talktome-joc-head.damf.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.922
+          },
+          "adm": {
+            "exit": 1,
+            "stdout": "yloads, 52 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.84 s (37x realtime)\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/joc\\talktome-joc-head\\default\\talktome-joc-head.adm.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.844
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 51
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 36
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 102,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 36,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 1.3773941324281251,
+              "2": 1.3773941324281251,
+              "3": 1.3773941324281251,
+              "4": 0.7832241284338542,
+              "5": 1.5934559552812502,
+              "6": 1.5934559552812502,
+              "7": 0.7832241284338542,
+              "8": 1.5934559552812502,
+              "9": 1.5934559552812502,
+              "10": 1.5934559552812502,
+              "11": 0.0,
+              "12": 0.2700772761250001,
+              "13": 0.8372395833333334,
+              "14": 1.6474714632703125,
+              "15": 0.8372395833333334
+            },
+            "frames": 1498880,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "kingsman-joc-head": {
+        "input": "E:/oadec-work/clips/kingsman-joc-head.ec3",
+        "default": {
+          "damf": {
+            "exit": 1,
+            "stdout": "loads, 170 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 1.00 s (31x realtime)\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/joc\\kingsman-joc-head\\default\\kingsman-joc-head.damf.run.json",
+            "oadec_exit": 7,
+            "seconds": 1.188
+          },
+          "adm": {
+            "exit": 1,
+            "stdout": "loads, 170 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.84 s (37x realtime)\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/joc\\kingsman-joc-head\\default\\kingsman-joc-head.adm.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.86
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 169
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 154
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 338,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 154,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 1.1343246126890625,
+              "2": 0.39071180704635416,
+              "3": 0.6139757075984376,
+              "4": 0.7832241284338542,
+              "5": 0.7022009203036458,
+              "6": 1.4584173438135417,
+              "7": 0.7832241340890623,
+              "8": 1.2963709291807293,
+              "9": 1.1883400177541668,
+              "10": 1.1883400177541668,
+              "11": 1.6744791666666667,
+              "12": 0.0,
+              "13": 1.3773941324281251,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 1498880,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "disclosure-web-head": {
+        "input": "E:/oadec-work/clips/disclosure-web-head.ec3",
+        "default": {
+          "damf": {
+            "exit": 1,
+            "stdout": "yloads, 28 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.93 s (34x realtime)\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/joc\\disclosure-web-head\\default\\disclosure-web-head.damf.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.968
+          },
+          "adm": {
+            "exit": 1,
+            "stdout": "yloads, 28 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.85 s (37x realtime)\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/joc\\disclosure-web-head\\default\\disclosure-web-head.adm.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.86
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 27
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 12
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 54,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 12,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.8372395833333334,
+              "2": 0.0,
+              "3": 1.6744791666666667,
+              "4": 0.8372395833333334,
+              "5": 1.6744791666666667,
+              "6": 1.6744791666666667,
+              "7": 1.6744791666666667,
+              "8": 0.8372395833333334,
+              "9": 1.6744791666666667,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 1498880,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "greenbook-cfg4-head": {
+        "input": "E:/oadec-work/clips/greenbook-cfg4-head.ec3",
+        "default": {
+          "damf": {
+            "exit": 0,
+            "stdout": "n E:/oadec-work/audit/adm/work/joc\\greenbook-cfg4-head\\default\\greenbook-cfg4-head.atmos.audio\nmetadata: 1875 payloads, 23 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 1875 frames decoded, 0 decode errors, 2.41 s (25x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\greenbook-cfg4-head\\default\\greenbook-cfg4-head.damf.run.json",
+            "oadec_exit": 0,
+            "seconds": 2.469
+          },
+          "adm": {
+            "exit": 0,
+            "stdout": "m/work/joc\\greenbook-cfg4-head\\default\\greenbook-cfg4-head.wav, 22 object blocks, 216028714 bytes\nmetadata: 1875 payloads, 23 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 1875 frames decoded, 0 decode errors, 2.63 s (23x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\greenbook-cfg4-head\\default\\greenbook-cfg4-head.adm.run.json",
+            "oadec_exit": 0,
+            "seconds": 2.641
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 22
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 7
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 44,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 7,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 0.8372395833333334,
+              "3": 0.8372395833333334,
+              "4": 1.6744791666666667,
+              "5": 1.6744791666666667,
+              "6": 1.6744791666666667,
+              "7": 1.6744791666666667,
+              "8": 1.6744791666666667,
+              "9": 0.0,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 2879744,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "snatch-joc-head": {
+        "input": "E:/oadec-work/clips/snatch-joc-head.ec3",
+        "default": {
+          "damf": {
+            "exit": 0,
+            "stdout": "atmos.audio\nmetadata: 1250 payloads, 141 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\nsplices: 47 frames restarted the sequence counter, 0 did not follow the previous one\ncore: 1250 frames decoded, 0 decode errors, 1.17 s (34x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\snatch-joc-head\\default\\snatch-joc-head.damf.run.json",
+            "oadec_exit": 0,
+            "seconds": 1.218
+          },
+          "adm": {
+            "exit": 0,
+            "stdout": "74974 bytes\nmetadata: 1250 payloads, 141 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\nsplices: 47 frames restarted the sequence counter, 0 did not follow the previous one\ncore: 1250 frames decoded, 0 decode errors, 1.16 s (35x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\snatch-joc-head\\default\\snatch-joc-head.adm.run.json",
+            "oadec_exit": 0,
+            "seconds": 1.172
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 140
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 125
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 280,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 125,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.8372395833333334,
+              "2": 1.6744791666666667,
+              "3": 1.242355524115625,
+              "4": 1.6744791666666667,
+              "5": 0.37810818602395835,
+              "6": 0.9452704947598958,
+              "7": 1.6744791666666667,
+              "8": 0.8372395833333334,
+              "9": 1.6744791666666667,
+              "10": 1.6744791666666667,
+              "11": 1.6744791666666667,
+              "12": 1.6744791666666667,
+              "13": 1.6744791666666667,
+              "14": 1.6744791666666667,
+              "15": 0.0
+            },
+            "frames": 1919744,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "joc-steep-jackal": {
+        "input": "E:/oadec-work/clips/joc-steep-jackal.ec3",
+        "default": {
+          "damf": {
+            "exit": 0,
+            "stdout": "8.795) in E:/oadec-work/audit/adm/work/joc\\joc-steep-jackal\\default\\joc-steep-jackal.atmos.audio\nmetadata: 900 payloads, 38 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 900 frames decoded, 0 decode errors, 0.78 s (37x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\joc-steep-jackal\\default\\joc-steep-jackal.damf.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.828
+          },
+          "adm": {
+            "exit": 0,
+            "stdout": "audit/adm/work/joc\\joc-steep-jackal\\default\\joc-steep-jackal.wav, 37 object blocks, 103714016 bytes\nmetadata: 900 payloads, 38 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 900 frames decoded, 0 decode errors, 0.76 s (38x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\joc-steep-jackal\\default\\joc-steep-jackal.adm.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.765
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 37
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 22
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 74,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 22,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.8372395833333334,
+              "2": 0.0,
+              "3": 0.8372395833333334,
+              "4": 1.6744791666666667,
+              "5": 1.6744791666666667,
+              "6": 1.6744791666666667,
+              "7": 1.6744791666666667,
+              "8": 0.8372395833333334,
+              "9": 1.6744791666666667,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 1382144,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "extraction-nf-head": {
+        "input": "E:/oadec-work/clips/extraction-nf-head.ec3",
+        "default": {
+          "damf": {
+            "exit": 1,
+            "stdout": "yloads, 50 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.87 s (36x realtime)\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/joc\\extraction-nf-head\\default\\extraction-nf-head.damf.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.906
+          },
+          "adm": {
+            "exit": 1,
+            "stdout": "yloads, 50 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.85 s (37x realtime)\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/joc\\extraction-nf-head\\default\\extraction-nf-head.adm.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.859
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 49
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 34
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 98,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 34,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.8372395833333334,
+              "2": 0.0,
+              "3": 1.6744791666666667,
+              "4": 0.8372395833333334,
+              "5": 1.6744791666666667,
+              "6": 1.6744791666666667,
+              "7": 1.6744791666666667,
+              "8": 1.6744791666666667,
+              "9": 1.6744791666666667,
+              "10": 0.6751932170072917,
+              "11": 0.99928599949375,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 1498880,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "knivesout-joc-head": {
+        "input": "E:/oadec-work/clips/knivesout-joc-head.ec3",
+        "default": {
+          "damf": {
+            "exit": 1,
+            "stdout": "yloads, 36 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.90 s (35x realtime)\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/joc\\knivesout-joc-head\\default\\knivesout-joc-head.damf.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.937
+          },
+          "adm": {
+            "exit": 1,
+            "stdout": "yloads, 36 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.84 s (37x realtime)\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/joc\\knivesout-joc-head\\default\\knivesout-joc-head.adm.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.844
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 35
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 20
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 70,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 20,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 0.7832241284338542,
+              "3": 1.5394405550989583,
+              "4": 1.5394405550989583,
+              "5": 1.5934559552812502,
+              "6": 0.7832241284338542,
+              "7": 1.6474714632703125,
+              "8": 1.5934559552812502,
+              "9": 0.8372395833333334,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 1498880,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "glassonion-nf-head": {
+        "input": "E:/oadec-work/clips/glassonion-nf-head.ec3",
+        "default": {
+          "damf": {
+            "exit": 1,
+            "stdout": "yloads, 28 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.88 s (36x realtime)\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/joc\\glassonion-nf-head\\default\\glassonion-nf-head.damf.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.922
+          },
+          "adm": {
+            "exit": 1,
+            "stdout": "yloads, 28 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.82 s (38x realtime)\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults",
+            "record": "E:/oadec-work/audit/adm/work/joc\\glassonion-nf-head\\default\\glassonion-nf-head.adm.run.json",
+            "oadec_exit": 7,
+            "seconds": 0.843
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 27
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 12
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 54,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 12,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 0.8372395833333334,
+              "3": 1.6744791666666667,
+              "4": 1.6744791666666667,
+              "5": 1.6744791666666667,
+              "6": 1.6744791666666667,
+              "7": 1.6744791666666667,
+              "8": 0.8372395833333334,
+              "9": 0.8372395833333334,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 1498880,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "scene-joc": {
+        "input": "E:/oadec-work/audit/remediation/truth/scene-joc.ec3",
+        "default": {
+          "damf": {
+            "exit": 0,
+            "stdout": "annels (0:00:10.011) in E:/oadec-work/audit/adm/work/joc\\scene-joc\\default\\scene-joc.atmos.audio\nmetadata: 313 payloads, 30 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.27 s (37x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\scene-joc\\default\\scene-joc.damf.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.313
+          },
+          "adm": {
+            "exit": 0,
+            "stdout": "/oadec-work/audit/adm/work/joc\\scene-joc\\default\\scene-joc.wav, 29 object blocks, 36089308 bytes\nmetadata: 313 payloads, 30 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.26 s (39x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\scene-joc\\default\\scene-joc.adm.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.265
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 29
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 14
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 58,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 14,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 0.0,
+              "3": 0.0,
+              "4": 0.0,
+              "5": 0.0,
+              "6": 0.0,
+              "7": 0.0,
+              "8": 1.6744791666666667,
+              "9": 0.0,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 480512,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "gainsize-joc": {
+        "input": "E:/oadec-work/audit/remediation/truth/gainsize-joc.ec3",
+        "default": {
+          "damf": {
+            "exit": 0,
+            "stdout": " (0:00:10.011) in E:/oadec-work/audit/adm/work/joc\\gainsize-joc\\default\\gainsize-joc.atmos.audio\nmetadata: 313 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.27 s (36x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\gainsize-joc\\default\\gainsize-joc.damf.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.328
+          },
+          "adm": {
+            "exit": 0,
+            "stdout": "-work/audit/adm/work/joc\\gainsize-joc\\default\\gainsize-joc.wav, 15 object blocks, 36084030 bytes\nmetadata: 313 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.25 s (39x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\gainsize-joc\\default\\gainsize-joc.adm.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.25
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 15
+            },
+            "defects": 0,
+            "loss": {},
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 30,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 0,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 0.0,
+              "3": 0.0,
+              "4": 0.0,
+              "5": 0.0,
+              "6": 0.0,
+              "7": 0.0,
+              "8": 0.0,
+              "9": 0.0,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 480512,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "fast-joc": {
+        "input": "E:/oadec-work/audit/remediation/truth/fast-joc.ec3",
+        "default": {
+          "damf": {
+            "exit": 0,
+            "stdout": "annels (0:00:10.011) in E:/oadec-work/audit/adm/work/joc\\fast-joc\\default\\fast-joc.atmos.audio\nmetadata: 313 payloads, 1567 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.27 s (37x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\fast-joc\\default\\fast-joc.damf.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.313
+          },
+          "adm": {
+            "exit": 0,
+            "stdout": "adec-work/audit/adm/work/joc\\fast-joc\\default\\fast-joc.wav, 1566 object blocks, 36712272 bytes\nmetadata: 313 payloads, 1567 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.26 s (38x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\fast-joc\\default\\fast-joc.adm.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.281
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 1566
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 1551
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 3132,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 1551,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 0.0,
+              "2": 0.24306962379062502,
+              "3": 0.540154612384375,
+              "4": 0.6751932716416666,
+              "5": 0.8102318837645833,
+              "6": 0.0,
+              "7": 0.0,
+              "8": 0.5941700561114585,
+              "9": 0.0,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 480512,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "onset-768": {
+        "input": "E:/oadec-work/audit/remediation/truth/onset-768.ec3",
+        "default": {
+          "damf": {
+            "exit": 0,
+            "stdout": "annels (0:00:10.011) in E:/oadec-work/audit/adm/work/joc\\onset-768\\default\\onset-768.atmos.audio\nmetadata: 313 payloads, 62 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.27 s (37x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\onset-768\\default\\onset-768.damf.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.313
+          },
+          "adm": {
+            "exit": 0,
+            "stdout": "/oadec-work/audit/adm/work/joc\\onset-768\\default\\onset-768.wav, 61 object blocks, 36099908 bytes\nmetadata: 313 payloads, 62 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.25 s (41x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\onset-768\\default\\onset-768.adm.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.266
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 61
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 46
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 122,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 46,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 1.6744791666666667,
+              "2": 1.6744791666666667,
+              "3": 1.6744791666666667,
+              "4": 1.6744791666666667,
+              "5": 1.6744791666666667,
+              "6": 0.0,
+              "7": 0.0,
+              "8": 0.0,
+              "9": 0.0,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 480512,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      },
+      "teleport-768": {
+        "input": "E:/oadec-work/audit/remediation/truth/teleport-768.ec3",
+        "default": {
+          "damf": {
+            "exit": 0,
+            "stdout": "0:00:10.011) in E:/oadec-work/audit/adm/work/joc\\teleport-768\\default\\teleport-768.atmos.audio\nmetadata: 313 payloads, 1262 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.28 s (36x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\teleport-768\\default\\teleport-768.damf.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.297
+          },
+          "adm": {
+            "exit": 0,
+            "stdout": "isma/audit/adm/work/joc\\teleport-768\\default\\teleport-768.wav, 1261 object blocks, 36519906 bytes\nmetadata: 313 payloads, 1262 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.26 s (39x realtime)",
+            "record": "E:/oadec-work/audit/adm/work/joc\\teleport-768\\default\\teleport-768.adm.run.json",
+            "oadec_exit": 0,
+            "seconds": 0.265
+          },
+          "compare": {
+            "classes": {
+              "bed_event": 1,
+              "matched": 1261
+            },
+            "defects": 0,
+            "loss": {
+              "ramp": 1246
+            },
+            "identity_ok": true,
+            "tiling": {
+              "gaps": 0,
+              "overlaps": 0,
+              "starts_at_zero": true,
+              "ends_at_frames": true,
+              "overrun_objects": 0,
+              "blocks_shorter_than_interp": 0
+            },
+            "pcm_identical": 25,
+            "pcm_pairs": 25,
+            "matrix_confirmed": true,
+            "timecodes": {
+              "timecodes": 2522,
+              "re_encode_mismatches": 0,
+              "inexact_rtime": 1246,
+              "inexact_duration": 15,
+              "examples": []
+            },
+            "adm_findings": [],
+            "damf_findings": [],
+            "max_e": {
+              "1": 1.215347820819271,
+              "2": 1.215347820819271,
+              "3": 0.6211778110539062,
+              "4": 0.5941700561114583,
+              "5": 0.0,
+              "6": 0.0,
+              "7": 0.0,
+              "8": 0.0,
+              "9": 0.0,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0,
+              "13": 0.0,
+              "14": 0.0,
+              "15": 0.0
+            },
+            "frames": 480512,
+            "channels": 25,
+            "sample_rate": 48000
+          }
+        }
+      }
+    }
+  },
+  "inputs_analysed": [
+    "joc/disclosure-web-head",
+    "joc/extraction-nf-head",
+    "joc/fast-joc",
+    "joc/gainsize-joc",
+    "joc/glassonion-nf-head",
+    "joc/greenbook-cfg4-head",
+    "joc/joc-steep-jackal",
+    "joc/kingsman-joc-head",
+    "joc/knivesout-joc-head",
+    "joc/onset-768",
+    "joc/scene-joc",
+    "joc/snatch-joc-head",
+    "joc/talktome-joc-head",
+    "joc/teleport-768",
+    "pi-full-film",
+    "pi-head50m/default",
+    "pi-head50m/nbc",
+    "thd/braveheart-h",
+    "thd/fast-thd",
+    "thd/gainsize-thd",
+    "thd/kingsman-h",
+    "thd/knivesout-h",
+    "thd/scene-thd",
+    "thd/shaun-head20m",
+    "thd/talktome-head"
+  ]
+}

@@ -1,0 +1,1461 @@
+{
+  "id": "adm-container-validation",
+  "title": "BW64/RF64 container validation: our walker, ffprobe, bwf_info, atmos_info; > 4 GiB files and the two size thresholds",
+  "topics": [
+    "container",
+    "rf64"
+  ],
+  "evidence_class": "MEASURED",
+  "structural_result": "PASS",
+  "semantic_result": null,
+  "classification": "RF64 FourCC (not BW64) noted",
+  "method": "run_container.py",
+  "inputs": [
+    {
+      "path": "E:\\oadec-work\\audit\\adm\\big\\pi\\container.json",
+      "bytes": 6001,
+      "sha256": "0ed343e1b60e6f6c86069768fb45cbf977d20bfc700e77e15902a18454e91d79",
+      "mtime": "2026-09-12T05:20:50Z"
+    }
+  ],
+  "tolerance": null,
+  "generated_by": "docs/audit/adm/tools/build_evidence.py",
+  "utc": "2026-09-12T05:21:06Z",
+  "pi-full-film": {
+    "file": {
+      "path": "E:\\oadec-work\\audit\\adm\\big\\pi\\pi.wav",
+      "bytes": 15278169042,
+      "sha256": null
+    },
+    "fourcc": "RF64",
+    "riff_size_field": 4294967295,
+    "file_size": 15278169042,
+    "ds64": {
+      "riff_size": 15278169034,
+      "data_size": 15266291040,
+      "sample_count": 242322080,
+      "table": []
+    },
+    "fmt": {
+      "format_tag": 1,
+      "channels": 21,
+      "sample_rate": 48000,
+      "byte_rate": 3024000,
+      "block_align": 63,
+      "bits_per_sample": 24,
+      "extension": ""
+    },
+    "data": {
+      "size_field": 4294967295,
+      "size": 15266291040,
+      "offset": 80,
+      "frames": 242322080,
+      "duration_s": 5048.376666666667
+    },
+    "chunks": [
+      {
+        "id": "ds64",
+        "offset": 12,
+        "size": 28,
+        "size_field": 28,
+        "padded": false,
+        "end": 48
+      },
+      {
+        "id": "fmt ",
+        "offset": 48,
+        "size": 16,
+        "size_field": 16,
+        "padded": false,
+        "end": 72
+      },
+      {
+        "id": "data",
+        "offset": 72,
+        "size": 15266291040,
+        "size_field": 4294967295,
+        "padded": false,
+        "end": 15266291120
+      },
+      {
+        "id": "axml",
+        "offset": 15266291120,
+        "size": 11876508,
+        "size_field": 11876508,
+        "padded": false,
+        "end": 15278167636
+      },
+      {
+        "id": "chna",
+        "offset": 15278167636,
+        "size": 844,
+        "size_field": 844,
+        "padded": false,
+        "end": 15278168488
+      },
+      {
+        "id": "dbmd",
+        "offset": 15278168488,
+        "size": 545,
+        "size_field": 545,
+        "padded": true,
+        "end": 15278169042
+      }
+    ],
+    "gt_4gib": true,
+    "programme_span_samples": {
+      "start": 0,
+      "end": 242322080,
+      "matches_frames": true
+    },
+    "container_findings": [],
+    "reference_and_profile_findings": [],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 12,
+      "audioPackFormat": 12,
+      "audioChannelFormat": 21,
+      "audioStreamFormat": 21,
+      "audioTrackFormat": 21,
+      "audioTrackUID": 21
+    },
+    "chna": {
+      "num_tracks": 21,
+      "num_uids": 21,
+      "entries": 21
+    },
+    "u32_overflow": {
+      "riff_size_needed": 15278169034,
+      "exceeds_u32": true,
+      "data_exceeds_u32": true
+    },
+    "damf_audio": {
+      "frames": 242322080,
+      "channels": 21,
+      "sample_rate": 48000,
+      "frames_equal": true
+    },
+    "ffprobe": {
+      "run": {
+        "argv": [
+          "ffprobe",
+          "-v",
+          "error",
+          "-show_entries",
+          "stream=codec_name,sample_rate,channels,bits_per_sample,duration_ts,duration:format=format_name,size,duration",
+          "-of",
+          "json",
+          "E:/oadec-work/audit/adm/big/pi/pi.wav"
+        ],
+        "exit_code": 0,
+        "seconds": 0.031,
+        "stdout_tail": "{\n    \"programs\": [\n\n    ],\n    \"stream_groups\": [\n\n    ],\n    \"streams\": [\n        {\n            \"codec_name\": \"pcm_s24le\",\n            \"sample_rate\": \"48000\",\n            \"channels\": 21,\n            \"bits_per_sample\": 24,\n            \"duration_ts\": 242322080,\n            \"duration\": \"5048.376667\"\n        }\n    ],\n    \"format\": {\n        \"format_name\": \"wav\",\n        \"duration\": \"5048.376667\",\n        \"size\": \"15278169042\"\n    }\n}\n"
+      },
+      "parsed": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "pcm_s24le",
+            "sample_rate": "48000",
+            "channels": 21,
+            "bits_per_sample": 24,
+            "duration_ts": 242322080,
+            "duration": "5048.376667"
+          }
+        ],
+        "format": {
+          "format_name": "wav",
+          "duration": "5048.376667",
+          "size": "15278169042"
+        }
+      },
+      "frames": 242322080,
+      "frames_equal": true
+    },
+    "bwf_info": {
+      "run": {
+        "argv": [
+          "C:\\dee\\bwf_info.exe",
+          "-i",
+          "E:/oadec-work/audit/adm/big/pi/pi.wav"
+        ],
+        "exit_code": 0,
+        "seconds": 0.016,
+        "stdout_tail": "\nContent duration (in samples): 242322080\nSample format: 24 bit integer\nSample rate: 48000\n\nExecution time: 0.0006352 seconds\nExit code: 0\n"
+      },
+      "findings": [],
+      "frames_reported": 242322080
+    },
+    "atmos_info_5.7.2": {
+      "run": {
+        "argv": [
+          "C:\\Program Files\\Dolby Media Encoder\\resources\\dee\\atmos_info.exe",
+          "-i",
+          "E:/oadec-work/audit/adm/big/pi/pi.wav",
+          "--validate",
+          "1"
+        ],
+        "exit_code": 1,
+        "seconds": 0.062,
+        "stdout_tail": "\n[2026-09-12 08:20:50.441] Getting info from E:/oadec-work/audit/adm/big/pi/pi.wav\n\n[2026-09-12 08:20:50.502] ERROR: Content was not authored with Dolby tools.\n\n---- Summary of errors and warnings ----\nERROR: Content was not authored with Dolby tools.\n----------------------------------------\nExecution time: 0.0614637 seconds\nExit code: 1\n"
+      },
+      "findings": [
+        {
+          "level": "ERROR",
+          "line": "[2026-09-12 08:20:50.502] ERROR: Content was not authored with Dolby tools."
+        },
+        {
+          "level": "ERROR",
+          "line": "ERROR: Content was not authored with Dolby tools."
+        }
+      ],
+      "which": "5.7.2",
+      "validate": true
+    },
+    "atmos_info_1.1": {
+      "run": {
+        "argv": [
+          "C:\\dee\\atmos_info.exe",
+          "-i",
+          "E:/oadec-work/audit/adm/big/pi/pi.wav"
+        ],
+        "exit_code": 4294967295,
+        "seconds": 0.078,
+        "stdout_tail": "AtmosInfo Tool (version 1.1)\nGetting info from E:/oadec-work/audit/adm/big/pi/pi.wav\n\nERROR: Content was not authored with Dolby tools.\n"
+      },
+      "findings": [
+        {
+          "level": "ERROR",
+          "line": "ERROR: Content was not authored with Dolby tools."
+        }
+      ],
+      "which": "1.1",
+      "validate": true
+    }
+  },
+  "C22-rf64": {
+    "file": {
+      "path": "E:\\oadec-work\\audit\\adm\\work\\harness\\out\\C22-rf64\\C22-rf64.wav",
+      "bytes": 4294972786,
+      "sha256": null
+    },
+    "fourcc": "RF64",
+    "riff_size_field": 4294967295,
+    "file_size": 4294972786,
+    "ds64": {
+      "riff_size": 4294972778,
+      "data_size": 4294967298,
+      "sample_count": 715827883,
+      "table": []
+    },
+    "fmt": {
+      "format_tag": 1,
+      "channels": 2,
+      "sample_rate": 48000,
+      "byte_rate": 288000,
+      "block_align": 6,
+      "bits_per_sample": 24,
+      "extension": ""
+    },
+    "data": {
+      "size_field": 4294967295,
+      "size": 4294967298,
+      "offset": 80,
+      "frames": 715827883,
+      "duration_s": 14913.080895833333
+    },
+    "chunks": [
+      {
+        "id": "ds64",
+        "offset": 12,
+        "size": 28,
+        "size_field": 28,
+        "padded": false,
+        "end": 48
+      },
+      {
+        "id": "fmt ",
+        "offset": 48,
+        "size": 16,
+        "size_field": 16,
+        "padded": false,
+        "end": 72
+      },
+      {
+        "id": "data",
+        "offset": 72,
+        "size": 4294967298,
+        "size_field": 4294967295,
+        "padded": false,
+        "end": 4294967378
+      },
+      {
+        "id": "axml",
+        "offset": 4294967378,
+        "size": 4791,
+        "size_field": 4791,
+        "padded": true,
+        "end": 4294972178
+      },
+      {
+        "id": "chna",
+        "offset": 4294972178,
+        "size": 84,
+        "size_field": 84,
+        "padded": false,
+        "end": 4294972270
+      },
+      {
+        "id": "dbmd",
+        "offset": 4294972270,
+        "size": 507,
+        "size_field": 507,
+        "padded": true,
+        "end": 4294972786
+      }
+    ],
+    "gt_4gib": true,
+    "programme_span_samples": {
+      "start": 0,
+      "end": 715827883,
+      "matches_frames": true
+    },
+    "container_findings": [],
+    "reference_and_profile_findings": [
+      {
+        "kind": "profile-id",
+        "message": "audioObjectID AO_1002 outside [0x100b,0x1080] for Objects (table 17)"
+      },
+      {
+        "kind": "profile-bed-configuration",
+        "message": "AP_00011001 channel set ['RC_LFE'] is not one of the table-16 configuration sets"
+      }
+    ],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 2,
+      "audioPackFormat": 2,
+      "audioChannelFormat": 2,
+      "audioStreamFormat": 2,
+      "audioTrackFormat": 2,
+      "audioTrackUID": 2
+    },
+    "chna": {
+      "num_tracks": 2,
+      "num_uids": 2,
+      "entries": 2
+    },
+    "u32_overflow": {
+      "riff_size_needed": 4294972778,
+      "exceeds_u32": true,
+      "data_exceeds_u32": true
+    },
+    "damf_audio": {
+      "frames": 715827883,
+      "channels": 2,
+      "sample_rate": 48000,
+      "frames_equal": true
+    },
+    "ffprobe": {
+      "run": {
+        "argv": [
+          "ffprobe",
+          "-v",
+          "error",
+          "-show_entries",
+          "stream=codec_name,sample_rate,channels,bits_per_sample,duration_ts,duration:format=format_name,size,duration",
+          "-of",
+          "json",
+          "E:/oadec-work/audit/adm/work/harness/out/C22-rf64/C22-rf64.wav"
+        ],
+        "exit_code": 0,
+        "seconds": 0.015,
+        "stdout_tail": "{\n    \"programs\": [\n\n    ],\n    \"stream_groups\": [\n\n    ],\n    \"streams\": [\n        {\n            \"codec_name\": \"pcm_s24le\",\n            \"sample_rate\": \"48000\",\n            \"channels\": 2,\n            \"bits_per_sample\": 24,\n            \"duration_ts\": 715827883,\n            \"duration\": \"14913.080896\"\n        }\n    ],\n    \"format\": {\n        \"format_name\": \"wav\",\n        \"duration\": \"14913.080896\",\n        \"size\": \"4294972786\"\n    }\n}\n"
+      },
+      "parsed": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "pcm_s24le",
+            "sample_rate": "48000",
+            "channels": 2,
+            "bits_per_sample": 24,
+            "duration_ts": 715827883,
+            "duration": "14913.080896"
+          }
+        ],
+        "format": {
+          "format_name": "wav",
+          "duration": "14913.080896",
+          "size": "4294972786"
+        }
+      },
+      "frames": 715827883,
+      "frames_equal": true
+    },
+    "bwf_info": {
+      "run": {
+        "argv": [
+          "C:\\dee\\bwf_info.exe",
+          "-i",
+          "E:/oadec-work/audit/adm/work/harness/out/C22-rf64/C22-rf64.wav"
+        ],
+        "exit_code": 0,
+        "seconds": 0.016,
+        "stdout_tail": "\nContent duration (in samples): 715827883\nSample format: 24 bit integer\nSample rate: 48000\n\nExecution time: 0.0006456 seconds\nExit code: 0\n"
+      },
+      "findings": [],
+      "frames_reported": null
+    },
+    "atmos_info_5.7.2": {
+      "run": {
+        "argv": [
+          "C:\\Program Files\\Dolby Media Encoder\\resources\\dee\\atmos_info.exe",
+          "-i",
+          "E:/oadec-work/audit/adm/work/harness/out/C22-rf64/C22-rf64.wav",
+          "--validate",
+          "1"
+        ],
+        "exit_code": 1,
+        "seconds": 0.015,
+        "stdout_tail": "\n[2026-09-12 07:48:37.602] Getting info from E:/oadec-work/audit/adm/work/harness/out/C22-rf64/C22-rf64.wav\n\n[2026-09-12 07:48:37.611] ERROR: Content was not authored with Dolby tools.\n\n---- Summary of errors and warnings ----\nERROR: Content was not authored with Dolby tools.\n----------------------------------------\nExecution time: 0.0096024 seconds\nExit code: 1\n"
+      },
+      "findings": [
+        {
+          "level": "ERROR",
+          "line": "[2026-09-12 07:48:37.611] ERROR: Content was not authored with Dolby tools."
+        },
+        {
+          "level": "ERROR",
+          "line": "ERROR: Content was not authored with Dolby tools."
+        }
+      ],
+      "which": "5.7.2",
+      "validate": true
+    },
+    "atmos_info_1.1": {
+      "run": {
+        "argv": [
+          "C:\\dee\\atmos_info.exe",
+          "-i",
+          "E:/oadec-work/audit/adm/work/harness/out/C22-rf64/C22-rf64.wav"
+        ],
+        "exit_code": 4294967295,
+        "seconds": 0.016,
+        "stdout_tail": "AtmosInfo Tool (version 1.1)\nGetting info from E:/oadec-work/audit/adm/work/harness/out/C22-rf64/C22-rf64.wav\n\nERROR: Content was not authored with Dolby tools.\n"
+      },
+      "findings": [
+        {
+          "level": "ERROR",
+          "line": "ERROR: Content was not authored with Dolby tools."
+        }
+      ],
+      "which": "1.1",
+      "validate": true
+    }
+  },
+  "C22b-riff-max": {
+    "file": {
+      "path": "E:\\oadec-work\\audit\\adm\\work\\harness\\out\\C22b-riff-max\\C22b-riff-max.wav",
+      "bytes": 4294972430,
+      "sha256": null
+    },
+    "fourcc": "RF64",
+    "riff_size_field": 4294967295,
+    "file_size": 4294972430,
+    "ds64": {
+      "riff_size": 4294972422,
+      "data_size": 4294967292,
+      "sample_count": 715827882,
+      "table": []
+    },
+    "fmt": {
+      "format_tag": 1,
+      "channels": 2,
+      "sample_rate": 48000,
+      "byte_rate": 288000,
+      "block_align": 6,
+      "bits_per_sample": 24,
+      "extension": ""
+    },
+    "data": {
+      "size_field": 4294967295,
+      "size": 4294967292,
+      "offset": 80,
+      "frames": 715827882,
+      "duration_s": 14913.080875
+    },
+    "chunks": [
+      {
+        "id": "ds64",
+        "offset": 12,
+        "size": 28,
+        "size_field": 28,
+        "padded": false,
+        "end": 48
+      },
+      {
+        "id": "fmt ",
+        "offset": 48,
+        "size": 16,
+        "size_field": 16,
+        "padded": false,
+        "end": 72
+      },
+      {
+        "id": "data",
+        "offset": 72,
+        "size": 4294967292,
+        "size_field": 4294967295,
+        "padded": false,
+        "end": 4294967372
+      },
+      {
+        "id": "axml",
+        "offset": 4294967372,
+        "size": 4442,
+        "size_field": 4442,
+        "padded": false,
+        "end": 4294971822
+      },
+      {
+        "id": "chna",
+        "offset": 4294971822,
+        "size": 84,
+        "size_field": 84,
+        "padded": false,
+        "end": 4294971914
+      },
+      {
+        "id": "dbmd",
+        "offset": 4294971914,
+        "size": 507,
+        "size_field": 507,
+        "padded": true,
+        "end": 4294972430
+      }
+    ],
+    "gt_4gib": true,
+    "programme_span_samples": {
+      "start": 0,
+      "end": 715827882,
+      "matches_frames": true
+    },
+    "container_findings": [],
+    "reference_and_profile_findings": [
+      {
+        "kind": "profile-id",
+        "message": "audioObjectID AO_1002 outside [0x100b,0x1080] for Objects (table 17)"
+      },
+      {
+        "kind": "profile-bed-configuration",
+        "message": "AP_00011001 channel set ['RC_LFE'] is not one of the table-16 configuration sets"
+      }
+    ],
+    "element_counts": {
+      "audioProgramme": 1,
+      "audioContent": 1,
+      "audioObject": 2,
+      "audioPackFormat": 2,
+      "audioChannelFormat": 2,
+      "audioStreamFormat": 2,
+      "audioTrackFormat": 2,
+      "audioTrackUID": 2
+    },
+    "chna": {
+      "num_tracks": 2,
+      "num_uids": 2,
+      "entries": 2
+    },
+    "u32_overflow": {
+      "riff_size_needed": 4294972422,
+      "exceeds_u32": true,
+      "data_exceeds_u32": false
+    },
+    "damf_audio": {
+      "frames": 715827882,
+      "channels": 2,
+      "sample_rate": 48000,
+      "frames_equal": true
+    },
+    "ffprobe": {
+      "run": {
+        "argv": [
+          "ffprobe",
+          "-v",
+          "error",
+          "-show_entries",
+          "stream=codec_name,sample_rate,channels,bits_per_sample,duration_ts,duration:format=format_name,size,duration",
+          "-of",
+          "json",
+          "E:/oadec-work/audit/adm/work/harness/out/C22b-riff-max/C22b-riff-max.wav"
+        ],
+        "exit_code": 0,
+        "seconds": 0.015,
+        "stdout_tail": "{\n    \"programs\": [\n\n    ],\n    \"stream_groups\": [\n\n    ],\n    \"streams\": [\n        {\n            \"codec_name\": \"pcm_s24le\",\n            \"sample_rate\": \"48000\",\n            \"channels\": 2,\n            \"bits_per_sample\": 24,\n            \"duration_ts\": 715827882,\n            \"duration\": \"14913.080875\"\n        }\n    ],\n    \"format\": {\n        \"format_name\": \"wav\",\n        \"duration\": \"14913.080875\",\n        \"size\": \"4294972430\"\n    }\n}\n"
+      },
+      "parsed": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "pcm_s24le",
+            "sample_rate": "48000",
+            "channels": 2,
+            "bits_per_sample": 24,
+            "duration_ts": 715827882,
+            "duration": "14913.080875"
+          }
+        ],
+        "format": {
+          "format_name": "wav",
+          "duration": "14913.080875",
+          "size": "4294972430"
+        }
+      },
+      "frames": 715827882,
+      "frames_equal": true
+    },
+    "bwf_info": {
+      "run": {
+        "argv": [
+          "C:\\dee\\bwf_info.exe",
+          "-i",
+          "E:/oadec-work/audit/adm/work/harness/out/C22b-riff-max/C22b-riff-max.wav"
+        ],
+        "exit_code": 0,
+        "seconds": 0.063,
+        "stdout_tail": "\nContent duration (in samples): 715827882\nSample format: 24 bit integer\nSample rate: 48000\n\nExecution time: 0.0006674 seconds\nExit code: 0\n"
+      },
+      "findings": [],
+      "frames_reported": 715827882
+    },
+    "atmos_info_5.7.2": {
+      "run": {
+        "argv": [
+          "C:\\Program Files\\Dolby Media Encoder\\resources\\dee\\atmos_info.exe",
+          "-i",
+          "E:/oadec-work/audit/adm/work/harness/out/C22b-riff-max/C22b-riff-max.wav",
+          "--validate",
+          "1"
+        ],
+        "exit_code": 1,
+        "seconds": 0.016,
+        "stdout_tail": "\n[2026-09-12 07:50:17.174] Getting info from E:/oadec-work/audit/adm/work/harness/out/C22b-riff-max/C22b-riff-max.wav\n\n[2026-09-12 07:50:17.182] ERROR: Content was not authored with Dolby tools.\n\n---- Summary of errors and warnings ----\nERROR: Content was not authored with Dolby tools.\n----------------------------------------\nExecution time: 0.008912 seconds\nExit code: 1\n"
+      },
+      "findings": [
+        {
+          "level": "ERROR",
+          "line": "[2026-09-12 07:50:17.182] ERROR: Content was not authored with Dolby tools."
+        },
+        {
+          "level": "ERROR",
+          "line": "ERROR: Content was not authored with Dolby tools."
+        }
+      ],
+      "which": "5.7.2",
+      "validate": true
+    },
+    "atmos_info_1.1": {
+      "run": {
+        "argv": [
+          "C:\\dee\\atmos_info.exe",
+          "-i",
+          "E:/oadec-work/audit/adm/work/harness/out/C22b-riff-max/C22b-riff-max.wav"
+        ],
+        "exit_code": 4294967295,
+        "seconds": 0.015,
+        "stdout_tail": "AtmosInfo Tool (version 1.1)\nGetting info from E:/oadec-work/audit/adm/work/harness/out/C22b-riff-max/C22b-riff-max.wav\n\nERROR: Content was not authored with Dolby tools.\n"
+      },
+      "findings": [
+        {
+          "level": "ERROR",
+          "line": "ERROR: Content was not authored with Dolby tools."
+        }
+      ],
+      "which": "1.1",
+      "validate": true
+    }
+  },
+  "batch_adm_findings": {
+    "pi-head50m/default": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          319775400
+        ],
+        [
+          "axml",
+          81695
+        ],
+        [
+          "chna",
+          844
+        ],
+        [
+          "dbmd",
+          545
+        ]
+      ],
+      "format_tag": 1
+    },
+    "pi-head50m/nbc": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          182728800
+        ],
+        [
+          "axml",
+          68417
+        ],
+        [
+          "chna",
+          484
+        ],
+        [
+          "dbmd",
+          527
+        ]
+      ],
+      "format_tag": 1
+    },
+    "thd/braveheart-h": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          73150560
+        ],
+        [
+          "axml",
+          80318
+        ],
+        [
+          "chna",
+          844
+        ],
+        [
+          "dbmd",
+          545
+        ]
+      ],
+      "format_tag": 1
+    },
+    "thd/fast-thd": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          36000000
+        ],
+        [
+          "axml",
+          672210
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "thd/gainsize-thd": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          36000000
+        ],
+        [
+          "axml",
+          43967
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "thd/kingsman-h": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          37591200
+        ],
+        [
+          "axml",
+          81191
+        ],
+        [
+          "chna",
+          924
+        ],
+        [
+          "dbmd",
+          549
+        ]
+      ],
+      "format_tag": 1
+    },
+    "thd/knivesout-h": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          150345720
+        ],
+        [
+          "axml",
+          44808
+        ],
+        [
+          "chna",
+          844
+        ],
+        [
+          "dbmd",
+          545
+        ]
+      ],
+      "format_tag": 1
+    },
+    "thd/scene-thd": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          36000000
+        ],
+        [
+          "axml",
+          49003
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "thd/shaun-head20m": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          122439240
+        ],
+        [
+          "axml",
+          133453
+        ],
+        [
+          "chna",
+          844
+        ],
+        [
+          "dbmd",
+          545
+        ]
+      ],
+      "format_tag": 1
+    },
+    "thd/talktome-head": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          144000000
+        ],
+        [
+          "axml",
+          48975
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/disclosure-web-head": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          112416000
+        ],
+        [
+          "axml",
+          48056
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/extraction-nf-head": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          112416000
+        ],
+        [
+          "axml",
+          55755
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/fast-joc": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          36038400
+        ],
+        [
+          "axml",
+          672210
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/gainsize-joc": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          36038400
+        ],
+        [
+          "axml",
+          43967
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/glassonion-nf-head": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          112416000
+        ],
+        [
+          "axml",
+          48164
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/greenbook-cfg4-head": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          215980800
+        ],
+        [
+          "axml",
+          46251
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/joc-steep-jackal": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          103660800
+        ],
+        [
+          "axml",
+          51553
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/kingsman-joc-head": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          112416000
+        ],
+        [
+          "axml",
+          105656
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/knivesout-joc-head": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          112416000
+        ],
+        [
+          "axml",
+          51017
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/onset-768": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          36038400
+        ],
+        [
+          "axml",
+          59846
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/scene-joc": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          36038400
+        ],
+        [
+          "axml",
+          49245
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/snatch-joc-head": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          143980800
+        ],
+        [
+          "axml",
+          92512
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/talktome-joc-head": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          112416000
+        ],
+        [
+          "axml",
+          57106
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "joc/teleport-768": {
+      "container_and_reference_findings": [],
+      "fourcc": "RIFF",
+      "chunks": [
+        [
+          "JUNK",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          36038400
+        ],
+        [
+          "axml",
+          479844
+        ],
+        [
+          "chna",
+          1004
+        ],
+        [
+          "dbmd",
+          553
+        ]
+      ],
+      "format_tag": 1
+    },
+    "pi-full-film": {
+      "container_and_reference_findings": [],
+      "fourcc": "RF64",
+      "chunks": [
+        [
+          "ds64",
+          28
+        ],
+        [
+          "fmt ",
+          16
+        ],
+        [
+          "data",
+          15266291040
+        ],
+        [
+          "axml",
+          11876508
+        ],
+        [
+          "chna",
+          844
+        ],
+        [
+          "dbmd",
+          545
+        ]
+      ],
+      "format_tag": 1
+    }
+  }
+}

@@ -1,0 +1,2547 @@
+{
+  "id": "adm-render-comparison",
+  "title": "EBU ADM Renderer (BS.2127) speaker outputs: oadec ADM vs Dolby ADM vs a real-ramp variant",
+  "topics": [
+    "render"
+  ],
+  "evidence_class": "REFERENCE",
+  "structural_result": null,
+  "semantic_result": null,
+  "classification": "renderer equality is supporting evidence only",
+  "method": "run_render.py (audioStreamFormat pack reference removed identically for EAR)",
+  "inputs": [],
+  "tolerance": null,
+  "generated_by": "docs/audit/adm/tools/build_evidence.py",
+  "utc": "2026-09-12T05:21:06Z",
+  "fast-thd/render-report.json": {
+    "utc": "2026-09-12T05:09:00Z",
+    "ear": {
+      "path": "E:\\oadec-work\\audit\\adm\\venv\\Scripts\\ear-render.exe",
+      "bytes": 108356,
+      "sha256": "0152d7ee952e8f8b3001507645d4a6153fd6c08be68aeeb5880b36a87d87f533",
+      "mtime": "2026-09-11T20:45:11Z"
+    },
+    "inputs": {
+      "oadec": {
+        "path": "E:\\oadec-work\\audit\\adm\\work\\thd\\fast-thd\\default\\fast-thd.wav",
+        "bytes": 36673872,
+        "sha256": "0b32ba1c383be8ce4d8e3ca6f40cb43a05ad1d087c0aa03234b6c58354ffec6a",
+        "mtime": "2026-09-11T21:45:54Z"
+      },
+      "dolby-ct": {
+        "path": "E:\\oadec-work\\audit\\adm\\work\\render\\fast-thd-ct\\output.wav",
+        "bytes": 36673910,
+        "sha256": "8d2b5750723381406c4454d7009fbe21d4f7e64d7fe1bae8e4fd44ffb16581ce",
+        "mtime": "2026-09-12T04:59:08Z"
+      },
+      "oadec-realramps": {
+        "path": "E:\\oadec-work\\audit\\adm\\work\\render\\fast-thd\\oadec-realramps.wav",
+        "bytes": 36673872,
+        "sha256": "8629a46fed238f48e82aa59b06f4eaf9130057b142e732ba44da23ef6f16441d",
+        "mtime": "2026-09-12T05:09:00Z"
+      }
+    },
+    "realramp_variants": {
+      "oadec-realramps": {
+        "blocks_with_real_ramp": 1551,
+        "objects": 5
+      }
+    },
+    "ear_compatibility": {
+      "oadec": {
+        "removed_pack_refs": 26
+      },
+      "dolby-ct": {
+        "removed_pack_refs": 26
+      },
+      "oadec-realramps": {
+        "removed_pack_refs": 26
+      }
+    },
+    "renders": {
+      "oadec/0+2+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 1.422,
+        "output": "E:/oadec-work/audit/adm/work/render/fast-thd\\oadec__020.wav"
+      },
+      "oadec/0+5+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 1.594,
+        "output": "E:/oadec-work/audit/adm/work/render/fast-thd\\oadec__050.wav"
+      },
+      "oadec/4+5+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 1.922,
+        "output": "E:/oadec-work/audit/adm/work/render/fast-thd\\oadec__450.wav"
+      },
+      "oadec/4+7+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 2.015,
+        "output": "E:/oadec-work/audit/adm/work/render/fast-thd\\oadec__470.wav"
+      },
+      "dolby-ct/0+2+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 1.438,
+        "output": "E:/oadec-work/audit/adm/work/render/fast-thd\\dolby-ct__020.wav"
+      },
+      "dolby-ct/0+5+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 1.562,
+        "output": "E:/oadec-work/audit/adm/work/render/fast-thd\\dolby-ct__050.wav"
+      },
+      "dolby-ct/4+5+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 1.813,
+        "output": "E:/oadec-work/audit/adm/work/render/fast-thd\\dolby-ct__450.wav"
+      },
+      "dolby-ct/4+7+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 1.922,
+        "output": "E:/oadec-work/audit/adm/work/render/fast-thd\\dolby-ct__470.wav"
+      },
+      "oadec-realramps/0+2+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 1.578,
+        "output": "E:/oadec-work/audit/adm/work/render/fast-thd\\oadec-realramps__020.wav"
+      },
+      "oadec-realramps/0+5+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 1.594,
+        "output": "E:/oadec-work/audit/adm/work/render/fast-thd\\oadec-realramps__050.wav"
+      },
+      "oadec-realramps/4+5+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 1.734,
+        "output": "E:/oadec-work/audit/adm/work/render/fast-thd\\oadec-realramps__450.wav"
+      },
+      "oadec-realramps/4+7+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 1.891,
+        "output": "E:/oadec-work/audit/adm/work/render/fast-thd\\oadec-realramps__470.wav"
+      }
+    },
+    "comparisons": {
+      "oadec vs dolby-ct @ 0+2+0": {
+        "channels": [
+          2,
+          2
+        ],
+        "frames": [
+          480000,
+          480000
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 1181213.5127018967,
+            "rms_b": 1181213.5127018967,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 4064829,
+            "peak_b": 4064829
+          },
+          {
+            "ch": 1,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 1187419.0611400336,
+            "rms_b": 1187419.0611400336,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 3721370,
+            "peak_b": 3721370
+          }
+        ],
+        "all_identical": true,
+        "min_sdr_db": null,
+        "max_abs_overall": 0
+      },
+      "oadec vs oadec-realramps @ 0+2+0": {
+        "channels": [
+          2,
+          2
+        ],
+        "frames": [
+          480000,
+          480000
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 477747,
+            "max_abs": 963053,
+            "rms_a": 1181213.5127018967,
+            "rms_b": 1174698.3755042495,
+            "corr": 0.9908510811675602,
+            "sdr_db": 17.392768069709998,
+            "lag": 218,
+            "peak_a": 4064829,
+            "peak_b": 4060023
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 477771,
+            "max_abs": 1085480,
+            "rms_a": 1187419.0611400336,
+            "rms_b": 1181165.359140977,
+            "corr": 0.9909834912072414,
+            "sdr_db": 17.45553881428471,
+            "lag": 218,
+            "peak_a": 3721370,
+            "peak_b": 3718923
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 17.392768069709998,
+        "max_abs_overall": 1085480
+      },
+      "dolby-ct vs oadec-realramps @ 0+2+0": {
+        "channels": [
+          2,
+          2
+        ],
+        "frames": [
+          480000,
+          480000
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 477747,
+            "max_abs": 963053,
+            "rms_a": 1181213.5127018967,
+            "rms_b": 1174698.3755042495,
+            "corr": 0.9908510811675602,
+            "sdr_db": 17.392768069709998,
+            "lag": 218,
+            "peak_a": 4064829,
+            "peak_b": 4060023
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 477771,
+            "max_abs": 1085480,
+            "rms_a": 1187419.0611400336,
+            "rms_b": 1181165.359140977,
+            "corr": 0.9909834912072414,
+            "sdr_db": 17.45553881428471,
+            "lag": 218,
+            "peak_a": 3721370,
+            "peak_b": 3718923
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 17.392768069709998,
+        "max_abs_overall": 1085480
+      },
+      "oadec vs dolby-ct @ 0+5+0": {
+        "channels": [
+          6,
+          6
+        ],
+        "frames": [
+          480000,
+          480000
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 767188.0583377249,
+            "rms_b": 767188.0583377249,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 2832325,
+            "peak_b": 2832325
+          },
+          {
+            "ch": 1,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 495519.7270333765,
+            "rms_b": 495519.7270333765,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1734653,
+            "peak_b": 1734653
+          },
+          {
+            "ch": 2,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 860900.7226641449,
+            "rms_b": 860900.7226641449,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 3362036,
+            "peak_b": 3362036
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 657107.4515913498,
+            "rms_b": 657107.4515913498,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 2079909,
+            "peak_b": 2079909
+          },
+          {
+            "ch": 5,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 886926.6966916644,
+            "rms_b": 886926.6966916644,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 2460331,
+            "peak_b": 2460331
+          }
+        ],
+        "all_identical": true,
+        "min_sdr_db": null,
+        "max_abs_overall": 0
+      },
+      "oadec vs oadec-realramps @ 0+5+0": {
+        "channels": [
+          6,
+          6
+        ],
+        "frames": [
+          480000,
+          480000
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 476085,
+            "max_abs": 1701467,
+            "rms_a": 767188.0583377249,
+            "rms_b": 754554.8613542382,
+            "corr": 0.9724597027641319,
+            "sdr_db": 12.640440164195008,
+            "lag": 873,
+            "peak_a": 2832325,
+            "peak_b": 2824459
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 463743,
+            "max_abs": 1084994,
+            "rms_a": 495519.7270333765,
+            "rms_b": 475970.4545042977,
+            "corr": 0.9325083769931187,
+            "sdr_db": 8.820186861647514,
+            "lag": 655,
+            "peak_a": 1734653,
+            "peak_b": 1728081
+          },
+          {
+            "ch": 2,
+            "identical": false,
+            "differing": 477745,
+            "max_abs": 1109652,
+            "rms_a": 860900.7226641449,
+            "rms_b": 851233.3028422671,
+            "corr": 0.9795164335589692,
+            "sdr_db": 13.91119022931877,
+            "lag": 327,
+            "peak_a": 3362036,
+            "peak_b": 3351566
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": false,
+            "differing": 477747,
+            "max_abs": 910354,
+            "rms_a": 657107.4515913498,
+            "rms_b": 645400.461671429,
+            "corr": 0.9710467105985399,
+            "sdr_db": 12.426622389425493,
+            "lag": 764,
+            "peak_a": 2079909,
+            "peak_b": 2078801
+          },
+          {
+            "ch": 5,
+            "identical": false,
+            "differing": 477754,
+            "max_abs": 845779,
+            "rms_a": 886926.6966916644,
+            "rms_b": 878107.5266514911,
+            "corr": 0.9840634409992709,
+            "sdr_db": 14.995568502212944,
+            "lag": 873,
+            "peak_a": 2460331,
+            "peak_b": 2458320
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 8.820186861647514,
+        "max_abs_overall": 1701467
+      },
+      "dolby-ct vs oadec-realramps @ 0+5+0": {
+        "channels": [
+          6,
+          6
+        ],
+        "frames": [
+          480000,
+          480000
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 476085,
+            "max_abs": 1701467,
+            "rms_a": 767188.0583377249,
+            "rms_b": 754554.8613542382,
+            "corr": 0.9724597027641319,
+            "sdr_db": 12.640440164195008,
+            "lag": 873,
+            "peak_a": 2832325,
+            "peak_b": 2824459
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 463743,
+            "max_abs": 1084994,
+            "rms_a": 495519.7270333765,
+            "rms_b": 475970.4545042977,
+            "corr": 0.9325083769931187,
+            "sdr_db": 8.820186861647514,
+            "lag": 655,
+            "peak_a": 1734653,
+            "peak_b": 1728081
+          },
+          {
+            "ch": 2,
+            "identical": false,
+            "differing": 477745,
+            "max_abs": 1109652,
+            "rms_a": 860900.7226641449,
+            "rms_b": 851233.3028422671,
+            "corr": 0.9795164335589692,
+            "sdr_db": 13.91119022931877,
+            "lag": 327,
+            "peak_a": 3362036,
+            "peak_b": 3351566
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": false,
+            "differing": 477747,
+            "max_abs": 910354,
+            "rms_a": 657107.4515913498,
+            "rms_b": 645400.461671429,
+            "corr": 0.9710467105985399,
+            "sdr_db": 12.426622389425493,
+            "lag": 764,
+            "peak_a": 2079909,
+            "peak_b": 2078801
+          },
+          {
+            "ch": 5,
+            "identical": false,
+            "differing": 477754,
+            "max_abs": 845779,
+            "rms_a": 886926.6966916644,
+            "rms_b": 878107.5266514911,
+            "corr": 0.9840634409992709,
+            "sdr_db": 14.995568502212944,
+            "lag": 873,
+            "peak_a": 2460331,
+            "peak_b": 2458320
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 8.820186861647514,
+        "max_abs_overall": 1701467
+      },
+      "oadec vs dolby-ct @ 4+5+0": {
+        "channels": [
+          10,
+          10
+        ],
+        "frames": [
+          480000,
+          480000
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 676451.2822494351,
+            "rms_b": 676451.2822494351,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 2148309,
+            "peak_b": 2148309
+          },
+          {
+            "ch": 1,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 331567.27709564025,
+            "rms_b": 331567.27709564025,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1160709,
+            "peak_b": 1160709
+          },
+          {
+            "ch": 2,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 417745.68513400573,
+            "rms_b": 417745.68513400573,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 2061270,
+            "peak_b": 2061270
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 439690.562087565,
+            "rms_b": 439690.562087565,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1391730,
+            "peak_b": 1391730
+          },
+          {
+            "ch": 5,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 739096.5710081847,
+            "rms_b": 739096.5710081847,
+            "corr": 0.9999999999999999,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1897402,
+            "peak_b": 1897402
+          },
+          {
+            "ch": 6,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 644281.6109233026,
+            "rms_b": 644281.6109233026,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 2360477,
+            "peak_b": 2360477
+          },
+          {
+            "ch": 7,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 649086.3837287036,
+            "rms_b": 649086.3837287036,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 2155226,
+            "peak_b": 2155226
+          },
+          {
+            "ch": 8,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 488325.9247193766,
+            "rms_b": 488325.9247193766,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1545673,
+            "peak_b": 1545673
+          },
+          {
+            "ch": 9,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 490280.5164365506,
+            "rms_b": 490280.5164365506,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1398800,
+            "peak_b": 1398800
+          }
+        ],
+        "all_identical": true,
+        "min_sdr_db": null,
+        "max_abs_overall": 0
+      },
+      "oadec vs oadec-realramps @ 4+5+0": {
+        "channels": [
+          10,
+          10
+        ],
+        "frames": [
+          480000,
+          480000
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 476048,
+            "max_abs": 1138504,
+            "rms_a": 676451.2822494351,
+            "rms_b": 670062.2074798826,
+            "corr": 0.9842179859956136,
+            "sdr_db": 15.036916169730524,
+            "lag": 982,
+            "peak_a": 2148309,
+            "peak_b": 2137072
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 463696,
+            "max_abs": 726003,
+            "rms_a": 331567.27709564025,
+            "rms_b": 318486.2605036854,
+            "corr": 0.9325083697754832,
+            "sdr_db": 8.8201864333279,
+            "lag": 655,
+            "peak_a": 1160709,
+            "peak_b": 1156312
+          },
+          {
+            "ch": 2,
+            "identical": false,
+            "differing": 477692,
+            "max_abs": 742502,
+            "rms_a": 417745.68513400573,
+            "rms_b": 408779.3973437029,
+            "corr": 0.9607553806504981,
+            "sdr_db": 11.120156952152243,
+            "lag": 655,
+            "peak_a": 2061270,
+            "peak_b": 2049869
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": false,
+            "differing": 477700,
+            "max_abs": 609146,
+            "rms_a": 439690.562087565,
+            "rms_b": 431857.057244697,
+            "corr": 0.9710467125403692,
+            "sdr_db": 12.426622687430129,
+            "lag": 764,
+            "peak_a": 1391730,
+            "peak_b": 1390989
+          },
+          {
+            "ch": 5,
+            "identical": false,
+            "differing": 477704,
+            "max_abs": 565937,
+            "rms_a": 739096.5710081847,
+            "rms_b": 734366.5649448921,
+            "corr": 0.9897500006988508,
+            "sdr_db": 16.90162084813643,
+            "lag": 218,
+            "peak_a": 1897402,
+            "peak_b": 1896559
+          },
+          {
+            "ch": 6,
+            "identical": false,
+            "differing": 477749,
+            "max_abs": 691499,
+            "rms_a": 644281.6109233026,
+            "rms_b": 638064.6167842001,
+            "corr": 0.9834430595142921,
+            "sdr_db": 14.829696479344094,
+            "lag": 982,
+            "peak_a": 2360477,
+            "peak_b": 2348275
+          },
+          {
+            "ch": 7,
+            "identical": false,
+            "differing": 477706,
+            "max_abs": 802707,
+            "rms_a": 649086.3837287036,
+            "rms_b": 643192.1057376636,
+            "corr": 0.9836261369682311,
+            "sdr_db": 14.876784206478888,
+            "lag": 218,
+            "peak_a": 2155226,
+            "peak_b": 2155226
+          },
+          {
+            "ch": 8,
+            "identical": false,
+            "differing": 477716,
+            "max_abs": 676525,
+            "rms_a": 488325.9247193766,
+            "rms_b": 479625.93643258535,
+            "corr": 0.9710467120008898,
+            "sdr_db": 12.426622601001542,
+            "lag": 764,
+            "peak_a": 1545673,
+            "peak_b": 1544850
+          },
+          {
+            "ch": 9,
+            "identical": false,
+            "differing": 477724,
+            "max_abs": 628536,
+            "rms_a": 490280.5164365506,
+            "rms_b": 481433.59014168265,
+            "corr": 0.9710348779887791,
+            "sdr_db": 12.425240818843843,
+            "lag": 764,
+            "peak_a": 1398800,
+            "peak_b": 1398219
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 8.8201864333279,
+        "max_abs_overall": 1138504
+      },
+      "dolby-ct vs oadec-realramps @ 4+5+0": {
+        "channels": [
+          10,
+          10
+        ],
+        "frames": [
+          480000,
+          480000
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 476048,
+            "max_abs": 1138504,
+            "rms_a": 676451.2822494351,
+            "rms_b": 670062.2074798826,
+            "corr": 0.9842179859956136,
+            "sdr_db": 15.036916169730524,
+            "lag": 982,
+            "peak_a": 2148309,
+            "peak_b": 2137072
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 463696,
+            "max_abs": 726003,
+            "rms_a": 331567.27709564025,
+            "rms_b": 318486.2605036854,
+            "corr": 0.9325083697754832,
+            "sdr_db": 8.8201864333279,
+            "lag": 655,
+            "peak_a": 1160709,
+            "peak_b": 1156312
+          },
+          {
+            "ch": 2,
+            "identical": false,
+            "differing": 477692,
+            "max_abs": 742502,
+            "rms_a": 417745.68513400573,
+            "rms_b": 408779.3973437029,
+            "corr": 0.9607553806504981,
+            "sdr_db": 11.120156952152243,
+            "lag": 655,
+            "peak_a": 2061270,
+            "peak_b": 2049869
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": false,
+            "differing": 477700,
+            "max_abs": 609146,
+            "rms_a": 439690.562087565,
+            "rms_b": 431857.057244697,
+            "corr": 0.9710467125403692,
+            "sdr_db": 12.426622687430129,
+            "lag": 764,
+            "peak_a": 1391730,
+            "peak_b": 1390989
+          },
+          {
+            "ch": 5,
+            "identical": false,
+            "differing": 477704,
+            "max_abs": 565937,
+            "rms_a": 739096.5710081847,
+            "rms_b": 734366.5649448921,
+            "corr": 0.9897500006988508,
+            "sdr_db": 16.90162084813643,
+            "lag": 218,
+            "peak_a": 1897402,
+            "peak_b": 1896559
+          },
+          {
+            "ch": 6,
+            "identical": false,
+            "differing": 477749,
+            "max_abs": 691499,
+            "rms_a": 644281.6109233026,
+            "rms_b": 638064.6167842001,
+            "corr": 0.9834430595142921,
+            "sdr_db": 14.829696479344094,
+            "lag": 982,
+            "peak_a": 2360477,
+            "peak_b": 2348275
+          },
+          {
+            "ch": 7,
+            "identical": false,
+            "differing": 477706,
+            "max_abs": 802707,
+            "rms_a": 649086.3837287036,
+            "rms_b": 643192.1057376636,
+            "corr": 0.9836261369682311,
+            "sdr_db": 14.876784206478888,
+            "lag": 218,
+            "peak_a": 2155226,
+            "peak_b": 2155226
+          },
+          {
+            "ch": 8,
+            "identical": false,
+            "differing": 477716,
+            "max_abs": 676525,
+            "rms_a": 488325.9247193766,
+            "rms_b": 479625.93643258535,
+            "corr": 0.9710467120008898,
+            "sdr_db": 12.426622601001542,
+            "lag": 764,
+            "peak_a": 1545673,
+            "peak_b": 1544850
+          },
+          {
+            "ch": 9,
+            "identical": false,
+            "differing": 477724,
+            "max_abs": 628536,
+            "rms_a": 490280.5164365506,
+            "rms_b": 481433.59014168265,
+            "corr": 0.9710348779887791,
+            "sdr_db": 12.425240818843843,
+            "lag": 764,
+            "peak_a": 1398800,
+            "peak_b": 1398219
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 8.8201864333279,
+        "max_abs_overall": 1138504
+      },
+      "oadec vs dolby-ct @ 4+7+0": {
+        "channels": [
+          12,
+          12
+        ],
+        "frames": [
+          480000,
+          480000
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 626752.3727983175,
+            "rms_b": 626752.3727983175,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1966469,
+            "peak_b": 1966469
+          },
+          {
+            "ch": 1,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 209450.00380366718,
+            "rms_b": 209450.00380366718,
+            "corr": 0.9999999999999999,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 757055,
+            "peak_b": 757055
+          },
+          {
+            "ch": 2,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 363943.27845704154,
+            "rms_b": 363943.27845704154,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1952831,
+            "peak_b": 1952831
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 412815.8202488025,
+            "rms_b": 412815.8202488025,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1463383,
+            "peak_b": 1463383
+          },
+          {
+            "ch": 5,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 415772.9003575626,
+            "rms_b": 415772.9003575626,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1383638,
+            "peak_b": 1383638
+          },
+          {
+            "ch": 6,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 326978.7064372022,
+            "rms_b": 326978.7064372022,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 939020,
+            "peak_b": 939020
+          },
+          {
+            "ch": 7,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 677304.9156807077,
+            "rms_b": 677304.9156807077,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1760592,
+            "peak_b": 1760592
+          },
+          {
+            "ch": 8,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 644281.6109233026,
+            "rms_b": 644281.6109233026,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 2360477,
+            "peak_b": 2360477
+          },
+          {
+            "ch": 9,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 649086.3837287036,
+            "rms_b": 649086.3837287036,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 2155226,
+            "peak_b": 2155226
+          },
+          {
+            "ch": 10,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 488325.9247193766,
+            "rms_b": 488325.9247193766,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1545673,
+            "peak_b": 1545673
+          },
+          {
+            "ch": 11,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 490280.5164365506,
+            "rms_b": 490280.5164365506,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1398800,
+            "peak_b": 1398800
+          }
+        ],
+        "all_identical": true,
+        "min_sdr_db": null,
+        "max_abs_overall": 0
+      },
+      "oadec vs oadec-realramps @ 4+7+0": {
+        "channels": [
+          12,
+          12
+        ],
+        "frames": [
+          480000,
+          480000
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 448050,
+            "max_abs": 969364,
+            "rms_a": 626752.3727983175,
+            "rms_b": 622460.55114107,
+            "corr": 0.9885020282339112,
+            "sdr_db": 16.40442155314478,
+            "lag": 218,
+            "peak_a": 1966469,
+            "peak_b": 1940937
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 415988,
+            "max_abs": 686728,
+            "rms_a": 209450.00380366718,
+            "rms_b": 196676.4850147569,
+            "corr": 0.8921516947560376,
+            "sdr_db": 6.85581978566966,
+            "lag": 655,
+            "peak_a": 757055,
+            "peak_b": 756289
+          },
+          {
+            "ch": 2,
+            "identical": false,
+            "differing": 477652,
+            "max_abs": 927125,
+            "rms_a": 363943.27845704154,
+            "rms_b": 347776.89169315976,
+            "corr": 0.9203642868481574,
+            "sdr_db": 8.12000917518792,
+            "lag": 655,
+            "peak_a": 1952831,
+            "peak_b": 1941334
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": false,
+            "differing": 477682,
+            "max_abs": 654724,
+            "rms_a": 412815.8202488025,
+            "rms_b": 402769.12729854346,
+            "corr": 0.9598281876352673,
+            "sdr_db": 11.024796166923824,
+            "lag": 764,
+            "peak_a": 1463383,
+            "peak_b": 1461873
+          },
+          {
+            "ch": 5,
+            "identical": false,
+            "differing": 477662,
+            "max_abs": 667982,
+            "rms_a": 415772.9003575626,
+            "rms_b": 405512.93394302373,
+            "corr": 0.9598688658278663,
+            "sdr_db": 11.029747673485579,
+            "lag": 655,
+            "peak_a": 1383638,
+            "peak_b": 1373317
+          },
+          {
+            "ch": 6,
+            "identical": false,
+            "differing": 463709,
+            "max_abs": 630278,
+            "rms_a": 326978.7064372022,
+            "rms_b": 313250.72904518706,
+            "corr": 0.9301483087381337,
+            "sdr_db": 8.677380228335318,
+            "lag": 655,
+            "peak_a": 939020,
+            "peak_b": 938862
+          },
+          {
+            "ch": 7,
+            "identical": false,
+            "differing": 463726,
+            "max_abs": 647458,
+            "rms_a": 677304.9156807077,
+            "rms_b": 670806.1098266238,
+            "corr": 0.9841732068185264,
+            "sdr_db": 15.024907617263246,
+            "lag": 982,
+            "peak_a": 1760592,
+            "peak_b": 1759067
+          },
+          {
+            "ch": 8,
+            "identical": false,
+            "differing": 477749,
+            "max_abs": 691499,
+            "rms_a": 644281.6109233026,
+            "rms_b": 638064.6167842001,
+            "corr": 0.9834430595142921,
+            "sdr_db": 14.829696479344094,
+            "lag": 982,
+            "peak_a": 2360477,
+            "peak_b": 2348275
+          },
+          {
+            "ch": 9,
+            "identical": false,
+            "differing": 477706,
+            "max_abs": 802707,
+            "rms_a": 649086.3837287036,
+            "rms_b": 643192.1057376636,
+            "corr": 0.9836261369682311,
+            "sdr_db": 14.876784206478888,
+            "lag": 218,
+            "peak_a": 2155226,
+            "peak_b": 2155226
+          },
+          {
+            "ch": 10,
+            "identical": false,
+            "differing": 477716,
+            "max_abs": 676525,
+            "rms_a": 488325.9247193766,
+            "rms_b": 479625.93643258535,
+            "corr": 0.9710467120008898,
+            "sdr_db": 12.426622601001542,
+            "lag": 764,
+            "peak_a": 1545673,
+            "peak_b": 1544850
+          },
+          {
+            "ch": 11,
+            "identical": false,
+            "differing": 477724,
+            "max_abs": 628536,
+            "rms_a": 490280.5164365506,
+            "rms_b": 481433.59014168265,
+            "corr": 0.9710348779887791,
+            "sdr_db": 12.425240818843843,
+            "lag": 764,
+            "peak_a": 1398800,
+            "peak_b": 1398219
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 6.85581978566966,
+        "max_abs_overall": 969364
+      },
+      "dolby-ct vs oadec-realramps @ 4+7+0": {
+        "channels": [
+          12,
+          12
+        ],
+        "frames": [
+          480000,
+          480000
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 448050,
+            "max_abs": 969364,
+            "rms_a": 626752.3727983175,
+            "rms_b": 622460.55114107,
+            "corr": 0.9885020282339112,
+            "sdr_db": 16.40442155314478,
+            "lag": 218,
+            "peak_a": 1966469,
+            "peak_b": 1940937
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 415988,
+            "max_abs": 686728,
+            "rms_a": 209450.00380366718,
+            "rms_b": 196676.4850147569,
+            "corr": 0.8921516947560376,
+            "sdr_db": 6.85581978566966,
+            "lag": 655,
+            "peak_a": 757055,
+            "peak_b": 756289
+          },
+          {
+            "ch": 2,
+            "identical": false,
+            "differing": 477652,
+            "max_abs": 927125,
+            "rms_a": 363943.27845704154,
+            "rms_b": 347776.89169315976,
+            "corr": 0.9203642868481574,
+            "sdr_db": 8.12000917518792,
+            "lag": 655,
+            "peak_a": 1952831,
+            "peak_b": 1941334
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": false,
+            "differing": 477682,
+            "max_abs": 654724,
+            "rms_a": 412815.8202488025,
+            "rms_b": 402769.12729854346,
+            "corr": 0.9598281876352673,
+            "sdr_db": 11.024796166923824,
+            "lag": 764,
+            "peak_a": 1463383,
+            "peak_b": 1461873
+          },
+          {
+            "ch": 5,
+            "identical": false,
+            "differing": 477662,
+            "max_abs": 667982,
+            "rms_a": 415772.9003575626,
+            "rms_b": 405512.93394302373,
+            "corr": 0.9598688658278663,
+            "sdr_db": 11.029747673485579,
+            "lag": 655,
+            "peak_a": 1383638,
+            "peak_b": 1373317
+          },
+          {
+            "ch": 6,
+            "identical": false,
+            "differing": 463709,
+            "max_abs": 630278,
+            "rms_a": 326978.7064372022,
+            "rms_b": 313250.72904518706,
+            "corr": 0.9301483087381337,
+            "sdr_db": 8.677380228335318,
+            "lag": 655,
+            "peak_a": 939020,
+            "peak_b": 938862
+          },
+          {
+            "ch": 7,
+            "identical": false,
+            "differing": 463726,
+            "max_abs": 647458,
+            "rms_a": 677304.9156807077,
+            "rms_b": 670806.1098266238,
+            "corr": 0.9841732068185264,
+            "sdr_db": 15.024907617263246,
+            "lag": 982,
+            "peak_a": 1760592,
+            "peak_b": 1759067
+          },
+          {
+            "ch": 8,
+            "identical": false,
+            "differing": 477749,
+            "max_abs": 691499,
+            "rms_a": 644281.6109233026,
+            "rms_b": 638064.6167842001,
+            "corr": 0.9834430595142921,
+            "sdr_db": 14.829696479344094,
+            "lag": 982,
+            "peak_a": 2360477,
+            "peak_b": 2348275
+          },
+          {
+            "ch": 9,
+            "identical": false,
+            "differing": 477706,
+            "max_abs": 802707,
+            "rms_a": 649086.3837287036,
+            "rms_b": 643192.1057376636,
+            "corr": 0.9836261369682311,
+            "sdr_db": 14.876784206478888,
+            "lag": 218,
+            "peak_a": 2155226,
+            "peak_b": 2155226
+          },
+          {
+            "ch": 10,
+            "identical": false,
+            "differing": 477716,
+            "max_abs": 676525,
+            "rms_a": 488325.9247193766,
+            "rms_b": 479625.93643258535,
+            "corr": 0.9710467120008898,
+            "sdr_db": 12.426622601001542,
+            "lag": 764,
+            "peak_a": 1545673,
+            "peak_b": 1544850
+          },
+          {
+            "ch": 11,
+            "identical": false,
+            "differing": 477724,
+            "max_abs": 628536,
+            "rms_a": 490280.5164365506,
+            "rms_b": 481433.59014168265,
+            "corr": 0.9710348779887791,
+            "sdr_db": 12.425240818843843,
+            "lag": 764,
+            "peak_a": 1398800,
+            "peak_b": 1398219
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 6.85581978566966,
+        "max_abs_overall": 969364
+      }
+    }
+  },
+  "pihead/render-report-050.json": {
+    "utc": "2026-09-12T05:04:16Z",
+    "ear": {
+      "path": "E:\\oadec-work\\audit\\adm\\venv\\Scripts\\ear-render.exe",
+      "bytes": 108356,
+      "sha256": "0152d7ee952e8f8b3001507645d4a6153fd6c08be68aeeb5880b36a87d87f533",
+      "mtime": "2026-09-11T20:45:11Z"
+    },
+    "inputs": {
+      "oadec": {
+        "path": "E:\\oadec-work\\audit\\adm\\work\\pi-head50m\\default\\pi-head50m.wav",
+        "bytes": 319858590,
+        "sha256": "5abe2e85abf13113c5075bf56ed614e2137ddf33f0ba8951562c6d16c7cce15c",
+        "mtime": "2026-09-11T21:16:07Z"
+      },
+      "dolby-ct": {
+        "path": "E:\\oadec-work\\audit\\adm\\work\\f5\\stimuli\\S0-pihead\\ct\\output.wav",
+        "bytes": 319858626,
+        "sha256": "928bdb92c226c6bfb616a724084b7c599344780a45418760552980febe1d0b65",
+        "mtime": "2026-09-11T21:49:45Z"
+      },
+      "oadec-realramps": {
+        "path": "E:\\oadec-work\\audit\\adm\\work\\f5\\reverse\\pi-head50m-realramps.wav",
+        "bytes": 319858590,
+        "sha256": "b8fc233fcd3e99778c842b92eebf4959d1569fcb2ff046bb3269b3538bc32f4d",
+        "mtime": "2026-09-11T21:53:09Z"
+      }
+    },
+    "realramp_variants": {},
+    "ear_compatibility": {
+      "oadec": {
+        "removed_pack_refs": 22
+      },
+      "dolby-ct": {
+        "removed_pack_refs": 22
+      },
+      "oadec-realramps": {
+        "removed_pack_refs": 22
+      }
+    },
+    "renders": {
+      "oadec/0+5+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 5.281,
+        "output": "E:/oadec-work/audit/adm/work/render/pihead\\oadec__050.wav"
+      },
+      "dolby-ct/0+5+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 5.735,
+        "output": "E:/oadec-work/audit/adm/work/render/pihead\\dolby-ct__050.wav"
+      },
+      "oadec-realramps/0+5+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 5.546,
+        "output": "E:/oadec-work/audit/adm/work/render/pihead\\oadec-realramps__050.wav"
+      }
+    },
+    "comparisons": {
+      "oadec vs dolby-ct @ 0+5+0": {
+        "channels": [
+          6,
+          6
+        ],
+        "frames": [
+          5075800,
+          5075800
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 546143.9554963895,
+            "rms_b": 546143.9554963895,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 8388607,
+            "peak_b": 8388607
+          },
+          {
+            "ch": 1,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 505357.7596039725,
+            "rms_b": 505357.7596039725,
+            "corr": 0.9999999999999999,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 8388607,
+            "peak_b": 8388607
+          },
+          {
+            "ch": 2,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 273831.69884062925,
+            "rms_b": 273831.69884062925,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 7929211,
+            "peak_b": 7929211
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 171380.41837668576,
+            "rms_b": 171380.41837668576,
+            "corr": 0.9999999999999998,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 4285506,
+            "peak_b": 4285506
+          },
+          {
+            "ch": 5,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 169802.40958548166,
+            "rms_b": 169802.40958548166,
+            "corr": 0.9999999999999998,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 3189358,
+            "peak_b": 3189358
+          }
+        ],
+        "all_identical": true,
+        "min_sdr_db": null,
+        "max_abs_overall": 0
+      },
+      "oadec vs oadec-realramps @ 0+5+0": {
+        "channels": [
+          6,
+          6
+        ],
+        "frames": [
+          5075800,
+          5075800
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 55090,
+            "max_abs": 28365,
+            "rms_a": 546143.9554963895,
+            "rms_b": 546134.870349003,
+            "corr": 0.999999865672745,
+            "sdr_db": 65.70363917906508,
+            "lag": 0,
+            "peak_a": 8388607,
+            "peak_b": 8388607
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 46113,
+            "max_abs": 32115,
+            "rms_a": 505357.7596039725,
+            "rms_b": 505346.62204540556,
+            "corr": 0.9999998996518091,
+            "sdr_db": 66.96420824624641,
+            "lag": 0,
+            "peak_a": 8388607,
+            "peak_b": 8388607
+          },
+          {
+            "ch": 2,
+            "identical": false,
+            "differing": 49419,
+            "max_abs": 120972,
+            "rms_a": 273831.69884062925,
+            "rms_b": 273866.92415162583,
+            "corr": 0.9999930305880919,
+            "sdr_db": 48.552022174949755,
+            "lag": 0,
+            "peak_a": 7929211,
+            "peak_b": 7929211
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": false,
+            "differing": 46692,
+            "max_abs": 41742,
+            "rms_a": 171380.41837668576,
+            "rms_b": 171385.00307635867,
+            "corr": 0.9999975119512118,
+            "sdr_db": 53.03034123452403,
+            "lag": 0,
+            "peak_a": 4285506,
+            "peak_b": 4285219
+          },
+          {
+            "ch": 5,
+            "identical": false,
+            "differing": 49067,
+            "max_abs": 91084,
+            "rms_a": 169802.40958548166,
+            "rms_b": 169799.3429291687,
+            "corr": 0.9999901304457184,
+            "sdr_db": 47.04669998998705,
+            "lag": 0,
+            "peak_a": 3189358,
+            "peak_b": 3189358
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 47.04669998998705,
+        "max_abs_overall": 120972
+      },
+      "dolby-ct vs oadec-realramps @ 0+5+0": {
+        "channels": [
+          6,
+          6
+        ],
+        "frames": [
+          5075800,
+          5075800
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 55090,
+            "max_abs": 28365,
+            "rms_a": 546143.9554963895,
+            "rms_b": 546134.870349003,
+            "corr": 0.999999865672745,
+            "sdr_db": 65.70363917906508,
+            "lag": 0,
+            "peak_a": 8388607,
+            "peak_b": 8388607
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 46113,
+            "max_abs": 32115,
+            "rms_a": 505357.7596039725,
+            "rms_b": 505346.62204540556,
+            "corr": 0.9999998996518091,
+            "sdr_db": 66.96420824624641,
+            "lag": 0,
+            "peak_a": 8388607,
+            "peak_b": 8388607
+          },
+          {
+            "ch": 2,
+            "identical": false,
+            "differing": 49419,
+            "max_abs": 120972,
+            "rms_a": 273831.69884062925,
+            "rms_b": 273866.92415162583,
+            "corr": 0.9999930305880919,
+            "sdr_db": 48.552022174949755,
+            "lag": 0,
+            "peak_a": 7929211,
+            "peak_b": 7929211
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": false,
+            "differing": 46692,
+            "max_abs": 41742,
+            "rms_a": 171380.41837668576,
+            "rms_b": 171385.00307635867,
+            "corr": 0.9999975119512118,
+            "sdr_db": 53.03034123452403,
+            "lag": 0,
+            "peak_a": 4285506,
+            "peak_b": 4285219
+          },
+          {
+            "ch": 5,
+            "identical": false,
+            "differing": 49067,
+            "max_abs": 91084,
+            "rms_a": 169802.40958548166,
+            "rms_b": 169799.3429291687,
+            "corr": 0.9999901304457184,
+            "sdr_db": 47.04669998998705,
+            "lag": 0,
+            "peak_a": 3189358,
+            "peak_b": 3189358
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 47.04669998998705,
+        "max_abs_overall": 120972
+      }
+    }
+  },
+  "pihead/render-report-470.json": {
+    "utc": "2026-09-12T05:07:01Z",
+    "ear": {
+      "path": "E:\\oadec-work\\audit\\adm\\venv\\Scripts\\ear-render.exe",
+      "bytes": 108356,
+      "sha256": "0152d7ee952e8f8b3001507645d4a6153fd6c08be68aeeb5880b36a87d87f533",
+      "mtime": "2026-09-11T20:45:11Z"
+    },
+    "inputs": {
+      "oadec": {
+        "path": "E:\\oadec-work\\audit\\adm\\work\\pi-head50m\\default\\pi-head50m.wav",
+        "bytes": 319858590,
+        "sha256": "5abe2e85abf13113c5075bf56ed614e2137ddf33f0ba8951562c6d16c7cce15c",
+        "mtime": "2026-09-11T21:16:07Z"
+      },
+      "dolby-ct": {
+        "path": "E:\\oadec-work\\audit\\adm\\work\\f5\\stimuli\\S0-pihead\\ct\\output.wav",
+        "bytes": 319858626,
+        "sha256": "928bdb92c226c6bfb616a724084b7c599344780a45418760552980febe1d0b65",
+        "mtime": "2026-09-11T21:49:45Z"
+      },
+      "oadec-realramps": {
+        "path": "E:\\oadec-work\\audit\\adm\\work\\f5\\reverse\\pi-head50m-realramps.wav",
+        "bytes": 319858590,
+        "sha256": "b8fc233fcd3e99778c842b92eebf4959d1569fcb2ff046bb3269b3538bc32f4d",
+        "mtime": "2026-09-11T21:53:09Z"
+      }
+    },
+    "realramp_variants": {},
+    "ear_compatibility": {
+      "oadec": {
+        "removed_pack_refs": 22
+      },
+      "dolby-ct": {
+        "removed_pack_refs": 22
+      },
+      "oadec-realramps": {
+        "removed_pack_refs": 22
+      }
+    },
+    "renders": {
+      "oadec/4+7+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 8.734,
+        "output": "E:/oadec-work/audit/adm/work/render/pihead\\oadec__470.wav"
+      },
+      "oadec/0+2+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 4.125,
+        "output": "E:/oadec-work/audit/adm/work/render/pihead\\oadec__020.wav"
+      },
+      "dolby-ct/4+7+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 9.688,
+        "output": "E:/oadec-work/audit/adm/work/render/pihead\\dolby-ct__470.wav"
+      },
+      "dolby-ct/0+2+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 4.218,
+        "output": "E:/oadec-work/audit/adm/work/render/pihead\\dolby-ct__020.wav"
+      },
+      "oadec-realramps/4+7+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 9.5,
+        "output": "E:/oadec-work/audit/adm/work/render/pihead\\oadec-realramps__470.wav"
+      },
+      "oadec-realramps/0+2+0": {
+        "ok": true,
+        "exit": 0,
+        "seconds": 4.125,
+        "output": "E:/oadec-work/audit/adm/work/render/pihead\\oadec-realramps__020.wav"
+      }
+    },
+    "comparisons": {
+      "oadec vs dolby-ct @ 4+7+0": {
+        "channels": [
+          12,
+          12
+        ],
+        "frames": [
+          5075800,
+          5075800
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 448809.78414071194,
+            "rms_b": 448809.78414071194,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 7870048,
+            "peak_b": 7870048
+          },
+          {
+            "ch": 1,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 399647.4780482027,
+            "rms_b": 399647.4780482027,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 5752991,
+            "peak_b": 5752991
+          },
+          {
+            "ch": 2,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 271932.54631002905,
+            "rms_b": 271932.54631002905,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 7652407,
+            "peak_b": 7652407
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 156176.3116158802,
+            "rms_b": 156176.3116158802,
+            "corr": 0.9999999999999998,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 3048006,
+            "peak_b": 3048006
+          },
+          {
+            "ch": 5,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 170363.67388114837,
+            "rms_b": 170363.67388114837,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 3600496,
+            "peak_b": 3600496
+          },
+          {
+            "ch": 6,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 82340.4451132486,
+            "rms_b": 82340.4451132486,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 2093277,
+            "peak_b": 2093277
+          },
+          {
+            "ch": 7,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 71265.80956989103,
+            "rms_b": 71265.80956989103,
+            "corr": 0.9999999999999998,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 893344,
+            "peak_b": 893344
+          },
+          {
+            "ch": 8,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 108222.80225490364,
+            "rms_b": 108222.80225490364,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 3568252,
+            "peak_b": 3568252
+          },
+          {
+            "ch": 9,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 94677.05918860821,
+            "rms_b": 94677.05918860821,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 3486188,
+            "peak_b": 3486188
+          },
+          {
+            "ch": 10,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 39815.61099508409,
+            "rms_b": 39815.61099508409,
+            "corr": 0.9999999999999998,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 1204810,
+            "peak_b": 1204810
+          },
+          {
+            "ch": 11,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 28447.235247230743,
+            "rms_b": 28447.235247230743,
+            "corr": 0.9999999999999999,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 770590,
+            "peak_b": 770590
+          }
+        ],
+        "all_identical": true,
+        "min_sdr_db": null,
+        "max_abs_overall": 0
+      },
+      "oadec vs oadec-realramps @ 4+7+0": {
+        "channels": [
+          12,
+          12
+        ],
+        "frames": [
+          5075800,
+          5075800
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 43487,
+            "max_abs": 186799,
+            "rms_a": 448809.78414071194,
+            "rms_b": 448734.8537603266,
+            "corr": 0.9999906551785198,
+            "sdr_db": 47.27824081118702,
+            "lag": 0,
+            "peak_a": 7870048,
+            "peak_b": 7870048
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 32767,
+            "max_abs": 159759,
+            "rms_a": 399647.4780482027,
+            "rms_b": 399585.9957842643,
+            "corr": 0.9999900446823407,
+            "sdr_db": 47.004596884001295,
+            "lag": 0,
+            "peak_a": 5752991,
+            "peak_b": 5709300
+          },
+          {
+            "ch": 2,
+            "identical": false,
+            "differing": 48613,
+            "max_abs": 92110,
+            "rms_a": 271932.54631002905,
+            "rms_b": 271919.33838140324,
+            "corr": 0.9999972265536486,
+            "sdr_db": 52.55784545621942,
+            "lag": 0,
+            "peak_a": 7652407,
+            "peak_b": 7644417
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": false,
+            "differing": 39450,
+            "max_abs": 60382,
+            "rms_a": 156176.3116158802,
+            "rms_b": 156158.51131186797,
+            "corr": 0.9999936380645637,
+            "sdr_db": 48.94984395528664,
+            "lag": 0,
+            "peak_a": 3048006,
+            "peak_b": 3048006
+          },
+          {
+            "ch": 5,
+            "identical": false,
+            "differing": 51833,
+            "max_abs": 122340,
+            "rms_a": 170363.67388114837,
+            "rms_b": 170367.08476192504,
+            "corr": 0.9999754077046831,
+            "sdr_db": 43.08157948612347,
+            "lag": 0,
+            "peak_a": 3600496,
+            "peak_b": 3600496
+          },
+          {
+            "ch": 6,
+            "identical": false,
+            "differing": 27979,
+            "max_abs": 28308,
+            "rms_a": 82340.4451132486,
+            "rms_b": 82332.67001352794,
+            "corr": 0.9999966952998526,
+            "sdr_db": 51.79293445206856,
+            "lag": 0,
+            "peak_a": 2093277,
+            "peak_b": 2093277
+          },
+          {
+            "ch": 7,
+            "identical": false,
+            "differing": 23448,
+            "max_abs": 17490,
+            "rms_a": 71265.80956989103,
+            "rms_b": 71262.58169853575,
+            "corr": 0.9999987236429351,
+            "sdr_db": 55.92668501582415,
+            "lag": 0,
+            "peak_a": 893344,
+            "peak_b": 893344
+          },
+          {
+            "ch": 8,
+            "identical": false,
+            "differing": 66983,
+            "max_abs": 109670,
+            "rms_a": 108222.80225490364,
+            "rms_b": 108284.1120355394,
+            "corr": 0.9999723581367025,
+            "sdr_db": 42.54640000811055,
+            "lag": 0,
+            "peak_a": 3568252,
+            "peak_b": 3576517
+          },
+          {
+            "ch": 9,
+            "identical": false,
+            "differing": 65592,
+            "max_abs": 110467,
+            "rms_a": 94677.05918860821,
+            "rms_b": 94720.02405415254,
+            "corr": 0.9999423557394903,
+            "sdr_db": 39.372337074230835,
+            "lag": 0,
+            "peak_a": 3486188,
+            "peak_b": 3486436
+          },
+          {
+            "ch": 10,
+            "identical": false,
+            "differing": 50513,
+            "max_abs": 66391,
+            "rms_a": 39815.61099508409,
+            "rms_b": 39750.36886926584,
+            "corr": 0.9998900219764362,
+            "sdr_db": 36.53098328305199,
+            "lag": 0,
+            "peak_a": 1204810,
+            "peak_b": 1204810
+          },
+          {
+            "ch": 11,
+            "identical": false,
+            "differing": 55941,
+            "max_abs": 21838,
+            "rms_a": 28447.235247230743,
+            "rms_b": 28421.31350207508,
+            "corr": 0.9999631062264077,
+            "sdr_db": 41.2754433118533,
+            "lag": 0,
+            "peak_a": 770590,
+            "peak_b": 770590
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 36.53098328305199,
+        "max_abs_overall": 186799
+      },
+      "dolby-ct vs oadec-realramps @ 4+7+0": {
+        "channels": [
+          12,
+          12
+        ],
+        "frames": [
+          5075800,
+          5075800
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 43487,
+            "max_abs": 186799,
+            "rms_a": 448809.78414071194,
+            "rms_b": 448734.8537603266,
+            "corr": 0.9999906551785198,
+            "sdr_db": 47.27824081118702,
+            "lag": 0,
+            "peak_a": 7870048,
+            "peak_b": 7870048
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 32767,
+            "max_abs": 159759,
+            "rms_a": 399647.4780482027,
+            "rms_b": 399585.9957842643,
+            "corr": 0.9999900446823407,
+            "sdr_db": 47.004596884001295,
+            "lag": 0,
+            "peak_a": 5752991,
+            "peak_b": 5709300
+          },
+          {
+            "ch": 2,
+            "identical": false,
+            "differing": 48613,
+            "max_abs": 92110,
+            "rms_a": 271932.54631002905,
+            "rms_b": 271919.33838140324,
+            "corr": 0.9999972265536486,
+            "sdr_db": 52.55784545621942,
+            "lag": 0,
+            "peak_a": 7652407,
+            "peak_b": 7644417
+          },
+          {
+            "ch": 3,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 0.0,
+            "rms_b": 0.0,
+            "corr": null,
+            "sdr_db": null,
+            "lag": 0,
+            "peak_a": 0,
+            "peak_b": 0
+          },
+          {
+            "ch": 4,
+            "identical": false,
+            "differing": 39450,
+            "max_abs": 60382,
+            "rms_a": 156176.3116158802,
+            "rms_b": 156158.51131186797,
+            "corr": 0.9999936380645637,
+            "sdr_db": 48.94984395528664,
+            "lag": 0,
+            "peak_a": 3048006,
+            "peak_b": 3048006
+          },
+          {
+            "ch": 5,
+            "identical": false,
+            "differing": 51833,
+            "max_abs": 122340,
+            "rms_a": 170363.67388114837,
+            "rms_b": 170367.08476192504,
+            "corr": 0.9999754077046831,
+            "sdr_db": 43.08157948612347,
+            "lag": 0,
+            "peak_a": 3600496,
+            "peak_b": 3600496
+          },
+          {
+            "ch": 6,
+            "identical": false,
+            "differing": 27979,
+            "max_abs": 28308,
+            "rms_a": 82340.4451132486,
+            "rms_b": 82332.67001352794,
+            "corr": 0.9999966952998526,
+            "sdr_db": 51.79293445206856,
+            "lag": 0,
+            "peak_a": 2093277,
+            "peak_b": 2093277
+          },
+          {
+            "ch": 7,
+            "identical": false,
+            "differing": 23448,
+            "max_abs": 17490,
+            "rms_a": 71265.80956989103,
+            "rms_b": 71262.58169853575,
+            "corr": 0.9999987236429351,
+            "sdr_db": 55.92668501582415,
+            "lag": 0,
+            "peak_a": 893344,
+            "peak_b": 893344
+          },
+          {
+            "ch": 8,
+            "identical": false,
+            "differing": 66983,
+            "max_abs": 109670,
+            "rms_a": 108222.80225490364,
+            "rms_b": 108284.1120355394,
+            "corr": 0.9999723581367025,
+            "sdr_db": 42.54640000811055,
+            "lag": 0,
+            "peak_a": 3568252,
+            "peak_b": 3576517
+          },
+          {
+            "ch": 9,
+            "identical": false,
+            "differing": 65592,
+            "max_abs": 110467,
+            "rms_a": 94677.05918860821,
+            "rms_b": 94720.02405415254,
+            "corr": 0.9999423557394903,
+            "sdr_db": 39.372337074230835,
+            "lag": 0,
+            "peak_a": 3486188,
+            "peak_b": 3486436
+          },
+          {
+            "ch": 10,
+            "identical": false,
+            "differing": 50513,
+            "max_abs": 66391,
+            "rms_a": 39815.61099508409,
+            "rms_b": 39750.36886926584,
+            "corr": 0.9998900219764362,
+            "sdr_db": 36.53098328305199,
+            "lag": 0,
+            "peak_a": 1204810,
+            "peak_b": 1204810
+          },
+          {
+            "ch": 11,
+            "identical": false,
+            "differing": 55941,
+            "max_abs": 21838,
+            "rms_a": 28447.235247230743,
+            "rms_b": 28421.31350207508,
+            "corr": 0.9999631062264077,
+            "sdr_db": 41.2754433118533,
+            "lag": 0,
+            "peak_a": 770590,
+            "peak_b": 770590
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 36.53098328305199,
+        "max_abs_overall": 186799
+      },
+      "oadec vs dolby-ct @ 0+2+0": {
+        "channels": [
+          2,
+          2
+        ],
+        "frames": [
+          5075800,
+          5075800
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 662509.5597737719,
+            "rms_b": 662509.5597737719,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 8388607,
+            "peak_b": 8388607
+          },
+          {
+            "ch": 1,
+            "identical": true,
+            "differing": 0,
+            "max_abs": 0,
+            "rms_a": 635517.9020304566,
+            "rms_b": 635517.9020304566,
+            "corr": 1.0,
+            "sdr_db": Infinity,
+            "lag": 0,
+            "peak_a": 8388607,
+            "peak_b": 8388607
+          }
+        ],
+        "all_identical": true,
+        "min_sdr_db": null,
+        "max_abs_overall": 0
+      },
+      "oadec vs oadec-realramps @ 0+2+0": {
+        "channels": [
+          2,
+          2
+        ],
+        "frames": [
+          5075800,
+          5075800
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 35800,
+            "max_abs": 30489,
+            "rms_a": 662509.5597737719,
+            "rms_b": 662524.4367401936,
+            "corr": 0.9999999454899611,
+            "sdr_db": 69.6047702468793,
+            "lag": 0,
+            "peak_a": 8388607,
+            "peak_b": 8388607
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 36546,
+            "max_abs": 58118,
+            "rms_a": 635517.9020304566,
+            "rms_b": 635519.0909138822,
+            "corr": 0.9999997503917084,
+            "sdr_db": 63.017065704258066,
+            "lag": 0,
+            "peak_a": 8388607,
+            "peak_b": 8388607
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 63.017065704258066,
+        "max_abs_overall": 58118
+      },
+      "dolby-ct vs oadec-realramps @ 0+2+0": {
+        "channels": [
+          2,
+          2
+        ],
+        "frames": [
+          5075800,
+          5075800
+        ],
+        "per_channel": [
+          {
+            "ch": 0,
+            "identical": false,
+            "differing": 35800,
+            "max_abs": 30489,
+            "rms_a": 662509.5597737719,
+            "rms_b": 662524.4367401936,
+            "corr": 0.9999999454899611,
+            "sdr_db": 69.6047702468793,
+            "lag": 0,
+            "peak_a": 8388607,
+            "peak_b": 8388607
+          },
+          {
+            "ch": 1,
+            "identical": false,
+            "differing": 36546,
+            "max_abs": 58118,
+            "rms_a": 635517.9020304566,
+            "rms_b": 635519.0909138822,
+            "corr": 0.9999997503917084,
+            "sdr_db": 63.017065704258066,
+            "lag": 0,
+            "peak_a": 8388607,
+            "peak_b": 8388607
+          }
+        ],
+        "all_identical": false,
+        "min_sdr_db": 63.017065704258066,
+        "max_abs_overall": 58118
+      }
+    }
+  }
+}
