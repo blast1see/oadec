@@ -143,7 +143,7 @@ def main() -> int:
     def rows(fn):
         return {k: fn(v) for k, v in per_input.items()}
 
-    evidence.write(out, "adm-batch-summary", {"batches": batches, "inputs": sorted(per_input)},
+    evidence.write(out, "adm-batch-summary", {"batches": batches, "inputs_analysed": sorted(per_input)},
                    title="Decode and compare summary for every TrueHD, E-AC-3 JOC and authored input", topics=["batch"], evidence_class="MEASURED",
                    structural_result="PASS", semantic_result="PARTIAL", classification="real material: 0 ledger defects, PCM identical; ramp/bed/importance losses counted separately",
                    method="run_batch_decode.py -> run_decode.py + run_compare.py", inputs=inp(f"{W}/work/thd/batch-summary.json", f"{W}/work/joc/batch-summary.json"), generated_by=gen)
@@ -232,7 +232,7 @@ def main() -> int:
                    evidence_class="MEASURED", structural_result="PASS", semantic_result=None, classification="RF64 FourCC (not BW64) noted",
                    method="run_container.py", inputs=inp(f"{W}/big/pi/container.json"), generated_by=gen)
 
-    renders = {os.path.basename(p): load(p) for p in glob.glob(f"{W}/work/render/*/render-report*.json")}
+    renders = {os.path.relpath(p, f"{W}/work/render").replace(os.sep, "/"): load(p) for p in glob.glob(f"{W}/work/render/*/render-report*.json")}
     for r in renders.values():
         if r:
             for k, v in r.get("renders", {}).items():
