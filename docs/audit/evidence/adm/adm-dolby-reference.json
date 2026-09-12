@@ -20,7 +20,7 @@
   ],
   "tolerance": null,
   "generated_by": "docs/audit/adm/tools/build_evidence.py",
-  "utc": "2026-09-12T05:21:06Z",
+  "utc": "2026-09-12T06:06:49Z",
   "stimuli": {
     "S1-ramps": {
       "what": "fast scene; rampLength cycles 0/32/250/480/1536/2048 per event of every element",

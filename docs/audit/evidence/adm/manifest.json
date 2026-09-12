@@ -1,10 +1,10 @@
 {
-  "utc": "2026-09-12T05:21:06Z",
+  "utc": "2026-09-12T06:07:57Z",
   "files": [
     {
       "file": "00-provenance.json",
-      "bytes": 5433,
-      "sha256": "8b2aab7fa26df2fe952c068e89f15a84da8a3decfc31692b2583014f0ac8eab9",
+      "bytes": 5311,
+      "sha256": "7808263f6dbba0957876fdcea2a66308a693f115a1113bd34949b89b5c52ef27",
       "id": "00-provenance",
       "title": "Provenance of the ADM audit",
       "structural_result": null,
@@ -13,7 +13,7 @@
     {
       "file": "01-spec-extracts.json",
       "bytes": 26137,
-      "sha256": "ed2f393076c629ce4477ec1a461d7fcfb3fb66906cc58e8a353643206d93146b",
+      "sha256": "5166d777ab06730f9ce7fa898d228f31d507260b1c6247efc05041ffacb8a24e",
       "id": "01-spec-extracts",
       "title": "Verbatim specification extracts the audit rests on",
       "structural_result": null,
@@ -22,7 +22,7 @@
     {
       "file": "adm-batch-summary.json",
       "bytes": 62673,
-      "sha256": "79e585fc22bd8247ac3b0c563193ccac56f6e59139ea384f250b03b16beef4cf",
+      "sha256": "6ed302e89697b63bff0d3cdc5de12957eb4f76240d6ede3faa9be912cb4dd080",
       "id": "adm-batch-summary",
       "title": "Decode and compare summary for every TrueHD, E-AC-3 JOC and authored input",
       "structural_result": "PASS",
@@ -30,8 +30,8 @@
     },
     {
       "file": "adm-conformance-matrix.json",
-      "bytes": 36415,
-      "sha256": "e0c8c4af308ce072a394c43f2f0908c91c175f1993d0a79ce76484f3247f7726",
+      "bytes": 36478,
+      "sha256": "d2fb8d9c149df331983d611e07569517ff999400fd3471f969eb0ad87b994e72",
       "id": null,
       "title": null,
       "structural_result": null,
@@ -40,7 +40,7 @@
     {
       "file": "adm-container-validation.json",
       "bytes": 31964,
-      "sha256": "a399108047b0fcbce1a02ea220b71805ff208c84b4c1c16419308f204a68de0f",
+      "sha256": "c57b2de2140fa2371f14fc0fabe8531b28bd890f7c4ef6cd710d9fc0c714d382",
       "id": "adm-container-validation",
       "title": "BW64/RF64 container validation: our walker, ffprobe, bwf_info, atmos_info; > 4 GiB files and the two size thresholds",
       "structural_result": "PASS",
@@ -48,8 +48,8 @@
     },
     {
       "file": "adm-coordinate-diff.json",
-      "bytes": 298038,
-      "sha256": "0bc709812bb8f489b06f47a7bec917efd441777f231309fbacff2afe11e1516e",
+      "bytes": 298039,
+      "sha256": "5497baed7851c0bc09d6dddc925c5628635d6fc9c56bf69189ec7de5156fae10",
       "id": "adm-coordinate-diff",
       "title": "Coordinates: DAMF vs ADM position equality at float32 precision, and the metadata-domain trajectory deviation caused by the fixed interpolation length",
       "structural_result": null,
@@ -58,7 +58,7 @@
     {
       "file": "adm-dolby-reference.json",
       "bytes": 4132317,
-      "sha256": "b383cd5915963d2039024cb1647163bd8f629d1261d54f0448f1e62d77c76935",
+      "sha256": "513891bb8902affcde4a6d51343e70c8a0707246623a075ae47f7797b11c6970",
       "id": "adm-dolby-reference",
       "title": "Dolby reference leg: Conversion Tool and DEE DAMF->ADM on controlled stimuli, ADM->DAMF read-back, atmos_info and bwf_info verdicts",
       "structural_result": null,
@@ -66,8 +66,8 @@
     },
     {
       "file": "adm-event-timing.json",
-      "bytes": 27083,
-      "sha256": "91d90cbdce088e6f550c981ed972c1b611c0ddc9fa4ef1fee48dd4ebec88da4e",
+      "bytes": 27084,
+      "sha256": "05acd5b2804dc0a45a1d63cb1295daea0a921115ec1d61a032635df2b3a2b68e",
       "id": "adm-event-timing",
       "title": "Event timing: DAMF samplePos vs ADM rtime (integer samples), block tiling, timecode re-encoding, and raw OAMD update times including 32 x block_offset_factor",
       "structural_result": "PASS",
@@ -76,7 +76,7 @@
     {
       "file": "adm-gain-diff.json",
       "bytes": 342987,
-      "sha256": "c2d73487b32f9d21b0cca9a7b5ad50f42aa1bd44638c434a04c2b4ed173926fc",
+      "sha256": "4e4c6a6d621afbec62e0e258215ad592c311fca5968f4bcd8d51ada436733ee8",
       "id": "adm-gain-diff",
       "title": "Gain, importance and bed events: what DAMF carries, what oadec's ADM carries, what Dolby's converters carry",
       "structural_result": "PASS",
@@ -85,7 +85,7 @@
     {
       "file": "adm-harness.json",
       "bytes": 693863,
-      "sha256": "9b0dba1e16250c1c506914f50ac9fb8fbfdbf528c1b55f423f72c22d2fd5743c",
+      "sha256": "32715afecfdba89e7f9d969f9f5b4fc10469fe753c82a739110763a6eba8401c",
       "id": "adm-harness",
       "title": "Writer-level cases: the same controlled events through AdmWriter and DamfWriter (and through Dolby's converter)",
       "structural_result": null,
@@ -94,7 +94,7 @@
     {
       "file": "adm-interpolation-diff.json",
       "bytes": 161168,
-      "sha256": "af202d8a6142d33305c882cc46fdeaa3ac492b8228c3da45ce3d6c3ef4104fab",
+      "sha256": "f0a0c3b581f5901fed2dc6e75cbd6931e71a77e94db63c80f314d6a336288f5e",
       "id": "adm-interpolation-diff",
       "title": "Interpolation: DAMF rampLength vs ADM interpolationLength per block, and the resulting trajectory deviation",
       "structural_result": "PASS",
@@ -102,8 +102,8 @@
     },
     {
       "file": "adm-long-duration.json",
-      "bytes": 5796,
-      "sha256": "bf5a3c21a0682a5b5462ee5230740f4290f2b9d1ee3bd21ba892978850e4dfec",
+      "bytes": 5797,
+      "sha256": "853685850fdbf5416d5da1df180bf374c2cf41fa6dfaeca4302a1ab1b00a9473",
       "id": "adm-long-duration",
       "title": "Whole-film Pi (1:24:08, 242 322 080 frames): ledger, timing drift, RF64 container",
       "structural_result": "PASS",
@@ -112,7 +112,7 @@
     {
       "file": "adm-negative-controls.json",
       "bytes": 40710,
-      "sha256": "84cf50a319cc60414bcb1e0e68e4a9f100d3d16736e8d90e80431642271e07c6",
+      "sha256": "62fd84883afb8d82a8cd07eb1aa5e8c2f8f0a46fc3cc0b2de08398d6bc58f8e9",
       "id": "adm-negative-controls",
       "title": "Negative controls: injected defects and the detectors that fired",
       "structural_result": null,
@@ -121,7 +121,7 @@
     {
       "file": "adm-object-pcm-compare.json",
       "bytes": 344736,
-      "sha256": "cde4a2792d76c165cb746eba0423558b460c1bcfdecb4629692ad929b4138019",
+      "sha256": "6923d566d249a73c1351309051ae54f4daf1bc0ea77251182bb9b5889f4d6065",
       "id": "adm-object-pcm-compare",
       "title": "Per-track PCM identity between DAMF audio and ADM data, with the declared pairing verified against the full pairing matrix",
       "structural_result": "PASS",
@@ -130,7 +130,7 @@
     {
       "file": "adm-reference-graph.json",
       "bytes": 17449,
-      "sha256": "38b2d47e2d9c12c6c6d4804a7773dede5c7fb2bed281fe101a1743c7a1eb9c98",
+      "sha256": "b26decb6f5275b7325db68a267d357223c6833c42e34bb37698e65117bd576b4",
       "id": "adm-reference-graph",
       "title": "Reference-graph, chna and Dolby-profile rule findings for every ADM file (empty lists = no finding)",
       "structural_result": "PASS",
@@ -139,7 +139,7 @@
     {
       "file": "adm-render-comparison.json",
       "bytes": 70826,
-      "sha256": "1ee29735384afd7e483053658ce93e06efa468603651b2a9469839d3ada8e8df",
+      "sha256": "5b2bd34634f2d3bcbcfc6b0f4c07b1bc8abd4222cead5757fe94a3be98dda537",
       "id": "adm-render-comparison",
       "title": "EBU ADM Renderer (BS.2127) speaker outputs: oadec ADM vs Dolby ADM vs a real-ramp variant",
       "structural_result": null,
@@ -148,11 +148,20 @@
     {
       "file": "adm-track-mapping.json",
       "bytes": 290986,
-      "sha256": "c98be7e1f645436d21800e1b93eee0c50eac75eaf6b6f4b35d13460c62198ae5",
+      "sha256": "6336fc2f3840342935bfd55ba1025e7c8141f3474b2f027d0b8540e5e4501cba",
       "id": "adm-track-mapping",
       "title": "chna -> audioTrackUID -> audioTrackFormat -> audioStreamFormat -> audioChannelFormat chain per PCM track, against the DAMF declaration",
       "structural_result": "PASS",
       "semantic_result": "PASS"
+    },
+    {
+      "file": "adm-work-inventory.json",
+      "bytes": 3677377,
+      "sha256": "8ed8a879472763bb6d390e2073fc847a754e62387cf47faa3b8f8f47e4e8adc1",
+      "id": "adm-work-inventory",
+      "title": "Inventory of the audit work directory before deletion: hashes of every file, run records and job files verbatim, hashes and command lines extracted from the large derived reports",
+      "structural_result": null,
+      "semantic_result": null
     }
   ]
 }
