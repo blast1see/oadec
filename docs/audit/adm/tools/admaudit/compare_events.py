@@ -61,6 +61,7 @@ class Ledger:
     tiling: dict = field(default_factory=dict)
     bed_changes_lost: int = 0
     time_lost_events: int = 0
+    max_matched_pos_delta: float = 0.0
     presence_differences: list = field(default_factory=list)
     per_object: dict = field(default_factory=dict)
 
@@ -74,6 +75,7 @@ class Ledger:
             "tiling": self.tiling,
             "bed_changes_lost": self.bed_changes_lost,
             "time_lost_events": self.time_lost_events,
+            "max_matched_pos_delta": self.max_matched_pos_delta,
             "presence_differences": self.presence_differences,
             "per_object": self.per_object,
             "items": [_item_json(i) for i in self.items],
@@ -116,7 +118,7 @@ def inexpressible_diff(d: ObjEvent, a: ObjEvent, first_block: bool) -> set:
     """Semantic differences the profile gives the writer no way to express."""
     out = set()
     if d.active:
-        if d.gain["present"] and (d.gain["minus_inf"] or abs(d.gain["lin"] - a.gain["lin"]) > 1e-9):
+        if d.gain["present"] and (d.gain["minus_inf"] != a.gain["minus_inf"] or abs(d.gain["lin"] - a.gain["lin"]) > 1e-6 * max(1.0, abs(d.gain["lin"]))):
             out.add("gain")
         if d.importance["present"] and d.importance["value"] is not None and d.importance["value"] != 1.0 and a.importance["value"] == 10:
             out.add("importance")
@@ -224,7 +226,10 @@ def reconcile_object(k: int, D: list, A: list, frames: int | None, mode: str, po
         elif s.changed is not None and s.changed and s.changed <= INEXPRESSIBLE:
             items.append(LedgerItem("inexpressible_change", k, s.t, s.ref, b.ref, s.t, b.t, fields=set(s.changed)))
         else:
-            items.append(LedgerItem("matched", k, s.t, s.ref, b.ref, s.t, b.t, detail={"inexpressible": sorted(inex)} if inex else {}))
+            det = {"pos_delta": _pos_diff(s.pos, b.pos)}
+            if inex:
+                det["inexpressible"] = sorted(inex)
+            items.append(LedgerItem("matched", k, s.t, s.ref, b.ref, s.t, b.t, detail=det))
     # 5a. a late first state that the writer holds from sample 0 (synthetic block) and then drops as a
     #     duplicate: the state survives, its time does not
     absorbed = []
@@ -323,4 +328,5 @@ def reconcile(damf: Scene, adm: Scene, mode: str = "effective", pos_tol: float =
         "unsorted_objects": sum(1 for t in tilings if not t["sorted"]),
     }
     ledger.identity = {"ok": ledger.identity_ok, "objects": {k: v["identity"] for k, v in ledger.per_object.items()}}
+    ledger.max_matched_pos_delta = max((i.detail.get("pos_delta", 0.0) for i in ledger.items if i.cls == "matched"), default=0.0)
     return ledger
