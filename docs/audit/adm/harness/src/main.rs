@@ -21,7 +21,7 @@ use oadec_emdf::oamd::{
     UpdateTiming,
 };
 use oadec_spatial::program::{damf_channel_name, BedState, ElementState, Event, ObjectState, Program, Timeline};
-use oadec_spatial::{AdmOptions, AdmWriter, DamfOptions, DamfWriter};
+use oadec_spatial::{AdmOptions, AdmWriter, DamfOptions, DamfWriter, IsfPolicy};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -43,6 +43,9 @@ struct Case {
     oamd: Vec<OamdSpec>,
     #[serde(default)]
     keep_all: bool,
+    /// Write the output without the ISF elements instead of refusing (the writers' default).
+    #[serde(default)]
+    isf_drop: bool,
 }
 
 fn d48k() -> u32 {
@@ -310,7 +313,14 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
     let case: Case = serde_json::from_reader(BufReader::new(File::open(case_path).map_err(|e| e.to_string())?)).map_err(|e| format!("case json: {e}"))?;
     std::fs::create_dir_all(out_dir).map_err(|e| e.to_string())?;
     let beds: Result<Vec<Vec<BedChannel>>, String> = case.program.beds.iter().map(|b| b.iter().map(|n| bed_channel(n)).collect()).collect();
-    let program = Program { beds: beds?, isf_objects: case.program.isf_objects, dynamic_objects: case.program.dynamic_objects };
+    // the ISF type whose object count matches (table 11b), for the programme's isf_index
+    let isf_index = if case.program.isf_objects > 0 {
+        oadec_emdf::oamd::ISF_OBJECTS.iter().position(|n| *n == Some(case.program.isf_objects)).map(|i| i as u8)
+    } else {
+        None
+    };
+    let isf = if case.isf_drop { IsfPolicy::Drop } else { IsfPolicy::Error };
+    let program = Program { beds: beds?, isf_index, isf_objects: case.program.isf_objects, dynamic_objects: case.program.dynamic_objects };
     let elements = program.elements();
 
     // events: explicit, plus whatever the timeline emits for OAMD payloads
@@ -339,7 +349,7 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
     // mixed case could interleave: keep the writer's own view honest by not sorting.
 
     let adm_path: PathBuf = out_dir.join(format!("{}.wav", case.case));
-    let mut opts = AdmOptions { bed_conform: case.bed_conform, ..AdmOptions::default() };
+    let mut opts = AdmOptions { bed_conform: case.bed_conform, isf, ..AdmOptions::default() };
     if let Some(c) = &case.creator {
         opts.creator = c.clone();
     }
@@ -395,7 +405,7 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
 
     // ---- DAMF (same events, same audio)
     let damf_result: Result<serde_json::Value, String> = (|| {
-        let mut w = DamfWriter::create(out_dir, &case.case, &program, case.sample_rate, &DamfOptions { bed_conform: case.bed_conform, ..DamfOptions::default() }).map_err(|e| format!("create: {e}"))?;
+        let mut w = DamfWriter::create(out_dir, &case.case, &program, case.sample_rate, &DamfOptions { bed_conform: case.bed_conform, isf, ..DamfOptions::default() }).map_err(|e| format!("create: {e}"))?;
         for ev in &events {
             w.push_event(ev).map_err(|e| format!("event: {e}"))?;
         }

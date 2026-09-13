@@ -88,12 +88,41 @@ pub const STANDARD_BED: [BedChannel; 10] = [
 /// First DAMF id of the dynamic objects.
 pub const FIRST_OBJECT_ID: u32 = 10;
 
+/// How the intermediate-spatial-format elements of a programme are treated.
+/// Neither DAMF nor the Dolby Atmos master ADM profile can represent them, and
+/// TS 103 420 gives only the ring composition of each ISF type, not positions,
+/// so there is nothing faithful to map them to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum IsfPolicy {
+    /// Refuse to write the output (the default): an output missing whole
+    /// elements should not appear on its own.
+    #[default]
+    Error,
+    /// Write the beds and dynamic objects without the ISF elements and count
+    /// the loss.
+    Drop,
+}
+
+/// ISF types of TS 103 420 table 11b by `intermediate_spatial_format_idx`, in
+/// stacked-ring notation (mid, upper, lower and zenith objects); 6 and 7 are
+/// reserved.
+pub const ISF_TYPES: [&str; 6] = [
+    "SR3.1.0.0",
+    "SR5.3.0.0",
+    "SR7.3.0.0",
+    "SR9.5.0.0",
+    "SR7.5.3.0",
+    "SR15.9.5.1",
+];
+
 /// What a program consists of.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Program {
     /// Bed instances, each a list of channels in stream order.
     pub beds: Vec<Vec<BedChannel>>,
-    /// ISF objects (not representable in DAMF; carried for reporting).
+    /// `intermediate_spatial_format_idx` when ISF objects are present.
+    pub isf_index: Option<u8>,
+    /// ISF objects (not representable in DAMF or ADM; see [`IsfPolicy`]).
     pub isf_objects: usize,
     /// Dynamic objects.
     pub dynamic_objects: usize,
@@ -110,9 +139,18 @@ impl Program {
                 .iter()
                 .map(|b| b.channels.clone())
                 .collect(),
+            isf_index: oamd.program.isf_index,
             isf_objects: oamd.program.isf_objects(),
             dynamic_objects: oamd.program.dynamic_objects,
         }
+    }
+
+    /// Name of the ISF type (table 11b) when the programme has ISF objects and
+    /// the index is not reserved.
+    #[must_use]
+    pub fn isf_type(&self) -> Option<&'static str> {
+        self.isf_index
+            .and_then(|i| ISF_TYPES.get(usize::from(i & 7)).copied())
     }
 
     /// Elements in stream order: bed channels, ISF objects, dynamic objects.
@@ -468,6 +506,7 @@ mod tests {
         assert_eq!(bed_channel_id(BedChannel::LFE2), 136);
         let p = Program {
             beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
             isf_objects: 0,
             dynamic_objects: 3,
         };

@@ -6,13 +6,34 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
+use clap::ValueEnum;
 use oadec_emdf::container::{self, PAYLOAD_ID_OAMD};
-use oadec_emdf::oamd::{BedChannel, Oamd};
+use oadec_emdf::oamd::{BedChannel, ISF_OBJECTS, Oamd};
 use oadec_spatial::{
-    AdmOptions, AdmWriter, DamfOptions, DamfWriter, Event, LossLedger, Program, Timeline,
+    AdmError, AdmOptions, AdmWriter, DamfError, DamfOptions, DamfWriter, Event, IsfPolicy,
+    LossLedger, Program, Timeline,
 };
+use oadec_truehd::channel::ExtraChannelMeaning;
 use oadec_truehd::{AccessUnit, ChannelLabel, ExtraKind, MajorSync, StreamConfig};
 use serde_json::json;
+
+/// `--isf`: what to do with intermediate-spatial-format elements.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum IsfArg {
+    /// Refuse the decode: DAMF and the ADM profile cannot represent them.
+    Error,
+    /// Write the beds and dynamic objects without them (a declared loss, exit 4).
+    Drop,
+}
+
+impl From<IsfArg> for IsfPolicy {
+    fn from(arg: IsfArg) -> Self {
+        match arg {
+            IsfArg::Error => Self::Error,
+            IsfArg::Drop => Self::Drop,
+        }
+    }
+}
 
 use crate::decode::{Order, Session, format_duration, print_summary};
 use crate::input;
@@ -49,6 +70,15 @@ pub struct Options {
     pub dolby_origin_tag: bool,
     /// Where to write the loss ledger as JSON, if anywhere.
     pub loss_report: Option<PathBuf>,
+    /// Intermediate-spatial-format elements: refuse or drop.
+    pub isf: IsfPolicy,
+}
+
+/// The message of a refused ISF programme, with the way out.
+fn isf_hint(count: usize, isf_type: &str) -> String {
+    format!(
+        "the programme carries {count} intermediate-spatial-format objects ({isf_type}), which DAMF and the Dolby Atmos master ADM profile cannot represent; pass --isf drop to write the beds and dynamic objects without them"
+    )
 }
 
 /// Prints the loss ledger of an output, one line per class, and writes it as
@@ -114,24 +144,43 @@ fn bed_channel(label: ChannelLabel) -> Result<BedChannel> {
     })
 }
 
-/// The program the major sync declares for the object presentation.
-fn program_from_major_sync(ms: &MajorSync) -> Result<Program> {
-    let Some(extra) = &ms.channel_meaning.extra else {
-        bail!("the stream has no 16-channel presentation (no extra channel meaning)");
-    };
+/// The program the extra channel meaning of a major sync declares: bed
+/// channels, then the ISF objects of the declared type (table 11b), then the
+/// dynamic objects.
+fn program_from_extra(extra: &ExtraChannelMeaning) -> Result<Program> {
     let bed: Vec<BedChannel> = ChannelLabel::sixteen_channel(extra)
         .into_iter()
         .map(bed_channel)
         .collect::<Result<_>>()?;
+    let (isf_index, isf_objects) = if extra.has_isf() {
+        let index = extra.isf_index & 7;
+        match ISF_OBJECTS[usize::from(index)] {
+            Some(n) => (Some(index), n),
+            None => bail!(
+                "the 16-channel presentation declares the reserved intermediate spatial format index {index}"
+            ),
+        }
+    } else {
+        (None, 0)
+    };
     Ok(Program {
         beds: if bed.is_empty() {
             Vec::new()
         } else {
             vec![bed]
         },
-        isf_objects: 0,
+        isf_index,
+        isf_objects,
         dynamic_objects: usize::from(extra.dynamic_objects()),
     })
+}
+
+/// The program the major sync declares for the object presentation.
+fn program_from_major_sync(ms: &MajorSync) -> Result<Program> {
+    let Some(extra) = &ms.channel_meaning.extra else {
+        bail!("the stream has no 16-channel presentation (no extra channel meaning)");
+    };
+    program_from_extra(extra)
 }
 
 /// The two object containers behind one interface.
@@ -161,23 +210,33 @@ impl Sink {
         if opts.adm {
             let mut options = AdmOptions {
                 bed_conform: opts.bed_conform,
+                isf: opts.isf,
                 ..AdmOptions::default()
             };
             if opts.dolby_origin_tag {
                 options.creator = "Created using Dolby equipment".to_string();
             }
             let path = dir.join(format!("{name}.wav"));
-            Ok(Self::Adm(AdmWriter::create(
-                &path, program, rate, &options,
-            )?))
+            match AdmWriter::create(&path, program, rate, &options) {
+                Ok(w) => Ok(Self::Adm(w)),
+                Err(AdmError::IsfNotRepresentable { count, isf_type }) => {
+                    bail!("{}", isf_hint(count, &isf_type))
+                }
+                Err(e) => Err(e.into()),
+            }
         } else {
             let options = DamfOptions {
                 bed_conform: opts.bed_conform,
+                isf: opts.isf,
                 ..DamfOptions::default()
             };
-            Ok(Self::Damf(DamfWriter::create(
-                dir, name, program, rate, &options,
-            )?))
+            match DamfWriter::create(dir, name, program, rate, &options) {
+                Ok(w) => Ok(Self::Damf(w)),
+                Err(DamfError::IsfNotRepresentable { count, isf_type }) => {
+                    bail!("{}", isf_hint(count, &isf_type))
+                }
+                Err(e) => Err(e.into()),
+            }
         }
     }
 
@@ -398,4 +457,38 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
     f.first_problem(first_payload_error.as_deref());
     f.note_losses(&losses);
     Ok(f.report())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The 16-channel presentation declares its ISF type in the major sync;
+    /// the count used to be hardcoded to zero, which would have shifted every
+    /// element after the bed on a stream that carries ISF objects.
+    #[test]
+    fn the_isf_count_comes_from_the_major_sync() {
+        let extra = ExtraChannelMeaning {
+            content_description: 0b110, // ISF and dynamic objects, no bed
+            isf_index: 0,
+            dynamic_object_count: 1,
+            ..ExtraChannelMeaning::default()
+        };
+        let p = program_from_extra(&extra).unwrap();
+        assert_eq!(p.isf_objects, 4, "SR3.1.0.0 has four objects");
+        assert_eq!(p.isf_index, Some(0));
+        assert_eq!(p.dynamic_objects, 2);
+        assert!(p.beds.is_empty());
+        let reserved = ExtraChannelMeaning {
+            isf_index: 6,
+            ..extra
+        };
+        assert!(program_from_extra(&reserved).is_err());
+        let none = ExtraChannelMeaning {
+            content_description: 0b100,
+            ..reserved
+        };
+        let p = program_from_extra(&none).unwrap();
+        assert_eq!((p.isf_objects, p.isf_index), (0, None));
+    }
 }

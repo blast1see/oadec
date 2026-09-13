@@ -163,6 +163,7 @@ pub fn run(scene_path: &Path, base: &Path) -> Result<()> {
 
     let program = Program {
         beds: vec![beds],
+        isf_index: None,
         isf_objects: 0,
         dynamic_objects: scene.objects.len(),
     };

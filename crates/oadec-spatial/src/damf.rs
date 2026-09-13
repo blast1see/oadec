@@ -14,9 +14,9 @@ use std::path::{Path, PathBuf};
 use oadec_emdf::oamd::{BedChannel, Gain};
 
 use crate::caf::CafWriter;
-use crate::loss::LossLedger;
+use crate::loss::{LossKind, LossLedger};
 use crate::program::{
-    BedState, ElementState, Event, FIRST_OBJECT_ID, ObjectState, Program, STANDARD_BED,
+    BedState, ElementState, Event, FIRST_OBJECT_ID, IsfPolicy, ObjectState, Program, STANDARD_BED,
     bed_channel_id, damf_channel_name, zones_name,
 };
 
@@ -34,6 +34,9 @@ pub struct DamfOptions {
     /// Tool name and version written to the `.atmos` file.
     pub creation_tool: String,
     pub creation_tool_version: String,
+    /// What to do with intermediate-spatial-format elements, which DAMF
+    /// cannot represent: refuse (the default) or drop and count.
+    pub isf: IsfPolicy,
 }
 
 impl Default for DamfOptions {
@@ -43,8 +46,28 @@ impl Default for DamfOptions {
             fps: "24".to_string(),
             creation_tool: "oadec".to_string(),
             creation_tool_version: env!("CARGO_PKG_VERSION").to_string(),
+            isf: IsfPolicy::Error,
         }
     }
+}
+
+/// Errors of the writer.
+#[derive(Debug, thiserror::Error)]
+pub enum DamfError {
+    /// I/O.
+    #[error(transparent)]
+    Io(#[from] io::Error),
+    /// The programme has intermediate-spatial-format objects, which DAMF
+    /// cannot represent, and the options said not to drop them.
+    #[error(
+        "{count} intermediate-spatial-format objects ({isf_type}) cannot be represented in a Dolby Atmos master file"
+    )]
+    IsfNotRepresentable {
+        /// ISF objects in the programme.
+        count: usize,
+        /// The ISF type (table 11b), or "reserved type".
+        isf_type: String,
+    },
 }
 
 /// Where an element's audio goes.
@@ -92,7 +115,23 @@ impl DamfWriter {
         program: &Program,
         sample_rate: u32,
         options: &DamfOptions,
-    ) -> io::Result<Self> {
+    ) -> Result<Self, DamfError> {
+        let mut losses = LossLedger::default();
+        if program.isf_objects > 0 {
+            match options.isf {
+                IsfPolicy::Error => {
+                    return Err(DamfError::IsfNotRepresentable {
+                        count: program.isf_objects,
+                        isf_type: program.isf_type().unwrap_or("reserved type").to_string(),
+                    });
+                }
+                IsfPolicy::Drop => {
+                    for k in 0..program.isf_objects {
+                        losses.note(LossKind::IsfDropped, k as u32, 0);
+                    }
+                }
+            }
+        }
         // Audio layout: bed channels (conformed or as coded), then objects.
         let coded_beds = program.bed_channels();
         let mut bed_layout: Vec<(u32, BedChannel)> = Vec::new();
@@ -183,7 +222,7 @@ impl DamfWriter {
             seen: BTreeSet::new(),
             frame: vec![0; channels],
             paths: [atmos_path, metadata_path, audio_path],
-            losses: LossLedger::default(),
+            losses,
         })
     }
 
@@ -400,12 +439,47 @@ mod tests {
         }
     }
 
+    /// DAMF has no ISF element either: refused by default, dropped and counted
+    /// on request.
+    #[test]
+    fn isf_elements_are_refused_by_default_and_dropped_on_request() {
+        use crate::loss::LossKind;
+        use crate::program::IsfPolicy;
+        let dir = std::env::temp_dir().join(format!("oadec-damf-isf-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_index: Some(1),
+            isf_objects: 8,
+            dynamic_objects: 1,
+        };
+        let refused = DamfWriter::create(&dir, "t", &program, 48000, &DamfOptions::default());
+        assert!(
+            matches!(
+                refused,
+                Err(DamfError::IsfNotRepresentable { count: 8, ref isf_type }) if isf_type == "SR5.3.0.0"
+            ),
+            "{refused:?}"
+        );
+        let options = DamfOptions {
+            isf: IsfPolicy::Drop,
+            ..DamfOptions::default()
+        };
+        let mut w = DamfWriter::create(&dir, "t", &program, 48000, &options).unwrap();
+        assert_eq!(w.channels(), 11, "ten bed tracks and one dynamic object");
+        w.write_frame(&[0; 10]).unwrap();
+        let summary = w.finish().unwrap();
+        assert_eq!(summary.losses.count(LossKind::IsfDropped), 8);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn writes_the_three_files_with_a_conformed_bed() {
         let dir = std::env::temp_dir().join(format!("oadec-damf-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let program = Program {
             beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
             isf_objects: 0,
             dynamic_objects: 2,
         };
