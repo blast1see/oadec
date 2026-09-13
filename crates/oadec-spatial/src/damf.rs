@@ -6,7 +6,7 @@
 //! them (Apache-2.0, read for facts), with a full first event per element and
 //! only the changed fields in later events.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -105,6 +105,9 @@ pub struct DamfWriter {
     frame: Vec<i32>,
     paths: [PathBuf; 3],
     losses: LossLedger,
+    /// Last sample position written per element: the metadata is streamed,
+    /// so an earlier event cannot be moved, only declared.
+    last_pos: BTreeMap<u32, u64>,
 }
 
 impl DamfWriter {
@@ -223,6 +226,7 @@ impl DamfWriter {
             frame: vec![0; channels],
             paths: [atmos_path, metadata_path, audio_path],
             losses,
+            last_pos: BTreeMap::new(),
         })
     }
 
@@ -274,6 +278,13 @@ impl DamfWriter {
     /// fields only afterwards).
     pub fn push_event(&mut self, event: &Event) -> io::Result<()> {
         let first = self.seen.insert(event.id);
+        if let Some(&last) = self.last_pos.get(&event.id)
+            && event.sample_pos < last
+        {
+            self.losses
+                .note(LossKind::OutOfOrderWrittenAsIs, event.id, event.sample_pos);
+        }
+        self.last_pos.insert(event.id, event.sample_pos);
         let mut text = String::new();
         text.push_str(&format!("  - ID: {}\n", event.id));
         text.push_str(&format!("    samplePos: {}\n", event.sample_pos));
@@ -485,6 +496,46 @@ mod tests {
             delta, "    samplePos: 1536\n",
             "a depth-only change writes nothing"
         );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The metadata file is streamed, so an event that arrives earlier than
+    /// the previous one of its element is written where it came and declared.
+    #[test]
+    fn out_of_order_events_are_written_as_delivered_and_counted() {
+        use crate::loss::LossKind;
+        let dir = std::env::temp_dir().join(format!("oadec-damf-order-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
+            isf_objects: 0,
+            dynamic_objects: 1,
+        };
+        let mut w =
+            DamfWriter::create(&dir, "t", &program, 48000, &DamfOptions::default()).unwrap();
+        for pos in [0u64, 48_000, 24_000] {
+            w.push_event(&Event {
+                id: 10,
+                sample_pos: pos,
+                state: ElementState::Object(object([-1.0, 1.0, 0.0], Gain::Db(0))),
+                previous: None,
+            })
+            .unwrap();
+        }
+        let summary = w.finish().unwrap();
+        assert_eq!(summary.losses.count(LossKind::OutOfOrderWrittenAsIs), 1);
+        assert_eq!(
+            summary.losses.examples(LossKind::OutOfOrderWrittenAsIs),
+            &[(10, 24_000)]
+        );
+        assert!(summary.losses.declared_loss());
+        let md = std::fs::read_to_string(dir.join("t.atmos.metadata")).unwrap();
+        let order: Vec<&str> = md
+            .lines()
+            .filter_map(|l| l.strip_prefix("    samplePos: "))
+            .collect();
+        assert_eq!(order, ["0", "48000", "24000"]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

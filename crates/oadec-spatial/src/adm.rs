@@ -577,9 +577,34 @@ impl AdmWriter {
             ));
             let mut events: Vec<(u64, ObjectState)> =
                 self.events.get(&element_id).cloned().unwrap_or_default();
-            if events.first().is_none_or(|(pos, _)| *pos > 0) {
-                // The profile wants the first block at time zero: hold the first
-                // known state (or a default) from the start.
+            // Blocks tile in time; the events may not have arrived in it. The
+            // sort is stable, so two events at one sample keep their order.
+            events.sort_by_key(|(pos, _)| *pos);
+            // Nothing can start at or after the end, and the last block ends at
+            // `frames` (Dolby's converters drop such events the same way).
+            let in_range = events.partition_point(|(pos, _)| *pos < self.frames);
+            for (pos, _) in events.drain(in_range..) {
+                ledger.note(LossKind::EventBeyondEndDropped, element_id, pos);
+            }
+            // Two events at one sample: the last one is the block.
+            let mut deduped: Vec<(u64, ObjectState)> = Vec::with_capacity(events.len());
+            for e in events {
+                if deduped.last().is_some_and(|(p, _)| *p == e.0) {
+                    ledger.note(LossKind::SamePositionSuperseded, element_id, e.0);
+                    deduped.pop();
+                }
+                deduped.push(e);
+            }
+            let mut events = deduped;
+            // The profile wants the first block at time zero: hold the first
+            // known state (or a default) from the start. The real first event
+            // keeps its own block, so its arrival time stays in the file; Dolby
+            // writes an active default block at the room centre instead.
+            let synthetic = events.first().is_none_or(|(pos, _)| *pos > 0);
+            if synthetic {
+                if let Some((pos, _)) = events.first() {
+                    ledger.note(LossKind::LateFirstEventHeld, element_id, *pos);
+                }
                 let state = events.first().map_or_else(
                     || ObjectState {
                         active: false,
@@ -601,8 +626,10 @@ impl AdmWriter {
             }
             // The Dolby converters write one block per event but drop a trailing
             // event whose ADM content equals the previous one (an event that only
-            // changed the ramp or the trim, which ADM has no fields for).
-            while events.len() >= 2
+            // changed the ramp or the trim, which ADM has no fields for). The
+            // real first event behind a synthetic block is never popped.
+            let keep = if synthetic { 2 } else { 1 };
+            while events.len() > keep
                 && adm_equal(&events[events.len() - 2].1, &events[events.len() - 1].1)
             {
                 events.pop();
@@ -1286,6 +1313,114 @@ mod tests {
                 "{refused:?}"
             );
         }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The `rtime`/`duration` pairs of object `k`'s blocks, in file order.
+    fn block_times(text: &str, k: usize) -> Vec<(String, String)> {
+        let cf = channel_format(text, k);
+        cf.match_indices("rtime=\"")
+            .map(|(i, _)| {
+                let rest = &cf[i + 7..];
+                let rtime = &rest[..rest.find('"').unwrap()];
+                let d = rest.find("duration=\"").unwrap() + 10;
+                let dur = &rest[d..d + rest[d..].find('"').unwrap()];
+                (rtime.to_string(), dur.to_string())
+            })
+            .collect()
+    }
+
+    /// Events are written in time order whatever order they arrived in, an
+    /// event at or after the end is dropped, and the last block ends exactly
+    /// at the programme end (Dolby's converters do the same: audit C07, C09).
+    #[test]
+    fn events_are_sorted_and_the_last_block_ends_at_the_programme_end() {
+        use crate::loss::LossKind;
+        let dir = temp_dir("tiling");
+        let mut w = one_object_writer(&dir, 96_000);
+        let at = |x: f32| {
+            let mut s = state();
+            s.pos = [x, 1.0, 0.0];
+            s
+        };
+        w.push_event(&object_event(10, 0, at(-1.0)));
+        w.push_event(&object_event(10, 48_000, at(0.0)));
+        w.push_event(&object_event(10, 24_000, at(1.0)));
+        w.push_event(&object_event(10, 96_000, at(0.5)));
+        w.push_event(&object_event(10, 96_040, at(0.7)));
+        let summary = w.finish().unwrap();
+        assert_eq!(summary.blocks, 3);
+        assert_eq!(summary.losses.count(LossKind::EventBeyondEndDropped), 2);
+        assert_eq!(
+            summary.losses.examples(LossKind::EventBeyondEndDropped),
+            &[(10, 96_000), (10, 96_040)]
+        );
+        let text = written_text(&dir);
+        assert_eq!(
+            block_times(&text, 1),
+            vec![
+                ("00:00:00.00000".to_string(), "00:00:00.50000".to_string()),
+                ("00:00:00.50000".to_string(), "00:00:00.50000".to_string()),
+                ("00:00:01.00000".to_string(), "00:00:01.00000".to_string()),
+            ]
+        );
+        let cf = channel_format(&text, 1);
+        let x1 = cf.find("<position coordinate=\"X\">1.0000000000").unwrap();
+        let x0 = cf.find("<position coordinate=\"X\">0.0000000000").unwrap();
+        assert!(x1 < x0, "the 24000 state comes before the 48000 state");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// An object whose first event arrives after sample 0 is held from 0 in
+    /// its first state, and the real event keeps its own block so that its
+    /// arrival time stays in the file (the audit's C06 lost it).
+    #[test]
+    fn a_late_first_event_keeps_its_own_block() {
+        use crate::loss::LossKind;
+        let dir = temp_dir("late-first");
+        let mut w = one_object_writer(&dir, 192_000);
+        w.push_event(&object_event(10, 96_000, state()));
+        let summary = w.finish().unwrap();
+        assert_eq!(summary.blocks, 2);
+        assert_eq!(summary.losses.count(LossKind::LateFirstEventHeld), 1);
+        assert_eq!(
+            summary.losses.examples(LossKind::LateFirstEventHeld),
+            &[(10, 96_000)]
+        );
+        assert_eq!(
+            block_times(&written_text(&dir), 1),
+            vec![
+                ("00:00:00.00000".to_string(), "00:00:02.00000".to_string()),
+                ("00:00:02.00000".to_string(), "00:00:02.00000".to_string()),
+            ]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Two events at one sample position: the last one is the block, counted.
+    #[test]
+    fn two_events_at_one_sample_keep_the_last() {
+        use crate::loss::LossKind;
+        let dir = temp_dir("same-pos");
+        let mut w = one_object_writer(&dir, 4000);
+        let at = |x: f32| {
+            let mut s = state();
+            s.pos = [x, 1.0, 0.0];
+            s
+        };
+        w.push_event(&object_event(10, 0, at(-1.0)));
+        w.push_event(&object_event(10, 1536, at(0.0)));
+        w.push_event(&object_event(10, 1536, at(1.0)));
+        let summary = w.finish().unwrap();
+        assert_eq!(summary.blocks, 2);
+        assert_eq!(summary.losses.count(LossKind::SamePositionSuperseded), 1);
+        assert_eq!(
+            summary.losses.examples(LossKind::SamePositionSuperseded),
+            &[(10, 1536)]
+        );
+        let cf = channel_format(&written_text(&dir), 1);
+        assert!(cf.contains("<position coordinate=\"X\">1.0000000000"));
+        assert!(!cf.contains("<position coordinate=\"X\">0.0000000000"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
