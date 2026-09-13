@@ -1,0 +1,43 @@
+{
+  "sample_rate": 48000,
+  "duration_samples": 96000,
+  "bed": ["LFE"],
+  "objects": [
+    {
+      "name": "front-left static",
+      "signal": {"kind": "tone", "hz": 440.0, "dbfs": -30.0},
+      "events": [{"sample": 0, "pos": [-1.0, 1.0, 0.0]}]
+    },
+    {
+      "name": "front-right static",
+      "signal": {"kind": "tone", "hz": 660.0, "dbfs": -30.0},
+      "events": [{"sample": 0, "pos": [1.0, 1.0, 0.0]}]
+    },
+    {
+      "name": "top centre static",
+      "signal": {"kind": "tone", "hz": 880.0, "dbfs": -30.0},
+      "events": [{"sample": 0, "pos": [0.0, 0.0, 1.0]}]
+    },
+    {
+      "name": "left to right in one second",
+      "signal": {"kind": "tone", "hz": 1320.0, "dbfs": -30.0},
+      "events": [
+        {"sample": 0, "pos": [-1.0, 0.0, 0.0]},
+        {"sample": 24000, "pos": [-0.5, 0.0, 0.0]},
+        {"sample": 48000, "pos": [0.0, 0.0, 0.0]},
+        {"sample": 72000, "pos": [0.5, 0.0, 0.0]},
+        {"sample": 95000, "pos": [1.0, 0.0, 0.0]}
+      ]
+    },
+    {
+      "name": "rear centre at minus six",
+      "signal": {"kind": "tone", "hz": 1760.0, "dbfs": -30.0},
+      "events": [{"sample": 0, "pos": [0.0, -1.0, 0.0], "gain_db": -6}]
+    },
+    {
+      "name": "impulses front centre",
+      "signal": {"kind": "impulses", "at": [24000, 48000, 72000], "dbfs": -20.0},
+      "events": [{"sample": 0, "pos": [0.0, 1.0, 0.0]}]
+    }
+  ]
+}
