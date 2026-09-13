@@ -26,7 +26,7 @@ use oadec_spatial::{Program, Timeline};
 use crate::damf::{Options, Sink};
 use crate::decode::format_duration;
 use crate::eac3::for_each_frame;
-use crate::integrity::Findings;
+use crate::integrity::{Findings, Verdict};
 
 /// Samples the core decoder emits before the first frame's audio proper (the
 /// first block's half window). The Dolby decoder drops them; the metadata
@@ -410,7 +410,7 @@ fn frame_payloads(d: &Decoded, sparse: SparseReading) -> (Vec<(Oamd, u32)>, Opti
 
 /// Runs the object output for an E-AC-3 JOC stream; `base` is the output path
 /// without extension.
-pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
+pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
     let started = Instant::now();
     let dir = base
         .parent()
@@ -629,7 +629,15 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
             0.0
         }
     );
+    let mut losses = timeline.losses.clone();
+    losses.merge(&summary.losses);
+    crate::damf::report_losses(
+        if opts.adm { "adm" } else { "damf" },
+        &losses,
+        opts.loss_report.as_deref(),
+    )?;
     let mut f = Findings::default();
+    f.note_losses(&losses);
     f.note(decode_errors, "frames failed to decode");
     f.note(crc_failures, "CRC failures");
     f.note(tail_overruns, "frames ending inside the frame tail");

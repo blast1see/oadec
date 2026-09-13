@@ -28,6 +28,7 @@ use clap::{Parser, Subcommand};
 
 use crate::compare::RefFormat;
 use crate::decode::{Format, Order};
+use crate::integrity::Verdict;
 
 /// Object-audio decoder engine for Dolby TrueHD Atmos and E-AC-3 JOC streams.
 #[derive(Debug, Parser)]
@@ -108,6 +109,10 @@ enum Command {
         /// equipment"); the DAMF output needs no such marker.
         #[arg(long)]
         dolby_origin_tag: bool,
+        /// DAMF/ADM: also write the loss ledger (what the output could not carry of
+        /// the programme) as JSON to this file.
+        #[arg(long, value_name = "FILE")]
+        loss_report: Option<PathBuf>,
         /// E-AC-3: write only the 5.1-compatible channels of the independent
         /// substream instead of the whole programme, which is what a decoder
         /// limited to 5.1 produces (clause E.2.8.2).
@@ -340,6 +345,7 @@ fn main() -> ExitCode {
                 no_bed_conform,
                 all_events,
                 dolby_origin_tag,
+                loss_report,
                 core_only,
                 no_dither,
                 no_tpnp,
@@ -370,6 +376,7 @@ fn main() -> ExitCode {
                             all_events,
                             adm: format == Format::Adm,
                             dolby_origin_tag,
+                            loss_report: loss_report.clone(),
                             clip_gain: !no_clip_gain,
                             flat_quadrature,
                             sparse_as_printed,
@@ -395,6 +402,7 @@ fn main() -> ExitCode {
                         ecpl_full: ecpl_spec,
                     },
                 )
+                .map(Verdict::from_clean)
             } else if matches!(format, Format::Damf | Format::Adm) {
                 damf::run(
                     &file,
@@ -405,6 +413,7 @@ fn main() -> ExitCode {
                         all_events,
                         adm: format == Format::Adm,
                         dolby_origin_tag,
+                        loss_report: loss_report.clone(),
                         // TrueHD carries no JOC, so neither of these apply.
                         clip_gain: false,
                         flat_quadrature: false,
@@ -425,14 +434,9 @@ fn main() -> ExitCode {
                         keep_duplicates,
                     },
                 )
+                .map(Verdict::from_clean)
             }
-            .map(|clean| {
-                if clean {
-                    ExitCode::SUCCESS
-                } else {
-                    ExitCode::from(EXIT_NONCONFORMANT)
-                }
-            }),
+            .map(|verdict| ExitCode::from(verdict.exit_code())),
             Command::Compare {
                 file,
                 reference,

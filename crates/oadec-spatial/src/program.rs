@@ -3,8 +3,10 @@
 
 use std::collections::BTreeMap;
 
-use oadec_emdf::oamd::{BedChannel, Element, Gain, Oamd, ObjectInfoBlock};
+use oadec_emdf::oamd::{BedChannel, Distance, Element, Gain, Oamd, ObjectInfoBlock, TrimConfig};
 use thiserror::Error;
+
+use crate::loss::{LossKind, LossLedger};
 
 /// Errors of the program model.
 #[derive(Debug, Error)]
@@ -267,7 +269,13 @@ pub struct Timeline {
     /// Events whose sample position was earlier than the previous event of the
     /// same element (a timeline that runs backwards is a bug or a branch).
     pub out_of_order: u64,
+    /// What the programme model itself cannot carry: distance, divergence,
+    /// warp mode and trim configurations have no field in DAMF or in the ADM
+    /// profile, so they are counted here, where they are dropped.
+    pub losses: LossLedger,
     last_pos: BTreeMap<u32, u64>,
+    last_warp: Option<u8>,
+    last_trim: Option<Vec<TrimConfig>>,
 }
 
 impl Timeline {
@@ -319,6 +327,21 @@ impl Timeline {
             None => vec![false; object_count],
         };
         let timing = &objects.timing;
+        // Warp mode and explicit trims are payload-wide and change rarely: one
+        // note per change, not one per payload.
+        if let Some(t) = trim {
+            let at = base + container_offset + u64::from(timing.sample_offset);
+            if t.warp_mode != 0 && self.last_warp != Some(t.warp_mode) {
+                self.losses.note(LossKind::WarpModeDropped, 0, at);
+            }
+            self.last_warp = Some(t.warp_mode);
+            if t.global_trim_mode == 2 {
+                if self.last_trim.as_deref() != Some(&t.configs[..]) {
+                    self.losses.note(LossKind::TrimConfigDropped, 0, at);
+                }
+                self.last_trim = Some(t.configs.clone());
+            }
+        }
         let restates = timing.sample_offset == 0
             && timing
                 .blocks
@@ -376,6 +399,20 @@ impl Timeline {
                         && pos < last
                     {
                         self.out_of_order += 1;
+                    }
+                    if !block.in_bed_or_isf {
+                        if block.render.distance != Distance::Unspecified {
+                            self.losses.note(LossKind::DistanceDropped, id, pos);
+                        }
+                        let divergence = ext
+                            .and_then(|x| x.divergence.as_ref())
+                            .and_then(|v| v.get(index))
+                            .and_then(|v| v.get(blk))
+                            .copied()
+                            .unwrap_or(0.0);
+                        if divergence > 0.0 {
+                            self.losses.note(LossKind::DivergenceDropped, id, pos);
+                        }
                     }
                     let event = Event {
                         id,
@@ -515,6 +552,58 @@ mod tests {
                 "base {base}, container {container}, sample_offset {so}, block_offset_factor {bof}"
             );
         }
+    }
+
+    /// Distance, divergence, warp mode and trim configurations reach neither
+    /// DAMF nor the ADM profile; the timeline counts them where it drops them.
+    #[test]
+    fn unrepresentable_semantics_are_counted_by_the_timeline() {
+        use crate::loss::LossKind;
+        use oadec_emdf::oamd::{Distance, Element, ElementMd, ExtendedObjectElement, TrimElement};
+        let mut oamd = one_update(0, 0);
+        if let Element::Object(o) = &mut oamd.elements[0].element {
+            o.objects[0][0].render.distance = Distance::Factor(2.0);
+        }
+        let md = |id: u8, element: Element| ElementMd {
+            id,
+            size_bytes: 1,
+            alternate_id: None,
+            discard_unknown: false,
+            element,
+            size_ok: true,
+            padding_bits: 0,
+            padding_zero: true,
+        };
+        oamd.elements.push(md(
+            8,
+            Element::Trim(TrimElement {
+                warp_mode: 1,
+                global_trim_mode: 0,
+                configs: Vec::new(),
+                disable_per_object: None,
+            }),
+        ));
+        oamd.elements.push(md(
+            14,
+            Element::ExtendedObject(ExtendedObjectElement {
+                divergence: Some(vec![vec![1.0]]),
+                ext_precision: None,
+            }),
+        ));
+        let mut t = Timeline::new(true);
+        t.push(&oamd, 0, 0, |_| {}).expect("well formed");
+        assert_eq!(t.losses.count(LossKind::DistanceDropped), 1);
+        assert_eq!(t.losses.count(LossKind::DivergenceDropped), 1);
+        assert_eq!(t.losses.count(LossKind::WarpModeDropped), 1);
+        assert_eq!(t.losses.count(LossKind::TrimConfigDropped), 0);
+        // the same payload again: the warp mode did not change, the update did
+        t.push(&oamd, 1536, 0, |_| {}).expect("well formed");
+        assert_eq!(t.losses.count(LossKind::WarpModeDropped), 1);
+        assert_eq!(t.losses.count(LossKind::DistanceDropped), 2);
+        assert_eq!(
+            t.losses.examples(LossKind::DistanceDropped),
+            &[(10, 0), (10, 1536)]
+        );
     }
 
     #[test]
