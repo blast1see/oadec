@@ -10,8 +10,8 @@ use clap::ValueEnum;
 use oadec_emdf::container::{self, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::{BedChannel, ISF_OBJECTS, Oamd};
 use oadec_spatial::{
-    AdmError, AdmOptions, AdmWriter, DamfError, DamfOptions, DamfWriter, Event, IsfPolicy,
-    LossLedger, Program, Timeline,
+    AdmError, AdmOptions, AdmWriter, DamfError, DamfOptions, DamfWriter, Event, Interpolation,
+    IsfPolicy, LossLedger, Program, Timeline,
 };
 use oadec_truehd::channel::ExtraChannelMeaning;
 use oadec_truehd::{AccessUnit, ChannelLabel, ExtraKind, MajorSync, StreamConfig};
@@ -35,6 +35,24 @@ impl From<IsfArg> for IsfPolicy {
     }
 }
 
+/// `--adm-interpolation`: how ADM interpolation lengths are written.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum InterpolationArg {
+    /// The Dolby Atmos master ADM profile: 0 then 250 samples (the default).
+    Profile,
+    /// The source ramps (BS.2076, outside the profile; refuses the Dolby origin tag).
+    Real,
+}
+
+impl From<InterpolationArg> for Interpolation {
+    fn from(arg: InterpolationArg) -> Self {
+        match arg {
+            InterpolationArg::Profile => Self::Profile,
+            InterpolationArg::Real => Self::Real,
+        }
+    }
+}
+
 use crate::decode::{Format, Order, Session, format_duration, print_summary};
 use crate::input;
 use crate::integrity::Verdict;
@@ -52,6 +70,29 @@ pub(crate) fn check_presentation(format: Format, presentation: Option<usize>) ->
             "--presentation {p} does not apply to --format {name}: the object formats always decode the object presentation (3)"
         ),
         _ => Ok(()),
+    }
+}
+
+/// A file with the source ramps is outside the Dolby profile and cannot claim
+/// Dolby authorship.
+pub(crate) fn check_interpolation(
+    interpolation: Interpolation,
+    dolby_origin_tag: bool,
+) -> Result<()> {
+    if interpolation == Interpolation::Real && dolby_origin_tag {
+        bail!(
+            "--adm-interpolation real writes a file outside the Dolby Atmos master ADM profile and cannot carry the Dolby origin tag; drop --dolby-origin-tag"
+        );
+    }
+    Ok(())
+}
+
+/// Says on stderr when the ADM file is outside the profile.
+pub(crate) fn note_non_profile(opts: &Options) {
+    if opts.adm && opts.interpolation == Interpolation::Real {
+        eprintln!(
+            "ADM BWF written outside the Dolby Atmos master ADM profile: interpolation lengths are the source ramps"
+        );
     }
 }
 
@@ -92,6 +133,8 @@ pub struct Options {
     pub allow_non_profile_rate: bool,
     /// DAMF: the frame rate of the `.atmos` header.
     pub fps: String,
+    /// ADM: how interpolation lengths are written.
+    pub interpolation: Interpolation,
 }
 
 /// The message of a refused ISF programme, with the way out.
@@ -232,6 +275,7 @@ impl Sink {
                 bed_conform: opts.bed_conform,
                 isf: opts.isf,
                 allow_non_profile_rate: opts.allow_non_profile_rate,
+                interpolation: opts.interpolation,
                 ..AdmOptions::default()
             };
             if opts.dolby_origin_tag {
@@ -450,6 +494,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
             .map_or_else(String::new, |p| p.display().to_string()),
         summary.note
     );
+    note_non_profile(opts);
     eprintln!(
         "metadata: {} payloads in {} access units, {} events ({} restating payloads, {} out-of-order events), {} payload errors",
         timeline.payloads,
@@ -487,6 +532,19 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A file with the source ramps is outside the Dolby profile and must not
+    /// claim Dolby authorship.
+    #[test]
+    fn real_interpolation_refuses_the_dolby_origin_tag() {
+        assert!(check_interpolation(Interpolation::Profile, true).is_ok());
+        assert!(check_interpolation(Interpolation::Real, false).is_ok());
+        let err = check_interpolation(Interpolation::Real, true)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("--adm-interpolation real"), "{err}");
+        assert!(err.contains("--dolby-origin-tag"), "{err}");
+    }
 
     /// `--presentation` used to be accepted and ignored with the object
     /// formats, which always decode the object presentation (3).
