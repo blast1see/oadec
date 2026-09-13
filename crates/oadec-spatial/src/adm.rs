@@ -19,7 +19,9 @@ use oadec_emdf::oamd::{BedChannel, Gain};
 
 use crate::dbmd;
 use crate::loss::{LossKind, LossLedger};
-use crate::program::{BedState, ElementState, Event, ObjectState, Program, STANDARD_BED};
+use crate::program::{
+    BedState, ElementState, Event, IsfPolicy, ObjectState, Program, STANDARD_BED,
+};
 
 /// Interpolation length of every block after the first, in samples.
 pub const INTERPOLATION_SAMPLES: u32 = 250;
@@ -37,6 +39,9 @@ pub struct AdmOptions {
     pub creator: String,
     /// Tool string written into `dbmd`.
     pub tool: String,
+    /// What to do with intermediate-spatial-format elements, which the
+    /// profile cannot represent: refuse (the default) or drop and count.
+    pub isf: IsfPolicy,
 }
 
 impl Default for AdmOptions {
@@ -47,6 +52,7 @@ impl Default for AdmOptions {
             content_name: "Atmos_Master_Content".to_string(),
             creator: "Created using oadec".to_string(),
             tool: format!("oadec {}", env!("CARGO_PKG_VERSION")),
+            isf: IsfPolicy::Error,
         }
     }
 }
@@ -84,6 +90,17 @@ pub enum AdmError {
     /// The bed uses a channel the profile has no DirectSpeakers definition for.
     #[error("bed channel {0:?} is not allowed in a Dolby Atmos master ADM bed")]
     UnsupportedBedChannel(BedChannel),
+    /// The programme has intermediate-spatial-format objects, which the
+    /// profile cannot represent, and the options said not to drop them.
+    #[error(
+        "{count} intermediate-spatial-format objects ({isf_type}) cannot be represented in a Dolby Atmos master ADM file"
+    )]
+    IsfNotRepresentable {
+        /// ISF objects in the programme.
+        count: usize,
+        /// The ISF type (table 11b), or "reserved type".
+        isf_type: String,
+    },
 }
 
 /// Per-bed-channel constants of the profile (name suffix, speaker label, position).
@@ -174,6 +191,22 @@ impl AdmWriter {
         for &ch in &bed {
             bed_profile(ch)?;
         }
+        let mut losses = LossLedger::default();
+        if program.isf_objects > 0 {
+            match options.isf {
+                IsfPolicy::Error => {
+                    return Err(AdmError::IsfNotRepresentable {
+                        count: program.isf_objects,
+                        isf_type: program.isf_type().unwrap_or("reserved type").to_string(),
+                    });
+                }
+                IsfPolicy::Drop => {
+                    for k in 0..program.isf_objects {
+                        losses.note(LossKind::IsfDropped, k as u32, 0);
+                    }
+                }
+            }
+        }
         let mut slots = Vec::with_capacity(program.elements());
         for ch in &coded {
             slots.push(
@@ -222,7 +255,7 @@ impl AdmWriter {
             options: options.clone(),
             frame: Vec::with_capacity(channels * 3 * 160),
             bed_last: BTreeMap::new(),
-            losses: LossLedger::default(),
+            losses,
         })
     }
 
@@ -798,6 +831,7 @@ mod tests {
     fn one_object_writer(dir: &Path, frames: usize) -> AdmWriter {
         let program = Program {
             beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
             isf_objects: 0,
             dynamic_objects: 1,
         };
@@ -902,6 +936,7 @@ mod tests {
         let dir = temp_dir("gain");
         let program = Program {
             beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
             isf_objects: 0,
             dynamic_objects: 4,
         };
@@ -980,6 +1015,47 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// ISF elements have no representation in a Dolby Atmos master ADM file:
+    /// the writer refuses them by default and drops them, counted, on request.
+    #[test]
+    fn isf_elements_are_refused_by_default_and_dropped_on_request() {
+        use crate::loss::LossKind;
+        use crate::program::IsfPolicy;
+        let dir = temp_dir("isf");
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_index: Some(0),
+            isf_objects: 4,
+            dynamic_objects: 2,
+        };
+        let refused =
+            AdmWriter::create(&dir.join("t.wav"), &program, 48000, &AdmOptions::default());
+        assert!(
+            matches!(
+                refused,
+                Err(AdmError::IsfNotRepresentable { count: 4, ref isf_type }) if isf_type == "SR3.1.0.0"
+            ),
+            "{refused:?}"
+        );
+        let options = AdmOptions {
+            isf: IsfPolicy::Drop,
+            ..AdmOptions::default()
+        };
+        let mut w = AdmWriter::create(&dir.join("t.wav"), &program, 48000, &options).unwrap();
+        assert_eq!(
+            w.channels(),
+            12,
+            "ten bed tracks and the two dynamic objects"
+        );
+        let rows = vec![[0i32; 7]; 10];
+        w.write_frames(rows.iter().map(|r| &r[..]), 7).unwrap();
+        w.push_event(&object_event(10, 0, state()));
+        let summary = w.finish().unwrap();
+        assert_eq!(summary.losses.count(LossKind::IsfDropped), 4);
+        assert!(summary.losses.declared_loss());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn writes_a_profile_shaped_file() {
         let dir = std::env::temp_dir().join(format!("oadec-adm-{}", std::process::id()));
@@ -987,6 +1063,7 @@ mod tests {
         let path = dir.join("t.wav");
         let program = Program {
             beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
             isf_objects: 0,
             dynamic_objects: 2,
         };

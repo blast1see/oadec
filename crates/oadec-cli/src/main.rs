@@ -27,6 +27,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 use crate::compare::RefFormat;
+use crate::damf::IsfArg;
 use crate::decode::{Format, Order};
 use crate::integrity::Verdict;
 
@@ -113,6 +114,11 @@ enum Command {
         /// the programme) as JSON to this file.
         #[arg(long, value_name = "FILE")]
         loss_report: Option<PathBuf>,
+        /// DAMF/ADM: intermediate-spatial-format (ISF) objects, which neither
+        /// format can represent: refuse the decode, or write the output without
+        /// them and declare the loss (exit 4).
+        #[arg(long, value_enum, default_value_t = IsfArg::Error)]
+        isf: IsfArg,
         /// E-AC-3: write only the 5.1-compatible channels of the independent
         /// substream instead of the whole programme, which is what a decoder
         /// limited to 5.1 produces (clause E.2.8.2).
@@ -346,6 +352,7 @@ fn main() -> ExitCode {
                 all_events,
                 dolby_origin_tag,
                 loss_report,
+                isf,
                 core_only,
                 no_dither,
                 no_tpnp,
@@ -377,6 +384,7 @@ fn main() -> ExitCode {
                             adm: format == Format::Adm,
                             dolby_origin_tag,
                             loss_report: loss_report.clone(),
+                            isf: isf.into(),
                             clip_gain: !no_clip_gain,
                             flat_quadrature,
                             sparse_as_printed,
@@ -414,6 +422,7 @@ fn main() -> ExitCode {
                         adm: format == Format::Adm,
                         dolby_origin_tag,
                         loss_report: loss_report.clone(),
+                        isf: isf.into(),
                         // TrueHD carries no JOC, so neither of these apply.
                         clip_gain: false,
                         flat_quadrature: false,

@@ -10,6 +10,6 @@ pub mod loss;
 pub mod program;
 
 pub use adm::{AdmError, AdmOptions, AdmSummary, AdmWriter};
-pub use damf::{DamfOptions, DamfWriter};
+pub use damf::{DamfError, DamfOptions, DamfWriter};
 pub use loss::{LossClass, LossKind, LossLedger};
-pub use program::{ElementState, Event, Program, ProgramError, Timeline};
+pub use program::{ElementState, Event, IsfPolicy, Program, ProgramError, Timeline};
