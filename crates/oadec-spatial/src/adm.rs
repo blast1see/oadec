@@ -535,7 +535,11 @@ impl AdmWriter {
                     t(*pos),
                     t(next - pos)
                 ));
-                if !s.active {
+                if s.active {
+                    if let Some(g) = active_gain_text(s.gain) {
+                        x.push_str(&format!("\t\t\t\t\t\t<gain>{g}</gain>\n"));
+                    }
+                } else {
                     x.push_str(
                         "\t\t\t\t\t\t<gain>0.0</gain>\n\t\t\t\t\t\t<importance>0</importance>\n",
                     );
@@ -635,6 +639,20 @@ impl AdmWriter {
     }
 }
 
+/// The `<gain>` text of an active object, as the Dolby converters print it:
+/// nothing at 0 dB, ten decimals of the float32 linear factor otherwise
+/// (0.5011872053 for −6 dB, as the reference files carry it, where float64
+/// arithmetic would print 0.5011872336), and `0.0` alone when the object is
+/// muted. The profile text reserves `gain` for inactive objects; Dolby's
+/// converters write it on active ones and Dolby's validators accept it.
+fn active_gain_text(g: Gain) -> Option<String> {
+    match g {
+        Gain::Db(0) => None,
+        Gain::Db(_) => Some(format!("{:.10}", f64::from(g.linear()))),
+        Gain::MinusInfinity => Some("0.0".to_string()),
+    }
+}
+
 /// Whether two states are the same as far as an ADM block can tell.
 fn adm_equal(a: &ObjectState, b: &ObjectState) -> bool {
     a.active == b.active
@@ -643,6 +661,7 @@ fn adm_equal(a: &ObjectState, b: &ObjectState) -> bool {
         && a.elevation == b.elevation
         && a.zones == b.zones
         && a.size == b.size
+        && a.gain == b.gain
 }
 
 /// Zone rectangles of a horizontal zone constraint (profile tables 12 and 13).
@@ -857,6 +876,107 @@ mod tests {
             summary.losses.examples(LossKind::BedEventDropped),
             &[(3, 1000)]
         );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The channel format of object `k` in the written file.
+    fn channel_format(text: &str, k: usize) -> String {
+        let start = text
+            .find(&format!("audioChannelFormatName=\"Atmos_Obj_{k}\""))
+            .expect("object channel format");
+        let rest = &text[start..];
+        let end = rest.find("</audioChannelFormat>").expect("closing tag");
+        rest[..end].to_string()
+    }
+
+    fn written_text(dir: &Path) -> String {
+        String::from_utf8_lossy(&std::fs::read(dir.join("t.wav")).unwrap()).into_owned()
+    }
+
+    /// The Dolby converters write the gain of an active object as a linear
+    /// factor with ten decimals of float32 arithmetic, nothing at 0 dB, and
+    /// `0.0` alone when the object is muted; the inactive marker keeps both
+    /// gain and importance.
+    #[test]
+    fn active_gain_is_written_as_dolby_prints_it() {
+        let dir = temp_dir("gain");
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_objects: 0,
+            dynamic_objects: 4,
+        };
+        let mut w =
+            AdmWriter::create(&dir.join("t.wav"), &program, 48000, &AdmOptions::default()).unwrap();
+        let rows = vec![[0i32; 5]; 100];
+        w.write_frames(rows.iter().map(|r| &r[..]), 5).unwrap();
+        for (k, gain) in [Gain::Db(-6), Gain::Db(3), Gain::MinusInfinity, Gain::Db(0)]
+            .into_iter()
+            .enumerate()
+        {
+            let mut s = state();
+            s.gain = gain;
+            w.push_event(&object_event(10 + k as u32, 0, s));
+        }
+        w.finish().unwrap();
+        let text = written_text(&dir);
+        let minus_six = channel_format(&text, 1);
+        assert!(
+            minus_six.contains("<gain>0.5011872053</gain>"),
+            "{minus_six}"
+        );
+        assert!(!minus_six.contains("<importance>"));
+        assert!(channel_format(&text, 2).contains("<gain>1.4125375748</gain>"));
+        let muted = channel_format(&text, 3);
+        assert!(muted.contains("<gain>0.0</gain>"), "{muted}");
+        assert!(
+            !muted.contains("<importance>"),
+            "a muted active object is not the inactive marker"
+        );
+        assert!(
+            !channel_format(&text, 4).contains("<gain>"),
+            "0 dB is written as nothing"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A change of gain alone is an ADM difference now, so it gets its own
+    /// block instead of being popped or folded into the previous one.
+    #[test]
+    fn a_gain_only_change_gets_its_own_block() {
+        let dir = temp_dir("gain-change");
+        let mut w = one_object_writer(&dir, 96_000);
+        w.push_event(&object_event(10, 0, state()));
+        let mut quieter = state();
+        quieter.gain = Gain::Db(-12);
+        w.push_event(&object_event(10, 48_000, quieter));
+        let summary = w.finish().unwrap();
+        assert_eq!(summary.blocks, 2);
+        let cf = channel_format(&written_text(&dir), 1);
+        assert!(
+            cf.contains("rtime=\"00:00:01.00000\" duration=\"00:00:01.00000\""),
+            "{cf}"
+        );
+        assert!(cf.contains("<gain>0.2511886358</gain>"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The inactive marker (gain 0.0 with importance 0) is untouched, and the
+    /// inactive object's own gain is not written on top of it.
+    #[test]
+    fn the_inactive_marker_is_unchanged() {
+        let dir = temp_dir("inactive");
+        let mut w = one_object_writer(&dir, 4000);
+        let mut off = state();
+        off.active = false;
+        off.gain = Gain::Db(-6);
+        w.push_event(&object_event(10, 0, off));
+        w.finish().unwrap();
+        let cf = channel_format(&written_text(&dir), 1);
+        assert!(
+            cf.contains("<gain>0.0</gain>\n\t\t\t\t\t\t<importance>0</importance>"),
+            "{cf}"
+        );
+        assert!(!cf.contains("0.5011872053"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
