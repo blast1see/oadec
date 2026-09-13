@@ -207,8 +207,11 @@ pub struct ObjectState {
     pub elevation: bool,
     /// Horizontal zone constraint index.
     pub zones: u8,
-    /// Object size (uniform; DAMF has no three-dimensional size).
-    pub size: f32,
+    /// Object size as OAMD codes it: width, depth, height in 0..=1. DAMF has
+    /// one `size` and the ADM profile requires the three to be identical, so
+    /// the writers emit [`ObjectState::uniform_size`] and count the events
+    /// whose axes differ.
+    pub size: [f32; 3],
     /// Priority ("importance").
     pub importance: f32,
     /// Gain.
@@ -221,6 +224,22 @@ pub struct ObjectState {
     pub screen_factor: f32,
     /// Depth factor.
     pub depth_factor: f32,
+}
+
+impl ObjectState {
+    /// The one size the outputs can carry: the width (the first axis), which
+    /// is what a uniform OAMD size sets for all three.
+    #[must_use]
+    pub const fn uniform_size(&self) -> f32 {
+        self.size[0]
+    }
+
+    /// Whether depth or height differ from the width, so that the written
+    /// size loses something.
+    #[must_use]
+    pub fn size_axes_differ(&self) -> bool {
+        self.size[1] != self.size[0] || self.size[2] != self.size[0]
+    }
 }
 
 /// Metadata of a bed channel at one instant.
@@ -279,7 +298,7 @@ fn object_state(
         snap: r.snap,
         elevation: r.enable_elevation,
         zones: r.zone_constraints,
-        size: r.size[0],
+        size: r.size,
         importance: block.basic.priority,
         gain: block.basic.gain,
         ramp,
@@ -643,6 +662,26 @@ mod tests {
             t.losses.examples(LossKind::DistanceDropped),
             &[(10, 0), (10, 1536)]
         );
+    }
+
+    /// OAMD codes width, depth and height; the model used to keep the first
+    /// axis only, which made the collapse invisible to both writers.
+    #[test]
+    fn three_size_axes_reach_the_state() {
+        use oadec_emdf::oamd::Element;
+        let mut oamd = one_update(0, 0);
+        if let Element::Object(o) = &mut oamd.elements[0].element {
+            o.objects[0][0].render.size = [0.2, 0.5, 0.8];
+        }
+        let mut t = Timeline::new(true);
+        let mut seen = Vec::new();
+        t.push(&oamd, 0, 0, |e| seen.push(e.state.clone()))
+            .expect("well formed");
+        let ElementState::Object(s) = &seen[0] else {
+            panic!("an object event");
+        };
+        assert_eq!(s.size, [0.2, 0.5, 0.8]);
+        assert_eq!(s.uniform_size(), 0.2, "the width stands for the size");
     }
 
     #[test]

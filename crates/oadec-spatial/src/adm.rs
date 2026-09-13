@@ -296,6 +296,12 @@ impl AdmWriter {
     pub fn push_event(&mut self, event: &Event) {
         match &event.state {
             ElementState::Object(s) => {
+                // Counted per event, not per block: an event that only changed
+                // the depth or height never becomes a block, and is a loss.
+                if s.size_axes_differ() {
+                    self.losses
+                        .note(LossKind::SizeAxesCollapsed, event.id, event.sample_pos);
+                }
                 self.events
                     .entry(event.id)
                     .or_default()
@@ -524,7 +530,7 @@ impl AdmWriter {
                         snap: false,
                         elevation: true,
                         zones: 0,
-                        size: 0.0,
+                        size: [0.0; 3],
                         importance: 1.0,
                         gain: Gain::Db(0),
                         ramp: 0,
@@ -588,8 +594,8 @@ impl AdmWriter {
                         coord(s.pos[2])
                     ));
                 }
-                if s.size != 0.0 {
-                    let sz = coord(s.size);
+                if s.uniform_size() != 0.0 {
+                    let sz = coord(s.uniform_size());
                     x.push_str(&format!(
                         "\t\t\t\t\t\t<width>{sz}</width>\n\t\t\t\t\t\t<depth>{sz}</depth>\n\t\t\t\t\t\t<height>{sz}</height>\n"
                     ));
@@ -693,7 +699,7 @@ fn adm_equal(a: &ObjectState, b: &ObjectState) -> bool {
         && a.snap == b.snap
         && a.elevation == b.elevation
         && a.zones == b.zones
-        && a.size == b.size
+        && a.uniform_size() == b.uniform_size()
         && a.gain == b.gain
 }
 
@@ -809,7 +815,7 @@ mod tests {
             snap: false,
             elevation: true,
             zones: 0,
-            size: 0.0,
+            size: [0.0; 3],
             importance: 1.0,
             gain: Gain::Db(0),
             ramp: 1536,
@@ -1056,6 +1062,38 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// The profile requires width, depth and height to be identical, so the
+    /// width is written for all three; axes that differ are counted, not lost
+    /// in silence. A change of depth or height alone is not a new block.
+    #[test]
+    fn size_axes_that_differ_are_counted_and_the_width_is_written() {
+        use crate::loss::LossKind;
+        let dir = temp_dir("size-axes");
+        let mut w = one_object_writer(&dir, 4000);
+        let mut boxy = state();
+        boxy.size = [0.2, 0.5, 0.8];
+        w.push_event(&object_event(10, 0, boxy));
+        let mut taller = state();
+        taller.size = [0.2, 0.5, 0.9];
+        w.push_event(&object_event(10, 2000, taller));
+        let summary = w.finish().unwrap();
+        assert_eq!(
+            summary.blocks, 1,
+            "a height-only change is not an ADM difference"
+        );
+        assert_eq!(summary.losses.count(LossKind::SizeAxesCollapsed), 2);
+        assert_eq!(
+            summary.losses.examples(LossKind::SizeAxesCollapsed),
+            &[(10, 0), (10, 2000)]
+        );
+        let cf = channel_format(&written_text(&dir), 1);
+        assert!(
+            cf.contains("<width>0.2000000030</width>\n\t\t\t\t\t\t<depth>0.2000000030</depth>\n\t\t\t\t\t\t<height>0.2000000030</height>"),
+            "{cf}"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn writes_a_profile_shaped_file() {
         let dir = std::env::temp_dir().join(format!("oadec-adm-{}", std::process::id()));
@@ -1077,7 +1115,7 @@ mod tests {
             snap: false,
             elevation: true,
             zones: 0,
-            size: 0.0,
+            size: [0.0; 3],
             importance: 1.0,
             gain: Gain::Db(0),
             ramp: 1536,

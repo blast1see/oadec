@@ -200,7 +200,7 @@ fn object_state(s: &ObjectSpec) -> ObjectState {
         snap: s.snap,
         elevation: s.elevation,
         zones: s.zones,
-        size: s.size,
+        size: [s.size; 3],
         importance: s.importance,
         gain: gain(s.gain_db, s.gain_minus_inf),
         ramp: s.ramp,

@@ -122,7 +122,7 @@ fn object_state(e: &SceneEvent) -> ObjectState {
         snap: false,
         elevation: true,
         zones: 0,
-        size: e.size,
+        size: [e.size; 3],
         importance: 1.0,
         gain: Gain::Db(e.gain_db),
         ramp: 0,
