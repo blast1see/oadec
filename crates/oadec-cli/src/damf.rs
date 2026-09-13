@@ -35,9 +35,25 @@ impl From<IsfArg> for IsfPolicy {
     }
 }
 
-use crate::decode::{Order, Session, format_duration, print_summary};
+use crate::decode::{Format, Order, Session, format_duration, print_summary};
 use crate::input;
 use crate::integrity::Verdict;
+
+/// The object formats always decode the object presentation (3); a
+/// `--presentation` that says otherwise used to be accepted and ignored.
+pub(crate) fn check_presentation(format: Format, presentation: Option<usize>) -> Result<()> {
+    let name = match format {
+        Format::Damf => "damf",
+        Format::Adm => "adm",
+        Format::Pcm | Format::Wav => return Ok(()),
+    };
+    match presentation {
+        Some(p) if p != 3 => bail!(
+            "--presentation {p} does not apply to --format {name}: the object formats always decode the object presentation (3)"
+        ),
+        _ => Ok(()),
+    }
+}
 
 /// Options of the object output.
 #[derive(Debug, Clone)]
@@ -74,6 +90,8 @@ pub struct Options {
     pub isf: IsfPolicy,
     /// ADM: write a programme that is not at 48 kHz (outside the profile).
     pub allow_non_profile_rate: bool,
+    /// DAMF: the frame rate of the `.atmos` header.
+    pub fps: String,
 }
 
 /// The message of a refused ISF programme, with the way out.
@@ -234,6 +252,7 @@ impl Sink {
             let options = DamfOptions {
                 bed_conform: opts.bed_conform,
                 isf: opts.isf,
+                fps: opts.fps.clone(),
                 ..DamfOptions::default()
             };
             match DamfWriter::create(dir, name, program, rate, &options) {
@@ -468,6 +487,21 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `--presentation` used to be accepted and ignored with the object
+    /// formats, which always decode the object presentation (3).
+    #[test]
+    fn the_object_formats_refuse_a_presentation_other_than_three() {
+        assert!(check_presentation(Format::Adm, None).is_ok());
+        assert!(check_presentation(Format::Damf, Some(3)).is_ok());
+        assert!(check_presentation(Format::Wav, Some(2)).is_ok());
+        let err = check_presentation(Format::Adm, Some(2))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("--presentation 2"), "{err}");
+        assert!(err.contains("--format adm"), "{err}");
+        assert!(check_presentation(Format::Damf, Some(0)).is_err());
+    }
 
     /// The 16-channel presentation declares its ISF type in the major sync;
     /// the count used to be hardcoded to zero, which would have shifted every
