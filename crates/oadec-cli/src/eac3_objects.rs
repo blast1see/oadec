@@ -602,6 +602,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
             .map_or_else(String::new, |p| p.display().to_string()),
         summary.note
     );
+    crate::damf::note_non_profile(opts);
     eprintln!(
         "metadata: {} payloads, {} events ({} restating payloads, {} out-of-order events), {} payload errors; {} frames without JOC, {} without OAMD",
         timeline.payloads,

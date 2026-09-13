@@ -21,7 +21,7 @@ use oadec_emdf::oamd::{
     UpdateTiming,
 };
 use oadec_spatial::program::{damf_channel_name, BedState, ElementState, Event, ObjectState, Program, Timeline};
-use oadec_spatial::{AdmOptions, AdmWriter, DamfOptions, DamfWriter, IsfPolicy};
+use oadec_spatial::{AdmOptions, AdmWriter, DamfOptions, DamfWriter, Interpolation, IsfPolicy};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -49,6 +49,9 @@ struct Case {
     /// Write an ADM file at a sample rate other than 48 kHz instead of refusing.
     #[serde(default)]
     allow_non_profile_rate: bool,
+    /// Write the source ramps as interpolation lengths (non-profile) instead of 250 samples.
+    #[serde(default)]
+    real_ramps: bool,
 }
 
 fn d48k() -> u32 {
@@ -352,7 +355,7 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
     // mixed case could interleave: keep the writer's own view honest by not sorting.
 
     let adm_path: PathBuf = out_dir.join(format!("{}.wav", case.case));
-    let mut opts = AdmOptions { bed_conform: case.bed_conform, isf, allow_non_profile_rate: case.allow_non_profile_rate, ..AdmOptions::default() };
+    let mut opts = AdmOptions { bed_conform: case.bed_conform, isf, allow_non_profile_rate: case.allow_non_profile_rate, interpolation: if case.real_ramps { Interpolation::Real } else { Interpolation::Profile }, ..AdmOptions::default() };
     if let Some(c) = &case.creator {
         opts.creator = c.clone();
     }

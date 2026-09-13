@@ -27,7 +27,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 use crate::compare::RefFormat;
-use crate::damf::IsfArg;
+use crate::damf::{InterpolationArg, IsfArg};
 use crate::decode::{Format, Order};
 use crate::integrity::Verdict;
 
@@ -130,6 +130,12 @@ enum Command {
         /// picture-locked workflows; event timing is in samples).
         #[arg(long, default_value = "24", value_parser = ["23.976", "24", "25", "29.97", "30"])]
         fps: String,
+        /// ADM: how interpolation lengths are written: the profile's fixed 250
+        /// samples (the default, what Dolby's converters write) or the source
+        /// ramps (BS.2076, outside the profile; marked in the file, refuses
+        /// --dolby-origin-tag).
+        #[arg(long, value_enum, default_value_t = InterpolationArg::Profile)]
+        adm_interpolation: InterpolationArg,
         /// E-AC-3: write only the 5.1-compatible channels of the independent
         /// substream instead of the whole programme, which is what a decoder
         /// limited to 5.1 produces (clause E.2.8.2).
@@ -366,6 +372,7 @@ fn main() -> ExitCode {
                 isf,
                 adm_allow_non_profile_rate,
                 fps,
+                adm_interpolation,
                 core_only,
                 no_dither,
                 no_tpnp,
@@ -374,7 +381,9 @@ fn main() -> ExitCode {
                 flat_quadrature,
                 sparse_as_printed,
                 steep_as_printed,
-            } => if let Err(e) = damf::check_presentation(format, presentation) {
+            } => if let Err(e) = damf::check_presentation(format, presentation).and_then(|()| {
+                damf::check_interpolation(adm_interpolation.into(), dolby_origin_tag)
+            }) {
                 Err(e)
             } else if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
@@ -402,6 +411,7 @@ fn main() -> ExitCode {
                             isf: isf.into(),
                             allow_non_profile_rate: adm_allow_non_profile_rate,
                             fps: fps.clone(),
+                            interpolation: adm_interpolation.into(),
                             clip_gain: !no_clip_gain,
                             flat_quadrature,
                             sparse_as_printed,
@@ -442,6 +452,7 @@ fn main() -> ExitCode {
                         isf: isf.into(),
                         allow_non_profile_rate: adm_allow_non_profile_rate,
                         fps: fps.clone(),
+                        interpolation: adm_interpolation.into(),
                         // TrueHD carries no JOC, so neither of these apply.
                         clip_gain: false,
                         flat_quadrature: false,

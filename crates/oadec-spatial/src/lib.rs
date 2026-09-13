@@ -9,7 +9,7 @@ pub mod dbmd;
 pub mod loss;
 pub mod program;
 
-pub use adm::{AdmError, AdmOptions, AdmSummary, AdmWriter};
+pub use adm::{AdmError, AdmOptions, AdmSummary, AdmWriter, Interpolation};
 pub use damf::{DamfError, DamfOptions, DamfWriter};
 pub use loss::{LossClass, LossKind, LossLedger};
 pub use program::{ElementState, Event, IsfPolicy, Program, ProgramError, Timeline};

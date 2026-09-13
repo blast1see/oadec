@@ -26,6 +26,20 @@ use crate::program::{
 /// Interpolation length of every block after the first, in samples.
 pub const INTERPOLATION_SAMPLES: u32 = 250;
 
+/// How `interpolationLength` is written.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Interpolation {
+    /// The Dolby Atmos master ADM profile (table 11): 0 on the first block,
+    /// 250 samples afterwards, whatever the source ramp was. The default;
+    /// Dolby's converters write the same.
+    #[default]
+    Profile,
+    /// The source ramp of every block, as BS.2076 allows. Outside the
+    /// profile: the file's `dbmd` tool string says so, and it must not carry
+    /// the Dolby origin tag.
+    Real,
+}
+
 /// Options of the writer.
 #[derive(Debug, Clone)]
 pub struct AdmOptions {
@@ -45,6 +59,8 @@ pub struct AdmOptions {
     /// Write a programme whose sample rate is not the profile's 48 000 Hz
     /// (a declared loss) instead of refusing it.
     pub allow_non_profile_rate: bool,
+    /// How interpolation lengths are written.
+    pub interpolation: Interpolation,
 }
 
 impl Default for AdmOptions {
@@ -57,9 +73,14 @@ impl Default for AdmOptions {
             tool: format!("oadec {}", env!("CARGO_PKG_VERSION")),
             isf: IsfPolicy::Error,
             allow_non_profile_rate: false,
+            interpolation: Interpolation::Profile,
         }
     }
 }
+
+/// What the `dbmd` tool string says after the tool when the file is outside
+/// the profile.
+pub const NON_PROFILE_MARK: &str = "non-profile: real interpolation lengths";
 
 /// The only sample rate the profile allows (table 23).
 pub const PROFILE_SAMPLE_RATE: u32 = 48_000;
@@ -405,7 +426,11 @@ impl AdmWriter {
         for (i, &c) in self.bed.iter().enumerate() {
             lfe[i] = matches!(c, BedChannel::LFE | BedChannel::LFE2);
         }
-        let dbmd = dbmd::build(bed_mask, &lfe, &self.options.creator, &self.options.tool);
+        let tool = match self.options.interpolation {
+            Interpolation::Profile => self.options.tool.clone(),
+            Interpolation::Real => format!("{} ({NON_PROFILE_MARK})", self.options.tool),
+        };
+        let dbmd = dbmd::build(bed_mask, &lfe, &self.options.creator, &tool);
         write_chunk(&mut self.out, b"dbmd", &dbmd)?;
         self.out.flush()?;
         let mut file = self
@@ -568,7 +593,27 @@ impl AdmWriter {
         }
         // channel formats: objects, one block per event
         let mut blocks_total = 0u64;
-        let interpolation = f64::from(INTERPOLATION_SAMPLES) / f64::from(self.sample_rate);
+        let real = self.options.interpolation == Interpolation::Real;
+        let interpolation_text = |n: usize, s: &ObjectState| -> String {
+            match self.options.interpolation {
+                Interpolation::Profile => format!(
+                    "{:.6}",
+                    if n == 0 {
+                        0.0
+                    } else {
+                        f64::from(INTERPOLATION_SAMPLES) / f64::from(self.sample_rate)
+                    }
+                ),
+                Interpolation::Real => format!(
+                    "{:.10}",
+                    if n == 0 {
+                        0.0
+                    } else {
+                        f64::from(s.ramp) / f64::from(self.sample_rate)
+                    }
+                ),
+            }
+        };
         for k in 1..=self.objects {
             let id = 0x0003_1000 + k;
             let element_id = 10 + (k as u32 - 1);
@@ -630,7 +675,11 @@ impl AdmWriter {
             // real first event behind a synthetic block is never popped.
             let keep = if synthetic { 2 } else { 1 };
             while events.len() > keep
-                && adm_equal(&events[events.len() - 2].1, &events[events.len() - 1].1)
+                && adm_equal(
+                    &events[events.len() - 2].1,
+                    &events[events.len() - 1].1,
+                    real,
+                )
             {
                 events.pop();
             }
@@ -640,7 +689,7 @@ impl AdmWriter {
                     continue;
                 }
                 blocks_total += 1;
-                if n > 0 && s.ramp != INTERPOLATION_SAMPLES {
+                if !real && n > 0 && s.ramp != INTERPOLATION_SAMPLES {
                     ledger.note_ramp(element_id, *pos, s.ramp);
                 }
                 if s.active && s.importance != 1.0 {
@@ -688,8 +737,8 @@ impl AdmWriter {
                     x.push_str("\t\t\t\t\t\t<channelLock>1</channelLock>\n");
                 }
                 x.push_str(&format!(
-                    "\t\t\t\t\t\t<jumpPosition interpolationLength=\"{:.6}\">1</jumpPosition>\n",
-                    if n == 0 { 0.0 } else { interpolation }
+                    "\t\t\t\t\t\t<jumpPosition interpolationLength=\"{}\">1</jumpPosition>\n",
+                    interpolation_text(n, s)
                 ));
                 if s.zones != 0 || !s.elevation {
                     x.push_str("\t\t\t\t\t\t<zoneExclusion>\n");
@@ -776,8 +825,9 @@ fn active_gain_text(g: Gain) -> Option<String> {
     }
 }
 
-/// Whether two states are the same as far as an ADM block can tell.
-fn adm_equal(a: &ObjectState, b: &ObjectState) -> bool {
+/// Whether two states are the same as far as an ADM block can tell; with
+/// real interpolation lengths the ramp is a block field too.
+fn adm_equal(a: &ObjectState, b: &ObjectState, real_ramps: bool) -> bool {
     a.active == b.active
         && a.pos == b.pos
         && a.snap == b.snap
@@ -785,6 +835,7 @@ fn adm_equal(a: &ObjectState, b: &ObjectState) -> bool {
         && a.zones == b.zones
         && a.uniform_size() == b.uniform_size()
         && a.gain == b.gain
+        && (!real_ramps || a.ramp == b.ramp)
 }
 
 /// Zone rectangles of a horizontal zone constraint (profile tables 12 and 13).
@@ -1422,6 +1473,63 @@ mod tests {
         assert!(cf.contains("<position coordinate=\"X\">1.0000000000"));
         assert!(!cf.contains("<position coordinate=\"X\">0.0000000000"));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `Interpolation::Real` writes the source ramp as the interpolation
+    /// length (ten decimals, so 32 samples round-trip exactly), keeps
+    /// ramp-only changes as blocks, counts no replaced ramps, and marks the
+    /// file as outside the profile. It is opt-in.
+    #[test]
+    fn real_interpolation_writes_the_ramp_and_keeps_ramp_only_changes() {
+        use crate::loss::LossKind;
+        let dir = temp_dir("real-ramp");
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
+            isf_objects: 0,
+            dynamic_objects: 1,
+        };
+        let options = AdmOptions {
+            interpolation: Interpolation::Real,
+            ..AdmOptions::default()
+        };
+        let mut w = AdmWriter::create(&dir.join("t.wav"), &program, 48000, &options).unwrap();
+        let rows = vec![[0i32, 0]; 96_000];
+        w.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
+        let mut first = state();
+        first.ramp = 32;
+        w.push_event(&object_event(10, 0, first));
+        let mut moved = state();
+        moved.pos = [0.5, 1.0, 0.0];
+        moved.ramp = 1536;
+        w.push_event(&object_event(10, 24_000, moved.clone()));
+        let mut slower = moved;
+        slower.ramp = 32;
+        w.push_event(&object_event(10, 48_000, slower));
+        let summary = w.finish().unwrap();
+        assert_eq!(
+            summary.blocks, 3,
+            "a ramp-only change is a block in real mode"
+        );
+        assert_eq!(summary.losses.count(LossKind::RampReplaced), 0);
+        let text = written_text(&dir);
+        let cf = channel_format(&text, 1);
+        assert!(
+            cf.contains("interpolationLength=\"0.0000000000\""),
+            "the first block has nothing to interpolate from: {cf}"
+        );
+        assert!(cf.contains("interpolationLength=\"0.0320000000\""), "{cf}");
+        assert!(cf.contains("interpolationLength=\"0.0006666667\""), "{cf}");
+        assert!(
+            text.contains("non-profile: real interpolation lengths"),
+            "the dbmd tool string marks the file"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn profile_interpolation_is_the_default() {
+        assert_eq!(AdmOptions::default().interpolation, Interpolation::Profile);
     }
 
     #[test]
