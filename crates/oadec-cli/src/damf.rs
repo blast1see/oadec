@@ -72,6 +72,8 @@ pub struct Options {
     pub loss_report: Option<PathBuf>,
     /// Intermediate-spatial-format elements: refuse or drop.
     pub isf: IsfPolicy,
+    /// ADM: write a programme that is not at 48 kHz (outside the profile).
+    pub allow_non_profile_rate: bool,
 }
 
 /// The message of a refused ISF programme, with the way out.
@@ -211,6 +213,7 @@ impl Sink {
             let mut options = AdmOptions {
                 bed_conform: opts.bed_conform,
                 isf: opts.isf,
+                allow_non_profile_rate: opts.allow_non_profile_rate,
                 ..AdmOptions::default()
             };
             if opts.dolby_origin_tag {
@@ -222,6 +225,9 @@ impl Sink {
                 Err(AdmError::IsfNotRepresentable { count, isf_type }) => {
                     bail!("{}", isf_hint(count, &isf_type))
                 }
+                Err(AdmError::NonProfileSampleRate(rate)) => bail!(
+                    "the Dolby Atmos master ADM profile requires 48 000 Hz and this programme is {rate} Hz; pass --adm-allow-non-profile-rate to write it anyway, declared outside the profile (exit 4)"
+                ),
                 Err(e) => Err(e.into()),
             }
         } else {

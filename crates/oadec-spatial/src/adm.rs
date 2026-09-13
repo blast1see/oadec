@@ -42,6 +42,9 @@ pub struct AdmOptions {
     /// What to do with intermediate-spatial-format elements, which the
     /// profile cannot represent: refuse (the default) or drop and count.
     pub isf: IsfPolicy,
+    /// Write a programme whose sample rate is not the profile's 48 000 Hz
+    /// (a declared loss) instead of refusing it.
+    pub allow_non_profile_rate: bool,
 }
 
 impl Default for AdmOptions {
@@ -53,9 +56,13 @@ impl Default for AdmOptions {
             creator: "Created using oadec".to_string(),
             tool: format!("oadec {}", env!("CARGO_PKG_VERSION")),
             isf: IsfPolicy::Error,
+            allow_non_profile_rate: false,
         }
     }
 }
+
+/// The only sample rate the profile allows (table 23).
+pub const PROFILE_SAMPLE_RATE: u32 = 48_000;
 
 /// Summary returned when the file is closed.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -101,6 +108,12 @@ pub enum AdmError {
         /// The ISF type (table 11b), or "reserved type".
         isf_type: String,
     },
+    /// The programme is not at 48 000 Hz and the options did not allow a
+    /// file outside the profile.
+    #[error(
+        "the Dolby Atmos master ADM profile requires 48 000 Hz (table 23); this programme is {0} Hz"
+    )]
+    NonProfileSampleRate(u32),
 }
 
 /// Per-bed-channel constants of the profile (name suffix, speaker label, position).
@@ -192,6 +205,12 @@ impl AdmWriter {
             bed_profile(ch)?;
         }
         let mut losses = LossLedger::default();
+        if sample_rate != PROFILE_SAMPLE_RATE {
+            if !options.allow_non_profile_rate {
+                return Err(AdmError::NonProfileSampleRate(sample_rate));
+            }
+            losses.note(LossKind::NonProfileSampleRate, 0, 0);
+        }
         if program.isf_objects > 0 {
             match options.isf {
                 IsfPolicy::Error => {
@@ -1091,6 +1110,44 @@ mod tests {
             cf.contains("<width>0.2000000030</width>\n\t\t\t\t\t\t<depth>0.2000000030</depth>\n\t\t\t\t\t\t<height>0.2000000030</height>"),
             "{cf}"
         );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Profile table 23 requires 48 000 Hz. Anything else is refused unless the
+    /// caller asks for a file outside the profile, which is then a declared
+    /// loss; the 250-sample interpolation length scales with the rate.
+    #[test]
+    fn a_non_profile_sample_rate_is_refused_unless_allowed() {
+        use crate::loss::LossKind;
+        let dir = temp_dir("rate");
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
+            isf_objects: 0,
+            dynamic_objects: 1,
+        };
+        let refused =
+            AdmWriter::create(&dir.join("t.wav"), &program, 96_000, &AdmOptions::default());
+        assert!(
+            matches!(refused, Err(AdmError::NonProfileSampleRate(96_000))),
+            "{refused:?}"
+        );
+        let options = AdmOptions {
+            allow_non_profile_rate: true,
+            ..AdmOptions::default()
+        };
+        let mut w = AdmWriter::create(&dir.join("t.wav"), &program, 96_000, &options).unwrap();
+        let rows = vec![[0i32, 0]; 8000];
+        w.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
+        w.push_event(&object_event(10, 0, state()));
+        let mut moved = state();
+        moved.pos = [0.5, 1.0, 0.0];
+        w.push_event(&object_event(10, 4000, moved));
+        let summary = w.finish().unwrap();
+        assert_eq!(summary.losses.count(LossKind::NonProfileSampleRate), 1);
+        assert!(summary.losses.declared_loss());
+        let cf = channel_format(&written_text(&dir), 1);
+        assert!(cf.contains("interpolationLength=\"0.002604\""), "{cf}");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
