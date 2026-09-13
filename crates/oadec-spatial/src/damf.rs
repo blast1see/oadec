@@ -286,6 +286,10 @@ impl DamfWriter {
                 bed_fields(&mut text, s, p);
             }
             (ElementState::Object(s), prev) => {
+                if s.size_axes_differ() {
+                    self.losses
+                        .note(LossKind::SizeAxesCollapsed, event.id, event.sample_pos);
+                }
                 let p = match prev {
                     Some(ElementState::Object(p)) if !first => Some(p),
                     _ => None,
@@ -380,7 +384,7 @@ fn object_fields(text: &mut String, s: &ObjectState, prev: Option<&ObjectState>)
         |v: bool| v
     );
     field!(text, prev, "zones", s.zones, p.zones, zones_name);
-    field!(text, prev, "size", s.size, p.size, num);
+    field!(text, prev, "size", s.uniform_size(), p.uniform_size(), num);
     field!(text, prev, "importance", s.importance, p.importance, num);
     field!(text, prev, "gain", s.gain, p.gain, gain_text);
     field!(text, prev, "rampLength", s.ramp, p.ramp, |v: u32| v);
@@ -429,7 +433,7 @@ mod tests {
             snap: false,
             elevation: true,
             zones: 0,
-            size: 0.0,
+            size: [0.0; 3],
             importance: 1.0,
             gain,
             ramp: 1536,
@@ -437,6 +441,51 @@ mod tests {
             screen_factor: 0.0,
             depth_factor: 0.25,
         }
+    }
+
+    /// DAMF has one `size`: the width is written, axes that differ are
+    /// counted, and a depth- or height-only change writes no line.
+    #[test]
+    fn size_is_written_from_the_width_and_axes_that_differ_are_counted() {
+        use crate::loss::LossKind;
+        let dir = std::env::temp_dir().join(format!("oadec-damf-size-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
+            isf_objects: 0,
+            dynamic_objects: 1,
+        };
+        let mut w =
+            DamfWriter::create(&dir, "t", &program, 48000, &DamfOptions::default()).unwrap();
+        let mut first = object([-1.0, 1.0, 0.0], Gain::Db(0));
+        first.size = [0.2, 0.5, 0.8];
+        let mut second = first.clone();
+        second.size = [0.2, 0.9, 0.8];
+        w.push_event(&Event {
+            id: 10,
+            sample_pos: 0,
+            state: ElementState::Object(first.clone()),
+            previous: None,
+        })
+        .unwrap();
+        w.push_event(&Event {
+            id: 10,
+            sample_pos: 1536,
+            state: ElementState::Object(second),
+            previous: Some(ElementState::Object(first)),
+        })
+        .unwrap();
+        let summary = w.finish().unwrap();
+        assert_eq!(summary.losses.count(LossKind::SizeAxesCollapsed), 2);
+        let md = std::fs::read_to_string(dir.join("t.atmos.metadata")).unwrap();
+        assert!(md.contains("    size: 0.2\n"), "{md}");
+        let delta = md.rsplit("  - ID: 10\n").next().unwrap();
+        assert_eq!(
+            delta, "    samplePos: 1536\n",
+            "a depth-only change writes nothing"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// DAMF has no ISF element either: refused by default, dropped and counted
