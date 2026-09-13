@@ -119,6 +119,11 @@ enum Command {
         /// them and declare the loss (exit 4).
         #[arg(long, value_enum, default_value_t = IsfArg::Error)]
         isf: IsfArg,
+        /// ADM: write a programme that is not at 48 kHz although the Dolby Atmos
+        /// master ADM profile requires 48 kHz; the file is declared outside the
+        /// profile (exit 4). Without it such a programme is refused.
+        #[arg(long)]
+        adm_allow_non_profile_rate: bool,
         /// E-AC-3: write only the 5.1-compatible channels of the independent
         /// substream instead of the whole programme, which is what a decoder
         /// limited to 5.1 produces (clause E.2.8.2).
@@ -353,6 +358,7 @@ fn main() -> ExitCode {
                 dolby_origin_tag,
                 loss_report,
                 isf,
+                adm_allow_non_profile_rate,
                 core_only,
                 no_dither,
                 no_tpnp,
@@ -385,6 +391,7 @@ fn main() -> ExitCode {
                             dolby_origin_tag,
                             loss_report: loss_report.clone(),
                             isf: isf.into(),
+                            allow_non_profile_rate: adm_allow_non_profile_rate,
                             clip_gain: !no_clip_gain,
                             flat_quadrature,
                             sparse_as_printed,
@@ -423,6 +430,7 @@ fn main() -> ExitCode {
                         dolby_origin_tag,
                         loss_report: loss_report.clone(),
                         isf: isf.into(),
+                        allow_non_profile_rate: adm_allow_non_profile_rate,
                         // TrueHD carries no JOC, so neither of these apply.
                         clip_gain: false,
                         flat_quadrature: false,
