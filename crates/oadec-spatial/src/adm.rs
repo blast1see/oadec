@@ -64,6 +64,12 @@ impl Default for AdmOptions {
 /// The only sample rate the profile allows (table 23).
 pub const PROFILE_SAMPLE_RATE: u32 = 48_000;
 
+/// Objects the profile can number: `AO_100b` to `AO_1080` (table 17).
+pub const MAX_OBJECTS: usize = 118;
+
+/// Tracks the profile allows in one file.
+pub const MAX_TRACKS: usize = 128;
+
 /// Summary returned when the file is closed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdmSummary {
@@ -114,6 +120,24 @@ pub enum AdmError {
         "the Dolby Atmos master ADM profile requires 48 000 Hz (table 23); this programme is {0} Hz"
     )]
     NonProfileSampleRate(u32),
+    /// More dynamic objects than the profile can number.
+    #[error(
+        "the profile numbers at most {max} objects (AO_100b to AO_1080); the programme has {objects}"
+    )]
+    TooManyObjects {
+        /// Dynamic objects in the programme.
+        objects: usize,
+        /// The limit.
+        max: usize,
+    },
+    /// More tracks than the profile allows in one file.
+    #[error("the profile allows at most {max} tracks in one file; the output would have {tracks}")]
+    TooManyTracks {
+        /// Tracks the output would have.
+        tracks: usize,
+        /// The limit.
+        max: usize,
+    },
 }
 
 /// Per-bed-channel constants of the profile (name suffix, speaker label, position).
@@ -241,6 +265,18 @@ impl AdmWriter {
             slots.push(Slot::Channel(bed.len() + k));
         }
         let channels = bed.len() + program.dynamic_objects;
+        if program.dynamic_objects > MAX_OBJECTS {
+            return Err(AdmError::TooManyObjects {
+                objects: program.dynamic_objects,
+                max: MAX_OBJECTS,
+            });
+        }
+        if channels > MAX_TRACKS {
+            return Err(AdmError::TooManyTracks {
+                tracks: channels,
+                max: MAX_TRACKS,
+            });
+        }
 
         let file = File::create(path)?;
         let mut out = BufWriter::with_capacity(4 << 20, file);
@@ -467,14 +503,16 @@ impl AdmWriter {
             "\t\t\t\t<audioContent audioContentID=\"ACO_1001\" audioContentName=\"{}\">\n",
             xml_escape(&self.options.content_name)
         ));
-        let object_id = |k: usize| 0x1001 + bed_tracks + k; // k is 1-based for objects
+        // Objects are AO_100b.. whatever the bed holds (table 17; Dolby's
+        // converters number an LFE-only bed's objects the same way).
+        let object_id = |k: usize| 0x100a + k; // k is 1-based for objects
         if bed_tracks > 0 {
             x.push_str("\t\t\t\t\t<audioObjectIDRef>AO_1001</audioObjectIDRef>\n");
         }
         for k in 1..=self.objects {
             x.push_str(&format!(
                 "\t\t\t\t\t<audioObjectIDRef>AO_{:04x}</audioObjectIDRef>\n",
-                object_id(k) - 1
+                object_id(k)
             ));
         }
         x.push_str(
@@ -495,7 +533,7 @@ impl AdmWriter {
         for k in 1..=self.objects {
             x.push_str(&format!(
                 "\t\t\t\t<audioObject audioObjectID=\"AO_{:04x}\" audioObjectName=\"Atmos_Obj_{k}\" start=\"00:00:00.00000\" duration=\"{end}\">\n\t\t\t\t\t<audioPackFormatIDRef>AP_{:08x}</audioPackFormatIDRef>\n\t\t\t\t\t<audioTrackUIDRef>ATU_{:08x}</audioTrackUIDRef>\n\t\t\t\t</audioObject>\n",
-                object_id(k) - 1,
+                object_id(k),
                 0x0003_1000 + k,
                 bed_tracks + k
             ));
@@ -1148,6 +1186,106 @@ mod tests {
         assert!(summary.losses.declared_loss());
         let cf = channel_format(&written_text(&dir), 1);
         assert!(cf.contains("interpolationLength=\"0.002604\""), "{cf}");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Profile table 17 numbers the objects AO_100b.. regardless of the bed, as
+    /// Dolby's converters do; the old formula counted on from the bed size.
+    #[test]
+    fn objects_are_numbered_from_ao_100b_whatever_the_bed() {
+        let dir = temp_dir("ids");
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
+            isf_objects: 0,
+            dynamic_objects: 2,
+        };
+        let options = AdmOptions {
+            bed_conform: false,
+            ..AdmOptions::default()
+        };
+        let mut w = AdmWriter::create(&dir.join("t.wav"), &program, 48000, &options).unwrap();
+        assert_eq!(w.channels(), 3);
+        let rows = [[0i32; 3]; 10];
+        w.write_frames(rows.iter().map(|r| &r[..]), 3).unwrap();
+        w.push_event(&object_event(10, 0, state()));
+        w.push_event(&object_event(11, 0, state()));
+        w.finish().unwrap();
+        let text = written_text(&dir);
+        assert!(text.contains("<audioObjectIDRef>AO_1001</audioObjectIDRef>"));
+        assert!(text.contains("<audioObjectIDRef>AO_100b</audioObjectIDRef>"));
+        assert!(
+            text.contains("<audioObject audioObjectID=\"AO_100b\" audioObjectName=\"Atmos_Obj_1\"")
+        );
+        assert!(
+            text.contains("<audioObject audioObjectID=\"AO_100c\" audioObjectName=\"Atmos_Obj_2\"")
+        );
+        assert!(
+            !text.contains("AO_1002"),
+            "the bed size no longer shifts the object ids"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Table 17 leaves room for 118 objects (AO_100b..AO_1080) and the profile
+    /// for 128 tracks; more is refused rather than numbered out of range.
+    #[test]
+    fn more_than_118_objects_is_an_error() {
+        let dir = temp_dir("limit");
+        let mut program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
+            isf_objects: 0,
+            dynamic_objects: 118,
+        };
+        assert!(
+            AdmWriter::create(&dir.join("t.wav"), &program, 48000, &AdmOptions::default()).is_ok(),
+            "118 objects and the ten-channel bed are exactly the 128 tracks allowed"
+        );
+        program.dynamic_objects = 119;
+        let refused =
+            AdmWriter::create(&dir.join("t.wav"), &program, 48000, &AdmOptions::default());
+        assert!(
+            matches!(
+                refused,
+                Err(AdmError::TooManyObjects {
+                    objects: 119,
+                    max: 118
+                })
+            ),
+            "{refused:?}"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The profile has labels for the 7.1.2 set only; wide and second-LFE
+    /// channels are refused before anything is written, which also keeps the
+    /// dbmd bed-mask bit they would share out of reach.
+    #[test]
+    fn unsupported_wide_and_second_lfe_channels_are_refused() {
+        let dir = temp_dir("wide");
+        for ch in [
+            BedChannel::Lw,
+            BedChannel::Rw,
+            BedChannel::LFE2,
+            BedChannel::Tfl,
+        ] {
+            let program = Program {
+                beds: vec![vec![BedChannel::L, BedChannel::R, ch]],
+                isf_index: None,
+                isf_objects: 0,
+                dynamic_objects: 1,
+            };
+            let options = AdmOptions {
+                bed_conform: false,
+                ..AdmOptions::default()
+            };
+            let refused = AdmWriter::create(&dir.join("t.wav"), &program, 48000, &options);
+            assert!(
+                matches!(refused, Err(AdmError::UnsupportedBedChannel(c)) if c == ch),
+                "{refused:?}"
+            );
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
