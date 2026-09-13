@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use oadec_emdf::oamd::{BedChannel, Gain};
 
 use crate::caf::CafWriter;
+use crate::loss::LossLedger;
 use crate::program::{
     BedState, ElementState, Event, FIRST_OBJECT_ID, ObjectState, Program, STANDARD_BED,
     bed_channel_id, damf_channel_name, zones_name,
@@ -56,7 +57,7 @@ enum Slot {
 }
 
 /// Summary returned when the set is closed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DamfSummary {
     /// Frames written to the audio file.
     pub frames: u64,
@@ -64,6 +65,8 @@ pub struct DamfSummary {
     pub events: u64,
     /// Audio channels.
     pub channels: usize,
+    /// What the set does not carry of the programme it was given.
+    pub losses: LossLedger,
 }
 
 /// Streaming DAMF writer.
@@ -78,6 +81,7 @@ pub struct DamfWriter {
     seen: BTreeSet<u32>,
     frame: Vec<i32>,
     paths: [PathBuf; 3],
+    losses: LossLedger,
 }
 
 impl DamfWriter {
@@ -179,6 +183,7 @@ impl DamfWriter {
             seen: BTreeSet::new(),
             frame: vec![0; channels],
             paths: [atmos_path, metadata_path, audio_path],
+            losses: LossLedger::default(),
         })
     }
 
@@ -262,6 +267,7 @@ impl DamfWriter {
             frames,
             events: self.events,
             channels: self.channels,
+            losses: self.losses,
         })
     }
 }

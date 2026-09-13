@@ -8,11 +8,15 @@ use std::time::Instant;
 use anyhow::{Context, Result, bail};
 use oadec_emdf::container::{self, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::{BedChannel, Oamd};
-use oadec_spatial::{AdmOptions, AdmWriter, DamfOptions, DamfWriter, Event, Program, Timeline};
+use oadec_spatial::{
+    AdmOptions, AdmWriter, DamfOptions, DamfWriter, Event, LossLedger, Program, Timeline,
+};
 use oadec_truehd::{AccessUnit, ChannelLabel, ExtraKind, MajorSync, StreamConfig};
+use serde_json::json;
 
 use crate::decode::{Order, Session, format_duration, print_summary};
 use crate::input;
+use crate::integrity::Verdict;
 
 /// Options of the object output.
 #[derive(Debug, Clone)]
@@ -43,6 +47,48 @@ pub struct Options {
     pub adm: bool,
     /// Write the creator string the Dolby validators require in ADM files.
     pub dolby_origin_tag: bool,
+    /// Where to write the loss ledger as JSON, if anywhere.
+    pub loss_report: Option<PathBuf>,
+}
+
+/// Prints the loss ledger of an output, one line per class, and writes it as
+/// JSON when a path was given. Quiet when nothing was lost.
+pub(crate) fn report_losses(target: &str, losses: &LossLedger, path: Option<&Path>) -> Result<()> {
+    for line in losses.lines(target) {
+        eprintln!("{line}");
+    }
+    if let Some(p) = path {
+        let kinds: Vec<serde_json::Value> = losses
+            .iter()
+            .map(|(kind, count)| {
+                json!({
+                    "kind": kind.name(),
+                    "class": kind.class().name(),
+                    "count": count,
+                    "examples": losses
+                        .examples(kind)
+                        .iter()
+                        .map(|(element, sample)| json!({"element": element, "sample": sample}))
+                        .collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        let ramps: serde_json::Map<String, serde_json::Value> = losses
+            .ramp_sources()
+            .iter()
+            .map(|(ramp, n)| (ramp.to_string(), json!(n)))
+            .collect();
+        let doc = json!({
+            "target": target,
+            "declared_loss": losses.declared_loss(),
+            "losses": kinds,
+            "ramp_sources": ramps,
+        });
+        let mut text = serde_json::to_string_pretty(&doc)?;
+        text.push('\n');
+        std::fs::write(p, text).with_context(|| format!("writing {}", p.display()))?;
+    }
+    Ok(())
 }
 
 fn bed_channel(label: ChannelLabel) -> Result<BedChannel> {
@@ -101,6 +147,7 @@ pub(crate) struct SinkSummary {
     pub(crate) events: u64,
     pub(crate) paths: Vec<PathBuf>,
     pub(crate) note: String,
+    pub(crate) losses: LossLedger,
 }
 
 impl Sink {
@@ -166,6 +213,7 @@ impl Sink {
                     events: s.events,
                     paths,
                     note: String::new(),
+                    losses: s.losses,
                 })
             }
             Self::Adm(w) => {
@@ -182,6 +230,7 @@ impl Sink {
                         s.bytes,
                         if s.rf64 { ", RF64" } else { "" }
                     ),
+                    losses: s.losses,
                 })
             }
         }
@@ -189,7 +238,7 @@ impl Sink {
 }
 
 /// Runs the object output; `base` is the output path without extension.
-pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
+pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
     let started = Instant::now();
     let dir = base
         .parent()
@@ -337,8 +386,16 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
             s.input_jumps, s.valid_branches, s.invalid_branches, s.duplicates
         );
     }
+    let mut losses = timeline.losses.clone();
+    losses.merge(&summary.losses);
+    report_losses(
+        if opts.adm { "adm" } else { "damf" },
+        &losses,
+        opts.loss_report.as_deref(),
+    )?;
     let mut f = crate::decode::truehd_findings(&pass, session.stats());
     f.note(payload_errors, "metadata payload errors");
     f.first_problem(first_payload_error.as_deref());
+    f.note_losses(&losses);
     Ok(f.report())
 }

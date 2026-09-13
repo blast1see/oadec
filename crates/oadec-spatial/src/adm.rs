@@ -18,7 +18,8 @@ use std::path::{Path, PathBuf};
 use oadec_emdf::oamd::{BedChannel, Gain};
 
 use crate::dbmd;
-use crate::program::{ElementState, Event, ObjectState, Program, STANDARD_BED};
+use crate::loss::{LossKind, LossLedger};
+use crate::program::{BedState, ElementState, Event, ObjectState, Program, STANDARD_BED};
 
 /// Interpolation length of every block after the first, in samples.
 pub const INTERPOLATION_SAMPLES: u32 = 250;
@@ -51,7 +52,7 @@ impl Default for AdmOptions {
 }
 
 /// Summary returned when the file is closed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdmSummary {
     /// Frames written.
     pub frames: u64,
@@ -63,6 +64,8 @@ pub struct AdmSummary {
     pub rf64: bool,
     /// Total bytes.
     pub bytes: u64,
+    /// What the file does not carry of the programme it was given.
+    pub losses: LossLedger,
 }
 
 /// Where an element's audio goes.
@@ -138,6 +141,10 @@ pub struct AdmWriter {
     events: BTreeMap<u32, Vec<(u64, ObjectState)>>,
     options: AdmOptions,
     frame: Vec<u8>,
+    /// The last state seen per bed channel id: a DirectSpeakers block has no
+    /// time, so every later change is a loss to count.
+    bed_last: BTreeMap<u32, BedState>,
+    losses: LossLedger,
 }
 
 const JUNK_LEN: u32 = 28;
@@ -214,6 +221,8 @@ impl AdmWriter {
             events: BTreeMap::new(),
             options: options.clone(),
             frame: Vec::with_capacity(channels * 3 * 160),
+            bed_last: BTreeMap::new(),
+            losses: LossLedger::default(),
         })
     }
 
@@ -248,13 +257,38 @@ impl AdmWriter {
         self.out.write_all(&self.frame)
     }
 
-    /// Records an event (objects only; bed channels have static metadata).
+    /// Records an event. Object events become blocks. Bed channels have static
+    /// metadata in the profile, so a bed event is not written; a first state
+    /// the bed block cannot express and every later change are counted.
     pub fn push_event(&mut self, event: &Event) {
-        if let ElementState::Object(s) = &event.state {
-            self.events
-                .entry(event.id)
-                .or_default()
-                .push((event.sample_pos, s.clone()));
+        match &event.state {
+            ElementState::Object(s) => {
+                self.events
+                    .entry(event.id)
+                    .or_default()
+                    .push((event.sample_pos, s.clone()));
+            }
+            ElementState::Bed(s) => {
+                match self.bed_last.get(&event.id) {
+                    None => {
+                        if s.gain != Gain::Db(0) || !s.active {
+                            self.losses
+                                .note(LossKind::BedGainDropped, event.id, event.sample_pos);
+                        }
+                    }
+                    Some(last) => {
+                        if s.active != last.active
+                            || s.gain != last.gain
+                            || s.importance != last.importance
+                            || s.trim_bypass != last.trim_bypass
+                        {
+                            self.losses
+                                .note(LossKind::BedEventDropped, event.id, event.sample_pos);
+                        }
+                    }
+                }
+                self.bed_last.insert(event.id, s.clone());
+            }
         }
     }
 
@@ -264,7 +298,8 @@ impl AdmWriter {
         if data_bytes % 2 == 1 {
             self.out.write_all(&[0])?;
         }
-        let (xml, blocks) = self.axml();
+        let (xml, blocks, ledger) = self.axml();
+        self.losses.merge(&ledger);
         write_chunk(&mut self.out, b"axml", xml.as_bytes())?;
         let chna = self.chna();
         write_chunk(&mut self.out, b"chna", &chna)?;
@@ -312,6 +347,7 @@ impl AdmWriter {
             blocks,
             rf64,
             bytes: total,
+            losses: self.losses,
         })
     }
 
@@ -353,8 +389,10 @@ impl AdmWriter {
         v
     }
 
-    /// The `axml` chunk and the number of object blocks written.
-    fn axml(&self) -> (String, u64) {
+    /// The `axml` chunk, the number of object blocks written, and what the
+    /// blocks could not carry.
+    fn axml(&self) -> (String, u64, LossLedger) {
+        let mut ledger = LossLedger::default();
         let t = |s: u64| self.timecode(s);
         let end = t(self.frames);
         let mut x = String::with_capacity(64 * 1024);
@@ -479,6 +517,18 @@ impl AdmWriter {
                     continue;
                 }
                 blocks_total += 1;
+                if n > 0 && s.ramp != INTERPOLATION_SAMPLES {
+                    ledger.note_ramp(element_id, *pos, s.ramp);
+                }
+                if s.active && s.importance != 1.0 {
+                    ledger.note(LossKind::ImportanceOmitted, element_id, *pos);
+                }
+                if s.screen_factor != 0.0 {
+                    ledger.note(LossKind::ScreenReferenceDropped, element_id, *pos);
+                }
+                if s.trim_bypass {
+                    ledger.note(LossKind::TrimBypassDropped, element_id, *pos);
+                }
                 x.push_str(&format!(
                     "\t\t\t\t\t<audioBlockFormat audioBlockFormatID=\"AB_{id:08x}_{:08x}\" rtime=\"{}\" duration=\"{}\">\n\t\t\t\t\t\t<cartesian>1</cartesian>\n",
                     n + 1,
@@ -581,7 +631,7 @@ impl AdmWriter {
         x.push_str(
             "\t\t\t</audioFormatExtended>\n\t\t</format>\n\t</coreMetadata>\n</ebuCoreMain>\n",
         );
-        (x, blocks_total)
+        (x, blocks_total, ledger)
     }
 }
 
@@ -692,6 +742,122 @@ mod tests {
         assert_eq!(timecode(64, 48000), "00:00:00.00133");
         assert_eq!(timecode(5_075_800, 48000), "00:01:45.74583");
         assert_eq!(timecode(2_058_304, 48000), "00:00:42.88133");
+    }
+
+    fn temp_dir(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("oadec-adm-{tag}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn state() -> ObjectState {
+        ObjectState {
+            active: true,
+            pos: [-1.0, 1.0, 0.0],
+            snap: false,
+            elevation: true,
+            zones: 0,
+            size: 0.0,
+            importance: 1.0,
+            gain: Gain::Db(0),
+            ramp: 1536,
+            trim_bypass: false,
+            screen_factor: 0.0,
+            depth_factor: 0.25,
+        }
+    }
+
+    fn object_event(id: u32, sample_pos: u64, s: ObjectState) -> Event {
+        Event {
+            id,
+            sample_pos,
+            state: ElementState::Object(s),
+            previous: None,
+        }
+    }
+
+    fn one_object_writer(dir: &Path, frames: usize) -> AdmWriter {
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_objects: 0,
+            dynamic_objects: 1,
+        };
+        let mut w =
+            AdmWriter::create(&dir.join("t.wav"), &program, 48000, &AdmOptions::default()).unwrap();
+        let rows = vec![[0i32, 0]; frames];
+        w.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
+        w
+    }
+
+    /// The profile has no field for a ramp other than 250 samples, an
+    /// importance on an active object, a screen reference or a trim bypass;
+    /// each is counted once per block it is dropped from.
+    #[test]
+    fn profile_reductions_are_counted() {
+        use crate::loss::LossKind;
+        let dir = temp_dir("reductions");
+        let mut w = one_object_writer(&dir, 4000);
+        let mut first = state();
+        first.importance = 0.5;
+        first.trim_bypass = true;
+        let mut second = state();
+        second.pos = [0.5, 1.0, 0.0];
+        second.importance = 0.5;
+        second.screen_factor = 0.5;
+        w.push_event(&object_event(10, 0, first));
+        w.push_event(&object_event(10, 2000, second));
+        let summary = w.finish().unwrap();
+        let l = &summary.losses;
+        assert_eq!(
+            l.count(LossKind::RampReplaced),
+            1,
+            "only blocks after the first carry 250"
+        );
+        assert_eq!(l.ramp_sources().get(&1536), Some(&1));
+        assert_eq!(l.count(LossKind::ImportanceOmitted), 2);
+        assert_eq!(l.count(LossKind::ScreenReferenceDropped), 1);
+        assert_eq!(l.examples(LossKind::ScreenReferenceDropped), &[(10, 2000)]);
+        assert_eq!(l.count(LossKind::TrimBypassDropped), 1);
+        assert!(!l.declared_loss());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// DirectSpeakers blocks have no time: a bed channel's first state is all
+    /// the ADM can carry, and it carries neither its gain nor its active flag.
+    #[test]
+    fn bed_events_after_the_first_are_counted() {
+        use crate::loss::LossKind;
+        let dir = temp_dir("bed-events");
+        let mut w = one_object_writer(&dir, 4000);
+        let bed = |gain: Gain, ramp: u32| BedState {
+            active: true,
+            importance: 1.0,
+            gain,
+            ramp,
+            trim_bypass: false,
+        };
+        let bed_event = |sample_pos: u64, s: BedState| Event {
+            id: 3,
+            sample_pos,
+            state: ElementState::Bed(s),
+            previous: None,
+        };
+        w.push_event(&bed_event(0, bed(Gain::Db(-6), 0)));
+        w.push_event(&bed_event(1000, bed(Gain::Db(-12), 0)));
+        w.push_event(&bed_event(2000, bed(Gain::Db(-12), 32)));
+        w.push_event(&object_event(10, 0, state()));
+        let summary = w.finish().unwrap();
+        assert_eq!(summary.losses.count(LossKind::BedGainDropped), 1);
+        assert_eq!(
+            summary.losses.count(LossKind::BedEventDropped),
+            1,
+            "a ramp-only change is not an event the bed could carry"
+        );
+        assert_eq!(
+            summary.losses.examples(LossKind::BedEventDropped),
+            &[(3, 1000)]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
