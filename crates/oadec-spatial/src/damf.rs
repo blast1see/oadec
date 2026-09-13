@@ -23,6 +23,11 @@ use crate::program::{
 /// DAMF version written.
 pub const DAMF_VERSION: &str = "0.5.1";
 
+/// Frame rates a `.atmos` header may carry, as the Dolby tools list them. The
+/// rate is header data for picture-locked workflows; event timing is in
+/// samples and does not depend on it.
+pub const DAMF_FRAME_RATES: [&str; 5] = ["23.976", "24", "25", "29.97", "30"];
+
 /// Options of the writer.
 #[derive(Debug, Clone)]
 pub struct DamfOptions {
@@ -68,6 +73,9 @@ pub enum DamfError {
         /// The ISF type (table 11b), or "reserved type".
         isf_type: String,
     },
+    /// A frame rate the `.atmos` header cannot carry.
+    #[error("frame rate {0} is not one of 23.976, 24, 25, 29.97 or 30")]
+    InvalidFps(String),
 }
 
 /// Where an element's audio goes.
@@ -119,6 +127,9 @@ impl DamfWriter {
         sample_rate: u32,
         options: &DamfOptions,
     ) -> Result<Self, DamfError> {
+        if !DAMF_FRAME_RATES.contains(&options.fps.as_str()) {
+            return Err(DamfError::InvalidFps(options.fps.clone()));
+        }
         let mut losses = LossLedger::default();
         if program.isf_objects > 0 {
             match options.isf {
@@ -495,6 +506,38 @@ mod tests {
         assert_eq!(
             delta, "    samplePos: 1536\n",
             "a depth-only change writes nothing"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The `.atmos` header carries the frame rate verbatim; only the rates the
+    /// Dolby tools list are accepted, so a typo cannot reach the encoder.
+    #[test]
+    fn fps_is_written_verbatim_and_validated() {
+        let dir = std::env::temp_dir().join(format!("oadec-damf-fps-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
+            isf_objects: 0,
+            dynamic_objects: 1,
+        };
+        let options = DamfOptions {
+            fps: "23.976".to_string(),
+            ..DamfOptions::default()
+        };
+        let w = DamfWriter::create(&dir, "t", &program, 48000, &options).unwrap();
+        w.finish().unwrap();
+        let atmos = std::fs::read_to_string(dir.join("t.atmos")).unwrap();
+        assert!(atmos.contains("    fps: 23.976\n"), "{atmos}");
+        let bad = DamfOptions {
+            fps: "24.5".to_string(),
+            ..DamfOptions::default()
+        };
+        let refused = DamfWriter::create(&dir, "u", &program, 48000, &bad);
+        assert!(
+            matches!(refused, Err(DamfError::InvalidFps(ref f)) if f == "24.5"),
+            "{refused:?}"
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }

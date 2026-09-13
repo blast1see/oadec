@@ -87,9 +87,11 @@ enum Command {
         /// Output file.
         #[arg(short, long)]
         output: PathBuf,
-        /// Presentation to decode (0 = 2ch, 1 = 6ch, 2 = 8ch, 3 = 16ch objects).
-        #[arg(short, long, default_value_t = 2)]
-        presentation: usize,
+        /// Presentation to decode (0 = 2ch, 1 = 6ch, 2 = 8ch, 3 = 16ch objects);
+        /// 2 when absent. The object formats (damf, adm) always decode 3 and
+        /// refuse any other value.
+        #[arg(short, long)]
+        presentation: Option<usize>,
         /// Output container.
         #[arg(long, value_enum, default_value_t = Format::Wav)]
         format: Format,
@@ -124,6 +126,10 @@ enum Command {
         /// profile (exit 4). Without it such a programme is refused.
         #[arg(long)]
         adm_allow_non_profile_rate: bool,
+        /// DAMF: frame rate written to the `.atmos` header (header data for
+        /// picture-locked workflows; event timing is in samples).
+        #[arg(long, default_value = "24", value_parser = ["23.976", "24", "25", "29.97", "30"])]
+        fps: String,
         /// E-AC-3: write only the 5.1-compatible channels of the independent
         /// substream instead of the whole programme, which is what a decoder
         /// limited to 5.1 produces (clause E.2.8.2).
@@ -359,6 +365,7 @@ fn main() -> ExitCode {
                 loss_report,
                 isf,
                 adm_allow_non_profile_rate,
+                fps,
                 core_only,
                 no_dither,
                 no_tpnp,
@@ -367,7 +374,9 @@ fn main() -> ExitCode {
                 flat_quadrature,
                 sparse_as_printed,
                 steep_as_printed,
-            } => if eac3::is_eac3(&file).unwrap_or(false)
+            } => if let Err(e) = damf::check_presentation(format, presentation) {
+                Err(e)
+            } else if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
             {
                 if core_only {
@@ -392,6 +401,7 @@ fn main() -> ExitCode {
                             loss_report: loss_report.clone(),
                             isf: isf.into(),
                             allow_non_profile_rate: adm_allow_non_profile_rate,
+                            fps: fps.clone(),
                             clip_gain: !no_clip_gain,
                             flat_quadrature,
                             sparse_as_printed,
@@ -431,6 +441,7 @@ fn main() -> ExitCode {
                         loss_report: loss_report.clone(),
                         isf: isf.into(),
                         allow_non_profile_rate: adm_allow_non_profile_rate,
+                        fps: fps.clone(),
                         // TrueHD carries no JOC, so neither of these apply.
                         clip_gain: false,
                         flat_quadrature: false,
@@ -445,7 +456,7 @@ fn main() -> ExitCode {
                     &file,
                     &output,
                     &decode::Options {
-                        presentation,
+                        presentation: presentation.unwrap_or(2),
                         format,
                         order,
                         keep_duplicates,
