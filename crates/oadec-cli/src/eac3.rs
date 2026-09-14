@@ -13,7 +13,7 @@ use oadec_eac3::{
     find_sync,
 };
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
-use oadec_emdf::joc::{Joc, Slope, SparseReading};
+use oadec_emdf::joc::{Joc, JocError, Slope, SparseReading};
 use oadec_emdf::oamd::Oamd;
 use serde_json::{Value, json};
 
@@ -249,6 +249,9 @@ struct EmdfStats {
     // JOC side information statistics
     joc_ok: u64,
     joc_errors: u64,
+    /// JOC payloads whose `joc_ext_config_idx` is reserved (TS 103 420 table
+    /// 49), counted apart from the payloads that would not parse.
+    joc_reserved_ext: u64,
     joc_size_mismatch: u64,
     /// Frames carrying auxiliary data user bits (clause 4.4.4), and how many
     /// bytes of them, and how many EMDF containers they hold. Annex H names
@@ -428,6 +431,14 @@ impl EmdfStats {
                                                 }
                                             }
                                         }
+                                    }
+                                }
+                                Err(JocError::ExtConfig(ext)) => {
+                                    self.joc_reserved_ext += 1;
+                                    if self.first_error.is_none() {
+                                        self.first_error = Some(format!(
+                                            "frame {frame_index}: joc_ext_config_idx {ext} is reserved"
+                                        ));
                                     }
                                 }
                                 Err(e) => {
@@ -831,6 +842,7 @@ fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
         && skipped == 0
         && p.emdf.oamd_errors == 0
         && p.emdf.joc_errors == 0
+        && p.emdf.joc_reserved_ext == 0
         && p.emdf.joc_size_mismatch == 0
         // A dependent substream that was seen and whose channels did not reach
         // the output means the programme was truncated, whatever the frames
@@ -898,6 +910,10 @@ fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
         "Object Audio Metadata payloads failed to parse",
     );
     f.note(p.emdf.joc_errors, "JOC payloads failed to parse");
+    f.note(
+        p.emdf.joc_reserved_ext,
+        "JOC payloads with a reserved joc_ext_config_idx",
+    );
     f.note(
         p.emdf.joc_size_mismatch,
         "JOC payloads whose declared size was wrong",
@@ -978,6 +994,7 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "tail_overruns": p.tail_overruns,
                 "oamd_errors": e.oamd_errors,
                 "joc_errors": e.joc_errors,
+                "joc_reserved_ext_config": e.joc_reserved_ext,
                 "joc_size_mismatches": e.joc_size_mismatch,
                 "dependent_dropped": p.program.dependent_dropped,
                 "orphan_dependents": p.program.orphan_dependents,
@@ -1042,6 +1059,7 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             "joc": (e.joc > 0).then(|| json!({
                 "parsed": e.joc_ok,
                 "errors": e.joc_errors,
+                "reserved_ext_config": e.joc_reserved_ext,
                 "size_mismatches": e.joc_size_mismatch,
                 "non_zero_padding": e.joc_padding_nonzero,
                 "downmix_configs": e.joc_dmx.keys().collect::<Vec<_>>(),
@@ -1236,9 +1254,10 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
     if p.emdf.joc > 0 {
         let e = &p.emdf;
         println!(
-            "JOC parse:         {} ok, {} errors, {} size mismatches, {} non-zero paddings; dmx configs {:?}; objects per payload {:?}; seq_count 0 in {} payloads; clipgain x1000 {:?}",
+            "JOC parse:         {} ok, {} errors, {} reserved extensions, {} size mismatches, {} non-zero paddings; dmx configs {:?}; objects per payload {:?}; seq_count 0 in {} payloads; clipgain x1000 {:?}",
             e.joc_ok,
             e.joc_errors,
+            e.joc_reserved_ext,
             e.joc_size_mismatch,
             e.joc_padding_nonzero,
             e.joc_dmx,
@@ -1799,12 +1818,13 @@ mod tests {
         );
 
         type Set = fn(&mut Pass);
-        let unclean: [(&str, Set); 7] = [
+        let unclean: [(&str, Set); 8] = [
             ("decode_errors", |p| p.decode_errors = 1),
             ("crc_failures", |p| p.crc_failures = 1),
             ("tail_overruns", |p| p.tail_overruns = 1),
             ("emdf.oamd_errors", |p| p.emdf.oamd_errors = 1),
             ("emdf.joc_errors", |p| p.emdf.joc_errors = 1),
+            ("emdf.joc_reserved_ext", |p| p.emdf.joc_reserved_ext = 1),
             ("emdf.joc_size_mismatch", |p| p.emdf.joc_size_mismatch = 1),
             ("program.dependent_dropped", |p| {
                 p.program.dependent_dropped = 1
