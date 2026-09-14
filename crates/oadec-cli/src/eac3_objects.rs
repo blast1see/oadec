@@ -15,7 +15,7 @@ use std::time::Instant;
 use anyhow::{Context, Result, bail};
 use oadec_eac3::{ChannelLoc, ProgramDecoder, ProgramFrame};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
-use oadec_emdf::joc::{Joc, SparseReading};
+use oadec_emdf::joc::{Joc, JocError, JocHeader, SparseReading};
 use oadec_emdf::oamd::{BedChannel, Oamd};
 use oadec_joc::{
     Analysis, BANDS, Carry, Complex, DELAY, JocDecoder, LOW_DELAY, MATRIX_ALIGN, Quadrature,
@@ -129,7 +129,7 @@ fn carries(dmx_config: u8, channels: usize, flat: bool) -> Vec<Carry> {
 
 impl Pipeline {
     fn new(
-        joc: &Joc,
+        joc: &JocHeader,
         program: &Program,
         chans: &[ChannelLoc],
         clip_gain: bool,
@@ -372,6 +372,10 @@ struct FramePayloads {
     /// JOC payloads that parsed but whose declared size is not what their
     /// syntax consumed.
     joc_size_mismatches: u64,
+    /// The header of a JOC payload whose `joc_ext_config_idx` is reserved
+    /// (TS 103 420 table 49): the payload was read through and refused, so its
+    /// matrices are not used, and the header is all that is known of it.
+    joc_reserved: Option<JocHeader>,
 }
 
 /// Extracts the OAMD and JOC payloads of one substream's skip fields.
@@ -412,6 +416,11 @@ fn frame_payloads(skip_fields: &[Vec<u8>], sparse: SparseReading) -> FramePayloa
                                 }
                                 out.joc = Some(j);
                             }
+                            // read through and refused, so the header is intact
+                            Err(JocError::ExtConfig(_)) => match JocHeader::parse(&p.data) {
+                                Ok(h) => out.joc_reserved = Some(h),
+                                Err(_) => out.errors += 1,
+                            },
                             Err(_) => out.errors += 1,
                         }
                     }
@@ -443,6 +452,9 @@ struct Tally {
     payload_errors: u64,
     /// JOC payloads that parsed but declared a size their syntax did not fill.
     joc_size_mismatches: u64,
+    /// JOC payloads whose `joc_ext_config_idx` is reserved; the matrices of
+    /// the previous frame were held in their place.
+    joc_reserved_ext: u64,
     first_error: Option<String>,
 }
 
@@ -460,6 +472,10 @@ impl Tally {
         f.note(
             self.joc_size_mismatches,
             "JOC payloads whose declared size was wrong",
+        );
+        f.note(
+            self.joc_reserved_ext,
+            "JOC payloads with a reserved joc_ext_config_idx, matrices held from the previous frame",
         );
         f.note(
             stats.dependent_dropped,
@@ -519,7 +535,13 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
                 tally.first_tail.get_or_insert(frame_index);
             }
         }
-        let payloads = frame_payloads(
+        let FramePayloads {
+            oamd: oamds,
+            joc,
+            errors,
+            joc_size_mismatches,
+            joc_reserved,
+        } = frame_payloads(
             &frame.metadata_part().decoded.skip_fields,
             if opts.sparse_as_printed {
                 SparseReading::AsPrinted
@@ -527,9 +549,19 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
                 SparseReading::Measured
             },
         );
-        tally.payload_errors += payloads.errors;
-        tally.joc_size_mismatches += payloads.joc_size_mismatches;
-        let (oamds, joc) = (payloads.oamd, payloads.joc);
+        tally.payload_errors += errors;
+        tally.joc_size_mismatches += joc_size_mismatches;
+        if let Some(h) = joc_reserved {
+            // nothing after joc_data can be read, so the payload is not used
+            // and the matrices of the previous frame hold
+            tally.joc_reserved_ext += 1;
+            if tally.first_error.is_none() {
+                tally.first_error = Some(format!(
+                    "frame {frame_index}: joc_ext_config_idx {} is reserved; matrices held from the previous frame",
+                    h.ext_config
+                ));
+            }
+        }
         if joc.is_none() {
             frames_without_joc += 1;
         }
@@ -538,7 +570,10 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         }
         let frame_start = core_samples;
         if pipeline.is_none() {
-            let Some(j) = &joc else {
+            // A payload with a reserved extension still says what the downmix
+            // and the objects are, so a stream that starts with one decodes
+            // from the zero history of clause 6.6.5 instead of not at all.
+            let Some(header) = joc.as_ref().map(Joc::header).or(joc_reserved) else {
                 bail!("the first frame carries no JOC payload");
             };
             let Some((o, _)) = oamds.first() else {
@@ -546,7 +581,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
             };
             let p = Program::from_oamd(o);
             pipeline = Some(Pipeline::new(
-                j,
+                &header,
                 &p,
                 &frame.layout.channels,
                 opts.clip_gain,
@@ -558,19 +593,26 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
                 },
             )?);
             sink = Some(Sink::create(dir, &name, &p, rate, opts)?);
+            let clip = match &joc {
+                Some(j) => format!(
+                    "clip gain {:.3}{}",
+                    j.clipgain,
+                    if opts.clip_gain {
+                        " (applied)"
+                    } else {
+                        " (reported, not applied)"
+                    }
+                ),
+                None => "clip gain not read (the first JOC payload has a reserved extension)"
+                    .to_string(),
+            };
             eprintln!(
-                "program: {} bed channels, {} dynamic objects, {} JOC objects over {} downmix channels (config {}), clip gain {:.3}{}",
+                "program: {} bed channels, {} dynamic objects, {} JOC objects over {} downmix channels (config {}), {clip}",
                 p.bed_channels().len(),
                 p.dynamic_objects,
-                j.num_objects,
-                j.num_channels,
-                j.dmx_config,
-                j.clipgain,
-                if opts.clip_gain {
-                    " (applied)"
-                } else {
-                    " (reported, not applied)"
-                }
+                header.num_objects,
+                header.num_channels,
+                header.dmx_config,
             );
             program = Some(p);
         }
@@ -781,6 +823,33 @@ mod tests {
         assert_eq!(
             payloads.joc_size_mismatches, 1,
             "the trailing byte went unnoticed"
+        );
+    }
+
+    /// A payload whose `joc_ext_config_idx` is reserved is not a parse error
+    /// among the others: it is kept apart with its header, so the run can name
+    /// it and a stream that opens with one can still start the pipeline, and
+    /// its matrices are not used.
+    #[test]
+    fn a_reserved_joc_extension_is_kept_apart_with_its_header() {
+        let payloads = frame_payloads(&[emdf_with_joc(&joc_payload(5))], SparseReading::Measured);
+        assert!(payloads.joc.is_none(), "its matrices must not be used");
+        assert_eq!(payloads.errors, 0, "it is not counted as a parse error");
+        let header = payloads.joc_reserved.expect("the reserved payload is kept");
+        assert_eq!(
+            (header.ext_config, header.num_channels, header.num_objects),
+            (5, 5, 1)
+        );
+
+        let tally = Tally {
+            joc_reserved_ext: 1,
+            ..Tally::default()
+        };
+        let f = tally.findings(&oadec_eac3::ProgramStats::default(), &LossLedger::default());
+        let shown = format!("{f:?}");
+        assert!(
+            !f.is_clean() && shown.contains("1 JOC payloads with a reserved joc_ext_config_idx"),
+            "{shown}"
         );
     }
 
