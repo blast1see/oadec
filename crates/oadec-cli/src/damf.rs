@@ -53,7 +53,7 @@ impl From<InterpolationArg> for Interpolation {
     }
 }
 
-use crate::decode::{Format, Order, Session, format_duration, print_summary};
+use crate::decode::{ConfigStop, Format, Order, Session, format_duration, print_summary};
 use crate::input;
 use crate::integrity::Verdict;
 
@@ -247,9 +247,26 @@ fn program_from_major_sync(ms: &MajorSync) -> Result<Program> {
 }
 
 /// The two object containers behind one interface.
-pub(crate) enum Sink {
+///
+/// A sink dropped without `finish` -- an error, or a decode that stopped part
+/// way -- finishes its files anyway, so that they declare the samples they
+/// hold. An ADM file used to be left with a RIFF size and a `data` size of
+/// zero, and the CAF audio of a DAMF set with the size of a file still being
+/// streamed.
+pub(crate) struct Sink(Option<Writer>);
+
+enum Writer {
     Damf(DamfWriter),
     Adm(AdmWriter),
+}
+
+impl Drop for Sink {
+    fn drop(&mut self) {
+        if let Some(w) = self.0.take() {
+            // nothing to report an error to; the run is already failing
+            let _ = Sink::close(w, 0);
+        }
+    }
 }
 
 /// What a closed sink reports.
@@ -283,7 +300,7 @@ impl Sink {
             }
             let path = dir.join(format!("{name}.wav"));
             match AdmWriter::create(&path, program, rate, &options) {
-                Ok(w) => Ok(Self::Adm(w)),
+                Ok(w) => Ok(Self(Some(Writer::Adm(w)))),
                 Err(AdmError::IsfNotRepresentable { count, isf_type }) => {
                     bail!("{}", isf_hint(count, &isf_type))
                 }
@@ -300,7 +317,7 @@ impl Sink {
                 ..DamfOptions::default()
             };
             match DamfWriter::create(dir, name, program, rate, &options) {
-                Ok(w) => Ok(Self::Damf(w)),
+                Ok(w) => Ok(Self(Some(Writer::Damf(w)))),
                 Err(DamfError::IsfNotRepresentable { count, isf_type }) => {
                     bail!("{}", isf_hint(count, &isf_type))
                 }
@@ -309,10 +326,16 @@ impl Sink {
         }
     }
 
+    fn writer(&mut self) -> &mut Writer {
+        self.0
+            .as_mut()
+            .expect("a sink is open until it is finished")
+    }
+
     pub(crate) fn push_event(&mut self, event: &Event) -> io::Result<()> {
-        match self {
-            Self::Damf(w) => w.push_event(event),
-            Self::Adm(w) => {
+        match self.writer() {
+            Writer::Damf(w) => w.push_event(event),
+            Writer::Adm(w) => {
                 w.push_event(event);
                 Ok(())
             }
@@ -324,15 +347,20 @@ impl Sink {
         rows: impl Iterator<Item = &'a [i32]>,
         elements: usize,
     ) -> io::Result<()> {
-        match self {
-            Self::Damf(w) => w.write_frames(rows, elements),
-            Self::Adm(w) => w.write_frames(rows, elements),
+        match self.writer() {
+            Writer::Damf(w) => w.write_frames(rows, elements),
+            Writer::Adm(w) => w.write_frames(rows, elements),
         }
     }
 
-    pub(crate) fn finish(self, events: u64) -> Result<SinkSummary> {
-        match self {
-            Self::Damf(w) => {
+    pub(crate) fn finish(mut self, events: u64) -> Result<SinkSummary> {
+        let w = self.0.take().expect("a sink is finished once");
+        Self::close(w, events)
+    }
+
+    fn close(w: Writer, events: u64) -> Result<SinkSummary> {
+        match w {
+            Writer::Damf(w) => {
                 let paths = w.paths().to_vec();
                 let s = w.finish()?;
                 Ok(SinkSummary {
@@ -344,7 +372,7 @@ impl Sink {
                     losses: s.losses,
                 })
             }
-            Self::Adm(w) => {
+            Writer::Adm(w) => {
                 let path = w.path().to_path_buf();
                 let s = w.finish()?;
                 Ok(SinkSummary {
@@ -391,7 +419,13 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
     let mut program_mismatch = false;
     let mut index: u64 = 0;
 
+    let mut stopped: Option<ConfigStop> = None;
+
     let pass = input::for_each_unit(path, |unit| {
+        if stopped.is_some() {
+            // the rest is still framed, so the verdict covers the whole file
+            return Ok(());
+        }
         let unit_index = index;
         index += 1;
         let (au, cfg) = AccessUnit::parse(&unit.bytes, config.as_ref())?;
@@ -407,8 +441,18 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         }
         let w = sink.as_mut().expect("sink created above");
 
-        let Some(frame) = session.decode(&unit)? else {
-            return Ok(()); // duplicate: its audio and metadata are dropped
+        let frame = match session.decode(&unit) {
+            Ok(Some(frame)) => frame,
+            Ok(None) => return Ok(()), // duplicate: its audio and metadata are dropped
+            Err(e) => {
+                return match ConfigStop::from_error(&e, unit_index, unit.offset) {
+                    Some(stop) if emitted > 0 => {
+                        stopped = Some(stop);
+                        Ok(())
+                    }
+                    _ => Err(e),
+                };
+            }
         };
 
         // Metadata of this access unit applies from its first emitted sample.
@@ -483,6 +527,9 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         bail!("no access units found");
     };
     let summary = sink.finish(timeline.events)?;
+    if let Some(stop) = &stopped {
+        stop.print(emitted);
+    }
     let elapsed = started.elapsed().as_secs_f64();
     print_summary(&session, elapsed);
     eprintln!(
@@ -527,6 +574,9 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
     )?;
     let mut f = crate::decode::truehd_findings(&pass, session.stats());
     f.note(payload_errors, "metadata payload errors");
+    if let Some(stop) = &stopped {
+        stop.note(&mut f);
+    }
     f.first_problem(first_payload_error.as_deref());
     f.note_losses(&losses);
     Ok(f.report())
@@ -591,5 +641,81 @@ mod tests {
         };
         let p = program_from_extra(&none).unwrap();
         assert_eq!((p.isf_objects, p.isf_index), (0, None));
+    }
+
+    fn sink_options(adm: bool) -> Options {
+        Options {
+            clip_gain: false,
+            flat_quadrature: false,
+            sparse_as_printed: false,
+            steep_as_printed: false,
+            core: oadec_eac3::Options::default(),
+            keep_duplicates: false,
+            bed_conform: false,
+            all_events: false,
+            adm,
+            dolby_origin_tag: false,
+            loss_report: None,
+            isf: IsfPolicy::Error,
+            allow_non_profile_rate: false,
+            fps: "24".to_string(),
+            interpolation: Interpolation::Profile,
+        }
+    }
+
+    /// A sink dropped before `finish` -- an error, or a decode that stopped
+    /// part way -- finishes its files, so they describe the samples they hold.
+    /// An ADM file used to be left with a RIFF size and a `data` size of zero
+    /// over every sample written, and the CAF of a DAMF set with the "size
+    /// unknown" of a file still being streamed.
+    #[test]
+    fn a_dropped_sink_finishes_its_files() {
+        let dir = std::env::temp_dir().join(format!("oadec-sink-drop-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
+            isf_objects: 0,
+            dynamic_objects: 1,
+        };
+        let rows = [[1i32, -1]; 5];
+        let pcm_bytes = 5 * 2 * 3;
+
+        let mut sink = Sink::create(&dir, "d", &program, 48_000, &sink_options(false)).unwrap();
+        sink.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
+        drop(sink);
+        let caf = std::fs::read(dir.join("d.atmos.audio")).unwrap();
+        assert_eq!(&caf[52..56], b"data");
+        assert_eq!(
+            i64::from_be_bytes(caf[56..64].try_into().unwrap()),
+            4 + pcm_bytes,
+            "the CAF data size covers the edit count and the samples"
+        );
+
+        let mut sink = Sink::create(&dir, "a", &program, 48_000, &sink_options(true)).unwrap();
+        sink.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
+        drop(sink);
+        let wav = std::fs::read(dir.join("a.wav")).unwrap();
+        assert_eq!(
+            u64::from(u32::from_le_bytes(wav[4..8].try_into().unwrap())),
+            wav.len() as u64 - 8,
+            "the RIFF size covers the file"
+        );
+        let data = wav
+            .windows(4)
+            .position(|w| w == b"data")
+            .expect("a data chunk");
+        assert_eq!(
+            i64::from(u32::from_le_bytes(
+                wav[data + 4..data + 8].try_into().unwrap()
+            )),
+            pcm_bytes,
+            "the data size covers the samples"
+        );
+        assert!(
+            wav.windows(4).any(|w| w == b"axml"),
+            "the metadata chunks were written"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -1662,3 +1662,158 @@ fn pi_head_adm_is_byte_identical_to_the_audited_file() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// Rewrites the sampling-frequency code of every major sync at or after byte
+/// `from` and repairs its CRC-16, the way `tools/thd_patch_major_sync.py`
+/// rewrites a field; returns how many major syncs changed and where the last
+/// whole access unit ends.
+fn patch_rate_after(bytes: &mut [u8], from: u64, code: u8) -> (usize, usize) {
+    let mut extractor = oadec_truehd::Extractor::new();
+    extractor.push(bytes);
+    let mut units = Vec::new();
+    while let Some(unit) = extractor.next_unit().expect("the clip frames") {
+        units.push((unit.offset, unit.bytes.len(), unit.has_major_sync));
+    }
+    let (rest, _) = extractor.finish().expect("the clip frames");
+    units.extend(
+        rest.iter()
+            .map(|u| (u.offset, u.bytes.len(), u.has_major_sync)),
+    );
+    let mut changed = 0;
+    for &(offset, _, has_major_sync) in &units {
+        if !has_major_sync || offset < from {
+            continue;
+        }
+        // the major sync follows the four-byte access-unit header
+        let at = offset as usize + 4;
+        let ms = oadec_truehd::MajorSync::parse(&bytes[at..]).expect("a major sync");
+        assert!(ms.crc_ok, "the clip is intact at byte {offset}");
+        assert_eq!(
+            ms.format_info.sampling_frequency_code, 0,
+            "the clip is 48 kHz"
+        );
+        bytes[at + 4] = (bytes[at + 4] & 0x0F) | (code << 4);
+        let crc_at = at + ms.len_bytes - 2;
+        let crc = oadec_bits::CRC16_MAJOR_SYNC.update_bytes(0, &bytes[at..crc_at]);
+        bytes[crc_at..crc_at + 2].copy_from_slice(&crc.to_be_bytes());
+        changed += 1;
+    }
+    let end = units
+        .last()
+        .map_or(0, |&(offset, len, _)| offset as usize + len);
+    (changed, end)
+}
+
+/// The chunks of a RIFF or RF64 WAVE file up to `data`: (id, body offset,
+/// declared size).
+fn wave_chunks(bytes: &[u8]) -> Vec<([u8; 4], usize, u64)> {
+    assert!(matches!(&bytes[..4], b"RIFF" | b"RF64"));
+    assert_eq!(&bytes[8..12], b"WAVE");
+    let mut out = Vec::new();
+    let mut at = 12;
+    while at + 8 <= bytes.len() {
+        let id: [u8; 4] = bytes[at..at + 4].try_into().unwrap();
+        let size = u32::from_le_bytes(bytes[at + 4..at + 8].try_into().unwrap()) as usize;
+        out.push((id, at + 8, size as u64));
+        if &id == b"data" {
+            break;
+        }
+        at += 8 + size + (size & 1);
+    }
+    out
+}
+
+/// A configuration change at a major sync ends the output where it happens,
+/// in a file that says so, and the run exits 7.
+///
+/// It used to stop the decode with exit 2 before the WAVE header was patched,
+/// leaving `data` at zero bytes over every sample written before the change.
+/// `verify` counts the change and exits 7, and a delivery decides between 0
+/// and 7 with the faults `verify` uses.
+///
+/// No stored clip changes configuration (`concat-pi-shaun.thd` splices two
+/// streams with the same one), so the stream is made the way the remediation
+/// report made it: every major sync of the Pi head from byte 1 101 614 on
+/// says 44,1 kHz instead of 48, its CRC repaired, and the cut ends at the last
+/// whole access unit so that the change is the only thing wrong with it.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn a_configuration_change_leaves_a_consistent_wav_and_exits_7() {
+    let clip = media_dir().join("clips").join("pi-head50m.thd");
+    require(&clip);
+    let dir = std::env::temp_dir().join(format!("oadec-config-change-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut bytes = std::fs::read(&clip).unwrap();
+    let (changed, end) = patch_rate_after(&mut bytes, 1_101_614, 8);
+    assert!(changed > 0, "no major sync after the splice point");
+    bytes.truncate(end);
+    let spliced = dir.join("rate-change.thd");
+    std::fs::write(&spliced, &bytes).unwrap();
+
+    let report = verify_json(&spliced);
+    assert!(
+        report["failures"]["config_changes"].as_u64().unwrap() >= 1,
+        "verify does not see the change: {:?}",
+        nonzero_failures(&report)
+    );
+    eprintln!("verify: {:?}", nonzero_failures(&report));
+
+    let wav = dir.join("out.wav");
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", "-p", "2", "--format", "wav", "-o"])
+        .arg(&wav)
+        .arg(&spliced)
+        .output()
+        .expect("run oadec decode");
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(7), "{err}");
+    assert!(
+        err.contains("the sampling frequency changed at a major sync"),
+        "{err}"
+    );
+    assert!(err.contains("stopped at access unit"), "{err}");
+
+    let b = std::fs::read(&wav).unwrap();
+    assert_eq!(&b[..4], b"RIFF", "a short file keeps the RIFF form");
+    assert_eq!(
+        u64::from(u32::from_le_bytes(b[4..8].try_into().unwrap())),
+        b.len() as u64 - 8,
+        "the RIFF size covers the file"
+    );
+    let chunks = wave_chunks(&b);
+    let &(_, fmt, _) = chunks.iter().find(|c| &c.0 == b"fmt ").expect("fmt");
+    let block_align = u64::from(u16::from_le_bytes(
+        b[fmt + 12..fmt + 14].try_into().unwrap(),
+    ));
+    let &(_, data, size) = chunks.iter().find(|c| &c.0 == b"data").expect("data");
+    assert!(size > 0, "the samples before the change are declared");
+    assert_eq!(size % block_align, 0, "whole frames");
+    assert_eq!(
+        data as u64 + size + (size & 1),
+        b.len() as u64,
+        "the data chunk is the rest of the file"
+    );
+
+    // the object path stops at the same access unit and finishes its files
+    let base = dir.join("objects");
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", "--format", "damf", "-o"])
+        .arg(&base)
+        .arg(&spliced)
+        .output()
+        .expect("run oadec decode");
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(7), "{err}");
+    assert!(
+        err.contains("the sampling frequency changed at a major sync"),
+        "{err}"
+    );
+    let caf = std::fs::read(dir.join("objects.atmos.audio")).unwrap();
+    assert_eq!(&caf[52..56], b"data");
+    assert_eq!(
+        i64::from_be_bytes(caf[56..64].try_into().unwrap()),
+        caf.len() as i64 - 64,
+        "the CAF data size covers the rest of the file"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
