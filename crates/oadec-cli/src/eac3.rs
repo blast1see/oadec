@@ -253,6 +253,12 @@ struct EmdfStats {
     /// 49), counted apart from the payloads that would not parse.
     joc_reserved_ext: u64,
     joc_size_mismatch: u64,
+    /// Fields of the OAMD and JOC payload configurations outside table 56 of
+    /// TS 103 420, as far as `container::table_56_violations` enforces it.
+    payload_config_violations: u64,
+    /// The object total of the first OAMD payload that parsed: the bed, ISF
+    /// and dynamic objects `complexity_index_type_a` has to equal.
+    oamd_total: Option<usize>,
     /// Frames carrying auxiliary data user bits (clause 4.4.4), and how many
     /// bytes of them, and how many EMDF containers they hold. Annex H names
     /// `auxdata` as a place a container may be carried, next to the skip
@@ -339,6 +345,25 @@ impl EmdfStats {
                 Ok((c, used)) => {
                     self.containers += 1;
                     found = true;
+                    // TS 103 420 table 56 fixes most of the configuration of
+                    // the OAMD and JOC payloads
+                    let mut violations: Vec<String> = Vec::new();
+                    for p in &c.payloads {
+                        for v in container::table_56_violations(p.id, &p.config) {
+                            violations.push(format!("payload {}: {v}", p.id));
+                        }
+                    }
+                    if let Some(v) = container::table_56_group_violation(&c) {
+                        violations.push(format!(
+                            "payloads {PAYLOAD_ID_OAMD} and {PAYLOAD_ID_JOC}: {v}"
+                        ));
+                    }
+                    self.payload_config_violations += violations.len() as u64;
+                    if self.first_error.is_none()
+                        && let Some(v) = violations.first()
+                    {
+                        self.first_error = Some(format!("frame {frame_index}: {v}"));
+                    }
                     for p in &c.payloads {
                         *self.payload_ids.entry(p.id).or_default() += 1;
                         if p.id == PAYLOAD_ID_JOC {
@@ -454,6 +479,12 @@ impl EmdfStats {
                             match Oamd::parse(&p.data) {
                                 Ok(oamd) => {
                                     self.oamd_ok += 1;
+                                    let program = &oamd.program;
+                                    self.oamd_total.get_or_insert(
+                                        program.bed_objects()
+                                            + program.isf_objects()
+                                            + program.dynamic_objects,
+                                    );
                                     let counts = oamd.gain_and_size_counts();
                                     if !counts.gains_db.is_empty() {
                                         self.note_rare("oamd-object-gain", frame_index);
@@ -582,8 +613,14 @@ struct Pass {
     tail_overruns: u64,
     first_error: Option<String>,
     /// The first problem that is a fault of a delivery: `first_error` less the
-    /// frames that end inside their own tail, which a delivery does not fail on.
+    /// conformance findings a delivery does not fail on (see `findings`).
     first_fault: Option<String>,
+    /// Frames whose `complexity_index_type_a` breaks TS 103 420 clause 8.3.2.2.
+    complexity_mismatches: u64,
+    /// The first frame's `bsi` of the substream that carries the EMDF
+    /// container, whose `addbsi` holds the extension of TS 103 420 clause 8.3
+    /// (clause 8.3.1): the last dependent substream when there is one.
+    metadata_bsi: Option<oadec_eac3::Bsi>,
     coverage: Coverage,
     emdf: EmdfStats,
     first: Option<(FrameHeader, oadec_eac3::Bsi)>,
@@ -760,6 +797,21 @@ fn account(
     // what it was before.
     p.emdf
         .scan(index, &frame.metadata_part().decoded.skip_fields);
+    // TS 103 420 clause 8.3.1: the addbsi extension is in the same substream
+    // as the container
+    let extension = frame.metadata_part().decoded.bsi.joc_extension();
+    if p.metadata_bsi.is_none() {
+        p.metadata_bsi = Some(frame.metadata_part().decoded.bsi.clone());
+    }
+    if let Some((true, complexity)) = extension
+        && let Some(total) = p.emdf.oamd_total
+        && let Some(problem) = complexity_problem(complexity, total)
+    {
+        p.complexity_mismatches += 1;
+        if p.first_error.is_none() {
+            p.first_error = Some(format!("frame {index}: {problem}"));
+        }
+    }
     if frame.parts.len() > 1 {
         p.emdf.containers_in_independent += count_containers(&d.skip_fields);
     }
@@ -832,8 +884,27 @@ fn joc_peak(j: &Joc) -> f64 {
     peak
 }
 
+/// TS 103 420 clause 8.3.2.2: `complexity_index_type_a` equals the total of
+/// bed, ISF and dynamic objects the OAMD programme assignment declares, and is
+/// at most 16. What is wrong with an index, if anything.
+fn complexity_problem(complexity: u8, oamd_total: usize) -> Option<String> {
+    if usize::from(complexity) != oamd_total {
+        Some(format!(
+            "complexity_index_type_a {complexity} differs from the OAMD object total {oamd_total} (clause 8.3)"
+        ))
+    } else if complexity > 16 {
+        Some(format!(
+            "complexity_index_type_a {complexity} exceeds 16 (clause 8.3)"
+        ))
+    } else {
+        None
+    }
+}
+
 /// Whether a pass found nothing wrong: every frame decoded, every CRC and
-/// every metadata payload checked out, and no byte of the file was skipped.
+/// every metadata payload checked out, no byte of the file was skipped, and
+/// the payload configuration and the complexity index are what TS 103 420
+/// requires.
 fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
     p.decode_errors == 0
         && p.crc_failures == 0
@@ -844,6 +915,8 @@ fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
         && p.emdf.joc_errors == 0
         && p.emdf.joc_reserved_ext == 0
         && p.emdf.joc_size_mismatch == 0
+        && p.emdf.payload_config_violations == 0
+        && p.complexity_mismatches == 0
         // A dependent substream that was seen and whose channels did not reach
         // the output means the programme was truncated, whatever the frames
         // that did decode looked like. A second programme is legal and is not
@@ -895,10 +968,12 @@ fn program_parts(p: &Pass, h: &FrameHeader) -> Vec<Value> {
 }
 
 /// The faults `is_clean` weighs, in the form a delivery path reports, less the
-/// frames that end inside their own tail. Such a frame is out of spec and
-/// decodes to the audio FFmpeg, Dolby and oadec agree on, so a delivery counts
-/// and prints it without failing on it; `verify` still calls the file
-/// non-conformant (`docs/exit-codes.md`).
+/// findings that make a file non-conformant without making what was delivered
+/// untrustworthy (`docs/exit-codes.md`): frames that end inside their own tail,
+/// which are out of spec and decode to the audio FFmpeg, Dolby and oadec agree
+/// on; payload configurations outside table 56 of TS 103 420; and a complexity
+/// index that disagrees with the OAMD. A delivery prints them and keeps its
+/// verdict; `verify` still calls the file non-conformant.
 fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
     let mut f = Findings::default();
     f.note(p.decode_errors, "frames failed to decode");
@@ -964,7 +1039,10 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
         oadec_eac3::ProgramLayout::names,
     );
     let duration = p.samples as f64 / f64::from(h.sample_rate);
-    let joc = bsi.joc_extension();
+    // TS 103 420 clause 8.3.1: the extension is in the substream that carries
+    // the container, which is not the independent one when a dependent follows
+    let meta = p.metadata_bsi.as_ref().unwrap_or(bsi);
+    let joc = meta.joc_extension();
     if json {
         let e = &p.emdf;
         let payload_ids: serde_json::Map<String, Value> = e
@@ -996,6 +1074,8 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "joc_errors": e.joc_errors,
                 "joc_reserved_ext_config": e.joc_reserved_ext,
                 "joc_size_mismatches": e.joc_size_mismatch,
+                "payload_config_violations": e.payload_config_violations,
+                "complexity_mismatches": p.complexity_mismatches,
                 "dependent_dropped": p.program.dependent_dropped,
                 "orphan_dependents": p.program.orphan_dependents,
                 "substream_decode_errors": p.subs.values().map(|s| s.decode_errors).sum::<u64>(),
@@ -1223,12 +1303,18 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             "JOC extension:     flag {}, complexity index {} (addbsi {} bytes)",
             flag,
             complexity,
-            bsi.addbsi.len()
+            meta.addbsi.len()
         ),
         None => println!(
             "JOC extension:     none (addbsi {} bytes)",
-            bsi.addbsi.len()
+            meta.addbsi.len()
         ),
+    }
+    if p.emdf.payload_config_violations > 0 || p.complexity_mismatches > 0 {
+        println!(
+            "Conformance:       {} payload configuration fields outside TS 103 420 table 56, {} frames whose complexity index breaks clause 8.3",
+            p.emdf.payload_config_violations, p.complexity_mismatches
+        );
     }
     println!(
         "Coding tools:      {} (AHT in {} frames, spectral extension in {}, enhanced coupling in {}, transient pre-noise in {})",
@@ -1818,13 +1904,17 @@ mod tests {
         );
 
         type Set = fn(&mut Pass);
-        let unclean: [(&str, Set); 8] = [
+        let unclean: [(&str, Set); 10] = [
             ("decode_errors", |p| p.decode_errors = 1),
             ("crc_failures", |p| p.crc_failures = 1),
             ("tail_overruns", |p| p.tail_overruns = 1),
             ("emdf.oamd_errors", |p| p.emdf.oamd_errors = 1),
             ("emdf.joc_errors", |p| p.emdf.joc_errors = 1),
             ("emdf.joc_reserved_ext", |p| p.emdf.joc_reserved_ext = 1),
+            ("emdf.payload_config_violations", |p| {
+                p.emdf.payload_config_violations = 1
+            }),
+            ("complexity_mismatches", |p| p.complexity_mismatches = 1),
             ("emdf.joc_size_mismatch", |p| p.emdf.joc_size_mismatch = 1),
             ("program.dependent_dropped", |p| {
                 p.program.dependent_dropped = 1
@@ -1865,6 +1955,45 @@ mod tests {
             is_clean(&other, 0, 0),
             "a second programme should not make a stream unclean"
         );
+    }
+
+    /// Clause 8.3.2.2 of TS 103 420, both halves: the index equals the OAMD
+    /// object total, and it is at most 16.
+    #[test]
+    fn the_complexity_index_is_the_oamd_object_total_and_at_most_16() {
+        assert_eq!(complexity_problem(16, 16), None);
+        assert_eq!(
+            complexity_problem(12, 12),
+            None,
+            "pi-head-joc384 declares 12"
+        );
+        assert_eq!(
+            complexity_problem(15, 16).as_deref(),
+            Some("complexity_index_type_a 15 differs from the OAMD object total 16 (clause 8.3)")
+        );
+        assert_eq!(
+            complexity_problem(17, 17).as_deref(),
+            Some("complexity_index_type_a 17 exceeds 16 (clause 8.3)")
+        );
+    }
+
+    /// A payload configuration outside table 56 and a complexity index that
+    /// disagrees with the OAMD make a file non-conformant and change nothing
+    /// that was delivered, so, like a tail overrun, they fail `verify` and not
+    /// a delivery.
+    #[test]
+    fn the_checks_of_clause_8_fail_verify_and_not_a_delivery() {
+        let mut table_56 = Pass::default();
+        table_56.emdf.payload_config_violations = 1;
+        let complexity = Pass {
+            complexity_mismatches: 1,
+            ..Pass::default()
+        };
+        for (name, pass) in [("table 56", table_56), ("complexity", complexity)] {
+            assert!(!is_clean(&pass, 0, 0), "{name} left verify clean");
+            let f = findings(&pass, 0, 0);
+            assert!(f.is_clean(), "{name} failed a delivery: {f:?}");
+        }
     }
 
     /// A frame that ends inside its own tail is out of spec and decodes to
