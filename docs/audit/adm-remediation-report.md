@@ -283,7 +283,27 @@ written; the evidence keeps every hash, exit code, command line and measurement.
 - A positioned ISF mapping (UNK; needs a reference) and a BS.2076 non-profile mode for
   `objectDivergence` and `absoluteDistance` (deferred).
 - `BW64` per BS.2088 once the text is available.
-- The version bump to 0.3.0 in a release commit after the merge; the byte-identity gate's hash
-  in `tests/real.rs` must then be re-derived deliberately, since the `dbmd` tool string carries
-  the version.
+- The version bump to 0.3.0 in a release commit after the merge: done the same day, with a
+  different gate than planned (section 10).
 - The whole-film replay, if wanted: `run_remediation.py --stage regression --with-full-film`.
+
+## 10. Postscript, after the merge (2026-09-14)
+
+PR #3 was merged as a normal merge commit (`7615c2e`) and 0.3.0 released the same day
+(`release: 0.3.0`, `2ca2e63`, tag `v0.3.0`; the release workflow published the Windows and
+Linux archives). Two things went differently from what section 9 planned:
+
+- **The gate was not re-derived; it was made independent of the version.** The 0.2.0 and
+  0.3.0 outputs of pi-head50m differ in exactly two bytes, both inside the `dbmd` payload: the
+  version digit of the tool string and the segment's checksum, which moves with it. The gate
+  now hashes everything up to the `dbmd` payload against the audited file's hash of that same
+  prefix (`3809b77a5c05753ac45542a7766687c3bfed9c0868c7d659cf123b5a5434edc6`) and checks the
+  payload's size, its pad byte and its two strings on their own (`41c3c88`). The first version
+  of that gate, pushed with the release, expected two string replacements and failed when run
+  with the media; the release chain did not stop because the test's output had been piped
+  through a grep that returned success. The release artefacts do not depend on the test, and
+  the tag stays where it is.
+- **The harness crate has a lock file of its own.** `docs/audit/adm/harness/Cargo.lock`
+  records the path dependencies' versions and a workspace bump does not touch it; the
+  `adm-toolkit` job builds it with `--locked` and failed on `main` until `d24d6a5`. A release
+  now touches `Cargo.toml`, `Cargo.lock`, that file and the changelog.
