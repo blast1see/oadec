@@ -156,3 +156,95 @@ fn emdf_dump_prints_every_object() {
         "one line per object: {text}"
     );
 }
+
+/// `len` bytes of SplitMix64 from `seed`, the same pseudo-random file on every
+/// run.
+fn noise(len: usize, seed: u64) -> Vec<u8> {
+    let mut state = seed;
+    let mut out = Vec::with_capacity(len + 8);
+    while out.len() < len {
+        state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        out.extend_from_slice(&(z ^ (z >> 31)).to_le_bytes());
+    }
+    out.truncate(len);
+    out
+}
+
+/// What a reporting command says of a file in which it finds no stream, with
+/// exit 2 (`docs/exit-codes.md`).
+const NO_STREAM: &str = "no TrueHD access unit or E-AC-3 syncframe found in";
+
+/// `info` and `oamd` report what a stream holds, and of a file that holds no
+/// stream they reported that too, with exit 0: "No major sync found" or "0 in
+/// 0 of 0 access units", which a script cannot tell from a clean stream. Both
+/// refuse such a file now. `emdf` refused both files already, since neither
+/// sniffs as E-AC-3.
+#[test]
+fn a_file_that_holds_no_stream_is_refused() {
+    let dir = temp("no-stream");
+    let empty = dir.join("empty.bin");
+    std::fs::write(&empty, b"").unwrap();
+    let random = dir.join("random.bin");
+    std::fs::write(&random, noise(1 << 20, 0x2026_0915)).unwrap();
+    for file in [&empty, &random] {
+        let name = file.to_str().unwrap();
+        for command in ["info", "oamd", "emdf"] {
+            let out = oadec(&[command, name]);
+            assert_eq!(
+                out.status.code(),
+                Some(2),
+                "{command} {name}: {}",
+                stdout(&out)
+            );
+            if command != "emdf" {
+                assert!(
+                    stderr(&out).contains(NO_STREAM),
+                    "{command} {name}: {}",
+                    stderr(&out)
+                );
+            }
+        }
+    }
+}
+
+/// The first 100 bytes of the JOC encode open with an E-AC-3 sync word and
+/// hold no whole syncframe, the frames being 1792 bytes. `emdf` walked no
+/// frame and called that clean with exit 0, and `oamd`, which walks the same
+/// way, did the same. Both refuse it now.
+#[test]
+fn an_eac3_sync_word_without_a_whole_frame_is_no_stream_either() {
+    let path = temp("truncated").join("truncated.ec3");
+    let bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    std::fs::write(&path, &bytes[..100]).unwrap();
+    for command in ["emdf", "oamd"] {
+        let out = oadec(&[command, path.to_str().unwrap()]);
+        assert_eq!(out.status.code(), Some(2), "{command}: {}", stdout(&out));
+        assert!(
+            stderr(&out).contains(NO_STREAM),
+            "{command}: {}",
+            stderr(&out)
+        );
+    }
+}
+
+/// The control for the two above: the fixtures are streams, and `info` and
+/// `emdf` still report them with exit 0 (`oamd` is checked on both further up).
+#[test]
+fn info_and_emdf_still_report_the_fixtures() {
+    for (command, name) in [
+        ("info", "authored-scene.mlp"),
+        ("info", "authored-scene.ec3"),
+        ("emdf", "authored-scene.ec3"),
+    ] {
+        let out = oadec(&[command, &fixture(name)]);
+        assert_eq!(
+            out.status.code(),
+            Some(0),
+            "{command} {name}: {}",
+            stderr(&out)
+        );
+    }
+}

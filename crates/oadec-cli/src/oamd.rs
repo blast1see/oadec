@@ -493,6 +493,9 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
     } else {
         walk_truehd(path, opts, &mut dumped)?
     };
+    if summary.units == 0 {
+        return Err(crate::info::no_stream(path));
+    }
     let elapsed = started.elapsed().as_secs_f64();
     let clean =
         summary.parse_errors == 0 && summary.padding_long == 0 && summary.padding_nonzero == 0;
