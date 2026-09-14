@@ -1,4 +1,4 @@
-, # Conformance matrix
+# Conformance matrix
 
 Outcomes: **PASS** demonstrated correct · **PASS-TOL** numerically different but
 technically justified · **PARTIAL** part of the required function · **FAIL**
@@ -50,8 +50,8 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | Evolution / EMDF payload extraction | Dolby, TS 102 366 Annex H | `truehd/extra.rs:98`, `emdf/container.rs:257` | 1 266 to 3 306 payloads per clip, 0 parse errors | PASS |
 | Object audio reconstruction | the 16 channels are the objects | `truehd/decoder.rs` | 60 909 600 samples against Dolby `dlbtruehddec presentation=16`, 0 differing | PASS |
 | Bed and object separation | TS 103 420 clause 5 | `truehd/channel.rs:296`, `spatial/program.rs` | LFE bed plus 11 or 15 dynamic objects, matching Dolby's channel assignment | PASS |
-| ISF objects | TS 103 420 | `cli/damf.rs:74` | hardcoded to zero; the E-AC-3 path at `eac3_objects.rs:173` handles it | FAIL |
-| `--presentation` honoured for object output | — | `cli/damf.rs:193` | silently forced to presentation 3 | FAIL |
+| ISF objects | TS 103 420 | `cli/damf.rs`, `spatial/program.rs` | the count comes from the major sync; `--format damf\|adm` refuses an ISF element with exit 2 naming type and count, `--isf drop` writes the rest and exits 4 with the loss declared (ADM remediation D2, `adm-remediation-report.md`) | **PASS** [was FAIL] |
+| `--presentation` honoured for object output | — | `cli/main.rs`, `cli/damf.rs` | refused unless it is 3: `decode --format damf\|adm -p 2` exits 2 before anything is written (D13) | **PASS** [was FAIL] |
 | Titles Dolby will confirm | — | — | 105 of 194 object presentations in 186 library files are opened and 89 refused, so it is not three titles but 46 per cent of a catalogue. All 89 refused decode here to object audio byte-identical to `truehdd`'s, with 14 opened ones as a control -- 103 of 103 over 3,9 GB, so the refused set is not an unconfirmed set; `evidence/remediation/refused-titles-vs-truehdd.json`. 3 of the original 6 accepted. The refusal is specific to the object output — all six decode at `presentation=16` when `out-ch-config` is left alone. A third decoder, `truehdd` 0.6.1, opens the object presentation on all six with the element counts oadec reports, so the streams decode as object programmes outside this project. Why Dolby refuses is unanswered: `2ch_control_enabled` is retired: it is not sufficient (a stream DEE writes with the flag clear is opened, in the session that refuses all three titles) and not a correlate either (clear in 76 opened and 83 refused across 194). The best predictor left is `twoch_dialogue_norm`, 32 to 37 with opening and 63 or 31 with refusal, agreeing on 187 of 194 where the next best field manages 134 and the median field manages nothing at all -- an association no instrument here can test for cause; `evidence/remediation/presentation16-differential.json`, `evidence/remediation/major-sync-rewrite-rejected.json`, `evidence/remediation/truehdd-second-opinion.json` | N/T |
 
 ## E-AC-3
@@ -116,12 +116,12 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | Object count and distinctness | clause 6.3.2.4 | `cli/eac3_objects.rs:211` | 15 distinct objects; largest object-to-core correlation 0,545; correlation structure matches Dolby to 0,0017 | PASS |
 | OAMD field coverage | clause 5.5 | `emdf/oamd.rs:949` | every syntax element read; 1,3 M payloads with 0 parse errors in prior work, re-confirmed on the clips | PASS |
 | OAMD event timing | clause 5.3.2 | `spatial/program.rs:331` | 131 of 800 events across six titles, and 19 of 45 of the authored scene, differ from `truehdd` by exactly +32 samples and by nothing else: the block-offset term, which clause 5.3.2 requires and `truehdd` omits. Modulo the 1 536-sample codec frame the clause names, oadec's positions take 4 distinct residues over seven streams and `truehdd`'s take 7. Unit test over seven combinations; `evidence/remediation/truehdd-second-opinion.json` | PASS |
-| Object 3-D size | clause 5.6.1.2 | `spatial/program.rs:243` | depth and height dropped; ADM re-emits the first axis as all three | FAIL |
+| Object 3-D size | clause 5.6.1.2 | `spatial/program.rs` | the model carries all three axes; both writers write the width, which is all either format can carry, and count `size-axes-collapsed` when the axes differ (D5) | **PASS-TOL** [was FAIL] |
 | Object distance, divergence, warp mode, trim decibels | clause 5.2 | parsed at `emdf/oamd.rs:474`, `:828`, `:764`, `:735` | never reach any output | PARTIAL |
 | Extended-precision position | clause 5.6.6.4 | `emdf/oamd.rs:865` | parsed and applied | PASS |
 | DAMF ramp length | clause 5.3.2 | `spatial/damf.rs:341` | real values 32 and 1536 written | PASS |
-| ADM interpolation length | clause 5.3.2 | `spatial/adm.rs:513` | fixed 250 samples written instead of the real ramp | FAIL |
-| ADM object gain and priority | clause 5.2.3, 5.2.4 | `spatial/adm.rs:490` | zero gain elements and zero importance elements in the `axml` chunk | FAIL |
+| ADM interpolation length | clause 5.3.2 | `spatial/adm.rs` | 250 samples by default, which is what profile table 11 requires and what Dolby's converters write, declared as a profile reduction on every run; `--adm-interpolation real` writes the stream's own ramps, marked non-profile (D4) | **PASS-TOL** [was FAIL] |
+| ADM object gain and priority | clause 5.2.3, 5.2.4 | `spatial/adm.rs` | the gain of an active object is written as Dolby's converters write it, linear with ten decimals (D1); the importance of an active object is omitted by the profile and counted `importance-omitted` (D11) | **PASS** [was FAIL] |
 | `dbmd` chunk | not public | `spatial/dbmd.rs:18` | three verbatim blobs; only bed mask, channel count and LFE flags derive from the stream | UNK |
 | Per-object metadata dump for E-AC-3 | — | `cli/oamd.rs:309` refuses E-AC-3; `cli/emdf.rs:266` truncates to 4 objects | the DAMF sidecar is the only complete record | PARTIAL |
 

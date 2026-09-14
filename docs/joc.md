@@ -149,11 +149,16 @@ that the decoder relies on. Clause numbers refer to that document.
   bank that produced them. Taken literally that is ten time slots out.
   Measured against the object output of the Dolby decoder on three titles
   from three encoders, the matrix of slot `ts` belongs with the subband
-  samples the analysis bank produces ten slots earlier; the optimum is sharp,
-  more than 20 dB per slot either side. Ten slots is 640 samples, the length
-  of the analysis prototype. `MATRIX_ALIGN` in `oadec-joc` holds the samples
-  back accordingly. Reading it literally costs 25 to 50 dB of object
-  accuracy, which no channel-domain comparison can see.
+  samples the analysis bank produces ten slots earlier. On the mean over
+  objects the optimum is symmetric and about 1 dB per slot: sweeping the
+  offset against Dolby's objects gives 37,2 dB at 0, 47,2 at 9, 48,2 at 10,
+  47,2 at 11 and 38,5 at 18, 11 dB better than the literal reading; a second,
+  independent guard on a clip the constant was never fitted to gives 44,7 dB
+  in use against 42,0 and 41,8 one slot either side. Ten slots is 640
+  samples, the length of the analysis prototype. `MATRIX_ALIGN` in
+  `oadec-joc` holds the samples back accordingly. Reading it literally costs
+  11 dB on the mean and far more on the objects whose bands the core decode
+  gets exactly, which no channel-domain comparison can see.
 - **Downmix configurations 3 and 4** (table 47, "with 90 degree phase
   shift") carry the surround pair phase-shifted. Clause 6.6 says nothing
   more, and what the shift is the standard never says at all. Rotating Ls

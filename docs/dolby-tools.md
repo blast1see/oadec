@@ -1000,9 +1000,24 @@ ffmpeg -i in.thd -c:a copy -strict -2 -movflags faststart -f mp4 in.mp4
 gst-launch-1.0 filesrc location=in.mp4 ! qtdemux   ! capssetter caps="audio/x-true-hd" replace=true join=false   ! dlbtruehdparse enable-metadata=true   ! dlbtruehddec out-ch-config=21 presentation=16   ! "audio/x-raw(meta:DlbObjectAudioMeta),format=S32LE"   ! identity ! filesink location=objects.s32
 ```
 
-The result is 24-bit samples in 32-bit words, one channel per element of the
-programme, padded to sixteen with digital silence. Our object output matches
-it sample for sample; see `docs/evidence/2026-09-10.md`.
+The result is 32-bit words, one channel per element of the programme, padded
+to sixteen with digital silence. Our object output matches it sample for
+sample on a presentation whose dialogue normalisation is −31 dB, which Pi and
+Talk to Me carry; see `docs/evidence/2026-09-10.md`.
+
+**The object mode applies dialogue normalisation, with dither.** On a
+presentation that signals any other dialogue norm, Dolby's words are the coded
+samples times the dialnorm gain plus triangular dither of ±1 LSB at 24 bits,
+kept in full 32-bit precision; `drc-mode` has no setting that turns it off.
+Measured on five UHD titles with dialogue norm −27 and −28 dB: the fitted gain
+is the nominal one within 3·10⁻⁵ dB, the residual after it has a standard
+deviation of 0.408 LSB (1/√6, the triangular distribution exactly), is
+uncorrelated with the signal, and is present where the coded samples are
+digital silence. Ten titles at −31 dB are bit-exact; `truehdd` and FFmpeg
+agree with oadec on all sixteen. So a byte comparison against this element is
+only meaningful at −31 dB, and a title that fails it elsewhere has to be
+judged against `truehdd`. See
+`docs/audit/evidence/verification-2026-09-14/06-truehd-dolby-dialnorm.json`.
 
 This is the only Dolby decoder here that works in the object domain, and it
 is what settled the JOC matrix alignment and the low-band quadrature filter;
