@@ -531,6 +531,10 @@ pub struct ProgramStats {
     /// Dependent frames whose channels did not reach the programme, for any
     /// reason above.
     pub dependent_dropped: u64,
+    /// Frames of a substream that already had a frame in their group. Clause
+    /// E.1.3.1.2 gives each substream one frame per group; only the first
+    /// reaches the decoder.
+    pub duplicate_substream_frames: u64,
     /// Decode errors per substream.
     pub decode_errors: BTreeMap<SubstreamKey, u64>,
     pub first_error: Option<String>,
@@ -546,6 +550,7 @@ impl ProgramStats {
             && self.over_capacity == 0
             && self.location_errors == 0
             && self.dependent_dropped == 0
+            && self.duplicate_substream_frames == 0
             && self.decode_errors.values().all(|&n| n == 0)
     }
 
@@ -653,7 +658,8 @@ impl ProgramDecoder {
     /// Feeds one syncframe, in bitstream order.
     ///
     /// A frame that will not decode is recorded and its substream reset, so a
-    /// broken dependent substream never costs the programme its core.
+    /// broken dependent substream never costs the programme its core. A second
+    /// frame of a substream in one group is counted and not decoded.
     ///
     /// # Errors
     ///
@@ -693,9 +699,20 @@ impl ProgramDecoder {
             return Ok(());
         };
         let group = open.index;
-        if !open.members.contains(&slot) {
-            open.members.push(slot);
+        if open.members.contains(&slot) {
+            // Clause E.1.3.1.2 gives a substream one frame per group. Decoded,
+            // a second one would be queued against this group again, and
+            // `pop`, which takes one frame per member per group, would wait
+            // behind the spare frame for the rest of the stream.
+            self.stats.duplicate_substream_frames += 1;
+            let (t, id) = key;
+            let kind = if t == 1 { "dependent" } else { "independent" };
+            self.stats.note(format!(
+                "group {group}, {kind} substream {id}: a second frame of this substream in the group; only the first is decoded"
+            ));
+            return Ok(());
         }
+        open.members.push(slot);
         let sub = &mut self.subs[slot];
         sub.inflight.push_back(group);
         match sub.dec.decode(bytes) {
@@ -900,13 +917,16 @@ mod tests {
         assert!(ProgramStats::default().is_clean(), "an empty pass is clean");
 
         type Set = fn(&mut ProgramStats);
-        let makes_it_unclean: [(&str, Set); 6] = [
+        let makes_it_unclean: [(&str, Set); 7] = [
             ("orphan_dependents", |s| s.orphan_dependents = 1),
             ("layout_changes", |s| s.layout_changes = 1),
             ("misaligned", |s| s.misaligned = 1),
             ("over_capacity", |s| s.over_capacity = 1),
             ("location_errors", |s| s.location_errors = 1),
             ("dependent_dropped", |s| s.dependent_dropped = 1),
+            ("duplicate_substream_frames", |s| {
+                s.duplicate_substream_frames = 1
+            }),
         ];
         for (name, set) in makes_it_unclean {
             let mut stats = ProgramStats::default();
@@ -1195,5 +1215,55 @@ mod tests {
         for cfg in 0..5u8 {
             assert_eq!(Lfe.joc_input(cfg), None, "the LFE bypasses JOC");
         }
+    }
+
+    /// A second frame of a substream in one group is refused before its
+    /// decoder sees it, so the check needs no decodable bytes: group 0 below
+    /// has had its independent frame and a frame of dependent substream 0, and
+    /// the same substream arrives again.
+    ///
+    /// Fed to the decoder, the repeat is queued against the group a second
+    /// time, and `pop`, which takes one frame per member per group, waits
+    /// behind the spare frame for the rest of the stream.
+    #[test]
+    fn a_repeated_substream_in_one_group_never_reaches_its_decoder() {
+        let mut dec = ProgramDecoder::new(Options::default());
+        let core = dec.slot_for((0, 0));
+        let dep = dec.slot_for((1, 0));
+        dec.program = Some(0);
+        dec.next_group = 1;
+        dec.open = Some(GroupSlot {
+            index: 0,
+            members: vec![core, dep],
+            core: Some(core),
+        });
+        dec.subs[dep].inflight.push_back(0);
+
+        dec.push(&[], &header(5, false, StreamType::Dependent))
+            .expect("a repeat is not an error");
+
+        let stats = dec.stats().clone();
+        assert_eq!(stats.duplicate_substream_frames, 1, "{stats:?}");
+        assert!(
+            stats.decode_errors.is_empty(),
+            "the repeat reached the decoder: {stats:?}"
+        );
+        assert!(!stats.is_clean(), "a repeat is an integrity fault");
+        assert_eq!(
+            dec.subs[dep].inflight,
+            [0],
+            "the group is still waiting for one frame of the substream, not two"
+        );
+        assert_eq!(
+            dec.open.as_ref().map(|g| g.members.clone()),
+            Some(vec![core, dep]),
+            "the substream is still a member of its group"
+        );
+        let first = stats.first_error.unwrap_or_default();
+        assert!(
+            first.starts_with("group 0, dependent substream 0:")
+                && first.contains("only the first"),
+            "{first}"
+        );
     }
 }

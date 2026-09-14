@@ -655,6 +655,10 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
     );
     f.note(stats.location_errors, "unreadable channel maps");
     f.note(stats.layout_changes, "mid-stream channel layout changes");
+    f.note(
+        stats.duplicate_substream_frames,
+        "substream frames repeated within one group",
+    );
     f.first_problem(first_error.or_else(|| stats.first_error.clone()).as_deref());
     Ok(f.report())
 }
