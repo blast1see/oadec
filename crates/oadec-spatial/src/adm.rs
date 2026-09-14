@@ -358,7 +358,7 @@ impl AdmWriter {
                 }
             }
             for &v in &samples {
-                let b = v.clamp(-(1 << 23), (1 << 23) - 1).to_le_bytes();
+                let b = crate::clamp_i24(v).0.to_le_bytes();
                 self.frame.extend_from_slice(&b[..3]);
             }
             self.frames += 1;
@@ -1610,6 +1610,28 @@ mod tests {
         assert!(text.contains("interpolationLength=\"0.005208\""));
         assert!(text.contains("chna"));
         assert!(text.contains("dbmd"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A sample past the 24-bit range is written at the nearer end of it, not
+    /// with its top byte cut off: 1 << 24 would otherwise read back as zero.
+    #[test]
+    fn samples_past_24_bits_saturate_in_the_file() {
+        let dir = temp_dir("clamp");
+        let mut w = one_object_writer(&dir, 0);
+        let object = w.channels() - 1;
+        let rows = [[0i32, 1 << 24], [0, -(1 << 24)], [0, -5]];
+        w.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
+        w.finish().unwrap();
+        let bytes = std::fs::read(dir.join("t.wav")).unwrap();
+        let data = &bytes[DATA_SIZE_POS as usize + 4..];
+        let sample = |frame: usize| {
+            let at = (frame * (object + 1) + object) * 3;
+            [data[at], data[at + 1], data[at + 2]]
+        };
+        assert_eq!(sample(0), [0xFF, 0xFF, 0x7F]);
+        assert_eq!(sample(1), [0x00, 0x00, 0x80]);
+        assert_eq!(sample(2), [0xFB, 0xFF, 0xFF]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
