@@ -352,7 +352,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
                                             .map(|b| (b.block_offset_factor, b.ramp_duration))
                                             .collect::<Vec<_>>()
                                     );
-                                    for (i, updates) in o.objects.iter().enumerate().take(4) {
+                                    for (i, updates) in o.objects.iter().enumerate() {
                                         let u = &updates[0];
                                         let p = u.render.position([0; 3]);
                                         println!(
