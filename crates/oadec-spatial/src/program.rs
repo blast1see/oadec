@@ -333,6 +333,11 @@ pub struct Timeline {
     last_pos: BTreeMap<u32, u64>,
     last_warp: Option<u8>,
     last_trim: Option<Vec<TrimConfig>>,
+    /// The distance and the divergence last seen per object: neither is part
+    /// of the reduced state, so an update that changes only one of them is no
+    /// event, and these are how such an update is still counted, once.
+    last_distance: BTreeMap<u32, Distance>,
+    last_divergence: BTreeMap<u32, f32>,
 }
 
 impl Timeline {
@@ -451,25 +456,40 @@ impl Timeline {
                         }
                     }
                 };
-                if changed || self.keep_all {
+                let is_event = changed || self.keep_all;
+                if !block.in_bed_or_isf {
+                    // Distance and divergence are not in the reduced state, so
+                    // an update that changes only one of them is no event and
+                    // the writers never see it; it is still an update whose
+                    // meaning both outputs drop. Every event carrying the value
+                    // is counted (an update the writer drops the value from),
+                    // and an update that is no event is counted when the value
+                    // appears or changes, not when a payload restates it.
+                    let distance = block.render.distance;
+                    if distance != Distance::Unspecified
+                        && (is_event || self.last_distance.get(&id) != Some(&distance))
+                    {
+                        self.losses.note(LossKind::DistanceDropped, id, pos);
+                    }
+                    self.last_distance.insert(id, distance);
+                    let divergence = ext
+                        .and_then(|x| x.divergence.as_ref())
+                        .and_then(|v| v.get(index))
+                        .and_then(|v| v.get(blk))
+                        .copied()
+                        .unwrap_or(0.0);
+                    if divergence > 0.0
+                        && (is_event || self.last_divergence.get(&id) != Some(&divergence))
+                    {
+                        self.losses.note(LossKind::DivergenceDropped, id, pos);
+                    }
+                    self.last_divergence.insert(id, divergence);
+                }
+                if is_event {
                     if let Some(&last) = self.last_pos.get(&id)
                         && pos < last
                     {
                         self.out_of_order += 1;
-                    }
-                    if !block.in_bed_or_isf {
-                        if block.render.distance != Distance::Unspecified {
-                            self.losses.note(LossKind::DistanceDropped, id, pos);
-                        }
-                        let divergence = ext
-                            .and_then(|x| x.divergence.as_ref())
-                            .and_then(|v| v.get(index))
-                            .and_then(|v| v.get(blk))
-                            .copied()
-                            .unwrap_or(0.0);
-                        if divergence > 0.0 {
-                            self.losses.note(LossKind::DivergenceDropped, id, pos);
-                        }
                     }
                     let event = Event {
                         id,
@@ -515,6 +535,8 @@ pub fn has_object_element(oamd: &Oamd) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use oadec_emdf::oamd::ElementMd;
+
     use super::*;
 
     #[test]
@@ -584,6 +606,20 @@ mod tests {
         }
     }
 
+    /// One more element of a payload: a trim or extended-object element.
+    fn element_md(id: u8, element: Element) -> ElementMd {
+        ElementMd {
+            id,
+            size_bytes: 1,
+            alternate_id: None,
+            discard_unknown: false,
+            element,
+            size_ok: true,
+            padding_bits: 0,
+            padding_zero: true,
+        }
+    }
+
     /// Clause 5.3.2: `start_sample = sample_offset + 32 * block_offset_factor`.
     /// The other public decoder reads `sample_offset` and drops the second
     /// term, which puts one event in five 32 samples early on real streams.
@@ -617,22 +653,12 @@ mod tests {
     #[test]
     fn unrepresentable_semantics_are_counted_by_the_timeline() {
         use crate::loss::LossKind;
-        use oadec_emdf::oamd::{Distance, Element, ElementMd, ExtendedObjectElement, TrimElement};
+        use oadec_emdf::oamd::{Distance, Element, ExtendedObjectElement, TrimElement};
         let mut oamd = one_update(0, 0);
         if let Element::Object(o) = &mut oamd.elements[0].element {
             o.objects[0][0].render.distance = Distance::Factor(2.0);
         }
-        let md = |id: u8, element: Element| ElementMd {
-            id,
-            size_bytes: 1,
-            alternate_id: None,
-            discard_unknown: false,
-            element,
-            size_ok: true,
-            padding_bits: 0,
-            padding_zero: true,
-        };
-        oamd.elements.push(md(
+        oamd.elements.push(element_md(
             8,
             Element::Trim(TrimElement {
                 warp_mode: 1,
@@ -641,7 +667,7 @@ mod tests {
                 disable_per_object: None,
             }),
         ));
-        oamd.elements.push(md(
+        oamd.elements.push(element_md(
             14,
             Element::ExtendedObject(ExtendedObjectElement {
                 divergence: Some(vec![vec![1.0]]),
@@ -662,6 +688,84 @@ mod tests {
             t.losses.examples(LossKind::DistanceDropped),
             &[(10, 0), (10, 1536)]
         );
+    }
+
+    /// The distance is not part of the reduced state, so an update that
+    /// changes only the distance is no event and the writers never see it.
+    /// It is still an update whose meaning both outputs drop whole: the ledger
+    /// counts it when the value appears or changes, and not again when a
+    /// later payload merely restates it.
+    #[test]
+    fn a_distance_only_change_is_counted_once_without_an_event() {
+        use crate::loss::LossKind;
+        let plain = one_update(0, 0);
+        let mut far = one_update(0, 0);
+        if let Element::Object(o) = &mut far.elements[0].element {
+            o.objects[0][0].render.distance = Distance::Factor(2.0);
+        }
+        let mut farther = one_update(0, 0);
+        if let Element::Object(o) = &mut farther.elements[0].element {
+            o.objects[0][0].render.distance = Distance::Factor(3.0);
+        }
+        let mut t = Timeline::new(false);
+        let mut events = 0;
+        t.push(&plain, 0, 0, |_| events += 1).expect("well formed");
+        assert_eq!(events, 1, "the first update is an event");
+        assert_eq!(t.losses.count(LossKind::DistanceDropped), 0);
+        t.push(&far, 1536, 0, |_| events += 1).expect("well formed");
+        assert_eq!(events, 1, "same position, same gain: no event");
+        assert_eq!(t.losses.count(LossKind::DistanceDropped), 1);
+        assert_eq!(t.losses.examples(LossKind::DistanceDropped), &[(10, 1536)]);
+        t.push(&far, 3072, 0, |_| events += 1).expect("well formed");
+        assert_eq!(events, 1);
+        assert_eq!(
+            t.losses.count(LossKind::DistanceDropped),
+            1,
+            "a restatement of the same distance is not a new decision"
+        );
+        t.push(&farther, 4608, 0, |_| events += 1)
+            .expect("well formed");
+        assert_eq!(events, 1);
+        assert_eq!(
+            t.losses.count(LossKind::DistanceDropped),
+            2,
+            "a different distance is"
+        );
+        assert_eq!(
+            t.losses.examples(LossKind::DistanceDropped),
+            &[(10, 1536), (10, 4608)]
+        );
+        assert_eq!(t.losses.count(LossKind::DivergenceDropped), 0);
+    }
+
+    /// The same for the divergence of the extended-object element.
+    #[test]
+    fn a_divergence_only_change_is_counted_once_without_an_event() {
+        use crate::loss::LossKind;
+        use oadec_emdf::oamd::ExtendedObjectElement;
+        let plain = one_update(0, 0);
+        let mut split = one_update(0, 0);
+        split.elements.push(element_md(
+            14,
+            Element::ExtendedObject(ExtendedObjectElement {
+                divergence: Some(vec![vec![0.5]]),
+                ext_precision: None,
+            }),
+        ));
+        let mut t = Timeline::new(false);
+        let mut events = 0;
+        t.push(&plain, 0, 0, |_| events += 1).expect("well formed");
+        t.push(&split, 1536, 0, |_| events += 1)
+            .expect("well formed");
+        t.push(&split, 3072, 0, |_| events += 1)
+            .expect("well formed");
+        assert_eq!(events, 1, "the divergence is not in the reduced state");
+        assert_eq!(t.losses.count(LossKind::DivergenceDropped), 1);
+        assert_eq!(
+            t.losses.examples(LossKind::DivergenceDropped),
+            &[(10, 1536)]
+        );
+        assert_eq!(t.losses.count(LossKind::DistanceDropped), 0);
     }
 
     /// OAMD codes width, depth and height; the model used to keep the first
