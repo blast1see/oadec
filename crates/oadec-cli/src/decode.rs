@@ -48,8 +48,11 @@ pub struct Frame<'a> {
     pub order: &'a [usize],
     /// Sampling frequency in Hz.
     pub sampling_frequency: u32,
-    /// WAVE channel mask of the labelled output channels.
+    /// WAVE channel mask of the output: zero unless it names every channel in
+    /// the order written (see [`wave_channel_mask`]).
     pub channel_mask: u32,
+    /// Why the mask is zero, when it is; printed by the paths that write one.
+    pub mask_warning: Option<&'a str>,
 }
 
 /// A decoder plus the bookkeeping the commands share.
@@ -59,6 +62,10 @@ pub struct Session {
     order_kind: Order,
     decoder: Option<Decoder>,
     order: Vec<usize>,
+    /// WAVE channel mask of the output order.
+    mask: u32,
+    /// Why the mask is zero, when it is.
+    mask_warning: Option<String>,
     /// Labels of the output channels in stream order (bed channels only for the
     /// object presentation).
     pub labels: Vec<ChannelLabel>,
@@ -78,6 +85,8 @@ impl Session {
             order_kind,
             decoder: None,
             order: Vec::new(),
+            mask: 0,
+            mask_warning: None,
             labels: Vec::new(),
             sampling_frequency: 0,
             duplicates_dropped: 0,
@@ -97,7 +106,6 @@ impl Session {
             self.sampling_frequency = decoder.config().sampling_frequency;
             self.decoder = Some(decoder);
         }
-        let mask = self.channel_mask();
         let sampling_frequency = self.sampling_frequency;
         let decoder = self.decoder.as_mut().expect("decoder created above");
         let decoded = decoder
@@ -114,13 +122,15 @@ impl Session {
                 }
                 Order::Stream => (0..decoded.channels).collect(),
             };
+            (self.mask, self.mask_warning) = wave_channel_mask(&self.labels, &self.order);
         }
         Ok(Some(Frame {
             pcm: decoded.pcm,
             channels: decoded.channels,
             order: &self.order,
             sampling_frequency,
-            channel_mask: mask,
+            channel_mask: self.mask,
+            mask_warning: self.mask_warning.as_deref(),
         }))
     }
 
@@ -135,24 +145,65 @@ impl Session {
     pub fn output_labels(&self) -> Vec<String> {
         self.order
             .iter()
-            .map(|&i| {
-                self.labels.get(i).map_or_else(
-                    || format!("obj{}", i + 1 - self.labels.len()),
-                    ToString::to_string,
-                )
-            })
+            .map(|&i| channel_name(&self.labels, i))
             .collect()
     }
 
-    /// WAVE channel mask of the output (labelled channels only).
+    /// WAVE channel mask of the output, known after the first frame: zero
+    /// unless it names every channel in the order written.
     #[must_use]
     pub fn channel_mask(&self) -> u32 {
-        self.labels
-            .iter()
-            .map(|l| l.interchange_index())
-            .filter(|&i| i < 32)
-            .fold(0, |m, i| m | (1u32 << i))
+        self.mask
     }
+}
+
+/// The name of stream channel `index` in a summary: its label, or `objN` for
+/// the unlabelled channels after the labelled ones (the objects).
+fn channel_name(labels: &[ChannelLabel], index: usize) -> String {
+    labels.get(index).map_or_else(
+        || format!("obj{}", index + 1 - labels.len()),
+        ToString::to_string,
+    )
+}
+
+/// The WAVE channel mask of an output whose position `k` carries stream
+/// channel `order[k]`, and the warning to print when the mask is zero.
+///
+/// A `WAVEFORMATEXTENSIBLE` mask assigns its set bits, lowest first, to the
+/// channels in the order they are written, so a mask is only true when every
+/// channel has a speaker bit and the channels come in bit order. Anything
+/// else is written as zero, the format's way of saying the assignment is not
+/// stated, which is the rule the E-AC-3 writer follows. The mask used to set
+/// the interchange index of every label below 32: presentation 3 wrote its
+/// objects under the bed's bits, wide left set bit 31 (`SPEAKER_ALL`), the
+/// labels past it fell off, and `--order stream` wrote the 7.1 mask over a
+/// side pair where the mask says back.
+pub fn wave_channel_mask(labels: &[ChannelLabel], order: &[usize]) -> (u32, Option<String>) {
+    let unnamed: Vec<String> = order
+        .iter()
+        .filter(|&&i| labels.get(i).and_then(|l| l.wave_bit()).is_none())
+        .map(|&i| channel_name(labels, i))
+        .collect();
+    if !unnamed.is_empty() {
+        return (
+            0,
+            Some(format!(
+                "WAVE has no channel mask bit for {}; writing an unassigned mask",
+                unnamed.join(", ")
+            )),
+        );
+    }
+    let bits: Vec<u8> = order.iter().filter_map(|&i| labels[i].wave_bit()).collect();
+    if bits.windows(2).any(|w| w[0] >= w[1]) {
+        return (
+            0,
+            Some(
+                "the channels are not written in WAVE channel mask order (--order stream); writing an unassigned mask"
+                    .to_string(),
+            ),
+        );
+    }
+    (bits.iter().fold(0, |m, &b| m | (1 << b)), None)
 }
 
 /// Formats a duration in seconds as `h:mm:ss.mmm`.
@@ -301,6 +352,9 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
             rate = frame.sampling_frequency;
             mask = frame.channel_mask;
             if opts.format == Format::Wav {
+                if let Some(warning) = frame.mask_warning {
+                    eprintln!("warning: {warning}");
+                }
                 write_wav_header(&mut out, channels as u16, rate, mask, 0)?;
             }
             header_written = true;
@@ -375,5 +429,48 @@ mod tests {
                 "{name} left the decode looking clean"
             );
         }
+    }
+
+    use oadec_truehd::ChannelLabel as L;
+
+    const SEVEN_ONE: [L; 8] = [L::L, L::R, L::C, L::LFE, L::Ls, L::Rs, L::Lb, L::Rb];
+
+    /// A mask is written only when it names every output channel, in the
+    /// order the samples are written; otherwise the mask is zero, which is the
+    /// format's own way of saying the assignment is not stated.
+    #[test]
+    fn the_wave_mask_names_every_channel_in_bit_order_or_is_zero() {
+        // 7.1 in interchange order is L R C LFE Lb Rb Ls Rs: bits 0-5, 9, 10
+        let order = L::interchange_order(&SEVEN_ONE, 8);
+        assert_eq!(wave_channel_mask(&SEVEN_ONE, &order), (0x63F, None));
+
+        // the same mask over stream order would call Ls Rs the back pair
+        let stream: Vec<usize> = (0..8).collect();
+        let (mask, warning) = wave_channel_mask(&SEVEN_ONE, &stream);
+        assert_eq!(mask, 0);
+        assert!(warning.is_some_and(|w| w.contains("order")));
+
+        // 7.1.2 with top side speakers, which WAVE cannot name
+        let mut seven_one_two = SEVEN_ONE.to_vec();
+        seven_one_two.extend([L::Tsl, L::Tsr]);
+        let order = L::interchange_order(&seven_one_two, 10);
+        let (mask, warning) = wave_channel_mask(&seven_one_two, &order);
+        assert_eq!(mask, 0);
+        let warning = warning.unwrap();
+        assert!(
+            warning.contains("Tsl, Tsr") && warning.contains("unassigned mask"),
+            "{warning}"
+        );
+
+        // fewer labels than channels: the objects after a one-channel bed
+        let order = L::interchange_order(&[L::LFE], 12);
+        let (mask, warning) = wave_channel_mask(&[L::LFE], &order);
+        assert_eq!(mask, 0);
+        assert!(warning.is_some_and(|w| w.contains("obj1, obj2")));
+
+        // and the wide pair, whose old index set bit 31
+        let wide = [L::L, L::R, L::Lw, L::Rw];
+        let order = L::interchange_order(&wide, 4);
+        assert_eq!(wave_channel_mask(&wide, &order).0, 0);
     }
 }
