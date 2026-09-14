@@ -6,6 +6,8 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-14
+
 ### Fixed
 
 - **The ADM writer writes the gain of an active object.** It never had: a
@@ -170,7 +172,7 @@ Semantic Versioning.
   (E-AC-3 JOC, 113 KB; TrueHD Atmos, 546 KB; provenance in
   `crates/oadec-cli/tests/fixtures/README.md`), TrueHD and JOC separately; a
   media-gated gate that the default ADM of pi-head50m stays byte-identical to
-  the audited file; and a CI job that runs the audit toolkit's 136 self-tests
+  the audited file (the crate version in the `dbmd` tool string aside); and a CI job that runs the audit toolkit's 136 self-tests
   and its 27 writer-level cases, each with an expectation.
 - **The ADM remediation report** (`docs/audit/adm-remediation-report.md`) with
   its evidence under `docs/audit/evidence/adm-remediation/`: every audited
