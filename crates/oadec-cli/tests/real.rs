@@ -982,6 +982,148 @@ fn the_merged_channels_carry_the_tones_they_were_authored_with() {
     }
 }
 
+/// The frame groups of an E-AC-3 stream: each independent frame with the
+/// dependent frames that follow it, cut at the sizes their headers give.
+fn frame_groups(data: &[u8]) -> Vec<Vec<&[u8]>> {
+    let mut groups: Vec<Vec<&[u8]>> = Vec::new();
+    let mut at = 0;
+    while at < data.len() {
+        let header = oadec_eac3::FrameHeader::parse(&data[at..]).expect("a syncframe header");
+        let frame = &data[at..at + header.frame_bytes];
+        if header.stream_type == oadec_eac3::StreamType::Dependent {
+            groups
+                .last_mut()
+                .expect("a dependent frame follows an independent one")
+                .push(frame);
+        } else {
+            groups.push(vec![frame]);
+        }
+        at += header.frame_bytes;
+    }
+    groups
+}
+
+/// The interleaved samples of a 32-bit float WAVE file, with its channel count.
+fn wav_f32(path: &Path) -> (Vec<f32>, usize) {
+    let b = std::fs::read(path).expect("wav");
+    assert_eq!(&b[..4], b"RIFF", "{} is not a WAVE file", path.display());
+    let (mut at, mut channels) = (12, 0);
+    while at + 8 <= b.len() {
+        let id = &b[at..at + 4];
+        let size = u32::from_le_bytes(b[at + 4..at + 8].try_into().unwrap()) as usize;
+        let body = at + 8;
+        if id == b"fmt " {
+            channels = usize::from(u16::from_le_bytes([b[body + 2], b[body + 3]]));
+        } else if id == b"data" {
+            let end = b.len().min(body + size);
+            let samples = b[body..end]
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .copied()
+                .map(f32::from_le_bytes)
+                .collect();
+            return (samples, channels);
+        }
+        at = body + size + (size & 1);
+    }
+    panic!("{} has no data chunk", path.display());
+}
+
+/// A substream repeated inside one frame group is counted, and the programme
+/// still arrives whole.
+///
+/// Clause E.1.3.1.2 gives each substream one frame in a group. A second
+/// dependent frame with the same substream id used to reach that substream's
+/// decoder as its next frame and be queued against the group a second time.
+/// Delivery takes one frame per substream per group, so the spare frame stayed
+/// at the head of the queue, no later group could match it, and every group
+/// after the first waited for an end of stream that did not release them
+/// either. The decode wrote one group of 375 and exited 0.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn a_duplicated_dependent_frame_is_counted_and_delivery_continues() {
+    let media = media_dir();
+    let source = media.join("clips/ddp71-tones.ec3");
+    require(&source);
+    let data = std::fs::read(&source).expect("read the clip");
+    let groups = frame_groups(&data);
+    assert_eq!(groups.len(), 375);
+    assert!(
+        groups.iter().all(|g| g.len() == 2),
+        "every group of the clip is one independent and one dependent frame"
+    );
+
+    let dir = std::env::temp_dir().join(format!("oadec-repeated-dependent-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("scratch directory");
+    let repeated = dir.join("repeated.ec3");
+    let mut malformed = Vec::with_capacity(data.len() * 3 / 2);
+    for g in &groups {
+        malformed.extend_from_slice(g[0]);
+        malformed.extend_from_slice(g[1]);
+        malformed.extend_from_slice(g[1]);
+    }
+    std::fs::write(&repeated, &malformed).expect("write the malformed stream");
+
+    let decode = |input: &Path, name: &str| {
+        let out = dir.join(name);
+        let run = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["decode", "--format", "wav", "-o"])
+            .arg(&out)
+            .arg(input)
+            .output()
+            .expect("run oadec decode");
+        let (pcm, channels) = wav_f32(&out);
+        (run, pcm, channels)
+    };
+    let (clean, reference, width) = decode(&source, "original.wav");
+    assert_eq!(
+        clean.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&clean.stderr)
+    );
+    assert_eq!(width, 8);
+
+    let (run, pcm, channels) = decode(&repeated, "repeated.wav");
+    let log = String::from_utf8_lossy(&run.stderr);
+    assert_eq!(channels, 8, "{log}");
+    assert_eq!(
+        pcm.len() / 8,
+        reference.len() / 8,
+        "samples per channel delivered (exit {:?}): {log}",
+        run.status.code()
+    );
+    assert_eq!(run.status.code(), Some(7), "{log}");
+    assert!(
+        log.contains("integrity: 375 substream frames repeated within one group"),
+        "{log}"
+    );
+    // the repeats never reached a decoder, so every channel is the clean
+    // decode's to the bit, the core's with the rest
+    for (ch, name) in ["L", "R", "C", "LFE", "Lrs", "Rrs", "Ls", "Rs"]
+        .iter()
+        .enumerate()
+    {
+        assert!(
+            pcm.iter()
+                .skip(ch)
+                .step_by(8)
+                .eq(reference.iter().skip(ch).step_by(8)),
+            "{name} differs from the decode of the well-formed stream"
+        );
+    }
+
+    let report = verify_json(&repeated);
+    assert_eq!(
+        nonzero_failures(&report),
+        ["duplicate_substream_frames=375"]
+    );
+    assert_eq!(report["frames"].as_u64(), Some(375), "groups delivered");
+    assert_eq!(report["dependent_frames"].as_u64(), Some(750));
+    std::fs::remove_dir_all(&dir).expect("remove the scratch directory");
+}
+
 /// Interleaved samples of a CAF file, as `f64` in −1..1, with its channel
 /// count. The DAMF audio this decoder writes is 24-bit; Dolby's raw object
 /// dump is headerless 32-bit float.
