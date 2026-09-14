@@ -12,7 +12,7 @@
 
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{self, BufWriter, Seek, SeekFrom, Write};
+use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use oadec_emdf::oamd::{BedChannel, Gain};
@@ -438,27 +438,8 @@ impl AdmWriter {
             .into_inner()
             .map_err(io::IntoInnerError::into_error)?;
         let total = file.metadata()?.len();
-        let riff_size = total - 8;
-        let rf64 = riff_size > u64::from(u32::MAX) || data_bytes > u64::from(u32::MAX);
-        if rf64 {
-            file.seek(SeekFrom::Start(0))?;
-            file.write_all(b"RF64")?;
-            file.write_all(&u32::MAX.to_le_bytes())?;
-            file.seek(SeekFrom::Start(12))?;
-            file.write_all(b"ds64")?;
-            file.write_all(&JUNK_LEN.to_le_bytes())?;
-            file.write_all(&riff_size.to_le_bytes())?;
-            file.write_all(&data_bytes.to_le_bytes())?;
-            file.write_all(&self.frames.to_le_bytes())?;
-            file.write_all(&0u32.to_le_bytes())?;
-            file.seek(SeekFrom::Start(DATA_SIZE_POS))?;
-            file.write_all(&u32::MAX.to_le_bytes())?;
-        } else {
-            file.seek(SeekFrom::Start(4))?;
-            file.write_all(&(riff_size as u32).to_le_bytes())?;
-            file.seek(SeekFrom::Start(DATA_SIZE_POS))?;
-            file.write_all(&(data_bytes as u32).to_le_bytes())?;
-        }
+        let rf64 =
+            crate::patch_riff_sizes(&mut file, total, DATA_SIZE_POS, data_bytes, self.frames)?;
         file.flush()?;
         Ok(AdmSummary {
             frames: self.frames,

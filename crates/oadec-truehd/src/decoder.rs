@@ -687,9 +687,7 @@ impl Decoder {
         let (au, config) = AccessUnit::parse(unit, Some(&self.config))?;
         if let Some(ms) = &au.major_sync {
             if let Some(what) = self.config.incompatible_with(&config) {
-                return Err(Error::malformed(format!(
-                    "{what} changed at a major sync (not supported yet)"
-                )));
+                return Err(Error::ConfigChanged { what });
             }
             self.parser.update(&config);
             self.core
