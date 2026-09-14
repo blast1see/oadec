@@ -520,6 +520,40 @@ mod tests {
         assert_eq!(obj.mtx_q[1], obj.mtx_q[0]);
     }
 
+    /// The object path judges a payload's declared size by `size_ok`, so a
+    /// byte the syntax never reaches has to make it false. The parse itself
+    /// succeeds: it stops where the syntax does.
+    #[test]
+    fn a_trailing_byte_is_a_size_mismatch() {
+        let mut w = Writer { bits: Vec::new() };
+        w.put(0, 3); // dmx 5.X
+        w.put(0, 6); // one object
+        w.put(0, 3); // no extension
+        w.put(4, 3); // clipgain x = 4 -> 2^0
+        w.put(0, 5); // clipgain y = 0 -> 1.0
+        w.put(7, 10); // seq count
+        w.put(0, 1); // the object is absent
+        while !w.bits.len().is_multiple_of(8) {
+            w.bits.push(false);
+        }
+        let mut bytes = w.bytes();
+        let exact = Joc::parse(&bytes, SparseReading::Measured).unwrap();
+        assert!(
+            exact.size_ok(bytes.len()),
+            "the payload as written is exact"
+        );
+        bytes.push(0);
+        let long = Joc::parse(&bytes, SparseReading::Measured).unwrap();
+        assert_eq!(
+            long.bits_used, exact.bits_used,
+            "the parse stops where the syntax does"
+        );
+        assert!(
+            !long.size_ok(bytes.len()),
+            "one trailing byte is a declared size the syntax does not fill"
+        );
+    }
+
     /// Clause 6.6.2 applies its modulo from the second parameter band on, not
     /// to the first, and three transmitted bits can name a channel that a
     /// five-channel downmix does not have. Such a band selects none of them.
