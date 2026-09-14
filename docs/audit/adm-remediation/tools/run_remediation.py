@@ -27,6 +27,7 @@ Exit code 1 when an expectation is not met, so CI can run the harness stage.
 """
 from __future__ import annotations
 
+import re
 import argparse
 import hashlib
 import json
@@ -428,9 +429,102 @@ def verify_expected_difference(a, inv_files: dict, path: str, new_base: str) -> 
     return out
 
 
+def audited_tool_version(inv: dict):
+    """The oadec version the audited outputs name, read from a stored `.atmos` header."""
+    for r in inv["files"]:
+        text = r.get("text")
+        if r["path"].endswith(".atmos") and isinstance(text, str) and "creationTool: oadec" in text:
+            m = re.search(r"creationToolVersion:\s*(\S+)", text)
+            if m:
+                return m.group(1)
+    return None
+
+
+def version_patches(path: str, current: str, audited: str):
+    """Byte offsets to rewrite so that an output written by `current` reads as if
+    `audited` had written it: the `creationToolVersion` line of a `.atmos` header,
+    or the tool string inside the `dbmd` chunk of an ADM file together with the
+    checksum of the segment that carries it. None when the two versions cannot be
+    exchanged byte for byte (different lengths, string not found)."""
+    if len(current) != len(audited):
+        return None
+    if path.endswith(".atmos"):
+        with open(path, "rb") as f:
+            data = f.read()
+        needle = f"creationToolVersion: {current}".encode()
+        at = data.find(needle)
+        if at < 0:
+            return None
+        start = at + len(needle) - len(current)
+        return {start + i: b for i, b in enumerate(audited.encode())}
+    if path.endswith(".wav"):
+        size = os.path.getsize(path)
+        with open(path, "rb") as f:
+            f.seek(max(0, size - (1 << 20)))
+            tail_off = f.tell()
+            tail = f.read()
+        at = tail.rfind(b"dbmd")
+        if at < 0:
+            return None
+        payload_off = at + 8
+        length = int.from_bytes(tail[at + 4:at + 8], "little")
+        payload = tail[payload_off:payload_off + length]
+        needle = b"oadec " + current.encode()
+        pos = 4  # the four version bytes
+        while pos + 3 <= len(payload) and payload[pos] != 0:
+            seg_size = int.from_bytes(payload[pos + 1:pos + 3], "little")
+            seg_payload = payload[pos + 3:pos + 3 + seg_size]
+            hit = seg_payload.find(needle)
+            if hit >= 0:
+                patched = bytearray(seg_payload)
+                patched[hit + 6:hit + 6 + len(current)] = audited.encode()
+                checksum = (256 - ((sum(patched) + seg_size) & 0xFF)) & 0xFF
+                base = tail_off + payload_off + pos + 3
+                out = {base + hit + 6 + i: b for i, b in enumerate(audited.encode())}
+                out[base + seg_size] = checksum
+                return out
+            pos += 3 + seg_size + 1
+        return None
+    return None
+
+
+def sha256_file_patched(path: str, patches: dict) -> str:
+    """sha256 of the file with the given byte offsets replaced."""
+    h = hashlib.sha256()
+    off = 0
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8 << 20), b""):
+            lo, hi = off, off + len(chunk)
+            local = {k - lo: v for k, v in patches.items() if lo <= k < hi}
+            if local:
+                b = bytearray(chunk)
+                for k, v in local.items():
+                    b[k] = v
+                chunk = bytes(b)
+            h.update(chunk)
+            off = hi
+    return h.hexdigest()
+
+
 def stage_regression(a) -> dict:
+    """Every audited decode, replayed with the new binary and compared byte for byte.
+
+    A version bump changes two things in the outputs and nothing else: the
+    `creationToolVersion` line of a `.atmos` header, and the tool string (with
+    that segment's checksum) inside an ADM file's `dbmd` chunk. An output counts
+    as identical when its bytes match the audited hash as written, or after those
+    version bytes are put back to the audited version; every other byte must
+    match. Expected differences are verified only once every record has been
+    decoded, because the verification reads the DAMF a sibling record writes.
+    """
     inv = load(os.path.join(a.repo, "docs", "audit", "evidence", "adm", "adm-work-inventory.json"))
     inv_files = {r["path"]: r for r in inv["files"]}
+    audited_version = audited_tool_version(inv)
+    current_version = None
+    try:
+        current_version = subprocess.run([a.oadec, "--version"], capture_output=True, text=True).stdout.split()[1]
+    except (OSError, IndexError):
+        pass
     records = []
     for r in inv["files"]:
         if not r["path"].endswith(".run.json") or "content" not in r:
@@ -442,8 +536,7 @@ def stage_regression(a) -> dict:
         if r["path"].startswith("big/") and not a.with_full_film:
             continue
         records.append((r["path"], c))
-    results = []
-    identical = 0
+    runs = {}
     for path, c in sorted(records):
         argv = list(c["run"]["argv"])
         argv[0] = a.oadec
@@ -455,22 +548,36 @@ def stage_regression(a) -> dict:
         os.makedirs(os.path.dirname(new_base), exist_ok=True)
         argv[i + 1] = new_base
         env = {k: v for k, v in os.environ.items() if not k.startswith("OADEC_")}
-        p = subprocess.run(argv, capture_output=True, text=True, errors="replace", env=env)
+        runs[path] = (argv, new_base, subprocess.run(argv, capture_output=True, text=True, errors="replace", env=env))
+    results = []
+    identical = 0
+    modulo_version = 0
+    for path, c in sorted(records):
+        argv, new_base, p = runs[path]
         outs = []
         all_same = True
         for o in c.get("outputs", []):
             name = os.path.basename(o["path"])
             new_path = os.path.join(os.path.dirname(new_base), name)
-            same = os.path.isfile(new_path) and sha256_file(new_path) == o["sha256"]  # hashed again below for the record
+            exists = os.path.isfile(new_path)
+            digest = sha256_file(new_path) if exists else None
+            same = exists and digest == o["sha256"]
+            same_mod = False
+            if exists and not same and audited_version and current_version and audited_version != current_version:
+                patches = version_patches(new_path, current_version, audited_version)
+                same_mod = patches is not None and sha256_file_patched(new_path, patches) == o["sha256"]
             outs.append({"file": name, "audited_sha256": o["sha256"], "audited_bytes": o["bytes"], "identical": same,
-                         "bytes": os.path.getsize(new_path) if os.path.isfile(new_path) else None,
-                         "sha256": sha256_file(new_path) if os.path.isfile(new_path) else None})
-            all_same = all_same and same
+                         "identical_modulo_version": same_mod,
+                         "bytes": os.path.getsize(new_path) if exists else None, "sha256": digest})
+            all_same = all_same and (same or same_mod)
+            modulo_version += int(same_mod)
         identical += all_same
         entry = {"record": path, "argv": argv[1:], "audited_exit": c["run"]["exit_code"], "exit": p.returncode,
                  "exit_equal": p.returncode == c["run"]["exit_code"], "outputs": outs, "all_identical": all_same,
                  "stderr_tail": p.stderr[-600:]}
         verdict = "identical" if all_same else "DIFFERENT"
+        if all_same and any(o["identical_modulo_version"] for o in outs):
+            verdict = "identical (version string only)"
         if not all_same and path in EXPECTED_DIFFERENCES:
             entry["expected_difference"] = verify_expected_difference(a, inv_files, path, new_base)
             verdict = "expected difference, verified" if entry["expected_difference"]["ok"] else "expected difference, NOT as specified"
@@ -478,7 +585,9 @@ def stage_regression(a) -> dict:
         print(f"{path:60} exit {p.returncode} (audited {c['run']['exit_code']}) {verdict}", flush=True)
     expected_ok = sum(1 for r in results if (r.get("expected_difference") or {}).get("ok"))
     unexplained = [r["record"] for r in results if not r["all_identical"] and not (r.get("expected_difference") or {}).get("ok")]
-    summary = {"records": len(results), "identical": identical, "different": len(results) - identical,
+    summary = {"records": len(results), "identical": identical, "identical_outputs_modulo_version": modulo_version,
+               "audited_tool_version": audited_version, "current_tool_version": current_version,
+               "different": len(results) - identical,
                "expected_differences_verified": expected_ok, "unexplained_differences": unexplained,
                "exit_mismatches": sum(1 for r in results if not r["exit_equal"]), "binary_sha256": sha256_file(a.oadec), "results": results}
     dump(os.path.join(a.work, "regression", "byte-identity.json"), summary)
