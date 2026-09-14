@@ -130,3 +130,29 @@ fn oamd_refuses_an_ac3_stream_rather_than_misreading_its_frames() {
         stderr(&out)
     );
 }
+
+/// `emdf --dump` printed a frame's object count and then only the first four
+/// objects: "OAMD 16 objects" and obj 0 to 3 on the JOC encode, a quarter of
+/// the metadata the dump was asked for, reading like a stream of four
+/// objects. Every object has its line now, in order.
+#[test]
+fn emdf_dump_prints_every_object() {
+    let out = oadec(&["emdf", "--dump", "1", &fixture("authored-scene.ec3")]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    let text = stdout(&out);
+    assert!(text.contains("OAMD 16 objects"), "{text}");
+    let objects: Vec<usize> = text
+        .lines()
+        .filter(|l| l.starts_with(char::is_whitespace))
+        .filter_map(|l| l.trim_start().strip_prefix("obj ")?.split_once(':'))
+        .map(|(n, _)| {
+            n.parse()
+                .unwrap_or_else(|_| panic!("object number {n:?}: {text}"))
+        })
+        .collect();
+    assert_eq!(
+        objects,
+        (0..16).collect::<Vec<_>>(),
+        "one line per object: {text}"
+    );
+}
