@@ -1,0 +1,95 @@
+{
+  "id": "adm-remediation-render",
+  "title": "EBU ADM Renderer: oadec's gain file against Dolby's; the real-ramp mode against the audit's real-ramp variant",
+  "topics": [
+    "render"
+  ],
+  "evidence_class": "REFERENCE",
+  "structural_result": null,
+  "semantic_result": null,
+  "classification": "renderer equality is supporting evidence only",
+  "method": "run_remediation.py --stage render",
+  "inputs": [],
+  "tolerance": null,
+  "generated_by": "docs/audit/adm-remediation/tools/run_remediation.py",
+  "utc": "2026-09-14T04:58:03Z",
+  "comparisons": {
+    "c02 oadec vs dolby-ct @ 0+5+0": {
+      "all_identical": true,
+      "min_sdr_db": null,
+      "max_abs_overall": 0
+    },
+    "c02 oadec vs dolby-ct @ 4+7+0": {
+      "all_identical": true,
+      "min_sdr_db": null,
+      "max_abs_overall": 0
+    },
+    "real vs audit-variant @ 0+2+0": {
+      "all_identical": true,
+      "min_sdr_db": null,
+      "max_abs_overall": 0
+    },
+    "real vs audit-variant @ 4+7+0": {
+      "all_identical": true,
+      "min_sdr_db": null,
+      "max_abs_overall": 0
+    }
+  },
+  "c02_inputs_present": {
+    "oadec": true,
+    "dolby-ct": true
+  },
+  "renders": {
+    "c02/oadec/0+5+0": {
+      "exit": 0,
+      "seconds": 0.812
+    },
+    "c02/oadec/4+7+0": {
+      "exit": 0,
+      "seconds": 0.766
+    },
+    "c02/dolby-ct/0+5+0": {
+      "exit": 0,
+      "seconds": 0.765
+    },
+    "c02/dolby-ct/4+7+0": {
+      "exit": 0,
+      "seconds": 0.781
+    },
+    "real/real/0+2+0": {
+      "exit": 0,
+      "seconds": 4.313
+    },
+    "real/real/4+7+0": {
+      "exit": 0,
+      "seconds": 11.765
+    },
+    "real/audit-variant/0+2+0": {
+      "exit": 0,
+      "seconds": 4.438
+    },
+    "real/audit-variant/4+7+0": {
+      "exit": 0,
+      "seconds": 11.75
+    }
+  },
+  "real_mode_run": {
+    "exit": 7,
+    "stderr_tail": "es x 21 channels (0:01:45.746) in E:/oadec-work/audit/adm/remed/val\\render\\pi-head50m-real.wav, 130 object blocks, 319859810 bytes\nADM BWF written outside the Dolby Atmos master ADM profile: interpolation lengths are the source ramps\nmetadata: 3306 payloads in 3306 access units, 132 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 84 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+  },
+  "audit_variant": {
+    "blocks_with_real_ramp": 117,
+    "objects": 9
+  },
+  "real_mode_ledger": {
+    "classes": {
+      "bed_event": 2,
+      "matched": 119,
+      "inexpressible_change": 11
+    },
+    "loss": {},
+    "defects": 0,
+    "trajectory_max_e_worst": 2.7100000021818005e-08,
+    "trajectory_tolerance": 1e-06
+  }
+}

@@ -27,7 +27,9 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 use crate::compare::RefFormat;
+use crate::damf::{InterpolationArg, IsfArg};
 use crate::decode::{Format, Order};
+use crate::integrity::Verdict;
 
 /// Object-audio decoder engine for Dolby TrueHD Atmos and E-AC-3 JOC streams.
 #[derive(Debug, Parser)]
@@ -85,9 +87,11 @@ enum Command {
         /// Output file.
         #[arg(short, long)]
         output: PathBuf,
-        /// Presentation to decode (0 = 2ch, 1 = 6ch, 2 = 8ch, 3 = 16ch objects).
-        #[arg(short, long, default_value_t = 2)]
-        presentation: usize,
+        /// Presentation to decode (0 = 2ch, 1 = 6ch, 2 = 8ch, 3 = 16ch objects);
+        /// 2 when absent. The object formats (damf, adm) always decode 3 and
+        /// refuse any other value.
+        #[arg(short, long)]
+        presentation: Option<usize>,
         /// Output container.
         #[arg(long, value_enum, default_value_t = Format::Wav)]
         format: Format,
@@ -108,6 +112,30 @@ enum Command {
         /// equipment"); the DAMF output needs no such marker.
         #[arg(long)]
         dolby_origin_tag: bool,
+        /// DAMF/ADM: also write the loss ledger (what the output could not carry of
+        /// the programme) as JSON to this file.
+        #[arg(long, value_name = "FILE")]
+        loss_report: Option<PathBuf>,
+        /// DAMF/ADM: intermediate-spatial-format (ISF) objects, which neither
+        /// format can represent: refuse the decode, or write the output without
+        /// them and declare the loss (exit 4).
+        #[arg(long, value_enum, default_value_t = IsfArg::Error)]
+        isf: IsfArg,
+        /// ADM: write a programme that is not at 48 kHz although the Dolby Atmos
+        /// master ADM profile requires 48 kHz; the file is declared outside the
+        /// profile (exit 4). Without it such a programme is refused.
+        #[arg(long)]
+        adm_allow_non_profile_rate: bool,
+        /// DAMF: frame rate written to the `.atmos` header (header data for
+        /// picture-locked workflows; event timing is in samples).
+        #[arg(long, default_value = "24", value_parser = ["23.976", "24", "25", "29.97", "30"])]
+        fps: String,
+        /// ADM: how interpolation lengths are written: the profile's fixed 250
+        /// samples (the default, what Dolby's converters write) or the source
+        /// ramps (BS.2076, outside the profile; marked in the file, refuses
+        /// --dolby-origin-tag).
+        #[arg(long, value_enum, default_value_t = InterpolationArg::Profile)]
+        adm_interpolation: InterpolationArg,
         /// E-AC-3: write only the 5.1-compatible channels of the independent
         /// substream instead of the whole programme, which is what a decoder
         /// limited to 5.1 produces (clause E.2.8.2).
@@ -340,6 +368,11 @@ fn main() -> ExitCode {
                 no_bed_conform,
                 all_events,
                 dolby_origin_tag,
+                loss_report,
+                isf,
+                adm_allow_non_profile_rate,
+                fps,
+                adm_interpolation,
                 core_only,
                 no_dither,
                 no_tpnp,
@@ -348,7 +381,11 @@ fn main() -> ExitCode {
                 flat_quadrature,
                 sparse_as_printed,
                 steep_as_printed,
-            } => if eac3::is_eac3(&file).unwrap_or(false)
+            } => if let Err(e) = damf::check_presentation(format, presentation).and_then(|()| {
+                damf::check_interpolation(adm_interpolation.into(), dolby_origin_tag)
+            }) {
+                Err(e)
+            } else if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
             {
                 if core_only {
@@ -370,6 +407,11 @@ fn main() -> ExitCode {
                             all_events,
                             adm: format == Format::Adm,
                             dolby_origin_tag,
+                            loss_report: loss_report.clone(),
+                            isf: isf.into(),
+                            allow_non_profile_rate: adm_allow_non_profile_rate,
+                            fps: fps.clone(),
+                            interpolation: adm_interpolation.into(),
                             clip_gain: !no_clip_gain,
                             flat_quadrature,
                             sparse_as_printed,
@@ -395,6 +437,7 @@ fn main() -> ExitCode {
                         ecpl_full: ecpl_spec,
                     },
                 )
+                .map(Verdict::from_clean)
             } else if matches!(format, Format::Damf | Format::Adm) {
                 damf::run(
                     &file,
@@ -405,6 +448,11 @@ fn main() -> ExitCode {
                         all_events,
                         adm: format == Format::Adm,
                         dolby_origin_tag,
+                        loss_report: loss_report.clone(),
+                        isf: isf.into(),
+                        allow_non_profile_rate: adm_allow_non_profile_rate,
+                        fps: fps.clone(),
+                        interpolation: adm_interpolation.into(),
                         // TrueHD carries no JOC, so neither of these apply.
                         clip_gain: false,
                         flat_quadrature: false,
@@ -419,20 +467,15 @@ fn main() -> ExitCode {
                     &file,
                     &output,
                     &decode::Options {
-                        presentation,
+                        presentation: presentation.unwrap_or(2),
                         format,
                         order,
                         keep_duplicates,
                     },
                 )
+                .map(Verdict::from_clean)
             }
-            .map(|clean| {
-                if clean {
-                    ExitCode::SUCCESS
-                } else {
-                    ExitCode::from(EXIT_NONCONFORMANT)
-                }
-            }),
+            .map(|verdict| ExitCode::from(verdict.exit_code())),
             Command::Compare {
                 file,
                 reference,

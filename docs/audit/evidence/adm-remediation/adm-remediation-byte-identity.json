@@ -1,0 +1,1777 @@
+{
+  "id": "adm-remediation-byte-identity",
+  "title": "Every audited decode replayed with the remediated binary: output hashes against adm-work-inventory.json",
+  "topics": [
+    "regression"
+  ],
+  "evidence_class": "MEASURED",
+  "structural_result": "PASS",
+  "semantic_result": "PASS",
+  "classification": "50 of 51 runs byte-identical, 1 expected difference verified (R6 object numbering), 0 unexplained, 0 exit-code differences",
+  "method": "run_remediation.py --stage regression",
+  "inputs": [],
+  "tolerance": null,
+  "generated_by": "docs/audit/adm-remediation/tools/run_remediation.py",
+  "utc": "2026-09-14T04:58:03Z",
+  "records": 51,
+  "identical": 50,
+  "different": 1,
+  "expected_differences_verified": 1,
+  "unexplained_differences": [],
+  "exit_mismatches": 0,
+  "binary_sha256": "0689ba53b797ae3109b660da2329c3d5a126b5aec66bc5260222a871dd4e961e",
+  "results": [
+    {
+      "record": "work/joc/disclosure-web-head/default/disclosure-web-head.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/disclosure-web-head.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/disclosure-web-head/default/disclosure-web-head"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "disclosure-web-head.wav",
+          "audited_sha256": "8a47f13e51a58280bc7740d2f1e0e7de5dee1c0eaaa51835fdb0f1c65e03335d",
+          "audited_bytes": 112465718,
+          "identical": true,
+          "bytes": 112465718,
+          "sha256": "8a47f13e51a58280bc7740d2f1e0e7de5dee1c0eaaa51835fdb0f1c65e03335d"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "ma/audit/adm/remed/val\\regress\\work/joc/disclosure-web-head/default\\disclosure-web-head.wav, 27 object blocks, 112465718 bytes\nmetadata: 976 payloads, 28 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.90 s (35x realtime)\nadm: profile reductions: 12 interpolation lengths replaced by 250 samples (1536 x12)\nadm: not representable in DAMF or the ADM profile: 1 warp mode setting\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/joc/disclosure-web-head/default/disclosure-web-head.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/disclosure-web-head.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/disclosure-web-head/default/disclosure-web-head"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "disclosure-web-head.atmos",
+          "audited_sha256": "78ed53968fcdcfe9b80a9318cfba3e4d1c48bf4ad75593b5c044d0e338d31f13",
+          "audited_bytes": 995,
+          "identical": true,
+          "bytes": 995,
+          "sha256": "78ed53968fcdcfe9b80a9318cfba3e4d1c48bf4ad75593b5c044d0e338d31f13"
+        },
+        {
+          "file": "disclosure-web-head.atmos.metadata",
+          "audited_sha256": "e0f93e8aed643e6abb30ee7d6acf8cda6033d406c80bb029bb9172ab33dbb629",
+          "audited_bytes": 5947,
+          "identical": true,
+          "bytes": 5947,
+          "sha256": "e0f93e8aed643e6abb30ee7d6acf8cda6033d406c80bb029bb9172ab33dbb629"
+        },
+        {
+          "file": "disclosure-web-head.atmos.audio",
+          "audited_sha256": "b6e8c8eba94bc187d6773f1c49a33aa33d9bc0aaf8e2a74e599f0aaf03c41436",
+          "audited_bytes": 112416068,
+          "identical": true,
+          "bytes": 112416068,
+          "sha256": "b6e8c8eba94bc187d6773f1c49a33aa33d9bc0aaf8e2a74e599f0aaf03c41436"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "annels (config 3), clip gain 1.000 (applied)\nDAMF: 1498880 frames x 25 channels (0:00:31.227) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/disclosure-web-head/default\\disclosure-web-head.atmos.audio\nmetadata: 976 payloads, 28 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.92 s (34x realtime)\ndamf: not representable in DAMF or the ADM profile: 1 warp mode setting\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/joc/extraction-nf-head/default/extraction-nf-head.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/extraction-nf-head.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/extraction-nf-head/default/extraction-nf-head"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "extraction-nf-head.wav",
+          "audited_sha256": "4ead325af69b596602add42fc26bea85ef86157cf8f43a520365045f2493fc4a",
+          "audited_bytes": 112473418,
+          "identical": true,
+          "bytes": 112473418,
+          "sha256": "4ead325af69b596602add42fc26bea85ef86157cf8f43a520365045f2493fc4a"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "isma/audit/adm/remed/val\\regress\\work/joc/extraction-nf-head/default\\extraction-nf-head.wav, 49 object blocks, 112473418 bytes\nmetadata: 976 payloads, 50 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.90 s (35x realtime)\nadm: profile reductions: 34 interpolation lengths replaced by 250 samples (1536 x34)\nadm: not representable in DAMF or the ADM profile: 1 warp mode setting\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/joc/extraction-nf-head/default/extraction-nf-head.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/extraction-nf-head.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/extraction-nf-head/default/extraction-nf-head"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "extraction-nf-head.atmos",
+          "audited_sha256": "33cbdd961e7931e0188668883a4c6ed22b3b24ac3a7ed0a12fb2357dd2624256",
+          "audited_bytes": 993,
+          "identical": true,
+          "bytes": 993,
+          "sha256": "33cbdd961e7931e0188668883a4c6ed22b3b24ac3a7ed0a12fb2357dd2624256"
+        },
+        {
+          "file": "extraction-nf-head.atmos.metadata",
+          "audited_sha256": "83bbbc4e68306f8a58a02e5a0bfbec15573c42121aa1b51306ad75e1ae11e536",
+          "audited_bytes": 7205,
+          "identical": true,
+          "bytes": 7205,
+          "sha256": "83bbbc4e68306f8a58a02e5a0bfbec15573c42121aa1b51306ad75e1ae11e536"
+        },
+        {
+          "file": "extraction-nf-head.atmos.audio",
+          "audited_sha256": "62ecb6145fab8746d787b888b9ef794b762389811eda26b3a1b1ff9471939a36",
+          "audited_bytes": 112416068,
+          "identical": true,
+          "bytes": 112416068,
+          "sha256": "62ecb6145fab8746d787b888b9ef794b762389811eda26b3a1b1ff9471939a36"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "channels (config 3), clip gain 1.000 (applied)\nDAMF: 1498880 frames x 25 channels (0:00:31.227) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/extraction-nf-head/default\\extraction-nf-head.atmos.audio\nmetadata: 976 payloads, 50 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.93 s (34x realtime)\ndamf: not representable in DAMF or the ADM profile: 1 warp mode setting\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/joc/fast-joc/default/fast-joc.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/fast-joc.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/fast-joc/default/fast-joc"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "fast-joc.wav",
+          "audited_sha256": "cbdb7927b283abe5b406300d573c4147cb9e03d3471709b9e88dea8f961c539c",
+          "audited_bytes": 36712272,
+          "identical": true,
+          "bytes": 36712272,
+          "sha256": "cbdb7927b283abe5b406300d573c4147cb9e03d3471709b9e88dea8f961c539c"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": " over 5 downmix channels (config 3), clip gain 1.000 (applied)\nADM BWF: 480512 frames x 25 channels (0:00:10.011) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/fast-joc/default\\fast-joc.wav, 1566 object blocks, 36712272 bytes\nmetadata: 313 payloads, 1567 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.28 s (36x realtime)\nadm: profile reductions: 1551 interpolation lengths replaced by 250 samples (1536 x1551)\nadm: not representable in DAMF or the ADM profile: 1 warp mode setting\n"
+    },
+    {
+      "record": "work/joc/fast-joc/default/fast-joc.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/fast-joc.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/fast-joc/default/fast-joc"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "fast-joc.atmos",
+          "audited_sha256": "fb15f2bbc74f9b5bee39b0973c8ab34bbab57001d401aacf960e1c8b48e1295c",
+          "audited_bytes": 973,
+          "identical": true,
+          "bytes": 973,
+          "sha256": "fb15f2bbc74f9b5bee39b0973c8ab34bbab57001d401aacf960e1c8b48e1295c"
+        },
+        {
+          "file": "fast-joc.atmos.metadata",
+          "audited_sha256": "33a5bff2dfe5df87fcdba59dfc08da5b5966f57729ae355beeb8c8a5ea481d57",
+          "audited_bytes": 127143,
+          "identical": true,
+          "bytes": 127143,
+          "sha256": "33a5bff2dfe5df87fcdba59dfc08da5b5966f57729ae355beeb8c8a5ea481d57"
+        },
+        {
+          "file": "fast-joc.atmos.audio",
+          "audited_sha256": "c5dadd9fd532f6369224e13cf82595258f7209b139cffe5dfd3cb015b5067e93",
+          "audited_bytes": 36038468,
+          "identical": true,
+          "bytes": 36038468,
+          "sha256": "c5dadd9fd532f6369224e13cf82595258f7209b139cffe5dfd3cb015b5067e93"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 5 downmix channels (config 3), clip gain 1.000 (applied)\nDAMF: 480512 frames x 25 channels (0:00:10.011) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/fast-joc/default\\fast-joc.atmos.audio\nmetadata: 313 payloads, 1567 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.29 s (35x realtime)\ndamf: not representable in DAMF or the ADM profile: 1 warp mode setting\n"
+    },
+    {
+      "record": "work/joc/gainsize-joc/default/gainsize-joc.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/gainsize-joc.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/gainsize-joc/default/gainsize-joc"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "gainsize-joc.wav",
+          "audited_sha256": "3abfaa42ca698ae0b2515013a51ec6e3b4b6f1150380352c5328a9f80f356472",
+          "audited_bytes": 36084030,
+          "identical": true,
+          "bytes": 36084030,
+          "sha256": "3abfaa42ca698ae0b2515013a51ec6e3b4b6f1150380352c5328a9f80f356472"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 5 downmix channels (config 3), clip gain 1.000 (applied)\nADM BWF: 480512 frames x 25 channels (0:00:10.011) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/gainsize-joc/default\\gainsize-joc.wav, 15 object blocks, 36084030 bytes\nmetadata: 313 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.28 s (36x realtime)\nadm: not representable in DAMF or the ADM profile: 1 warp mode setting\n"
+    },
+    {
+      "record": "work/joc/gainsize-joc/default/gainsize-joc.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/gainsize-joc.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/gainsize-joc/default/gainsize-joc"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "gainsize-joc.atmos",
+          "audited_sha256": "cf0c182068ae281ebbfd97c940c13ba66284327c54e9d1f10a0aace9ce1b35a0",
+          "audited_bytes": 981,
+          "identical": true,
+          "bytes": 981,
+          "sha256": "cf0c182068ae281ebbfd97c940c13ba66284327c54e9d1f10a0aace9ce1b35a0"
+        },
+        {
+          "file": "gainsize-joc.atmos.metadata",
+          "audited_sha256": "c30e1a29deb38ea17675e7b405393ec776880bbfca7c0714f31b2741696ccd25",
+          "audited_bytes": 5315,
+          "identical": true,
+          "bytes": 5315,
+          "sha256": "c30e1a29deb38ea17675e7b405393ec776880bbfca7c0714f31b2741696ccd25"
+        },
+        {
+          "file": "gainsize-joc.atmos.audio",
+          "audited_sha256": "83c406ed7aeb7025b4bc827a2a393e9b0225d298a435513496749b9128f38b3c",
+          "audited_bytes": 36038468,
+          "identical": true,
+          "bytes": 36038468,
+          "sha256": "83c406ed7aeb7025b4bc827a2a393e9b0225d298a435513496749b9128f38b3c"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 5 downmix channels (config 3), clip gain 1.000 (applied)\nDAMF: 480512 frames x 25 channels (0:00:10.011) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/gainsize-joc/default\\gainsize-joc.atmos.audio\nmetadata: 313 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.29 s (34x realtime)\ndamf: not representable in DAMF or the ADM profile: 1 warp mode setting\n"
+    },
+    {
+      "record": "work/joc/glassonion-nf-head/default/glassonion-nf-head.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/glassonion-nf-head.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/glassonion-nf-head/default/glassonion-nf-head"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "glassonion-nf-head.wav",
+          "audited_sha256": "98ae379b90dbc108dbf1a2482416aad01d84ba430b3b855d85b3c1198e07a193",
+          "audited_bytes": 112465826,
+          "identical": true,
+          "bytes": 112465826,
+          "sha256": "98ae379b90dbc108dbf1a2482416aad01d84ba430b3b855d85b3c1198e07a193"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "isma/audit/adm/remed/val\\regress\\work/joc/glassonion-nf-head/default\\glassonion-nf-head.wav, 27 object blocks, 112465826 bytes\nmetadata: 976 payloads, 28 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.90 s (35x realtime)\nadm: profile reductions: 12 interpolation lengths replaced by 250 samples (1536 x12)\nadm: not representable in DAMF or the ADM profile: 1 warp mode setting\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/joc/glassonion-nf-head/default/glassonion-nf-head.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/glassonion-nf-head.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/glassonion-nf-head/default/glassonion-nf-head"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "glassonion-nf-head.atmos",
+          "audited_sha256": "170a52eaae84f8858d921779ea533cf673d3046ddc122bb091b891f0479042d6",
+          "audited_bytes": 993,
+          "identical": true,
+          "bytes": 993,
+          "sha256": "170a52eaae84f8858d921779ea533cf673d3046ddc122bb091b891f0479042d6"
+        },
+        {
+          "file": "glassonion-nf-head.atmos.metadata",
+          "audited_sha256": "f560f5c3b61d414408965a36cf3aee22bba1a6cba512c7e9a60fce02cfe9fc14",
+          "audited_bytes": 5948,
+          "identical": true,
+          "bytes": 5948,
+          "sha256": "f560f5c3b61d414408965a36cf3aee22bba1a6cba512c7e9a60fce02cfe9fc14"
+        },
+        {
+          "file": "glassonion-nf-head.atmos.audio",
+          "audited_sha256": "5030c6f581f713a36400312b73e855a8fc6bf019550f75983d4f2a4b2c6184fd",
+          "audited_bytes": 112416068,
+          "identical": true,
+          "bytes": 112416068,
+          "sha256": "5030c6f581f713a36400312b73e855a8fc6bf019550f75983d4f2a4b2c6184fd"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "channels (config 3), clip gain 1.000 (applied)\nDAMF: 1498880 frames x 25 channels (0:00:31.227) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/glassonion-nf-head/default\\glassonion-nf-head.atmos.audio\nmetadata: 976 payloads, 28 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.91 s (34x realtime)\ndamf: not representable in DAMF or the ADM profile: 1 warp mode setting\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/joc/greenbook-cfg4-head/default/greenbook-cfg4-head.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/greenbook-cfg4-head.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/greenbook-cfg4-head/default/greenbook-cfg4-head"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "greenbook-cfg4-head.wav",
+          "audited_sha256": "ee78372fa061c782fc85562f000a29562be55eb447cf3e20babb26d9c756f8be",
+          "audited_bytes": 216028714,
+          "identical": true,
+          "bytes": 216028714,
+          "sha256": "ee78372fa061c782fc85562f000a29562be55eb447cf3e20babb26d9c756f8be"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "ram: 1 bed channels, 15 dynamic objects, 15 JOC objects over 7 downmix channels (config 4), clip gain 1.000 (applied)\nADM BWF: 2879744 frames x 25 channels (0:00:59.995) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/greenbook-cfg4-head/default\\greenbook-cfg4-head.wav, 22 object blocks, 216028714 bytes\nmetadata: 1875 payloads, 23 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 1875 frames decoded, 0 decode errors, 2.23 s (27x realtime)\nadm: profile reductions: 7 interpolation lengths replaced by 250 samples (1536 x7)\n"
+    },
+    {
+      "record": "work/joc/greenbook-cfg4-head/default/greenbook-cfg4-head.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/greenbook-cfg4-head.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/greenbook-cfg4-head/default/greenbook-cfg4-head"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "greenbook-cfg4-head.atmos",
+          "audited_sha256": "a132db4e77a9e7d719c73928d9f12817c3202c9a461dca49dc3330d62d5b5fb4",
+          "audited_bytes": 995,
+          "identical": true,
+          "bytes": 995,
+          "sha256": "a132db4e77a9e7d719c73928d9f12817c3202c9a461dca49dc3330d62d5b5fb4"
+        },
+        {
+          "file": "greenbook-cfg4-head.atmos.metadata",
+          "audited_sha256": "f6d7c52f3ff9df982924776e5178880b8d2e739652477ffb8ab38fe17f060e9f",
+          "audited_bytes": 5690,
+          "identical": true,
+          "bytes": 5690,
+          "sha256": "f6d7c52f3ff9df982924776e5178880b8d2e739652477ffb8ab38fe17f060e9f"
+        },
+        {
+          "file": "greenbook-cfg4-head.atmos.audio",
+          "audited_sha256": "153da484038d507872c1d8af62e28223d31a73915f5223a368e4e48c1b987bca",
+          "audited_bytes": 215980868,
+          "identical": true,
+          "bytes": 215980868,
+          "sha256": "153da484038d507872c1d8af62e28223d31a73915f5223a368e4e48c1b987bca"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 7 downmix channels (config 4), clip gain 1.000 (applied)\nDAMF: 2879744 frames x 25 channels (0:00:59.995) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/greenbook-cfg4-head/default\\greenbook-cfg4-head.atmos.audio\nmetadata: 1875 payloads, 23 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 1875 frames decoded, 0 decode errors, 2.21 s (27x realtime)\n"
+    },
+    {
+      "record": "work/joc/joc-steep-jackal/default/joc-steep-jackal.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/joc-steep-jackal.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/joc-steep-jackal/default/joc-steep-jackal"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "joc-steep-jackal.wav",
+          "audited_sha256": "d399e8eb6f3216f1e30699352d65eda7dfb6ecdffc6bc187d9ae47a0e18966d3",
+          "audited_bytes": 103714016,
+          "identical": true,
+          "bytes": 103714016,
+          "sha256": "d399e8eb6f3216f1e30699352d65eda7dfb6ecdffc6bc187d9ae47a0e18966d3"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "wnmix channels (config 3), clip gain 1.000 (applied)\nADM BWF: 1382144 frames x 25 channels (0:00:28.795) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/joc-steep-jackal/default\\joc-steep-jackal.wav, 37 object blocks, 103714016 bytes\nmetadata: 900 payloads, 38 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 900 frames decoded, 0 decode errors, 0.78 s (37x realtime)\nadm: profile reductions: 22 interpolation lengths replaced by 250 samples (1536 x22)\nadm: not representable in DAMF or the ADM profile: 1 warp mode setting\n"
+    },
+    {
+      "record": "work/joc/joc-steep-jackal/default/joc-steep-jackal.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/joc-steep-jackal.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/joc-steep-jackal/default/joc-steep-jackal"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "joc-steep-jackal.atmos",
+          "audited_sha256": "34bed59b6e8d95508dd8636f159cd5964cbc7cb2187869e385c9c1cafd53178e",
+          "audited_bytes": 989,
+          "identical": true,
+          "bytes": 989,
+          "sha256": "34bed59b6e8d95508dd8636f159cd5964cbc7cb2187869e385c9c1cafd53178e"
+        },
+        {
+          "file": "joc-steep-jackal.atmos.metadata",
+          "audited_sha256": "992c62ad82cb3fd9136f6dfcc5dc1e4fa04ed96bcf119adae92fd92952697af2",
+          "audited_bytes": 6476,
+          "identical": true,
+          "bytes": 6476,
+          "sha256": "992c62ad82cb3fd9136f6dfcc5dc1e4fa04ed96bcf119adae92fd92952697af2"
+        },
+        {
+          "file": "joc-steep-jackal.atmos.audio",
+          "audited_sha256": "a456edad4b76872a015c66e3f9b529d74d01b31ac9ed841ebf994fc4a11694e1",
+          "audited_bytes": 103660868,
+          "identical": true,
+          "bytes": 103660868,
+          "sha256": "a456edad4b76872a015c66e3f9b529d74d01b31ac9ed841ebf994fc4a11694e1"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 5 downmix channels (config 3), clip gain 1.000 (applied)\nDAMF: 1382144 frames x 25 channels (0:00:28.795) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/joc-steep-jackal/default\\joc-steep-jackal.atmos.audio\nmetadata: 900 payloads, 38 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 900 frames decoded, 0 decode errors, 0.83 s (35x realtime)\ndamf: not representable in DAMF or the ADM profile: 1 warp mode setting\n"
+    },
+    {
+      "record": "work/joc/kingsman-joc-head/default/kingsman-joc-head.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/kingsman-joc-head.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/kingsman-joc-head/default/kingsman-joc-head"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "kingsman-joc-head.wav",
+          "audited_sha256": "afca8420b3dd062b14178eb48df2bc73d7f1540bf256be872932ac880bc99c65",
+          "audited_bytes": 112523318,
+          "identical": true,
+          "bytes": 112523318,
+          "sha256": "afca8420b3dd062b14178eb48df2bc73d7f1540bf256be872932ac880bc99c65"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "ma/audit/adm/remed/val\\regress\\work/joc/kingsman-joc-head/default\\kingsman-joc-head.wav, 169 object blocks, 112523318 bytes\nmetadata: 976 payloads, 170 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.90 s (35x realtime)\nadm: profile reductions: 154 interpolation lengths replaced by 250 samples (1536 x154)\nadm: not representable in DAMF or the ADM profile: 1 warp mode setting\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/joc/kingsman-joc-head/default/kingsman-joc-head.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/kingsman-joc-head.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/kingsman-joc-head/default/kingsman-joc-head"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "kingsman-joc-head.atmos",
+          "audited_sha256": "40b4355354c6e8f0c68b4eff537c2d8552237c8f2ec59418c6d24780c3ed139e",
+          "audited_bytes": 991,
+          "identical": true,
+          "bytes": 991,
+          "sha256": "40b4355354c6e8f0c68b4eff537c2d8552237c8f2ec59418c6d24780c3ed139e"
+        },
+        {
+          "file": "kingsman-joc-head.atmos.metadata",
+          "audited_sha256": "c8bc659651e4b7fe295598c9b6c7d1c680f9faa6558cc182ba69860c03bc8365",
+          "audited_bytes": 16730,
+          "identical": true,
+          "bytes": 16730,
+          "sha256": "c8bc659651e4b7fe295598c9b6c7d1c680f9faa6558cc182ba69860c03bc8365"
+        },
+        {
+          "file": "kingsman-joc-head.atmos.audio",
+          "audited_sha256": "dc3c58242d79dcdd2396c2761a92ed2102897dae3b9b6438c6e5eac1f5b23c5d",
+          "audited_bytes": 112416068,
+          "identical": true,
+          "bytes": 112416068,
+          "sha256": "dc3c58242d79dcdd2396c2761a92ed2102897dae3b9b6438c6e5eac1f5b23c5d"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": " channels (config 3), clip gain 1.000 (applied)\nDAMF: 1498880 frames x 25 channels (0:00:31.227) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/kingsman-joc-head/default\\kingsman-joc-head.atmos.audio\nmetadata: 976 payloads, 170 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.93 s (33x realtime)\ndamf: not representable in DAMF or the ADM profile: 1 warp mode setting\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/joc/knivesout-joc-head/default/knivesout-joc-head.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/knivesout-joc-head.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/knivesout-joc-head/default/knivesout-joc-head"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "knivesout-joc-head.wav",
+          "audited_sha256": "cfff578944b1349a21fd2b805d62f315f0bf8e4552083a8c5de2f604899d675a",
+          "audited_bytes": 112468680,
+          "identical": true,
+          "bytes": 112468680,
+          "sha256": "cfff578944b1349a21fd2b805d62f315f0bf8e4552083a8c5de2f604899d675a"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "isma/audit/adm/remed/val\\regress\\work/joc/knivesout-joc-head/default\\knivesout-joc-head.wav, 35 object blocks, 112468680 bytes\nmetadata: 976 payloads, 36 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.89 s (35x realtime)\nadm: profile reductions: 20 interpolation lengths replaced by 250 samples (1536 x20)\nadm: not representable in DAMF or the ADM profile: 1 warp mode setting\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/joc/knivesout-joc-head/default/knivesout-joc-head.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/knivesout-joc-head.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/knivesout-joc-head/default/knivesout-joc-head"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "knivesout-joc-head.atmos",
+          "audited_sha256": "e08239db486b393868acdb12d018591f3fe448ee67e26ff0726346f52c00048e",
+          "audited_bytes": 993,
+          "identical": true,
+          "bytes": 993,
+          "sha256": "e08239db486b393868acdb12d018591f3fe448ee67e26ff0726346f52c00048e"
+        },
+        {
+          "file": "knivesout-joc-head.atmos.metadata",
+          "audited_sha256": "bbe19fd1c4a442c9a3540334247bd85d9ebc0b4995f9bec146ced7cf814f342b",
+          "audited_bytes": 6507,
+          "identical": true,
+          "bytes": 6507,
+          "sha256": "bbe19fd1c4a442c9a3540334247bd85d9ebc0b4995f9bec146ced7cf814f342b"
+        },
+        {
+          "file": "knivesout-joc-head.atmos.audio",
+          "audited_sha256": "ee190fc646559015a6aa57f93f2e21b106ba53d6c928b903dc1468267e1a4793",
+          "audited_bytes": 112416068,
+          "identical": true,
+          "bytes": 112416068,
+          "sha256": "ee190fc646559015a6aa57f93f2e21b106ba53d6c928b903dc1468267e1a4793"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "channels (config 3), clip gain 1.000 (applied)\nDAMF: 1498880 frames x 25 channels (0:00:31.227) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/knivesout-joc-head/default\\knivesout-joc-head.atmos.audio\nmetadata: 976 payloads, 36 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.91 s (34x realtime)\ndamf: not representable in DAMF or the ADM profile: 1 warp mode setting\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/joc/onset-768/default/onset-768.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/onset-768.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/onset-768/default/onset-768"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "onset-768.wav",
+          "audited_sha256": "64374536dad0c74bf80b04b083147fec87cce6718a6a646c078768ed38ed4e07",
+          "audited_bytes": 36099908,
+          "identical": true,
+          "bytes": 36099908,
+          "sha256": "64374536dad0c74bf80b04b083147fec87cce6718a6a646c078768ed38ed4e07"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "bjects over 5 downmix channels (config 3), clip gain 1.000 (applied)\nADM BWF: 480512 frames x 25 channels (0:00:10.011) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/onset-768/default\\onset-768.wav, 61 object blocks, 36099908 bytes\nmetadata: 313 payloads, 62 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.27 s (37x realtime)\nadm: profile reductions: 46 interpolation lengths replaced by 250 samples (1536 x46)\nadm: not representable in DAMF or the ADM profile: 1 warp mode setting\n"
+    },
+    {
+      "record": "work/joc/onset-768/default/onset-768.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/onset-768.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/onset-768/default/onset-768"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "onset-768.atmos",
+          "audited_sha256": "3d471179cf5602259133f9031c51615291967bdbdd698f36fbdb8c47eb9e826e",
+          "audited_bytes": 975,
+          "identical": true,
+          "bytes": 975,
+          "sha256": "3d471179cf5602259133f9031c51615291967bdbdd698f36fbdb8c47eb9e826e"
+        },
+        {
+          "file": "onset-768.atmos.metadata",
+          "audited_sha256": "34cd238a05926f4bb01e60cb24b0318064701b629667f7719c3c13019d128626",
+          "audited_bytes": 7988,
+          "identical": true,
+          "bytes": 7988,
+          "sha256": "34cd238a05926f4bb01e60cb24b0318064701b629667f7719c3c13019d128626"
+        },
+        {
+          "file": "onset-768.atmos.audio",
+          "audited_sha256": "f37c5c3bddae8088cf53a27c3890b728f461ee1a276ca55c6014e64b1262cdcf",
+          "audited_bytes": 36038468,
+          "identical": true,
+          "bytes": 36038468,
+          "sha256": "f37c5c3bddae8088cf53a27c3890b728f461ee1a276ca55c6014e64b1262cdcf"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 5 downmix channels (config 3), clip gain 1.000 (applied)\nDAMF: 480512 frames x 25 channels (0:00:10.011) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/onset-768/default\\onset-768.atmos.audio\nmetadata: 313 payloads, 62 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.27 s (37x realtime)\ndamf: not representable in DAMF or the ADM profile: 1 warp mode setting\n"
+    },
+    {
+      "record": "work/joc/scene-joc/default/scene-joc.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/scene-joc.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/scene-joc/default/scene-joc"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "scene-joc.wav",
+          "audited_sha256": "521f59d48c076ad8b07262be91944220166e114e54bc65a4481e4ec641837389",
+          "audited_bytes": 36089308,
+          "identical": true,
+          "bytes": 36089308,
+          "sha256": "521f59d48c076ad8b07262be91944220166e114e54bc65a4481e4ec641837389"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "bjects over 5 downmix channels (config 3), clip gain 1.000 (applied)\nADM BWF: 480512 frames x 25 channels (0:00:10.011) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/scene-joc/default\\scene-joc.wav, 29 object blocks, 36089308 bytes\nmetadata: 313 payloads, 30 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.27 s (38x realtime)\nadm: profile reductions: 14 interpolation lengths replaced by 250 samples (1536 x14)\nadm: not representable in DAMF or the ADM profile: 1 warp mode setting\n"
+    },
+    {
+      "record": "work/joc/scene-joc/default/scene-joc.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/scene-joc.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/scene-joc/default/scene-joc"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "scene-joc.atmos",
+          "audited_sha256": "df307eb7244d552fda97a52de2e8c01aa352c1721caf9ba950b73909014f0533",
+          "audited_bytes": 975,
+          "identical": true,
+          "bytes": 975,
+          "sha256": "df307eb7244d552fda97a52de2e8c01aa352c1721caf9ba950b73909014f0533"
+        },
+        {
+          "file": "scene-joc.atmos.metadata",
+          "audited_sha256": "4e984e4a79182dc3a8781d168b8919045e79a0c8fc7ca33083206f413b5f8824",
+          "audited_bytes": 6192,
+          "identical": true,
+          "bytes": 6192,
+          "sha256": "4e984e4a79182dc3a8781d168b8919045e79a0c8fc7ca33083206f413b5f8824"
+        },
+        {
+          "file": "scene-joc.atmos.audio",
+          "audited_sha256": "83e945d7116476febb394f61d7499132526e72a63c9afb69e131e847eb3fb8d5",
+          "audited_bytes": 36038468,
+          "identical": true,
+          "bytes": 36038468,
+          "sha256": "83e945d7116476febb394f61d7499132526e72a63c9afb69e131e847eb3fb8d5"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 5 downmix channels (config 3), clip gain 1.000 (applied)\nDAMF: 480512 frames x 25 channels (0:00:10.011) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/scene-joc/default\\scene-joc.atmos.audio\nmetadata: 313 payloads, 30 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.29 s (35x realtime)\ndamf: not representable in DAMF or the ADM profile: 1 warp mode setting\n"
+    },
+    {
+      "record": "work/joc/snatch-joc-head/default/snatch-joc-head.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/snatch-joc-head.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/snatch-joc-head/default/snatch-joc-head"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "snatch-joc-head.wav",
+          "audited_sha256": "d35358bbff105b750209024a2cfa75f06eb21efab906b5e1806a101df2262707",
+          "audited_bytes": 144074974,
+          "identical": true,
+          "bytes": 144074974,
+          "sha256": "d35358bbff105b750209024a2cfa75f06eb21efab906b5e1806a101df2262707"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "nfig 0), clip gain 1.000 (applied)\nADM BWF: 1919744 frames x 25 channels (0:00:39.995) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/snatch-joc-head/default\\snatch-joc-head.wav, 140 object blocks, 144074974 bytes\nmetadata: 1250 payloads, 141 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\nsplices: 47 frames restarted the sequence counter, 0 did not follow the previous one\ncore: 1250 frames decoded, 0 decode errors, 1.15 s (35x realtime)\nadm: profile reductions: 125 interpolation lengths replaced by 250 samples (1536 x125)\n"
+    },
+    {
+      "record": "work/joc/snatch-joc-head/default/snatch-joc-head.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/snatch-joc-head.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/snatch-joc-head/default/snatch-joc-head"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "snatch-joc-head.atmos",
+          "audited_sha256": "dd4e401849d1206597509380eafb07b1474664443fa82c83c598b748d6414ebe",
+          "audited_bytes": 987,
+          "identical": true,
+          "bytes": 987,
+          "sha256": "dd4e401849d1206597509380eafb07b1474664443fa82c83c598b748d6414ebe"
+        },
+        {
+          "file": "snatch-joc-head.atmos.metadata",
+          "audited_sha256": "b686f48c825a12f7365cd3722d8b1dab63e6d949fcf26a56d4e2ab9ac1d028ee",
+          "audited_bytes": 13387,
+          "identical": true,
+          "bytes": 13387,
+          "sha256": "b686f48c825a12f7365cd3722d8b1dab63e6d949fcf26a56d4e2ab9ac1d028ee"
+        },
+        {
+          "file": "snatch-joc-head.atmos.audio",
+          "audited_sha256": "dc0d57c6e015dbaca939f01daba9070b8a156c359e3670bf9b39fa0e5a5fc4fd",
+          "audited_bytes": 143980868,
+          "identical": true,
+          "bytes": 143980868,
+          "sha256": "dc0d57c6e015dbaca939f01daba9070b8a156c359e3670bf9b39fa0e5a5fc4fd"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 5 downmix channels (config 0), clip gain 1.000 (applied)\nDAMF: 1919744 frames x 25 channels (0:00:39.995) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/snatch-joc-head/default\\snatch-joc-head.atmos.audio\nmetadata: 1250 payloads, 141 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\nsplices: 47 frames restarted the sequence counter, 0 did not follow the previous one\ncore: 1250 frames decoded, 0 decode errors, 1.20 s (33x realtime)\n"
+    },
+    {
+      "record": "work/joc/talktome-joc-head/default/talktome-joc-head.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/talktome-joc-head.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/talktome-joc-head/default/talktome-joc-head"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "talktome-joc-head.wav",
+          "audited_sha256": "00ad11f76a1c79d39da85cf22a2b6630787f69af8d2f2635b4d9dd4600aec16c",
+          "audited_bytes": 112474768,
+          "identical": true,
+          "bytes": 112474768,
+          "sha256": "00ad11f76a1c79d39da85cf22a2b6630787f69af8d2f2635b4d9dd4600aec16c"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "alisma/audit/adm/remed/val\\regress\\work/joc/talktome-joc-head/default\\talktome-joc-head.wav, 51 object blocks, 112474768 bytes\nmetadata: 976 payloads, 52 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.89 s (35x realtime)\nadm: profile reductions: 36 interpolation lengths replaced by 250 samples (1536 x36)\nadm: not representable in DAMF or the ADM profile: 1 warp mode setting\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/joc/talktome-joc-head/default/talktome-joc-head.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/talktome-joc-head.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/talktome-joc-head/default/talktome-joc-head"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "talktome-joc-head.atmos",
+          "audited_sha256": "2a69b4c3a003aa4d03d82cd9ddfc08f869c9166fcbbd8d4039c3a3fa1014d009",
+          "audited_bytes": 991,
+          "identical": true,
+          "bytes": 991,
+          "sha256": "2a69b4c3a003aa4d03d82cd9ddfc08f869c9166fcbbd8d4039c3a3fa1014d009"
+        },
+        {
+          "file": "talktome-joc-head.atmos.metadata",
+          "audited_sha256": "57067f6289892e94e24bb2a9a621575261d85fb20acae278a6578c7f8288b753",
+          "audited_bytes": 7540,
+          "identical": true,
+          "bytes": 7540,
+          "sha256": "57067f6289892e94e24bb2a9a621575261d85fb20acae278a6578c7f8288b753"
+        },
+        {
+          "file": "talktome-joc-head.atmos.audio",
+          "audited_sha256": "8f56b28bb6dd904b0110ba2d3e16baadb672bf233c6e80c1f4803650f6665503",
+          "audited_bytes": 112416068,
+          "identical": true,
+          "bytes": 112416068,
+          "sha256": "8f56b28bb6dd904b0110ba2d3e16baadb672bf233c6e80c1f4803650f6665503"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "x channels (config 3), clip gain 1.000 (applied)\nDAMF: 1498880 frames x 25 channels (0:00:31.227) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/talktome-joc-head/default\\talktome-joc-head.atmos.audio\nmetadata: 976 payloads, 52 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 976 frames decoded, 0 decode errors, 0.91 s (34x realtime)\ndamf: not representable in DAMF or the ADM profile: 1 warp mode setting\nintegrity: 1728 bytes skipped\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/joc/teleport-768/default/teleport-768.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/teleport-768.ec3",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/teleport-768/default/teleport-768"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "teleport-768.wav",
+          "audited_sha256": "7056edaec73371fb648b7bcc36a9e368dfd16d41d5f48c483537a7635b2e56eb",
+          "audited_bytes": 36519906,
+          "identical": true,
+          "bytes": 36519906,
+          "sha256": "7056edaec73371fb648b7bcc36a9e368dfd16d41d5f48c483537a7635b2e56eb"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "downmix channels (config 3), clip gain 1.000 (applied)\nADM BWF: 480512 frames x 25 channels (0:00:10.011) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/teleport-768/default\\teleport-768.wav, 1261 object blocks, 36519906 bytes\nmetadata: 313 payloads, 1262 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.27 s (38x realtime)\nadm: profile reductions: 1246 interpolation lengths replaced by 250 samples (1536 x1246)\nadm: not representable in DAMF or the ADM profile: 1 warp mode setting\n"
+    },
+    {
+      "record": "work/joc/teleport-768/default/teleport-768.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/teleport-768.ec3",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/teleport-768/default/teleport-768"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "teleport-768.atmos",
+          "audited_sha256": "4773fcb9880c669818cd54959b443a598bd0db5d54ee0ecae22d7d4eab144c18",
+          "audited_bytes": 981,
+          "identical": true,
+          "bytes": 981,
+          "sha256": "4773fcb9880c669818cd54959b443a598bd0db5d54ee0ecae22d7d4eab144c18"
+        },
+        {
+          "file": "teleport-768.atmos.metadata",
+          "audited_sha256": "b4bffd92ca54044a910a8d9a6e68eae270d26a3bf3b7831a1feb189a3b1f75d2",
+          "audited_bytes": 92586,
+          "identical": true,
+          "bytes": 92586,
+          "sha256": "b4bffd92ca54044a910a8d9a6e68eae270d26a3bf3b7831a1feb189a3b1f75d2"
+        },
+        {
+          "file": "teleport-768.atmos.audio",
+          "audited_sha256": "9b22ff38459a02aa02139c9e0e5fb5d29f8144f0003d134c70c19b288eb5cda5",
+          "audited_bytes": 36038468,
+          "identical": true,
+          "bytes": 36038468,
+          "sha256": "9b22ff38459a02aa02139c9e0e5fb5d29f8144f0003d134c70c19b288eb5cda5"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 5 downmix channels (config 3), clip gain 1.000 (applied)\nDAMF: 480512 frames x 25 channels (0:00:10.011) in E:/oadec-work/audit/adm/remed/val\\regress\\work/joc/teleport-768/default\\teleport-768.atmos.audio\nmetadata: 313 payloads, 1262 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD\ncore: 313 frames decoded, 0 decode errors, 0.28 s (36x realtime)\ndamf: not representable in DAMF or the ADM profile: 1 warp mode setting\n"
+    },
+    {
+      "record": "work/pi-head50m/default/pi-head50m.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/pi-head50m.thd",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/pi-head50m/default/pi-head50m"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "pi-head50m.wav",
+          "audited_sha256": "5abe2e85abf13113c5075bf56ed614e2137ddf33f0ba8951562c6d16c7cce15c",
+          "audited_bytes": 319858590,
+          "identical": true,
+          "bytes": 319858590,
+          "sha256": "5abe2e85abf13113c5075bf56ed614e2137ddf33f0ba8951562c6d16c7cce15c"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "bj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 1.44 s (73x realtime)\nADM BWF: 5075800 frames x 21 channels (0:01:45.746) in E:/oadec-work/audit/adm/remed/val\\regress\\work/pi-head50m/default\\pi-head50m.wav, 128 object blocks, 319858590 bytes\nmetadata: 3306 payloads in 3306 access units, 132 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nadm: profile reductions: 117 interpolation lengths replaced by 250 samples (1536 x117)\nintegrity: 84 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/pi-head50m/default/pi-head50m.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/pi-head50m.thd",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/pi-head50m/default/pi-head50m"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "pi-head50m.atmos",
+          "audited_sha256": "92e07b2e034737022d71638d2162c57a33d6d000336202c20ee80c672caf5e9d",
+          "audited_bytes": 917,
+          "identical": true,
+          "bytes": 917,
+          "sha256": "92e07b2e034737022d71638d2162c57a33d6d000336202c20ee80c672caf5e9d"
+        },
+        {
+          "file": "pi-head50m.atmos.metadata",
+          "audited_sha256": "94becd863a07810060cf196435ba9f45a39ab1127d9f2dcc66371869c9d23959",
+          "audited_bytes": 11723,
+          "identical": true,
+          "bytes": 11723,
+          "sha256": "94becd863a07810060cf196435ba9f45a39ab1127d9f2dcc66371869c9d23959"
+        },
+        {
+          "file": "pi-head50m.atmos.audio",
+          "audited_sha256": "75a7c78dcbe1b0906f8f55f8b346a2b7d8f7e154b86e2db7338c644e067b27db",
+          "audited_bytes": 319775468,
+          "identical": true,
+          "bytes": 319775468,
+          "sha256": "75a7c78dcbe1b0906f8f55f8b346a2b7d8f7e154b86e2db7338c644e067b27db"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "cates\nlossless checks: 1000 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 1.46 s (72x realtime)\nDAMF: 5075800 frames x 21 channels (0:01:45.746) in E:/oadec-work/audit/adm/remed/val\\regress\\work/pi-head50m/default\\pi-head50m.atmos.audio\nmetadata: 3306 payloads in 3306 access units, 132 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 84 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/pi-head50m/nbc/pi-head50m.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/pi-head50m.thd",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/pi-head50m/nbc/pi-head50m",
+        "--no-bed-conform"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "pi-head50m.wav",
+          "audited_sha256": "495146cb9395dabd17c3d7ac2eecf87353528bc1683293ea87ba9b18a1b5f3d9",
+          "audited_bytes": 182798334,
+          "identical": false,
+          "bytes": 182798334,
+          "sha256": "ddde17a31528fc4e736e0af25a0d1f9d6e4ff5c4029f5e9cd2f09b062315bfb0"
+        }
+      ],
+      "all_identical": false,
+      "stderr_tail": "j2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 1.39 s (76x realtime)\nADM BWF: 5075800 frames x 12 channels (0:01:45.746) in E:/oadec-work/audit/adm/remed/val\\regress\\work/pi-head50m/nbc\\pi-head50m.wav, 128 object blocks, 182798334 bytes\nmetadata: 3306 payloads in 3306 access units, 132 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nadm: profile reductions: 117 interpolation lengths replaced by 250 samples (1536 x117)\nintegrity: 84 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n",
+      "expected_difference": {
+        "fix": "R6",
+        "why": "with --no-bed-conform the objects are numbered from AO_100b, as Dolby numbers them (audit stimulus S11); the audited file numbered them from AO_1002",
+        "pcm_pairs": 12,
+        "pcm_all_identical": true,
+        "defects": 0,
+        "classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "audited_classes": {
+          "bed_event": 2,
+          "matched": 119,
+          "trailing_popped": 2,
+          "inexpressible_change": 9
+        },
+        "classes_equal_audited": true,
+        "tiling_equal_audited": true,
+        "adm_findings": [
+          {
+            "kind": "profile-bed-configuration",
+            "message": "AP_00011001 channel set ['RC_LFE'] is not one of the table-16 configuration sets"
+          }
+        ],
+        "object_ids": [
+          "AO_1001",
+          "AO_100b",
+          "AO_100c",
+          "AO_100d",
+          "AO_100e",
+          "AO_100f",
+          "AO_1010",
+          "AO_1011",
+          "AO_1012",
+          "AO_1013",
+          "AO_1014",
+          "AO_1015"
+        ],
+        "dolby_s11_object_ids": [
+          "AO_100b",
+          "AO_100c",
+          "AO_100d",
+          "AO_100e",
+          "AO_100f",
+          "AO_1010",
+          "AO_1011",
+          "AO_1012",
+          "AO_1013",
+          "AO_1014",
+          "AO_1015"
+        ],
+        "object_ids_equal_dolby": true,
+        "findings_inherent_to_no_bed_conform": true,
+        "ok": true
+      }
+    },
+    {
+      "record": "work/pi-head50m/nbc/pi-head50m.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/pi-head50m.thd",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/pi-head50m/nbc/pi-head50m",
+        "--no-bed-conform"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "pi-head50m.atmos",
+          "audited_sha256": "e22d42852b9c0cd252d778f2d63f3fb622858ba85cbd5ac43663eb0ce2f1ccd2",
+          "audited_bytes": 509,
+          "identical": true,
+          "bytes": 509,
+          "sha256": "e22d42852b9c0cd252d778f2d63f3fb622858ba85cbd5ac43663eb0ce2f1ccd2"
+        },
+        {
+          "file": "pi-head50m.atmos.metadata",
+          "audited_sha256": "94becd863a07810060cf196435ba9f45a39ab1127d9f2dcc66371869c9d23959",
+          "audited_bytes": 11723,
+          "identical": true,
+          "bytes": 11723,
+          "sha256": "94becd863a07810060cf196435ba9f45a39ab1127d9f2dcc66371869c9d23959"
+        },
+        {
+          "file": "pi-head50m.atmos.audio",
+          "audited_sha256": "384e09dd649ee7ff3cde1d3bc29c2fbabec5db2cb93d9ab0a9a04a58c10ae33b",
+          "audited_bytes": 182728868,
+          "identical": true,
+          "bytes": 182728868,
+          "sha256": "384e09dd649ee7ff3cde1d3bc29c2fbabec5db2cb93d9ab0a9a04a58c10ae33b"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "uplicates\nlossless checks: 1000 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 1.43 s (74x realtime)\nDAMF: 5075800 frames x 12 channels (0:01:45.746) in E:/oadec-work/audit/adm/remed/val\\regress\\work/pi-head50m/nbc\\pi-head50m.atmos.audio\nmetadata: 3306 payloads in 3306 access units, 132 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 84 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/pi-head50m/tag/pi-head50m.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/pi-head50m.thd",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/pi-head50m/tag/pi-head50m",
+        "--dolby-origin-tag"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "pi-head50m.wav",
+          "audited_sha256": "8ca47a53b2d97932ca99a8adc9370026106629ff8281cea669b9fdc0ddcb2fbf",
+          "audited_bytes": 319858590,
+          "identical": true,
+          "bytes": 319858590,
+          "sha256": "8ca47a53b2d97932ca99a8adc9370026106629ff8281cea669b9fdc0ddcb2fbf"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "j2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 1.49 s (71x realtime)\nADM BWF: 5075800 frames x 21 channels (0:01:45.746) in E:/oadec-work/audit/adm/remed/val\\regress\\work/pi-head50m/tag\\pi-head50m.wav, 128 object blocks, 319858590 bytes\nmetadata: 3306 payloads in 3306 access units, 132 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nadm: profile reductions: 117 interpolation lengths replaced by 250 samples (1536 x117)\nintegrity: 84 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/thd/braveheart-h/default/braveheart-h.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/tmp/braveheart-h.thd",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/braveheart-h/default/braveheart-h"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "braveheart-h.wav",
+          "audited_sha256": "a3c14f793a7e2b0f38327f3102902f3d9ee0f8e1f32f1e953406f3a36e4ccaf4",
+          "audited_bytes": 73232372,
+          "identical": true,
+          "bytes": 73232372,
+          "sha256": "a3c14f793a7e2b0f38327f3102902f3d9ee0f8e1f32f1e953406f3a36e4ccaf4"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "j4 obj5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 0.34 s (72x realtime)\nADM BWF: 1161120 frames x 21 channels (0:00:24.190) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/braveheart-h/default\\braveheart-h.wav, 132 object blocks, 73232372 bytes\nmetadata: 756 payloads in 756 access units, 133 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nadm: profile reductions: 121 interpolation lengths replaced by 250 samples (1536 x121)\nintegrity: 312 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/thd/braveheart-h/default/braveheart-h.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/tmp/braveheart-h.thd",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/braveheart-h/default/braveheart-h"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "braveheart-h.atmos",
+          "audited_sha256": "cf8e4d48368114e1bce8c9a0bc82d2ad80460288609cbf631983af425e869f66",
+          "audited_bytes": 921,
+          "identical": true,
+          "bytes": 921,
+          "sha256": "cf8e4d48368114e1bce8c9a0bc82d2ad80460288609cbf631983af425e869f66"
+        },
+        {
+          "file": "braveheart-h.atmos.metadata",
+          "audited_sha256": "48ac76f4429d9fc576810caf3d46adb12ce538f905eb27efe648d188d6f8c23b",
+          "audited_bytes": 11233,
+          "identical": true,
+          "bytes": 11233,
+          "sha256": "48ac76f4429d9fc576810caf3d46adb12ce538f905eb27efe648d188d6f8c23b"
+        },
+        {
+          "file": "braveheart-h.atmos.audio",
+          "audited_sha256": "6f07267d5b5fb76025c09d3de21cbea58c5934b92d166c5a83823ea7e542bfec",
+          "audited_bytes": 73150628,
+          "identical": true,
+          "bytes": 73150628,
+          "sha256": "6f07267d5b5fb76025c09d3de21cbea58c5934b92d166c5a83823ea7e542bfec"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "lossless checks: 232 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 0.34 s (70x realtime)\nDAMF: 1161120 frames x 21 channels (0:00:24.190) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/braveheart-h/default\\braveheart-h.atmos.audio\nmetadata: 756 payloads in 756 access units, 133 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 312 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/thd/fast-thd/default/fast-thd.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/fast-thd.mlp",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/fast-thd/default/fast-thd"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "fast-thd.wav",
+          "audited_sha256": "0b32ba1c383be8ce4d8e3ca6f40cb43a05ad1d087c0aa03234b6c58354ffec6a",
+          "audited_bytes": 36673872,
+          "identical": true,
+          "bytes": 36673872,
+          "sha256": "0b32ba1c383be8ce4d8e3ca6f40cb43a05ad1d087c0aa03234b6c58354ffec6a"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "ossless checks: 490 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11 obj12 obj13 obj14 obj15\nspeed: 0.17 s (59x realtime)\nADM BWF: 480000 frames x 25 channels (0:00:10.000) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/fast-thd/default\\fast-thd.wav, 1566 object blocks, 36673872 bytes\nmetadata: 313 payloads in 313 access units, 1578 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nadm: profile reductions: 1551 interpolation lengths replaced by 250 samples (1536 x1546, 768 x5)\n"
+    },
+    {
+      "record": "work/thd/fast-thd/default/fast-thd.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/fast-thd.mlp",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/fast-thd/default/fast-thd"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "fast-thd.atmos",
+          "audited_sha256": "eb3a6f8bb7e6c3a53fc7b573bb90afbe9d9d3e1083c1a7e1f319da867bc3fda7",
+          "audited_bytes": 973,
+          "identical": true,
+          "bytes": 973,
+          "sha256": "eb3a6f8bb7e6c3a53fc7b573bb90afbe9d9d3e1083c1a7e1f319da867bc3fda7"
+        },
+        {
+          "file": "fast-thd.atmos.metadata",
+          "audited_sha256": "2229d851cbbcd9d9f12b4ede400d3a3cd438819b34339fba15b695593202d8f3",
+          "audited_bytes": 127824,
+          "identical": true,
+          "bytes": 127824,
+          "sha256": "2229d851cbbcd9d9f12b4ede400d3a3cd438819b34339fba15b695593202d8f3"
+        },
+        {
+          "file": "fast-thd.atmos.audio",
+          "audited_sha256": "f2ec03b09ad0f294ddfa0502d4c3c1467ec7505965ef342bb73daaf56badb69c",
+          "audited_bytes": 36000068,
+          "identical": true,
+          "bytes": 36000068,
+          "sha256": "f2ec03b09ad0f294ddfa0502d4c3c1467ec7505965ef342bb73daaf56badb69c"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "decoded 12000 access units, 480000 samples x 16 channels (0:00:10.000), 0 dropped duplicates\nlossless checks: 490 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11 obj12 obj13 obj14 obj15\nspeed: 0.17 s (59x realtime)\nDAMF: 480000 frames x 25 channels (0:00:10.000) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/fast-thd/default\\fast-thd.atmos.audio\nmetadata: 313 payloads in 313 access units, 1578 events (0 restating payloads, 0 out-of-order events), 0 payload errors\n"
+    },
+    {
+      "record": "work/thd/gainsize-thd/default/gainsize-thd.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/gainsize-thd.mlp",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/gainsize-thd/default/gainsize-thd"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "gainsize-thd.wav",
+          "audited_sha256": "f2afa745d2d81436aef88ab2389b0c798c2164ff71433ff3f1dc159e757d2eb8",
+          "audited_bytes": 36045630,
+          "identical": true,
+          "bytes": 36045630,
+          "sha256": "f2afa745d2d81436aef88ab2389b0c798c2164ff71433ff3f1dc159e757d2eb8"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "decoded 12000 access units, 480000 samples x 16 channels (0:00:10.000), 0 dropped duplicates\nlossless checks: 93 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11 obj12 obj13 obj14 obj15\nspeed: 0.17 s (57x realtime)\nADM BWF: 480000 frames x 25 channels (0:00:10.000) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/gainsize-thd/default\\gainsize-thd.wav, 15 object blocks, 36045630 bytes\nmetadata: 313 payloads in 313 access units, 32 events (0 restating payloads, 0 out-of-order events), 0 payload errors\n"
+    },
+    {
+      "record": "work/thd/gainsize-thd/default/gainsize-thd.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/gainsize-thd.mlp",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/gainsize-thd/default/gainsize-thd"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "gainsize-thd.atmos",
+          "audited_sha256": "3405cea383075712c221fd5542ea99c48802364c14f71659bd86b85caa351d8b",
+          "audited_bytes": 981,
+          "identical": true,
+          "bytes": 981,
+          "sha256": "3405cea383075712c221fd5542ea99c48802364c14f71659bd86b85caa351d8b"
+        },
+        {
+          "file": "gainsize-thd.atmos.metadata",
+          "audited_sha256": "077840f7a77f144133cba4d60e8dbb11704715b2e2b35ba9d467991cd21eb430",
+          "audited_bytes": 6162,
+          "identical": true,
+          "bytes": 6162,
+          "sha256": "077840f7a77f144133cba4d60e8dbb11704715b2e2b35ba9d467991cd21eb430"
+        },
+        {
+          "file": "gainsize-thd.atmos.audio",
+          "audited_sha256": "b68e76829c1169a33634a874d7a9e6f61abf5679f7a084dfb776a8bf6796c9f8",
+          "audited_bytes": 36000068,
+          "identical": true,
+          "bytes": 36000068,
+          "sha256": "b68e76829c1169a33634a874d7a9e6f61abf5679f7a084dfb776a8bf6796c9f8"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "decoded 12000 access units, 480000 samples x 16 channels (0:00:10.000), 0 dropped duplicates\nlossless checks: 93 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11 obj12 obj13 obj14 obj15\nspeed: 0.17 s (58x realtime)\nDAMF: 480000 frames x 25 channels (0:00:10.000) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/gainsize-thd/default\\gainsize-thd.atmos.audio\nmetadata: 313 payloads in 313 access units, 32 events (0 restating payloads, 0 out-of-order events), 0 payload errors\n"
+    },
+    {
+      "record": "work/thd/kingsman-h/default/kingsman-h.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/tmp/kingsman-h.thd",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/kingsman-h/default/kingsman-h"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "kingsman-h.wav",
+          "audited_sha256": "bba34cff60bb2aca840c1320f034a761f32c3428fa73d8518f90738f99688aec",
+          "audited_bytes": 37673970,
+          "identical": true,
+          "bytes": 37673970,
+          "sha256": "bba34cff60bb2aca840c1320f034a761f32c3428fa73d8518f90738f99688aec"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "7 obj8 obj9 obj10 obj11 obj12 obj13\nspeed: 0.19 s (61x realtime)\nADM BWF: 544800 frames x 23 channels (0:00:11.350) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/kingsman-h/default\\kingsman-h.wav, 119 object blocks, 37673970 bytes\nmetadata: 356 payloads in 356 access units, 124 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nadm: profile reductions: 106 interpolation lengths replaced by 250 samples (1536 x94, 1472 x12)\nintegrity: 658 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/thd/kingsman-h/default/kingsman-h.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/tmp/kingsman-h.thd",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/kingsman-h/default/kingsman-h"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "kingsman-h.atmos",
+          "audited_sha256": "3586727c0eec53b02bb381dc4a9cc2e1a85ab5042329d1ca4302edba35b62e9a",
+          "audited_bytes": 947,
+          "identical": true,
+          "bytes": 947,
+          "sha256": "3586727c0eec53b02bb381dc4a9cc2e1a85ab5042329d1ca4302edba35b62e9a"
+        },
+        {
+          "file": "kingsman-h.atmos.metadata",
+          "audited_sha256": "6dd8c050c7b8968443c6723d58af6fc18dc301e6563827af4e7a266a222facd5",
+          "audited_bytes": 12026,
+          "identical": true,
+          "bytes": 12026,
+          "sha256": "6dd8c050c7b8968443c6723d58af6fc18dc301e6563827af4e7a266a222facd5"
+        },
+        {
+          "file": "kingsman-h.atmos.audio",
+          "audited_sha256": "c9091508effb6174bbd39236da2d40707094bd11f31cbfd78f9eb02c5f0cbb96",
+          "audited_bytes": 37591268,
+          "identical": true,
+          "bytes": 37591268,
+          "sha256": "c9091508effb6174bbd39236da2d40707094bd11f31cbfd78f9eb02c5f0cbb96"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "s checks: 110 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11 obj12 obj13\nspeed: 0.19 s (60x realtime)\nDAMF: 544800 frames x 23 channels (0:00:11.350) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/kingsman-h/default\\kingsman-h.atmos.audio\nmetadata: 356 payloads in 356 access units, 124 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 658 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/thd/knivesout-h/default/knivesout-h.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/tmp/knivesout-h.thd",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/knivesout-h/default/knivesout-h"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "knivesout-h.wav",
+          "audited_sha256": "08673f2f044dfd01d924fe5c4fbbea7667cdc258efa97376cb60915d9a87f698",
+          "audited_bytes": 150392022,
+          "identical": true,
+          "bytes": 150392022,
+          "sha256": "08673f2f044dfd01d924fe5c4fbbea7667cdc258efa97376cb60915d9a87f698"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 0.65 s (77x realtime)\nADM BWF: 2386440 frames x 21 channels (0:00:49.718) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/knivesout-h/default\\knivesout-h.wav, 35 object blocks, 150392022 bytes\nmetadata: 1555 payloads in 1555 access units, 44 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nadm: profile reductions: 24 interpolation lengths replaced by 250 samples (1536 x16, 1472 x8)\nintegrity: 198 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/thd/knivesout-h/default/knivesout-h.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/tmp/knivesout-h.thd",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/knivesout-h/default/knivesout-h"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "knivesout-h.atmos",
+          "audited_sha256": "e35fb97a31d7d6819768a1f30fd541b1e2931d6e019560d292e4a6489e5b7f01",
+          "audited_bytes": 919,
+          "identical": true,
+          "bytes": 919,
+          "sha256": "e35fb97a31d7d6819768a1f30fd541b1e2931d6e019560d292e4a6489e5b7f01"
+        },
+        {
+          "file": "knivesout-h.atmos.metadata",
+          "audited_sha256": "3905812e2711b64094a44cdac6a123443016629f7a4d5f88c8fed752548bd1e7",
+          "audited_bytes": 5588,
+          "identical": true,
+          "bytes": 5588,
+          "sha256": "3905812e2711b64094a44cdac6a123443016629f7a4d5f88c8fed752548bd1e7"
+        },
+        {
+          "file": "knivesout-h.atmos.audio",
+          "audited_sha256": "1e898207963c55781aa5fe0df5104405bfbb1c2f81430501dc64dcf0a4870f0c",
+          "audited_bytes": 150345788,
+          "identical": true,
+          "bytes": 150345788,
+          "sha256": "1e898207963c55781aa5fe0df5104405bfbb1c2f81430501dc64dcf0a4870f0c"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "\nlossless checks: 471 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 0.66 s (75x realtime)\nDAMF: 2386440 frames x 21 channels (0:00:49.718) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/knivesout-h/default\\knivesout-h.atmos.audio\nmetadata: 1555 payloads in 1555 access units, 44 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 198 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/thd/scene-thd/default/scene-thd.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/scene-thd.mlp",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/scene-thd/default/scene-thd"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "scene-thd.wav",
+          "audited_sha256": "7a76d21359aaf6326b72cddef1167a075352be6dc4f2f9a59802fc2ea7cb6a5b",
+          "audited_bytes": 36050666,
+          "identical": true,
+          "bytes": 36050666,
+          "sha256": "7a76d21359aaf6326b72cddef1167a075352be6dc4f2f9a59802fc2ea7cb6a5b"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "ed duplicates\nlossless checks: 99 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11 obj12 obj13 obj14 obj15\nspeed: 0.16 s (64x realtime)\nADM BWF: 480000 frames x 25 channels (0:00:10.000) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/scene-thd/default\\scene-thd.wav, 28 object blocks, 36050666 bytes\nmetadata: 313 payloads in 313 access units, 45 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nadm: profile reductions: 13 interpolation lengths replaced by 250 samples (1536 x13)\n"
+    },
+    {
+      "record": "work/thd/scene-thd/default/scene-thd.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/audit/remediation/truth/scene-thd.mlp",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/scene-thd/default/scene-thd"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "scene-thd.atmos",
+          "audited_sha256": "5c361eac528c9716e6bd451be22a988618c3acc44772203600e756e63f5255e1",
+          "audited_bytes": 975,
+          "identical": true,
+          "bytes": 975,
+          "sha256": "5c361eac528c9716e6bd451be22a988618c3acc44772203600e756e63f5255e1"
+        },
+        {
+          "file": "scene-thd.atmos.metadata",
+          "audited_sha256": "efa4d7263a567d8cfe6c499181b40de955172c2c1dc745eb9098ce67483504eb",
+          "audited_bytes": 7038,
+          "identical": true,
+          "bytes": 7038,
+          "sha256": "efa4d7263a567d8cfe6c499181b40de955172c2c1dc745eb9098ce67483504eb"
+        },
+        {
+          "file": "scene-thd.atmos.audio",
+          "audited_sha256": "1e63c965fcec8c3bef56bcdabd649a6d6be3c5de5baa1799cf61a7548f62d581",
+          "audited_bytes": 36000068,
+          "identical": true,
+          "bytes": 36000068,
+          "sha256": "1e63c965fcec8c3bef56bcdabd649a6d6be3c5de5baa1799cf61a7548f62d581"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "decoded 12000 access units, 480000 samples x 16 channels (0:00:10.000), 0 dropped duplicates\nlossless checks: 99 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11 obj12 obj13 obj14 obj15\nspeed: 0.16 s (63x realtime)\nDAMF: 480000 frames x 25 channels (0:00:10.000) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/scene-thd/default\\scene-thd.atmos.audio\nmetadata: 313 payloads in 313 access units, 45 events (0 restating payloads, 0 out-of-order events), 0 payload errors\n"
+    },
+    {
+      "record": "work/thd/shaun-head20m/default/shaun-head20m.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/shaun-head20m.thd",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/shaun-head20m/default/shaun-head20m"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "shaun-head20m.wav",
+          "audited_sha256": "a6a4bc818bbe9db2ab7849164202433b9daf5736090a583c72c72a3a15e48e27",
+          "audited_bytes": 122574188,
+          "identical": true,
+          "bytes": 122574188,
+          "sha256": "a6a4bc818bbe9db2ab7849164202433b9daf5736090a583c72c72a3a15e48e27"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "bj5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 0.57 s (71x realtime)\nADM BWF: 1943480 frames x 21 channels (0:00:40.489) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/shaun-head20m/default\\shaun-head20m.wav, 251 object blocks, 122574188 bytes\nmetadata: 1266 payloads in 1266 access units, 260 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nadm: profile reductions: 240 interpolation lengths replaced by 250 samples (1536 x240)\nintegrity: 46 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/thd/shaun-head20m/default/shaun-head20m.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/shaun-head20m.thd",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/shaun-head20m/default/shaun-head20m"
+      ],
+      "audited_exit": 7,
+      "exit": 7,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "shaun-head20m.atmos",
+          "audited_sha256": "4675726368fb7e4f5e3279d568ec0642bfd7b734ad53ec0bd400d2aa3e4356a3",
+          "audited_bytes": 923,
+          "identical": true,
+          "bytes": 923,
+          "sha256": "4675726368fb7e4f5e3279d568ec0642bfd7b734ad53ec0bd400d2aa3e4356a3"
+        },
+        {
+          "file": "shaun-head20m.atmos.metadata",
+          "audited_sha256": "a8f57baabae57661c7c2813ccf3337dbd5449f532cb51d7d8349b8e27fcb833f",
+          "audited_bytes": 22047,
+          "identical": true,
+          "bytes": 22047,
+          "sha256": "a8f57baabae57661c7c2813ccf3337dbd5449f532cb51d7d8349b8e27fcb833f"
+        },
+        {
+          "file": "shaun-head20m.atmos.audio",
+          "audited_sha256": "57c9d4f1ce6adb1d4038b29e2afc0a01f994cc4d0c6d0824c7a0f3b1e2d954a5",
+          "audited_bytes": 122439308,
+          "identical": true,
+          "bytes": 122439308,
+          "sha256": "57c9d4f1ce6adb1d4038b29e2afc0a01f994cc4d0c6d0824c7a0f3b1e2d954a5"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "sless checks: 383 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11\nspeed: 0.59 s (69x realtime)\nDAMF: 1943480 frames x 21 channels (0:00:40.489) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/shaun-head20m/default\\shaun-head20m.atmos.audio\nmetadata: 1266 payloads in 1266 access units, 260 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nintegrity: 46 trailing bytes that formed no access unit\nthe output was written and is not trustworthy; `oadec verify` reports the same faults\n"
+    },
+    {
+      "record": "work/thd/talktome-head/default/talktome-head.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/talktome-head.thd",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/talktome-head/default/talktome-head"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "talktome-head.wav",
+          "audited_sha256": "0081a80c87f70a084f053484a86432752c571a20e06589619dd7d4063510e268",
+          "audited_bytes": 144050638,
+          "identical": true,
+          "bytes": 144050638,
+          "sha256": "0081a80c87f70a084f053484a86432752c571a20e06589619dd7d4063510e268"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "\nlossless checks: 376 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11 obj12 obj13 obj14 obj15\nspeed: 0.68 s (59x realtime)\nADM BWF: 1920000 frames x 25 channels (0:00:40.000) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/talktome-head/default\\talktome-head.wav, 29 object blocks, 144050638 bytes\nmetadata: 1250 payloads in 1250 access units, 30 events (0 restating payloads, 0 out-of-order events), 0 payload errors\nadm: profile reductions: 14 interpolation lengths replaced by 250 samples (1536 x14)\n"
+    },
+    {
+      "record": "work/thd/talktome-head/default/talktome-head.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/talktome-head.thd",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/talktome-head/default/talktome-head"
+      ],
+      "audited_exit": 0,
+      "exit": 0,
+      "exit_equal": true,
+      "outputs": [
+        {
+          "file": "talktome-head.atmos",
+          "audited_sha256": "5cd28220d04138d7f27df64e961afae23886605d6811c506f281d0c790f8e64a",
+          "audited_bytes": 983,
+          "identical": true,
+          "bytes": 983,
+          "sha256": "5cd28220d04138d7f27df64e961afae23886605d6811c506f281d0c790f8e64a"
+        },
+        {
+          "file": "talktome-head.atmos.metadata",
+          "audited_sha256": "42d5a8be33cd3964c7993d7dd318a4fbfaa9a3c8ee8b2a2b924605311c9e50bf",
+          "audited_bytes": 6073,
+          "identical": true,
+          "bytes": 6073,
+          "sha256": "42d5a8be33cd3964c7993d7dd318a4fbfaa9a3c8ee8b2a2b924605311c9e50bf"
+        },
+        {
+          "file": "talktome-head.atmos.audio",
+          "audited_sha256": "4ad97e6338e14e6ec759cc791c60dd1fa2989816468624b050ebb0b6ad1a9025",
+          "audited_bytes": 144000068,
+          "identical": true,
+          "bytes": 144000068,
+          "sha256": "4ad97e6338e14e6ec759cc791c60dd1fa2989816468624b050ebb0b6ad1a9025"
+        }
+      ],
+      "all_identical": true,
+      "stderr_tail": "decoded 48000 access units, 1920000 samples x 16 channels (0:00:40.000), 0 dropped duplicates\nlossless checks: 376 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11 obj12 obj13 obj14 obj15\nspeed: 0.68 s (59x realtime)\nDAMF: 1920000 frames x 25 channels (0:00:40.000) in E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/talktome-head/default\\talktome-head.atmos.audio\nmetadata: 1250 payloads in 1250 access units, 30 events (0 restating payloads, 0 out-of-order events), 0 payload errors\n"
+    },
+    {
+      "record": "work/thd/thd-96k-revenant/default/thd-96k-revenant.adm.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/thd-96k-revenant.thd",
+        "--format",
+        "adm",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/thd-96k-revenant/default/thd-96k-revenant"
+      ],
+      "audited_exit": 2,
+      "exit": 2,
+      "exit_equal": true,
+      "outputs": [],
+      "all_identical": true,
+      "stderr_tail": "error: the stream has no 16-channel presentation (no extra channel meaning)\n"
+    },
+    {
+      "record": "work/thd/thd-96k-revenant/default/thd-96k-revenant.damf.run.json",
+      "argv": [
+        "decode",
+        "E:/oadec-work/clips/thd-96k-revenant.thd",
+        "--format",
+        "damf",
+        "-o",
+        "E:/oadec-work/audit/adm/remed/val\\regress\\work/thd/thd-96k-revenant/default/thd-96k-revenant"
+      ],
+      "audited_exit": 2,
+      "exit": 2,
+      "exit_equal": true,
+      "outputs": [],
+      "all_identical": true,
+      "stderr_tail": "error: the stream has no 16-channel presentation (no extra channel meaning)\n"
+    }
+  ]
+}

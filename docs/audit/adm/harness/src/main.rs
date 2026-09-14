@@ -21,7 +21,14 @@ use oadec_emdf::oamd::{
     UpdateTiming,
 };
 use oadec_spatial::program::{damf_channel_name, BedState, ElementState, Event, ObjectState, Program, Timeline};
-use oadec_spatial::{AdmOptions, AdmWriter, DamfOptions, DamfWriter};
+use oadec_spatial::{AdmOptions, AdmWriter, DamfOptions, DamfWriter, Interpolation, IsfPolicy, LossLedger};
+
+/// The loss ledger as JSON: kind name -> count, plus the replaced-ramp histogram.
+fn losses_json(l: &LossLedger) -> serde_json::Value {
+    let counts: serde_json::Map<String, serde_json::Value> = l.iter().map(|(k, n)| (k.name().to_string(), serde_json::json!(n))).collect();
+    let ramps: serde_json::Map<String, serde_json::Value> = l.ramp_sources().iter().map(|(r, n)| (r.to_string(), serde_json::json!(n))).collect();
+    serde_json::json!({"counts": counts, "ramp_sources": ramps, "declared_loss": l.declared_loss()})
+}
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -43,6 +50,15 @@ struct Case {
     oamd: Vec<OamdSpec>,
     #[serde(default)]
     keep_all: bool,
+    /// Write the output without the ISF elements instead of refusing (the writers' default).
+    #[serde(default)]
+    isf_drop: bool,
+    /// Write an ADM file at a sample rate other than 48 kHz instead of refusing.
+    #[serde(default)]
+    allow_non_profile_rate: bool,
+    /// Write the source ramps as interpolation lengths (non-profile) instead of 250 samples.
+    #[serde(default)]
+    real_ramps: bool,
 }
 
 fn d48k() -> u32 {
@@ -197,7 +213,7 @@ fn object_state(s: &ObjectSpec) -> ObjectState {
         snap: s.snap,
         elevation: s.elevation,
         zones: s.zones,
-        size: s.size,
+        size: [s.size; 3],
         importance: s.importance,
         gain: gain(s.gain_db, s.gain_minus_inf),
         ramp: s.ramp,
@@ -310,7 +326,14 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
     let case: Case = serde_json::from_reader(BufReader::new(File::open(case_path).map_err(|e| e.to_string())?)).map_err(|e| format!("case json: {e}"))?;
     std::fs::create_dir_all(out_dir).map_err(|e| e.to_string())?;
     let beds: Result<Vec<Vec<BedChannel>>, String> = case.program.beds.iter().map(|b| b.iter().map(|n| bed_channel(n)).collect()).collect();
-    let program = Program { beds: beds?, isf_objects: case.program.isf_objects, dynamic_objects: case.program.dynamic_objects };
+    // the ISF type whose object count matches (table 11b), for the programme's isf_index
+    let isf_index = if case.program.isf_objects > 0 {
+        oadec_emdf::oamd::ISF_OBJECTS.iter().position(|n| *n == Some(case.program.isf_objects)).map(|i| i as u8)
+    } else {
+        None
+    };
+    let isf = if case.isf_drop { IsfPolicy::Drop } else { IsfPolicy::Error };
+    let program = Program { beds: beds?, isf_index, isf_objects: case.program.isf_objects, dynamic_objects: case.program.dynamic_objects };
     let elements = program.elements();
 
     // events: explicit, plus whatever the timeline emits for OAMD payloads
@@ -339,7 +362,7 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
     // mixed case could interleave: keep the writer's own view honest by not sorting.
 
     let adm_path: PathBuf = out_dir.join(format!("{}.wav", case.case));
-    let mut opts = AdmOptions { bed_conform: case.bed_conform, ..AdmOptions::default() };
+    let mut opts = AdmOptions { bed_conform: case.bed_conform, isf, allow_non_profile_rate: case.allow_non_profile_rate, interpolation: if case.real_ramps { Interpolation::Real } else { Interpolation::Profile }, ..AdmOptions::default() };
     if let Some(c) = &case.creator {
         opts.creator = c.clone();
     }
@@ -348,6 +371,7 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
         "elements": elements, "events_fed": events.len(), "timeline_emitted": emitted,
         "timeline_errors": timeline_errors, "timeline_out_of_order": timeline.out_of_order,
         "timeline_restatements": timeline.restatements,
+        "timeline_losses": losses_json(&timeline.losses),
     });
 
     // audio rows: one tone per element (0 Hz = silence)
@@ -383,7 +407,7 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
             n = end;
         }
         let s = w.finish().map_err(|e| format!("finish: {e}"))?;
-        Ok(serde_json::json!({"frames": s.frames, "channels": s.channels, "blocks": s.blocks, "rf64": s.rf64, "bytes": s.bytes, "path": adm_path}))
+        Ok(serde_json::json!({"frames": s.frames, "channels": s.channels, "blocks": s.blocks, "rf64": s.rf64, "bytes": s.bytes, "path": adm_path, "losses": losses_json(&s.losses)}))
     })();
     match adm_result {
         Ok(v) => summary["adm"] = v,
@@ -395,7 +419,7 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
 
     // ---- DAMF (same events, same audio)
     let damf_result: Result<serde_json::Value, String> = (|| {
-        let mut w = DamfWriter::create(out_dir, &case.case, &program, case.sample_rate, &DamfOptions { bed_conform: case.bed_conform, ..DamfOptions::default() }).map_err(|e| format!("create: {e}"))?;
+        let mut w = DamfWriter::create(out_dir, &case.case, &program, case.sample_rate, &DamfOptions { bed_conform: case.bed_conform, isf, ..DamfOptions::default() }).map_err(|e| format!("create: {e}"))?;
         for ev in &events {
             w.push_event(ev).map_err(|e| format!("event: {e}"))?;
         }
@@ -405,7 +429,7 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
             w.write_frame(&row).map_err(|e| format!("write: {e}"))?;
         }
         let s = w.finish().map_err(|e| format!("finish: {e}"))?;
-        Ok(serde_json::json!({"frames": s.frames, "channels": s.channels, "events": s.events, "base": out_dir.join(&case.case)}))
+        Ok(serde_json::json!({"frames": s.frames, "channels": s.channels, "events": s.events, "base": out_dir.join(&case.case), "losses": losses_json(&s.losses)}))
     })();
     match damf_result {
         Ok(v) => summary["damf"] = v,

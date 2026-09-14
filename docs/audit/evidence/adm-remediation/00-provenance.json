@@ -1,0 +1,73 @@
+{
+  "id": "00-provenance",
+  "title": "Provenance of the remediation validation runs",
+  "topics": [
+    "provenance"
+  ],
+  "evidence_class": "MEASURED",
+  "structural_result": null,
+  "semantic_result": null,
+  "classification": "record",
+  "method": "git, sha256, --version",
+  "inputs": [],
+  "tolerance": null,
+  "generated_by": "docs/audit/adm-remediation/tools/run_remediation.py",
+  "utc": "2026-09-14T04:58:03Z",
+  "git": {
+    "head": "feca038b5e98ac0ec8114f7de308ed06ddd23f57",
+    "branch": "adm-remediation",
+    "describe": "v0.2.0-137-g6e506c4-dirty",
+    "status": "M .github/workflows/ci.yml\n M CHANGELOG.md\n M README.md\n M docs/audit/adm/harness/src/main.rs\n M docs/exit-codes.md\n?? docs/audit/adm-remediation-report.md\n?? docs/audit/adm-remediation/\n?? docs/audit/evidence/adm-remediation/"
+  },
+  "oadec": {
+    "path": "target\\release\\oadec.exe",
+    "bytes": 2639872,
+    "sha256": "0689ba53b797ae3109b660da2329c3d5a126b5aec66bc5260222a871dd4e961e",
+    "mtime": "2026-09-14T04:50:31Z"
+  },
+  "harness": {
+    "path": "E:\\oadec-work\\audit\\adm\\target\\release\\adm_harness.exe",
+    "bytes": 653312,
+    "sha256": "d790600cbff043d74140c940fd6510c00361d17f7c167099567d63e965baeb5a",
+    "mtime": "2026-09-14T04:50:33Z"
+  },
+  "python": {
+    "utc": "2026-09-14T04:58:03Z",
+    "python": "3.12.10",
+    "executable": "E:\\oadec-work\\audit\\adm\\venv\\Scripts\\python.exe",
+    "platform": "Windows-11-10.0.26100-SP0",
+    "machine": "AMD64",
+    "packages": {
+      "numpy": "1.26.4",
+      "lxml": "4.9.4",
+      "scipy": "1.17.1",
+      "ear": "2.1.0"
+    }
+  },
+  "tools": {
+    "conversion_tool": {
+      "path": "C:\\Program Files\\Dolby\\Dolby Atmos Conversion Tool\\cmdline_atmos_conversion_tool.exe",
+      "bytes": 8075264,
+      "sha256": "d42fa4849da47d862f4425c9bf3a1c43cc5663351e8e7c98d83cf4ffe9fdac90",
+      "mtime": "2023-07-10T04:22:42Z"
+    },
+    "atmos_info_5.7.2": {
+      "path": "C:\\Program Files\\Dolby Media Encoder\\resources\\dee\\atmos_info.exe",
+      "bytes": 9032688,
+      "sha256": "473ddbf40d18a80c4274d67ff7e7e08d2589776b2d0cbdd306a87627ed3b6297",
+      "mtime": "2024-10-17T19:30:32Z"
+    },
+    "atmos_info_1.1": {
+      "path": "C:\\dee\\atmos_info.exe",
+      "bytes": 5764608,
+      "sha256": "611d2ce260458e08b7095e0a3e2bf37b3dbdaab98181d408f859e2766dd93508",
+      "mtime": "2022-07-08T15:39:29Z"
+    },
+    "bwf_info": {
+      "path": "C:\\dee\\bwf_info.exe",
+      "bytes": 2524160,
+      "sha256": "45ed0aabe466d64c104ab8d0de05a763ccc2ba15ed1757dc3965ec4a0daf7c90",
+      "mtime": "2022-07-08T15:39:30Z"
+    }
+  }
+}

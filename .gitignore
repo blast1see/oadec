@@ -33,3 +33,9 @@ __pycache__/
 # alternate build directories
 /target-alt
 /target-*
+
+# The two encodes of the synthetic test scene are the one exception to the
+# rule above: they are generated from crates/oadec-cli/tests/fixtures/
+# authored-scene.json, not taken from any title (see the README there).
+!crates/oadec-cli/tests/fixtures/authored-scene.ec3
+!crates/oadec-cli/tests/fixtures/authored-scene.mlp

@@ -1050,3 +1050,23 @@ clear; `dolby_surround_encoded`, `dolby_headphone_encoded`,
 `legacy_authoring_compatibility` false and the speech DRC profile all leave it
 set. That is the only way found to author a stream with the flag clear, and it
 is what showed the flag is not why the object path refuses anything.
+
+## What the converters write for an object's gain
+
+The Dolby Atmos Conversion Tool 2.1.2 and DEE 5.2.1 `convert_atmos_mezz` both write an
+active object's gain into the ADM as ten decimals of the float32 linear factor:
+`0.5011872053` for -6 dB, `1.4125375748` for +3 dB, `0.2511886358` for -12 dB and
+`0.0000000000` for a muted object; nothing at 0 dB. An inactive object carries `0.0` with
+`<importance>0</importance>`, which is the profile's marker and a different thing. Float64
+arithmetic would print `0.5011872336`, which is how a reader can tell which arithmetic
+produced a file. Measured on the audit's C02 scene
+(`docs/audit/evidence/adm-remediation/adm-remediation-dolby.json`); the Conversion Tool reads
+the four gains back into DAMF as -6, +3, -inf and -12 dB from its own file and from oadec's
+alike. The profile text (table 11) reserves `gain` for inactive objects; the converters do not
+follow it there, and `atmos_info` 5.7.2 `--validate 1` accepts the result.
+
+Two `convert_atmos_mezz` habits worth knowing. The output `file_name` is taken literally:
+`c02-dee.wav` gives a file, `c02-dee` gives a directory `c02-dee/output.wav`. And the filter
+looks for an `.atmos.dbmd` sidecar beside a DAMF set and warns when there is none
+(`Sys - AtmosMasterFileStorageDesc - Error 2 while reading "...atmos.dbmd"`); the conversion
+completes without it.

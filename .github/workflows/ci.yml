@@ -49,6 +49,33 @@ jobs:
           fi
           echo "the media suite refused to run without media, as it should"
 
+  # The ADM audit toolkit (docs/audit/adm/tools) reads DAMF and ADM without
+  # the writers' help and is the measure the 2026-09-11 audit judged them with.
+  # The remediation kept it as the gate: every writer-level case runs through
+  # the harness crate and has an expectation in run_remediation.py. The Dolby
+  # tools and the EBU renderer are not on a runner; those stages are run by
+  # hand and their results live under docs/audit/evidence/adm-remediation/.
+  adm-toolkit:
+    name: ADM toolkit (harness cases and expectations)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install "numpy==1.26.4"
+      - name: toolkit self-tests
+        working-directory: docs/audit/adm/tools
+        run: python -m unittest discover -s selftest -t .
+      - name: build the writer harness
+        run: cargo build --release --locked --manifest-path docs/audit/adm/harness/Cargo.toml
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target/harness
+      - name: writer-level cases through the audit toolkit
+        run: python docs/audit/adm-remediation/tools/run_remediation.py --repo . --work "$RUNNER_TEMP/adm-remediation" --stage harness --no-dolby --no-ear
+
   deny:
     name: cargo deny
     runs-on: ubuntu-latest

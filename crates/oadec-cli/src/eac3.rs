@@ -1454,7 +1454,7 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> 
         started.elapsed().as_secs_f64(),
         false,
     );
-    Ok(findings(&p, sync_errors, skipped).report())
+    Ok(findings(&p, sync_errors, skipped).report_clean())
 }
 
 /// Options of `compare` for AC-3 family streams.
@@ -1699,7 +1699,7 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
         }
     }
     print_pass(path, &p, sync_errors, skipped, elapsed, false);
-    let clean = findings(&p, sync_errors, skipped).report();
+    let clean = findings(&p, sync_errors, skipped).report_clean();
     // drain the rest of the reference to learn its length
     let mut tail = [0u8; 1 << 16];
     let mut extra = 0u64;
