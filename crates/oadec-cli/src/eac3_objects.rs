@@ -13,7 +13,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use oadec_eac3::{ChannelLoc, Decoded, ProgramDecoder, ProgramFrame};
+use oadec_eac3::{ChannelLoc, ProgramDecoder, ProgramFrame};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::joc::{Joc, SparseReading};
 use oadec_emdf::oamd::{BedChannel, Oamd};
@@ -360,21 +360,33 @@ impl Pipeline {
     }
 }
 
+/// What the skip fields of one substream carried for the object path.
+#[derive(Debug, Default)]
+struct FramePayloads {
+    /// Every Object Audio Metadata payload that parsed, with its sample offset.
+    oamd: Vec<(Oamd, u32)>,
+    /// The JOC payload, when one parsed.
+    joc: Option<Joc>,
+    /// Payloads that would not parse.
+    errors: u64,
+    /// JOC payloads that parsed but whose declared size is not what their
+    /// syntax consumed.
+    joc_size_mismatches: u64,
+}
+
 /// Extracts the OAMD and JOC payloads of one substream's skip fields.
 ///
 /// Which substream is [`ProgramFrame::metadata_part`]: the last dependent one
 /// when the programme has any, else the independent one (TS 103 420 clause
 /// 8.2).
-fn frame_payloads(d: &Decoded, sparse: SparseReading) -> (Vec<(Oamd, u32)>, Option<Joc>, u64) {
-    let mut oamd = Vec::new();
-    let mut joc = None;
-    let mut errors = 0u64;
-    let total: usize = d.skip_fields.iter().map(Vec::len).sum();
+fn frame_payloads(skip_fields: &[Vec<u8>], sparse: SparseReading) -> FramePayloads {
+    let mut out = FramePayloads::default();
+    let total: usize = skip_fields.iter().map(Vec::len).sum();
     if total == 0 {
-        return (oamd, joc, errors);
+        return out;
     }
     let mut data = Vec::with_capacity(total);
-    for s in &d.skip_fields {
+    for s in skip_fields {
         data.extend_from_slice(s);
     }
     let mut pos = 0usize;
@@ -388,13 +400,19 @@ fn frame_payloads(d: &Decoded, sparse: SparseReading) -> (Vec<(Oamd, u32)>, Opti
                 for p in &c.payloads {
                     if p.id == PAYLOAD_ID_OAMD {
                         match Oamd::parse(&p.data) {
-                            Ok(o) => oamd.push((o, p.config.sample_offset.unwrap_or(0))),
-                            Err(_) => errors += 1,
+                            Ok(o) => out.oamd.push((o, p.config.sample_offset.unwrap_or(0))),
+                            Err(_) => out.errors += 1,
                         }
                     } else if p.id == PAYLOAD_ID_JOC {
                         match Joc::parse(&p.data, sparse) {
-                            Ok(j) => joc = Some(j),
-                            Err(_) => errors += 1,
+                            Ok(j) => {
+                                // the check verify and the PCM path make
+                                if !j.size_ok(p.data.len()) {
+                                    out.joc_size_mismatches += 1;
+                                }
+                                out.joc = Some(j);
+                            }
+                            Err(_) => out.errors += 1,
                         }
                     }
                 }
@@ -405,7 +423,7 @@ fn frame_payloads(d: &Decoded, sparse: SparseReading) -> (Vec<(Oamd, u32)>, Opti
             }
         }
     }
-    (oamd, joc, errors)
+    out
 }
 
 /// What the object decode counted that bears on its verdict.
@@ -423,6 +441,8 @@ struct Tally {
     sync_errors: u64,
     skipped: u64,
     payload_errors: u64,
+    /// JOC payloads that parsed but declared a size their syntax did not fill.
+    joc_size_mismatches: u64,
     first_error: Option<String>,
 }
 
@@ -437,6 +457,10 @@ impl Tally {
         f.note(self.sync_errors, "sync errors");
         f.note(self.skipped, "bytes skipped");
         f.note(self.payload_errors, "metadata payload errors");
+        f.note(
+            self.joc_size_mismatches,
+            "JOC payloads whose declared size was wrong",
+        );
         f.note(
             stats.dependent_dropped,
             "dependent substream frames dropped",
@@ -495,15 +519,17 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
                 tally.first_tail.get_or_insert(frame_index);
             }
         }
-        let (oamds, joc, errors) = frame_payloads(
-            &frame.metadata_part().decoded,
+        let payloads = frame_payloads(
+            &frame.metadata_part().decoded.skip_fields,
             if opts.sparse_as_printed {
                 SparseReading::AsPrinted
             } else {
                 SparseReading::Measured
             },
         );
-        tally.payload_errors += errors;
+        tally.payload_errors += payloads.errors;
+        tally.joc_size_mismatches += payloads.joc_size_mismatches;
+        let (oamds, joc) = (payloads.oamd, payloads.joc);
         if joc.is_none() {
             frames_without_joc += 1;
         }
@@ -688,6 +714,90 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use oadec_bits::BitWriter;
+
+    /// The smallest JOC payload there is: a 5.X downmix and one object, absent.
+    fn joc_payload(ext_config: u32) -> Vec<u8> {
+        let mut w = BitWriter::new();
+        w.write(0, 3); // joc_dmx_config_idx
+        w.write(0, 6); // joc_num_objects_bits: one object
+        w.write(ext_config, 3); // joc_ext_config_idx
+        w.write(4, 3); // joc_clipgain_x_bits: 2^0
+        w.write(0, 5); // joc_clipgain_y_bits
+        w.write(7, 10); // joc_seq_count_bits
+        w.write(0, 1); // b_joc_obj_present
+        w.finish()
+    }
+
+    /// An EMDF container as a skip field carries it, sync word and length
+    /// included, holding one JOC payload of `data` configured as DEE writes it.
+    fn emdf_with_joc(data: &[u8]) -> Vec<u8> {
+        let mut w = BitWriter::new();
+        w.write(0, 2); // emdf_version
+        w.write(0, 3); // key_id
+        w.write(PAYLOAD_ID_JOC, 5);
+        w.write(0, 1); // smploffste
+        w.write(0, 1); // duratione
+        w.write(1, 1); // groupide
+        w.write(0, 3); // groupid 0, no further group
+        w.write(0, 1); // codecdatae
+        w.write(0, 1); // discard_unknown_payload
+        w.write(1, 1); // payload_frame_aligned
+        w.write(0, 2); // create_duplicate, remove_duplicate
+        w.write(0, 7); // priority, proc_allowed
+        w.write(data.len() as u32, 8); // emdf_payload_size
+        w.write(0, 1); // no further group
+        for &b in data {
+            w.write(u32::from(b), 8);
+        }
+        w.write(0, 5); // the payload list ends
+        w.write(0, 4); // no protection words
+        let body = w.finish();
+        let mut out = vec![0x58, 0x38];
+        out.extend_from_slice(&(body.len() as u16).to_be_bytes());
+        out.extend(body);
+        out
+    }
+
+    /// A JOC payload that parses but declares a byte its syntax never reaches
+    /// went straight into the reconstruction, and the object output exited
+    /// clean where `verify` and the PCM path exit 7. The payload is still used;
+    /// the mismatch is counted.
+    #[test]
+    fn the_object_path_counts_a_joc_payload_whose_declared_size_is_wrong() {
+        let exact = joc_payload(0);
+        let payloads = frame_payloads(&[emdf_with_joc(&exact)], SparseReading::Measured);
+        assert!(payloads.joc.is_some(), "the payload parses");
+        assert_eq!((payloads.errors, payloads.joc_size_mismatches), (0, 0));
+
+        let mut long = exact;
+        long.push(0);
+        let payloads = frame_payloads(&[emdf_with_joc(&long)], SparseReading::Measured);
+        assert!(
+            payloads.joc.is_some(),
+            "a trailing byte does not stop the parse"
+        );
+        assert_eq!(
+            payloads.joc_size_mismatches, 1,
+            "the trailing byte went unnoticed"
+        );
+    }
+
+    /// And the count reaches the verdict.
+    #[test]
+    fn a_joc_size_mismatch_fails_the_object_output() {
+        let tally = Tally {
+            joc_size_mismatches: 1,
+            ..Tally::default()
+        };
+        let f = tally.findings(&oadec_eac3::ProgramStats::default(), &LossLedger::default());
+        let shown = format!("{f:?}");
+        assert!(
+            !f.is_clean() && shown.contains("1 JOC payloads whose declared size was wrong"),
+            "{shown}"
+        );
+    }
 
     /// The object output weighs a frame that ends inside its own tail as the
     /// PCM path does: counted and printed, and not a fault
