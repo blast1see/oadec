@@ -190,3 +190,59 @@ fn a_corrupted_evolution_block_fails_every_delivery_like_verify() {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
+
+/// The channel count and `dwChannelMask` of a WAVE file's `fmt ` chunk.
+fn wave_format(path: &Path) -> (u16, u32) {
+    let b = std::fs::read(path).unwrap();
+    assert!(matches!(&b[..4], b"RIFF" | b"RF64"), "{}", path.display());
+    assert_eq!(&b[8..12], b"WAVE");
+    let mut at = 12;
+    while at + 8 <= b.len() {
+        let size = u32::from_le_bytes(b[at + 4..at + 8].try_into().unwrap()) as usize;
+        if &b[at..at + 4] == b"fmt " {
+            let body = &b[at + 8..at + 8 + size];
+            return (
+                u16::from_le_bytes(body[2..4].try_into().unwrap()),
+                u32::from_le_bytes(body[20..24].try_into().unwrap()),
+            );
+        }
+        at += 8 + size + (size & 1);
+    }
+    panic!("no fmt chunk in {}", path.display());
+}
+
+/// The channel mask says which speaker each channel is for, so it is written
+/// only when it can say that of every channel, in the order they are written.
+/// The objects of presentation 3 have no speaker, and `--order stream` puts
+/// the side pair of 7.1 where the mask says the back pair is.
+#[test]
+fn the_wave_mask_is_written_only_when_it_is_true() {
+    let dir = temp("mask");
+    let clip = fixture("authored-scene.mlp");
+    let out = dir.join("m.wav");
+    for (extra, channels, mask, warned) in [
+        (&["-p", "2"][..], 8, 0x63F, false),
+        (&["-p", "2", "--order", "stream"][..], 8, 0, true),
+        (&["-p", "3"][..], 12, 0, true),
+    ] {
+        let mut args = vec![
+            "decode",
+            clip.to_str().unwrap(),
+            "--format",
+            "wav",
+            "-o",
+            out.to_str().unwrap(),
+        ];
+        args.extend_from_slice(extra);
+        let run = oadec(&args);
+        let err = stderr(&run);
+        assert_eq!(run.status.code(), Some(0), "{extra:?}: {err}");
+        assert_eq!(wave_format(&out), (channels, mask), "{extra:?}: {err}");
+        assert_eq!(
+            err.contains("writing an unassigned mask"),
+            warned,
+            "{extra:?}: {err}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
