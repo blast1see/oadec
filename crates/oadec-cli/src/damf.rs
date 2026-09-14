@@ -6,13 +6,95 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
+use clap::ValueEnum;
 use oadec_emdf::container::{self, PAYLOAD_ID_OAMD};
-use oadec_emdf::oamd::{BedChannel, Oamd};
-use oadec_spatial::{AdmOptions, AdmWriter, DamfOptions, DamfWriter, Event, Program, Timeline};
+use oadec_emdf::oamd::{BedChannel, ISF_OBJECTS, Oamd};
+use oadec_spatial::{
+    AdmError, AdmOptions, AdmWriter, DamfError, DamfOptions, DamfWriter, Event, Interpolation,
+    IsfPolicy, LossLedger, Program, Timeline,
+};
+use oadec_truehd::channel::ExtraChannelMeaning;
 use oadec_truehd::{AccessUnit, ChannelLabel, ExtraKind, MajorSync, StreamConfig};
+use serde_json::json;
 
-use crate::decode::{Order, Session, format_duration, print_summary};
+/// `--isf`: what to do with intermediate-spatial-format elements.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum IsfArg {
+    /// Refuse the decode: DAMF and the ADM profile cannot represent them.
+    Error,
+    /// Write the beds and dynamic objects without them (a declared loss, exit 4).
+    Drop,
+}
+
+impl From<IsfArg> for IsfPolicy {
+    fn from(arg: IsfArg) -> Self {
+        match arg {
+            IsfArg::Error => Self::Error,
+            IsfArg::Drop => Self::Drop,
+        }
+    }
+}
+
+/// `--adm-interpolation`: how ADM interpolation lengths are written.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum InterpolationArg {
+    /// The Dolby Atmos master ADM profile: 0 then 250 samples (the default).
+    Profile,
+    /// The source ramps (BS.2076, outside the profile; refuses the Dolby origin tag).
+    Real,
+}
+
+impl From<InterpolationArg> for Interpolation {
+    fn from(arg: InterpolationArg) -> Self {
+        match arg {
+            InterpolationArg::Profile => Self::Profile,
+            InterpolationArg::Real => Self::Real,
+        }
+    }
+}
+
+use crate::decode::{Format, Order, Session, format_duration, print_summary};
 use crate::input;
+use crate::integrity::Verdict;
+
+/// The object formats always decode the object presentation (3); a
+/// `--presentation` that says otherwise used to be accepted and ignored.
+pub(crate) fn check_presentation(format: Format, presentation: Option<usize>) -> Result<()> {
+    let name = match format {
+        Format::Damf => "damf",
+        Format::Adm => "adm",
+        Format::Pcm | Format::Wav => return Ok(()),
+    };
+    match presentation {
+        Some(p) if p != 3 => bail!(
+            "--presentation {p} does not apply to --format {name}: the object formats always decode the object presentation (3)"
+        ),
+        _ => Ok(()),
+    }
+}
+
+/// A file with the source ramps is outside the Dolby profile and cannot claim
+/// Dolby authorship.
+pub(crate) fn check_interpolation(
+    interpolation: Interpolation,
+    dolby_origin_tag: bool,
+) -> Result<()> {
+    if interpolation == Interpolation::Real && dolby_origin_tag {
+        bail!(
+            "--adm-interpolation real writes a file outside the Dolby Atmos master ADM profile and cannot carry the Dolby origin tag; drop --dolby-origin-tag"
+        );
+    }
+    Ok(())
+}
+
+/// Says on stderr when the ADM file is outside the profile.
+pub(crate) fn note_non_profile(opts: &Options) {
+    if opts.adm && opts.interpolation == Interpolation::Real {
+        eprintln!(
+            "ADM BWF written outside the Dolby Atmos master ADM profile: interpolation lengths are the source ramps"
+        );
+    }
+}
 
 /// Options of the object output.
 #[derive(Debug, Clone)]
@@ -43,6 +125,63 @@ pub struct Options {
     pub adm: bool,
     /// Write the creator string the Dolby validators require in ADM files.
     pub dolby_origin_tag: bool,
+    /// Where to write the loss ledger as JSON, if anywhere.
+    pub loss_report: Option<PathBuf>,
+    /// Intermediate-spatial-format elements: refuse or drop.
+    pub isf: IsfPolicy,
+    /// ADM: write a programme that is not at 48 kHz (outside the profile).
+    pub allow_non_profile_rate: bool,
+    /// DAMF: the frame rate of the `.atmos` header.
+    pub fps: String,
+    /// ADM: how interpolation lengths are written.
+    pub interpolation: Interpolation,
+}
+
+/// The message of a refused ISF programme, with the way out.
+fn isf_hint(count: usize, isf_type: &str) -> String {
+    format!(
+        "the programme carries {count} intermediate-spatial-format objects ({isf_type}), which DAMF and the Dolby Atmos master ADM profile cannot represent; pass --isf drop to write the beds and dynamic objects without them"
+    )
+}
+
+/// Prints the loss ledger of an output, one line per class, and writes it as
+/// JSON when a path was given. Quiet when nothing was lost.
+pub(crate) fn report_losses(target: &str, losses: &LossLedger, path: Option<&Path>) -> Result<()> {
+    for line in losses.lines(target) {
+        eprintln!("{line}");
+    }
+    if let Some(p) = path {
+        let kinds: Vec<serde_json::Value> = losses
+            .iter()
+            .map(|(kind, count)| {
+                json!({
+                    "kind": kind.name(),
+                    "class": kind.class().name(),
+                    "count": count,
+                    "examples": losses
+                        .examples(kind)
+                        .iter()
+                        .map(|(element, sample)| json!({"element": element, "sample": sample}))
+                        .collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        let ramps: serde_json::Map<String, serde_json::Value> = losses
+            .ramp_sources()
+            .iter()
+            .map(|(ramp, n)| (ramp.to_string(), json!(n)))
+            .collect();
+        let doc = json!({
+            "target": target,
+            "declared_loss": losses.declared_loss(),
+            "losses": kinds,
+            "ramp_sources": ramps,
+        });
+        let mut text = serde_json::to_string_pretty(&doc)?;
+        text.push('\n');
+        std::fs::write(p, text).with_context(|| format!("writing {}", p.display()))?;
+    }
+    Ok(())
 }
 
 fn bed_channel(label: ChannelLabel) -> Result<BedChannel> {
@@ -68,24 +207,43 @@ fn bed_channel(label: ChannelLabel) -> Result<BedChannel> {
     })
 }
 
-/// The program the major sync declares for the object presentation.
-fn program_from_major_sync(ms: &MajorSync) -> Result<Program> {
-    let Some(extra) = &ms.channel_meaning.extra else {
-        bail!("the stream has no 16-channel presentation (no extra channel meaning)");
-    };
+/// The program the extra channel meaning of a major sync declares: bed
+/// channels, then the ISF objects of the declared type (table 11b), then the
+/// dynamic objects.
+fn program_from_extra(extra: &ExtraChannelMeaning) -> Result<Program> {
     let bed: Vec<BedChannel> = ChannelLabel::sixteen_channel(extra)
         .into_iter()
         .map(bed_channel)
         .collect::<Result<_>>()?;
+    let (isf_index, isf_objects) = if extra.has_isf() {
+        let index = extra.isf_index & 7;
+        match ISF_OBJECTS[usize::from(index)] {
+            Some(n) => (Some(index), n),
+            None => bail!(
+                "the 16-channel presentation declares the reserved intermediate spatial format index {index}"
+            ),
+        }
+    } else {
+        (None, 0)
+    };
     Ok(Program {
         beds: if bed.is_empty() {
             Vec::new()
         } else {
             vec![bed]
         },
-        isf_objects: 0,
+        isf_index,
+        isf_objects,
         dynamic_objects: usize::from(extra.dynamic_objects()),
     })
+}
+
+/// The program the major sync declares for the object presentation.
+fn program_from_major_sync(ms: &MajorSync) -> Result<Program> {
+    let Some(extra) = &ms.channel_meaning.extra else {
+        bail!("the stream has no 16-channel presentation (no extra channel meaning)");
+    };
+    program_from_extra(extra)
 }
 
 /// The two object containers behind one interface.
@@ -101,6 +259,7 @@ pub(crate) struct SinkSummary {
     pub(crate) events: u64,
     pub(crate) paths: Vec<PathBuf>,
     pub(crate) note: String,
+    pub(crate) losses: LossLedger,
 }
 
 impl Sink {
@@ -114,23 +273,39 @@ impl Sink {
         if opts.adm {
             let mut options = AdmOptions {
                 bed_conform: opts.bed_conform,
+                isf: opts.isf,
+                allow_non_profile_rate: opts.allow_non_profile_rate,
+                interpolation: opts.interpolation,
                 ..AdmOptions::default()
             };
             if opts.dolby_origin_tag {
                 options.creator = "Created using Dolby equipment".to_string();
             }
             let path = dir.join(format!("{name}.wav"));
-            Ok(Self::Adm(AdmWriter::create(
-                &path, program, rate, &options,
-            )?))
+            match AdmWriter::create(&path, program, rate, &options) {
+                Ok(w) => Ok(Self::Adm(w)),
+                Err(AdmError::IsfNotRepresentable { count, isf_type }) => {
+                    bail!("{}", isf_hint(count, &isf_type))
+                }
+                Err(AdmError::NonProfileSampleRate(rate)) => bail!(
+                    "the Dolby Atmos master ADM profile requires 48 000 Hz and this programme is {rate} Hz; pass --adm-allow-non-profile-rate to write it anyway, declared outside the profile (exit 4)"
+                ),
+                Err(e) => Err(e.into()),
+            }
         } else {
             let options = DamfOptions {
                 bed_conform: opts.bed_conform,
+                isf: opts.isf,
+                fps: opts.fps.clone(),
                 ..DamfOptions::default()
             };
-            Ok(Self::Damf(DamfWriter::create(
-                dir, name, program, rate, &options,
-            )?))
+            match DamfWriter::create(dir, name, program, rate, &options) {
+                Ok(w) => Ok(Self::Damf(w)),
+                Err(DamfError::IsfNotRepresentable { count, isf_type }) => {
+                    bail!("{}", isf_hint(count, &isf_type))
+                }
+                Err(e) => Err(e.into()),
+            }
         }
     }
 
@@ -166,6 +341,7 @@ impl Sink {
                     events: s.events,
                     paths,
                     note: String::new(),
+                    losses: s.losses,
                 })
             }
             Self::Adm(w) => {
@@ -182,6 +358,7 @@ impl Sink {
                         s.bytes,
                         if s.rf64 { ", RF64" } else { "" }
                     ),
+                    losses: s.losses,
                 })
             }
         }
@@ -189,7 +366,7 @@ impl Sink {
 }
 
 /// Runs the object output; `base` is the output path without extension.
-pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
+pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
     let started = Instant::now();
     let dir = base
         .parent()
@@ -317,6 +494,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
             .map_or_else(String::new, |p| p.display().to_string()),
         summary.note
     );
+    note_non_profile(opts);
     eprintln!(
         "metadata: {} payloads in {} access units, {} events ({} restating payloads, {} out-of-order events), {} payload errors",
         timeline.payloads,
@@ -337,8 +515,78 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<bool> {
             s.input_jumps, s.valid_branches, s.invalid_branches, s.duplicates
         );
     }
+    let mut losses = timeline.losses.clone();
+    losses.merge(&summary.losses);
+    report_losses(
+        if opts.adm { "adm" } else { "damf" },
+        &losses,
+        opts.loss_report.as_deref(),
+    )?;
     let mut f = crate::decode::truehd_findings(&pass, session.stats());
     f.note(payload_errors, "metadata payload errors");
     f.first_problem(first_payload_error.as_deref());
+    f.note_losses(&losses);
     Ok(f.report())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A file with the source ramps is outside the Dolby profile and must not
+    /// claim Dolby authorship.
+    #[test]
+    fn real_interpolation_refuses_the_dolby_origin_tag() {
+        assert!(check_interpolation(Interpolation::Profile, true).is_ok());
+        assert!(check_interpolation(Interpolation::Real, false).is_ok());
+        let err = check_interpolation(Interpolation::Real, true)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("--adm-interpolation real"), "{err}");
+        assert!(err.contains("--dolby-origin-tag"), "{err}");
+    }
+
+    /// `--presentation` used to be accepted and ignored with the object
+    /// formats, which always decode the object presentation (3).
+    #[test]
+    fn the_object_formats_refuse_a_presentation_other_than_three() {
+        assert!(check_presentation(Format::Adm, None).is_ok());
+        assert!(check_presentation(Format::Damf, Some(3)).is_ok());
+        assert!(check_presentation(Format::Wav, Some(2)).is_ok());
+        let err = check_presentation(Format::Adm, Some(2))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("--presentation 2"), "{err}");
+        assert!(err.contains("--format adm"), "{err}");
+        assert!(check_presentation(Format::Damf, Some(0)).is_err());
+    }
+
+    /// The 16-channel presentation declares its ISF type in the major sync;
+    /// the count used to be hardcoded to zero, which would have shifted every
+    /// element after the bed on a stream that carries ISF objects.
+    #[test]
+    fn the_isf_count_comes_from_the_major_sync() {
+        let extra = ExtraChannelMeaning {
+            content_description: 0b110, // ISF and dynamic objects, no bed
+            isf_index: 0,
+            dynamic_object_count: 1,
+            ..ExtraChannelMeaning::default()
+        };
+        let p = program_from_extra(&extra).unwrap();
+        assert_eq!(p.isf_objects, 4, "SR3.1.0.0 has four objects");
+        assert_eq!(p.isf_index, Some(0));
+        assert_eq!(p.dynamic_objects, 2);
+        assert!(p.beds.is_empty());
+        let reserved = ExtraChannelMeaning {
+            isf_index: 6,
+            ..extra
+        };
+        assert!(program_from_extra(&reserved).is_err());
+        let none = ExtraChannelMeaning {
+            content_description: 0b100,
+            ..reserved
+        };
+        let p = program_from_extra(&none).unwrap();
+        assert_eq!((p.isf_objects, p.isf_index), (0, None));
+    }
 }

@@ -3,8 +3,10 @@
 
 use std::collections::BTreeMap;
 
-use oadec_emdf::oamd::{BedChannel, Element, Gain, Oamd, ObjectInfoBlock};
+use oadec_emdf::oamd::{BedChannel, Distance, Element, Gain, Oamd, ObjectInfoBlock, TrimConfig};
 use thiserror::Error;
+
+use crate::loss::{LossKind, LossLedger};
 
 /// Errors of the program model.
 #[derive(Debug, Error)]
@@ -86,12 +88,41 @@ pub const STANDARD_BED: [BedChannel; 10] = [
 /// First DAMF id of the dynamic objects.
 pub const FIRST_OBJECT_ID: u32 = 10;
 
+/// How the intermediate-spatial-format elements of a programme are treated.
+/// Neither DAMF nor the Dolby Atmos master ADM profile can represent them, and
+/// TS 103 420 gives only the ring composition of each ISF type, not positions,
+/// so there is nothing faithful to map them to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum IsfPolicy {
+    /// Refuse to write the output (the default): an output missing whole
+    /// elements should not appear on its own.
+    #[default]
+    Error,
+    /// Write the beds and dynamic objects without the ISF elements and count
+    /// the loss.
+    Drop,
+}
+
+/// ISF types of TS 103 420 table 11b by `intermediate_spatial_format_idx`, in
+/// stacked-ring notation (mid, upper, lower and zenith objects); 6 and 7 are
+/// reserved.
+pub const ISF_TYPES: [&str; 6] = [
+    "SR3.1.0.0",
+    "SR5.3.0.0",
+    "SR7.3.0.0",
+    "SR9.5.0.0",
+    "SR7.5.3.0",
+    "SR15.9.5.1",
+];
+
 /// What a program consists of.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Program {
     /// Bed instances, each a list of channels in stream order.
     pub beds: Vec<Vec<BedChannel>>,
-    /// ISF objects (not representable in DAMF; carried for reporting).
+    /// `intermediate_spatial_format_idx` when ISF objects are present.
+    pub isf_index: Option<u8>,
+    /// ISF objects (not representable in DAMF or ADM; see [`IsfPolicy`]).
     pub isf_objects: usize,
     /// Dynamic objects.
     pub dynamic_objects: usize,
@@ -108,9 +139,18 @@ impl Program {
                 .iter()
                 .map(|b| b.channels.clone())
                 .collect(),
+            isf_index: oamd.program.isf_index,
             isf_objects: oamd.program.isf_objects(),
             dynamic_objects: oamd.program.dynamic_objects,
         }
+    }
+
+    /// Name of the ISF type (table 11b) when the programme has ISF objects and
+    /// the index is not reserved.
+    #[must_use]
+    pub fn isf_type(&self) -> Option<&'static str> {
+        self.isf_index
+            .and_then(|i| ISF_TYPES.get(usize::from(i & 7)).copied())
     }
 
     /// Elements in stream order: bed channels, ISF objects, dynamic objects.
@@ -167,8 +207,11 @@ pub struct ObjectState {
     pub elevation: bool,
     /// Horizontal zone constraint index.
     pub zones: u8,
-    /// Object size (uniform; DAMF has no three-dimensional size).
-    pub size: f32,
+    /// Object size as OAMD codes it: width, depth, height in 0..=1. DAMF has
+    /// one `size` and the ADM profile requires the three to be identical, so
+    /// the writers emit [`ObjectState::uniform_size`] and count the events
+    /// whose axes differ.
+    pub size: [f32; 3],
     /// Priority ("importance").
     pub importance: f32,
     /// Gain.
@@ -181,6 +224,22 @@ pub struct ObjectState {
     pub screen_factor: f32,
     /// Depth factor.
     pub depth_factor: f32,
+}
+
+impl ObjectState {
+    /// The one size the outputs can carry: the width (the first axis), which
+    /// is what a uniform OAMD size sets for all three.
+    #[must_use]
+    pub const fn uniform_size(&self) -> f32 {
+        self.size[0]
+    }
+
+    /// Whether depth or height differ from the width, so that the written
+    /// size loses something.
+    #[must_use]
+    pub fn size_axes_differ(&self) -> bool {
+        self.size[1] != self.size[0] || self.size[2] != self.size[0]
+    }
 }
 
 /// Metadata of a bed channel at one instant.
@@ -239,7 +298,7 @@ fn object_state(
         snap: r.snap,
         elevation: r.enable_elevation,
         zones: r.zone_constraints,
-        size: r.size[0],
+        size: r.size,
         importance: block.basic.priority,
         gain: block.basic.gain,
         ramp,
@@ -267,7 +326,13 @@ pub struct Timeline {
     /// Events whose sample position was earlier than the previous event of the
     /// same element (a timeline that runs backwards is a bug or a branch).
     pub out_of_order: u64,
+    /// What the programme model itself cannot carry: distance, divergence,
+    /// warp mode and trim configurations have no field in DAMF or in the ADM
+    /// profile, so they are counted here, where they are dropped.
+    pub losses: LossLedger,
     last_pos: BTreeMap<u32, u64>,
+    last_warp: Option<u8>,
+    last_trim: Option<Vec<TrimConfig>>,
 }
 
 impl Timeline {
@@ -319,6 +384,21 @@ impl Timeline {
             None => vec![false; object_count],
         };
         let timing = &objects.timing;
+        // Warp mode and explicit trims are payload-wide and change rarely: one
+        // note per change, not one per payload.
+        if let Some(t) = trim {
+            let at = base + container_offset + u64::from(timing.sample_offset);
+            if t.warp_mode != 0 && self.last_warp != Some(t.warp_mode) {
+                self.losses.note(LossKind::WarpModeDropped, 0, at);
+            }
+            self.last_warp = Some(t.warp_mode);
+            if t.global_trim_mode == 2 {
+                if self.last_trim.as_deref() != Some(&t.configs[..]) {
+                    self.losses.note(LossKind::TrimConfigDropped, 0, at);
+                }
+                self.last_trim = Some(t.configs.clone());
+            }
+        }
         let restates = timing.sample_offset == 0
             && timing
                 .blocks
@@ -377,6 +457,20 @@ impl Timeline {
                     {
                         self.out_of_order += 1;
                     }
+                    if !block.in_bed_or_isf {
+                        if block.render.distance != Distance::Unspecified {
+                            self.losses.note(LossKind::DistanceDropped, id, pos);
+                        }
+                        let divergence = ext
+                            .and_then(|x| x.divergence.as_ref())
+                            .and_then(|v| v.get(index))
+                            .and_then(|v| v.get(blk))
+                            .copied()
+                            .unwrap_or(0.0);
+                        if divergence > 0.0 {
+                            self.losses.note(LossKind::DivergenceDropped, id, pos);
+                        }
+                    }
                     let event = Event {
                         id,
                         sample_pos: pos,
@@ -431,6 +525,7 @@ mod tests {
         assert_eq!(bed_channel_id(BedChannel::LFE2), 136);
         let p = Program {
             beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
             isf_objects: 0,
             dynamic_objects: 3,
         };
@@ -515,6 +610,78 @@ mod tests {
                 "base {base}, container {container}, sample_offset {so}, block_offset_factor {bof}"
             );
         }
+    }
+
+    /// Distance, divergence, warp mode and trim configurations reach neither
+    /// DAMF nor the ADM profile; the timeline counts them where it drops them.
+    #[test]
+    fn unrepresentable_semantics_are_counted_by_the_timeline() {
+        use crate::loss::LossKind;
+        use oadec_emdf::oamd::{Distance, Element, ElementMd, ExtendedObjectElement, TrimElement};
+        let mut oamd = one_update(0, 0);
+        if let Element::Object(o) = &mut oamd.elements[0].element {
+            o.objects[0][0].render.distance = Distance::Factor(2.0);
+        }
+        let md = |id: u8, element: Element| ElementMd {
+            id,
+            size_bytes: 1,
+            alternate_id: None,
+            discard_unknown: false,
+            element,
+            size_ok: true,
+            padding_bits: 0,
+            padding_zero: true,
+        };
+        oamd.elements.push(md(
+            8,
+            Element::Trim(TrimElement {
+                warp_mode: 1,
+                global_trim_mode: 0,
+                configs: Vec::new(),
+                disable_per_object: None,
+            }),
+        ));
+        oamd.elements.push(md(
+            14,
+            Element::ExtendedObject(ExtendedObjectElement {
+                divergence: Some(vec![vec![1.0]]),
+                ext_precision: None,
+            }),
+        ));
+        let mut t = Timeline::new(true);
+        t.push(&oamd, 0, 0, |_| {}).expect("well formed");
+        assert_eq!(t.losses.count(LossKind::DistanceDropped), 1);
+        assert_eq!(t.losses.count(LossKind::DivergenceDropped), 1);
+        assert_eq!(t.losses.count(LossKind::WarpModeDropped), 1);
+        assert_eq!(t.losses.count(LossKind::TrimConfigDropped), 0);
+        // the same payload again: the warp mode did not change, the update did
+        t.push(&oamd, 1536, 0, |_| {}).expect("well formed");
+        assert_eq!(t.losses.count(LossKind::WarpModeDropped), 1);
+        assert_eq!(t.losses.count(LossKind::DistanceDropped), 2);
+        assert_eq!(
+            t.losses.examples(LossKind::DistanceDropped),
+            &[(10, 0), (10, 1536)]
+        );
+    }
+
+    /// OAMD codes width, depth and height; the model used to keep the first
+    /// axis only, which made the collapse invisible to both writers.
+    #[test]
+    fn three_size_axes_reach_the_state() {
+        use oadec_emdf::oamd::Element;
+        let mut oamd = one_update(0, 0);
+        if let Element::Object(o) = &mut oamd.elements[0].element {
+            o.objects[0][0].render.size = [0.2, 0.5, 0.8];
+        }
+        let mut t = Timeline::new(true);
+        let mut seen = Vec::new();
+        t.push(&oamd, 0, 0, |e| seen.push(e.state.clone()))
+            .expect("well formed");
+        let ElementState::Object(s) = &seen[0] else {
+            panic!("an object event");
+        };
+        assert_eq!(s.size, [0.2, 0.5, 0.8]);
+        assert_eq!(s.uniform_size(), 0.2, "the width stands for the size");
     }
 
     #[test]

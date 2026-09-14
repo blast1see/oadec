@@ -327,5 +327,5 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
         out.flush()?;
     }
     print_summary(&session, started.elapsed().as_secs_f64());
-    Ok(truehd_findings(&pass, session.stats()).report())
+    Ok(truehd_findings(&pass, session.stats()).report_clean())
 }

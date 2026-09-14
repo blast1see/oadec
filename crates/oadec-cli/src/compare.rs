@@ -201,6 +201,6 @@ pub fn run(path: &Path, reference: &Path, opts: &Options) -> Result<bool> {
     }
     let equal = mismatches == 0 && !reference_short && leftover_samples == 0 && compared > 0;
     println!("result: {}", if equal { "BIT-EXACT" } else { "DIFFERENT" });
-    let clean = crate::decode::truehd_findings(&pass, session.stats()).report();
+    let clean = crate::decode::truehd_findings(&pass, session.stats()).report_clean();
     Ok(equal && clean)
 }

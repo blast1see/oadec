@@ -122,7 +122,7 @@ fn object_state(e: &SceneEvent) -> ObjectState {
         snap: false,
         elevation: true,
         zones: 0,
-        size: e.size,
+        size: [e.size; 3],
         importance: 1.0,
         gain: Gain::Db(e.gain_db),
         ramp: 0,
@@ -163,6 +163,7 @@ pub fn run(scene_path: &Path, base: &Path) -> Result<()> {
 
     let program = Program {
         beds: vec![beds],
+        isf_index: None,
         isf_objects: 0,
         dynamic_objects: scene.objects.len(),
     };

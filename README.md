@@ -22,7 +22,7 @@ Atmos track can become an E-AC-3 Atmos track without losing the objects.
 | Object Audio Metadata (ETSI TS 103 420) | done | 1,344,146 payloads, zero parse errors |
 | Timing model, seamless branches, duplicates | done | Braveheart: 0 branches, the same as truehdd |
 | DAMF writer, Dolby validators, encoder round trip | done | validators exit 0; the encoder produces E-AC-3 JOC and TrueHD Atmos from our sets |
-| ADM BWF writer | done | structurally identical to the Dolby converter's own output |
+| ADM BWF writer | done | structurally identical to the Dolby converter's own output; semantic fidelity audited against Dolby's converters and the audit's findings closed ([report](docs/audit/adm-remediation-report.md)) |
 | E-AC-3 / AC-3 core decoder (ETSI TS 102 366) | done | 19 streams, 3.3 million frames, zero CRC or parse failures; closer to a Dolby decode than FFmpeg is on every channel of the hardest streams |
 | JOC objects (ETSI TS 103 420) to DAMF / ADM | done | 380,000 payloads parse to the byte; against the Dolby decoder's own object output, 40 to 56 dB per object, at the dither floor in every band the core decode is exact in |
 | Enhanced coupling (clause E.3.5.5) | done | no stream in the world carries it, so `oadec eac3-ecpl-inject` makes one; both Dolby decoders accept it and agree with us at the dither floor |
@@ -62,6 +62,20 @@ is (`encode_to_atmos_ddp` takes it as `damf`, `encode_to_dthd` as
 `--dolby-origin-tag`, which writes the creator string they insist on; the
 flag is off by default and the DAMF output needs no such marker.
 
+Neither object format can carry everything the stream says. Each run prints
+what it reduced, dropped or approximated, one line per class, and
+`--loss-report FILE` writes the same ledger as JSON. The run exits 4 when
+something is missing at the user's request: `--isf drop` writes a programme
+without its intermediate-spatial-format elements (the default refuses such a
+programme), and `--adm-allow-non-profile-rate` writes an ADM at a rate other
+than the profile's 48 kHz. `--adm-interpolation real` writes the stream's own
+ramp lengths instead of the profile's fixed 250 samples; that file is outside
+the Dolby profile, says so in its `dbmd` tool string, and cannot carry the
+origin tag. Gains on active objects and the object numbering are written the
+way Dolby's own converters write them. The policy is in
+[`docs/exit-codes.md`](docs/exit-codes.md), the measurements in
+[`docs/audit/adm-remediation-report.md`](docs/audit/adm-remediation-report.md).
+
 ## How it is verified
 
 Nothing is trusted because it looks right. Every claim in the status table
@@ -79,6 +93,12 @@ comes from a measurement that can be repeated:
   5.7.2, the Reference Player, the Atmos Conversion Tool) validate the DAMF
   and ADM outputs and re-encode them. Their own conversions are the reference
   the ADM writer is diffed against (`tools/adm_diff.py`).
+- **The ADM audit toolkit.** `docs/audit/adm/tools` reads DAMF and ADM
+  without the writers' help, reconciles every metadata event with every ADM
+  block, and checks the Dolby Atmos master ADM profile table by table. The
+  2026-09-11 audit judged the writers with it; the remediation kept it as the
+  gate. Every writer-level case has an expectation and runs in CI, and every
+  audited decode was replayed against its recorded hash.
 - **Three decoders.** AC-3 family decoders dither differently by design, so
   E-AC-3 output is judged with `tools/three_way.py`: oadec must sit within
   the distance the Dolby decode and FFmpeg have from each other, channel by
