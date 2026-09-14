@@ -412,6 +412,9 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         };
 
         // Metadata of this access unit applies from its first emitted sample.
+        // A frame whose container does not parse carries none; the decoder
+        // counts it with the extra-data checks `verify` uses, and the verdict
+        // below notes it.
         if let Some(extra) = &au.extra
             && let ExtraKind::Evolution { frame: evo, .. } = &extra.kind
             && !evo.is_empty()

@@ -191,6 +191,14 @@ pub fn truehd_findings(pass: &input::PassSummary, stats: Option<&DecodeStats>) -
         f.note(s.segment_problems, "substream segment problems");
         f.note(s.max_bits_violations, "max_bits violations");
         f.note(s.invalid_branches, "invalid seamless branches");
+        f.note(s.extra_header_parity, "extra-data header parity failures");
+        f.note(s.extra_truncated, "truncated extra-data blocks");
+        f.note(s.extra_evolution_parity, "Evolution parity failures");
+        f.note(
+            s.extra_padding_nonzero,
+            "extra-data blocks with non-zero padding",
+        );
+        f.note(s.evolution_container_errors, "Evolution container errors");
         f.first_problem(s.first_problem.as_deref());
     }
     f
@@ -328,4 +336,44 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
     }
     print_summary(&session, started.elapsed().as_secs_f64());
     Ok(truehd_findings(&pass, session.stats()).report_clean())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn empty_pass() -> input::PassSummary {
+        input::PassSummary {
+            stats: oadec_truehd::ExtractStats::default(),
+            trailing_bytes: 0,
+            file_bytes: 0,
+        }
+    }
+
+    /// `verify` counts five extra-data faults; the decode verdict used to read
+    /// none of them, so a corrupted Evolution frame left `decode` at 0 while
+    /// `verify` said 7 about the same file.
+    #[test]
+    fn every_extra_data_fault_makes_a_decode_unclean() {
+        let pass = empty_pass();
+        assert!(truehd_findings(&pass, Some(&DecodeStats::default())).is_clean());
+        type Set = fn(&mut DecodeStats);
+        let faults: [(&str, Set); 5] = [
+            ("extra_header_parity", |s| s.extra_header_parity = 1),
+            ("extra_truncated", |s| s.extra_truncated = 1),
+            ("extra_evolution_parity", |s| s.extra_evolution_parity = 1),
+            ("extra_padding_nonzero", |s| s.extra_padding_nonzero = 1),
+            ("evolution_container_errors", |s| {
+                s.evolution_container_errors = 1;
+            }),
+        ];
+        for (name, set) in faults {
+            let mut stats = DecodeStats::default();
+            set(&mut stats);
+            assert!(
+                !truehd_findings(&pass, Some(&stats)).is_clean(),
+                "{name} left the decode looking clean"
+            );
+        }
+    }
 }

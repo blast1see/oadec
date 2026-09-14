@@ -16,6 +16,7 @@ use crate::au::{AccessUnit, DirectoryEntry, StreamConfig};
 use crate::block::{Block, SampleBuffer};
 use crate::dither::{fill_table_bc, noise_pair_a};
 use crate::error::{Error, Result};
+use crate::extra::{ExtraData, ExtraKind};
 use crate::matrix::Matrixing;
 use crate::presentation::PresentationKind;
 use crate::segment::Segment;
@@ -51,6 +52,16 @@ pub struct DecodeStats {
     pub max_bits_violations: u64,
     /// Segments with a parity, CRC, end-pointer or sample-count problem.
     pub segment_problems: u64,
+    /// Extra-data blocks whose header nibble parity failed.
+    pub extra_header_parity: u64,
+    /// Extra-data blocks whose declared length runs past the access unit.
+    pub extra_truncated: u64,
+    /// Evolution extra-data blocks whose parity byte did not match.
+    pub extra_evolution_parity: u64,
+    /// Extra-data blocks whose padding was not zero.
+    pub extra_padding_nonzero: u64,
+    /// Evolution frames whose EMDF container would not parse.
+    pub evolution_container_errors: u64,
     /// Access units whose input timing jumped.
     pub input_jumps: u64,
     /// Timing jumps judged valid seamless branches.
@@ -69,6 +80,43 @@ impl DecodeStats {
     fn note(&mut self, message: impl FnOnce() -> String) {
         if self.first_problem.is_none() {
             self.first_problem = Some(message());
+        }
+    }
+
+    /// Counts what is wrong with the extra-data block of access unit `unit`,
+    /// with the checks `verify` makes.
+    ///
+    /// The block carries no audio, so nothing here stops a decode. It does
+    /// carry the object metadata, and a delivery that read none of these
+    /// checks exited clean on a stream `verify` rejected: a corrupted
+    /// Evolution parity byte left `decode` at 0 and `verify` at 7.
+    fn take_extra(&mut self, unit: u64, extra: &ExtraData) {
+        if !extra.header_parity_ok {
+            self.extra_header_parity += 1;
+            self.note(|| format!("access unit {unit}: extra data header parity mismatch"));
+        }
+        if !extra.padding_zero {
+            self.extra_padding_nonzero += 1;
+            self.note(|| format!("access unit {unit}: non-zero extra data padding"));
+        }
+        match &extra.kind {
+            ExtraKind::Truncated => {
+                self.extra_truncated += 1;
+                self.note(|| format!("access unit {unit}: extra data runs past the access unit"));
+            }
+            ExtraKind::Evolution { frame, .. } => {
+                if extra.parity_ok == Some(false) {
+                    self.extra_evolution_parity += 1;
+                    self.note(|| format!("access unit {unit}: Evolution parity mismatch"));
+                }
+                if !frame.is_empty()
+                    && let Err(e) = oadec_emdf::container::parse_evolution(frame)
+                {
+                    self.evolution_container_errors += 1;
+                    self.note(|| format!("access unit {unit}: evolution frame: {e}"));
+                }
+            }
+            ExtraKind::Padding | ExtraKind::Opaque(_) => {}
         }
     }
 }
@@ -649,6 +697,9 @@ impl Decoder {
                 .update_config(StreamTiming::new(ms, &config));
             self.config = config;
         }
+        if let Some(extra) = &au.extra {
+            self.core.stats.take_extra(self.core.unit_index, extra);
+        }
         self.core.duplicate_timing = false;
         self.core.duplicate_samples = false;
         if self
@@ -732,6 +783,74 @@ mod tests {
         assert_eq!(fold_lossless(0), 0);
         assert_eq!(fold_lossless(0x0000_00AB), 0xAB);
         assert_eq!(fold_lossless(0x1234_5678), 0x12 ^ 0x34 ^ 0x56 ^ 0x78);
+    }
+
+    /// The five extra-data faults `verify` counts, one at a time, counted by
+    /// the decoder with the same checks, and the first one named.
+    #[test]
+    fn extra_data_faults_are_counted_as_verify_counts_them() {
+        fn counts(s: &DecodeStats) -> [u64; 5] {
+            [
+                s.extra_header_parity,
+                s.extra_padding_nonzero,
+                s.extra_truncated,
+                s.extra_evolution_parity,
+                s.evolution_container_errors,
+            ]
+        }
+        let clean = ExtraData {
+            header_nibble: 0,
+            length_words: 0,
+            header_parity_ok: true,
+            kind: ExtraKind::Padding,
+            parity_ok: None,
+            padding_zero: true,
+            trailing_bytes: 0,
+        };
+        let evolution = |frame: Vec<u8>, parity_ok| ExtraData {
+            kind: ExtraKind::Evolution { reserved: 0, frame },
+            parity_ok: Some(parity_ok),
+            ..clean.clone()
+        };
+
+        let mut s = DecodeStats::default();
+        s.take_extra(0, &clean);
+        // an empty frame is not parsed, and a good parity is not a fault
+        s.take_extra(1, &evolution(Vec::new(), true));
+        assert_eq!(counts(&s), [0; 5]);
+        assert_eq!(s.first_problem, None);
+
+        let faults = [
+            ExtraData {
+                header_parity_ok: false,
+                ..clean.clone()
+            },
+            ExtraData {
+                padding_zero: false,
+                ..clean.clone()
+            },
+            ExtraData {
+                kind: ExtraKind::Truncated,
+                ..clean.clone()
+            },
+            evolution(Vec::new(), false),
+            // version and key id, then a payload id that runs out of bits
+            evolution(vec![0x00], true),
+        ];
+        for (k, extra) in faults.iter().enumerate() {
+            let mut s = DecodeStats::default();
+            s.take_extra(7, extra);
+            let mut expected = [0; 5];
+            expected[k] = 1;
+            assert_eq!(counts(&s), expected, "fault {k}");
+            assert!(
+                s.first_problem
+                    .as_deref()
+                    .is_some_and(|p| p.starts_with("access unit 7: ")),
+                "fault {k} is named: {:?}",
+                s.first_problem
+            );
+        }
     }
 
     #[test]
