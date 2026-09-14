@@ -570,6 +570,9 @@ struct Pass {
     crc_failures: u64,
     tail_overruns: u64,
     first_error: Option<String>,
+    /// The first problem that is a fault of a delivery: `first_error` less the
+    /// frames that end inside their own tail, which a delivery does not fail on.
+    first_fault: Option<String>,
     coverage: Coverage,
     emdf: EmdfStats,
     first: Option<(FrameHeader, oadec_eac3::Bsi)>,
@@ -681,6 +684,9 @@ fn pass(
     if p.first_error.is_none() {
         p.first_error = p.program.first_error.clone();
     }
+    if p.first_fault.is_none() {
+        p.first_fault = p.program.first_error.clone();
+    }
     let _ = frames;
     Ok((p, sync_errors, skipped))
 }
@@ -729,8 +735,12 @@ fn account(
     }
     if !d.crc_ok {
         p.crc_failures += 1;
+        let problem = format!("frame {index}: CRC failure");
+        if p.first_fault.is_none() {
+            p.first_fault = Some(problem.clone());
+        }
         if p.first_error.is_none() {
-            p.first_error = Some(format!("frame {index}: CRC failure"));
+            p.first_error = Some(problem);
         }
     }
     // TS 103 420 clause 8.2: with dependent substreams present the EMDF
@@ -872,12 +882,15 @@ fn program_parts(p: &Pass, h: &FrameHeader) -> Vec<Value> {
     parts
 }
 
-/// The same faults `is_clean` weighs, in the form a delivery path reports.
+/// The faults `is_clean` weighs, in the form a delivery path reports, less the
+/// frames that end inside their own tail. Such a frame is out of spec and
+/// decodes to the audio FFmpeg, Dolby and oadec agree on, so a delivery counts
+/// and prints it without failing on it; `verify` still calls the file
+/// non-conformant (`docs/exit-codes.md`).
 fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
     let mut f = Findings::default();
     f.note(p.decode_errors, "frames failed to decode");
     f.note(p.crc_failures, "CRC failures");
-    f.note(p.tail_overruns, "frames ending inside the frame tail");
     f.note(sync_errors, "sync errors");
     f.note(skipped, "bytes skipped");
     f.note(
@@ -920,12 +933,8 @@ fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
             sub.crc_failures,
             &format!("CRC failures in dependent substream {id}"),
         );
-        f.note(
-            sub.tail_overruns,
-            &format!("frames of dependent substream {id} ending inside the frame tail"),
-        );
     }
-    f.first_problem(p.first_error.as_deref());
+    f.first_problem(p.first_fault.as_deref());
     f
 }
 
@@ -1155,8 +1164,8 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 .slack_bits
                 .map_or_else(|| "-".to_string(), |(lo, hi)| format!("{lo} to {hi}"));
             println!(
-                "                     {} frames merged, {} CRC failures, {} decode errors, {} bits unread",
-                sub.frames, sub.crc_failures, sub.decode_errors, slack
+                "                     {} frames merged, {} CRC failures, {} decode errors, {} frames ending inside the frame tail, {} bits unread",
+                sub.frames, sub.crc_failures, sub.decode_errors, sub.tail_overruns, slack
             );
             if sub.lfe_implied > 0 {
                 println!(
@@ -1835,6 +1844,61 @@ mod tests {
         assert!(
             is_clean(&other, 0, 0),
             "a second programme should not make a stream unclean"
+        );
+    }
+
+    /// A frame that ends inside its own tail is out of spec and decodes to
+    /// audio FFmpeg, Dolby and oadec agree on (`docs/eac3.md`), so a delivery
+    /// counts and prints it without failing on it, while `verify` still calls
+    /// the file non-conformant (`docs/exit-codes.md`). `findings` noted both
+    /// tail counters, so `decode` and `compare` exited 7 on exactly the frame
+    /// the policy was written about.
+    #[test]
+    fn a_tail_overrun_alone_fails_verify_and_not_a_delivery() {
+        let core = Pass {
+            tail_overruns: 1,
+            first_error: Some("frame 224: the audio blocks end inside the frame tail".into()),
+            ..Pass::default()
+        };
+        assert!(
+            !is_clean(&core, 0, 0),
+            "verify must still call the file non-conformant"
+        );
+        let f = findings(&core, 0, 0);
+        assert!(
+            f.is_clean(),
+            "a delivery failed on a tail overrun alone: {f:?}"
+        );
+
+        let mut dependent = Pass::default();
+        dependent.subs.insert(
+            (1, 0),
+            SubStats {
+                tail_overruns: 1,
+                ..SubStats::default()
+            },
+        );
+        assert!(!is_clean(&dependent, 0, 0));
+        let f = findings(&dependent, 0, 0);
+        assert!(
+            f.is_clean(),
+            "a delivery failed on a dependent substream's tail overrun alone: {f:?}"
+        );
+
+        // beside a real fault the delivery fails, and names the fault first
+        let both = Pass {
+            tail_overruns: 1,
+            crc_failures: 1,
+            first_error: Some("frame 5: the audio blocks end inside the frame tail".into()),
+            first_fault: Some("frame 22: CRC failure".into()),
+            ..Pass::default()
+        };
+        let f = findings(&both, 0, 0);
+        assert!(!f.is_clean());
+        let shown = format!("{f:?}");
+        assert!(
+            shown.contains("frame 22: CRC failure") && !shown.contains("frame tail"),
+            "the delivery's first problem is not its first fault: {shown}"
         );
     }
 }

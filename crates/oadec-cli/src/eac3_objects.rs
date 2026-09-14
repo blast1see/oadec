@@ -21,7 +21,7 @@ use oadec_joc::{
     Analysis, BANDS, Carry, Complex, DELAY, JocDecoder, LOW_DELAY, MATRIX_ALIGN, Quadrature,
     SteepReading, Synthesis,
 };
-use oadec_spatial::{Program, Timeline};
+use oadec_spatial::{LossLedger, Program, Timeline};
 
 use crate::damf::{Options, Sink};
 use crate::decode::format_duration;
@@ -408,6 +408,50 @@ fn frame_payloads(d: &Decoded, sparse: SparseReading) -> (Vec<(Oamd, u32)>, Opti
     (oamd, joc, errors)
 }
 
+/// What the object decode counted that bears on its verdict.
+#[derive(Debug, Default)]
+struct Tally {
+    decode_errors: u64,
+    crc_failures: u64,
+    /// Frames that end inside their own tail. Out of spec, and decoded to the
+    /// audio FFmpeg, Dolby and oadec agree on, so they are printed and are not
+    /// a fault of the delivery (`docs/exit-codes.md`); `verify` still calls the
+    /// file non-conformant.
+    tail_overruns: u64,
+    /// The frame group the first of them is in.
+    first_tail: Option<u64>,
+    sync_errors: u64,
+    skipped: u64,
+    payload_errors: u64,
+    first_error: Option<String>,
+}
+
+impl Tally {
+    /// The verdict of the object decode, from what it counted, what the
+    /// programme assembly found and what the writers could not carry.
+    fn findings(&self, stats: &oadec_eac3::ProgramStats, losses: &LossLedger) -> Findings {
+        let mut f = Findings::default();
+        f.note_losses(losses);
+        f.note(self.decode_errors, "frames failed to decode");
+        f.note(self.crc_failures, "CRC failures");
+        f.note(self.sync_errors, "sync errors");
+        f.note(self.skipped, "bytes skipped");
+        f.note(self.payload_errors, "metadata payload errors");
+        f.note(
+            stats.dependent_dropped,
+            "dependent substream frames dropped",
+        );
+        f.note(
+            stats.orphan_dependents,
+            "dependent frames with no independent substream",
+        );
+        f.note(stats.location_errors, "unreadable channel maps");
+        f.note(stats.layout_changes, "mid-stream channel layout changes");
+        f.first_problem(self.first_error.as_deref().or(stats.first_error.as_deref()));
+        f
+    }
+}
+
 /// Runs the object output for an E-AC-3 JOC stream; `base` is the output path
 /// without extension.
 pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
@@ -429,12 +473,9 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
     let mut pipeline: Option<Pipeline> = None;
     let mut program: Option<Program> = None;
     let mut core_samples: u64 = 0;
-    let mut payload_errors: u64 = 0;
+    let mut tally = Tally::default();
     let mut frames_without_joc: u64 = 0;
     let mut frames_without_oamd: u64 = 0;
-    let mut crc_failures: u64 = 0;
-    let mut tail_overruns: u64 = 0;
-    let mut first_error: Option<String> = None;
     let mut rate = 48_000u32;
     let mut rows_written: u64 = 0;
 
@@ -444,18 +485,14 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         rate = d.header.sample_rate;
         for part in &frame.parts {
             if !part.decoded.crc_ok {
-                crc_failures += 1;
-                if first_error.is_none() {
-                    first_error = Some(format!("group {frame_index}: CRC failure"));
+                tally.crc_failures += 1;
+                if tally.first_error.is_none() {
+                    tally.first_error = Some(format!("group {frame_index}: CRC failure"));
                 }
             }
             if part.decoded.tail_overrun {
-                tail_overruns += 1;
-                if first_error.is_none() {
-                    first_error = Some(format!(
-                        "group {frame_index}: the audio blocks end inside the frame tail"
-                    ));
-                }
+                tally.tail_overruns += 1;
+                tally.first_tail.get_or_insert(frame_index);
             }
         }
         let (oamds, joc, errors) = frame_payloads(
@@ -466,7 +503,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
                 SparseReading::Measured
             },
         );
-        payload_errors += errors;
+        tally.payload_errors += errors;
         if joc.is_none() {
             frames_without_joc += 1;
         }
@@ -538,7 +575,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
                 return Err(e.into());
             }
             if result.is_err() {
-                payload_errors += 1;
+                tally.payload_errors += 1;
             }
         }
         let channels: Vec<&[f32]> = (0..frame.channels()).map(|i| frame.channel(i)).collect();
@@ -565,9 +602,11 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         handle(&frame)?;
     }
     let stats = decoder.stats().clone();
-    let decode_errors: u64 = stats.decode_errors.values().sum();
-    // `handle` borrows the pipeline and the sink; end that borrow.
+    // `handle` borrows the pipeline, the sink and the tally; end that borrow.
     let _ = &mut handle;
+    tally.decode_errors = stats.decode_errors.values().sum();
+    tally.sync_errors = sync_errors;
+    tally.skipped = skipped;
 
     let (Some(mut pl), Some(sink)) = (pipeline, sink) else {
         bail!("no decodable frames");
@@ -609,7 +648,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         summary.events,
         timeline.restatements,
         timeline.out_of_order,
-        payload_errors,
+        tally.payload_errors,
         frames_without_joc,
         frames_without_oamd
     );
@@ -622,7 +661,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
     eprintln!(
         "core: {} frames decoded, {} decode errors, {:.2} s ({:.0}x realtime)",
         pl.frames,
-        decode_errors,
+        tally.decode_errors,
         elapsed,
         if elapsed > 0.0 {
             rows_written as f64 / f64::from(rate) / elapsed
@@ -630,6 +669,12 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
             0.0
         }
     );
+    if let Some(group) = tally.first_tail {
+        eprintln!(
+            "out of spec: {} frames ending inside the frame tail, the first in group {group}; decoded as FFmpeg and Dolby decode them, which is not an integrity fault (`oadec verify` reports it)",
+            tally.tail_overruns
+        );
+    }
     let mut losses = timeline.losses.clone();
     losses.merge(&summary.losses);
     crate::damf::report_losses(
@@ -637,24 +682,38 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         &losses,
         opts.loss_report.as_deref(),
     )?;
-    let mut f = Findings::default();
-    f.note_losses(&losses);
-    f.note(decode_errors, "frames failed to decode");
-    f.note(crc_failures, "CRC failures");
-    f.note(tail_overruns, "frames ending inside the frame tail");
-    f.note(sync_errors, "sync errors");
-    f.note(skipped, "bytes skipped");
-    f.note(payload_errors, "metadata payload errors");
-    f.note(
-        stats.dependent_dropped,
-        "dependent substream frames dropped",
-    );
-    f.note(
-        stats.orphan_dependents,
-        "dependent frames with no independent substream",
-    );
-    f.note(stats.location_errors, "unreadable channel maps");
-    f.note(stats.layout_changes, "mid-stream channel layout changes");
-    f.first_problem(first_error.or_else(|| stats.first_error.clone()).as_deref());
-    Ok(f.report())
+    Ok(tally.findings(&stats, &losses).report())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The object output weighs a frame that ends inside its own tail as the
+    /// PCM path does: counted and printed, and not a fault
+    /// (`docs/exit-codes.md`).
+    #[test]
+    fn a_tail_overrun_alone_does_not_fail_the_object_output() {
+        let stats = oadec_eac3::ProgramStats::default();
+        let losses = LossLedger::default();
+        let tail = Tally {
+            tail_overruns: 1,
+            first_tail: Some(224),
+            ..Tally::default()
+        };
+        let f = tail.findings(&stats, &losses);
+        assert!(
+            f.is_clean(),
+            "the object output failed on a tail overrun alone: {f:?}"
+        );
+        let crc = Tally {
+            tail_overruns: 1,
+            crc_failures: 1,
+            ..Tally::default()
+        };
+        assert!(
+            !crc.findings(&stats, &losses).is_clean(),
+            "a real fault beside it still fails"
+        );
+    }
 }
