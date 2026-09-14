@@ -1,17 +1,25 @@
-//! `oadec oamd`: parse every Object Audio Metadata payload of a TrueHD stream,
-//! tally what they contain and optionally dump them.
+//! `oadec oamd`: parse every Object Audio Metadata payload of a TrueHD or
+//! E-AC-3 stream, tally what they contain and optionally dump them.
+//!
+//! TrueHD carries the payloads in the Evolution frames of its access units,
+//! E-AC-3 in the EMDF containers of its frames' skip fields, which are found by
+//! the walk `oadec emdf` makes. Both are reported in one shape, with a frame
+//! standing where an access unit stands.
 
 use std::collections::BTreeMap;
+use std::fs::File;
+use std::io::Read;
 use std::path::Path;
 use std::time::Instant;
 
-use anyhow::Result;
-use oadec_emdf::container::{self, PAYLOAD_ID_OAMD};
+use anyhow::{Context, Result};
+use oadec_eac3::{FrameHeader, Syntax};
+use oadec_emdf::container::{self, Container, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::{Distance, Element, Gain, Oamd, Status};
 use oadec_truehd::{AccessUnit, ExtraKind, StreamConfig};
 use serde::Serialize;
 
-use crate::input;
+use crate::{emdf, input};
 
 /// Options of the command.
 #[derive(Debug, Clone)]
@@ -25,6 +33,7 @@ pub struct Options {
 /// What a pass over the payloads found.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct OamdSummary {
+    /// Access units of a TrueHD stream, syncframes of an E-AC-3 stream.
     pub units: u64,
     pub units_with_oamd: u64,
     pub payloads: u64,
@@ -60,8 +69,8 @@ pub struct OamdSummary {
     pub muted_updates: u64,
     /// Updates carrying a non-zero `object_size`.
     pub sized_updates: u64,
-    /// The first access units carrying each of the two, capped, so a clip can
-    /// be cut from one if anything ever does.
+    /// The first units carrying each of the two, capped, so a clip can be cut
+    /// from one if anything ever does.
     pub first_gain_units: Vec<u64>,
     pub first_size_units: Vec<u64>,
     pub payloads_with_trim: u64,
@@ -69,6 +78,10 @@ pub struct OamdSummary {
     pub payloads_with_unknown_elements: u64,
     pub program: Option<ProgramSummary>,
     pub program_changes: u64,
+    /// What the text calls a unit: "access unit" in TrueHD, "frame" in
+    /// E-AC-3. The JSON has the same shape for both.
+    #[serde(skip)]
+    pub unit_word: &'static str,
 }
 
 /// The program assignment as first seen.
@@ -106,6 +119,13 @@ fn gain_text(g: Gain) -> String {
 }
 
 impl OamdSummary {
+    fn new(unit_word: &'static str) -> Self {
+        Self {
+            unit_word,
+            ..Self::default()
+        }
+    }
+
     fn take(&mut self, unit_index: u64, container_offset: Option<u32>, oamd: &Oamd) {
         self.payloads += 1;
         *self
@@ -155,8 +175,8 @@ impl OamdSummary {
                 self.size_mismatches += 1;
                 if self.first_error.is_none() {
                     self.first_error = Some(format!(
-                        "access unit {unit_index}: element {} overran its {} bytes",
-                        e.id, e.size_bytes
+                        "{} {unit_index}: element {} overran its {} bytes",
+                        self.unit_word, e.id, e.size_bytes
                     ));
                 }
             }
@@ -164,8 +184,8 @@ impl OamdSummary {
                 self.padding_long += 1;
                 if self.first_error.is_none() {
                     self.first_error = Some(format!(
-                        "access unit {unit_index}: element {} padded by {} bits",
-                        e.id, e.padding_bits
+                        "{} {unit_index}: element {} padded by {} bits",
+                        self.unit_word, e.id, e.padding_bits
                     ));
                 }
             }
@@ -238,9 +258,9 @@ impl OamdSummary {
     }
 }
 
-fn dump_payload(unit_index: u64, container_offset: Option<u32>, oamd: &Oamd) {
+fn dump_payload(unit_word: &str, unit_index: u64, container_offset: Option<u32>, oamd: &Oamd) {
     println!(
-        "access unit {unit_index}: OAMD v{} {} objects, container sample offset {:?}, {} elements, padding {} bits",
+        "{unit_word} {unit_index}: OAMD v{} {} objects, container sample offset {:?}, {} elements, padding {} bits",
         oamd.version,
         oamd.object_count,
         container_offset,
@@ -335,25 +355,58 @@ fn dump_payload(unit_index: u64, container_offset: Option<u32>, oamd: &Oamd) {
     }
 }
 
-/// Runs the command; returns `true` when every payload parsed cleanly.
-pub fn run(path: &Path, opts: &Options) -> Result<bool> {
-    // an E-AC-3 stream carries its Object Audio Metadata in the EMDF
-    // containers of the skip fields, not in TrueHD access units; walking it
-    // for access units finds nothing and would report a clean zero
-    if crate::eac3::is_eac3(path).unwrap_or(false) {
-        anyhow::bail!(
-            concat!(
-                "{} is E-AC-3; its object metadata rides in the EMDF containers, ",
-                "not in TrueHD access units. Use `oadec emdf` for the payloads ",
-                "and their timing, or `oadec info` for the tallies."
-            ),
-            path.display()
-        );
+/// Reads every Object Audio Metadata payload of one container into the
+/// summary, and into the dump while it has room; returns whether the container
+/// carried one.
+fn take_container(
+    summary: &mut OamdSummary,
+    index: u64,
+    c: &Container,
+    opts: &Options,
+    dumped: &mut usize,
+) -> bool {
+    let mut any = false;
+    for p in c.payloads.iter().filter(|p| p.id == PAYLOAD_ID_OAMD) {
+        any = true;
+        match Oamd::parse(&p.data) {
+            Ok(oamd) => {
+                summary.take(index, p.config.sample_offset, &oamd);
+                if opts.dump.is_some_and(|n| *dumped < n) {
+                    dump_payload(summary.unit_word, index, p.config.sample_offset, &oamd);
+                    *dumped += 1;
+                }
+            }
+            Err(e) => {
+                if opts.dump.is_some() {
+                    println!(
+                        "{} {index}: payload of {} bytes failed: {e}",
+                        summary.unit_word,
+                        p.data.len()
+                    );
+                    println!(
+                        "  {}",
+                        p.data
+                            .iter()
+                            .map(|b| format!("{b:02x}"))
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    );
+                }
+                summary.payloads += 1;
+                summary.parse_errors += 1;
+                if summary.first_error.is_none() {
+                    summary.first_error = Some(format!("{} {index}: {e}", summary.unit_word));
+                }
+            }
+        }
     }
-    let started = Instant::now();
-    let mut summary = OamdSummary::default();
+    any
+}
+
+/// TrueHD: the payloads ride in the Evolution frames of the access units.
+fn walk_truehd(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSummary> {
+    let mut summary = OamdSummary::new("access unit");
     let mut config: Option<StreamConfig> = None;
-    let mut dumped = 0usize;
     input::for_each_unit(path, |unit| {
         let index = summary.units;
         summary.units += 1;
@@ -373,45 +426,73 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         let Ok(c) = container::parse_evolution(frame) else {
             return Ok(());
         };
-        let mut any = false;
-        for p in c.payloads.iter().filter(|p| p.id == PAYLOAD_ID_OAMD) {
-            any = true;
-            match Oamd::parse(&p.data) {
-                Ok(oamd) => {
-                    summary.take(index, p.config.sample_offset, &oamd);
-                    if opts.dump.is_some_and(|n| dumped < n) {
-                        dump_payload(index, p.config.sample_offset, &oamd);
-                        dumped += 1;
-                    }
-                }
-                Err(e) => {
-                    if opts.dump.is_some() {
-                        println!(
-                            "access unit {index}: payload of {} bytes failed: {e}",
-                            p.data.len()
-                        );
-                        println!(
-                            "  {}",
-                            p.data
-                                .iter()
-                                .map(|b| format!("{b:02x}"))
-                                .collect::<Vec<_>>()
-                                .join(" ")
-                        );
-                    }
-                    summary.payloads += 1;
-                    summary.parse_errors += 1;
-                    if summary.first_error.is_none() {
-                        summary.first_error = Some(format!("access unit {index}: {e}"));
-                    }
-                }
-            }
-        }
-        if any {
+        if take_container(&mut summary, index, &c, opts, dumped) {
             summary.units_with_oamd += 1;
         }
         Ok(())
     })?;
+    Ok(summary)
+}
+
+/// E-AC-3: the payloads ride in the EMDF containers of the frames' skip
+/// fields, and every syncframe of the walk is a unit.
+fn walk_eac3(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSummary> {
+    refuse_ac3(path)?;
+    let mut summary = OamdSummary::new("frame");
+    // a frame can hold more than one container and is counted once
+    let mut last_with_oamd: Option<u64> = None;
+    let walk = emdf::for_each_container(path, |site, c| {
+        // a container that does not open has no payload to read, as an
+        // Evolution frame that does not parse has none in TrueHD; `emdf`
+        // counts those
+        let Ok(c) = c else {
+            return;
+        };
+        if take_container(&mut summary, site.frame_index, &c, opts, dumped)
+            && last_with_oamd != Some(site.frame_index)
+        {
+            last_with_oamd = Some(site.frame_index);
+            summary.units_with_oamd += 1;
+        }
+    })?;
+    summary.units = walk.frames;
+    Ok(summary)
+}
+
+/// Refuses an AC-3 stream, which sniffs as the same family as E-AC-3.
+///
+/// The walk reads E-AC-3 frame headers, and an AC-3 syncframe has its CRC
+/// where E-AC-3 has the frame size: walked that way an AC-3 stream is misread
+/// frame by frame (902 frames on a 5.1 clip in which `info` decodes 1171) and
+/// comes out as a clean report of no metadata.
+fn refuse_ac3(path: &Path) -> Result<()> {
+    let mut head = Vec::with_capacity(8);
+    File::open(path)
+        .with_context(|| format!("opening {}", path.display()))?
+        .take(8)
+        .read_to_end(&mut head)?;
+    if let Ok(h) = FrameHeader::parse(&head)
+        && h.syntax == Syntax::Ac3
+    {
+        anyhow::bail!(
+            "{} is AC-3 (bsid {}); `oadec oamd` reads the object audio metadata of E-AC-3 and TrueHD streams",
+            path.display(),
+            h.bsid
+        );
+    }
+    Ok(())
+}
+
+/// Runs the command; returns `true` when every payload parsed cleanly.
+pub fn run(path: &Path, opts: &Options) -> Result<bool> {
+    let eac3 = crate::eac3::is_eac3(path).unwrap_or(false);
+    let started = Instant::now();
+    let mut dumped = 0usize;
+    let summary = if eac3 {
+        walk_eac3(path, opts, &mut dumped)?
+    } else {
+        walk_truehd(path, opts, &mut dumped)?
+    };
     let elapsed = started.elapsed().as_secs_f64();
     let clean =
         summary.parse_errors == 0 && summary.padding_long == 0 && summary.padding_nonzero == 0;
@@ -422,10 +503,11 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         println!("{}", serde_json::to_string_pretty(&value)?);
     } else {
         println!(
-            "OAMD payloads:     {} in {} of {} access units; {} parse errors, {} non-zero paddings, {} long paddings, {} size mismatches",
+            "OAMD payloads:     {} in {} of {} {}s; {} parse errors, {} non-zero paddings, {} long paddings, {} size mismatches",
             summary.payloads,
             summary.units_with_oamd,
             summary.units,
+            summary.unit_word,
             summary.parse_errors,
             summary.padding_nonzero,
             summary.padding_long,
@@ -471,8 +553,8 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
                 String::new()
             } else {
                 format!(
-                    " (first access units: gain {:?}, size {:?})",
-                    summary.first_gain_units, summary.first_size_units
+                    " (first {}s: gain {:?}, size {:?})",
+                    summary.unit_word, summary.first_gain_units, summary.first_size_units
                 )
             }
         );
