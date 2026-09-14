@@ -73,6 +73,9 @@ pub struct Session {
     pub sampling_frequency: u32,
     /// Access units dropped as duplicates.
     pub duplicates_dropped: u64,
+    /// Samples a 24-bit writer had to saturate (counted by the PCM and WAVE
+    /// path, which is the one that writes the decoder's samples as they are).
+    pub clipped: u64,
 }
 
 impl Session {
@@ -90,6 +93,7 @@ impl Session {
             labels: Vec::new(),
             sampling_frequency: 0,
             duplicates_dropped: 0,
+            clipped: 0,
         }
     }
 
@@ -277,6 +281,9 @@ pub fn print_summary(session: &Session, elapsed: f64) {
         stats.max_bits_violations,
         stats.segment_problems
     );
+    if session.clipped > 0 {
+        eprintln!("{} samples clipped to 24 bits", session.clipped);
+    }
     if let Some(p) = &stats.first_problem {
         eprintln!("first problem: {p}");
     }
@@ -331,6 +338,21 @@ fn write_wav_header(
     Ok(())
 }
 
+/// Appends `pcm` to `buf` as interleaved 24-bit little-endian samples in
+/// output order (`order[k]` is the channel written at position `k`); returns
+/// how many samples were outside the 24-bit range and were written saturated.
+fn pack_24le(pcm: &[[i32; 16]], order: &[usize], buf: &mut Vec<u8>) -> u64 {
+    let mut clipped = 0;
+    for row in pcm {
+        for &ch in order {
+            let (v, saturated) = oadec_spatial::clamp_i24(row[ch]);
+            clipped += u64::from(saturated);
+            buf.extend_from_slice(&v.to_le_bytes()[..3]);
+        }
+    }
+    clipped
+}
+
 /// Runs the command.
 pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
@@ -360,12 +382,8 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
             header_written = true;
         }
         buf.clear();
-        for row in frame.pcm {
-            for &ch in frame.order {
-                let b = row[ch].to_le_bytes();
-                buf.extend_from_slice(&b[..3]);
-            }
-        }
+        let clipped = pack_24le(frame.pcm, frame.order, &mut buf);
+        session.clipped += clipped;
         data_len += buf.len() as u64;
         if opts.format == Format::Wav && data_len > MAX_WAV_DATA {
             bail!("output exceeds the 4 GiB WAVE limit; use --format pcm");
@@ -389,7 +407,9 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
         out.flush()?;
     }
     print_summary(&session, started.elapsed().as_secs_f64());
-    Ok(truehd_findings(&pass, session.stats()).report_clean())
+    let mut f = truehd_findings(&pass, session.stats());
+    f.note(session.clipped, "samples clipped to 24 bits");
+    Ok(f.report_clean())
 }
 
 #[cfg(test)]
@@ -472,5 +492,27 @@ mod tests {
         let wide = [L::L, L::R, L::Lw, L::Rw];
         let order = L::interchange_order(&wide, 4);
         assert_eq!(wave_channel_mask(&wide, &order).0, 0);
+    }
+
+    /// A sample past the 24-bit range saturates, as the CAF and ADM writers
+    /// saturate it, instead of losing its top byte -- 1 << 24 used to be
+    /// written as zero -- and is counted.
+    #[test]
+    fn the_24_bit_packer_saturates_and_counts() {
+        let mut rows = [[0i32; 16]; 3];
+        rows[0][1] = 1 << 24;
+        rows[1][1] = -(1 << 24);
+        rows[2][0] = -5;
+        let mut buf = Vec::new();
+        let clipped = pack_24le(&rows, &[1, 0], &mut buf);
+        assert_eq!(
+            buf,
+            [
+                0xFF, 0xFF, 0x7F, 0x00, 0x00, 0x00, // 1 << 24, then channel 0
+                0x00, 0x00, 0x80, 0x00, 0x00, 0x00, // -(1 << 24)
+                0x00, 0x00, 0x00, 0xFB, 0xFF, 0xFF, // -5 is inside the range
+            ]
+        );
+        assert_eq!(clipped, 2);
     }
 }
