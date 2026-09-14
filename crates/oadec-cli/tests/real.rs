@@ -1598,15 +1598,17 @@ fn sha256_matches_the_known_answers() {
 
 /// The ADM writer's default output must stay byte-identical to the file the
 /// 2026-09-11 audit measured (`docs/audit/evidence/adm/adm-work-inventory.json`,
-/// `work/pi-head50m/default/pi-head50m.wav`, SHA-256 5abe2e85...). None of the
-/// remediation changes may touch a stream that carries no gain, no ISF, no
+/// `work/pi-head50m/default/pi-head50m.wav`, 319 858 590 bytes, SHA-256
+/// 5abe2e85abf13113c5075bf56ed614e2137ddf33f0ba8951562c6d16c7cce15c). None of
+/// the remediation changes may touch a stream that carries no gain, no ISF, no
 /// size, a 48 kHz rate and in-order events, and that is every stream of the
-/// corpus. The only bytes allowed to differ are the crate version inside the
-/// `dbmd` tool string (`oadec 0.2.0` when the audited file was written; the
-/// string occurs twice in the chunk), so the gate puts the audited version
-/// back before hashing and the constant stays the audit's. A version string
-/// of another length would move the chunk sizes; the gate says so instead of
-/// guessing.
+/// corpus. The `dbmd` chunk, the last one (545 bytes and a pad byte), carries
+/// the crate version in its tool string and a checksum over the segment, so
+/// two of its bytes change with every release (0.2.0 to 0.3.0 moved exactly
+/// those two, the digit and the checksum, measured byte for byte). The gate
+/// therefore hashes everything up to the `dbmd` payload against the audited
+/// file's hash of the same prefix, and checks the payload's size and strings
+/// on their own.
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn pi_head_adm_is_byte_identical_to_the_audited_file() {
@@ -1627,39 +1629,36 @@ fn pi_head_adm_is_byte_identical_to_the_audited_file() {
         "the head cut ends in a truncated access unit, which is an integrity finding: {}",
         String::from_utf8_lossy(&out.stderr)
     );
-    let mut bytes = std::fs::read(dir.join("pi-head50m.wav")).expect("the ADM file");
+    let bytes = std::fs::read(dir.join("pi-head50m.wav")).expect("the ADM file");
     assert_eq!(bytes.len(), 319_858_590);
-    let current = format!("oadec {}", env!("CARGO_PKG_VERSION"));
-    let audited = "oadec 0.2.0";
+    let at = bytes
+        .windows(4)
+        .rposition(|w| w == b"dbmd")
+        .expect("a dbmd chunk");
+    let size = u32::from_le_bytes(bytes[at + 4..at + 8].try_into().unwrap()) as usize;
+    assert_eq!(size, 545, "the dbmd payload size");
     assert_eq!(
-        current.len(),
-        audited.len(),
-        "a version string of another length changes the dbmd chunk size; re-derive the gate"
+        at + 8 + size + (size & 1),
+        bytes.len(),
+        "dbmd is the last chunk"
     );
-    let replaced = replace_all(&mut bytes, current.as_bytes(), audited.as_bytes());
-    assert_eq!(replaced, 2, "the dbmd tool string occurs twice");
+    assert_eq!(&bytes[at + 8 + size..], [0u8], "the RIFF pad byte");
+    let payload = &bytes[at + 8..at + 8 + size];
+    let tool = format!("oadec {}", env!("CARGO_PKG_VERSION"));
+    assert!(
+        payload.windows(tool.len()).any(|w| w == tool.as_bytes()),
+        "the dbmd tool string names this version"
+    );
+    assert!(
+        payload
+            .windows(b"Created using oadec".len())
+            .any(|w| w == b"Created using oadec"),
+        "the dbmd creator string"
+    );
     assert_eq!(
-        sha256_hex(&bytes),
-        "5abe2e85abf13113c5075bf56ed614e2137ddf33f0ba8951562c6d16c7cce15c",
-        "the default ADM output of pi-head50m changed"
+        sha256_hex(&bytes[..at + 8]),
+        "3809b77a5c05753ac45542a7766687c3bfed9c0868c7d659cf123b5a5434edc6",
+        "the default ADM output of pi-head50m changed outside the dbmd payload"
     );
     std::fs::remove_dir_all(&dir).unwrap();
-}
-
-/// Overwrites every occurrence of `from` in `bytes` with `to`, which must be
-/// as long, and returns how many were replaced.
-fn replace_all(bytes: &mut [u8], from: &[u8], to: &[u8]) -> usize {
-    assert_eq!(from.len(), to.len());
-    let mut n = 0;
-    let mut at = 0;
-    while at + from.len() <= bytes.len() {
-        if &bytes[at..at + from.len()] == from {
-            bytes[at..at + from.len()].copy_from_slice(to);
-            n += 1;
-            at += from.len();
-        } else {
-            at += 1;
-        }
-    }
-    n
 }
