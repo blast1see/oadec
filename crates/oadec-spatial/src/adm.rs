@@ -814,14 +814,14 @@ impl AdmWriter {
 /// The `<gain>` text of an active object, as the Dolby converters print it:
 /// nothing at 0 dB, ten decimals of the float32 linear factor otherwise
 /// (0.5011872053 for −6 dB, as the reference files carry it, where float64
-/// arithmetic would print 0.5011872336), and `0.0` alone when the object is
-/// muted. The profile text reserves `gain` for inactive objects; Dolby's
-/// converters write it on active ones and Dolby's validators accept it.
+/// arithmetic would print 0.5011872336; `0.0000000000` when the object is
+/// muted, which is not the inactive marker's `0.0`). The profile text
+/// reserves `gain` for inactive objects; Dolby's converters write it on
+/// active ones and Dolby's validators accept it.
 fn active_gain_text(g: Gain) -> Option<String> {
     match g {
         Gain::Db(0) => None,
-        Gain::Db(_) => Some(format!("{:.10}", f64::from(g.linear()))),
-        Gain::MinusInfinity => Some("0.0".to_string()),
+        Gain::Db(_) | Gain::MinusInfinity => Some(format!("{:.10}", f64::from(g.linear()))),
     }
 }
 
@@ -1103,9 +1103,12 @@ mod tests {
         assert!(!minus_six.contains("<importance>"));
         assert!(channel_format(&text, 2).contains("<gain>1.4125375748</gain>"));
         let muted = channel_format(&text, 3);
-        assert!(muted.contains("<gain>0.0</gain>"), "{muted}");
         assert!(
-            !muted.contains("<importance>"),
+            muted.contains("<gain>0.0000000000</gain>"),
+            "the Conversion Tool writes a muted active object's gain with ten decimals: {muted}"
+        );
+        assert!(
+            !muted.contains("<gain>0.0</gain>") && !muted.contains("<importance>"),
             "a muted active object is not the inactive marker"
         );
         assert!(
