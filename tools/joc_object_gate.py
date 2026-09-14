@@ -10,6 +10,9 @@ a downmix. Both have to hold after a change to the substream layer, and the way
 to know is to re-measure and compare with what the audit stored.
 
     python tools/joc_object_gate.py --work E:/oadec-work --out gate.json
+
+The JSON is the record and the exit code is the verdict: 1 when a title
+regressed, 3 when one could not be measured, 0 otherwise.
 """
 from __future__ import annotations
 
@@ -112,6 +115,10 @@ def main() -> int:
     }
     json.dump({"summary": summary, "titles": rows}, open(a.out, "w"), indent=1)
     print(json.dumps(summary, indent=1))
+    if summary["regressed"]:
+        return 1
+    if any(r.get("verdict") == "NOT RUN" for r in rows):
+        return 3
     return 0
 
 

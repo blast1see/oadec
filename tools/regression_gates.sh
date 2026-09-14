@@ -10,6 +10,9 @@
 #
 # The work directory is the one `OADEC_MEDIA` points at. References are
 # regenerated rather than stored: they are gigabytes and the tools are on hand.
+#
+# The JSON is the record and the exit code is the verdict: 0 when every gate
+# passed, 1 when one failed, 3 when one could not run.
 set -u
 WORK="${1:?usage: regression_gates.sh <work-dir> <out.json>}"
 OUT="${2:?usage: regression_gates.sh <work-dir> <out.json>}"
@@ -146,4 +149,6 @@ python -c "
 import json,sys
 d=json.load(open(sys.argv[1]))
 for g in d['gates']: print(f\"{g['verdict']:8s} {g['gate']}\")
+v = [g['verdict'] for g in d['gates']]
+sys.exit(1 if 'FAIL' in v else 3 if 'NOT RUN' in v else 0)
 " "$OUT"
