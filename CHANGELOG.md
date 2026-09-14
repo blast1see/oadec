@@ -8,6 +8,60 @@ Semantic Versioning.
 
 ### Fixed
 
+- **The ADM writer writes the gain of an active object.** It never had: a
+  muted or attenuated object came out at full level in any ADM consumer, and
+  the 2026-09-11 audit rated it P1 because Dolby's own converters keep the
+  gain. It is written as they write it: linear, ten decimals from float32
+  arithmetic (`0.5011872053` for -6 dB, `1.4125375748` for +3 dB),
+  `0.0000000000` for minus infinity, nothing at 0 dB; a gain-only change gets its own block;
+  the inactive marker (gain `0.0` with importance 0) is unchanged. The Dolby
+  Conversion Tool reads -6, +3, -inf and -12 dB back from the file, and its own
+  ADM of the same scene carries the same four strings. No stream in the corpus
+  has a gain other than 0 dB, so no audited output changed.
+- **Intermediate-spatial-format elements are no longer dropped in silence.**
+  A programme with ISF objects lost their audio and metadata in both object
+  formats without a word, and the TrueHD driver hard-coded the count to zero.
+  The count now comes from the major sync; `decode --format damf|adm` refuses
+  such a programme with exit 2 and names the ISF type and count, and `--isf
+  drop` writes the rest and exits 4. A positioned mapping stays open: ETSI TS
+  103 420 gives ring counts, not positions, and there is no Dolby reference.
+- **Every lossy mapping of the object outputs is declared.** The writers had no
+  diagnostic path at all: a replaced ramp, an omitted importance, a dropped bed
+  event, a collapsed size, a dropped ISF element and a non-48 kHz programme all
+  left with exit 0. A loss ledger now counts each of seventeen kinds where it
+  happens and the run prints one line per class: profile reductions (the
+  profile has no field; Dolby drops them the same way), semantics neither DAMF
+  nor the profile can represent, oadec's own approximations, and losses the
+  user asked for or the input forced, which exit 4. `--loss-report FILE` writes
+  the ledger as JSON. An integrity fault still wins (exit 7). Policy in
+  `docs/exit-codes.md`.
+- **Object size keeps its three axes to the programme model.** The width,
+  depth and height an object was authored with were collapsed to the first
+  axis before either writer saw them. The model carries all three; the writers
+  write the width, which both formats require to be one value, and count every
+  event whose axes differ.
+- **An ADM at a rate other than 48 kHz is refused.** The profile allows 48 000
+  only (table 23); a 44.1 or 96 kHz programme used to be written against it
+  without a word, with the 250-sample constant scaled by the rate. Exit 2 by
+  default; `--adm-allow-non-profile-rate` writes it and exits 4.
+- **Objects are numbered from `AO_100b` whatever the bed.** With
+  `--no-bed-conform` and fewer than ten bed channels the IDs started below the
+  range table 17 reserves for objects; Dolby's converter numbers from `AO_100b`
+  regardless. More than 118 objects is refused instead of overflowing the
+  range. The `--no-bed-conform` ADM of the audited clip is the one audited
+  output whose bytes changed: same audio, same blocks, Dolby's IDs.
+- **Block tiling on unusual event streams.** The ADM writer sorts events, ends
+  the last block at the programme end, drops and counts events at or beyond
+  it, gives a late first event its own block instead of losing its arrival
+  time, and keeps the last of two events at one sample and counts the other.
+  Its block lists on the audit's out-of-order and beyond-the-end cases now
+  equal the Dolby Conversion Tool's. The DAMF writer writes out-of-order events
+  as delivered and declares them (exit 4) rather than buffering a whole film.
+- **`--presentation` is refused with the object formats unless it is 3.** It
+  was accepted and ignored. It is optional now (WAV and PCM keep 2 as their
+  default), and `--fps` sets the DAMF header's frame rate (23.976, 24, 25,
+  29.97 or 30; 24 as before).
+
 - **E-AC-3 dependent substreams are decoded.** A Dolby Digital Plus 7.1
   programme used to come out as its 5.1 core with `verify` calling the file
   clean; it now decodes to all eight channels, and each one pairs with FFmpeg's
@@ -100,6 +154,29 @@ Semantic Versioning.
   changed and at which byte.
 
 ### Added
+
+- **`--adm-interpolation real`.** An opt-in mode that writes each block's
+  `interpolationLength` as the stream's own ramp instead of the profile's
+  fixed 250 samples, so a consumer that honours BS.2076 interpolation follows
+  the OAMD trajectory exactly (the audit measured the profile's approximation
+  at 36.5-63 dB below signal on film, 6.9-17.4 dB on a fast scene). The file
+  is outside the Dolby Atmos master ADM profile and says so: the `dbmd` tool
+  string carries the mark, stderr says it, and the mode refuses
+  `--dolby-origin-tag`. The default is unchanged and stays byte-identical to
+  the audited output.
+- **End-to-end tests of the object outputs.** A writer-level round trip in
+  `oadec-spatial` read back by an independent RIFF/chna/axml walker; a CLI
+  test on two committed Dolby Encoding Engine encodes of one synthetic scene
+  (E-AC-3 JOC, 113 KB; TrueHD Atmos, 546 KB; provenance in
+  `crates/oadec-cli/tests/fixtures/README.md`), TrueHD and JOC separately; a
+  media-gated gate that the default ADM of pi-head50m stays byte-identical to
+  the audited file; and a CI job that runs the audit toolkit's 136 self-tests
+  and its 27 writer-level cases, each with an expectation.
+- **The ADM remediation report** (`docs/audit/adm-remediation-report.md`) with
+  its evidence under `docs/audit/evidence/adm-remediation/`: every audited
+  decode replayed against its recorded hash, the Conversion Tool's read-back
+  of the new gains, Dolby's validators on the tagged file, and the EBU ADM
+  Renderer on the gain file and the real-ramp mode.
 
 - **Object gain and object size are counted rather than assumed absent.** Both
   fields are parsed and neither had ever been seen in a real stream, which was

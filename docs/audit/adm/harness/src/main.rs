@@ -21,7 +21,14 @@ use oadec_emdf::oamd::{
     UpdateTiming,
 };
 use oadec_spatial::program::{damf_channel_name, BedState, ElementState, Event, ObjectState, Program, Timeline};
-use oadec_spatial::{AdmOptions, AdmWriter, DamfOptions, DamfWriter, Interpolation, IsfPolicy};
+use oadec_spatial::{AdmOptions, AdmWriter, DamfOptions, DamfWriter, Interpolation, IsfPolicy, LossLedger};
+
+/// The loss ledger as JSON: kind name -> count, plus the replaced-ramp histogram.
+fn losses_json(l: &LossLedger) -> serde_json::Value {
+    let counts: serde_json::Map<String, serde_json::Value> = l.iter().map(|(k, n)| (k.name().to_string(), serde_json::json!(n))).collect();
+    let ramps: serde_json::Map<String, serde_json::Value> = l.ramp_sources().iter().map(|(r, n)| (r.to_string(), serde_json::json!(n))).collect();
+    serde_json::json!({"counts": counts, "ramp_sources": ramps, "declared_loss": l.declared_loss()})
+}
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -364,6 +371,7 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
         "elements": elements, "events_fed": events.len(), "timeline_emitted": emitted,
         "timeline_errors": timeline_errors, "timeline_out_of_order": timeline.out_of_order,
         "timeline_restatements": timeline.restatements,
+        "timeline_losses": losses_json(&timeline.losses),
     });
 
     // audio rows: one tone per element (0 Hz = silence)
@@ -399,7 +407,7 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
             n = end;
         }
         let s = w.finish().map_err(|e| format!("finish: {e}"))?;
-        Ok(serde_json::json!({"frames": s.frames, "channels": s.channels, "blocks": s.blocks, "rf64": s.rf64, "bytes": s.bytes, "path": adm_path}))
+        Ok(serde_json::json!({"frames": s.frames, "channels": s.channels, "blocks": s.blocks, "rf64": s.rf64, "bytes": s.bytes, "path": adm_path, "losses": losses_json(&s.losses)}))
     })();
     match adm_result {
         Ok(v) => summary["adm"] = v,
@@ -421,7 +429,7 @@ fn run(case_path: &Path, out_dir: &Path) -> Result<serde_json::Value, String> {
             w.write_frame(&row).map_err(|e| format!("write: {e}"))?;
         }
         let s = w.finish().map_err(|e| format!("finish: {e}"))?;
-        Ok(serde_json::json!({"frames": s.frames, "channels": s.channels, "events": s.events, "base": out_dir.join(&case.case)}))
+        Ok(serde_json::json!({"frames": s.frames, "channels": s.channels, "events": s.events, "base": out_dir.join(&case.case), "losses": losses_json(&s.losses)}))
     })();
     match damf_result {
         Ok(v) => summary["damf"] = v,
