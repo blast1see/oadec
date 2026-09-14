@@ -379,6 +379,9 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             }
         }
     })?;
+    if walk.frames == 0 {
+        return Err(crate::info::no_stream(path));
+    }
     s.frames = walk.frames;
     s.independent_frames = walk.independent_frames;
     s.dependent_frames = walk.dependent_frames;

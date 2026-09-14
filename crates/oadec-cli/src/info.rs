@@ -212,9 +212,27 @@ fn print_text(scan: &Scan) {
     }
 }
 
+/// The error of a reporting command (`info`, `emdf`, `oamd`) for a file in
+/// which it found no stream at all.
+///
+/// Those commands report what a stream holds, and a report of nothing reads
+/// like a clean stream that holds nothing: `info` printed the size of a
+/// megabyte of random bytes and exited 0, and `oamd` reported "0 in 0 of 0
+/// access units". A file that is not a stream is an unsupported input, exit 2
+/// (`docs/exit-codes.md`).
+pub(crate) fn no_stream(path: &Path) -> anyhow::Error {
+    anyhow::anyhow!(
+        "no TrueHD access unit or E-AC-3 syncframe found in {}",
+        path.display()
+    )
+}
+
 /// Runs the command.
 pub fn run(path: &Path, json: bool) -> Result<()> {
     let scan = scan::scan(path)?;
+    if scan.units == 0 {
+        return Err(no_stream(path));
+    }
     if json {
         let mut value = serde_json::to_value(&scan)?;
         if let Some(ms) = &scan.first_major_sync {
