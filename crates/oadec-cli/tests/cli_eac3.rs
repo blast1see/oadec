@@ -138,9 +138,9 @@ fn rewrite_frames(
     changed
 }
 
-/// Bit offsets, from the start of the frame, of the JOC payloads in a frame's
-/// skip fields.
-fn joc_payload_bits(frame: &Frame) -> Vec<usize> {
+/// The JOC payloads in a frame's skip fields, each with the bit offset of its
+/// first byte from the start of the frame.
+fn joc_payloads(frame: &Frame) -> Vec<(usize, container::Payload)> {
     let mut out = Vec::new();
     for (skip, &skip_bit) in frame.skip_fields.iter().zip(&frame.skip_bits) {
         let mut i = 0;
@@ -149,8 +149,8 @@ fn joc_payload_bits(frame: &Frame) -> Vec<usize> {
                 && skip[i + 1] == 0x38
                 && let Ok((c, used)) = container::parse_emdf_with_sync(&skip[i..])
             {
-                for p in c.payloads.iter().filter(|p| p.id == PAYLOAD_ID_JOC) {
-                    out.push(skip_bit + 8 * i + p.data_bit);
+                for p in c.payloads.into_iter().filter(|p| p.id == PAYLOAD_ID_JOC) {
+                    out.push((skip_bit + 8 * i + p.data_bit, p));
                 }
                 i += used.max(4);
                 continue;
@@ -159,6 +159,122 @@ fn joc_payload_bits(frame: &Frame) -> Vec<usize> {
         }
     }
     out
+}
+
+/// Bit offsets, from the start of the frame, of the JOC payloads in a frame's
+/// skip fields.
+fn joc_payload_bits(frame: &Frame) -> Vec<usize> {
+    joc_payloads(frame).into_iter().map(|(at, _)| at).collect()
+}
+
+/// The committed encode looks like every JOC stream measured: its OAMD and JOC
+/// payload configurations meet table 56 of TS 103 420 as far as it is enforced,
+/// and its `complexity_index_type_a` is the OAMD object total of clause 8.3,
+/// 16 (an LFE bed and fifteen dynamic objects).
+#[test]
+fn the_fixture_meets_table_56_and_clause_8_3() {
+    let (code, report) = verify_json(&fixture("authored-scene.ec3"));
+    assert_eq!(code, Some(0), "{report}");
+    assert_eq!(report["clean"], true, "{report}");
+    assert_eq!(report["joc_extension"]["flag"], true, "{report}");
+    assert_eq!(report["joc_extension"]["complexity_index"], 16, "{report}");
+    assert_eq!(
+        report["failures"]["payload_config_violations"], 0,
+        "{report}"
+    );
+    assert_eq!(report["failures"]["complexity_mismatches"], 0, "{report}");
+}
+
+/// A JOC payload configured outside table 56 is non-conformant for `verify`,
+/// and only for `verify`: the configuration changes neither the audio nor the
+/// metadata, so the object decode of the same copy stays clean.
+#[test]
+fn a_payload_configuration_outside_table_56_is_non_conformant() {
+    let dir = temp("table56");
+    let mut bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    // `priority` (5 bits) and `proc_allowed` (2 bits) end the configuration,
+    // right in front of the variable_bits(8) payload size
+    let changed = rewrite_frames(&mut bytes, |frame| {
+        joc_payloads(frame)
+            .into_iter()
+            .map(|(at, p)| {
+                assert_eq!(
+                    (p.config.priority, p.config.proc_allowed),
+                    (Some(0), Some(0))
+                );
+                let size_bits = if p.data.len() < 256 { 9 } else { 18 };
+                (at - size_bits - 7, 5, 3)
+            })
+            .collect()
+    });
+    assert_eq!(changed, 63);
+    let file = dir.join("priority.ec3");
+    std::fs::write(&file, &bytes).unwrap();
+
+    let (code, report) = verify_json(&file);
+    assert_eq!(code, Some(7), "{report}");
+    assert_eq!(report["failures"]["crc_failures"], 0, "{report}");
+    assert_eq!(report["joc"]["parsed"], 63, "{report}");
+    assert_eq!(
+        report["failures"]["payload_config_violations"], 63,
+        "{report}"
+    );
+    assert_eq!(
+        report["first_error"], "frame 0: payload 14: priority is not 0, Table 56 requires 0",
+        "{report}"
+    );
+
+    let out = oadec(&[
+        "decode",
+        file.to_str().unwrap(),
+        "--format",
+        "damf",
+        "-o",
+        dir.join("d").to_str().unwrap(),
+    ]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// `complexity_index_type_a` shall equal the total of bed, ISF and dynamic
+/// objects the OAMD declares (TS 103 420 clause 8.3.2.2). The encode with the
+/// index set to 15 in every frame is non-conformant for `verify`; the object
+/// decode does not read the index and stays clean.
+#[test]
+fn a_complexity_index_that_disagrees_with_the_oamd_is_non_conformant() {
+    let dir = temp("complexity");
+    let mut bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let changed = rewrite_frames(&mut bytes, |frame| {
+        let bsi = &frame.bsi;
+        assert_eq!(bsi.joc_extension(), Some((true, 16)));
+        // addbsi closes the bsi, and complexity_index_type_a is its second byte
+        vec![(bsi.end_bit - 8 * (bsi.addbsi.len() - 1), 8, 15)]
+    });
+    assert_eq!(changed, 63);
+    let file = dir.join("complexity.ec3");
+    std::fs::write(&file, &bytes).unwrap();
+
+    let (code, report) = verify_json(&file);
+    assert_eq!(code, Some(7), "{report}");
+    assert_eq!(report["failures"]["crc_failures"], 0, "{report}");
+    assert_eq!(report["joc_extension"]["complexity_index"], 15, "{report}");
+    assert_eq!(report["failures"]["complexity_mismatches"], 63, "{report}");
+    assert_eq!(
+        report["first_error"],
+        "frame 0: complexity_index_type_a 15 differs from the OAMD object total 16 (clause 8.3)",
+        "{report}"
+    );
+
+    let out = oadec(&[
+        "decode",
+        file.to_str().unwrap(),
+        "--format",
+        "damf",
+        "-o",
+        dir.join("d").to_str().unwrap(),
+    ]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 /// `joc_ext_config_idx` 1 to 7 are reserved (TS 103 420 table 49), so such a
