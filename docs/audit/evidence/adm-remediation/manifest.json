@@ -1,0 +1,50 @@
+{
+  "utc": "2026-09-14T04:58:03Z",
+  "files": [
+    {
+      "file": "00-provenance.json",
+      "bytes": 2636,
+      "sha256": "e367f60d894947b105c13f8612df03264a201bf3cb1bcce92d03c98f02e4e3b9",
+      "id": "00-provenance",
+      "title": "Provenance of the remediation validation runs",
+      "structural_result": null,
+      "semantic_result": null
+    },
+    {
+      "file": "adm-remediation-byte-identity.json",
+      "bytes": 89924,
+      "sha256": "cab51b3d3c1a84df1e7840e58174e0ba8b68af3d78de600ce67cac74e79e1a7f",
+      "id": "adm-remediation-byte-identity",
+      "title": "Every audited decode replayed with the remediated binary: output hashes against adm-work-inventory.json",
+      "structural_result": "PASS",
+      "semantic_result": "PASS"
+    },
+    {
+      "file": "adm-remediation-dolby.json",
+      "bytes": 5173,
+      "sha256": "f7d05e736524db4efb3cfc1bf9361e8760c39bf76f82b6ab1433e1b3c4b78c98",
+      "id": "adm-remediation-dolby",
+      "title": "Dolby Conversion Tool read-back of the new gains, Dolby validators on the tagged file, object numbering against Dolby's",
+      "structural_result": null,
+      "semantic_result": null
+    },
+    {
+      "file": "adm-remediation-harness.json",
+      "bytes": 275508,
+      "sha256": "c7e3b67b51412333ab82ad12ec23b26b80bc5964aa42f0ef5a5e7c5c9c79e2de",
+      "id": "adm-remediation-harness",
+      "title": "Writer-level cases C01-C21b and the remediation variants through the remediated writers, judged by the audit toolkit",
+      "structural_result": "PASS",
+      "semantic_result": "PASS"
+    },
+    {
+      "file": "adm-remediation-render.json",
+      "bytes": 2668,
+      "sha256": "e738d07ac33b0ca94cee5c029907e3cf8f9436a4e51ca77270dc184ad65c9560",
+      "id": "adm-remediation-render",
+      "title": "EBU ADM Renderer: oadec's gain file against Dolby's; the real-ramp mode against the audit's real-ramp variant",
+      "structural_result": null,
+      "semantic_result": null
+    }
+  ]
+}

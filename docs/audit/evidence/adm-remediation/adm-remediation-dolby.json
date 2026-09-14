@@ -1,0 +1,237 @@
+{
+  "id": "adm-remediation-dolby",
+  "title": "Dolby Conversion Tool read-back of the new gains, Dolby validators on the tagged file, object numbering against Dolby's",
+  "topics": [
+    "dolby"
+  ],
+  "evidence_class": "REFERENCE",
+  "structural_result": null,
+  "semantic_result": null,
+  "classification": "reference runs",
+  "method": "run_remediation.py --stage dolby",
+  "inputs": [],
+  "tolerance": null,
+  "generated_by": "docs/audit/adm-remediation/tools/run_remediation.py",
+  "utc": "2026-09-14T04:58:03Z",
+  "tools": {
+    "conversion_tool": true,
+    "dee": true,
+    "atmos_info_5.7.2": true,
+    "atmos_info_1.1": true,
+    "bwf_info": true
+  },
+  "c02_readback": {
+    "run": {
+      "exit_code": 0,
+      "seconds": 1.266
+    },
+    "findings": [
+      {
+        "level": "WARNING",
+        "line": "WARN: This file is invalid or was not created by Dolby approved software. It may not open or play back correctly."
+      },
+      {
+        "level": "ERROR",
+        "line": "ERROR: ADM validation - Data in the 'dbmd' chunk indicates the input file is not Dolby Atmos"
+      }
+    ],
+    "gains_db": {
+      "1": [
+        [
+          0,
+          -6
+        ]
+      ],
+      "2": [
+        [
+          0,
+          3
+        ]
+      ],
+      "3": [
+        [
+          0,
+          "-inf"
+        ]
+      ],
+      "4": [
+        [
+          0,
+          0
+        ],
+        [
+          48000,
+          -12
+        ]
+      ]
+    },
+    "missing": [],
+    "oadec_gain_texts": [
+      "0.0000000000",
+      "0.2511886358",
+      "0.5011872053",
+      "1.4125375748"
+    ]
+  },
+  "c02_ct": {
+    "run": {
+      "exit_code": 0,
+      "seconds": 1.188
+    },
+    "findings": [],
+    "gain_texts": [
+      "0.0000000000",
+      "0.2511886358",
+      "0.5011872053",
+      "1.4125375748"
+    ],
+    "gain_texts_equal_oadec": true,
+    "readback": {
+      "run": {
+        "exit_code": 0,
+        "seconds": 0.985
+      },
+      "gains_db": {
+        "1": [
+          [
+            0,
+            -6
+          ]
+        ],
+        "2": [
+          [
+            0,
+            3
+          ]
+        ],
+        "3": [
+          [
+            0,
+            "-inf"
+          ]
+        ],
+        "4": [
+          [
+            0,
+            0
+          ],
+          [
+            48000,
+            -12
+          ]
+        ]
+      },
+      "missing": [],
+      "same_as_oadec_readback": true
+    }
+  },
+  "c02_dee": {
+    "run": {
+      "exit_code": 0,
+      "seconds": 5.954
+    },
+    "findings": [
+      {
+        "level": "WARNING",
+        "line": "[2026-09-14 07:58:01.970] WARNING: convert_atmos_mezz: Range conversion: disabled for start=first_frame_of_action and end=end_of_file and prepend_seconds=0 and append_seconds=0."
+      },
+      {
+        "level": "WARNING",
+        "line": "[2026-09-14 07:58:01.970] WARNING: convert_atmos_mezz: Sys - AtmosMasterFileStorageDesc - Error 2 while reading \"E:\\oadec-work\\audit\\adm\\remed\\val\\harness\\out\\C02-gain\\C02-gain.atmos.dbmd\"."
+      },
+      {
+        "level": "WARNING",
+        "line": "WARNING: convert_atmos_mezz: Range conversion: disabled for start=first_frame_of_action and end=end_of_file and prepend_seconds=0 and append_seconds=0."
+      },
+      {
+        "level": "WARNING",
+        "line": "WARNING: convert_atmos_mezz: Sys - AtmosMasterFileStorageDesc - Error 2 while reading \"E:\\oadec-work\\audit\\adm\\remed\\val\\harness\\out\\C02-gain\\C02-gain.atmos.dbmd\"."
+      }
+    ],
+    "outputs": [
+      "c02-dee.wav"
+    ],
+    "gain_texts": [
+      "0.0000000000",
+      "0.2511886358",
+      "0.5011872053",
+      "1.4125375748"
+    ],
+    "gain_texts_equal_oadec": true
+  },
+  "validators": {
+    "tagged": {
+      "dbmd_creator_tagged": true,
+      "atmos_info_5.7.2": {
+        "exit": 0,
+        "findings": []
+      },
+      "atmos_info_1.1": {
+        "exit": 0,
+        "findings": []
+      },
+      "bwf_info": {
+        "exit": 0,
+        "findings": []
+      }
+    },
+    "untagged": {
+      "dbmd_creator_tagged": false,
+      "atmos_info_5.7.2": {
+        "exit": 1,
+        "findings": [
+          {
+            "level": "ERROR",
+            "line": "[2026-09-14 07:58:03.243] ERROR: Content was not authored with Dolby tools."
+          },
+          {
+            "level": "ERROR",
+            "line": "ERROR: Content was not authored with Dolby tools."
+          }
+        ]
+      },
+      "atmos_info_1.1": {
+        "exit": 4294967295,
+        "findings": [
+          {
+            "level": "ERROR",
+            "line": "ERROR: Content was not authored with Dolby tools."
+          }
+        ]
+      },
+      "bwf_info": {
+        "exit": 0,
+        "findings": []
+      }
+    }
+  },
+  "nbc_object_ids": {
+    "oadec": [
+      "AO_100b",
+      "AO_100c",
+      "AO_100d",
+      "AO_100e",
+      "AO_100f",
+      "AO_1010",
+      "AO_1011",
+      "AO_1012",
+      "AO_1013",
+      "AO_1014",
+      "AO_1015"
+    ],
+    "dolby_s11_ct": [
+      "AO_100b",
+      "AO_100c",
+      "AO_100d",
+      "AO_100e",
+      "AO_100f",
+      "AO_1010",
+      "AO_1011",
+      "AO_1012",
+      "AO_1013",
+      "AO_1014",
+      "AO_1015"
+    ],
+    "equal": true
+  }
+}

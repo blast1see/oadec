@@ -7,9 +7,9 @@
 7   an integrity fault was detected that affects what was delivered
 ```
 
-Every command uses the same three, and every command that delivers audio or
-metadata decides between 0 and 7 with the same list of faults that `verify`
-uses. That was not true before: `verify` read every counter and exited 7, while
+Every command uses the same codes, and 4 belongs to the object outputs alone
+(below). Every command that delivers audio or metadata decides between 0 and 7
+with the same list of faults that `verify` uses. That was not true before: `verify` read every counter and exited 7, while
 `decode` re-derived a narrower rule of its own and exited 0 while printing the
 very CRC failure it had just found, and the object path read no integrity flag
 at all.
@@ -70,9 +70,16 @@ printed once per run, one line per class:
   0, an event superseded at the same sample, an event beyond the programme
   end. Printed, exit 0.
 - **written with loss** -- something is missing or outside the profile at the
-  user's request or because the input was anomalous: ISF elements dropped, an
+  user's request or because the input was anomalous: ISF elements dropped
+  (`--isf drop`; the default refuses such a programme with exit 2), an
   out-of-order event written as delivered in DAMF, a programme that is not at
-  48 kHz written as ADM. Printed, **exit 4**.
+  48 kHz written as ADM (`--adm-allow-non-profile-rate`; the default refuses
+  with exit 2). Printed, **exit 4**.
+
+`--adm-interpolation real` is not a loss and does not change the code: it
+writes the stream's own ramp lengths in full, which puts the file outside the
+Dolby profile. The run says so on stderr, the `dbmd` tool string carries the
+mark, and the file cannot take `--dolby-origin-tag`.
 
 `--loss-report FILE` writes the same ledger as JSON. An integrity fault still
 wins: a run that is both faulty and lossy prints both and exits 7. A run whose
