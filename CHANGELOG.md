@@ -6,6 +6,64 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A distance- or divergence-only update is counted in the loss ledger.** The
+  timeline counted `distance-dropped` and `divergence-dropped` only for an
+  update that became an event. Neither value is part of the reduced object
+  state, so an update changing only one of them never reached the counters,
+  and the ledger stayed empty unless `--all-events`. Such an update is now
+  counted when the value appears or changes, not when a later payload restates
+  it; events are counted as before.
+- **A trailing ADM event dropped for equalling the previous block still has its
+  losses counted.** The ADM writer drops such an event, as Dolby's converters
+  do, but it did so before the ledger ran. A last event that changed only an
+  active object's importance, the screen reference or the trim bypass left
+  `importance-omitted`, `screen-reference-dropped` or `trim-bypass-dropped` at
+  zero. These are now counted for the dropped event too; the written file is
+  unchanged.
+- **The ADM remediation's regression stage runs on a fresh work directory and
+  survives a version bump.** It decoded the audited records in sorted order, so
+  the check of the one expected difference opened a DAMF that a later record
+  writes and the stage died; and since 0.3.0 the version string in every
+  `.atmos` header and `dbmd` chunk made 48 outputs miss their audited hashes.
+  It now decodes every record before judging any and compares with exactly the
+  version bytes put back: 51 records, 50 identical, the expected difference
+  verified, no exit code changed.
+- **`tools/regression_gates.sh` and `tools/joc_object_gate.py` say their verdict
+  in the exit code.** They wrote PASS, FAIL or REGRESSED into JSON and always
+  exited 0, so a chain that checked their status called a failed gate green.
+  They now exit 1 when a gate failed or a title regressed and 3 when one could
+  not run.
+
+### Added
+
+- **A verification round on material nothing was fitted on.**
+  `docs/audit/2026-09-14-verification-report.md` and
+  `docs/audit/evidence/verification-2026-09-14/`: every gate re-run with the
+  media; sixteen TrueHD Atmos titles against Dolby, `truehdd` and FFmpeg; six
+  E-AC-3 JOC titles against Dolby's object decoder, with the residual split by
+  dither and by subband; a 212-case command matrix; an adversarial review of the
+  post-audit code by a second model; and the long-form FourCC of an ADM file
+  beyond 4 GiB put to every reader.
+
+### Changed
+
+- **The README, the conformance matrix, `docs/joc.md` and `docs/dolby-tools.md`
+  say what was measured.** Presentation 3 is bit-exact with Dolby's object
+  output at a dialogue norm of −31 dB; at any other, Dolby applies the dialnorm
+  gain and ±1 LSB triangular dither and nothing else differs. JOC objects are at
+  29.6 to 50.5 dB (worst object of a title) and 39.6 to 65.4 dB (median) over
+  twelve titles, where the README said 40 to 56 dB per object. Five matrix rows
+  the ADM remediation closed no longer read FAIL. Three evidence notes carry a
+  superseded or withdrawn banner, and `tools/three_way.py` says to decode the
+  FFmpeg reference with `-drc_scale 0`.
+- **ADM files beyond 4 GiB stay `RF64`.** ITU-R BS.2088-2 names the long form
+  `BW64`, but with only those four bytes changed `bwf_info` hangs and
+  `atmos_info` 1.1 and 5.7.2 and the Dolby Atmos Conversion Tool refuse the
+  file, while all of them read the `RF64` form. The ADM audit's D14 closes as a
+  measured deviation from BS.2088.
+
 ## [0.3.0] - 2026-09-14
 
 ### Fixed
