@@ -1,10 +1,10 @@
 {
  "what": "Is the subband-0 residual a fitting error of the quadrature table?",
- "utc": "2026-09-15T05:55:26Z",
+ "utc": "2026-09-15T13:06:33Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
- "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
- "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
+ "branch_commit": "26d581c24bfd9b4b0fe6bd72b216ed09aa2217d3",
+ "branch_binary_sha256": "6f26929c87171d5b36e74c3f3cced68cd4b8e65b3755b664b314b66d9c6be702",
  "why": "The table was fitted on three titles; three fresh titles leave their residual in exactly that subband.",
  "method": "quad_diag.py: Dolby's operator R(f) measured per title with tools/gen_joc_quadrature.py's method; the current table's weighted error against it; each title's own 37-tap fit; pooled refits scored on every title; and the part of Dolby-minus-flat no per-frequency complex gain explains",
  "reading": "the same fixed network on all twelve titles (e.g. 48 Hz: |R| 0.375-0.403 at -88 to -94 deg); the table is within 1-3 dB of each title's own best fit on ten titles and pooled refits are worse, so the table is not the problem; -22 to -37 dB (-15/-17 dB on two titles) of Dolby-minus-flat is explained by no fixed R(f), which points at the order of the network and the time-varying matrix. An experiment on a side branch (exp/lowband-after-matrix) tested that suspect and ruled it out. Its default reading decodes all six fresh titles to exactly the released numbers; every alternative (the correction after the matrix at pairings -1, 0 and +1, and subband 0 mixed with the matrix one slot early or late) moves subband 0 further from Dolby wherever it changes anything, the median object by 1.7 to 18.1 dB: Mercy 40.30 to 32.67-37.70, A Man Called Otto 44.12 to 41.18-42.39, Damsel 50.98 to 37.88-43.52, Kar Kardesligi 53.72 to 35.61-48.77. The order oadec uses is the best of the six; the cause of the remaining residual is open",
