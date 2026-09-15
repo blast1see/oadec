@@ -19,7 +19,7 @@ through a review loop by a second model (§5).
 |---|---|
 | Are the recorded defects fixed? | Yes. Every gate the audits left behind passes with the media: the 22 media tests (27 at the head of the branch), the three TrueHD bit-exactness gates, the six-title JOC object gate, all four corruption campaigns (0 silent, 0 panics), and the ADM remediation stages (harness 27/27, Dolby and renderer stages, 50 of 51 decodes byte-identical and the one expected difference verified). |
 | Does every function work? | Yes, after five fixes. 212 smoke cases over the 12 subcommands: five real defects (empty or random input exiting 0 from `info`, `oamd` and `decode`), everything else as designed once the smoke expectations were corrected. At the head of the branch the only unexpected cases are the designed ones (§3). |
-| What else was wrong? | Twenty-two defects, all fixed: six from a second model's adversarial review of the released code, eight the audits had left open, two from the command matrix, three found while fixing the others, two in the project's own measuring tools, and one from the review loop over the finished branch. Every decoder fix comes with a test that fails on the old code (§5, §6, §7). |
+| What else was wrong? | Twenty-three defects, all fixed: six from a second model's adversarial review of the released code, eight the audits had left open, two from the command matrix, three found while fixing the others, two in the project's own measuring tools, and two from the review loop over the finished branch. Every decoder fix comes with a test that fails on the old code (§5, §6, §7). |
 | Is it close to Dolby? | TrueHD: exact. On sixteen titles nothing was fitted on, presentation 3 is byte-identical to `truehdd` on all sixteen and bit-exact with Dolby on every title Dolby opens at a dialogue norm of −31 dB; on the others Dolby applies its dialnorm gain and triangular dither, and nothing else differs. E-AC-3 JOC: worst object of a title 29.6–50.5 dB, median 39.6–65.4 dB over twelve titles, lag zero, correlation structure within 0.0021. The remainder is the E-AC-3 dither on some titles and the lowest 375 Hz subband on others, where reordering the correction and the matrix only makes it worse. |
 
 ## 2. What was re-run
@@ -284,7 +284,7 @@ repeated until it approved or five rounds were spent. `12-codex-adversarial-revi
 | Round | Verdict | Finding | Disposition |
 |---|---|---|---|
 | 1 | CHANGES_REQUESTED, 437 s | R1F1, correctness, medium: the E-AC-3 path of `oamd` dropped the containers it could not open and the sync errors and unparsed frames of its walk, so a report missing metadata could say clean | agree. The code confirmed it, and showed the TrueHD path skipping unparsable access units, failed extra-data checks and unopenable containers the same way. Fixed on both paths in `d385cfd` |
-| 2 | paused: the reviewer stopped on its usage limit after 196 s, and the round is run again when the limit resets | | |
+| 2 | CHANGES_REQUESTED, 385 s, after a first attempt stopped on the reviewer's usage limit | R1F1 resolved. R2F1, correctness, medium: the walk `emdf` and `oamd` share could not tell empty skip fields from skip fields that hold data but no sync word, so a frame whose container was erased was left out and both commands exited clean, while `verify` and both decodes counted it | agree. Fixed in `0f267c2`: the walk counts, once per frame, every frame whose skip fields hold data and no container that opens, in a substream that carries EMDF. Checking the fix on real clips found two more things. `adb0b76` had counted skip fields that carry no EMDF at all into `verify` and the PCM delivery, which two AC-3 files fill in some 1 100 frames and on which `every_eac3_stream_is_clean` then failed; and a first version of this fix judged the stream as a whole, so the AC-3 core of the configuration 4 head, whose skip fields hold other data while its dependent substream carries the containers, read as 1 748 lost containers. Both are closed |
 
 ## 6. Defects found and fixed
 
@@ -317,6 +317,7 @@ commits on the branch.
 | T2 | re-run | The two gate scripts exited 0 whatever the verdict | their exit codes, with media and without | `f801d72` |
 | G1 | review loop, round 1 | `oamd` reported a walk it could not fully read as clean: containers that did not open, sync errors, unparsed frames and units, failed extra-data checks. Of the 30 clips in the work directory one changes its exit code, the two TrueHD streams spliced end to end, 0 to 7 on the resynchronisation at the splice, where `verify` exits 7 too | `oamd_and_emdf_judge_the_same_unread_metadata`, and the `oamd` check in `a_corrupted_evolution_block_fails_every_delivery_like_verify` | `d385cfd` |
 | W3 | while writing the test for G1 | An EMDF container whose declared length disagreed with its syntax opened as if it were right, since the length was checked only against the data after it. A frame whose skip fields held no container that opens left `verify` at exit 0 although it named that frame as the first problem, and the object and PCM decodes held the previous matrices without a word. Every stream measured declares the length exactly, 0 of 23 389 containers in 26 files otherwise, and no clip of the work directory changes its exit code; `13-emdf-container-length.json` | `a_declared_length_that_disagrees_with_the_syntax_is_refused`, `a_frame_whose_container_does_not_open_is_counted`, `a_container_whose_declared_length_disagrees_with_its_syntax_does_not_open` | `adb0b76` |
+| G2 | review loop, round 2 | `emdf` and `oamd` left out a frame whose container was erased, its skip fields left the length they were, and exited clean where `verify` and both decodes exited 7. Checking the fix showed that W3 had counted skip fields carrying no EMDF at all into `verify` and the PCM delivery, which failed `every_eac3_stream_is_clean` on two AC-3 files; a frame without a container that opens is now a fault only in a substream that carries EMDF, which also keeps the AC-3 core of a configuration 4 stream out of the count. No AC-3 or E-AC-3 clip changes its exit code | `a_frame_whose_container_is_erased_is_a_fault_for_every_command`, `skip_fields_that_carry_no_emdf_are_not_a_fault`; the configuration 4 head in the media test `the_metadata_scanner_and_the_verifier_count_the_same_containers` | `0f267c2` |
 
 ## 7. The measuring tools
 
@@ -369,6 +370,10 @@ BS.2088. The audit's D14 closes on this.
   These stay N/T.
 - **CI does not run the media suite.** Every figure here rests on a local run with the
   work directory.
+- **A substream in which every EMDF container is broken** reads, for `verify`, `emdf` and
+  `oamd`, like one that carries none, since a frame without a container is a fault only
+  where containers open. The object decode still refuses a stream whose first frame
+  carries no JOC payload it can start from.
 - **A third ADM reader, DaVinci Resolve's Fairlight import,** was prepared for a manual
   check and is not part of any verdict here.
 

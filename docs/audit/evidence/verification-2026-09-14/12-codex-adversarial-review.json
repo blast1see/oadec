@@ -1,6 +1,6 @@
 {
  "what": "Adversarial reviews by a second model: of the post-audit code, and a gate loop over this branch",
- "utc": "2026-09-15T05:55:26Z",
+ "utc": "2026-09-15T07:13:47Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
  "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
@@ -211,6 +211,52 @@
        "Run the full workspace tests from a writable build environment."
       ]
      }
+    },
+    {
+     "round": 2,
+     "result": [
+      "ROUND_RESULT K=2 verdict=CHANGES_REQUESTED dur=385"
+     ],
+     "review": {
+      "verdict": "CHANGES_REQUESTED",
+      "summary": "One new correctness gap remains: the shared metadata walker can silently omit a frame whose EMDF sync word is missing. R1F1 is resolved. Sixty selected prebuilt tests passed; one file-writing test was blocked by the read-only sandbox. A fresh build and full suite were not run.",
+      "coverage": {
+       "correctness": 1,
+       "security": 0,
+       "reliability": 0,
+       "simplification": 0,
+       "performance": 0
+      },
+      "findings": [
+       {
+        "id": "R1F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/oamd.rs",
+        "line_start": 559,
+        "line_end": 565,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: reported container failures, unparsed units, framing errors and TrueHD extra-data faults now reach OamdSummary and its clean verdict.",
+        "suggestion": "Retain the malformed-container, framing-noise and corrupted-Evolution regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R2F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/emdf.rs",
+        "line_start": 188,
+        "line_end": 192,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "The shared walk cannot distinguish empty skip fields from nonempty skip fields containing no EMDF sync word. find_emdf returns an empty vector for both, so this loop records no failure. From the code, replacing a middle frame's container bytes with zeros while preserving the skip lengths and correcting the frame CRC therefore makes emdf and oamd silently omit that metadata and return clean=true/exit 0. EmdfStats::scan and the object decoder count the same frame as a container failure. This contradicts docs/exit-codes.md and the every-delivery claim in docs/audit/conformance-matrix.md.",
+        "suggestion": "Propagate a frame-level failure when nonempty skip fields yield no opened container, including when no sync candidate exists. Preserve clean handling of genuinely empty skip fields. Add a CRC-valid fixture mutation erasing a middle frame's EMDF sync/container and require emdf, oamd, verify and both decode paths to exit 7.",
+        "status": "open"
+       }
+      ],
+      "next_steps": [
+       "Fix the missing-container accounting and run the new regression plus the workspace suite in a writable environment."
+      ]
+     }
     }
    ],
    "adjudication": {
@@ -229,7 +275,29 @@
       "oamd_and_emdf_judge_the_same_unread_metadata",
       "a_corrupted_evolution_block_fails_every_delivery_like_verify"
      ],
-     "real_clips": "1 of 30 clips changes its oamd exit code: concat-pi-shaun.thd 0 -> 7 on the extractor resync at the splice, where verify exits 7; cut heads keep 0"
+     "real_clips": "1 of 30 clips changes its oamd exit code: concat-pi-shaun.thd 0 -> 7 on the extractor resync at the splice, where verify exits 7; cut heads keep 0",
+     "resolved_in_round": 2
+    },
+    "R2F1": {
+     "round": 2,
+     "lens": "correctness",
+     "severity": "medium",
+     "file": "crates/oadec-cli/src/emdf.rs",
+     "issue": "the walk emdf and oamd share could not tell empty skip fields from skip fields holding data and no sync word, so a frame whose container was erased was left out and both exited clean",
+     "disposition": "AGREE",
+     "confirmed_by": "code read: find_emdf returned an empty list for both; the CLI test erasing the sync word of frame 10 failed on emdf before the change",
+     "fixed_in": [
+      "0f267c2"
+     ],
+     "tests": [
+      "a_frame_whose_container_is_erased_is_a_fault_for_every_command",
+      "skip_fields_that_carry_no_emdf_are_not_a_fault",
+      "the_metadata_scanner_and_the_verifier_count_the_same_containers (media, with the configuration 4 head)"
+     ],
+     "found_while_fixing": [
+      "adb0b76 counted skip fields carrying no EMDF at all into verify and the PCM delivery: 1 099 and 1 091 frames on two AC-3 clips, and every_eac3_stream_is_clean failed on both whole files",
+      "a first version of the fix judged the whole stream: the AC-3 core of greenbook-cfg4-head.ec3 read as 1 748 lost containers; the walk now judges each substream apart"
+     ]
     }
    }
   }
