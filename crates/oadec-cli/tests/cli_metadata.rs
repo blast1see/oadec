@@ -213,14 +213,15 @@ fn a_file_that_holds_no_stream_is_refused() {
 
 /// The first 100 bytes of the JOC encode open with an E-AC-3 sync word and
 /// hold no whole syncframe, the frames being 1792 bytes. `emdf` walked no
-/// frame and called that clean with exit 0, and `oamd`, which walks the same
-/// way, did the same. Both refuse it now.
+/// frame and called that clean with exit 0, `oamd`, which walks the same way,
+/// did the same, and `info` printed "no decodable frames" and exited 0 as
+/// well. All three refuse it now.
 #[test]
 fn an_eac3_sync_word_without_a_whole_frame_is_no_stream_either() {
     let path = temp("truncated").join("truncated.ec3");
     let bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
     std::fs::write(&path, &bytes[..100]).unwrap();
-    for command in ["emdf", "oamd"] {
+    for command in ["info", "emdf", "oamd"] {
         let out = oadec(&[command, path.to_str().unwrap()]);
         assert_eq!(out.status.code(), Some(2), "{command}: {}", stdout(&out));
         assert!(
