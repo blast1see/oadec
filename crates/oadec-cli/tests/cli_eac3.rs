@@ -651,3 +651,28 @@ fn a_frame_whose_container_is_erased_is_a_fault_for_every_command() {
     every_command_fails_on_frame_10(&file, &dir);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A frame whose CRC fails is a fault `verify` counts, while `emdf` and `oamd`
+/// parsed the same frame for its metadata and never looked at the check. The
+/// copy flips one bit of the CRC word of frame 10 and nothing else, so the
+/// frame still parses and its container still opens.
+#[test]
+fn a_frame_whose_crc_fails_is_non_conformant_for_the_metadata_commands() {
+    let dir = temp("crc");
+    let mut bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let frame_bytes = FrameHeader::parse(&bytes).unwrap().frame_bytes;
+    bytes[11 * frame_bytes - 1] ^= 0x01;
+    let file = dir.join("crc.ec3");
+    std::fs::write(&file, &bytes).unwrap();
+
+    let (code, report) = verify_json(&file);
+    assert_eq!(code, Some(7), "verify: {report}");
+    assert_eq!(report["failures"]["crc_failures"], 1, "{report}");
+    for command in ["emdf", "oamd"] {
+        let (code, report) = metadata_json(command, &file);
+        assert_eq!(code, Some(7), "{command}: {report}");
+        assert_eq!(report["crc_failures"], 1, "{command}: {report}");
+        assert_eq!(report["container_errors"], 0, "{command}: {report}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

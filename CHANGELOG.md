@@ -66,6 +66,15 @@ Semantic Versioning.
   other data, so in a substream with no EMDF at all they are not a fault: two
   AC-3 clips fill them in some 1 100 frames, and a configuration 4 stream in the
   frames of its AC-3 core. No clip of the work directory changes.
+- **`emdf` and `oamd` count what `verify` counts about the stream itself.**
+  They dropped the bytes the framing skipped or left trailing and never read
+  the CRC of a syncframe, so a stream cut inside a frame or an access unit, or
+  a frame whose CRC failed, was clean for them and non-conformant for
+  `verify`. Both now count skipped bytes, TrueHD trailing bytes and AC-3 and
+  E-AC-3 CRC failures into their verdict; a file with no complete frame or
+  access unit still exits 2. Of the 55 clips of the work directory they now
+  exit 7 on the 18 cut inside a frame or an access unit, as `verify` did, and
+  on the other 37 nothing changes.
 - **`info`, `oamd`, `emdf` and `decode` exit 2 on a file that holds no stream.**
   An empty or random file used to produce a report of nothing, or "nothing
   decoded", with exit 0. They now stop with a message naming the file, and

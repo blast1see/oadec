@@ -38,6 +38,11 @@ pub struct EmdfSummary {
     pub dependent_frames: u64,
     pub bytes: u64,
     pub sync_errors: u64,
+    /// Bytes the framing skipped: before the first syncframe, where sync was
+    /// lost, and a last syncframe cut short. `verify` counts them as faults.
+    pub skipped_bytes: u64,
+    /// Syncframes whose CRC failed; `verify` counts them as faults.
+    pub crc_failures: u64,
     /// Frames the parser could not read far enough to reach the skip fields.
     pub unparsed_frames: u64,
     pub frames_with_emdf: u64,
@@ -81,6 +86,7 @@ fn find_emdf(
     frame: &[u8],
     noise: &mut Noise,
     unparsed: &mut u64,
+    crc_failures: &mut u64,
 ) -> (Vec<(usize, ContainerResult)>, bool) {
     let mut out = Vec::new();
     let opts = FrameOptions {
@@ -91,6 +97,9 @@ fn find_emdf(
         *unparsed += 1;
         return (out, false);
     };
+    if !parsed.crc_ok {
+        *crc_failures += 1;
+    }
     let total: usize = parsed.skip_fields.iter().map(Vec::len).sum();
     if total == 0 {
         return (out, false);
@@ -154,6 +163,10 @@ pub(crate) struct Walk {
     pub sync_errors: u64,
     /// Frames the parser could not read far enough to reach the skip fields.
     pub unparsed_frames: u64,
+    /// Bytes the framing skipped, a last syncframe cut short included.
+    pub skipped_bytes: u64,
+    /// Syncframes that parsed and whose CRC failed.
+    pub crc_failures: u64,
     /// Frames holding at least one container, opened or not.
     pub frames_with_emdf: u64,
     /// Containers that opened.
@@ -209,7 +222,7 @@ pub(crate) fn for_each_container(
     let mut sample_pos: u64 = 0; // first sample of the current independent frame
     let mut substreams: BTreeMap<(bool, u8), SubstreamContainers> = BTreeMap::new();
     let mut last_frame_len: u64 = 0;
-    let (_, sync_errors, _) = crate::eac3::for_each_frame(path, |_, frame, header| {
+    let (_, sync_errors, skipped) = crate::eac3::for_each_frame(path, |_, frame, header| {
         walk.frames += 1;
         let dependent = header.stream_type == StreamType::Dependent;
         if dependent {
@@ -221,7 +234,12 @@ pub(crate) fn for_each_container(
             }
             last_frame_len = u64::from(header.blocks) * BLOCK_SAMPLES;
         }
-        let (containers, has_skip) = find_emdf(frame, &mut noise, &mut walk.unparsed_frames);
+        let (containers, has_skip) = find_emdf(
+            frame,
+            &mut noise,
+            &mut walk.unparsed_frames,
+            &mut walk.crc_failures,
+        );
         if !containers.is_empty() {
             walk.frames_with_emdf += 1;
         }
@@ -258,6 +276,7 @@ pub(crate) fn for_each_container(
     })
     .with_context(|| format!("reading {}", path.display()))?;
     walk.sync_errors = sync_errors;
+    walk.skipped_bytes = skipped;
     // A substream carries EMDF when a container opens in it: the metadata of a
     // programme rides in one substream (TS 103 420 clause 8.2), and the skip
     // fields of the others may carry anything.
@@ -411,14 +430,27 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
     s.dependent_frames = walk.dependent_frames;
     s.bytes = walk.bytes;
     s.sync_errors = walk.sync_errors;
+    s.skipped_bytes = walk.skipped_bytes;
+    s.crc_failures = walk.crc_failures;
     s.unparsed_frames = walk.unparsed_frames;
     s.container_errors = walk.missing_containers;
     if s.first_error.is_none() {
         s.first_error = walk.first_missing.clone();
     }
+    if s.first_error.is_none() && walk.crc_failures > 0 {
+        s.first_error = Some(format!("{} syncframes whose CRC failed", walk.crc_failures));
+    }
+    if s.first_error.is_none() && walk.skipped_bytes > 0 {
+        s.first_error = Some(format!(
+            "{} bytes skipped while framing the stream",
+            walk.skipped_bytes
+        ));
+    }
     s.frames_with_emdf = walk.frames_with_emdf;
     let elapsed = started.elapsed().as_secs_f64();
     let clean = s.sync_errors == 0
+        && s.skipped_bytes == 0
+        && s.crc_failures == 0
         && s.unparsed_frames == 0
         && s.container_errors == 0
         && s.oamd_errors == 0;
@@ -429,12 +461,14 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         println!("{}", serde_json::to_string_pretty(&value)?);
     } else {
         println!(
-            "Frames:            {} ({} independent, {} dependent), {} bytes, {} sync errors, {} unparsed",
+            "Frames:            {} ({} independent, {} dependent), {} bytes, {} sync errors, {} bytes skipped, {} CRC failures, {} unparsed",
             s.frames,
             s.independent_frames,
             s.dependent_frames,
             s.bytes,
             s.sync_errors,
+            s.skipped_bytes,
+            s.crc_failures,
             s.unparsed_frames
         );
         println!(
