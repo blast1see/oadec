@@ -65,6 +65,10 @@ built at `3418cdf`, the branch with its fixes and before the changes of the revi
 CI on the pull request passed every job: the tests on Windows and Ubuntu, the media suite's
 refusal without media, the ADM toolkit and `cargo deny`.
 
+At `1a7e10c`, the head after the changes of the review loop (§5), the whole media suite
+passed again, 27 of 27 in 1 235 s, and the command matrix gave the same exit code as at
+`3418cdf` in all 212 cases. CI passed every job on each pushed commit.
+
 ## 3. Function by function
 
 `04-function-smoke-matrix.json`. 212 cases: every subcommand's `--help`, `info`,

@@ -1,13 +1,13 @@
 {
  "what": "Every subcommand against representative inputs and expected exit codes",
- "utc": "2026-09-15T05:55:26Z",
+ "utc": "2026-09-15T07:46:36Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
  "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
  "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
  "why": "A decoder that passes its own tests can still fail at the command line.",
  "method": "E:/oadec-work/verify-2026-09-14/smoke.py (all 12 subcommands, 28 media clips, the committed fixtures, empty and random input); smoke_fix.py re-ran the cases whose first run used a wrong tool syntax; smoke_final.py is the same matrix with the branch-head binary",
- "reading": "212 cases, 56 not as the matrix expected. 46 are head cuts that verify and decode rightly call faulty (a TrueHD head ends inside an access unit, an E-AC-3 head starts inside a frame); 4 used an option atmos_info 1.1 does not have, and on re-run every DAMF set and every tagged ADM file passed both atmos_info versions and bwf_info; 1 was eac3-ecpl-inject correctly refusing a stream without coupling, and on a 384 kbit/s stream it converted 3305 of 3305 frames, verify was clean and Dolby's decoder played it. 5 were defects: info and oamd exited 0 on an empty file and on random bytes, and decode exited 0 on an empty file. All five are fixed on the branch. At the branch head: 212 cases, 51 unexpected: the 46 head cuts, the 4 atmos_info 1.1 syntax cases and the coupling refusal, nothing else. 10 cases changed exit code, each by a fix: info and oamd on empty and random input 0 to 2, decode on empty input 0 to 2 and on random input 7 to 2, emdf on the configuration 4 head 7 to 0 (AC-3 framing), oamd on E-AC-3 2 to 0",
+ "reading": "212 cases, 56 not as the matrix expected. 46 are head cuts that verify and decode rightly call faulty (a TrueHD head ends inside an access unit, an E-AC-3 head starts inside a frame); 4 used an option atmos_info 1.1 does not have, and on re-run every DAMF set and every tagged ADM file passed both atmos_info versions and bwf_info; 1 was eac3-ecpl-inject correctly refusing a stream without coupling, and on a 384 kbit/s stream it converted 3305 of 3305 frames, verify was clean and Dolby's decoder played it. 5 were defects: info and oamd exited 0 on an empty file and on random bytes, and decode exited 0 on an empty file. All five are fixed on the branch. At the branch head: 212 cases, 51 unexpected: the 46 head cuts, the 4 atmos_info 1.1 syntax cases and the coupling refusal, nothing else. 10 cases changed exit code, each by a fix: info and oamd on empty and random input 0 to 2, decode on empty input 0 to 2 and on random input 7 to 2, emdf on the configuration 4 head 7 to 0 (AC-3 framing), oamd on E-AC-3 2 to 0. At 1a7e10c, after the changes of the review loop, the same 212 cases gave the same exit codes as at 3418cdf, 51 unexpected and all of them the designed ones",
  "data": {
   "cases": 212,
   "results": [
@@ -3454,6 +3454,12 @@
      "ok": true
     }
    ]
+  },
+  "after_the_review_loop": {
+   "commit": "1a7e10c",
+   "cases": 212,
+   "unexpected": 51,
+   "exit_code_changes_from_e379930": []
   }
  }
 }

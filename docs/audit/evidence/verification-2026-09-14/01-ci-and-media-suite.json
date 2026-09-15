@@ -1,13 +1,13 @@
 {
  "what": "The CI checks and the media conformance suite, run locally",
- "utc": "2026-09-15T05:55:26Z",
+ "utc": "2026-09-15T07:46:36Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
  "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
  "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
  "why": "CI never runs the media tests; every dB claim rests on them.",
  "method": "cargo fmt/clippy/test (debug and release)/build/doc, and at the branch head cargo deny and cargo audit; the media suite with OADEC_MEDIA unset (must fail) and set",
- "reading": "all CI steps exit 0; the suite refuses to pass without media (exit 101) and passes 22 of 22 with it At the branch head: fmt, clippy, the workspace tests (261 passed, debug and release), the release build, doc, cargo deny and cargo audit exit 0; the media suite exits 101 without media and passes 27 of 27 with it in 1264 s, the five new media tests included",
+ "reading": "all CI steps exit 0; the suite refuses to pass without media (exit 101) and passes 22 of 22 with it At the branch head: fmt, clippy, the workspace tests (261 passed, debug and release), the release build, doc, cargo deny and cargo audit exit 0; the media suite exits 101 without media and passes 27 of 27 with it in 1264 s, the five new media tests included. At 1a7e10c, after the changes of the review loop, the whole media suite passed 27 of 27 again (1235 s)",
  "data": {
   "steps": [
    {
@@ -362,6 +362,122 @@
    ],
    "media_suite_result": [
     "test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 1263.85s"
+   ]
+  },
+  "after_the_review_loop": {
+   "commit": "1a7e10c",
+   "media_suite_tests": [
+    {
+     "test": "core_only_is_refused_with_an_object_output",
+     "result": "ok"
+    },
+    {
+     "test": "the_merged_channels_carry_the_tones_they_were_authored_with",
+     "result": "ok"
+    },
+    {
+     "test": "a_dependent_substream_that_disappears_does_not_stall_delivery",
+     "result": "ok"
+    },
+    {
+     "test": "a_title_dolby_will_not_open_still_has_a_reference",
+     "result": "ok"
+    },
+    {
+     "test": "a_duplicated_dependent_frame_is_counted_and_delivery_continues",
+     "result": "ok"
+    },
+    {
+     "test": "a_configuration_change_leaves_a_consistent_wav_and_exits_7",
+     "result": "ok"
+    },
+    {
+     "test": "relabelling_the_downmix_configuration_moves_only_three_bits",
+     "result": "ok"
+    },
+    {
+     "test": "the_steep_switch_is_measured_where_the_branch_is_the_common_case",
+     "result": "ok"
+    },
+    {
+     "test": "emdf_frames_ac3_streams_as_info_and_verify_do",
+     "result": "ok"
+    },
+    {
+     "test": "the_low_rate_clips_exercise_aht_and_spectral_extension",
+     "result": "ok"
+    },
+    {
+     "test": "ninety_six_kilohertz_decodes_byte_for_byte_like_forty_eight",
+     "result": "ok"
+    },
+    {
+     "test": "transient_pre_noise_changes_only_what_it_should",
+     "result": "ok"
+    },
+    {
+     "test": "the_core_options_reach_the_object_path",
+     "result": "ok"
+    },
+    {
+     "test": "pi_head_adm_is_byte_identical_to_the_audited_file",
+     "result": "ok"
+    },
+    {
+     "test": "a_seven_one_programme_decodes_to_eight_channels",
+     "result": "ok"
+    },
+    {
+     "test": "downmix_configuration_four_decodes_to_objects",
+     "result": "ok"
+    },
+    {
+     "test": "enhanced_coupling_decodes_a_converted_stream",
+     "result": "ok"
+    },
+    {
+     "test": "the_matrix_alignment_is_the_best_one_on_a_clip_it_was_not_fitted_on",
+     "result": "ok"
+    },
+    {
+     "test": "the_metadata_scanner_and_the_verifier_count_the_same_containers",
+     "result": "ok"
+    },
+    {
+     "test": "verify_decode_reports_a_corrupted_segment_in_every_presentation_that_reads_it",
+     "result": "ok"
+    },
+    {
+     "test": "enhanced_coupling_survives_the_object_pipeline",
+     "result": "ok"
+    },
+    {
+     "test": "corrupted_joc_never_decodes_to_a_silent_success",
+     "result": "ok"
+    },
+    {
+     "test": "verify_and_decode_agree_about_a_truncated_object_metadata_element",
+     "result": "ok"
+    },
+    {
+     "test": "pi_is_clean_and_matches_the_reference_layout",
+     "result": "ok"
+    },
+    {
+     "test": "every_truehd_stream_is_clean",
+     "result": "ok"
+    },
+    {
+     "test": "joc_streams_carry_object_metadata_in_every_frame",
+     "result": "ok"
+    },
+    {
+     "test": "every_eac3_stream_is_clean",
+     "result": "ok"
+    }
+   ],
+   "media_suite_result": [
+    "test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 1234.74s"
    ]
   }
  }
