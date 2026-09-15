@@ -9,10 +9,12 @@
 //! (ETSI TS 103 420 table 47, note).
 
 use std::collections::VecDeque;
+use std::fmt;
 use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
+use clap::ValueEnum;
 use oadec_eac3::{ChannelLoc, ProgramDecoder, ProgramFrame};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::joc::{Joc, JocError, JocHeader, SparseReading};
@@ -22,6 +24,7 @@ use oadec_joc::{
     SteepReading, Synthesis,
 };
 use oadec_spatial::{LossLedger, Program, Timeline};
+use serde_json::{Value, json};
 
 use crate::damf::{Options, Sink};
 use crate::decode::format_duration;
@@ -83,41 +86,209 @@ struct Pipeline {
     apply_clip_gain: bool,
 }
 
+/// Time slots the matrices are held back by when `--joc-lag` does not say
+/// otherwise: what the low-band filter costs, less the measured alignment.
+/// `MATRIX_ALIGN` has this one consumer, so the flag moves the alignment
+/// without touching the source.
+const DEFAULT_LAG: usize = LOW_DELAY - MATRIX_ALIGN;
+
+/// `--joc-low-band`: how the lowest subband of a channel that carries the
+/// 90-degree phase shift is treated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum JocLowBand {
+    /// Corrected the way the Dolby decoder corrects it, or rotated with the
+    /// other subbands under `--flat-quadrature` (the default).
+    Filtered,
+    /// Left alone while every other subband is rotated: the other end of the
+    /// measurement the correction was fitted between.
+    Untouched,
+}
+
+impl JocLowBand {
+    const fn name(self) -> &'static str {
+        match self {
+            Self::Filtered => "filtered",
+            Self::Untouched => "untouched",
+        }
+    }
+}
+
+/// `--joc-phase`: which downmix channels carry the 90-degree phase shift and
+/// which way it is taken out, instead of what the downmix configuration says.
+/// Written `CH,CH:-` or `CH,CH:+` (rotated back by -j or by +j), or `none`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JocPhase {
+    channels: Vec<usize>,
+    plus: bool,
+}
+
+/// Why a `--joc-phase` value was refused.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum JocPhaseError {
+    /// No `:` between the channels and the direction.
+    NoSign,
+    /// A direction other than `+` or `-`.
+    Sign(String),
+    /// A channel that is not a number.
+    Channel(String),
+}
+
+impl fmt::Display for JocPhaseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NoSign => write!(f, "expected CH,CH:-, CH,CH:+ or none"),
+            Self::Sign(sign) => write!(f, "the direction {sign:?} is neither + nor -"),
+            Self::Channel(ch) => write!(f, "{ch:?} is not a channel index"),
+        }
+    }
+}
+
+impl std::error::Error for JocPhaseError {}
+
+impl JocPhase {
+    /// Parses what `OADEC_JOC_PHASE` took, and refuses anything else.
+    pub fn parse(spec: &str) -> Result<Self, JocPhaseError> {
+        let spec = spec.trim();
+        if spec == "none" {
+            return Ok(Self {
+                channels: Vec::new(),
+                plus: false,
+            });
+        }
+        let (channels, sign) = spec.split_once(':').ok_or(JocPhaseError::NoSign)?;
+        let plus = match sign.trim() {
+            "+" => true,
+            "-" => false,
+            other => return Err(JocPhaseError::Sign(other.to_string())),
+        };
+        let channels = channels
+            .split(',')
+            .map(|ch| {
+                ch.trim()
+                    .parse()
+                    .map_err(|_| JocPhaseError::Channel(ch.trim().to_string()))
+            })
+            .collect::<Result<_, _>>()?;
+        Ok(Self { channels, plus })
+    }
+}
+
+impl fmt::Display for JocPhase {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.channels.is_empty() {
+            return write!(f, "none");
+        }
+        let channels: Vec<String> = self.channels.iter().map(ToString::to_string).collect();
+        write!(
+            f,
+            "{}:{}",
+            channels.join(","),
+            if self.plus { '+' } else { '-' }
+        )
+    }
+}
+
+/// One measurement override, as the stderr line and the loss report name it.
+#[derive(Debug, Clone, PartialEq)]
+struct Override {
+    flag: &'static str,
+    value: Value,
+    default: Value,
+}
+
+/// A JSON value as a person reads it: a string without its quotes.
+fn plain(v: &Value) -> String {
+    v.as_str().map_or_else(|| v.to_string(), str::to_string)
+}
+
+/// Measurement overrides of the JOC reconstruction, none by default. They were
+/// environment variables that changed the decode without a word; as flags they
+/// are announced on stderr and recorded in the loss report.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct JocOverrides {
+    /// `--joc-lag`: time slots the matrices are held back by.
+    pub lag: Option<usize>,
+    /// `--joc-low-band`.
+    pub low_band: Option<JocLowBand>,
+    /// `--joc-phase`.
+    pub phase: Option<JocPhase>,
+}
+
+impl JocOverrides {
+    /// The overrides given, as the stderr line and the loss report name them.
+    fn list(&self) -> Vec<Override> {
+        let mut out = Vec::new();
+        if let Some(lag) = self.lag {
+            out.push(Override {
+                flag: "joc-lag",
+                value: json!(lag),
+                default: json!(DEFAULT_LAG),
+            });
+        }
+        if let Some(band) = self.low_band {
+            out.push(Override {
+                flag: "joc-low-band",
+                value: json!(band.name()),
+                default: json!(JocLowBand::Filtered.name()),
+            });
+        }
+        if let Some(phase) = &self.phase {
+            out.push(Override {
+                flag: "joc-phase",
+                value: json!(phase.to_string()),
+                default: json!("3,4:- for downmix configurations 3 and 4, none otherwise"),
+            });
+        }
+        out
+    }
+
+    /// The stderr line naming every override given, or `None` when there is none.
+    pub(crate) fn line(&self) -> Option<String> {
+        let list = self.list();
+        if list.is_empty() {
+            return None;
+        }
+        let parts: Vec<String> = list
+            .iter()
+            .map(|o| {
+                format!(
+                    "{} {} (default {})",
+                    o.flag,
+                    plain(&o.value),
+                    plain(&o.default)
+                )
+            })
+            .collect();
+        Some(format!("measurement overrides: {}", parts.join("; ")))
+    }
+
+    /// The overrides as the loss report records them; empty when there is none.
+    pub(crate) fn json(&self) -> Vec<Value> {
+        self.list()
+            .into_iter()
+            .map(|o| json!({"flag": o.flag, "value": o.value, "default": o.default}))
+            .collect()
+    }
+}
+
 /// What each JOC downmix channel carries. Configurations 3 and 4 of table 47
 /// hand the surround pair over with a 90-degree phase shift; rotating Ls and
 /// Rs back by -j puts the objects in phase with the source (measured on the
 /// encoder round trip, see `docs/evidence`). Every channel gets a
 /// [`Quadrature`] whether or not it carries a shift, because they all need
-/// the same hold for the matrix alignment. `OADEC_JOC_PHASE=3,4:-` overrides
-/// which channels are shifted and `OADEC_JOC_LOW=untouched` selects the third
-/// reading of the shift, both for experiments.
-fn carries(dmx_config: u8, channels: usize, flat: bool) -> Vec<Carry> {
-    let low = std::env::var("OADEC_JOC_LOW").unwrap_or_default();
-    let shift = |plus| match (flat, low.as_str()) {
-        (_, "untouched") => Carry::FlatAbove { plus },
+/// the same hold for the matrix alignment. `--joc-phase` overrides which
+/// channels are shifted and `--joc-low-band untouched` selects the third
+/// reading of the shift, both for measuring.
+fn carries(dmx_config: u8, channels: usize, flat: bool, overrides: &JocOverrides) -> Vec<Carry> {
+    let shift = |plus| match (flat, overrides.low_band) {
+        (_, Some(JocLowBand::Untouched)) => Carry::FlatAbove { plus },
         (true, _) => Carry::Flat { plus },
         (false, _) => Carry::Shifted { plus },
     };
-    let mut spec: Vec<(usize, bool)> = match std::env::var("OADEC_JOC_PHASE") {
-        Err(_) => {
-            if matches!(dmx_config, 3 | 4) {
-                vec![(3, false), (4, false)]
-            } else {
-                Vec::new()
-            }
-        }
-        Ok(v) if v.is_empty() || v == "none" => Vec::new(),
-        Ok(v) => match v.split_once(':') {
-            None => Vec::new(),
-            Some((chans, sign)) => {
-                let plus = sign.trim() != "-";
-                chans
-                    .split(',')
-                    .filter_map(|c| c.trim().parse::<usize>().ok())
-                    .map(|c| (c, plus))
-                    .collect()
-            }
-        },
+    let mut spec: Vec<(usize, bool)> = match &overrides.phase {
+        None if matches!(dmx_config, 3 | 4) => vec![(3, false), (4, false)],
+        None => Vec::new(),
+        Some(phase) => phase.channels.iter().map(|&ch| (ch, phase.plus)).collect(),
     };
     spec.retain(|&(ch, _)| ch < channels);
     let mut out = vec![Carry::Plain; channels];
@@ -135,6 +306,7 @@ impl Pipeline {
         clip_gain: bool,
         flat_quadrature: bool,
         steep: SteepReading,
+        overrides: &JocOverrides,
     ) -> Result<Self> {
         let mut joc_inputs = vec![usize::MAX; joc.num_channels];
         for (coded, loc) in chans.iter().enumerate() {
@@ -184,7 +356,7 @@ impl Pipeline {
             );
         }
         let elements = sources.len();
-        let carry = carries(joc.dmx_config, joc.num_channels, flat_quadrature);
+        let carry = carries(joc.dmx_config, joc.num_channels, flat_quadrature, overrides);
         // every stream goes through the filter bank, whether or not it
         // carries a phase shift, because the matrix alignment needs the delay
         let low_delay = LOW_DELAY * BANDS;
@@ -196,10 +368,7 @@ impl Pipeline {
             })
             .collect();
         let mut joc_decoder = JocDecoder::new(joc.num_channels, joc.num_objects);
-        let lag = std::env::var("OADEC_JOC_LAG")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(LOW_DELAY - MATRIX_ALIGN);
+        let lag = overrides.lag.unwrap_or(DEFAULT_LAG);
         joc_decoder.set_lag(lag);
         joc_decoder.set_steep_reading(steep);
         Ok(Self {
@@ -506,6 +675,9 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         .context("output base name")?
         .to_string();
     std::fs::create_dir_all(dir)?;
+    if let Some(line) = opts.joc.line() {
+        eprintln!("{line}");
+    }
 
     let mut decoder = ProgramDecoder::new(opts.core);
     let mut timeline = Timeline::new(opts.all_events);
@@ -591,6 +763,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
                 } else {
                     SteepReading::Measured
                 },
+                &opts.joc,
             )?);
             sink = Some(Sink::create(dir, &name, &p, rate, opts)?);
             let clip = match &joc {
@@ -749,6 +922,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         if opts.adm { "adm" } else { "damf" },
         &losses,
         opts.loss_report.as_deref(),
+        &opts.joc.json(),
     )?;
     Ok(tally.findings(&stats, &losses).report())
 }
@@ -865,6 +1039,83 @@ mod tests {
         assert!(
             !f.is_clean() && shown.contains("1 JOC payloads whose declared size was wrong"),
             "{shown}"
+        );
+    }
+
+    /// Downmix configurations 3 and 4 carry the 90-degree phase shift on Ls
+    /// and Rs (table 47), and without an override that is what the carriers
+    /// follow; `--joc-low-band` and `--joc-phase` change them, for measuring,
+    /// and nothing else does.
+    #[test]
+    fn carries_follows_the_downmix_configuration_unless_overridden() {
+        use Carry::{Flat, FlatAbove, Plain, Shifted};
+        let minus = Shifted { plus: false };
+        let none = JocOverrides::default();
+        assert_eq!(
+            carries(3, 5, false, &none),
+            [Plain, Plain, Plain, minus, minus]
+        );
+        assert_eq!(carries(4, 7, false, &none)[3..5], [minus, minus]);
+        assert_eq!(carries(0, 5, false, &none), [Plain; 5]);
+        assert_eq!(carries(3, 5, true, &none)[3..5], [Flat { plus: false }; 2]);
+
+        let low = |band| JocOverrides {
+            low_band: Some(band),
+            ..JocOverrides::default()
+        };
+        assert_eq!(
+            carries(3, 5, false, &low(JocLowBand::Untouched))[3..5],
+            [FlatAbove { plus: false }; 2]
+        );
+        assert_eq!(
+            carries(3, 5, true, &low(JocLowBand::Untouched))[3],
+            FlatAbove { plus: false },
+            "untouched wins over --flat-quadrature, as the variable did"
+        );
+        assert_eq!(
+            carries(3, 5, false, &low(JocLowBand::Filtered)),
+            carries(3, 5, false, &none)
+        );
+
+        let phase = |spec: &str| JocOverrides {
+            phase: Some(JocPhase::parse(spec).unwrap()),
+            ..JocOverrides::default()
+        };
+        assert_eq!(carries(3, 5, false, &phase("none")), [Plain; 5]);
+        assert_eq!(
+            carries(0, 5, false, &phase("1,2:+")),
+            [
+                Plain,
+                Shifted { plus: true },
+                Shifted { plus: true },
+                Plain,
+                Plain
+            ]
+        );
+        assert_eq!(
+            carries(3, 5, false, &phase("4,9:-")),
+            [Plain, Plain, Plain, Plain, minus],
+            "a channel the downmix does not have is ignored"
+        );
+    }
+
+    /// `--joc-phase` takes what `OADEC_JOC_PHASE` took, parses it once, and
+    /// says what is wrong with anything else instead of reading it as "none".
+    #[test]
+    fn a_joc_phase_is_parsed_once_with_a_typed_error() {
+        for spec in ["3,4:-", "1,2:+", "none"] {
+            assert_eq!(JocPhase::parse(spec).unwrap().to_string(), spec);
+        }
+        assert_eq!(JocPhase::parse(" 3, 4 : - ").unwrap().to_string(), "3,4:-");
+        assert_eq!(JocPhase::parse("3,4"), Err(JocPhaseError::NoSign));
+        assert_eq!(JocPhase::parse(""), Err(JocPhaseError::NoSign));
+        assert_eq!(
+            JocPhase::parse("3,4:x"),
+            Err(JocPhaseError::Sign("x".to_string()))
+        );
+        assert_eq!(
+            JocPhase::parse("3,Ls:-"),
+            Err(JocPhaseError::Channel("Ls".to_string()))
         );
     }
 
