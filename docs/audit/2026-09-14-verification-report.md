@@ -69,8 +69,8 @@ At `1a7e10c`, the head after the changes of the review loop (§5), the whole med
 passed again, 27 of 27 in 1 235 s, and the command matrix gave the same exit code as at
 `3418cdf` in all 212 cases. CI passed every job on each pushed commit.
 
-At `a8ebf73`, the head after round 3 of the review loop and W4, the 271 workspace tests
-passed in release, the whole media suite passed again, 27 of 27 in 1242 s, and the
+At `b00f490`, the head after round 4 of the review loop, W4 and G4, the 273 workspace
+tests passed in release, the whole media suite passed again, 27 of 27 in 1240 s, and the
 command matrix ran its 212 cases with the same 51 designed unexpected ones. 13 cases
 changed their exit code against `1a7e10c`, every one of them `emdf` or `oamd` on a clip
 cut inside a frame or an access unit, from 0 to 7, which is G3.
