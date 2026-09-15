@@ -1,0 +1,608 @@
+{
+ "what": "Two fresh DD+ 5.1 cores against FFmpeg and DEE ddp_decode",
+ "utc": "2026-09-15T05:55:26Z",
+ "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
+ "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
+ "why": "The core-decoder envelope was measured on the audit's corpus only.",
+ "method": "core_threeway.py (tools/three_way.py) and kar_core.py: per-channel least-squares gain and SNR for every decoder pair, and the gain over half-second windows",
+ "reading": "Lion of the Desert: inside the envelope on every channel. Kar Kardesligi: the three-way tool reported 'outside' because FFmpeg applies the stream's dynamic range words by default (window gains 0.62-1.06); with -drc_scale 0 oadec is 41.1-52.9 dB from Dolby against FFmpeg's 39.2-51.1, and 44-56 dB with our dither off. The stored FFmpeg references were made with -drc_scale 0; a fresh one has to be",
+ "data": {
+  "pairs": {
+   "kar-kardesligi-core": {
+    "meta": {
+     "syntax": "E-AC-3",
+     "bit_rate": 640000,
+     "channels": [
+      "L",
+      "C",
+      "R",
+      "Ls",
+      "Rs",
+      "LFE"
+     ],
+     "blocks_per_frame": 6,
+     "bsid": 16,
+     "dialnorm": [
+      27
+     ],
+     "coverage": [
+      "dither"
+     ],
+     "aht_frames": 0,
+     "spx_frames": 0,
+     "ecpl_frames": 0,
+     "tpnp_frames": 0,
+     "dependent_frames": 0,
+     "frames": 940,
+     "clean": true,
+     "transients": []
+    },
+    "ours->ffmpeg": {
+     "L": {
+      "gain": 0.77276,
+      "snr_after_gain_db": 17.97,
+      "window_gain_min": 0.6251,
+      "window_gain_max": 1.0587,
+      "rms_dbfs": -39.0
+     },
+     "R": {
+      "gain": 0.74091,
+      "snr_after_gain_db": 17.14,
+      "window_gain_min": 0.6263,
+      "window_gain_max": 1.0586,
+      "rms_dbfs": -41.6
+     },
+     "C": {
+      "gain": 0.75004,
+      "snr_after_gain_db": 20.02,
+      "window_gain_min": 0.6231,
+      "window_gain_max": 1.0588,
+      "rms_dbfs": -23.4
+     },
+     "LFE": {
+      "gain": 0.76083,
+      "snr_after_gain_db": 18.08,
+      "window_gain_min": 0.6273,
+      "window_gain_max": 1.0593,
+      "rms_dbfs": -31.6
+     },
+     "Ls": {
+      "gain": 0.78885,
+      "snr_after_gain_db": 19.65,
+      "window_gain_min": 0.6222,
+      "window_gain_max": 1.0577,
+      "rms_dbfs": -35.2
+     },
+     "Rs": {
+      "gain": 0.77844,
+      "snr_after_gain_db": 19.29,
+      "window_gain_min": 0.6268,
+      "window_gain_max": 1.0547,
+      "rms_dbfs": -41.0
+     }
+    },
+    "ours->ffmpeg_drc0": {
+     "L": {
+      "gain": 0.99999,
+      "snr_after_gain_db": 43.7,
+      "window_gain_min": 0.9999,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -39.0
+     },
+     "R": {
+      "gain": 0.99996,
+      "snr_after_gain_db": 39.27,
+      "window_gain_min": 0.9997,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.6
+     },
+     "C": {
+      "gain": 1.0,
+      "snr_after_gain_db": 51.18,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -23.4
+     },
+     "LFE": {
+      "gain": 1.0,
+      "snr_after_gain_db": 142.18,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -31.6
+     },
+     "Ls": {
+      "gain": 1.0,
+      "snr_after_gain_db": 48.51,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -35.2
+     },
+     "Rs": {
+      "gain": 0.99999,
+      "snr_after_gain_db": 44.67,
+      "window_gain_min": 0.9999,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.0
+     }
+    },
+    "ours->dolby": {
+     "L": {
+      "gain": 0.99999,
+      "snr_after_gain_db": 45.45,
+      "window_gain_min": 0.9999,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -39.0
+     },
+     "R": {
+      "gain": 0.99996,
+      "snr_after_gain_db": 41.09,
+      "window_gain_min": 0.9996,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.6
+     },
+     "C": {
+      "gain": 1.0,
+      "snr_after_gain_db": 52.9,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -23.4
+     },
+     "LFE": {
+      "gain": 1.0,
+      "snr_after_gain_db": 117.68,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -31.6
+     },
+     "Ls": {
+      "gain": 1.0,
+      "snr_after_gain_db": 50.33,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -35.2
+     },
+     "Rs": {
+      "gain": 0.99999,
+      "snr_after_gain_db": 46.41,
+      "window_gain_min": 0.9999,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.0
+     }
+    },
+    "ours_nodither->dolby": {
+     "L": {
+      "gain": 1.0,
+      "snr_after_gain_db": 48.43,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -39.0
+     },
+     "R": {
+      "gain": 1.0,
+      "snr_after_gain_db": 44.03,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.6
+     },
+     "C": {
+      "gain": 1.0,
+      "snr_after_gain_db": 55.92,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -23.4
+     },
+     "LFE": {
+      "gain": 1.0,
+      "snr_after_gain_db": 117.68,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -31.6
+     },
+     "Ls": {
+      "gain": 1.0,
+      "snr_after_gain_db": 53.25,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -35.2
+     },
+     "Rs": {
+      "gain": 1.0,
+      "snr_after_gain_db": 49.38,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.0
+     }
+    },
+    "ffmpeg_drc0->dolby": {
+     "L": {
+      "gain": 0.99997,
+      "snr_after_gain_db": 43.78,
+      "window_gain_min": 0.9999,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -39.0
+     },
+     "R": {
+      "gain": 0.99992,
+      "snr_after_gain_db": 39.2,
+      "window_gain_min": 0.9993,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.6
+     },
+     "C": {
+      "gain": 0.99999,
+      "snr_after_gain_db": 51.11,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -23.4
+     },
+     "LFE": {
+      "gain": 1.0,
+      "snr_after_gain_db": 117.69,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -31.6
+     },
+     "Ls": {
+      "gain": 0.99999,
+      "snr_after_gain_db": 48.47,
+      "window_gain_min": 0.9999,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -35.2
+     },
+     "Rs": {
+      "gain": 0.99998,
+      "snr_after_gain_db": 44.64,
+      "window_gain_min": 0.9998,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.0
+     }
+    },
+    "ffmpeg->dolby": {
+     "L": {
+      "gain": 1.27341,
+      "snr_after_gain_db": 17.97,
+      "window_gain_min": 0.9444,
+      "window_gain_max": 1.5989,
+      "rms_dbfs": -41.2
+     },
+     "R": {
+      "gain": 1.32363,
+      "snr_after_gain_db": 17.14,
+      "window_gain_min": 0.9445,
+      "window_gain_max": 1.5964,
+      "rms_dbfs": -44.2
+     },
+     "C": {
+      "gain": 1.32,
+      "snr_after_gain_db": 20.02,
+      "window_gain_min": 0.9442,
+      "window_gain_max": 1.6041,
+      "rms_dbfs": -25.9
+     },
+     "LFE": {
+      "gain": 1.29392,
+      "snr_after_gain_db": 18.08,
+      "window_gain_min": 0.9439,
+      "window_gain_max": 1.5935,
+      "rms_dbfs": -33.9
+     },
+     "Ls": {
+      "gain": 1.25391,
+      "snr_after_gain_db": 19.65,
+      "window_gain_min": 0.9453,
+      "window_gain_max": 1.6064,
+      "rms_dbfs": -37.2
+     },
+     "Rs": {
+      "gain": 1.2695,
+      "snr_after_gain_db": 19.29,
+      "window_gain_min": 0.9479,
+      "window_gain_max": 1.5948,
+      "rms_dbfs": -43.1
+     }
+    }
+   },
+   "lion-of-the-desert-core": {
+    "meta": {
+     "syntax": "E-AC-3",
+     "bit_rate": 1024000,
+     "channels": [
+      "L",
+      "C",
+      "R",
+      "Ls",
+      "Rs",
+      "LFE"
+     ],
+     "blocks_per_frame": 6,
+     "bsid": 16,
+     "dialnorm": [
+      31
+     ],
+     "coverage": [
+      "block-switching",
+      "dither"
+     ],
+     "aht_frames": 0,
+     "spx_frames": 0,
+     "ecpl_frames": 0,
+     "tpnp_frames": 0,
+     "dependent_frames": 0,
+     "frames": 940,
+     "clean": true,
+     "transients": []
+    },
+    "ours->ffmpeg": {
+     "L": {
+      "gain": 0.99999,
+      "snr_after_gain_db": 45.14,
+      "window_gain_min": 0.9996,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.5
+     },
+     "R": {
+      "gain": 0.99997,
+      "snr_after_gain_db": 39.1,
+      "window_gain_min": 0.999,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -46.2
+     },
+     "C": {
+      "gain": 1.0,
+      "snr_after_gain_db": 58.04,
+      "window_gain_min": 0.9999,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -32.0
+     },
+     "LFE": {
+      "gain": 1.0,
+      "snr_after_gain_db": 142.28,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -63.9
+     },
+     "Ls": {
+      "gain": 0.99996,
+      "snr_after_gain_db": 39.1,
+      "window_gain_min": 0.9997,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -54.6
+     },
+     "Rs": {
+      "gain": 0.9998,
+      "snr_after_gain_db": 32.62,
+      "window_gain_min": 0.9998,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -58.9
+     }
+    },
+    "ours->ffmpeg_drc0": {
+     "L": {
+      "gain": 0.99999,
+      "snr_after_gain_db": 45.14,
+      "window_gain_min": 0.9996,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.5
+     },
+     "R": {
+      "gain": 0.99997,
+      "snr_after_gain_db": 39.1,
+      "window_gain_min": 0.999,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -46.2
+     },
+     "C": {
+      "gain": 1.0,
+      "snr_after_gain_db": 58.04,
+      "window_gain_min": 0.9999,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -32.0
+     },
+     "LFE": {
+      "gain": 1.0,
+      "snr_after_gain_db": 142.28,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -63.9
+     },
+     "Ls": {
+      "gain": 0.99996,
+      "snr_after_gain_db": 39.1,
+      "window_gain_min": 0.9997,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -54.6
+     },
+     "Rs": {
+      "gain": 0.9998,
+      "snr_after_gain_db": 32.62,
+      "window_gain_min": 0.9998,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -58.9
+     }
+    },
+    "ours->dolby": {
+     "L": {
+      "gain": 0.99999,
+      "snr_after_gain_db": 46.93,
+      "window_gain_min": 0.9996,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.5
+     },
+     "R": {
+      "gain": 0.99997,
+      "snr_after_gain_db": 41.98,
+      "window_gain_min": 0.999,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -46.2
+     },
+     "C": {
+      "gain": 1.0,
+      "snr_after_gain_db": 65.81,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -32.0
+     },
+     "LFE": {
+      "gain": 1.0,
+      "snr_after_gain_db": 85.34,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -63.9
+     },
+     "Ls": {
+      "gain": 0.99996,
+      "snr_after_gain_db": 40.91,
+      "window_gain_min": 0.9999,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -54.6
+     },
+     "Rs": {
+      "gain": 0.99983,
+      "snr_after_gain_db": 34.59,
+      "window_gain_min": 0.9998,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -58.9
+     }
+    },
+    "ours_nodither->dolby": {
+     "L": {
+      "gain": 1.0,
+      "snr_after_gain_db": 49.94,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.5
+     },
+     "R": {
+      "gain": 1.0,
+      "snr_after_gain_db": 44.99,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -46.2
+     },
+     "C": {
+      "gain": 1.0,
+      "snr_after_gain_db": 68.79,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -32.0
+     },
+     "LFE": {
+      "gain": 1.0,
+      "snr_after_gain_db": 85.34,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -63.9
+     },
+     "Ls": {
+      "gain": 1.0,
+      "snr_after_gain_db": 43.93,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -54.6
+     },
+     "Rs": {
+      "gain": 1.0,
+      "snr_after_gain_db": 37.6,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -58.9
+     }
+    },
+    "ffmpeg_drc0->dolby": {
+     "L": {
+      "gain": 0.99998,
+      "snr_after_gain_db": 45.14,
+      "window_gain_min": 0.9991,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.5
+     },
+     "R": {
+      "gain": 0.99991,
+      "snr_after_gain_db": 39.12,
+      "window_gain_min": 0.9978,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -46.2
+     },
+     "C": {
+      "gain": 1.0,
+      "snr_after_gain_db": 58.02,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -32.0
+     },
+     "LFE": {
+      "gain": 1.0,
+      "snr_after_gain_db": 85.34,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -63.9
+     },
+     "Ls": {
+      "gain": 0.99992,
+      "snr_after_gain_db": 39.11,
+      "window_gain_min": 0.9998,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -54.6
+     },
+     "Rs": {
+      "gain": 0.99965,
+      "snr_after_gain_db": 32.65,
+      "window_gain_min": 0.9995,
+      "window_gain_max": 0.9999,
+      "rms_dbfs": -58.9
+     }
+    },
+    "ffmpeg->dolby": {
+     "L": {
+      "gain": 0.99998,
+      "snr_after_gain_db": 45.14,
+      "window_gain_min": 0.9991,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -41.5
+     },
+     "R": {
+      "gain": 0.99991,
+      "snr_after_gain_db": 39.12,
+      "window_gain_min": 0.9978,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -46.2
+     },
+     "C": {
+      "gain": 1.0,
+      "snr_after_gain_db": 58.02,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -32.0
+     },
+     "LFE": {
+      "gain": 1.0,
+      "snr_after_gain_db": 85.34,
+      "window_gain_min": 1.0,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -63.9
+     },
+     "Ls": {
+      "gain": 0.99992,
+      "snr_after_gain_db": 39.11,
+      "window_gain_min": 0.9998,
+      "window_gain_max": 1.0,
+      "rms_dbfs": -54.6
+     },
+     "Rs": {
+      "gain": 0.99965,
+      "snr_after_gain_db": 32.65,
+      "window_gain_min": 0.9995,
+      "window_gain_max": 0.9999,
+      "rms_dbfs": -58.9
+     }
+    }
+   }
+  },
+  "three_way_output": {
+   "kar-kardesligi-core.threeway.txt": "channels 6, rate 48000, alignment vs FFmpeg: ours +0 samples, Dolby -256 samples\ncompared span: 1443584 samples (30.1 s)\n\nchannel  gain(Dolby)  SNR Dolby-vs-FF  SNR ours-vs-FF  SNR ours-vs-Dolby  max|ours-Dolby|  max|FF-Dolby|  verdict\nL           1.25051             16.8            10.2               12.0        2.353e-02      1.838e-02  OUTSIDE\nR           1.31122             16.5             8.7               10.1        1.953e-02      1.104e-02  OUTSIDE\nC           1.31626             19.7             9.2               10.0        1.044e-01      6.008e-02  OUTSIDE\nLFE         1.29000             17.9             9.5               10.8        6.487e-02      3.432e-02  OUTSIDE\nLs          1.21871             17.2            11.1               13.2        1.716e-02      2.683e-02  OUTSIDE\nRs          1.23799             17.2            10.7               12.5        1.409e-02      1.253e-02  OUTSIDE\n\nRESULT: oadec is farther from the Dolby decode than FFmpeg by up to 9.7 dB\n",
+   "lion-of-the-desert-core.threeway.txt": "channels 6, rate 48000, alignment vs FFmpeg: ours +0 samples, Dolby -256 samples\ncompared span: 1443584 samples (30.1 s)\n\nchannel  gain(Dolby)  SNR Dolby-vs-FF  SNR ours-vs-FF  SNR ours-vs-Dolby  max|ours-Dolby|  max|FF-Dolby|  verdict\nL           0.99997             44.1            45.4               45.3        8.615e-03      8.624e-03  inside envelope\nR           0.99991             39.0            39.3               41.6        6.673e-03      6.657e-03  inside envelope\nC           0.99999             50.3            58.5               50.8        2.731e-02      2.730e-02  inside envelope\nLFE         1.00000             53.1           142.1               53.1        3.220e-04      3.220e-04  inside envelope\nLs          0.99992             39.3            39.4               41.0        1.566e-03      1.561e-03  inside envelope\nRs          0.99964             32.7            33.0               34.4        2.700e-03      2.731e-03  inside envelope\n\nRESULT: oadec is at least as close to the Dolby decode as FFmpeg is (within 1 dB) on every channel\n"
+  }
+ }
+}

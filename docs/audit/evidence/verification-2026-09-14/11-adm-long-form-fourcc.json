@@ -1,0 +1,159 @@
+{
+ "what": "RF64 or BW64: what the readers accept for an ADM file beyond 4 GiB",
+ "utc": "2026-09-15T05:55:26Z",
+ "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
+ "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
+ "why": "ITU-R BS.2088-2 clauses 2.4-2.5 name the long form BW64; oadec writes RF64 (EBU Tech 3306 v1).",
+ "method": "bw64_test.py on the 15 278 169 042-byte ADM of the whole of Pi (--dolby-origin-tag): every reader asked with the file as written and with only its first four bytes changed to BW64, then restored",
+ "reading": "RF64: ffprobe, bwf_info, atmos_info 1.1 and 5.7.2, the EBU renderer's reader and the Conversion Tool all accept it. BW64: ffprobe and the EBU reader accept it; bwf_info spins (killed after 566 s with 486 s of CPU), atmos_info 1.1 and 5.7.2 refuse it ('missing RIFF/RF64 chunk') and the Conversion Tool refuses it ('must have a RIFF or RF64 chunk'). oadec keeps RF64, as a measured deviation from BS.2088",
+ "data": {
+  "file": {
+   "path": "E:\\oadec-work\\verify-2026-09-14\\ref\\pi-full-tag.wav",
+   "bytes": 15278169042
+  },
+  "RF64 ffprobe": {
+   "rc": 0,
+   "tail": [
+    "sample_rate=48000",
+    "channels=21",
+    "duration=5048.376667"
+   ]
+  },
+  "RF64 bwf_info": {
+   "rc": 0,
+   "tail": [
+    "Content duration (in samples): 242322080",
+    "Sample format: 24 bit integer",
+    "Sample rate: 48000",
+    "",
+    "Execution time: 0.0006716 seconds",
+    "Exit code: 0"
+   ]
+  },
+  "RF64 atmos_info 1.1": {
+   "rc": 0,
+   "tail": [
+    "        Front back balance listener: -0",
+    "    ManySurroundsManyHeights",
+    "        Auto trim: yes",
+    "        Center trim: 0",
+    "        Surround trim: 0",
+    "        Height trim: 0",
+    "        Front back balance overhead floor: -0",
+    "        Front back balance listener: -0"
+   ]
+  },
+  "RF64 atmos_info 5.7.2": {
+   "rc": 0,
+   "tail": [
+    "[2026-09-15 00:50:02.277]         Surround trim: 0",
+    "[2026-09-15 00:50:02.277]         Height trim: 0",
+    "[2026-09-15 00:50:02.277]         Front back balance overhead floor: -0",
+    "[2026-09-15 00:50:02.277]         Front back balance listener: -0",
+    "",
+    "",
+    "Execution time: 0.256966 seconds",
+    "Exit code: 0"
+   ]
+  },
+  "RF64 EAR reader": {
+   "rc": 0,
+   "tail": [
+    "channels 21 rate 48000 bits 24 frames 242322080 axml 11876508 chna True",
+    "",
+    "E:\\oadec-work\\audit\\adm\\venv\\Lib\\site-packages\\attr\\_make.py:918: RuntimeWarning: Running interpreter doesn't sufficiently support code object introspection.  Some features like bare super() or accessing __class__ will not work with slotted classes.",
+    "  set_closure_cell(cell, cls)"
+   ]
+  },
+  "RF64 Conversion Tool ADM->DAMF": {
+   "rc": 0,
+   "tail": [
+    "Progress - 30 %",
+    "Progress - 40 %",
+    "Progress - 50 %",
+    "Progress - 60 %",
+    "Progress - 70 %",
+    "Progress - 80 %",
+    "Progress - 93 %",
+    "Progress - 100 %"
+   ],
+   "outputs": {
+    "output.atmos": {
+     "bytes": 928,
+     "sha256": "1bbc7e4196ed69463e0570e04581b36075d19932491ca87ec18e69a6cf187662"
+    },
+    "output.atmos.audio": {
+     "bytes": 15266291108,
+     "sha256": "b0855aeb870abb5fe871b2003a25a05dfe02c511d589843a3a179cc3c9ece1fe"
+    },
+    "output.atmos.metadata": {
+     "bytes": 1775886,
+     "sha256": "6598296ca91dd6cc6258228f2ce116ec3f2e39158a7d48d6a522e1fe7e07f77a"
+    }
+   }
+  },
+  "BW64 ffprobe": {
+   "rc": 0,
+   "tail": [
+    "sample_rate=48000",
+    "channels=21",
+    "duration=5048.376667"
+   ]
+  },
+  "BW64 bwf_info": {
+   "rc": 4294967295,
+   "tail": []
+  },
+  "BW64 atmos_info 1.1": {
+   "rc": 4294967295,
+   "tail": [
+    "AtmosInfo Tool (version 1.1)",
+    "Getting info from E:\\oadec-work\\verify-2026-09-14\\ref\\pi-full-tag.wav",
+    "",
+    "ERROR: Failed to open atmos master. ATMOS_STORAGE_RES_FORMAT_INVALID",
+    "ERROR: Invalid WAV file: missing 'RIFF/RF64' chunk.",
+    "ERROR: Cannot open WAV file: E:/oadec-work/verify-2026-09-14/ref/pi-full-tag.wav"
+   ]
+  },
+  "BW64 atmos_info 5.7.2": {
+   "rc": 1,
+   "tail": [
+    "---- Summary of errors and warnings ----",
+    "ERROR: Failed to open atmos master. ATMOS_STORAGE_RES_FORMAT_INVALID",
+    "ERROR: Invalid WAV file: missing 'RIFF/RF64' chunk.",
+    "ERROR: Cannot open WAV file: E:/oadec-work/verify-2026-09-14/ref/pi-full-tag.wav",
+    "",
+    "----------------------------------------",
+    "Execution time: 0.0106409 seconds",
+    "Exit code: 1"
+   ]
+  },
+  "BW64 EAR reader": {
+   "rc": 0,
+   "tail": [
+    "channels 21 rate 48000 bits 24 frames 242322080 axml 11876508 chna True",
+    "",
+    "E:\\oadec-work\\audit\\adm\\venv\\Lib\\site-packages\\attr\\_make.py:918: RuntimeWarning: Running interpreter doesn't sufficiently support code object introspection.  Some features like bare super() or accessing __class__ will not work with slotted classes.",
+    "  set_closure_cell(cell, cls)"
+   ]
+  },
+  "BW64 Conversion Tool ADM->DAMF": {
+   "rc": 4294967293,
+   "tail": [
+    "ERROR: DlbWavFile - Invalid WAV file: missing 'RIFF/RF64' chunk.",
+    "ERROR: ADM validation - File does not have a 'RIFF' or 'RF64' chunk -- it must have one of them",
+    "ERROR: AdmFileStorageDesc - Cannot open WAV file: E:/oadec-work/verify-2026-09-14/ref/pi-full-tag.wav",
+    "ERROR: An error happened while loading",
+    "ERROR: Error found loading input file."
+   ],
+   "outputs": {}
+  },
+  "conversion_outputs_identical": false,
+  "bwf_info_bw64": {
+   "killed_after_s": 566,
+   "cpu_s": 485.9
+  }
+ }
+}

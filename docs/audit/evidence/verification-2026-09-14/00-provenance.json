@@ -1,0 +1,66 @@
+{
+ "what": "What the verification round ran with",
+ "utc": "2026-09-15T05:55:26Z",
+ "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
+ "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
+ "why": "Every number below was measured with these binaries and tools: the v0.3.0 tree at the commit named, and, where a file has a branch_head section, the head of verification-2026-09-14.",
+ "method": "sha256 of each binary; --version / --help of every tool",
+ "reading": "record",
+ "data": {
+  "tools": {
+   "oadec": [
+    "oadec 0.3.0"
+   ],
+   "rustc": [
+    "rustc 1.98.1 (48a229cea 2026-09-01)"
+   ],
+   "cargo": [
+    "cargo 1.98.1 (797e8a9bc 2026-08-05)"
+   ],
+   "ffmpeg": [
+    "ffmpeg version 2026-09-02-git-9fc8c785e2-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers"
+   ],
+   "truehdd": [
+    "truehdd b54f209 (truehd library 0.7.1) Built: 2026-08-15 08:27:23 UTC"
+   ],
+   "dee_bwf_info": [
+    "This tool belongs to the Dolby Encoding Engine version 5.2.1"
+   ],
+   "atmos_info_5.7.2": [
+    "This tool belongs to the Dolby Encoding Engine version 5.7.2.aec4fa9c-master"
+   ],
+   "atmos_info_1.1": [
+    "AtmosInfo Tool (version 1.1)",
+    "Version:"
+   ],
+   "conversion_tool": [
+    "0000018EBB278DE8 v2.1.2_07765940"
+   ],
+   "dolby_reference_player": "3.2.0 (drp.exe FileVersion; GStreamer elements dlbac3dec, dlbtruehddec)",
+   "ear": [
+    "ear-2.1.0.dist-info"
+   ],
+   "codex": [
+    "unavailable: FileNotFoundError(2, 'Sistem belirtilen dosyayı bulamıyor', None, 2, None)"
+   ],
+   "cargo_deny": [
+    "cargo-deny 0.20.2"
+   ],
+   "cargo_audit": [
+    "cargo-audit-audit 0.22.2"
+   ],
+   "python": "3.14.7"
+  },
+  "oadec_binary": "E:/oadec-work/verify-2026-09-14/bin/oadec.exe",
+  "branch_head": {
+   "commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+   "binary": "E:/oadec-work/verify-2026-09-14/bin/oadec-3418cdf.exe",
+   "binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
+   "version": [
+    "oadec 0.3.0"
+   ]
+  }
+ }
+}

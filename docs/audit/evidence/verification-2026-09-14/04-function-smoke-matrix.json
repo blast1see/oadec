@@ -1,0 +1,3459 @@
+{
+ "what": "Every subcommand against representative inputs and expected exit codes",
+ "utc": "2026-09-15T05:55:26Z",
+ "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
+ "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
+ "why": "A decoder that passes its own tests can still fail at the command line.",
+ "method": "E:/oadec-work/verify-2026-09-14/smoke.py (all 12 subcommands, 28 media clips, the committed fixtures, empty and random input); smoke_fix.py re-ran the cases whose first run used a wrong tool syntax; smoke_final.py is the same matrix with the branch-head binary",
+ "reading": "212 cases, 56 not as the matrix expected. 46 are head cuts that verify and decode rightly call faulty (a TrueHD head ends inside an access unit, an E-AC-3 head starts inside a frame); 4 used an option atmos_info 1.1 does not have, and on re-run every DAMF set and every tagged ADM file passed both atmos_info versions and bwf_info; 1 was eac3-ecpl-inject correctly refusing a stream without coupling, and on a 384 kbit/s stream it converted 3305 of 3305 frames, verify was clean and Dolby's decoder played it. 5 were defects: info and oamd exited 0 on an empty file and on random bytes, and decode exited 0 on an empty file. All five are fixed on the branch. At the branch head: 212 cases, 51 unexpected: the 46 head cuts, the 4 atmos_info 1.1 syntax cases and the coupling refusal, nothing else. 10 cases changed exit code, each by a fix: info and oamd on empty and random input 0 to 2, decode on empty input 0 to 2 and on random input 7 to 2, emdf on the configuration 4 head 7 to 0 (AC-3 framing), oamd on E-AC-3 2 to 0",
+ "data": {
+  "cases": 212,
+  "results": [
+   {
+    "name": "version",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help info",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help verify",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help emdf",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help oamd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help decode",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help compare",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help eac3-blocks",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help atmos-author",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help thd-demux",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help eac3-ecpl-inject",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help eac3-joc-config",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "help eac3-joc-offset",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info pi-head50m.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json pi-head50m.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify pi-head50m.thd",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "verify --json pi-head50m.thd",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "info pi-head50m.mlp",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json pi-head50m.mlp",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify pi-head50m.mlp",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "verify --json pi-head50m.mlp",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "info talktome-head.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json talktome-head.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify talktome-head.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify --json talktome-head.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info thd-96k-revenant.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json thd-96k-revenant.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify thd-96k-revenant.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify --json thd-96k-revenant.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info thd-truncated-oamd.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json thd-truncated-oamd.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify thd-truncated-oamd.thd",
+    "rc": 7,
+    "expect": 7,
+    "ok": true
+   },
+   {
+    "name": "verify --json thd-truncated-oamd.thd",
+    "rc": 7,
+    "expect": 7,
+    "ok": true
+   },
+   {
+    "name": "info thd-refused-aqp.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json thd-refused-aqp.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify thd-refused-aqp.thd",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "verify --json thd-refused-aqp.thd",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "info concat-pi-shaun.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json concat-pi-shaun.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify concat-pi-shaun.thd",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "verify --json concat-pi-shaun.thd",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "info shaun-head20m.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json shaun-head20m.thd",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify shaun-head20m.thd",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "verify --json shaun-head20m.thd",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "info pi-dd51-head.ac3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json pi-dd51-head.ac3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify pi-dd51-head.ac3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "verify --json pi-dd51-head.ac3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "info nightcrawler-dd20-head.ac3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json nightcrawler-dd20-head.ac3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify nightcrawler-dd20-head.ac3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "verify --json nightcrawler-dd20-head.ac3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "info talktome-dd51-head.ac3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json talktome-dd51-head.ac3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify talktome-dd51-head.ac3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "verify --json talktome-dd51-head.ac3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "info hannibal-ddp20-head.eac3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json hannibal-ddp20-head.eac3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify hannibal-ddp20-head.eac3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "verify --json hannibal-ddp20-head.eac3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "info childrenofmen-ddp51-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json childrenofmen-ddp51-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify childrenofmen-ddp51-head.ec3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "verify --json childrenofmen-ddp51-head.ec3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "info ddp71-tones.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json ddp71-tones.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify ddp71-tones.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify --json ddp71-tones.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info greenbook-cfg4-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json greenbook-cfg4-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify greenbook-cfg4-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify --json greenbook-cfg4-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info snatch-joc-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json snatch-joc-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify snatch-joc-head.ec3",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "verify --json snatch-joc-head.ec3",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "info pi-head-dee-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json pi-head-dee-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify pi-head-dee-head.ec3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "verify --json pi-head-dee-head.ec3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "info joc-onset-steep.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json joc-onset-steep.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify joc-onset-steep.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify --json joc-onset-steep.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info talktome-joc-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json talktome-joc-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify talktome-joc-head.ec3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "verify --json talktome-joc-head.ec3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "info kingsman-joc-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json kingsman-joc-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify kingsman-joc-head.ec3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "verify --json kingsman-joc-head.ec3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "info disclosure-web-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json disclosure-web-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify disclosure-web-head.ec3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "verify --json disclosure-web-head.ec3",
+    "rc": 7,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "info br2049-joc-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "info --json br2049-joc-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify br2049-joc-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify --json br2049-joc-head.ec3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "emdf talktome-joc-head.ec3",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "emdf --json talktome-joc-head.ec3",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "emdf --dump 1 talktome-joc-head.ec3",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "emdf greenbook-cfg4-head.ec3",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "emdf --json greenbook-cfg4-head.ec3",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "emdf --dump 1 greenbook-cfg4-head.ec3",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "emdf pi-head-dee-head.ec3",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "emdf --json pi-head-dee-head.ec3",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "emdf --dump 1 pi-head-dee-head.ec3",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "emdf childrenofmen-ddp51-head.ec3",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "emdf --json childrenofmen-ddp51-head.ec3",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "emdf --dump 1 childrenofmen-ddp51-head.ec3",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "oamd pi-head50m.thd",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "oamd --json pi-head50m.thd",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "oamd --dump 1 pi-head50m.thd",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "oamd talktome-head.thd",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "oamd --json talktome-head.thd",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "oamd --dump 1 talktome-head.thd",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "oamd thd-truncated-oamd.thd",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "oamd --json thd-truncated-oamd.thd",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "oamd --dump 1 thd-truncated-oamd.thd",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "oamd on E-AC-3 (known refusal)",
+    "rc": 2,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "info empty.bin",
+    "rc": 0,
+    "expect": [
+     2,
+     7
+    ],
+    "ok": false
+   },
+   {
+    "name": "verify empty.bin",
+    "rc": 7,
+    "expect": [
+     2,
+     7
+    ],
+    "ok": true
+   },
+   {
+    "name": "emdf empty.bin",
+    "rc": 2,
+    "expect": [
+     2,
+     7
+    ],
+    "ok": true
+   },
+   {
+    "name": "oamd empty.bin",
+    "rc": 0,
+    "expect": [
+     2,
+     7
+    ],
+    "ok": false
+   },
+   {
+    "name": "decode empty.bin",
+    "rc": 0,
+    "expect": [
+     2,
+     7
+    ],
+    "ok": false,
+    "note": "nothing decoded"
+   },
+   {
+    "name": "info random.bin",
+    "rc": 0,
+    "expect": [
+     2,
+     7
+    ],
+    "ok": false
+   },
+   {
+    "name": "verify random.bin",
+    "rc": 7,
+    "expect": [
+     2,
+     7
+    ],
+    "ok": true
+   },
+   {
+    "name": "emdf random.bin",
+    "rc": 2,
+    "expect": [
+     2,
+     7
+    ],
+    "ok": true
+   },
+   {
+    "name": "oamd random.bin",
+    "rc": 0,
+    "expect": [
+     2,
+     7
+    ],
+    "ok": false
+   },
+   {
+    "name": "decode random.bin",
+    "rc": 7,
+    "expect": [
+     2,
+     7
+    ],
+    "ok": true
+   },
+   {
+    "name": "info missing file",
+    "rc": 2,
+    "expect": 2,
+    "ok": true
+   },
+   {
+    "name": "verify directory",
+    "rc": 2,
+    "expect": 2,
+    "ok": true
+   },
+   {
+    "name": "decode to unwritable dir",
+    "rc": 2,
+    "expect": 2,
+    "ok": true
+   },
+   {
+    "name": "decode pi -p 0 wav",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode pi -p 1 wav",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode pi -p 2 wav",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode pi -p 3 wav",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode pi -p 2 wav --order stream",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode pi -p 2 pcm",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode pi damf",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode pi damf --no-bed-conform --loss-report",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode pi adm",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode pi adm --dolby-origin-tag --fps 25",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode pi adm --adm-interpolation real",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode pi adm real + origin tag (refused)",
+    "rc": 2,
+    "expect": 2,
+    "ok": true
+   },
+   {
+    "name": "decode pi -p 2 damf (refused)",
+    "rc": 2,
+    "expect": 2,
+    "ok": true
+   },
+   {
+    "name": "decode pi damf --isf drop",
+    "rc": 7,
+    "expect": [
+     0,
+     4
+    ],
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode talktome damf",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode 96k -p 2 wav",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode truncated-oamd damf",
+    "rc": 7,
+    "expect": 7,
+    "ok": true
+   },
+   {
+    "name": "decode refused-aqp damf",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode concat-pi-shaun -p 2 wav",
+    "rc": 2,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "decode fixture mlp damf",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode fixture mlp adm",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode childrenofmen-ddp51-head.ec3 wav",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode ddp71-tones.ec3 wav",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode pi-dd51-head.ac3 wav",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode nightcrawler-dd20-head.ac3 wav",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode hannibal-ddp20-head.eac3 wav",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode greenbook-cfg4-head.ec3 wav",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode talktome-joc-head.ec3 wav",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode ddp71 --core-only wav",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode ddp51 pcm --no-dither --no-tpnp --ecpl-spec",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode talktome-joc-head.ec3 damf",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode greenbook-cfg4-head.ec3 damf",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode pi-head-dee-head.ec3 damf",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode joc-onset-steep.ec3 damf",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode br2049-joc-head.ec3 damf",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode talktome-joc adm tag",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode talktome-joc damf measurement flags",
+    "rc": 7,
+    "expect": 0,
+    "ok": false,
+    "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "name": "decode joc --core-only damf (refused)",
+    "rc": 2,
+    "expect": 2,
+    "ok": true
+   },
+   {
+    "name": "decode ddp51 (no objects) damf",
+    "rc": 2,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "decode snatch damf",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "decode fixture ec3 damf",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "compare childrenofmen-ddp51-head",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "compare disclosure-web-head",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "compare extraction-nf-head",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "compare hannibal-ddp20-head",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "compare kingsman-joc-head",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "compare nightcrawler-dd20-head",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "compare pi -p 2 vs truehdd s24le",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "compare pi -p 2 vs truehdd s32le",
+    "rc": 7,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "eac3-ecpl-inject --chaos 7",
+    "rc": 2,
+    "expect": 0,
+    "ok": false,
+    "note": "error: no frame used coupling, so there was nothing to convert"
+   },
+   {
+    "name": "verify injected",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode injected wav",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "decode injected --ecpl-spec",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "eac3-joc-config --dmx-config 0",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify relabelled",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "eac3-joc-offset --offset-ts-bits 4",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "verify offset-rewritten",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "eac3-blocks --frame 3",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "eac3-blocks --frame 3 --part 1",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "atmos-author fixture scene",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "atmos_info dee authored.atmos",
+    "rc": 4294967295,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "atmos_info dee pi-damf.atmos",
+    "rc": 4294967295,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "atmos_info dee talktome-joc-head.ec3-damf.atmos",
+    "rc": 4294967295,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "atmos_info dee fx-ec3-damf.atmos",
+    "rc": 4294967295,
+    "expect": 0,
+    "ok": false
+   },
+   {
+    "name": "atmos_info dee authored.atmos",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "atmos_info dee pi-damf.atmos",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "atmos_info dee talktome-joc-head.ec3-damf.atmos",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "atmos_info dee fx-ec3-damf.atmos",
+    "rc": 0,
+    "expect": 0,
+    "ok": true
+   },
+   {
+    "name": "bwf_info pi-adm-tag.wav",
+    "rc": 1,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "bwf_info ttm-joc-adm.wav",
+    "rc": 1,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "bwf_info pi-adm.wav",
+    "rc": 1,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "bwf_info fx-mlp-adm.wav",
+    "rc": 1,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "atmos_info adm pi-adm-tag.wav",
+    "rc": 4294967295,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "atmos_info adm fx-mlp-adm.wav",
+    "rc": 4294967295,
+    "expect": null,
+    "ok": true
+   },
+   {
+    "name": "thd-demux cloudatlas",
+    "rc": 0,
+    "expect": null,
+    "ok": true
+   }
+  ],
+  "reruns": [
+   {
+    "name": "atmos_info 1.1 authored.atmos",
+    "rc": 0,
+    "tail": [
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0",
+     "    ManySurroundsManyHeights",
+     "        Auto trim: yes",
+     "        Center trim: 0",
+     "        Surround trim: 0",
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 5.7.2 authored.atmos",
+    "rc": 0,
+    "tail": [
+     "[2026-09-15 00:49:58.582]         Auto trim: yes",
+     "[2026-09-15 00:49:58.582]         Center trim: 0",
+     "[2026-09-15 00:49:58.582]         Surround trim: 0",
+     "[2026-09-15 00:49:58.582]         Height trim: 0",
+     "[2026-09-15 00:49:58.582]         Front back balance overhead floor: 0",
+     "[2026-09-15 00:49:58.582]         Front back balance listener: 0",
+     "",
+     "",
+     "Execution time: 0.0230963 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 1.1 pi-damf.atmos",
+    "rc": 0,
+    "tail": [
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0",
+     "    ManySurroundsManyHeights",
+     "        Auto trim: yes",
+     "        Center trim: 0",
+     "        Surround trim: 0",
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 5.7.2 pi-damf.atmos",
+    "rc": 0,
+    "tail": [
+     "[2026-09-15 00:49:58.651]         Auto trim: yes",
+     "[2026-09-15 00:49:58.651]         Center trim: 0",
+     "[2026-09-15 00:49:58.651]         Surround trim: 0",
+     "[2026-09-15 00:49:58.651]         Height trim: 0",
+     "[2026-09-15 00:49:58.651]         Front back balance overhead floor: 0",
+     "[2026-09-15 00:49:58.651]         Front back balance listener: 0",
+     "",
+     "",
+     "Execution time: 0.0091927 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 1.1 talktome-damf.atmos",
+    "rc": 0,
+    "tail": [
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0",
+     "    ManySurroundsManyHeights",
+     "        Auto trim: yes",
+     "        Center trim: 0",
+     "        Surround trim: 0",
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 5.7.2 talktome-damf.atmos",
+    "rc": 0,
+    "tail": [
+     "[2026-09-15 00:49:58.712]         Auto trim: yes",
+     "[2026-09-15 00:49:58.712]         Center trim: 0",
+     "[2026-09-15 00:49:58.712]         Surround trim: 0",
+     "[2026-09-15 00:49:58.712]         Height trim: 0",
+     "[2026-09-15 00:49:58.712]         Front back balance overhead floor: 0",
+     "[2026-09-15 00:49:58.712]         Front back balance listener: 0",
+     "",
+     "",
+     "Execution time: 0.0095493 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 1.1 talktome-joc-head.ec3-damf.atmos",
+    "rc": 0,
+    "tail": [
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0",
+     "    ManySurroundsManyHeights",
+     "        Auto trim: yes",
+     "        Center trim: 0",
+     "        Surround trim: 0",
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 5.7.2 talktome-joc-head.ec3-damf.atmos",
+    "rc": 0,
+    "tail": [
+     "[2026-09-15 00:49:58.775]         Auto trim: yes",
+     "[2026-09-15 00:49:58.775]         Center trim: 0",
+     "[2026-09-15 00:49:58.775]         Surround trim: 0",
+     "[2026-09-15 00:49:58.775]         Height trim: 0",
+     "[2026-09-15 00:49:58.775]         Front back balance overhead floor: 0",
+     "[2026-09-15 00:49:58.775]         Front back balance listener: 0",
+     "",
+     "",
+     "Execution time: 0.0092623 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 1.1 greenbook-cfg4-head.ec3-damf.atmos",
+    "rc": 0,
+    "tail": [
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0",
+     "    ManySurroundsManyHeights",
+     "        Auto trim: yes",
+     "        Center trim: 0",
+     "        Surround trim: 0",
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 5.7.2 greenbook-cfg4-head.ec3-damf.atmos",
+    "rc": 0,
+    "tail": [
+     "[2026-09-15 00:49:58.820]         Auto trim: yes",
+     "[2026-09-15 00:49:58.820]         Center trim: 0",
+     "[2026-09-15 00:49:58.820]         Surround trim: 0",
+     "[2026-09-15 00:49:58.820]         Height trim: 0",
+     "[2026-09-15 00:49:58.820]         Front back balance overhead floor: 0",
+     "[2026-09-15 00:49:58.820]         Front back balance listener: 0",
+     "",
+     "",
+     "Execution time: 0.009356 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 1.1 fx-ec3-damf.atmos",
+    "rc": 0,
+    "tail": [
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0",
+     "    ManySurroundsManyHeights",
+     "        Auto trim: yes",
+     "        Center trim: 0",
+     "        Surround trim: 0",
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 5.7.2 fx-ec3-damf.atmos",
+    "rc": 0,
+    "tail": [
+     "[2026-09-15 00:49:58.872]         Auto trim: yes",
+     "[2026-09-15 00:49:58.872]         Center trim: 0",
+     "[2026-09-15 00:49:58.872]         Surround trim: 0",
+     "[2026-09-15 00:49:58.872]         Height trim: 0",
+     "[2026-09-15 00:49:58.872]         Front back balance overhead floor: 0",
+     "[2026-09-15 00:49:58.872]         Front back balance listener: 0",
+     "",
+     "",
+     "Execution time: 0.0088901 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 1.1 fx-mlp-damf.atmos",
+    "rc": 0,
+    "tail": [
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0",
+     "    ManySurroundsManyHeights",
+     "        Auto trim: yes",
+     "        Center trim: 0",
+     "        Surround trim: 0",
+     "        Height trim: 0",
+     "        Front back balance overhead floor: 0",
+     "        Front back balance listener: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 5.7.2 fx-mlp-damf.atmos",
+    "rc": 0,
+    "tail": [
+     "[2026-09-15 00:49:58.925]         Auto trim: yes",
+     "[2026-09-15 00:49:58.925]         Center trim: 0",
+     "[2026-09-15 00:49:58.925]         Surround trim: 0",
+     "[2026-09-15 00:49:58.925]         Height trim: 0",
+     "[2026-09-15 00:49:58.925]         Front back balance overhead floor: 0",
+     "[2026-09-15 00:49:58.925]         Front back balance listener: 0",
+     "",
+     "",
+     "Execution time: 0.0089133 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "bwf_info pi-adm-tag.wav",
+    "rc": 0,
+    "tail": [
+     "Content duration (in samples): 5075800",
+     "Sample format: 24 bit integer",
+     "Sample rate: 48000",
+     "",
+     "Execution time: 0.443768 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 1.1 pi-adm-tag.wav",
+    "rc": 0,
+    "tail": [
+     "        Height trim: 0",
+     "        Front back balance overhead floor: -0",
+     "        Front back balance listener: -0",
+     "    ManySurroundsManyHeights",
+     "        Auto trim: yes",
+     "        Center trim: 0",
+     "        Surround trim: 0",
+     "        Height trim: 0",
+     "        Front back balance overhead floor: -0",
+     "        Front back balance listener: -0"
+    ]
+   },
+   {
+    "name": "atmos_info 5.7.2 pi-adm-tag.wav",
+    "rc": 0,
+    "tail": [
+     "[2026-09-15 00:49:59.553]         Auto trim: yes",
+     "[2026-09-15 00:49:59.553]         Center trim: 0",
+     "[2026-09-15 00:49:59.553]         Surround trim: 0",
+     "[2026-09-15 00:49:59.553]         Height trim: 0",
+     "[2026-09-15 00:49:59.553]         Front back balance overhead floor: -0",
+     "[2026-09-15 00:49:59.553]         Front back balance listener: -0",
+     "",
+     "",
+     "Execution time: 0.0136774 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "bwf_info ttm-joc-adm.wav",
+    "rc": 0,
+    "tail": [
+     "Content duration (in samples): 1498880",
+     "Sample format: 24 bit integer",
+     "Sample rate: 48000",
+     "",
+     "Execution time: 0.0244465 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 1.1 ttm-joc-adm.wav",
+    "rc": 0,
+    "tail": [
+     "        Height trim: 0",
+     "        Front back balance overhead floor: -0",
+     "        Front back balance listener: -0",
+     "    ManySurroundsManyHeights",
+     "        Auto trim: yes",
+     "        Center trim: 0",
+     "        Surround trim: 0",
+     "        Height trim: 0",
+     "        Front back balance overhead floor: -0",
+     "        Front back balance listener: -0"
+    ]
+   },
+   {
+    "name": "atmos_info 5.7.2 ttm-joc-adm.wav",
+    "rc": 0,
+    "tail": [
+     "[2026-09-15 00:49:59.625]         Auto trim: yes",
+     "[2026-09-15 00:49:59.625]         Center trim: 0",
+     "[2026-09-15 00:49:59.625]         Surround trim: 0",
+     "[2026-09-15 00:49:59.625]         Height trim: 0",
+     "[2026-09-15 00:49:59.625]         Front back balance overhead floor: -0",
+     "[2026-09-15 00:49:59.625]         Front back balance listener: -0",
+     "",
+     "",
+     "Execution time: 0.0102192 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "bwf_info fx-mlp-adm.wav",
+    "rc": 0,
+    "tail": [
+     "Content duration (in samples): 96000",
+     "Sample format: 24 bit integer",
+     "Sample rate: 48000",
+     "",
+     "Execution time: 0.0259339 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 1.1 fx-mlp-adm.wav",
+    "rc": 0,
+    "tail": [
+     "        Height trim: 0",
+     "        Front back balance overhead floor: -0",
+     "        Front back balance listener: -0",
+     "    ManySurroundsManyHeights",
+     "        Auto trim: yes",
+     "        Center trim: 0",
+     "        Surround trim: 0",
+     "        Height trim: 0",
+     "        Front back balance overhead floor: -0",
+     "        Front back balance listener: -0"
+    ]
+   },
+   {
+    "name": "atmos_info 5.7.2 fx-mlp-adm.wav",
+    "rc": 0,
+    "tail": [
+     "[2026-09-15 00:49:59.698]         Auto trim: yes",
+     "[2026-09-15 00:49:59.698]         Center trim: 0",
+     "[2026-09-15 00:49:59.698]         Surround trim: 0",
+     "[2026-09-15 00:49:59.698]         Height trim: 0",
+     "[2026-09-15 00:49:59.698]         Front back balance overhead floor: -0",
+     "[2026-09-15 00:49:59.698]         Front back balance listener: -0",
+     "",
+     "",
+     "Execution time: 0.0103532 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "bwf_info pi-adm.wav",
+    "rc": 0,
+    "tail": [
+     "Content duration (in samples): 5075800",
+     "Sample format: 24 bit integer",
+     "Sample rate: 48000",
+     "",
+     "Execution time: 0.0315312 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 1.1 pi-adm.wav",
+    "rc": 4294967295,
+    "tail": [
+     "AtmosInfo Tool (version 1.1)",
+     "Getting info from E:\\oadec-work\\verify-2026-09-14\\smoke\\pi-adm.wav",
+     "",
+     "ERROR: Content was not authored with Dolby tools."
+    ]
+   },
+   {
+    "name": "atmos_info 5.7.2 pi-adm.wav",
+    "rc": 1,
+    "tail": [
+     "[2026-09-15 00:49:59.788] Getting info from E:\\oadec-work\\verify-2026-09-14\\smoke\\pi-adm.wav",
+     "",
+     "[2026-09-15 00:49:59.798] ERROR: Content was not authored with Dolby tools.",
+     "",
+     "---- Summary of errors and warnings ----",
+     "ERROR: Content was not authored with Dolby tools.",
+     "----------------------------------------",
+     "Execution time: 0.0101421 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "name": "bwf_info pi-adm-real.wav",
+    "rc": 0,
+    "tail": [
+     "Content duration (in samples): 5075800",
+     "Sample format: 24 bit integer",
+     "Sample rate: 48000",
+     "",
+     "Execution time: 0.0344542 seconds",
+     "Exit code: 0"
+    ]
+   },
+   {
+    "name": "atmos_info 1.1 pi-adm-real.wav",
+    "rc": 4294967295,
+    "tail": [
+     "AtmosInfo Tool (version 1.1)",
+     "Getting info from E:\\oadec-work\\verify-2026-09-14\\smoke\\pi-adm-real.wav",
+     "",
+     "ERROR: Content was not authored with Dolby tools."
+    ]
+   },
+   {
+    "name": "atmos_info 5.7.2 pi-adm-real.wav",
+    "rc": 1,
+    "tail": [
+     "[2026-09-15 00:49:59.888] Getting info from E:\\oadec-work\\verify-2026-09-14\\smoke\\pi-adm-real.wav",
+     "",
+     "[2026-09-15 00:49:59.897] ERROR: Content was not authored with Dolby tools.",
+     "",
+     "---- Summary of errors and warnings ----",
+     "ERROR: Content was not authored with Dolby tools.",
+     "----------------------------------------",
+     "Execution time: 0.0095024 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "name": "compare pi p2 vs truehdd s24le --order stream",
+    "rc": 7,
+    "tail": [
+     "mismatching samples: 0 (max difference 0)",
+     "reference continues for 237246280 more samples after the decoded stream",
+     "result: DIFFERENT",
+     "",
+     "decoded 126895 access units, 5075800 samples x 8 channels (0:01:45.746), 0 dropped duplicates",
+     "lossless checks: 1000 performed, 0 failed; max_bits violations: 0; segment problems: 0",
+     "channels: L R C LFE Ls Rs Lb Rb",
+     "speed: 82.85 s (1x realtime)",
+     "integrity: 84 trailing bytes that formed no access unit",
+     "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    ]
+   },
+   {
+    "name": "compare childrenofmen-ddp51-head vs ffmpeg",
+    "rc": 7,
+    "tail": [
+     "L          1.868e-6   2.629e-7       -0.4  0.4314      259        0        0        0",
+     "R          1.219e-6   2.531e-7       -0.0  0.4980       78        0        0        0",
+     "C          1.135e-6   2.524e-7       -1.4  0.1587       58        0        0        0",
+     "LFE       1.421e-14  6.792e-16      143.1  1.0000        0        0        0        0",
+     "Ls         1.210e-6   2.530e-7       -1.6  0.0691       69        0        0        0",
+     "Rs         1.206e-6   2.527e-7       -1.6  0.0682       72        0        0        0",
+     "Result:            DIFFERENT",
+     "",
+     "integrity: 1728 bytes skipped",
+     "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    ]
+   },
+   {
+    "name": "compare disclosure-web-head vs ffmpeg",
+    "rc": 7,
+    "tail": [
+     "L          1.257e-4   9.084e-6       61.2  1.0000   687052       84        0        0",
+     "R          9.719e-5   7.092e-6       63.9  1.0000   805744        0        0        0",
+     "C          2.960e-4   1.813e-5       47.1  1.0000   809404     5696        0        0",
+     "LFE        1.397e-9  7.635e-11      142.0  1.0000        0        0        0        0",
+     "Ls         1.036e-5   1.589e-6       70.5  1.0000   719604        0        0        0",
+     "Rs         1.262e-5   1.532e-6       72.2  1.0000   612848        0        0        0",
+     "Result:            DIFFERENT",
+     "",
+     "integrity: 1728 bytes skipped",
+     "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    ]
+   },
+   {
+    "name": "compare extraction-nf-head vs ffmpeg",
+    "rc": 7,
+    "tail": [
+     "C          1.446e-3   8.148e-6       53.5  1.0000   213013      190       19        0",
+     "LFE        5.960e-8  8.216e-10      141.8  1.0000        0        0        0        0",
+     "Ls         2.808e-3   1.510e-5       54.7  1.0000   310053      203       88        0",
+     "Rs         2.672e-3   1.528e-5       53.8  1.0000   309322      197       99        0",
+     "Result:            DIFFERENT",
+     "",
+     "mismatch: sample 59904 channel R: ours -0.0058361 reference -0.0006533",
+     "mismatch: sample 59905 channel R: ours -0.0063628 reference -0.0006698",
+     "integrity: 1728 bytes skipped",
+     "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    ]
+   },
+   {
+    "name": "compare hannibal-ddp20-head vs ffmpeg",
+    "rc": 7,
+    "tail": [
+     "Lengths:           ours 3428352 samples, reference 3429888 samples (DIFFER)",
+     "Channel   max|diff|   rms diff     SNR dB    gain   >1e-6    >1e-4    >1e-3    >1e-2",
+     "L          1.232e-2   5.080e-4       40.4  1.0000  3385752  1316278   187297       16",
+     "R          1.255e-2   4.690e-4       40.0  1.0000  3377132  1221799   163456       10",
+     "Result:            DIFFERENT",
+     "",
+     "mismatch: sample 840487 channel R: ours -0.0016243 reference -0.0006074",
+     "mismatch: sample 840488 channel R: ours -0.0013369 reference -0.0001922",
+     "integrity: 128 bytes skipped",
+     "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    ]
+   },
+   {
+    "name": "compare kingsman-joc-head vs ffmpeg",
+    "rc": 7,
+    "tail": [
+     "C          5.647e-3   2.156e-4       36.3  0.9999  1307870   313626    11983        0",
+     "LFE        2.235e-8  8.401e-10      142.1  1.0000        0        0        0        0",
+     "Ls         5.028e-3   1.644e-4       37.2  0.9999  1329912   225080     7681        0",
+     "Rs         5.729e-3   1.522e-4       38.6  1.0000  1326548   230987     5345        0",
+     "Result:            DIFFERENT",
+     "",
+     "mismatch: sample 156242 channel C: ours 0.0056697 reference 0.0066841",
+     "mismatch: sample 273978 channel C: ours 0.0171291 reference 0.0161241",
+     "integrity: 1728 bytes skipped",
+     "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    ]
+   },
+   {
+    "name": "compare nightcrawler-dd20-head vs ffmpeg",
+    "rc": 7,
+    "tail": [
+     "Lengths:           ours 3428352 samples, reference 3429888 samples (DIFFER)",
+     "Channel   max|diff|   rms diff     SNR dB    gain   >1e-6    >1e-4    >1e-3    >1e-2",
+     "L          3.643e-3   1.720e-4       48.2  1.0000  3362154   655143    12888        0",
+     "R          5.097e-3   1.841e-4       47.7  1.0000  3362324   623453    20553        0",
+     "Result:            DIFFERENT",
+     "",
+     "mismatch: sample 86532 channel L: ours 0.0071232 reference 0.0060957",
+     "mismatch: sample 86536 channel L: ours 0.0020297 reference 0.0030443",
+     "integrity: 128 bytes skipped",
+     "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    ]
+   },
+   {
+    "name": "compare pi-dd51-head vs ffmpeg",
+    "rc": 7,
+    "tail": [
+     "C          9.759e-5   5.081e-6       43.4  1.0000   971651        0        0        0",
+     "LFE       9.313e-10  5.526e-11      142.0  1.0000        0        0        0        0",
+     "Ls         2.987e-5   1.206e-6        8.0  0.9433   284412        0        0        0",
+     "Rs         2.829e-5   1.124e-6        7.2  0.9315   255881        0        0        0",
+     "Result:            DIFFERENT",
+     "",
+     "mismatch: sample 487424 channel R: ours 0.0143132 reference 0.0000019",
+     "mismatch: sample 487425 channel R: ours 0.0136473 reference 0.0000015",
+     "integrity: 2240 bytes skipped",
+     "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    ]
+   },
+   {
+    "name": "compare pi-head-dee-head vs ffmpeg",
+    "rc": 7,
+    "tail": [
+     "C          5.558e-5   3.108e-6       44.7  1.0000   927279        0        0        0",
+     "LFE        1.397e-9  4.223e-11      141.9  1.0000        0        0        0        0",
+     "Ls         8.762e-6   7.025e-7        6.2  0.9131   168631        0        0        0",
+     "Rs         9.011e-6   5.926e-7        5.9  0.9071   110782        0        0        0",
+     "Result:            DIFFERENT",
+     "",
+     "mismatch: sample 485888 channel R: ours -0.0063387 reference 0.0000036",
+     "mismatch: sample 485889 channel R: ours -0.0081043 reference 0.0000056",
+     "integrity: 1728 bytes skipped",
+     "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    ]
+   },
+   {
+    "name": "compare talktome-dd51-head vs ffmpeg",
+    "rc": 7,
+    "tail": [
+     "C          3.699e-3   4.053e-5       54.1  1.0000   872888    44852      136        0",
+     "LFE        2.980e-8   1.018e-9      141.9  1.0000        0        0        0        0",
+     "Ls         7.517e-2   4.819e-4       38.5  0.9999   773167   127323     9030      247",
+     "Rs         7.494e-2   4.803e-4       38.0  0.9999   770057   114197     9083      221",
+     "Result:            DIFFERENT",
+     "",
+     "mismatch: sample 431360 channel R: ours -0.0666741 reference -0.0037297",
+     "mismatch: sample 431360 channel C: ours -0.0036987 reference -0.0000002",
+     "integrity: 2240 bytes skipped",
+     "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    ]
+   },
+   {
+    "name": "compare talktome-joc-head vs ffmpeg",
+    "rc": 7,
+    "tail": [
+     "C          4.546e-3   4.099e-5       54.7  1.0000   838824    13000      169        0",
+     "LFE        2.980e-8   1.059e-9      142.0  1.0000        0        0        0        0",
+     "Ls         3.922e-2   2.996e-4       43.5  1.0000   757801    99912     5281      131",
+     "Rs         4.085e-2   2.999e-4       42.8  1.0000   759007    93922     4762      132",
+     "Result:            DIFFERENT",
+     "",
+     "mismatch: sample 423680 channel R: ours 0.0840587 reference 0.0045559",
+     "mismatch: sample 423680 channel C: ours 0.0045463 reference -0.0000000",
+     "integrity: 1728 bytes skipped",
+     "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    ]
+   },
+   {
+    "name": "eac3-ecpl-inject --chaos 7 pi-head-joc384.ec3",
+    "rc": 0,
+    "tail": [
+     "enhanced coupling injected into 3305 of 3305 frames (0 copied unchanged, 0 sync errors, 0 bytes skipped)"
+    ]
+   },
+   {
+    "name": "verify injected",
+    "rc": 0,
+    "tail": [
+     "JOC extension:     flag true, complexity index 12 (addbsi 2 bytes)",
+     "Coding tools:      coupling, enhanced-coupling, aht, block-switching, dither, skip-fields (AHT in 3268 frames, spectral extension in 0, enhanced coupling in 3305, transient pre-noise in 0)",
+     "EMDF:              3305 frames with skip fields (734945 bytes), 3305 containers, 0 frames without one, 0 false sync words, payload ids {1: 3305, 2: 3305, 11: 3305, 14: 3305}",
+     "Metadata:          3305 OAMD payloads (0 errors), 3305 JOC payloads",
+     "JOC parse:         3305 ok, 0 errors, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 3305}; objects per payload {11: 3305}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 3305}",
+     "JOC objects:       bands {12: 36355}; 0 sparse, 36355 dense, 0 absent; 0 with two data points, 1199 steep, 36355 fine-quantized",
+     "OAMD gain/size:    0 non-unity gains {}, 0 mutes, 0 non-zero sizes",
+     "Integrity:         0 decode errors, 0 CRC failures, 0 frames ending inside the frame tail",
+     "Speed:             0.60 s (175x realtime)",
+     "Result:            CLEAN"
+    ]
+   },
+   {
+    "name": "decode injected",
+    "rc": 0,
+    "tail": [
+     "Dialnorm:          -20 dB x3305",
+     "JOC extension:     flag true, complexity index 12 (addbsi 2 bytes)",
+     "Coding tools:      coupling, enhanced-coupling, aht, block-switching, dither, skip-fields (AHT in 3268 frames, spectral extension in 0, enhanced coupling in 3305, transient pre-noise in 0)",
+     "EMDF:              3305 frames with skip fields (734945 bytes), 3305 containers, 0 frames without one, 0 false sync words, payload ids {1: 3305, 2: 3305, 11: 3305, 14: 3305}",
+     "Metadata:          3305 OAMD payloads (0 errors), 3305 JOC payloads",
+     "JOC parse:         3305 ok, 0 errors, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 3305}; objects per payload {11: 3305}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 3305}",
+     "JOC objects:       bands {12: 36355}; 0 sparse, 36355 dense, 0 absent; 0 with two data points, 1199 steep, 36355 fine-quantized",
+     "OAMD gain/size:    0 non-unity gains {}, 0 mutes, 0 non-zero sizes",
+     "Integrity:         0 decode errors, 0 CRC failures, 0 frames ending inside the frame tail",
+     "Speed:             1.18 s (90x realtime)"
+    ]
+   },
+   {
+    "name": "decode injected --ecpl-spec",
+    "rc": 0,
+    "tail": [
+     "Dialnorm:          -20 dB x3305",
+     "JOC extension:     flag true, complexity index 12 (addbsi 2 bytes)",
+     "Coding tools:      coupling, enhanced-coupling, aht, block-switching, dither, skip-fields (AHT in 3268 frames, spectral extension in 0, enhanced coupling in 3305, transient pre-noise in 0)",
+     "EMDF:              3305 frames with skip fields (734945 bytes), 3305 containers, 0 frames without one, 0 false sync words, payload ids {1: 3305, 2: 3305, 11: 3305, 14: 3305}",
+     "Metadata:          3305 OAMD payloads (0 errors), 3305 JOC payloads",
+     "JOC parse:         3305 ok, 0 errors, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 3305}; objects per payload {11: 3305}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 3305}",
+     "JOC objects:       bands {12: 36355}; 0 sparse, 36355 dense, 0 absent; 0 with two data points, 1199 steep, 36355 fine-quantized",
+     "OAMD gain/size:    0 non-unity gains {}, 0 mutes, 0 non-zero sizes",
+     "Integrity:         0 decode errors, 0 CRC failures, 0 frames ending inside the frame tail",
+     "Speed:             0.88 s (120x realtime)"
+    ]
+   },
+   {
+    "name": "dolby decodes injected",
+    "rc": 0,
+    "tail": [
+     "Setting pipeline to PAUSED ...",
+     "Pipeline is PREROLLING ...",
+     "Redistribute latency...",
+     "Pipeline is PREROLLED ...",
+     "Setting pipeline to PLAYING ...",
+     "New clock: GstSystemClock",
+     "Got EOS from element \"pipeline0\".",
+     "Execution ended after 0:00:00.808583000",
+     "Setting pipeline to NULL ...",
+     "Freeing pipeline ..."
+    ],
+    "bytes": 121835600
+   }
+  ],
+  "branch_head": {
+   "cases": 212,
+   "unexpected": 51,
+   "exit_code_changes": [
+    {
+     "name": "emdf greenbook-cfg4-head.ec3",
+     "rc_v0.3.0": 7,
+     "rc_branch_head": 0,
+     "expect": null,
+     "as_expected_now": true,
+     "note": ""
+    },
+    {
+     "name": "emdf --json greenbook-cfg4-head.ec3",
+     "rc_v0.3.0": 7,
+     "rc_branch_head": 0,
+     "expect": null,
+     "as_expected_now": true,
+     "note": ""
+    },
+    {
+     "name": "emdf --dump 1 greenbook-cfg4-head.ec3",
+     "rc_v0.3.0": 7,
+     "rc_branch_head": 0,
+     "expect": null,
+     "as_expected_now": true,
+     "note": ""
+    },
+    {
+     "name": "oamd on E-AC-3 (known refusal)",
+     "rc_v0.3.0": 2,
+     "rc_branch_head": 0,
+     "expect": null,
+     "as_expected_now": true,
+     "note": ""
+    },
+    {
+     "name": "info empty.bin",
+     "rc_v0.3.0": 0,
+     "rc_branch_head": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "as_expected_now": true,
+     "note": "error: no TrueHD access unit or E-AC-3 syncframe found in E:\\oadec-work\\verify-2026-09-14\\smoke-final\\empty.bin"
+    },
+    {
+     "name": "oamd empty.bin",
+     "rc_v0.3.0": 0,
+     "rc_branch_head": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "as_expected_now": true,
+     "note": "error: no TrueHD access unit or E-AC-3 syncframe found in E:\\oadec-work\\verify-2026-09-14\\smoke-final\\empty.bin"
+    },
+    {
+     "name": "decode empty.bin",
+     "rc_v0.3.0": 0,
+     "rc_branch_head": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "as_expected_now": true,
+     "note": "error: no TrueHD access unit found in E:\\oadec-work\\verify-2026-09-14\\smoke-final\\empty.bin"
+    },
+    {
+     "name": "info random.bin",
+     "rc_v0.3.0": 0,
+     "rc_branch_head": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "as_expected_now": true,
+     "note": "error: no TrueHD access unit or E-AC-3 syncframe found in E:\\oadec-work\\verify-2026-09-14\\smoke-final\\random.bin"
+    },
+    {
+     "name": "oamd random.bin",
+     "rc_v0.3.0": 0,
+     "rc_branch_head": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "as_expected_now": true,
+     "note": "error: no TrueHD access unit or E-AC-3 syncframe found in E:\\oadec-work\\verify-2026-09-14\\smoke-final\\random.bin"
+    },
+    {
+     "name": "decode random.bin",
+     "rc_v0.3.0": 7,
+     "rc_branch_head": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "as_expected_now": true,
+     "note": "error: no TrueHD access unit found in E:\\oadec-work\\verify-2026-09-14\\smoke-final\\random.bin"
+    }
+   ],
+   "results": [
+    {
+     "name": "version",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help info",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help verify",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help emdf",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help oamd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help decode",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help compare",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help eac3-blocks",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help atmos-author",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help thd-demux",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help eac3-ecpl-inject",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help eac3-joc-config",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "help eac3-joc-offset",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info pi-head50m.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json pi-head50m.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify pi-head50m.thd",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "verify --json pi-head50m.thd",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "info pi-head50m.mlp",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json pi-head50m.mlp",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify pi-head50m.mlp",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "verify --json pi-head50m.mlp",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "info talktome-head.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json talktome-head.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify talktome-head.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify --json talktome-head.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info thd-96k-revenant.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json thd-96k-revenant.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify thd-96k-revenant.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify --json thd-96k-revenant.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info thd-truncated-oamd.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json thd-truncated-oamd.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify thd-truncated-oamd.thd",
+     "rc": 7,
+     "expect": 7,
+     "ok": true
+    },
+    {
+     "name": "verify --json thd-truncated-oamd.thd",
+     "rc": 7,
+     "expect": 7,
+     "ok": true
+    },
+    {
+     "name": "info thd-refused-aqp.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json thd-refused-aqp.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify thd-refused-aqp.thd",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "verify --json thd-refused-aqp.thd",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "info concat-pi-shaun.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json concat-pi-shaun.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify concat-pi-shaun.thd",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "verify --json concat-pi-shaun.thd",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "info shaun-head20m.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json shaun-head20m.thd",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify shaun-head20m.thd",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "verify --json shaun-head20m.thd",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "info pi-dd51-head.ac3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json pi-dd51-head.ac3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify pi-dd51-head.ac3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "verify --json pi-dd51-head.ac3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "info nightcrawler-dd20-head.ac3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json nightcrawler-dd20-head.ac3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify nightcrawler-dd20-head.ac3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "verify --json nightcrawler-dd20-head.ac3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "info talktome-dd51-head.ac3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json talktome-dd51-head.ac3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify talktome-dd51-head.ac3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "verify --json talktome-dd51-head.ac3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "info hannibal-ddp20-head.eac3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json hannibal-ddp20-head.eac3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify hannibal-ddp20-head.eac3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "verify --json hannibal-ddp20-head.eac3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "info childrenofmen-ddp51-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json childrenofmen-ddp51-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify childrenofmen-ddp51-head.ec3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "verify --json childrenofmen-ddp51-head.ec3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "info ddp71-tones.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json ddp71-tones.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify ddp71-tones.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify --json ddp71-tones.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info greenbook-cfg4-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json greenbook-cfg4-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify greenbook-cfg4-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify --json greenbook-cfg4-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info snatch-joc-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json snatch-joc-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify snatch-joc-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "verify --json snatch-joc-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "info pi-head-dee-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json pi-head-dee-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify pi-head-dee-head.ec3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "verify --json pi-head-dee-head.ec3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "info joc-onset-steep.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json joc-onset-steep.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify joc-onset-steep.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify --json joc-onset-steep.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info talktome-joc-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json talktome-joc-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify talktome-joc-head.ec3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "verify --json talktome-joc-head.ec3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "info kingsman-joc-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json kingsman-joc-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify kingsman-joc-head.ec3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "verify --json kingsman-joc-head.ec3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "info disclosure-web-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json disclosure-web-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify disclosure-web-head.ec3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "verify --json disclosure-web-head.ec3",
+     "rc": 7,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "info br2049-joc-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "info --json br2049-joc-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify br2049-joc-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify --json br2049-joc-head.ec3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "emdf talktome-joc-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "emdf --json talktome-joc-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "emdf --dump 1 talktome-joc-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "emdf greenbook-cfg4-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "emdf --json greenbook-cfg4-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "emdf --dump 1 greenbook-cfg4-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "emdf pi-head-dee-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "emdf --json pi-head-dee-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "emdf --dump 1 pi-head-dee-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "emdf childrenofmen-ddp51-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "emdf --json childrenofmen-ddp51-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "emdf --dump 1 childrenofmen-ddp51-head.ec3",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "oamd pi-head50m.thd",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "oamd --json pi-head50m.thd",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "oamd --dump 1 pi-head50m.thd",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "oamd talktome-head.thd",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "oamd --json talktome-head.thd",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "oamd --dump 1 talktome-head.thd",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "oamd thd-truncated-oamd.thd",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "oamd --json thd-truncated-oamd.thd",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "oamd --dump 1 thd-truncated-oamd.thd",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "oamd on E-AC-3 (known refusal)",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "info empty.bin",
+     "rc": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "ok": true
+    },
+    {
+     "name": "verify empty.bin",
+     "rc": 7,
+     "expect": [
+      2,
+      7
+     ],
+     "ok": true
+    },
+    {
+     "name": "emdf empty.bin",
+     "rc": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "ok": true
+    },
+    {
+     "name": "oamd empty.bin",
+     "rc": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "ok": true
+    },
+    {
+     "name": "decode empty.bin",
+     "rc": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "ok": true
+    },
+    {
+     "name": "info random.bin",
+     "rc": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "ok": true
+    },
+    {
+     "name": "verify random.bin",
+     "rc": 7,
+     "expect": [
+      2,
+      7
+     ],
+     "ok": true
+    },
+    {
+     "name": "emdf random.bin",
+     "rc": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "ok": true
+    },
+    {
+     "name": "oamd random.bin",
+     "rc": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "ok": true
+    },
+    {
+     "name": "decode random.bin",
+     "rc": 2,
+     "expect": [
+      2,
+      7
+     ],
+     "ok": true
+    },
+    {
+     "name": "info missing file",
+     "rc": 2,
+     "expect": 2,
+     "ok": true
+    },
+    {
+     "name": "verify directory",
+     "rc": 2,
+     "expect": 2,
+     "ok": true
+    },
+    {
+     "name": "decode to unwritable dir",
+     "rc": 2,
+     "expect": 2,
+     "ok": true
+    },
+    {
+     "name": "decode pi -p 0 wav",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode pi -p 1 wav",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode pi -p 2 wav",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode pi -p 3 wav",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode pi -p 2 wav --order stream",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode pi -p 2 pcm",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode pi damf",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode pi damf --no-bed-conform --loss-report",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode pi adm",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode pi adm --dolby-origin-tag --fps 25",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode pi adm --adm-interpolation real",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode pi adm real + origin tag (refused)",
+     "rc": 2,
+     "expect": 2,
+     "ok": true
+    },
+    {
+     "name": "decode pi -p 2 damf (refused)",
+     "rc": 2,
+     "expect": 2,
+     "ok": true
+    },
+    {
+     "name": "decode pi damf --isf drop",
+     "rc": 7,
+     "expect": [
+      0,
+      4
+     ],
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode talktome damf",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode 96k -p 2 wav",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode truncated-oamd damf",
+     "rc": 7,
+     "expect": 7,
+     "ok": true
+    },
+    {
+     "name": "decode refused-aqp damf",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode concat-pi-shaun -p 2 wav",
+     "rc": 2,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "decode fixture mlp damf",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode fixture mlp adm",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode childrenofmen-ddp51-head.ec3 wav",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode ddp71-tones.ec3 wav",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode pi-dd51-head.ac3 wav",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode nightcrawler-dd20-head.ac3 wav",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode hannibal-ddp20-head.eac3 wav",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode greenbook-cfg4-head.ec3 wav",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode talktome-joc-head.ec3 wav",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode ddp71 --core-only wav",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode ddp51 pcm --no-dither --no-tpnp --ecpl-spec",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode talktome-joc-head.ec3 damf",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode greenbook-cfg4-head.ec3 damf",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode pi-head-dee-head.ec3 damf",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode joc-onset-steep.ec3 damf",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode br2049-joc-head.ec3 damf",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode talktome-joc adm tag",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode talktome-joc damf measurement flags",
+     "rc": 7,
+     "expect": 0,
+     "ok": false,
+     "note": "the output was written and is not trustworthy; `oadec verify` reports the same faults"
+    },
+    {
+     "name": "decode joc --core-only damf (refused)",
+     "rc": 2,
+     "expect": 2,
+     "ok": true
+    },
+    {
+     "name": "decode ddp51 (no objects) damf",
+     "rc": 2,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "decode snatch damf",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "decode fixture ec3 damf",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "compare childrenofmen-ddp51-head",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "compare disclosure-web-head",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "compare extraction-nf-head",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "compare hannibal-ddp20-head",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "compare kingsman-joc-head",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "compare nightcrawler-dd20-head",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "compare pi -p 2 vs truehdd s24le",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "compare pi -p 2 vs truehdd s32le",
+     "rc": 7,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "eac3-ecpl-inject --chaos 7",
+     "rc": 2,
+     "expect": 0,
+     "ok": false,
+     "note": "error: no frame used coupling, so there was nothing to convert"
+    },
+    {
+     "name": "verify injected",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode injected wav",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "decode injected --ecpl-spec",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "eac3-joc-config --dmx-config 0",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify relabelled",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "eac3-joc-offset --offset-ts-bits 4",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "verify offset-rewritten",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "eac3-blocks --frame 3",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "eac3-blocks --frame 3 --part 1",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "atmos-author fixture scene",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "atmos_info dee authored.atmos",
+     "rc": 4294967295,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "atmos_info dee pi-damf.atmos",
+     "rc": 4294967295,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "atmos_info dee talktome-joc-head.ec3-damf.atmos",
+     "rc": 4294967295,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "atmos_info dee fx-ec3-damf.atmos",
+     "rc": 4294967295,
+     "expect": 0,
+     "ok": false
+    },
+    {
+     "name": "atmos_info dee authored.atmos",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "atmos_info dee pi-damf.atmos",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "atmos_info dee talktome-joc-head.ec3-damf.atmos",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "atmos_info dee fx-ec3-damf.atmos",
+     "rc": 0,
+     "expect": 0,
+     "ok": true
+    },
+    {
+     "name": "bwf_info pi-adm-tag.wav",
+     "rc": 1,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "bwf_info ttm-joc-adm.wav",
+     "rc": 1,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "bwf_info pi-adm.wav",
+     "rc": 1,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "bwf_info fx-mlp-adm.wav",
+     "rc": 1,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "atmos_info adm pi-adm-tag.wav",
+     "rc": 4294967295,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "atmos_info adm fx-mlp-adm.wav",
+     "rc": 4294967295,
+     "expect": null,
+     "ok": true
+    },
+    {
+     "name": "thd-demux cloudatlas",
+     "rc": 0,
+     "expect": null,
+     "ok": true
+    }
+   ]
+  }
+ }
+}

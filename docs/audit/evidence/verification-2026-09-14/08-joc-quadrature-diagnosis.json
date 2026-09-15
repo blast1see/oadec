@@ -1,0 +1,4202 @@
+{
+ "what": "Is the subband-0 residual a fitting error of the quadrature table?",
+ "utc": "2026-09-15T05:55:26Z",
+ "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
+ "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
+ "why": "The table was fitted on three titles; three fresh titles leave their residual in exactly that subband.",
+ "method": "quad_diag.py: Dolby's operator R(f) measured per title with tools/gen_joc_quadrature.py's method; the current table's weighted error against it; each title's own 37-tap fit; pooled refits scored on every title; and the part of Dolby-minus-flat no per-frequency complex gain explains",
+ "reading": "the same fixed network on all twelve titles (e.g. 48 Hz: |R| 0.375-0.403 at -88 to -94 deg); the table is within 1-3 dB of each title's own best fit on ten titles and pooled refits are worse, so the table is not the problem; -22 to -37 dB (-15/-17 dB on two titles) of Dolby-minus-flat is explained by no fixed R(f), which points at the order of the network and the time-varying matrix. An experiment on a side branch (exp/lowband-after-matrix) tested that suspect and ruled it out. Its default reading decodes all six fresh titles to exactly the released numbers; every alternative (the correction after the matrix at pairings -1, 0 and +1, and subband 0 mixed with the matrix one slot early or late) moves subband 0 further from Dolby wherever it changes anything, the median object by 1.7 to 18.1 dB: Mercy 40.30 to 32.67-37.70, A Man Called Otto 44.12 to 41.18-42.39, Damsel 50.98 to 37.88-43.52, Kar Kardesligi 53.72 to 35.61-48.77. The order oadec uses is the best of the six; the cause of the remaining residual is open",
+ "data": {
+  "titles": {
+   "disclosure-web-head": {
+    "group": "audit",
+    "basis_energy": 4775841.416285492,
+    "current_table_error_db": -31.36,
+    "own_fit_error_db": -32.96,
+    "not_explained_by_any_R_db": -23.36,
+    "measured": {
+     "0": [
+      0.319,
+      0.0
+     ],
+     "13": [
+      0.772,
+      -37.4
+     ],
+     "26": [
+      0.747,
+      -48.3
+     ],
+     "48": [
+      0.401,
+      -88.3
+     ],
+     "70": [
+      0.188,
+      -120.5
+     ],
+     "88": [
+      0.105,
+      -134.3
+     ],
+     "123": [
+      0.029,
+      -133.4
+     ],
+     "141": [
+      0.011,
+      -146.4
+     ],
+     "190": [
+      0.002,
+      -76.4
+     ]
+    }
+   },
+   "kingsman-joc-head": {
+    "group": "audit",
+    "basis_energy": 9740702.853774223,
+    "current_table_error_db": -25.09,
+    "own_fit_error_db": -26.65,
+    "not_explained_by_any_R_db": -19.78,
+    "measured": {
+     "0": [
+      0.667,
+      0.0
+     ],
+     "13": [
+      0.805,
+      -30.6
+     ],
+     "26": [
+      0.771,
+      -44.7
+     ],
+     "48": [
+      0.392,
+      -88.6
+     ],
+     "70": [
+      0.202,
+      -121.3
+     ],
+     "88": [
+      0.102,
+      -133.8
+     ],
+     "123": [
+      0.026,
+      -130.5
+     ],
+     "141": [
+      0.01,
+      -146.1
+     ],
+     "190": [
+      0.0,
+      -90.5
+     ]
+    }
+   },
+   "knivesout-joc-head": {
+    "group": "audit",
+    "basis_energy": 11611.162142679765,
+    "current_table_error_db": -41.26,
+    "own_fit_error_db": -42.41,
+    "not_explained_by_any_R_db": -30.8,
+    "measured": {
+     "0": [
+      0.95,
+      0.0
+     ],
+     "13": [
+      0.927,
+      -24.7
+     ],
+     "26": [
+      0.749,
+      -48.1
+     ],
+     "48": [
+      0.403,
+      -88.3
+     ],
+     "70": [
+      0.191,
+      -123.3
+     ],
+     "88": [
+      0.101,
+      -134.0
+     ],
+     "123": [
+      0.027,
+      -128.6
+     ],
+     "141": [
+      0.009,
+      -147.3
+     ],
+     "190": [
+      0.001,
+      -91.8
+     ]
+    }
+   },
+   "extraction-nf-head": {
+    "group": "audit",
+    "basis_energy": 8306697.361512018,
+    "current_table_error_db": -33.42,
+    "own_fit_error_db": -36.14,
+    "not_explained_by_any_R_db": -28.72,
+    "measured": {
+     "0": [
+      0.946,
+      0.0
+     ],
+     "13": [
+      0.821,
+      -25.5
+     ],
+     "26": [
+      0.742,
+      -48.3
+     ],
+     "48": [
+      0.39,
+      -89.8
+     ],
+     "70": [
+      0.203,
+      -122.0
+     ],
+     "88": [
+      0.103,
+      -133.4
+     ],
+     "123": [
+      0.025,
+      -131.4
+     ],
+     "141": [
+      0.01,
+      -146.9
+     ],
+     "190": [
+      0.0,
+      160.2
+     ]
+    }
+   },
+   "glassonion-nf-head": {
+    "group": "audit",
+    "basis_energy": 74212.28986157237,
+    "current_table_error_db": -26.17,
+    "own_fit_error_db": -29.48,
+    "not_explained_by_any_R_db": -24.27,
+    "measured": {
+     "0": [
+      0.376,
+      0.0
+     ],
+     "13": [
+      0.286,
+      -29.0
+     ],
+     "26": [
+      0.584,
+      -47.3
+     ],
+     "48": [
+      0.394,
+      -88.9
+     ],
+     "70": [
+      0.188,
+      -123.2
+     ],
+     "88": [
+      0.102,
+      -133.9
+     ],
+     "123": [
+      0.026,
+      -131.3
+     ],
+     "141": [
+      0.01,
+      -146.2
+     ],
+     "190": [
+      0.0,
+      -93.3
+     ]
+    }
+   },
+   "br2049-joc-head": {
+    "group": "audit",
+    "basis_energy": 1336835331.2642379,
+    "current_table_error_db": -32.66,
+    "own_fit_error_db": -36.87,
+    "not_explained_by_any_R_db": -22.26,
+    "measured": {
+     "0": [
+      0.24,
+      0.0
+     ],
+     "13": [
+      0.648,
+      -40.0
+     ],
+     "26": [
+      0.713,
+      -49.0
+     ],
+     "48": [
+      0.401,
+      -88.2
+     ],
+     "70": [
+      0.192,
+      -123.0
+     ],
+     "88": [
+      0.102,
+      -134.0
+     ],
+     "123": [
+      0.026,
+      -128.7
+     ],
+     "141": [
+      0.009,
+      -146.2
+     ],
+     "190": [
+      0.001,
+      61.9
+     ]
+    }
+   },
+   "mercy-2026": {
+    "group": "fresh",
+    "basis_energy": 48091686.853389196,
+    "current_table_error_db": -39.63,
+    "own_fit_error_db": -42.54,
+    "not_explained_by_any_R_db": -27.05,
+    "measured": {
+     "0": [
+      1.009,
+      0.0
+     ],
+     "13": [
+      0.931,
+      -23.8
+     ],
+     "26": [
+      0.749,
+      -47.9
+     ],
+     "48": [
+      0.401,
+      -89.0
+     ],
+     "70": [
+      0.192,
+      -123.5
+     ],
+     "88": [
+      0.102,
+      -134.3
+     ],
+     "123": [
+      0.026,
+      -127.0
+     ],
+     "141": [
+      0.01,
+      -151.9
+     ],
+     "190": [
+      0.0,
+      -98.6
+     ]
+    }
+   },
+   "a-man-called-otto-2022": {
+    "group": "fresh",
+    "basis_energy": 1124743.8625994625,
+    "current_table_error_db": -35.5,
+    "own_fit_error_db": -36.29,
+    "not_explained_by_any_R_db": -26.58,
+    "measured": {
+     "0": [
+      0.922,
+      0.0
+     ],
+     "13": [
+      0.924,
+      -23.8
+     ],
+     "26": [
+      0.74,
+      -47.8
+     ],
+     "48": [
+      0.378,
+      -90.3
+     ],
+     "70": [
+      0.213,
+      -118.3
+     ],
+     "88": [
+      0.101,
+      -132.5
+     ],
+     "123": [
+      0.026,
+      -132.2
+     ],
+     "141": [
+      0.011,
+      -142.1
+     ],
+     "190": [
+      0.001,
+      179.2
+     ]
+    }
+   },
+   "damsel-2024": {
+    "group": "fresh",
+    "basis_energy": 68745177.20778506,
+    "current_table_error_db": -35.34,
+    "own_fit_error_db": -36.7,
+    "not_explained_by_any_R_db": -33.33,
+    "measured": {
+     "0": [
+      0.842,
+      0.0
+     ],
+     "13": [
+      0.878,
+      -26.2
+     ],
+     "26": [
+      0.676,
+      -52.5
+     ],
+     "48": [
+      0.391,
+      -89.1
+     ],
+     "70": [
+      0.191,
+      -123.2
+     ],
+     "88": [
+      0.103,
+      -133.5
+     ],
+     "123": [
+      0.024,
+      -132.2
+     ],
+     "141": [
+      0.011,
+      -142.5
+     ],
+     "190": [
+      0.0,
+      -104.1
+     ]
+    }
+   },
+   "lion-of-the-desert-1980": {
+    "group": "fresh",
+    "basis_energy": 132206.85992368302,
+    "current_table_error_db": -34.12,
+    "own_fit_error_db": -37.75,
+    "not_explained_by_any_R_db": -37.29,
+    "measured": {
+     "0": [
+      0.999,
+      0.0
+     ],
+     "13": [
+      0.931,
+      -24.1
+     ],
+     "26": [
+      0.747,
+      -48.1
+     ],
+     "48": [
+      0.396,
+      -88.7
+     ],
+     "70": [
+      0.19,
+      -123.4
+     ],
+     "88": [
+      0.102,
+      -133.9
+     ],
+     "123": [
+      0.026,
+      -130.6
+     ],
+     "141": [
+      0.01,
+      -146.9
+     ],
+     "190": [
+      0.0,
+      -95.6
+     ]
+    }
+   },
+   "kar-kardesligi-2024": {
+    "group": "fresh",
+    "basis_energy": 32334476.20030611,
+    "current_table_error_db": -15.63,
+    "own_fit_error_db": -28.4,
+    "not_explained_by_any_R_db": -14.64,
+    "measured": {
+     "0": [
+      0.504,
+      0.0
+     ],
+     "13": [
+      0.333,
+      -13.9
+     ],
+     "26": [
+      0.302,
+      -51.6
+     ],
+     "48": [
+      0.375,
+      -90.4
+     ],
+     "70": [
+      0.176,
+      -124.2
+     ],
+     "88": [
+      0.102,
+      -132.1
+     ],
+     "123": [
+      0.025,
+      -130.4
+     ],
+     "141": [
+      0.009,
+      -146.7
+     ],
+     "190": [
+      0.0,
+      -98.4
+     ]
+    }
+   },
+   "dexter-resurrection-s01e01-a-beating-hea": {
+    "group": "fresh",
+    "basis_energy": 2083132.6804646426,
+    "current_table_error_db": -20.23,
+    "own_fit_error_db": -33.56,
+    "not_explained_by_any_R_db": -17.41,
+    "measured": {
+     "0": [
+      0.309,
+      0.0
+     ],
+     "13": [
+      0.215,
+      -47.2
+     ],
+     "26": [
+      0.359,
+      -72.0
+     ],
+     "48": [
+      0.403,
+      -93.9
+     ],
+     "70": [
+      0.19,
+      -123.9
+     ],
+     "88": [
+      0.1,
+      -132.4
+     ],
+     "123": [
+      0.026,
+      -120.7
+     ],
+     "141": [
+      0.009,
+      -138.9
+     ],
+     "190": [
+      0.0,
+      -79.8
+     ]
+    }
+   }
+  },
+  "current_table_response": {
+   "0": [
+    0.997,
+    0.0
+   ],
+   "13": [
+    0.929,
+    -24.3
+   ],
+   "26": [
+    0.746,
+    -48.0
+   ],
+   "48": [
+    0.398,
+    -88.7
+   ],
+   "70": [
+    0.191,
+    -122.9
+   ],
+   "88": [
+    0.103,
+    -134.8
+   ],
+   "123": [
+    0.025,
+    -132.1
+   ],
+   "141": [
+    0.01,
+    -145.0
+   ],
+   "190": [
+    0.001,
+    -59.8
+   ]
+  },
+  "pooled_audit": {
+   "fit_error_db": -36.96,
+   "not_explained_db": -22.26,
+   "dc": 0.7652,
+   "table": [
+    -0.002314464452761625,
+    2.7487205705211196e-05,
+    -0.002002593467759253,
+    -0.0017477949674716787,
+    -0.00224228447891166,
+    -0.0033582585849175565,
+    -0.003407242544723244,
+    -0.005055319382409647,
+    -0.006114671878081071,
+    -0.0064870630888227525,
+    -0.00551645090377672,
+    -0.00397092850948897,
+    -0.0017314329471026218,
+    0.0003018676341069664,
+    0.0006348179227996844,
+    0.002447421224115183,
+    0.00719174259323708,
+    0.021745870706255072,
+    0.04523417367772046,
+    0.07418438384927302,
+    0.09863497888807662,
+    0.11147446378457561,
+    0.10993424441669199,
+    0.09809200521207813,
+    0.08042076355667213,
+    0.061262638195588325,
+    0.04404166371543284,
+    0.028494180689320553,
+    0.017312190147973017,
+    0.00838792978903304,
+    0.0033576469331268784,
+    0.0008343310886550859,
+    -0.0003757661909603123,
+    -0.0007525524385880669,
+    -0.0015073074883438244,
+    -3.362677309474376e-05,
+    -0.002209626601950518
+   ],
+   "per_title_error_db": {
+    "disclosure-web-head": -30.35,
+    "kingsman-joc-head": -22.21,
+    "knivesout-joc-head": -20.66,
+    "extraction-nf-head": -29.67,
+    "glassonion-nf-head": -16.43,
+    "br2049-joc-head": -36.87,
+    "mercy-2026": -16.0,
+    "a-man-called-otto-2022": -16.2,
+    "damsel-2024": -33.81,
+    "lion-of-the-desert-1980": -18.0,
+    "kar-kardesligi-2024": -11.25,
+    "dexter-resurrection-s01e01-a-beating-hea": -20.31
+   }
+  },
+  "pooled_fresh": {
+   "fit_error_db": -38.08,
+   "not_explained_db": -30.0,
+   "dc": 1.0045,
+   "table": [
+    0.0004290403562902252,
+    0.0002340909030985605,
+    0.00025302516152032997,
+    0.0001176193129434427,
+    0.00013100208997930788,
+    0.00012554743289440898,
+    0.00018475477851409718,
+    -0.0006014047726061587,
+    -0.0009783372501964785,
+    -0.00039996300058072967,
+    0.0011788741159766388,
+    0.0036575430864339204,
+    0.006775461174846414,
+    0.00929865988894981,
+    0.010812002951914212,
+    0.012397700305354021,
+    0.01820416536241478,
+    0.03238070271912499,
+    0.05654434728932334,
+    0.08520302572658298,
+    0.10982836190774135,
+    0.12226712269142678,
+    0.12081921888042646,
+    0.10834854844867899,
+    0.09024654175174852,
+    0.0704788719958779,
+    0.05219628698356879,
+    0.03622610609620508,
+    0.023882804871555776,
+    0.014060532358152751,
+    0.008169911403319909,
+    0.004969284485297156,
+    0.0028899129675944366,
+    0.0017327437485573048,
+    0.00114012741760979,
+    0.000665475711702751,
+    0.0006307725816142697
+   ],
+   "per_title_error_db": {
+    "disclosure-web-head": -31.49,
+    "kingsman-joc-head": -24.71,
+    "knivesout-joc-head": -41.19,
+    "extraction-nf-head": -34.91,
+    "glassonion-nf-head": -24.41,
+    "br2049-joc-head": -32.7,
+    "mercy-2026": -41.66,
+    "a-man-called-otto-2022": -35.62,
+    "damsel-2024": -36.06,
+    "lion-of-the-desert-1980": -34.11,
+    "kar-kardesligi-2024": -15.57,
+    "dexter-resurrection-s01e01-a-beating-hea": -20.1
+   }
+  },
+  "pooled_all": {
+   "fit_error_db": -39.19,
+   "not_explained_db": -22.45,
+   "dc": 0.9518,
+   "table": [
+    0.0004059664300426699,
+    2.1166017730568296e-05,
+    0.0001441904100992882,
+    7.858069123977258e-05,
+    0.00011060253400970082,
+    -0.00010657707369925713,
+    -0.00011731087208277496,
+    -0.001040849581370294,
+    -0.0017032666036945843,
+    -0.0011779421256439399,
+    0.00012035051738346979,
+    0.002273726215121179,
+    0.005074895365698089,
+    0.007208742866886692,
+    0.008467486657505246,
+    0.009889407435981882,
+    0.015549560728798886,
+    0.0296728676687623,
+    0.0539609710697232,
+    0.08226858276737632,
+    0.1069983243272125,
+    0.11926301071137635,
+    0.11791573542758733,
+    0.1054077153624242,
+    0.08755745882806633,
+    0.06795038101456288,
+    0.05004516320729956,
+    0.034215073071320705,
+    0.022141681656107044,
+    0.012674925180057715,
+    0.0071043147721380545,
+    0.00424697136916853,
+    0.0023362907577078977,
+    0.0012515537516769172,
+    0.0007923015106803383,
+    0.00010833376240683514,
+    0.0006977420195924619
+   ],
+   "per_title_error_db": {
+    "disclosure-web-head": -32.02,
+    "kingsman-joc-head": -24.78,
+    "knivesout-joc-head": -30.71,
+    "extraction-nf-head": -33.33,
+    "glassonion-nf-head": -23.34,
+    "br2049-joc-head": -34.57,
+    "mercy-2026": -27.98,
+    "a-man-called-otto-2022": -28.02,
+    "damsel-2024": -34.57,
+    "lion-of-the-desert-1980": -29.39,
+    "kar-kardesligi-2024": -15.62,
+    "dexter-resurrection-s01e01-a-beating-hea": -20.17
+   }
+  },
+  "order_experiment": {
+   "binary": "E:/oadec-work/verify-2026-09-14/wt/lowband-experiment/target/release/oadec.exe",
+   "reference": "dlbac3dec out-ch-config=21 drc-suppress drc-mode=custom-0 drop-delay",
+   "window": "samples 200000 to 1400000",
+   "variants": [
+    "baseline",
+    "after-matrix",
+    "after-matrix:-1",
+    "after-matrix:+1",
+    "band0-shift:-1",
+    "band0-shift:+1"
+   ],
+   "titles": {
+    "mercy-2026": {
+     "released_binary": {
+      "objects": 15,
+      "worst_full": 28.72,
+      "median_full": 40.3,
+      "worst_without_band0": 36.39,
+      "median_without_band0": 42.4,
+      "worst_band0": 27.74,
+      "median_band0": 40.9,
+      "median_band0_share_of_residual": 0.81
+     },
+     "baseline": {
+      "exit": 0,
+      "secs": 1.0,
+      "stderr_tail": [
+       "metadata: 940 payloads, 64 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.86 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 15,
+       "worst_full": 28.72,
+       "median_full": 40.3,
+       "worst_without_band0": 36.39,
+       "median_without_band0": 42.4,
+       "worst_band0": 27.74,
+       "median_band0": 40.9,
+       "median_band0_share_of_residual": 0.81
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -43.6,
+        "sdr_full_db": 38.61,
+        "sdr_without_band0_db": 37.27,
+        "band0_snr_db": 38.82,
+        "band0_share_of_residual": 0.847
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.3,
+        "sdr_full_db": 46.78,
+        "sdr_without_band0_db": 41.91,
+        "band0_snr_db": 47.99,
+        "band0_share_of_residual": 0.678
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -44.5,
+        "sdr_full_db": 38.31,
+        "sdr_without_band0_db": 39.03,
+        "band0_snr_db": 38.15,
+        "band0_share_of_residual": 0.833
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 45.15,
+        "sdr_without_band0_db": 42.94,
+        "band0_snr_db": 45.55,
+        "band0_share_of_residual": 0.805
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -67.2,
+        "sdr_full_db": 28.72,
+        "sdr_without_band0_db": 46.04,
+        "band0_snr_db": 27.74,
+        "band0_share_of_residual": 0.996
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -64.8,
+        "sdr_full_db": 32.21,
+        "sdr_without_band0_db": 47.12,
+        "band0_snr_db": 31.69,
+        "band0_share_of_residual": 0.996
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 46.03,
+        "sdr_without_band0_db": 42.4,
+        "band0_snr_db": 48.69,
+        "band0_share_of_residual": 0.402
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -46.3,
+        "sdr_full_db": 30.39,
+        "sdr_without_band0_db": 42.46,
+        "band0_snr_db": 29.67,
+        "band0_share_of_residual": 0.99
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -46.1,
+        "sdr_full_db": 33.92,
+        "sdr_without_band0_db": 43.13,
+        "band0_snr_db": 33.21,
+        "band0_share_of_residual": 0.98
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -44.1,
+        "sdr_full_db": 38.21,
+        "sdr_without_band0_db": 39.4,
+        "band0_snr_db": 37.94,
+        "band0_share_of_residual": 0.838
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -35.9,
+        "sdr_full_db": 44.35,
+        "sdr_without_band0_db": 36.39,
+        "band0_snr_db": 47.91,
+        "band0_share_of_residual": 0.398
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 46.14,
+        "sdr_without_band0_db": 40.62,
+        "band0_snr_db": 47.21,
+        "band0_share_of_residual": 0.72
+       },
+       {
+        "obj": 13,
+        "level_dbfs": -42.8,
+        "sdr_full_db": 46.37,
+        "sdr_without_band0_db": 42.63,
+        "band0_snr_db": 53.95,
+        "band0_share_of_residual": 0.109
+       },
+       {
+        "obj": 14,
+        "level_dbfs": -30.4,
+        "sdr_full_db": 47.67,
+        "sdr_without_band0_db": 44.83,
+        "band0_snr_db": 64.59,
+        "band0_share_of_residual": 0.01
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -43.5,
+        "sdr_full_db": 40.3,
+        "sdr_without_band0_db": 36.79,
+        "band0_snr_db": 40.9,
+        "band0_share_of_residual": 0.789
+       }
+      ]
+     },
+     "after-matrix": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 64 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.87 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 15,
+       "worst_full": 24.53,
+       "median_full": 34.26,
+       "worst_without_band0": 36.39,
+       "median_without_band0": 42.4,
+       "worst_band0": 23.54,
+       "median_band0": 33.6,
+       "median_band0_share_of_residual": 0.93
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -43.6,
+        "sdr_full_db": 32.28,
+        "sdr_without_band0_db": 37.28,
+        "band0_snr_db": 31.92,
+        "band0_share_of_residual": 0.964
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.3,
+        "sdr_full_db": 43.24,
+        "sdr_without_band0_db": 41.91,
+        "band0_snr_db": 43.43,
+        "band0_share_of_residual": 0.857
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -44.5,
+        "sdr_full_db": 34.26,
+        "sdr_without_band0_db": 39.04,
+        "band0_snr_db": 33.6,
+        "band0_share_of_residual": 0.934
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 40.72,
+        "sdr_without_band0_db": 42.94,
+        "band0_snr_db": 40.49,
+        "band0_share_of_residual": 0.93
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -67.2,
+        "sdr_full_db": 24.53,
+        "sdr_without_band0_db": 46.18,
+        "band0_snr_db": 23.54,
+        "band0_share_of_residual": 0.999
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -64.8,
+        "sdr_full_db": 27.38,
+        "sdr_without_band0_db": 47.24,
+        "band0_snr_db": 26.86,
+        "band0_share_of_residual": 0.999
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 42.79,
+        "sdr_without_band0_db": 42.4,
+        "band0_snr_db": 42.94,
+        "band0_share_of_residual": 0.716
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -46.3,
+        "sdr_full_db": 25.33,
+        "sdr_without_band0_db": 42.58,
+        "band0_snr_db": 24.58,
+        "band0_share_of_residual": 0.997
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -46.1,
+        "sdr_full_db": 28.93,
+        "sdr_without_band0_db": 43.18,
+        "band0_snr_db": 28.16,
+        "band0_share_of_residual": 0.994
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -44.1,
+        "sdr_full_db": 32.43,
+        "sdr_without_band0_db": 39.4,
+        "band0_snr_db": 31.58,
+        "band0_share_of_residual": 0.957
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -35.9,
+        "sdr_full_db": 41.73,
+        "sdr_without_band0_db": 36.39,
+        "band0_snr_db": 43.02,
+        "band0_share_of_residual": 0.671
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 41.38,
+        "sdr_without_band0_db": 40.62,
+        "band0_snr_db": 41.45,
+        "band0_share_of_residual": 0.906
+       },
+       {
+        "obj": 13,
+        "level_dbfs": -42.8,
+        "sdr_full_db": 44.89,
+        "sdr_without_band0_db": 42.63,
+        "band0_snr_db": 47.19,
+        "band0_share_of_residual": 0.367
+       },
+       {
+        "obj": 14,
+        "level_dbfs": -30.4,
+        "sdr_full_db": 47.51,
+        "sdr_without_band0_db": 44.83,
+        "band0_snr_db": 57.74,
+        "band0_share_of_residual": 0.046
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -43.5,
+        "sdr_full_db": 32.4,
+        "sdr_without_band0_db": 36.79,
+        "band0_snr_db": 32.13,
+        "band0_share_of_residual": 0.966
+       }
+      ]
+     },
+     "after-matrix:-1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 64 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.87 s (34x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 15,
+       "worst_full": 22.6,
+       "median_full": 32.67,
+       "worst_without_band0": 36.39,
+       "median_without_band0": 42.4,
+       "worst_band0": 21.61,
+       "median_band0": 31.92,
+       "median_band0_share_of_residual": 0.95
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -43.6,
+        "sdr_full_db": 30.77,
+        "sdr_without_band0_db": 37.28,
+        "band0_snr_db": 30.36,
+        "band0_share_of_residual": 0.975
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.3,
+        "sdr_full_db": 41.94,
+        "sdr_without_band0_db": 41.91,
+        "band0_snr_db": 41.94,
+        "band0_share_of_residual": 0.894
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -44.5,
+        "sdr_full_db": 32.67,
+        "sdr_without_band0_db": 39.04,
+        "band0_snr_db": 31.92,
+        "band0_share_of_residual": 0.955
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 39.39,
+        "sdr_without_band0_db": 42.94,
+        "band0_snr_db": 39.08,
+        "band0_share_of_residual": 0.948
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -67.2,
+        "sdr_full_db": 22.6,
+        "sdr_without_band0_db": 46.18,
+        "band0_snr_db": 21.61,
+        "band0_share_of_residual": 0.999
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -64.8,
+        "sdr_full_db": 25.49,
+        "sdr_without_band0_db": 47.24,
+        "band0_snr_db": 24.96,
+        "band0_share_of_residual": 0.999
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 41.66,
+        "sdr_without_band0_db": 42.4,
+        "band0_snr_db": 41.43,
+        "band0_share_of_residual": 0.782
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -46.3,
+        "sdr_full_db": 23.86,
+        "sdr_without_band0_db": 42.58,
+        "band0_snr_db": 23.11,
+        "band0_share_of_residual": 0.998
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -46.1,
+        "sdr_full_db": 27.33,
+        "sdr_without_band0_db": 43.18,
+        "band0_snr_db": 26.55,
+        "band0_share_of_residual": 0.996
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -44.1,
+        "sdr_full_db": 31.0,
+        "sdr_without_band0_db": 39.4,
+        "band0_snr_db": 30.1,
+        "band0_share_of_residual": 0.969
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -35.9,
+        "sdr_full_db": 40.55,
+        "sdr_without_band0_db": 36.39,
+        "band0_snr_db": 41.36,
+        "band0_share_of_residual": 0.749
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 39.98,
+        "sdr_without_band0_db": 40.62,
+        "band0_snr_db": 39.93,
+        "band0_share_of_residual": 0.932
+       },
+       {
+        "obj": 13,
+        "level_dbfs": -42.8,
+        "sdr_full_db": 44.29,
+        "sdr_without_band0_db": 42.63,
+        "band0_snr_db": 45.74,
+        "band0_share_of_residual": 0.447
+       },
+       {
+        "obj": 14,
+        "level_dbfs": -30.4,
+        "sdr_full_db": 47.44,
+        "sdr_without_band0_db": 44.83,
+        "band0_snr_db": 56.4,
+        "band0_share_of_residual": 0.062
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -43.5,
+        "sdr_full_db": 31.14,
+        "sdr_without_band0_db": 36.79,
+        "band0_snr_db": 30.82,
+        "band0_share_of_residual": 0.974
+       }
+      ]
+     },
+     "after-matrix:+1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 64 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 15,
+       "worst_full": 26.37,
+       "median_full": 35.64,
+       "worst_without_band0": 36.39,
+       "median_without_band0": 42.4,
+       "worst_band0": 25.38,
+       "median_band0": 35.1,
+       "median_band0_share_of_residual": 0.91
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -43.6,
+        "sdr_full_db": 33.56,
+        "sdr_without_band0_db": 37.28,
+        "band0_snr_db": 33.26,
+        "band0_share_of_residual": 0.952
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.3,
+        "sdr_full_db": 44.35,
+        "sdr_without_band0_db": 41.91,
+        "band0_snr_db": 44.75,
+        "band0_share_of_residual": 0.816
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -44.5,
+        "sdr_full_db": 35.64,
+        "sdr_without_band0_db": 39.04,
+        "band0_snr_db": 35.1,
+        "band0_share_of_residual": 0.91
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 42.04,
+        "sdr_without_band0_db": 42.94,
+        "band0_snr_db": 41.93,
+        "band0_share_of_residual": 0.905
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -67.2,
+        "sdr_full_db": 26.37,
+        "sdr_without_band0_db": 46.18,
+        "band0_snr_db": 25.38,
+        "band0_share_of_residual": 0.998
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -64.8,
+        "sdr_full_db": 29.13,
+        "sdr_without_band0_db": 47.24,
+        "band0_snr_db": 28.6,
+        "band0_share_of_residual": 0.998
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 43.75,
+        "sdr_without_band0_db": 42.4,
+        "band0_snr_db": 44.34,
+        "band0_share_of_residual": 0.646
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -46.3,
+        "sdr_full_db": 26.83,
+        "sdr_without_band0_db": 42.58,
+        "band0_snr_db": 26.08,
+        "band0_share_of_residual": 0.996
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -46.1,
+        "sdr_full_db": 30.33,
+        "sdr_without_band0_db": 43.18,
+        "band0_snr_db": 29.58,
+        "band0_share_of_residual": 0.991
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -44.1,
+        "sdr_full_db": 33.73,
+        "sdr_without_band0_db": 39.4,
+        "band0_snr_db": 32.94,
+        "band0_share_of_residual": 0.942
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -35.9,
+        "sdr_full_db": 42.69,
+        "sdr_without_band0_db": 36.39,
+        "band0_snr_db": 44.55,
+        "band0_share_of_residual": 0.589
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 42.62,
+        "sdr_without_band0_db": 40.62,
+        "band0_snr_db": 42.84,
+        "band0_share_of_residual": 0.875
+       },
+       {
+        "obj": 13,
+        "level_dbfs": -42.8,
+        "sdr_full_db": 45.33,
+        "sdr_without_band0_db": 42.63,
+        "band0_snr_db": 48.51,
+        "band0_share_of_residual": 0.299
+       },
+       {
+        "obj": 14,
+        "level_dbfs": -30.4,
+        "sdr_full_db": 47.57,
+        "sdr_without_band0_db": 44.83,
+        "band0_snr_db": 59.14,
+        "band0_share_of_residual": 0.034
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -43.5,
+        "sdr_full_db": 33.66,
+        "sdr_without_band0_db": 36.79,
+        "band0_snr_db": 33.44,
+        "band0_share_of_residual": 0.954
+       }
+      ]
+     },
+     "band0-shift:-1": {
+      "exit": 0,
+      "secs": 0.8,
+      "stderr_tail": [
+       "metadata: 940 payloads, 64 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.84 s (36x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 15,
+       "worst_full": 23.75,
+       "median_full": 37.7,
+       "worst_without_band0": 36.32,
+       "median_without_band0": 40.02,
+       "worst_band0": 22.78,
+       "median_band0": 37.88,
+       "median_band0_share_of_residual": 0.88
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -43.6,
+        "sdr_full_db": 37.05,
+        "sdr_without_band0_db": 37.21,
+        "band0_snr_db": 37.03,
+        "band0_share_of_residual": 0.891
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.3,
+        "sdr_full_db": 43.81,
+        "sdr_without_band0_db": 41.83,
+        "band0_snr_db": 44.11,
+        "band0_share_of_residual": 0.835
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -44.5,
+        "sdr_full_db": 36.57,
+        "sdr_without_band0_db": 38.88,
+        "band0_snr_db": 36.15,
+        "band0_share_of_residual": 0.884
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 42.35,
+        "sdr_without_band0_db": 42.79,
+        "band0_snr_db": 42.29,
+        "band0_share_of_residual": 0.894
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -67.2,
+        "sdr_full_db": 23.75,
+        "sdr_without_band0_db": 39.41,
+        "band0_snr_db": 22.78,
+        "band0_share_of_residual": 0.994
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -64.8,
+        "sdr_full_db": 25.12,
+        "sdr_without_band0_db": 39.04,
+        "band0_snr_db": 24.6,
+        "band0_share_of_residual": 0.995
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 42.63,
+        "sdr_without_band0_db": 42.24,
+        "band0_snr_db": 42.77,
+        "band0_share_of_residual": 0.717
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -46.3,
+        "sdr_full_db": 26.24,
+        "sdr_without_band0_db": 40.07,
+        "band0_snr_db": 25.51,
+        "band0_share_of_residual": 0.993
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -46.1,
+        "sdr_full_db": 30.11,
+        "sdr_without_band0_db": 41.79,
+        "band0_snr_db": 29.37,
+        "band0_share_of_residual": 0.989
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -44.1,
+        "sdr_full_db": 36.96,
+        "sdr_without_band0_db": 39.27,
+        "band0_snr_db": 36.5,
+        "band0_share_of_residual": 0.875
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -35.9,
+        "sdr_full_db": 37.7,
+        "sdr_without_band0_db": 36.32,
+        "band0_snr_db": 37.88,
+        "band0_share_of_residual": 0.867
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 40.05,
+        "sdr_without_band0_db": 40.02,
+        "band0_snr_db": 40.06,
+        "band0_share_of_residual": 0.921
+       },
+       {
+        "obj": 13,
+        "level_dbfs": -42.8,
+        "sdr_full_db": 42.09,
+        "sdr_without_band0_db": 42.44,
+        "band0_snr_db": 41.9,
+        "band0_share_of_residual": 0.653
+       },
+       {
+        "obj": 14,
+        "level_dbfs": -30.4,
+        "sdr_full_db": 42.67,
+        "sdr_without_band0_db": 44.8,
+        "band0_snr_db": 41.17,
+        "band0_share_of_residual": 0.685
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -43.5,
+        "sdr_full_db": 38.48,
+        "sdr_without_band0_db": 36.71,
+        "band0_snr_db": 38.72,
+        "band0_share_of_residual": 0.859
+       }
+      ]
+     },
+     "band0-shift:+1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 64 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.86 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 15,
+       "worst_full": 21.98,
+       "median_full": 37.0,
+       "worst_without_band0": 36.3,
+       "median_without_band0": 39.97,
+       "worst_band0": 21.0,
+       "median_band0": 37.02,
+       "median_band0_share_of_residual": 0.9
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -43.6,
+        "sdr_full_db": 36.76,
+        "sdr_without_band0_db": 37.17,
+        "band0_snr_db": 36.71,
+        "band0_share_of_residual": 0.898
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.3,
+        "sdr_full_db": 42.98,
+        "sdr_without_band0_db": 41.83,
+        "band0_snr_db": 43.14,
+        "band0_share_of_residual": 0.863
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -44.5,
+        "sdr_full_db": 36.34,
+        "sdr_without_band0_db": 38.87,
+        "band0_snr_db": 35.9,
+        "band0_share_of_residual": 0.89
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 41.48,
+        "sdr_without_band0_db": 42.8,
+        "band0_snr_db": 41.33,
+        "band0_share_of_residual": 0.914
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -67.2,
+        "sdr_full_db": 21.98,
+        "sdr_without_band0_db": 39.64,
+        "band0_snr_db": 21.0,
+        "band0_share_of_residual": 0.996
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -64.8,
+        "sdr_full_db": 24.26,
+        "sdr_without_band0_db": 39.32,
+        "band0_snr_db": 23.74,
+        "band0_share_of_residual": 0.996
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 41.61,
+        "sdr_without_band0_db": 42.23,
+        "band0_snr_db": 41.41,
+        "band0_share_of_residual": 0.775
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -46.3,
+        "sdr_full_db": 26.79,
+        "sdr_without_band0_db": 40.46,
+        "band0_snr_db": 26.06,
+        "band0_share_of_residual": 0.993
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -46.1,
+        "sdr_full_db": 29.3,
+        "sdr_without_band0_db": 41.96,
+        "band0_snr_db": 28.54,
+        "band0_share_of_residual": 0.991
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -44.1,
+        "sdr_full_db": 35.9,
+        "sdr_without_band0_db": 39.28,
+        "band0_snr_db": 35.31,
+        "band0_share_of_residual": 0.902
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -35.9,
+        "sdr_full_db": 37.28,
+        "sdr_without_band0_db": 36.3,
+        "band0_snr_db": 37.4,
+        "band0_share_of_residual": 0.879
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 39.52,
+        "sdr_without_band0_db": 39.97,
+        "band0_snr_db": 39.49,
+        "band0_share_of_residual": 0.929
+       },
+       {
+        "obj": 13,
+        "level_dbfs": -42.8,
+        "sdr_full_db": 41.65,
+        "sdr_without_band0_db": 42.42,
+        "band0_snr_db": 41.25,
+        "band0_share_of_residual": 0.684
+       },
+       {
+        "obj": 14,
+        "level_dbfs": -30.4,
+        "sdr_full_db": 42.58,
+        "sdr_without_band0_db": 44.8,
+        "band0_snr_db": 41.05,
+        "band0_share_of_residual": 0.691
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -43.5,
+        "sdr_full_db": 37.0,
+        "sdr_without_band0_db": 36.74,
+        "band0_snr_db": 37.02,
+        "band0_share_of_residual": 0.9
+       }
+      ]
+     }
+    },
+    "a-man-called-otto-2022": {
+     "released_binary": {
+      "objects": 9,
+      "worst_full": 29.74,
+      "median_full": 44.12,
+      "worst_without_band0": 26.2,
+      "median_without_band0": 44.4,
+      "worst_band0": 25.2,
+      "median_band0": 46.39,
+      "median_band0_share_of_residual": 0.72
+     },
+     "baseline": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "DAMF: 1443584 frames x 16 channels (0:00:30.075) in E:/oadec-work/verify-2026-09-14/exp\\a-man-called-otto-2022-baseline.atmos.audio",
+       "metadata: 940 payloads, 22 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.83 s (36x realtime)"
+      ],
+      "summary": {
+       "objects": 9,
+       "worst_full": 29.74,
+       "median_full": 44.12,
+       "worst_without_band0": 26.2,
+       "median_without_band0": 44.4,
+       "worst_band0": 25.2,
+       "median_band0": 46.39,
+       "median_band0_share_of_residual": 0.72
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 46.73,
+        "sdr_without_band0_db": 44.4,
+        "band0_snr_db": 47.37,
+        "band0_share_of_residual": 0.723
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -24.0,
+        "sdr_full_db": 50.65,
+        "sdr_without_band0_db": 47.7,
+        "band0_snr_db": 138.36,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.0,
+        "sdr_full_db": 47.86,
+        "sdr_without_band0_db": 45.1,
+        "band0_snr_db": 49.36,
+        "band0_share_of_residual": 0.534
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -49.1,
+        "sdr_full_db": 44.12,
+        "sdr_without_band0_db": 39.24,
+        "band0_snr_db": 46.39,
+        "band0_share_of_residual": 0.496
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -63.4,
+        "sdr_full_db": 29.74,
+        "sdr_without_band0_db": 47.7,
+        "band0_snr_db": 25.2,
+        "band0_share_of_residual": 0.99
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -49.1,
+        "sdr_full_db": 45.79,
+        "sdr_without_band0_db": 39.6,
+        "band0_snr_db": 48.81,
+        "band0_share_of_residual": 0.431
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -65.1,
+        "sdr_full_db": 30.02,
+        "sdr_without_band0_db": 48.28,
+        "band0_snr_db": 25.59,
+        "band0_share_of_residual": 0.99
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -55.4,
+        "sdr_full_db": 34.01,
+        "sdr_without_band0_db": 26.2,
+        "band0_snr_db": 35.17,
+        "band0_share_of_residual": 0.732
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 33.54,
+        "sdr_without_band0_db": 26.77,
+        "band0_snr_db": 34.35,
+        "band0_share_of_residual": 0.793
+       }
+      ]
+     },
+     "after-matrix": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "DAMF: 1443584 frames x 16 channels (0:00:30.075) in E:/oadec-work/verify-2026-09-14/exp\\a-man-called-otto-2022-after-matrix.atmos.audio",
+       "metadata: 940 payloads, 22 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)"
+      ],
+      "summary": {
+       "objects": 9,
+       "worst_full": 24.02,
+       "median_full": 41.9,
+       "worst_without_band0": 26.22,
+       "median_without_band0": 44.44,
+       "worst_band0": 19.55,
+       "median_band0": 42.15,
+       "median_band0_share_of_residual": 0.9
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 42.45,
+        "sdr_without_band0_db": 44.44,
+        "band0_snr_db": 42.15,
+        "band0_share_of_residual": 0.897
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -24.0,
+        "sdr_full_db": 50.65,
+        "sdr_without_band0_db": 47.7,
+        "band0_snr_db": 138.36,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.0,
+        "sdr_full_db": 44.73,
+        "sdr_without_band0_db": 45.13,
+        "band0_snr_db": 44.61,
+        "band0_share_of_residual": 0.775
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -49.1,
+        "sdr_full_db": 41.9,
+        "sdr_without_band0_db": 39.24,
+        "band0_snr_db": 42.69,
+        "band0_share_of_residual": 0.698
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -63.4,
+        "sdr_full_db": 24.94,
+        "sdr_without_band0_db": 49.5,
+        "band0_snr_db": 20.36,
+        "band0_share_of_residual": 0.998
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -49.1,
+        "sdr_full_db": 44.3,
+        "sdr_without_band0_db": 39.6,
+        "band0_snr_db": 45.91,
+        "band0_share_of_residual": 0.596
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -65.1,
+        "sdr_full_db": 24.02,
+        "sdr_without_band0_db": 50.05,
+        "band0_snr_db": 19.55,
+        "band0_share_of_residual": 0.998
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -55.4,
+        "sdr_full_db": 29.32,
+        "sdr_without_band0_db": 26.22,
+        "band0_snr_db": 29.54,
+        "band0_share_of_residual": 0.909
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 28.6,
+        "sdr_without_band0_db": 26.78,
+        "band0_snr_db": 28.7,
+        "band0_share_of_residual": 0.934
+       }
+      ]
+     },
+     "after-matrix:-1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "DAMF: 1443584 frames x 16 channels (0:00:30.075) in E:/oadec-work/verify-2026-09-14/exp\\a-man-called-otto-2022-after-matrix_-1.atmos.audio",
+       "metadata: 940 payloads, 22 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)"
+      ],
+      "summary": {
+       "objects": 9,
+       "worst_full": 23.02,
+       "median_full": 41.18,
+       "worst_without_band0": 26.22,
+       "median_without_band0": 44.44,
+       "worst_band0": 18.55,
+       "median_band0": 41.04,
+       "median_band0_share_of_residual": 0.92
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 41.44,
+        "sdr_without_band0_db": 44.44,
+        "band0_snr_db": 41.04,
+        "band0_share_of_residual": 0.919
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -24.0,
+        "sdr_full_db": 50.65,
+        "sdr_without_band0_db": 47.7,
+        "band0_snr_db": 138.36,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.0,
+        "sdr_full_db": 43.83,
+        "sdr_without_band0_db": 45.13,
+        "band0_snr_db": 43.48,
+        "band0_share_of_residual": 0.817
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -49.1,
+        "sdr_full_db": 41.18,
+        "sdr_without_band0_db": 39.24,
+        "band0_snr_db": 41.68,
+        "band0_share_of_residual": 0.744
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -63.4,
+        "sdr_full_db": 23.5,
+        "sdr_without_band0_db": 49.5,
+        "band0_snr_db": 18.92,
+        "band0_share_of_residual": 0.998
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -49.1,
+        "sdr_full_db": 43.71,
+        "sdr_without_band0_db": 39.6,
+        "band0_snr_db": 44.95,
+        "band0_share_of_residual": 0.648
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -65.1,
+        "sdr_full_db": 23.02,
+        "sdr_without_band0_db": 50.05,
+        "band0_snr_db": 18.55,
+        "band0_share_of_residual": 0.999
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -55.4,
+        "sdr_full_db": 27.98,
+        "sdr_without_band0_db": 26.22,
+        "band0_snr_db": 28.08,
+        "band0_share_of_residual": 0.933
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 27.26,
+        "sdr_without_band0_db": 26.78,
+        "band0_snr_db": 27.29,
+        "band0_share_of_residual": 0.951
+       }
+      ]
+     },
+     "after-matrix:+1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "DAMF: 1443584 frames x 16 channels (0:00:30.075) in E:/oadec-work/verify-2026-09-14/exp\\a-man-called-otto-2022-after-matrix_p1.atmos.audio",
+       "metadata: 940 payloads, 22 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.84 s (36x realtime)"
+      ],
+      "summary": {
+       "objects": 9,
+       "worst_full": 25.02,
+       "median_full": 42.11,
+       "worst_without_band0": 26.22,
+       "median_without_band0": 44.44,
+       "worst_band0": 20.55,
+       "median_band0": 42.99,
+       "median_band0_share_of_residual": 0.88
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 43.22,
+        "sdr_without_band0_db": 44.44,
+        "band0_snr_db": 43.02,
+        "band0_share_of_residual": 0.877
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -24.0,
+        "sdr_full_db": 50.65,
+        "sdr_without_band0_db": 47.7,
+        "band0_snr_db": 138.36,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.0,
+        "sdr_full_db": 45.42,
+        "sdr_without_band0_db": 45.13,
+        "band0_snr_db": 45.53,
+        "band0_share_of_residual": 0.736
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -49.1,
+        "sdr_full_db": 42.11,
+        "sdr_without_band0_db": 39.24,
+        "band0_snr_db": 42.99,
+        "band0_share_of_residual": 0.683
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -63.4,
+        "sdr_full_db": 25.88,
+        "sdr_without_band0_db": 49.5,
+        "band0_snr_db": 21.3,
+        "band0_share_of_residual": 0.997
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -49.1,
+        "sdr_full_db": 44.67,
+        "sdr_without_band0_db": 39.6,
+        "band0_snr_db": 46.55,
+        "band0_share_of_residual": 0.561
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -65.1,
+        "sdr_full_db": 25.02,
+        "sdr_without_band0_db": 50.05,
+        "band0_snr_db": 20.55,
+        "band0_share_of_residual": 0.998
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -55.4,
+        "sdr_full_db": 30.42,
+        "sdr_without_band0_db": 26.22,
+        "band0_snr_db": 30.76,
+        "band0_share_of_residual": 0.883
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 29.75,
+        "sdr_without_band0_db": 26.78,
+        "band0_snr_db": 29.95,
+        "band0_share_of_residual": 0.913
+       }
+      ]
+     },
+     "band0-shift:-1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "DAMF: 1443584 frames x 16 channels (0:00:30.075) in E:/oadec-work/verify-2026-09-14/exp\\a-man-called-otto-2022-band0-shift_-1.atmos.audio",
+       "metadata: 940 payloads, 22 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.83 s (36x realtime)"
+      ],
+      "summary": {
+       "objects": 9,
+       "worst_full": 27.52,
+       "median_full": 42.39,
+       "worst_without_band0": 26.12,
+       "median_without_band0": 41.47,
+       "worst_band0": 23.05,
+       "median_band0": 43.55,
+       "median_band0_share_of_residual": 0.78
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 45.35,
+        "sdr_without_band0_db": 44.07,
+        "band0_snr_db": 45.64,
+        "band0_share_of_residual": 0.782
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -24.0,
+        "sdr_full_db": 50.65,
+        "sdr_without_band0_db": 47.7,
+        "band0_snr_db": 138.36,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.0,
+        "sdr_full_db": 46.78,
+        "sdr_without_band0_db": 44.97,
+        "band0_snr_db": 47.59,
+        "band0_share_of_residual": 0.626
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -49.1,
+        "sdr_full_db": 42.39,
+        "sdr_without_band0_db": 38.97,
+        "band0_snr_db": 43.55,
+        "band0_share_of_residual": 0.64
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -63.4,
+        "sdr_full_db": 27.52,
+        "sdr_without_band0_db": 41.47,
+        "band0_snr_db": 23.05,
+        "band0_share_of_residual": 0.974
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -49.1,
+        "sdr_full_db": 44.8,
+        "sdr_without_band0_db": 39.5,
+        "band0_snr_db": 46.86,
+        "band0_share_of_residual": 0.537
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -65.1,
+        "sdr_full_db": 28.61,
+        "sdr_without_band0_db": 44.78,
+        "band0_snr_db": 24.21,
+        "band0_share_of_residual": 0.984
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -55.4,
+        "sdr_full_db": 33.15,
+        "sdr_without_band0_db": 26.12,
+        "band0_snr_db": 34.05,
+        "band0_share_of_residual": 0.776
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 32.58,
+        "sdr_without_band0_db": 26.51,
+        "band0_snr_db": 33.24,
+        "band0_share_of_residual": 0.823
+       }
+      ]
+     },
+     "band0-shift:+1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "DAMF: 1443584 frames x 16 channels (0:00:30.075) in E:/oadec-work/verify-2026-09-14/exp\\a-man-called-otto-2022-band0-shift_p1.atmos.audio",
+       "metadata: 940 payloads, 22 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.87 s (35x realtime)"
+      ],
+      "summary": {
+       "objects": 9,
+       "worst_full": 26.92,
+       "median_full": 41.91,
+       "worst_without_band0": 26.11,
+       "median_without_band0": 41.53,
+       "worst_band0": 22.55,
+       "median_band0": 42.79,
+       "median_band0_share_of_residual": 0.76
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 45.31,
+        "sdr_without_band0_db": 44.12,
+        "band0_snr_db": 45.58,
+        "band0_share_of_residual": 0.787
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -24.0,
+        "sdr_full_db": 50.65,
+        "sdr_without_band0_db": 47.7,
+        "band0_snr_db": 138.36,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.0,
+        "sdr_full_db": 46.9,
+        "sdr_without_band0_db": 45.01,
+        "band0_snr_db": 47.75,
+        "band0_share_of_residual": 0.619
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -49.1,
+        "sdr_full_db": 41.91,
+        "sdr_without_band0_db": 39.04,
+        "band0_snr_db": 42.79,
+        "band0_share_of_residual": 0.683
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -63.4,
+        "sdr_full_db": 27.5,
+        "sdr_without_band0_db": 42.34,
+        "band0_snr_db": 23.01,
+        "band0_share_of_residual": 0.979
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -49.1,
+        "sdr_full_db": 43.89,
+        "sdr_without_band0_db": 39.52,
+        "band0_snr_db": 45.29,
+        "band0_share_of_residual": 0.626
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -65.1,
+        "sdr_full_db": 26.92,
+        "sdr_without_band0_db": 41.53,
+        "band0_snr_db": 22.55,
+        "band0_share_of_residual": 0.978
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -55.4,
+        "sdr_full_db": 33.46,
+        "sdr_without_band0_db": 26.11,
+        "band0_snr_db": 34.46,
+        "band0_share_of_residual": 0.759
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 32.42,
+        "sdr_without_band0_db": 26.46,
+        "band0_snr_db": 33.05,
+        "band0_share_of_residual": 0.828
+       }
+      ]
+     }
+    },
+    "damsel-2024": {
+     "released_binary": {
+      "objects": 11,
+      "worst_full": 44.28,
+      "median_full": 50.98,
+      "worst_without_band0": 47.04,
+      "median_without_band0": 59.06,
+      "worst_band0": 38.29,
+      "median_band0": 48.28,
+      "median_band0_share_of_residual": 0.96
+     },
+     "baseline": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 11,
+       "worst_full": 44.28,
+       "median_full": 50.98,
+       "worst_without_band0": 47.04,
+       "median_without_band0": 59.06,
+       "worst_band0": 38.29,
+       "median_band0": 48.28,
+       "median_band0_share_of_residual": 0.96
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -33.5,
+        "sdr_full_db": 49.64,
+        "sdr_without_band0_db": 47.04,
+        "band0_snr_db": 130.13,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -25.8,
+        "sdr_full_db": 56.83,
+        "sdr_without_band0_db": 51.68,
+        "band0_snr_db": 75.51,
+        "band0_share_of_residual": 0.009
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -24.9,
+        "sdr_full_db": 58.43,
+        "sdr_without_band0_db": 52.31,
+        "band0_snr_db": 74.98,
+        "band0_share_of_residual": 0.017
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -39.0,
+        "sdr_full_db": 44.28,
+        "sdr_without_band0_db": 56.49,
+        "band0_snr_db": 38.72,
+        "band0_share_of_residual": 0.956
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -29.2,
+        "sdr_full_db": 50.5,
+        "sdr_without_band0_db": 59.06,
+        "band0_snr_db": 49.82,
+        "band0_share_of_residual": 0.977
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -38.6,
+        "sdr_full_db": 49.17,
+        "sdr_without_band0_db": 57.09,
+        "band0_snr_db": 44.1,
+        "band0_share_of_residual": 0.883
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -32.0,
+        "sdr_full_db": 52.27,
+        "sdr_without_band0_db": 63.71,
+        "band0_snr_db": 50.69,
+        "band0_share_of_residual": 0.977
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 44.99,
+        "sdr_without_band0_db": 62.04,
+        "band0_snr_db": 38.29,
+        "band0_share_of_residual": 0.984
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -42.6,
+        "sdr_full_db": 50.98,
+        "sdr_without_band0_db": 67.19,
+        "band0_snr_db": 43.79,
+        "band0_share_of_residual": 0.981
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -40.1,
+        "sdr_full_db": 53.31,
+        "sdr_without_band0_db": 66.09,
+        "band0_snr_db": 46.57,
+        "band0_share_of_residual": 0.958
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 54.52,
+        "sdr_without_band0_db": 66.53,
+        "band0_snr_db": 48.28,
+        "band0_share_of_residual": 0.951
+       }
+      ]
+     },
+     "after-matrix": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 11,
+       "worst_full": 36.15,
+       "median_full": 42.75,
+       "worst_without_band0": 47.04,
+       "median_without_band0": 59.07,
+       "worst_band0": 29.53,
+       "median_band0": 36.32,
+       "median_band0_share_of_residual": 0.99
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -33.5,
+        "sdr_full_db": 49.64,
+        "sdr_without_band0_db": 47.04,
+        "band0_snr_db": 130.13,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -25.8,
+        "sdr_full_db": 56.25,
+        "sdr_without_band0_db": 51.68,
+        "band0_snr_db": 63.44,
+        "band0_share_of_residual": 0.133
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -24.9,
+        "sdr_full_db": 57.46,
+        "sdr_without_band0_db": 52.31,
+        "band0_snr_db": 62.98,
+        "band0_share_of_residual": 0.213
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -39.0,
+        "sdr_full_db": 36.15,
+        "sdr_without_band0_db": 56.66,
+        "band0_snr_db": 30.43,
+        "band0_share_of_residual": 0.993
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -29.2,
+        "sdr_full_db": 48.54,
+        "sdr_without_band0_db": 59.07,
+        "band0_snr_db": 47.82,
+        "band0_share_of_residual": 0.985
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -38.6,
+        "sdr_full_db": 39.84,
+        "sdr_without_band0_db": 57.17,
+        "band0_snr_db": 34.28,
+        "band0_share_of_residual": 0.987
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -32.0,
+        "sdr_full_db": 48.41,
+        "sdr_without_band0_db": 63.74,
+        "band0_snr_db": 46.78,
+        "band0_share_of_residual": 0.991
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 36.3,
+        "sdr_without_band0_db": 63.21,
+        "band0_snr_db": 29.53,
+        "band0_share_of_residual": 0.998
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -42.6,
+        "sdr_full_db": 39.3,
+        "sdr_without_band0_db": 67.51,
+        "band0_snr_db": 32.03,
+        "band0_share_of_residual": 0.999
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -40.1,
+        "sdr_full_db": 41.64,
+        "sdr_without_band0_db": 66.19,
+        "band0_snr_db": 34.72,
+        "band0_share_of_residual": 0.997
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 42.75,
+        "sdr_without_band0_db": 66.32,
+        "band0_snr_db": 36.32,
+        "band0_share_of_residual": 0.997
+       }
+      ]
+     },
+     "after-matrix:-1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 11,
+       "worst_full": 34.94,
+       "median_full": 41.72,
+       "worst_without_band0": 47.04,
+       "median_without_band0": 59.07,
+       "worst_band0": 28.46,
+       "median_band0": 35.28,
+       "median_band0_share_of_residual": 0.99
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -33.5,
+        "sdr_full_db": 49.64,
+        "sdr_without_band0_db": 47.04,
+        "band0_snr_db": 130.13,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -25.8,
+        "sdr_full_db": 56.1,
+        "sdr_without_band0_db": 51.68,
+        "band0_snr_db": 62.43,
+        "band0_share_of_residual": 0.163
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -24.9,
+        "sdr_full_db": 57.26,
+        "sdr_without_band0_db": 52.31,
+        "band0_snr_db": 62.1,
+        "band0_share_of_residual": 0.249
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -39.0,
+        "sdr_full_db": 34.94,
+        "sdr_without_band0_db": 56.66,
+        "band0_snr_db": 29.21,
+        "band0_share_of_residual": 0.995
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -29.2,
+        "sdr_full_db": 48.05,
+        "sdr_without_band0_db": 59.07,
+        "band0_snr_db": 47.33,
+        "band0_share_of_residual": 0.987
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -38.6,
+        "sdr_full_db": 38.88,
+        "sdr_without_band0_db": 57.17,
+        "band0_snr_db": 33.32,
+        "band0_share_of_residual": 0.989
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -32.0,
+        "sdr_full_db": 47.77,
+        "sdr_without_band0_db": 63.74,
+        "band0_snr_db": 46.13,
+        "band0_share_of_residual": 0.992
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 35.23,
+        "sdr_without_band0_db": 63.21,
+        "band0_snr_db": 28.46,
+        "band0_share_of_residual": 0.999
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -42.6,
+        "sdr_full_db": 38.39,
+        "sdr_without_band0_db": 67.51,
+        "band0_snr_db": 31.11,
+        "band0_share_of_residual": 0.999
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -40.1,
+        "sdr_full_db": 40.67,
+        "sdr_without_band0_db": 66.19,
+        "band0_snr_db": 33.75,
+        "band0_share_of_residual": 0.998
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 41.72,
+        "sdr_without_band0_db": 66.32,
+        "band0_snr_db": 35.28,
+        "band0_share_of_residual": 0.997
+       }
+      ]
+     },
+     "after-matrix:+1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 11,
+       "worst_full": 37.19,
+       "median_full": 43.52,
+       "worst_without_band0": 47.04,
+       "median_without_band0": 59.07,
+       "worst_band0": 30.56,
+       "median_band0": 37.09,
+       "median_band0_share_of_residual": 0.99
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -33.5,
+        "sdr_full_db": 49.64,
+        "sdr_without_band0_db": 47.04,
+        "band0_snr_db": 130.13,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -25.8,
+        "sdr_full_db": 56.35,
+        "sdr_without_band0_db": 51.68,
+        "band0_snr_db": 64.22,
+        "band0_share_of_residual": 0.114
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -24.9,
+        "sdr_full_db": 57.62,
+        "sdr_without_band0_db": 52.31,
+        "band0_snr_db": 63.77,
+        "band0_share_of_residual": 0.184
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -39.0,
+        "sdr_full_db": 37.19,
+        "sdr_without_band0_db": 56.66,
+        "band0_snr_db": 31.48,
+        "band0_share_of_residual": 0.992
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -29.2,
+        "sdr_full_db": 48.87,
+        "sdr_without_band0_db": 59.07,
+        "band0_snr_db": 48.16,
+        "band0_share_of_residual": 0.984
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -38.6,
+        "sdr_full_db": 40.7,
+        "sdr_without_band0_db": 57.17,
+        "band0_snr_db": 35.16,
+        "band0_share_of_residual": 0.984
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -32.0,
+        "sdr_full_db": 49.03,
+        "sdr_without_band0_db": 63.74,
+        "band0_snr_db": 47.41,
+        "band0_share_of_residual": 0.989
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 37.32,
+        "sdr_without_band0_db": 63.21,
+        "band0_snr_db": 30.56,
+        "band0_share_of_residual": 0.998
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -42.6,
+        "sdr_full_db": 40.21,
+        "sdr_without_band0_db": 67.51,
+        "band0_snr_db": 32.94,
+        "band0_share_of_residual": 0.998
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -40.1,
+        "sdr_full_db": 42.47,
+        "sdr_without_band0_db": 66.19,
+        "band0_snr_db": 35.56,
+        "band0_share_of_residual": 0.997
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 43.52,
+        "sdr_without_band0_db": 66.32,
+        "band0_snr_db": 37.09,
+        "band0_share_of_residual": 0.996
+       }
+      ]
+     },
+     "band0-shift:-1": {
+      "exit": 0,
+      "secs": 0.8,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.83 s (36x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 11,
+       "worst_full": 35.26,
+       "median_full": 39.27,
+       "worst_without_band0": 46.85,
+       "median_without_band0": 48.42,
+       "worst_band0": 29.02,
+       "median_band0": 33.93,
+       "median_band0_share_of_residual": 0.94
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -33.5,
+        "sdr_full_db": 49.64,
+        "sdr_without_band0_db": 47.04,
+        "band0_snr_db": 130.13,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -25.8,
+        "sdr_full_db": 54.41,
+        "sdr_without_band0_db": 51.5,
+        "band0_snr_db": 56.73,
+        "band0_share_of_residual": 0.409
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -24.9,
+        "sdr_full_db": 55.54,
+        "sdr_without_band0_db": 52.04,
+        "band0_snr_db": 57.7,
+        "band0_share_of_residual": 0.463
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -39.0,
+        "sdr_full_db": 37.47,
+        "sdr_without_band0_db": 48.34,
+        "band0_snr_db": 31.99,
+        "band0_share_of_residual": 0.94
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -29.2,
+        "sdr_full_db": 46.44,
+        "sdr_without_band0_db": 52.34,
+        "band0_snr_db": 45.84,
+        "band0_share_of_residual": 0.958
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -38.6,
+        "sdr_full_db": 39.27,
+        "sdr_without_band0_db": 50.03,
+        "band0_snr_db": 33.93,
+        "band0_share_of_residual": 0.939
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -32.0,
+        "sdr_full_db": 45.54,
+        "sdr_without_band0_db": 53.83,
+        "band0_snr_db": 44.07,
+        "band0_share_of_residual": 0.953
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 36.22,
+        "sdr_without_band0_db": 47.61,
+        "band0_snr_db": 29.7,
+        "band0_share_of_residual": 0.943
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -42.6,
+        "sdr_full_db": 37.01,
+        "sdr_without_band0_db": 48.42,
+        "band0_snr_db": 29.99,
+        "band0_share_of_residual": 0.941
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -40.1,
+        "sdr_full_db": 35.71,
+        "sdr_without_band0_db": 47.44,
+        "band0_snr_db": 29.02,
+        "band0_share_of_residual": 0.946
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 35.26,
+        "sdr_without_band0_db": 46.85,
+        "band0_snr_db": 29.05,
+        "band0_share_of_residual": 0.946
+       }
+      ]
+     },
+     "band0-shift:+1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.84 s (36x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 11,
+       "worst_full": 35.1,
+       "median_full": 37.88,
+       "worst_without_band0": 46.91,
+       "median_without_band0": 48.37,
+       "worst_band0": 28.5,
+       "median_band0": 32.48,
+       "median_band0_share_of_residual": 0.95
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -33.5,
+        "sdr_full_db": 49.64,
+        "sdr_without_band0_db": 47.04,
+        "band0_snr_db": 130.13,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -25.8,
+        "sdr_full_db": 54.41,
+        "sdr_without_band0_db": 51.51,
+        "band0_snr_db": 56.71,
+        "band0_share_of_residual": 0.411
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -24.9,
+        "sdr_full_db": 55.43,
+        "sdr_without_band0_db": 52.04,
+        "band0_snr_db": 57.46,
+        "band0_share_of_residual": 0.476
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -39.0,
+        "sdr_full_db": 36.13,
+        "sdr_without_band0_db": 48.37,
+        "band0_snr_db": 30.58,
+        "band0_share_of_residual": 0.956
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -29.2,
+        "sdr_full_db": 46.8,
+        "sdr_without_band0_db": 52.95,
+        "band0_snr_db": 46.19,
+        "band0_share_of_residual": 0.96
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -38.6,
+        "sdr_full_db": 37.88,
+        "sdr_without_band0_db": 49.82,
+        "band0_snr_db": 32.48,
+        "band0_share_of_residual": 0.954
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -32.0,
+        "sdr_full_db": 45.44,
+        "sdr_without_band0_db": 54.1,
+        "band0_snr_db": 43.95,
+        "band0_share_of_residual": 0.956
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 35.1,
+        "sdr_without_band0_db": 48.05,
+        "band0_snr_db": 28.5,
+        "band0_share_of_residual": 0.96
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -42.6,
+        "sdr_full_db": 36.44,
+        "sdr_without_band0_db": 48.34,
+        "band0_snr_db": 29.4,
+        "band0_share_of_residual": 0.947
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -40.1,
+        "sdr_full_db": 35.82,
+        "sdr_without_band0_db": 47.87,
+        "band0_snr_db": 29.12,
+        "band0_share_of_residual": 0.95
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 35.31,
+        "sdr_without_band0_db": 46.91,
+        "band0_snr_db": 29.1,
+        "band0_share_of_residual": 0.947
+       }
+      ]
+     }
+    },
+    "lion-of-the-desert-1980": {
+     "released_binary": {
+      "objects": 5,
+      "worst_full": 35.35,
+      "median_full": 40.13,
+      "worst_without_band0": 33.83,
+      "median_without_band0": 37.54,
+      "worst_band0": 63.87,
+      "median_band0": 106.21,
+      "median_band0_share_of_residual": 0.0
+     },
+     "baseline": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 5,
+       "worst_full": 35.35,
+       "median_full": 40.13,
+       "worst_without_band0": 33.83,
+       "median_without_band0": 37.54,
+       "worst_band0": 63.87,
+       "median_band0": 106.21,
+       "median_band0_share_of_residual": 0.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 35.93,
+        "sdr_without_band0_db": 34.28,
+        "band0_snr_db": 107.04,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -30.0,
+        "sdr_full_db": 67.54,
+        "sdr_without_band0_db": 65.0,
+        "band0_snr_db": 133.25,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -55.9,
+        "sdr_full_db": 35.35,
+        "sdr_without_band0_db": 33.83,
+        "band0_snr_db": 106.21,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -56.2,
+        "sdr_full_db": 40.13,
+        "sdr_without_band0_db": 37.54,
+        "band0_snr_db": 63.87,
+        "band0_share_of_residual": 0.002
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 40.95,
+        "sdr_without_band0_db": 37.85,
+        "band0_snr_db": 64.64,
+        "band0_share_of_residual": 0.002
+       }
+      ]
+     },
+     "after-matrix": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 5,
+       "worst_full": 35.35,
+       "median_full": 40.13,
+       "worst_without_band0": 33.83,
+       "median_without_band0": 37.54,
+       "worst_band0": 63.87,
+       "median_band0": 106.21,
+       "median_band0_share_of_residual": 0.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 35.93,
+        "sdr_without_band0_db": 34.28,
+        "band0_snr_db": 107.04,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -30.0,
+        "sdr_full_db": 67.54,
+        "sdr_without_band0_db": 65.0,
+        "band0_snr_db": 133.25,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -55.9,
+        "sdr_full_db": 35.35,
+        "sdr_without_band0_db": 33.83,
+        "band0_snr_db": 106.21,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -56.2,
+        "sdr_full_db": 40.13,
+        "sdr_without_band0_db": 37.54,
+        "band0_snr_db": 63.87,
+        "band0_share_of_residual": 0.002
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 40.95,
+        "sdr_without_band0_db": 37.85,
+        "band0_snr_db": 64.61,
+        "band0_share_of_residual": 0.002
+       }
+      ]
+     },
+     "after-matrix:-1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 5,
+       "worst_full": 35.35,
+       "median_full": 40.13,
+       "worst_without_band0": 33.83,
+       "median_without_band0": 37.54,
+       "worst_band0": 63.87,
+       "median_band0": 106.21,
+       "median_band0_share_of_residual": 0.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 35.93,
+        "sdr_without_band0_db": 34.28,
+        "band0_snr_db": 107.04,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -30.0,
+        "sdr_full_db": 67.54,
+        "sdr_without_band0_db": 65.0,
+        "band0_snr_db": 133.25,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -55.9,
+        "sdr_full_db": 35.35,
+        "sdr_without_band0_db": 33.83,
+        "band0_snr_db": 106.21,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -56.2,
+        "sdr_full_db": 40.13,
+        "sdr_without_band0_db": 37.54,
+        "band0_snr_db": 63.87,
+        "band0_share_of_residual": 0.002
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 40.95,
+        "sdr_without_band0_db": 37.85,
+        "band0_snr_db": 64.6,
+        "band0_share_of_residual": 0.002
+       }
+      ]
+     },
+     "after-matrix:+1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 5,
+       "worst_full": 35.35,
+       "median_full": 40.13,
+       "worst_without_band0": 33.83,
+       "median_without_band0": 37.54,
+       "worst_band0": 63.87,
+       "median_band0": 106.21,
+       "median_band0_share_of_residual": 0.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 35.93,
+        "sdr_without_band0_db": 34.28,
+        "band0_snr_db": 107.04,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -30.0,
+        "sdr_full_db": 67.54,
+        "sdr_without_band0_db": 65.0,
+        "band0_snr_db": 133.25,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -55.9,
+        "sdr_full_db": 35.35,
+        "sdr_without_band0_db": 33.83,
+        "band0_snr_db": 106.21,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -56.2,
+        "sdr_full_db": 40.13,
+        "sdr_without_band0_db": 37.54,
+        "band0_snr_db": 63.87,
+        "band0_share_of_residual": 0.002
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 40.95,
+        "sdr_without_band0_db": 37.85,
+        "band0_snr_db": 64.61,
+        "band0_share_of_residual": 0.002
+       }
+      ]
+     },
+     "band0-shift:-1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.84 s (36x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 5,
+       "worst_full": 35.35,
+       "median_full": 40.13,
+       "worst_without_band0": 33.83,
+       "median_without_band0": 37.54,
+       "worst_band0": 63.76,
+       "median_band0": 106.21,
+       "median_band0_share_of_residual": 0.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 35.93,
+        "sdr_without_band0_db": 34.28,
+        "band0_snr_db": 107.04,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -30.0,
+        "sdr_full_db": 67.54,
+        "sdr_without_band0_db": 65.0,
+        "band0_snr_db": 133.25,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -55.9,
+        "sdr_full_db": 35.35,
+        "sdr_without_band0_db": 33.83,
+        "band0_snr_db": 106.21,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -56.2,
+        "sdr_full_db": 40.13,
+        "sdr_without_band0_db": 37.54,
+        "band0_snr_db": 63.87,
+        "band0_share_of_residual": 0.002
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 40.95,
+        "sdr_without_band0_db": 37.85,
+        "band0_snr_db": 63.76,
+        "band0_share_of_residual": 0.003
+       }
+      ]
+     },
+     "band0-shift:+1": {
+      "exit": 0,
+      "secs": 0.8,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.83 s (36x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 5,
+       "worst_full": 35.35,
+       "median_full": 40.13,
+       "worst_without_band0": 33.83,
+       "median_without_band0": 37.54,
+       "worst_band0": 63.54,
+       "median_band0": 106.21,
+       "median_band0_share_of_residual": 0.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 35.93,
+        "sdr_without_band0_db": 34.28,
+        "band0_snr_db": 107.04,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -30.0,
+        "sdr_full_db": 67.54,
+        "sdr_without_band0_db": 65.0,
+        "band0_snr_db": 133.25,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -55.9,
+        "sdr_full_db": 35.35,
+        "sdr_without_band0_db": 33.83,
+        "band0_snr_db": 106.21,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -56.2,
+        "sdr_full_db": 40.13,
+        "sdr_without_band0_db": 37.54,
+        "band0_snr_db": 63.87,
+        "band0_share_of_residual": 0.002
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -55.3,
+        "sdr_full_db": 40.95,
+        "sdr_without_band0_db": 37.85,
+        "band0_snr_db": 63.54,
+        "band0_share_of_residual": 0.003
+       }
+      ]
+     }
+    },
+    "kar-kardesligi-2024": {
+     "released_binary": {
+      "objects": 9,
+      "worst_full": 39.39,
+      "median_full": 53.72,
+      "worst_without_band0": 33.9,
+      "median_without_band0": 46.36,
+      "worst_band0": 60.37,
+      "median_band0": 64.71,
+      "median_band0_share_of_residual": 0.01
+     },
+     "baseline": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.84 s (36x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 9,
+       "worst_full": 39.39,
+       "median_full": 53.72,
+       "worst_without_band0": 33.9,
+       "median_without_band0": 46.36,
+       "worst_band0": 60.37,
+       "median_band0": 64.71,
+       "median_band0_share_of_residual": 0.01
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -24.3,
+        "sdr_full_db": 53.72,
+        "sdr_without_band0_db": 51.31,
+        "band0_snr_db": 137.93,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -36.2,
+        "sdr_full_db": 60.68,
+        "sdr_without_band0_db": 50.58,
+        "band0_snr_db": 64.71,
+        "band0_share_of_residual": 0.371
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.3,
+        "sdr_full_db": 58.88,
+        "sdr_without_band0_db": 48.52,
+        "band0_snr_db": 64.37,
+        "band0_share_of_residual": 0.264
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -40.1,
+        "sdr_full_db": 40.86,
+        "sdr_without_band0_db": 33.9,
+        "band0_snr_db": 64.28,
+        "band0_share_of_residual": 0.004
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -40.3,
+        "sdr_full_db": 58.03,
+        "sdr_without_band0_db": 46.36,
+        "band0_snr_db": 64.87,
+        "band0_share_of_residual": 0.196
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -43.9,
+        "sdr_full_db": 39.39,
+        "sdr_without_band0_db": 35.19,
+        "band0_snr_db": 60.37,
+        "band0_share_of_residual": 0.005
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -42.5,
+        "sdr_full_db": 57.92,
+        "sdr_without_band0_db": 49.33,
+        "band0_snr_db": 62.82,
+        "band0_share_of_residual": 0.292
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -35.3,
+        "sdr_full_db": 48.89,
+        "sdr_without_band0_db": 44.36,
+        "band0_snr_db": 129.88,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -34.8,
+        "sdr_full_db": 47.63,
+        "sdr_without_band0_db": 45.74,
+        "band0_snr_db": 127.8,
+        "band0_share_of_residual": 0.0
+       }
+      ]
+     },
+     "after-matrix": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.87 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 9,
+       "worst_full": 37.38,
+       "median_full": 48.77,
+       "worst_without_band0": 33.9,
+       "median_without_band0": 46.35,
+       "worst_band0": 39.59,
+       "median_band0": 49.46,
+       "median_band0_share_of_residual": 0.37
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -24.3,
+        "sdr_full_db": 53.72,
+        "sdr_without_band0_db": 51.31,
+        "band0_snr_db": 137.93,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -36.2,
+        "sdr_full_db": 50.18,
+        "sdr_without_band0_db": 50.57,
+        "band0_snr_db": 50.16,
+        "band0_share_of_residual": 0.944
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.3,
+        "sdr_full_db": 48.77,
+        "sdr_without_band0_db": 48.51,
+        "band0_snr_db": 48.79,
+        "band0_share_of_residual": 0.928
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -40.1,
+        "sdr_full_db": 39.92,
+        "sdr_without_band0_db": 33.9,
+        "band0_snr_db": 46.01,
+        "band0_share_of_residual": 0.197
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -40.3,
+        "sdr_full_db": 49.22,
+        "sdr_without_band0_db": 46.35,
+        "band0_snr_db": 49.46,
+        "band0_share_of_residual": 0.894
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -43.9,
+        "sdr_full_db": 37.38,
+        "sdr_without_band0_db": 35.19,
+        "band0_snr_db": 39.59,
+        "band0_share_of_residual": 0.373
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -42.5,
+        "sdr_full_db": 46.15,
+        "sdr_without_band0_db": 49.3,
+        "band0_snr_db": 45.91,
+        "band0_share_of_residual": 0.953
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -35.3,
+        "sdr_full_db": 48.89,
+        "sdr_without_band0_db": 44.36,
+        "band0_snr_db": 129.88,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -34.8,
+        "sdr_full_db": 47.63,
+        "sdr_without_band0_db": 45.74,
+        "band0_snr_db": 127.8,
+        "band0_share_of_residual": 0.0
+       }
+      ]
+     },
+     "after-matrix:-1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 9,
+       "worst_full": 35.15,
+       "median_full": 47.63,
+       "worst_without_band0": 33.9,
+       "median_without_band0": 46.35,
+       "worst_band0": 35.13,
+       "median_band0": 47.74,
+       "median_band0_share_of_residual": 0.62
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -24.3,
+        "sdr_full_db": 53.72,
+        "sdr_without_band0_db": 51.31,
+        "band0_snr_db": 137.93,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -36.2,
+        "sdr_full_db": 47.87,
+        "sdr_without_band0_db": 50.57,
+        "band0_snr_db": 47.74,
+        "band0_share_of_residual": 0.967
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.3,
+        "sdr_full_db": 45.89,
+        "sdr_without_band0_db": 48.51,
+        "band0_snr_db": 45.75,
+        "band0_share_of_residual": 0.963
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -40.1,
+        "sdr_full_db": 38.87,
+        "sdr_without_band0_db": 33.9,
+        "band0_snr_db": 42.22,
+        "band0_share_of_residual": 0.369
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -40.3,
+        "sdr_full_db": 49.73,
+        "sdr_without_band0_db": 46.35,
+        "band0_snr_db": 50.04,
+        "band0_share_of_residual": 0.881
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -43.9,
+        "sdr_full_db": 35.15,
+        "sdr_without_band0_db": 35.19,
+        "band0_snr_db": 35.13,
+        "band0_share_of_residual": 0.625
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -42.5,
+        "sdr_full_db": 42.03,
+        "sdr_without_band0_db": 49.3,
+        "band0_snr_db": 41.66,
+        "band0_share_of_residual": 0.982
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -35.3,
+        "sdr_full_db": 48.89,
+        "sdr_without_band0_db": 44.36,
+        "band0_snr_db": 129.88,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -34.8,
+        "sdr_full_db": 47.63,
+        "sdr_without_band0_db": 45.74,
+        "band0_snr_db": 127.8,
+        "band0_share_of_residual": 0.0
+       }
+      ]
+     },
+     "after-matrix:+1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 9,
+       "worst_full": 36.72,
+       "median_full": 47.92,
+       "worst_without_band0": 33.9,
+       "median_without_band0": 46.35,
+       "worst_band0": 38.01,
+       "median_band0": 48.63,
+       "median_band0_share_of_residual": 0.46
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -24.3,
+        "sdr_full_db": 53.72,
+        "sdr_without_band0_db": 51.31,
+        "band0_snr_db": 137.93,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -36.2,
+        "sdr_full_db": 48.73,
+        "sdr_without_band0_db": 50.57,
+        "band0_snr_db": 48.63,
+        "band0_share_of_residual": 0.96
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.3,
+        "sdr_full_db": 47.92,
+        "sdr_without_band0_db": 48.51,
+        "band0_snr_db": 47.88,
+        "band0_share_of_residual": 0.941
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -40.1,
+        "sdr_full_db": 39.48,
+        "sdr_without_band0_db": 33.9,
+        "band0_snr_db": 44.12,
+        "band0_share_of_residual": 0.275
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -40.3,
+        "sdr_full_db": 50.58,
+        "sdr_without_band0_db": 46.35,
+        "band0_snr_db": 51.02,
+        "band0_share_of_residual": 0.855
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -43.9,
+        "sdr_full_db": 36.72,
+        "sdr_without_band0_db": 35.19,
+        "band0_snr_db": 38.01,
+        "band0_share_of_residual": 0.462
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -42.5,
+        "sdr_full_db": 45.02,
+        "sdr_without_band0_db": 49.3,
+        "band0_snr_db": 44.73,
+        "band0_share_of_residual": 0.963
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -35.3,
+        "sdr_full_db": 48.89,
+        "sdr_without_band0_db": 44.36,
+        "band0_snr_db": 129.88,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -34.8,
+        "sdr_full_db": 47.63,
+        "sdr_without_band0_db": 45.74,
+        "band0_snr_db": 127.8,
+        "band0_share_of_residual": 0.0
+       }
+      ]
+     },
+     "band0-shift:-1": {
+      "exit": 0,
+      "secs": 0.8,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.82 s (37x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 9,
+       "worst_full": 28.36,
+       "median_full": 35.61,
+       "worst_without_band0": 33.19,
+       "median_without_band0": 37.29,
+       "worst_band0": 26.87,
+       "median_band0": 35.59,
+       "median_band0_share_of_residual": 0.88
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -24.3,
+        "sdr_full_db": 53.72,
+        "sdr_without_band0_db": 51.31,
+        "band0_snr_db": 137.93,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -36.2,
+        "sdr_full_db": 37.7,
+        "sdr_without_band0_db": 38.32,
+        "band0_snr_db": 37.66,
+        "band0_share_of_residual": 0.947
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.3,
+        "sdr_full_db": 35.07,
+        "sdr_without_band0_db": 37.29,
+        "band0_snr_db": 34.95,
+        "band0_share_of_residual": 0.959
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -40.1,
+        "sdr_full_db": 34.8,
+        "sdr_without_band0_db": 33.23,
+        "band0_snr_db": 35.3,
+        "band0_share_of_residual": 0.712
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -40.3,
+        "sdr_full_db": 35.61,
+        "sdr_without_band0_db": 36.03,
+        "band0_snr_db": 35.59,
+        "band0_share_of_residual": 0.95
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -43.9,
+        "sdr_full_db": 28.36,
+        "sdr_without_band0_db": 33.19,
+        "band0_snr_db": 26.87,
+        "band0_share_of_residual": 0.876
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -42.5,
+        "sdr_full_db": 31.57,
+        "sdr_without_band0_db": 35.1,
+        "band0_snr_db": 31.31,
+        "band0_share_of_residual": 0.957
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -35.3,
+        "sdr_full_db": 48.89,
+        "sdr_without_band0_db": 44.36,
+        "band0_snr_db": 129.88,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -34.8,
+        "sdr_full_db": 47.63,
+        "sdr_without_band0_db": 45.74,
+        "band0_snr_db": 127.8,
+        "band0_share_of_residual": 0.0
+       }
+      ]
+     },
+     "band0-shift:+1": {
+      "exit": 0,
+      "secs": 0.8,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.82 s (37x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 9,
+       "worst_full": 28.16,
+       "median_full": 36.54,
+       "worst_without_band0": 33.06,
+       "median_without_band0": 37.02,
+       "worst_band0": 26.65,
+       "median_band0": 36.52,
+       "median_band0_share_of_residual": 0.88
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -24.3,
+        "sdr_full_db": 53.72,
+        "sdr_without_band0_db": 51.31,
+        "band0_snr_db": 137.93,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -36.2,
+        "sdr_full_db": 37.38,
+        "sdr_without_band0_db": 37.88,
+        "band0_snr_db": 37.35,
+        "band0_share_of_residual": 0.945
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.3,
+        "sdr_full_db": 34.5,
+        "sdr_without_band0_db": 36.42,
+        "band0_snr_db": 34.39,
+        "band0_share_of_residual": 0.956
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -40.1,
+        "sdr_full_db": 33.95,
+        "sdr_without_band0_db": 33.06,
+        "band0_snr_db": 34.2,
+        "band0_share_of_residual": 0.754
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -40.3,
+        "sdr_full_db": 36.54,
+        "sdr_without_band0_db": 37.02,
+        "band0_snr_db": 36.52,
+        "band0_share_of_residual": 0.951
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -43.9,
+        "sdr_full_db": 28.16,
+        "sdr_without_band0_db": 33.13,
+        "band0_snr_db": 26.65,
+        "band0_share_of_residual": 0.88
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -42.5,
+        "sdr_full_db": 31.59,
+        "sdr_without_band0_db": 35.12,
+        "band0_snr_db": 31.33,
+        "band0_share_of_residual": 0.957
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -35.3,
+        "sdr_full_db": 48.89,
+        "sdr_without_band0_db": 44.36,
+        "band0_snr_db": 129.88,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -34.8,
+        "sdr_full_db": 47.63,
+        "sdr_without_band0_db": 45.74,
+        "band0_snr_db": 127.8,
+        "band0_share_of_residual": 0.0
+       }
+      ]
+     }
+    },
+    "dexter-resurrection-s01e01-a-beating-hea": {
+     "released_binary": {
+      "objects": 5,
+      "worst_full": 49.61,
+      "median_full": 50.96,
+      "worst_without_band0": 48.23,
+      "median_without_band0": 49.6,
+      "worst_band0": 49.27,
+      "median_band0": 129.77,
+      "median_band0_share_of_residual": 0.0
+     },
+     "baseline": {
+      "exit": 0,
+      "secs": 0.8,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.84 s (36x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 5,
+       "worst_full": 49.61,
+       "median_full": 50.96,
+       "worst_without_band0": 48.23,
+       "median_without_band0": 49.6,
+       "worst_band0": 49.27,
+       "median_band0": 129.77,
+       "median_band0_share_of_residual": 0.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -30.8,
+        "sdr_full_db": 50.96,
+        "sdr_without_band0_db": 48.3,
+        "band0_snr_db": 132.66,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 53.11,
+        "sdr_without_band0_db": 50.25,
+        "band0_snr_db": 129.77,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.2,
+        "sdr_full_db": 49.61,
+        "sdr_without_band0_db": 49.95,
+        "band0_snr_db": 49.27,
+        "band0_share_of_residual": 0.527
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.6,
+        "sdr_full_db": 52.95,
+        "sdr_without_band0_db": 49.6,
+        "band0_snr_db": 129.94,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -40.5,
+        "sdr_full_db": 49.67,
+        "sdr_without_band0_db": 48.23,
+        "band0_snr_db": 51.39,
+        "band0_share_of_residual": 0.369
+       }
+      ]
+     },
+     "after-matrix": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (36x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 5,
+       "worst_full": 36.88,
+       "median_full": 50.96,
+       "worst_without_band0": 48.23,
+       "median_without_band0": 49.6,
+       "worst_band0": 33.88,
+       "median_band0": 129.77,
+       "median_band0_share_of_residual": 0.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -30.8,
+        "sdr_full_db": 50.96,
+        "sdr_without_band0_db": 48.3,
+        "band0_snr_db": 132.66,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 53.11,
+        "sdr_without_band0_db": 50.25,
+        "band0_snr_db": 129.77,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.2,
+        "sdr_full_db": 36.88,
+        "sdr_without_band0_db": 49.95,
+        "band0_snr_db": 33.88,
+        "band0_share_of_residual": 0.975
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.6,
+        "sdr_full_db": 52.95,
+        "sdr_without_band0_db": 49.6,
+        "band0_snr_db": 129.94,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -40.5,
+        "sdr_full_db": 38.46,
+        "sdr_without_band0_db": 48.23,
+        "band0_snr_db": 36.05,
+        "band0_share_of_residual": 0.952
+       }
+      ]
+     },
+     "after-matrix:-1": {
+      "exit": 0,
+      "secs": 0.8,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.83 s (36x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 5,
+       "worst_full": 36.16,
+       "median_full": 50.96,
+       "worst_without_band0": 48.23,
+       "median_without_band0": 49.6,
+       "worst_band0": 33.14,
+       "median_band0": 129.77,
+       "median_band0_share_of_residual": 0.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -30.8,
+        "sdr_full_db": 50.96,
+        "sdr_without_band0_db": 48.3,
+        "band0_snr_db": 132.66,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 53.11,
+        "sdr_without_band0_db": 50.25,
+        "band0_snr_db": 129.77,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.2,
+        "sdr_full_db": 36.16,
+        "sdr_without_band0_db": 49.95,
+        "band0_snr_db": 33.14,
+        "band0_share_of_residual": 0.979
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.6,
+        "sdr_full_db": 52.95,
+        "sdr_without_band0_db": 49.6,
+        "band0_snr_db": 129.94,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -40.5,
+        "sdr_full_db": 37.58,
+        "sdr_without_band0_db": 48.23,
+        "band0_snr_db": 35.13,
+        "band0_share_of_residual": 0.961
+       }
+      ]
+     },
+     "after-matrix:+1": {
+      "exit": 0,
+      "secs": 0.8,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.82 s (37x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 5,
+       "worst_full": 37.5,
+       "median_full": 50.96,
+       "worst_without_band0": 48.23,
+       "median_without_band0": 49.6,
+       "worst_band0": 34.51,
+       "median_band0": 129.77,
+       "median_band0_share_of_residual": 0.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -30.8,
+        "sdr_full_db": 50.96,
+        "sdr_without_band0_db": 48.3,
+        "band0_snr_db": 132.66,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 53.11,
+        "sdr_without_band0_db": 50.25,
+        "band0_snr_db": 129.77,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.2,
+        "sdr_full_db": 37.5,
+        "sdr_without_band0_db": 49.95,
+        "band0_snr_db": 34.51,
+        "band0_share_of_residual": 0.971
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.6,
+        "sdr_full_db": 52.95,
+        "sdr_without_band0_db": 49.6,
+        "band0_snr_db": 129.94,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -40.5,
+        "sdr_full_db": 39.14,
+        "sdr_without_band0_db": 48.23,
+        "band0_snr_db": 36.77,
+        "band0_share_of_residual": 0.944
+       }
+      ]
+     },
+     "band0-shift:-1": {
+      "exit": 0,
+      "secs": 0.8,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.84 s (36x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 5,
+       "worst_full": 48.13,
+       "median_full": 50.96,
+       "worst_without_band0": 48.2,
+       "median_without_band0": 49.6,
+       "worst_band0": 46.84,
+       "median_band0": 129.77,
+       "median_band0_share_of_residual": 0.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -30.8,
+        "sdr_full_db": 50.96,
+        "sdr_without_band0_db": 48.3,
+        "band0_snr_db": 132.66,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 53.11,
+        "sdr_without_band0_db": 50.25,
+        "band0_snr_db": 129.77,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.2,
+        "sdr_full_db": 48.13,
+        "sdr_without_band0_db": 49.88,
+        "band0_snr_db": 46.84,
+        "band0_share_of_residual": 0.658
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.6,
+        "sdr_full_db": 52.95,
+        "sdr_without_band0_db": 49.6,
+        "band0_snr_db": 129.94,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -40.5,
+        "sdr_full_db": 48.72,
+        "sdr_without_band0_db": 48.2,
+        "band0_snr_db": 49.21,
+        "band0_share_of_residual": 0.489
+       }
+      ]
+     },
+     "band0-shift:+1": {
+      "exit": 0,
+      "secs": 0.9,
+      "stderr_tail": [
+       "metadata: 940 payloads, 16 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD",
+       "core: 940 frames decoded, 0 decode errors, 0.85 s (35x realtime)",
+       "damf: not representable in DAMF or the ADM profile: 1 warp mode setting"
+      ],
+      "summary": {
+       "objects": 5,
+       "worst_full": 48.97,
+       "median_full": 50.96,
+       "worst_without_band0": 48.19,
+       "median_without_band0": 49.6,
+       "worst_band0": 48.2,
+       "median_band0": 129.77,
+       "median_band0_share_of_residual": 0.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -30.8,
+        "sdr_full_db": 50.96,
+        "sdr_without_band0_db": 48.3,
+        "band0_snr_db": 132.66,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 53.11,
+        "sdr_without_band0_db": 50.25,
+        "band0_snr_db": 129.77,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -40.2,
+        "sdr_full_db": 48.97,
+        "sdr_without_band0_db": 49.87,
+        "band0_snr_db": 48.2,
+        "band0_share_of_residual": 0.584
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.6,
+        "sdr_full_db": 52.95,
+        "sdr_without_band0_db": 49.6,
+        "band0_snr_db": 129.94,
+        "band0_share_of_residual": 0.0
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -40.5,
+        "sdr_full_db": 49.31,
+        "sdr_without_band0_db": 48.19,
+        "band0_snr_db": 50.51,
+        "band0_share_of_residual": 0.415
+       }
+      ]
+     }
+    }
+   }
+  }
+ }
+}
