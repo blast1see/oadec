@@ -659,6 +659,14 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         stats.duplicate_substream_frames,
         "substream frames repeated within one group",
     );
+    f.note(
+        stats.stalled_substreams,
+        "substreams flushed after they stopped supplying frames",
+    );
+    f.note(
+        stats.missing_substream_frames,
+        "substream frames that never came out of their decoder",
+    );
     f.first_problem(first_error.or_else(|| stats.first_error.clone()).as_deref());
     Ok(f.report())
 }
