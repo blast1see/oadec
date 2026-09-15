@@ -57,9 +57,9 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Walk an E-AC-3 stream, find the EMDF containers and report the metadata timing.
+    /// Walk an AC-3 or E-AC-3 stream, find the EMDF containers and report the metadata timing.
     Emdf {
-        /// Raw E-AC-3 (.ec3/.eac3/.ac3) elementary stream.
+        /// Raw AC-3 or E-AC-3 (.ac3/.ec3/.eac3) elementary stream.
         file: PathBuf,
         /// Machine-readable JSON instead of text.
         #[arg(long)]
@@ -70,7 +70,7 @@ enum Command {
     },
     /// Parse every Object Audio Metadata payload and report what it carries.
     Oamd {
-        /// Raw TrueHD (.thd/.mlp) elementary stream.
+        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary stream.
         file: PathBuf,
         /// Machine-readable JSON instead of text.
         #[arg(long)]
