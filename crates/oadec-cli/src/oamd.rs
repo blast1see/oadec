@@ -581,10 +581,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own; run it
     // beside the walk instead of after it
-    let check = {
-        let path = path.to_path_buf();
-        std::thread::spawn(move || crate::verify::stream_check(&path))
-    };
+    let check = crate::verify::spawn_stream_check(path);
     let mut dumped = 0usize;
     let mut summary = if eac3 {
         walk_eac3(path, opts, &mut dumped)?
@@ -597,9 +594,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
     // what the walk does not read, the audio of either codec and on E-AC-3 the
     // JOC payloads, the payload configuration and the complexity index,
     // `verify` checks: take its verdict rather than re-derive a part of it
-    let stream = check
-        .join()
-        .unwrap_or_else(|panic| std::panic::resume_unwind(panic))?;
+    let stream = crate::verify::join_stream_check(check)?;
     if !stream.clean
         && let Some(problem) = &stream.first_problem
     {

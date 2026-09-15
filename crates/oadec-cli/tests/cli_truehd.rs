@@ -356,3 +356,83 @@ fn a_file_without_a_stream_is_refused_by_every_decode_format() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A fault in what a decode does not read is still a fault of the stream.
+/// Presentation 0 decodes substream 0 alone, so one bit changed in substream 1
+/// left every TrueHD delivery of it clean: the PCM and WAVE decodes exited 0,
+/// and `compare` called the copy bit-exact and clean against the decode of the
+/// intact fixture, while `verify` exited 7. The review loop found the same on a
+/// stream whose object metadata will not parse. Every TrueHD delivery takes the
+/// verdict of `verify` now, and the intact fixture still compares clean.
+#[test]
+fn a_fault_only_verify_reads_fails_every_truehd_delivery() {
+    let dir = temp("unread");
+    let fixture_path = fixture("authored-scene.mlp");
+    let mut bytes = std::fs::read(&fixture_path).unwrap();
+    // access unit 101 carries no major sync; the middle of it is substream 1
+    let mut at = 0;
+    for _ in 0..101 {
+        at += usize::from(u16::from_be_bytes([bytes[at], bytes[at + 1]]) & 0x0FFF) * 2;
+    }
+    let length = usize::from(u16::from_be_bytes([bytes[at], bytes[at + 1]]) & 0x0FFF) * 2;
+    bytes[at + length / 2] ^= 0x10;
+    let copy = dir.join("substream-1.mlp");
+    std::fs::write(&copy, &bytes).unwrap();
+    let copy = copy.to_str().unwrap();
+    let intact = fixture_path.to_str().unwrap();
+
+    let verify = oadec(&["verify", "--json", copy]);
+    let report: serde_json::Value = serde_json::from_slice(&verify.stdout).unwrap();
+    assert_eq!(verify.status.code(), Some(7), "{report}");
+    assert!(
+        report["failures"]["segment_parity"].as_u64().unwrap_or(0) > 0,
+        "{report}"
+    );
+
+    let reference = dir.join("p0.pcm");
+    let reference = reference.to_str().unwrap();
+    let out = oadec(&[
+        "decode", intact, "-p", "0", "--format", "pcm", "-o", reference,
+    ]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+
+    for format in ["pcm", "wav"] {
+        let target = dir.join(format!("copy.{format}"));
+        let out = oadec(&[
+            "decode",
+            copy,
+            "-p",
+            "0",
+            "--format",
+            format,
+            "-o",
+            target.to_str().unwrap(),
+        ]);
+        assert_eq!(
+            out.status.code(),
+            Some(7),
+            "decode -p 0 --format {format}: {}",
+            stderr(&out)
+        );
+    }
+
+    let compare = |file: &str| {
+        oadec(&[
+            "compare",
+            file,
+            "-p",
+            "0",
+            "--reference",
+            reference,
+            "--reference-format",
+            "s24le",
+        ])
+    };
+    let out = compare(intact);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    let out = compare(copy);
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(text.contains("result: BIT-EXACT"), "{text}");
+    assert_eq!(out.status.code(), Some(7), "{text}{}", stderr(&out));
+    std::fs::remove_dir_all(&dir).unwrap();
+}

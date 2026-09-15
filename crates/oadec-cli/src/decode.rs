@@ -222,7 +222,16 @@ pub fn format_duration(seconds: f64) -> String {
 /// outright: `for_each_unit` returns it and every caller but `verify` threw it
 /// away, so a decode that resynchronised past a corrupt major sync said nothing
 /// at all.
-pub fn truehd_findings(pass: &input::PassSummary, stats: Option<&DecodeStats>) -> Findings {
+///
+/// A decode still reads only what its presentation needs, so a substream it
+/// leaves out, or object metadata a PCM decode never parses, can be broken while
+/// every counter here stays at zero. `stream` is the verdict of `verify` on the
+/// same file, and it counts as well.
+pub fn truehd_findings(
+    pass: &input::PassSummary,
+    stats: Option<&DecodeStats>,
+    stream: &crate::verify::StreamCheck,
+) -> Findings {
     let mut f = Findings::default();
     f.note(
         pass.stats.major_sync_crc_failures,
@@ -248,6 +257,10 @@ pub fn truehd_findings(pass: &input::PassSummary, stats: Option<&DecodeStats>) -
         );
         f.note(s.evolution_container_errors, "Evolution container errors");
         f.first_problem(s.first_problem.as_deref());
+    }
+    if !stream.clean {
+        f.note(1, "stream `oadec verify` calls non-conformant");
+        f.first_problem(stream.first_problem.as_deref());
     }
     f
 }
@@ -502,6 +515,10 @@ fn pack_24le(pcm: &[[i32; 16]], order: &[usize], buf: &mut Vec<u8>) -> u64 {
 /// Runs the command.
 pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
+    // the checks of `verify` read the stream in a pass of their own, beside the
+    // decode: a presentation reads only its substreams, and only some outputs
+    // parse the object metadata
+    let check = crate::verify::spawn_stream_check(path);
     let file = File::create(output).with_context(|| format!("creating {}", output.display()))?;
     let mut out = Some(Output::Raw(BufWriter::with_capacity(4 << 20, file)));
     let mut session = Session::new(opts.presentation, opts.keep_duplicates, opts.order);
@@ -574,7 +591,8 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
         stop.print(samples);
     }
     print_summary(&session, started.elapsed().as_secs_f64());
-    let mut f = truehd_findings(&pass, session.stats());
+    let stream = crate::verify::join_stream_check(check)?;
+    let mut f = truehd_findings(&pass, session.stats(), &stream);
     f.note(session.clipped, "samples clipped to 24 bits");
     if let Some(stop) = &stopped {
         stop.note(&mut f);
@@ -585,6 +603,26 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn clean_stream() -> crate::verify::StreamCheck {
+        crate::verify::StreamCheck {
+            clean: true,
+            first_problem: None,
+        }
+    }
+
+    /// A stream `verify` rejects is not a clean delivery, whatever the decode
+    /// itself read.
+    #[test]
+    fn the_verdict_of_verify_makes_a_decode_unclean() {
+        let stats = DecodeStats::default();
+        assert!(truehd_findings(&empty_pass(), Some(&stats), &clean_stream()).is_clean());
+        let rejected = crate::verify::StreamCheck {
+            clean: false,
+            first_problem: Some("access unit 101: substream 1: parity mismatch".into()),
+        };
+        assert!(!truehd_findings(&empty_pass(), Some(&stats), &rejected).is_clean());
+    }
 
     fn empty_pass() -> input::PassSummary {
         input::PassSummary {
@@ -600,7 +638,7 @@ mod tests {
     #[test]
     fn every_extra_data_fault_makes_a_decode_unclean() {
         let pass = empty_pass();
-        assert!(truehd_findings(&pass, Some(&DecodeStats::default())).is_clean());
+        assert!(truehd_findings(&pass, Some(&DecodeStats::default()), &clean_stream()).is_clean());
         type Set = fn(&mut DecodeStats);
         let faults: [(&str, Set); 5] = [
             ("extra_header_parity", |s| s.extra_header_parity = 1),
@@ -615,7 +653,7 @@ mod tests {
             let mut stats = DecodeStats::default();
             set(&mut stats);
             assert!(
-                !truehd_findings(&pass, Some(&stats)).is_clean(),
+                !truehd_findings(&pass, Some(&stats), &clean_stream()).is_clean(),
                 "{name} left the decode looking clean"
             );
         }

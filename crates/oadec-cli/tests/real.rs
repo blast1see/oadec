@@ -1584,6 +1584,48 @@ fn verify_and_decode_agree_about_a_truncated_object_metadata_element() {
         String::from_utf8_lossy(&decode.stderr)
     );
 
+    // the PCM and WAVE decodes of presentation 2 and `compare` do not read the
+    // object metadata, and they exited 0, `compare` calling the stream bit-exact
+    // and clean; they take the verdict of `verify` now
+    let pcm = std::env::temp_dir().join(format!("oadec-truncated-oamd-{}.pcm", std::process::id()));
+    let wav = std::env::temp_dir().join(format!("oadec-truncated-oamd-{}.wav", std::process::id()));
+    for (format, target) in [("pcm", &pcm), ("wav", &wav)] {
+        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["decode", "-p", "2", "--format", format, "-o"])
+            .arg(target)
+            .arg(&file)
+            .output()
+            .expect("run oadec decode");
+        assert_eq!(
+            out.status.code(),
+            Some(7),
+            "decode --format {format} called the truncated element clean: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args([
+            "compare",
+            "-p",
+            "2",
+            "--reference-format",
+            "s24le",
+            "--reference",
+        ])
+        .arg(&pcm)
+        .arg(&file)
+        .output()
+        .expect("run oadec compare");
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    let _ = std::fs::remove_file(&pcm);
+    let _ = std::fs::remove_file(&wav);
+    assert!(text.contains("result: BIT-EXACT"), "{text}");
+    assert_eq!(
+        out.status.code(),
+        Some(7),
+        "compare called the truncated element clean:\n{text}"
+    );
+
     // and a clean stream still passes both, so the rule is not "always 7"
     let clean = media.join("thd/pi.thd");
     if clean.exists() {

@@ -309,10 +309,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own; run it
     // beside the walk instead of after it
-    let check = {
-        let path = path.to_path_buf();
-        std::thread::spawn(move || crate::verify::stream_check(&path))
-    };
+    let check = crate::verify::spawn_stream_check(path);
     let mut s = EmdfSummary::default();
     let mut dumped = 0usize;
     let walk = for_each_container(path, |site, c| {
@@ -456,9 +453,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
     // what the walk does not read, a JOC payload, the payload configuration, the
     // complexity index or the audio, `verify` checks: take its verdict rather
     // than re-derive a part of it
-    let stream = check
-        .join()
-        .unwrap_or_else(|panic| std::panic::resume_unwind(panic))?;
+    let stream = crate::verify::join_stream_check(check)?;
     if s.first_error.is_none() && !stream.clean {
         s.first_error = stream.first_problem.clone();
     }

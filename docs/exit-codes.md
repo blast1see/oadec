@@ -11,10 +11,12 @@ Every command uses the same codes, and 4 belongs to the object outputs alone
 (below). Every command that delivers audio or metadata decides between 0 and 7
 with the same list of faults that `verify` uses; `emdf` and `oamd`, which walk
 only the metadata they report, run the checks of `verify` over the stream
-beside their walk and take its verdict with their own. That was not true
-before: `verify` read every counter and exited 7, while `decode` re-derived a
-narrower rule of its own and exited 0 while printing the very CRC failure it
-had just found, and the object path read no integrity flag at all.
+beside their walk and take its verdict with their own, and every TrueHD
+delivery does the same beside its decode, which reads only the substreams its
+presentation needs. That was not true before: `verify` read every counter and
+exited 7, while `decode` re-derived a narrower rule of its own and exited 0
+while printing the very CRC failure it had just found, and the object path
+read no integrity flag at all.
 
 ## What counts as a fault
 

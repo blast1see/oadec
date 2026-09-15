@@ -408,6 +408,10 @@ impl Sink {
 /// Runs the object output; `base` is the output path without extension.
 pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
     let started = Instant::now();
+    // the checks of `verify` read the stream in a pass of their own, beside the
+    // decode: a presentation reads only its substreams, and only some outputs
+    // parse the object metadata
+    let check = crate::verify::spawn_stream_check(path);
     let dir = base
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
@@ -585,7 +589,8 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         opts.loss_report.as_deref(),
         &[],
     )?;
-    let mut f = crate::decode::truehd_findings(&pass, session.stats());
+    let stream = crate::verify::join_stream_check(check)?;
+    let mut f = crate::decode::truehd_findings(&pass, session.stats(), &stream);
     f.note(payload_errors, "metadata payload errors");
     if let Some(stop) = &stopped {
         stop.note(&mut f);
