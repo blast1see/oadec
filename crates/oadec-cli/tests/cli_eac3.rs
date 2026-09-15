@@ -554,49 +554,23 @@ fn container_lengths(frame: &Frame) -> Vec<(usize, usize)> {
     out
 }
 
-/// A container declaring one byte fewer than its syntax takes opened as if the
-/// length were right, and every command called the copy clean. The length is
-/// held to the syntax now, and every command judges the frame whose container
-/// does not open: `verify`, `emdf` and `oamd` call the copy non-conformant, and
-/// the object decode, which holds the matrices of the frame before, exits 7 and
-/// names the frame, as the PCM decode exits 7. `verify` had counted such a frame
-/// and named it as the first problem, and still called the file clean.
-#[test]
-fn a_container_whose_declared_length_disagrees_with_its_syntax_does_not_open() {
-    let dir = temp("length");
-    let mut bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
-    let mut index = 0;
-    let changed = rewrite_frames(&mut bytes, |frame| {
-        index += 1;
-        if index != 11 {
-            return Vec::new();
-        }
-        let lengths = container_lengths(frame);
-        assert_eq!(lengths.len(), 1, "frame 10 carries one container");
-        let (at, declared) = lengths[0];
-        vec![(at, 16, declared as u32 - 1)]
-    });
-    assert_eq!(changed, 1);
-    let file = dir.join("short.ec3");
-    std::fs::write(&file, &bytes).unwrap();
-
-    let (code, report) = verify_json(&file);
+/// Every command on a copy of the fixture whose frame 10 has lost its EMDF
+/// container: `verify`, `emdf` and `oamd` call the copy non-conformant with
+/// exactly that frame counted, the object decode holds the matrices of the frame
+/// before and names the frame, and the PCM decode exits 7.
+fn every_command_fails_on_frame_10(file: &Path, dir: &Path) {
+    let (code, report) = verify_json(file);
     assert_eq!(code, Some(7), "verify: {report}");
     assert_eq!(
         report["first_error"], "frame 10: no EMDF container in the skip fields",
         "{report}"
     );
-    let (emdf_code, emdf) = metadata_json("emdf", &file);
-    let (oamd_code, oamd) = metadata_json("oamd", &file);
-    assert_eq!(
-        (emdf_code, oamd_code),
-        (Some(7), Some(7)),
-        "emdf {emdf} oamd {oamd}"
-    );
-    assert!(emdf["container_errors"].as_u64().unwrap() >= 1, "{emdf}");
-    assert_eq!(oamd["container_errors"], emdf["container_errors"], "{oamd}");
-
-    let out = oadec(&[
+    for command in ["emdf", "oamd"] {
+        let (code, report) = metadata_json(command, file);
+        assert_eq!(code, Some(7), "{command}: {report}");
+        assert_eq!(report["container_errors"], 1, "{command}: {report}");
+    }
+    let damf = oadec(&[
         "decode",
         file.to_str().unwrap(),
         "--format",
@@ -604,8 +578,8 @@ fn a_container_whose_declared_length_disagrees_with_its_syntax_does_not_open() {
         "-o",
         dir.join("d").to_str().unwrap(),
     ]);
-    let err = stderr(&out);
-    assert_eq!(out.status.code(), Some(7), "decode --format damf: {err}");
+    let err = stderr(&damf);
+    assert_eq!(damf.status.code(), Some(7), "decode --format damf: {err}");
     assert!(
         err.contains("frame 10: no EMDF container"),
         "the decode names the frame: {err}"
@@ -624,5 +598,56 @@ fn a_container_whose_declared_length_disagrees_with_its_syntax_does_not_open() {
         "decode --format pcm: {}",
         stderr(&pcm)
     );
+}
+
+/// Writes to `dir` a copy of the fixture whose frame 10 container is rewritten by
+/// `edit`, which is given the bit offset of the container's length word and the
+/// length it declares and returns the field to write.
+fn with_frame_10_container(
+    dir: &Path,
+    name: &str,
+    edit: impl Fn(usize, usize) -> (usize, u32, u32),
+) -> PathBuf {
+    let mut bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let mut index = 0;
+    let changed = rewrite_frames(&mut bytes, |frame| {
+        index += 1;
+        if index != 11 {
+            return Vec::new();
+        }
+        let lengths = container_lengths(frame);
+        assert_eq!(lengths.len(), 1, "frame 10 carries one container");
+        let (at, declared) = lengths[0];
+        vec![edit(at, declared)]
+    });
+    assert_eq!(changed, 1);
+    let file = dir.join(name);
+    std::fs::write(&file, &bytes).unwrap();
+    file
+}
+
+/// A container declaring one byte fewer than its syntax takes opened as if the
+/// length were right, and every command called the copy clean. The length is
+/// held to the syntax now. `verify` had counted such a frame and named it as the
+/// first problem, and still called the file clean.
+#[test]
+fn a_container_whose_declared_length_disagrees_with_its_syntax_does_not_open() {
+    let dir = temp("length");
+    let file = with_frame_10_container(&dir, "short.ec3", |at, declared| {
+        (at, 16, declared as u32 - 1)
+    });
+    every_command_fails_on_frame_10(&file, &dir);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A frame whose container is gone, its sync word erased and its skip fields
+/// left the length they were, has lost its metadata as surely as one whose
+/// container is broken. `verify` and both decodes counted it; `emdf` and `oamd`
+/// found no sync word, reported nothing for the frame and exited clean.
+#[test]
+fn a_frame_whose_container_is_erased_is_a_fault_for_every_command() {
+    let dir = temp("erased");
+    let file = with_frame_10_container(&dir, "erased.ec3", |at, _| (at - 16, 16, 0));
+    every_command_fails_on_frame_10(&file, &dir);
     std::fs::remove_dir_all(&dir).unwrap();
 }

@@ -655,6 +655,11 @@ fn relabelling_the_downmix_configuration_moves_only_three_bits() {
 /// routes, so they must agree about how many EMDF containers are there. They
 /// did not: the scanner used to hunt the sync word in the raw frame bytes,
 /// which finds only the containers that land on a byte boundary.
+///
+/// The configuration 4 head carries its containers in the dependent substream
+/// and other data in the skip fields of its AC-3 core. Those core frames have
+/// lost nothing, and a scanner that judged the whole stream at once counted
+/// 1 748 of them as missing containers.
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn the_metadata_scanner_and_the_verifier_count_the_same_containers() {
@@ -663,6 +668,7 @@ fn the_metadata_scanner_and_the_verifier_count_the_same_containers() {
         "clips/talktome-joc-head.ec3",
         "clips/kingsman-joc-head.ec3",
         "clips/disclosure-web-head.ec3",
+        "clips/greenbook-cfg4-head.ec3",
         "ec3/pi-head-joc384.ec3",
     ] {
         let file = media.join(name);

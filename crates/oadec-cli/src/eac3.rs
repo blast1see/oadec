@@ -230,10 +230,14 @@ struct EmdfStats {
     frames_with_skip: u64,
     skip_bytes: u64,
     containers: u64,
-    /// Frames whose skip fields held no parsable container.
+    /// Frames whose skip fields held no parsable container. Skip fields may
+    /// carry other data, so these are a fault only in a stream that carries
+    /// EMDF; see [`EmdfStats::missing_containers`].
     container_errors: u64,
     /// Sync words inside payload bytes that did not start a container.
     false_syncs: u64,
+    /// The first frame whose skip fields held no parsable container.
+    first_missing: Option<u64>,
     payload_ids: BTreeMap<u32, u64>,
     oamd_ok: u64,
     oamd_errors: u64,
@@ -308,6 +312,19 @@ struct EmdfStats {
 }
 
 impl EmdfStats {
+    /// Frames that lost their container: frames whose skip fields held no
+    /// container that opens, in a stream in which containers do open. Skip
+    /// fields may carry other data, and two AC-3 clips of the corpus fill them in
+    /// some 1 100 frames without a single container, so in a stream that carries
+    /// no EMDF at all the count is not a fault.
+    fn missing_containers(&self) -> u64 {
+        if self.containers > 0 {
+            self.container_errors
+        } else {
+            0
+        }
+    }
+
     /// Records where a rare syntax branch occurred, up to a cap: the counts
     /// answer "does anything use this", the frame numbers answer "where do I
     /// cut a clip that does".
@@ -514,11 +531,9 @@ impl EmdfStats {
         }
         if !found {
             self.container_errors += 1;
-            if self.first_error.is_none() {
-                self.first_error = Some(format!(
-                    "frame {frame_index}: no EMDF container in the skip fields"
-                ));
-            }
+            // a fault only if the stream turns out to carry EMDF, which is known
+            // at the end of the pass (`missing_containers`)
+            self.first_missing.get_or_insert(frame_index);
         }
     }
 }
@@ -735,6 +750,14 @@ fn pass(
     if p.first_fault.is_none() {
         p.first_fault = p.program.first_error.clone();
     }
+    if p.emdf.missing_containers() > 0
+        && p.emdf.first_error.is_none()
+        && let Some(frame) = p.emdf.first_missing
+    {
+        p.emdf.first_error = Some(format!(
+            "frame {frame}: no EMDF container in the skip fields"
+        ));
+    }
     let _ = frames;
     Ok((p, sync_errors, skipped))
 }
@@ -902,9 +925,10 @@ fn complexity_problem(complexity: u8, oamd_total: usize) -> Option<String> {
 }
 
 /// Whether a pass found nothing wrong: every frame decoded, every CRC and
-/// every metadata payload checked out, every frame with skip fields held an
-/// EMDF container that opens, no byte of the file was skipped, and the payload
-/// configuration and the complexity index are what TS 103 420 requires.
+/// every metadata payload checked out, in a stream that carries EMDF every frame
+/// with skip fields held a container that opens, no byte of the file was
+/// skipped, and the payload configuration and the complexity index are what
+/// TS 103 420 requires.
 fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
     p.decode_errors == 0
         && p.crc_failures == 0
@@ -915,7 +939,7 @@ fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
         && p.emdf.joc_errors == 0
         && p.emdf.joc_reserved_ext == 0
         && p.emdf.joc_size_mismatch == 0
-        && p.emdf.container_errors == 0
+        && p.emdf.missing_containers() == 0
         && p.emdf.payload_config_violations == 0
         && p.complexity_mismatches == 0
         // A dependent substream that was seen and whose channels did not reach
@@ -995,7 +1019,7 @@ fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
         "JOC payloads whose declared size was wrong",
     );
     f.note(
-        p.emdf.container_errors,
+        p.emdf.missing_containers(),
         "frames whose skip fields held no EMDF container that opens",
     );
     f.note(
@@ -1928,7 +1952,10 @@ mod tests {
             }),
             ("complexity_mismatches", |p| p.complexity_mismatches = 1),
             ("emdf.joc_size_mismatch", |p| p.emdf.joc_size_mismatch = 1),
-            ("emdf.container_errors", |p| p.emdf.container_errors = 1),
+            ("emdf.container_errors", |p| {
+                p.emdf.containers = 1;
+                p.emdf.container_errors = 1
+            }),
             ("program.dependent_dropped", |p| {
                 p.program.dependent_dropped = 1
             }),
@@ -1987,6 +2014,34 @@ mod tests {
         assert_eq!(
             complexity_problem(17, 17).as_deref(),
             Some("complexity_index_type_a 17 exceeds 16 (clause 8.3)")
+        );
+    }
+
+    /// Skip fields may carry other data: two AC-3 clips of the corpus fill them
+    /// in some 1 100 frames without a single EMDF container. A frame whose skip
+    /// fields hold no container that opens is a fault only in a stream that
+    /// carries EMDF, where it means a container was lost; counted anywhere else
+    /// it called clean AC-3 streams non-conformant.
+    #[test]
+    fn skip_fields_that_carry_no_emdf_are_not_a_fault() {
+        let mut plain = Pass::default();
+        plain.emdf.frames_with_skip = 1099;
+        plain.emdf.container_errors = 1099;
+        assert!(
+            is_clean(&plain, 0, 0),
+            "verify called a stream without EMDF non-conformant"
+        );
+        assert!(
+            findings(&plain, 0, 0).is_clean(),
+            "a delivery failed on a stream without EMDF"
+        );
+        let mut lost = Pass::default();
+        lost.emdf.containers = 62;
+        lost.emdf.container_errors = 1;
+        assert!(!is_clean(&lost, 0, 0), "a lost container left verify clean");
+        assert!(
+            !findings(&lost, 0, 0).is_clean(),
+            "a lost container left a delivery clean"
         );
     }
 
