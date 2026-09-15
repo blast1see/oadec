@@ -46,6 +46,13 @@ pub struct OamdSummary {
     /// over AC-3 and E-AC-3 syncframes, the resynchronisations of the TrueHD
     /// extractor. The first lock is not one.
     pub sync_errors: u64,
+    /// Bytes the framing skipped: before the first unit, where sync was lost,
+    /// and on AC-3 and E-AC-3 a last syncframe cut short. `verify` counts them.
+    pub skipped_bytes: u64,
+    /// TrueHD: bytes at the end of the file that formed no access unit.
+    pub trailing_bytes: u64,
+    /// AC-3 and E-AC-3: syncframes whose CRC failed.
+    pub crc_failures: u64,
     /// Units that did not parse far enough to reach their metadata: access
     /// units that failed to parse, or syncframes that did not parse as far as
     /// their skip fields.
@@ -484,11 +491,29 @@ fn walk_truehd(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSu
         Ok(())
     })?;
     summary.sync_errors = pass.stats.resyncs;
+    summary.skipped_bytes = pass.stats.skipped_bytes;
+    summary.trailing_bytes = pass.trailing_bytes;
     if pass.stats.resyncs > 0 {
         summary.note(|| {
             format!(
                 "{} sync errors while framing the stream",
                 pass.stats.resyncs
+            )
+        });
+    }
+    if pass.stats.skipped_bytes > 0 {
+        summary.note(|| {
+            format!(
+                "{} bytes skipped while framing the stream",
+                pass.stats.skipped_bytes
+            )
+        });
+    }
+    if pass.trailing_bytes > 0 {
+        summary.note(|| {
+            format!(
+                "{} trailing bytes that formed no access unit",
+                pass.trailing_bytes
             )
         });
     }
@@ -517,6 +542,8 @@ fn walk_eac3(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSumm
     })?;
     summary.units = walk.frames;
     summary.sync_errors = walk.sync_errors;
+    summary.skipped_bytes = walk.skipped_bytes;
+    summary.crc_failures = walk.crc_failures;
     summary.unparsed_units = walk.unparsed_frames;
     summary.container_errors = walk.missing_containers;
     if let Some(first) = walk.first_missing.clone() {
@@ -530,6 +557,17 @@ fn walk_eac3(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSumm
             format!(
                 "{} frames did not parse as far as their skip fields",
                 walk.unparsed_frames
+            )
+        });
+    }
+    if walk.crc_failures > 0 {
+        summary.note(|| format!("{} syncframes whose CRC failed", walk.crc_failures));
+    }
+    if walk.skipped_bytes > 0 {
+        summary.note(|| {
+            format!(
+                "{} bytes skipped while framing the stream",
+                walk.skipped_bytes
             )
         });
     }
@@ -557,7 +595,10 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         && summary.sync_errors == 0
         && summary.unparsed_units == 0
         && summary.container_errors == 0
-        && summary.extra_data_faults == 0;
+        && summary.extra_data_faults == 0
+        && summary.skipped_bytes == 0
+        && summary.trailing_bytes == 0
+        && summary.crc_failures == 0;
     if opts.json {
         let mut value = serde_json::to_value(&summary)?;
         value["clean"] = serde_json::json!(clean);
@@ -576,8 +617,11 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             summary.size_mismatches
         );
         println!(
-            "Unread:            {} sync errors, {} unparsed {}s, {} containers that did not open, {} extra-data faults",
+            "Unread:            {} sync errors, {} bytes skipped, {} trailing bytes, {} CRC failures, {} unparsed {}s, {} containers that did not open, {} extra-data faults",
             summary.sync_errors,
+            summary.skipped_bytes,
+            summary.trailing_bytes,
+            summary.crc_failures,
             summary.unparsed_units,
             summary.unit_word,
             summary.container_errors,

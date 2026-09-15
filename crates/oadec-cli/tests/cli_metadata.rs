@@ -116,7 +116,9 @@ fn oamd_calls_the_units_of_an_eac3_stream_frames() {
 /// it misread as a clean absence of metadata. The file is three AC-3
 /// syncframes (bsid 8, 448 kbit/s at 48 kHz, 3/2 with LFE), each a header with
 /// the CRC 0xFFFF followed by zeros; read as E-AC-3 that CRC is a frame of
-/// 4096 bytes.
+/// 4096 bytes. None of those CRCs checks, and `oamd` says so now as `verify`
+/// does: the three frames are read, with no sync error and no byte skipped, and
+/// the stream is non-conformant for their CRCs alone.
 #[test]
 fn oamd_reads_an_ac3_stream_frame_by_frame() {
     let path = temp("ac3").join("three-frames.ac3");
@@ -124,12 +126,15 @@ fn oamd_reads_an_ac3_stream_frame_by_frame() {
     frame[..7].copy_from_slice(&[0x0B, 0x77, 0xFF, 0xFF, 0x1E, 0x40, 0xE1]);
     std::fs::write(&path, frame.repeat(3)).unwrap();
     let out = oadec(&["oamd", "--json", path.to_str().unwrap()]);
-    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    assert_eq!(out.status.code(), Some(7), "{}", stderr(&out));
     let v = json(&out);
     assert_eq!(v["units"], 3, "{v}");
+    assert_eq!(v["sync_errors"], 0, "{v}");
+    assert_eq!(v["skipped_bytes"], 0, "{v}");
+    assert_eq!(v["crc_failures"], 3, "{v}");
     assert_eq!(v["units_with_oamd"], 0, "{v}");
     assert_eq!(v["payloads"], 0, "{v}");
-    assert_eq!(v["clean"], true, "{v}");
+    assert_eq!(v["clean"], false, "{v}");
 }
 
 /// `emdf --dump` printed a frame's object count and then only the first four
@@ -249,4 +254,64 @@ fn info_and_emdf_still_report_the_fixtures() {
             stderr(&out)
         );
     }
+}
+
+/// The commands that read an E-AC-3 stream, and those that read a TrueHD one.
+const EAC3_READERS: &[&str] = &["verify", "emdf", "oamd"];
+const TRUEHD_READERS: &[&str] = &["verify", "oamd"];
+
+/// A stream cut short is non-conformant for every command that reads it.
+/// `verify` counts the bytes the framing skipped or left trailing; `emdf` and
+/// `oamd` dropped those counts and called a cut stream clean, as they did on a
+/// clip cut from a film by its size. One TrueHD copy is cut at its end and one
+/// at its head; the E-AC-3 copy only at its end, since a file has to open with
+/// a sync word to be read as E-AC-3 at all.
+#[test]
+fn a_cut_stream_is_non_conformant_for_the_metadata_commands() {
+    let dir = temp("cut");
+    let ec3 = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let mlp = std::fs::read(fixture("authored-scene.mlp")).unwrap();
+    let copies = [
+        (
+            "tail.ec3",
+            ec3[..ec3.len() - 100].to_vec(),
+            EAC3_READERS,
+            "skipped_bytes",
+        ),
+        (
+            "tail.mlp",
+            mlp[..mlp.len() - 50].to_vec(),
+            TRUEHD_READERS,
+            "trailing_bytes",
+        ),
+        (
+            "head.mlp",
+            mlp[50..].to_vec(),
+            TRUEHD_READERS,
+            "skipped_bytes",
+        ),
+    ];
+    for (name, bytes, commands, counter) in copies {
+        let path = dir.join(name);
+        std::fs::write(&path, bytes).unwrap();
+        let file = path.to_str().unwrap();
+        for &command in commands {
+            let out = oadec(&[command, "--json", file]);
+            assert_eq!(
+                out.status.code(),
+                Some(7),
+                "{command} {name}: {}",
+                stdout(&out)
+            );
+            if command != "verify" {
+                let report = json(&out);
+                assert_eq!(report["clean"], false, "{command} {name}: {report}");
+                assert!(
+                    report[counter].as_u64().unwrap_or(0) > 0,
+                    "{command} {name}: {counter} in {report}"
+                );
+            }
+        }
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
 }
