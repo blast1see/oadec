@@ -394,3 +394,45 @@ fn a_reserved_joc_extension_is_named_and_the_matrices_held() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A decode of an E-AC-3 file that holds no whole syncframe has nothing to
+/// deliver, and says so with exit 2 whatever the format, as a TrueHD decode
+/// does. The first 100 bytes of the encode open with a sync word, so the file
+/// takes the E-AC-3 path; the WAVE and PCM outputs exited 7 over the skipped
+/// bytes and left an empty output file behind.
+#[test]
+fn a_file_without_a_whole_syncframe_is_refused_by_every_decode_format() {
+    let dir = temp("no-syncframe");
+    let bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let input = dir.join("truncated.ec3");
+    std::fs::write(&input, &bytes[..100]).unwrap();
+    for format in ["wav", "pcm", "damf", "adm"] {
+        let out = dir.join(format!("out-{format}"));
+        let run = oadec(&[
+            "decode",
+            input.to_str().unwrap(),
+            "--format",
+            format,
+            "-o",
+            out.to_str().unwrap(),
+        ]);
+        assert_eq!(
+            run.status.code(),
+            Some(2),
+            "--format {format}: {}",
+            stderr(&run)
+        );
+        assert!(
+            !stderr(&run).trim().is_empty(),
+            "--format {format} exited 2 without a word"
+        );
+        let left: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.starts_with("out-"))
+            .collect();
+        assert!(left.is_empty(), "--format {format} left {left:?} behind");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

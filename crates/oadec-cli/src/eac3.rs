@@ -1450,6 +1450,11 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
 pub fn info(path: &Path, json: bool) -> Result<()> {
     let started = Instant::now();
     let (p, sync_errors, skipped) = pass(path, Options::default(), |_| Ok(()))?;
+    if p.independent + p.dependent == 0 {
+        // A sync word opened the file and no whole syncframe followed: a report
+        // of nothing reads like a clean stream that holds nothing.
+        return Err(crate::info::no_stream(path));
+    }
     print_pass(
         path,
         &p,
@@ -1548,6 +1553,14 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> 
             Ok(())
         },
     )?;
+    if p.independent + p.dependent == 0 {
+        // No whole syncframe: nothing to deliver and nothing to judge, which is
+        // an unusable input (exit 2) and not a faulty run, as in a TrueHD decode.
+        drop(wav_out);
+        drop(out);
+        let _ = std::fs::remove_file(output);
+        return Err(crate::info::no_stream(path));
+    }
     // a WAVE file an error drops on the way here closes itself
     if let Some(w) = wav_out {
         w.finish()?;
