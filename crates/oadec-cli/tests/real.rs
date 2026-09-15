@@ -1124,6 +1124,111 @@ fn a_duplicated_dependent_frame_is_counted_and_delivery_continues() {
     std::fs::remove_dir_all(&dir).expect("remove the scratch directory");
 }
 
+/// A dependent substream that stops mid-stream holds its last group back no
+/// longer than the pending window, and every group is delivered.
+///
+/// A decoder releases a frame only once it has seen what follows it -- one
+/// frame for enhanced coupling, 1 023 samples for transient pre-noise
+/// processing -- so the last frame of a substream that stops arriving stays
+/// inside its decoder. Its group used to wait for the end of the stream, and
+/// every later group waited behind it with its decoded audio in memory: here
+/// the whole second half of the clip. The substream is now flushed once
+/// `MAX_PENDING_GROUPS` groups wait, which is a fault of its own, and the
+/// groups without it are the layout change they always were.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn a_dependent_substream_that_disappears_does_not_stall_delivery() {
+    let media = media_dir();
+    let source = media.join("clips/ddp71-tones.ec3");
+    require(&source);
+    let data = std::fs::read(&source).expect("read the clip");
+    let groups = frame_groups(&data);
+    assert_eq!(groups.len(), 375);
+    let half = groups.len() / 2;
+
+    let dir =
+        std::env::temp_dir().join(format!("oadec-vanishing-dependent-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("scratch directory");
+    let cut = dir.join("cut.ec3");
+    let mut malformed = Vec::with_capacity(data.len());
+    for (i, g) in groups.iter().enumerate() {
+        malformed.extend_from_slice(g[0]);
+        if i < half {
+            malformed.extend_from_slice(g[1]);
+        }
+    }
+    std::fs::write(&cut, &malformed).expect("write the malformed stream");
+
+    let decode = |input: &Path, name: &str| {
+        let out = dir.join(name);
+        let run = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["decode", "--format", "wav", "-o"])
+            .arg(&out)
+            .arg(input)
+            .output()
+            .expect("run oadec decode");
+        let (pcm, channels) = wav_f32(&out);
+        (run, pcm, channels)
+    };
+    let (clean, reference, _) = decode(&source, "original.wav");
+    assert_eq!(
+        clean.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&clean.stderr)
+    );
+
+    let (run, pcm, channels) = decode(&cut, "cut.wav");
+    let log = String::from_utf8_lossy(&run.stderr);
+    assert_eq!(channels, 8, "{log}");
+    assert_eq!(
+        pcm.len(),
+        reference.len(),
+        "every group is delivered: {log}"
+    );
+    assert_eq!(run.status.code(), Some(7), "{log}");
+
+    let report = verify_json(&cut);
+    assert_eq!(report["frames"].as_u64(), Some(375), "groups delivered");
+    let window = report["max_pending_groups"]
+        .as_u64()
+        .expect("the pending window is reported");
+    assert!(
+        window <= oadec_eac3::MAX_PENDING_GROUPS as u64,
+        "{window} groups waited at once, past the window of {}",
+        oadec_eac3::MAX_PENDING_GROUPS
+    );
+    assert!(
+        log.contains("1 substreams flushed after they stopped supplying frames"),
+        "{log}"
+    );
+    assert_eq!(
+        nonzero_failures(&report),
+        ["layout_changes=188", "stalled_substreams=1"]
+    );
+
+    // interchange order: L, R, C and the LFE come from the independent
+    // substream all the way through, the rest from the dependent one for as
+    // long as it lasted
+    let frames = pcm.len() / 8;
+    let lasted = half * 1536;
+    for (ch, name) in ["L", "R", "C", "LFE", "Lrs", "Rrs", "Ls", "Rs"]
+        .iter()
+        .enumerate()
+    {
+        let n = if ch < 4 { frames } else { lasted };
+        assert!(
+            pcm.iter()
+                .skip(ch)
+                .step_by(8)
+                .take(n)
+                .eq(reference.iter().skip(ch).step_by(8).take(n)),
+            "{name} differs from the decode of the well-formed stream in its first {n} samples"
+        );
+    }
+    std::fs::remove_dir_all(&dir).expect("remove the scratch directory");
+}
+
 /// Interleaved samples of a CAF file, as `f64` in −1..1, with its channel
 /// count. The DAMF audio this decoder writes is 24-bit; Dolby's raw object
 /// dump is headerless 32-bit float.
