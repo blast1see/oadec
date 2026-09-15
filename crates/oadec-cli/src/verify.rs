@@ -95,6 +95,35 @@ fn lossless_checks(path: &Path, ms: &MajorSync) -> Result<LosslessChecks> {
     Ok(checks)
 }
 
+/// What `verify` concludes about a stream, for the commands that report its
+/// metadata.
+///
+/// `docs/exit-codes.md` has every command that delivers metadata decide with
+/// the faults `verify` counts. `emdf` and `oamd` walk only what they report, and
+/// each time they re-derived the verdict from that walk a fault it does not read
+/// was missed: a byte skipped, a failed CRC, a JOC payload, the audio of a
+/// substream. They take this verdict from the same checks instead.
+#[derive(Debug, Clone, Serialize)]
+pub struct StreamCheck {
+    /// Whether `verify` would call the stream clean.
+    pub clean: bool,
+    /// The first problem `verify` names.
+    pub first_problem: Option<String>,
+}
+
+/// Runs the checks of `verify` (without `--decode`) over a stream of either
+/// codec.
+pub fn stream_check(path: &Path) -> Result<StreamCheck> {
+    if crate::eac3::is_eac3(path)? {
+        return crate::eac3::stream_check(path);
+    }
+    let scan = scan::scan(path)?;
+    Ok(StreamCheck {
+        clean: scan.failures.is_clean() && scan.first_major_sync.is_some(),
+        first_problem: scan.first_error,
+    })
+}
+
 /// Runs the command; returns `true` when the stream is clean. With `decode`,
 /// every presentation the stream carries is decoded as well and its lossless
 /// checks join the verdict.

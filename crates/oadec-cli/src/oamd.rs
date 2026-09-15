@@ -579,8 +579,14 @@ fn walk_eac3(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSumm
 pub fn run(path: &Path, opts: &Options) -> Result<bool> {
     let eac3 = crate::eac3::is_eac3(path).unwrap_or(false);
     let started = Instant::now();
+    // the checks of `verify` read the stream in a pass of their own; run it
+    // beside the walk instead of after it
+    let check = {
+        let path = path.to_path_buf();
+        std::thread::spawn(move || crate::verify::stream_check(&path))
+    };
     let mut dumped = 0usize;
-    let summary = if eac3 {
+    let mut summary = if eac3 {
         walk_eac3(path, opts, &mut dumped)?
     } else {
         walk_truehd(path, opts, &mut dumped)?
@@ -588,8 +594,20 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
     if summary.units == 0 {
         return Err(crate::info::no_stream(path));
     }
+    // what the walk does not read, the audio of either codec and on E-AC-3 the
+    // JOC payloads, the payload configuration and the complexity index,
+    // `verify` checks: take its verdict rather than re-derive a part of it
+    let stream = check
+        .join()
+        .unwrap_or_else(|panic| std::panic::resume_unwind(panic))?;
+    if !stream.clean
+        && let Some(problem) = &stream.first_problem
+    {
+        summary.note(|| problem.clone());
+    }
     let elapsed = started.elapsed().as_secs_f64();
-    let clean = summary.parse_errors == 0
+    let clean = stream.clean
+        && summary.parse_errors == 0
         && summary.padding_long == 0
         && summary.padding_nonzero == 0
         && summary.sync_errors == 0
@@ -601,6 +619,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         && summary.crc_failures == 0;
     if opts.json {
         let mut value = serde_json::to_value(&summary)?;
+        value["verify"] = serde_json::to_value(&stream)?;
         value["clean"] = serde_json::json!(clean);
         value["seconds"] = serde_json::json!(elapsed);
         println!("{}", serde_json::to_string_pretty(&value)?);
@@ -626,6 +645,14 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             summary.unit_word,
             summary.container_errors,
             summary.extra_data_faults
+        );
+        println!(
+            "Verify:            {}",
+            if stream.clean {
+                "clean"
+            } else {
+                "non-conformant"
+            }
         );
         if let Some(p) = &summary.program {
             println!(

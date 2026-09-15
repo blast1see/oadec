@@ -1,7 +1,6 @@
-//! End-to-end checks of the commands that report metadata without decoding
-//! audio (`info`, `emdf`, `oamd`): on the two committed encodes of one
-//! authored scene (`tests/fixtures/README.md`), and on inputs the tests write
-//! themselves.
+//! End-to-end checks of the commands that report metadata (`info`, `emdf`,
+//! `oamd`): on the two committed encodes of one authored scene
+//! (`tests/fixtures/README.md`), and on inputs the tests write themselves.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -313,5 +312,45 @@ fn a_cut_stream_is_non_conformant_for_the_metadata_commands() {
             }
         }
     }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// One bit changed in the audio of a TrueHD access unit breaks the parity and
+/// the CRC of its substream, which `verify` checks and `oamd` never did: the
+/// metadata of the unit reads as before, and `oamd` called the copy clean. It
+/// carries the verdict of `verify` now and exits as `verify` exits.
+#[test]
+fn a_bit_changed_in_a_truehd_substream_fails_oamd_as_it_fails_verify() {
+    let dir = temp("substream");
+    let mut mlp = std::fs::read(fixture("authored-scene.mlp")).unwrap();
+    // unit 101 carries no major sync; twelve bytes in is past its header and
+    // its substream directory
+    let mut at = 0;
+    for _ in 0..101 {
+        at += usize::from(u16::from_be_bytes([mlp[at], mlp[at + 1]]) & 0x0FFF) * 2;
+    }
+    mlp[at + 12] ^= 0x10;
+    let path = dir.join("substream.mlp");
+    std::fs::write(&path, &mlp).unwrap();
+    let file = path.to_str().unwrap();
+
+    let out = oadec(&["verify", "--json", file]);
+    assert_eq!(out.status.code(), Some(7), "{}", stdout(&out));
+    let verify = json(&out);
+    assert!(
+        verify["failures"]["segment_parity"].as_u64().unwrap_or(0) > 0,
+        "{verify}"
+    );
+
+    let out = oadec(&["oamd", "--json", file]);
+    assert_eq!(out.status.code(), Some(7), "{}", stdout(&out));
+    let report = json(&out);
+    assert_eq!(report["parse_errors"], 0, "{report}");
+    assert_eq!(report["clean"], false, "{report}");
+    assert_eq!(report["verify"]["clean"], false, "{report}");
+    assert_eq!(
+        report["verify"]["first_problem"], verify["first_error"],
+        "{report}"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }

@@ -1517,6 +1517,16 @@ pub fn verify(path: &Path, json: bool) -> Result<bool> {
     Ok(clean)
 }
 
+/// The checks of `verify` over an AC-3 or E-AC-3 stream: its verdict and the
+/// first problem its report names.
+pub fn stream_check(path: &Path) -> Result<crate::verify::StreamCheck> {
+    let (p, sync_errors, skipped) = pass(path, Options::default(), |_| Ok(()))?;
+    Ok(crate::verify::StreamCheck {
+        clean: is_clean(&p, sync_errors, skipped),
+        first_problem: p.first_error.clone().or_else(|| p.emdf.first_error.clone()),
+    })
+}
+
 /// Options of `decode` for AC-3 family streams.
 #[derive(Debug, Clone, Copy)]
 pub struct DecodeOptions {
