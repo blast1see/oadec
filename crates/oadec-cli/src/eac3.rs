@@ -902,9 +902,9 @@ fn complexity_problem(complexity: u8, oamd_total: usize) -> Option<String> {
 }
 
 /// Whether a pass found nothing wrong: every frame decoded, every CRC and
-/// every metadata payload checked out, no byte of the file was skipped, and
-/// the payload configuration and the complexity index are what TS 103 420
-/// requires.
+/// every metadata payload checked out, every frame with skip fields held an
+/// EMDF container that opens, no byte of the file was skipped, and the payload
+/// configuration and the complexity index are what TS 103 420 requires.
 fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
     p.decode_errors == 0
         && p.crc_failures == 0
@@ -915,6 +915,7 @@ fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
         && p.emdf.joc_errors == 0
         && p.emdf.joc_reserved_ext == 0
         && p.emdf.joc_size_mismatch == 0
+        && p.emdf.container_errors == 0
         && p.emdf.payload_config_violations == 0
         && p.complexity_mismatches == 0
         // A dependent substream that was seen and whose channels did not reach
@@ -992,6 +993,10 @@ fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
     f.note(
         p.emdf.joc_size_mismatch,
         "JOC payloads whose declared size was wrong",
+    );
+    f.note(
+        p.emdf.container_errors,
+        "frames whose skip fields held no EMDF container that opens",
     );
     f.note(
         p.program.dependent_dropped,
@@ -1911,7 +1916,7 @@ mod tests {
         );
 
         type Set = fn(&mut Pass);
-        let unclean: [(&str, Set); 10] = [
+        let unclean: [(&str, Set); 11] = [
             ("decode_errors", |p| p.decode_errors = 1),
             ("crc_failures", |p| p.crc_failures = 1),
             ("tail_overruns", |p| p.tail_overruns = 1),
@@ -1923,6 +1928,7 @@ mod tests {
             }),
             ("complexity_mismatches", |p| p.complexity_mismatches = 1),
             ("emdf.joc_size_mismatch", |p| p.emdf.joc_size_mismatch = 1),
+            ("emdf.container_errors", |p| p.emdf.container_errors = 1),
             ("program.dependent_dropped", |p| {
                 p.program.dependent_dropped = 1
             }),

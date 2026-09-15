@@ -51,6 +51,16 @@ Semantic Versioning.
   extra-data check without a word, and dropped the sync errors of its walk, so
   a report missing metadata could still say clean. It now counts each of them,
   names the first, and judges the walk as `emdf` and `verify` do.
+- **An EMDF container whose declared length disagrees with its syntax does not
+  open, and a frame whose container does not open is a fault everywhere.** The
+  parser refused `emdf_container_length` only when it ran past the data, so a
+  wrong length opened as if it were right, and a walk stepping over the
+  container by that length could skip the next one; every stream measured
+  writes the length exactly, 23 389 containers in 26 files. `verify` counted a
+  frame whose skip fields held no container that opens and even named it as the
+  first problem, yet called the file clean, and the object and PCM decodes held
+  the previous matrices without a word. Such a frame now makes `verify` exit 7
+  and fails every E-AC-3 delivery; no clip of the work directory changes.
 - **`info`, `oamd`, `emdf` and `decode` exit 2 on a file that holds no stream.**
   An empty or random file used to produce a report of nothing, or "nothing
   decoded", with exit 0. They now stop with a message naming the file, and

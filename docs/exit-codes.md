@@ -26,6 +26,8 @@ Anything that makes the delivered output untrustworthy:
 - an Object Audio Metadata or JOC payload that would not parse or whose
   declared size was wrong, or a JOC payload whose `joc_ext_config_idx` is
   reserved (the matrices of the previous frame are held in its place);
+- an E-AC-3 frame whose skip fields hold no EMDF container that opens, one
+  whose declared length disagrees with its syntax included;
 - a TrueHD extra-data block whose header parity, padding, parity byte or
   length is wrong, or whose Evolution container will not open;
 - a sample the decoder produced beyond 24 bits, which the writer can only

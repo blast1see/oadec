@@ -262,6 +262,12 @@ pub fn parse_evolution(bytes: &[u8]) -> Result<Container, ContainerError> {
 /// Parses an EMDF container that starts with its sync word and byte length (the form
 /// found in an E-AC-3 skip field). Returns the container and the number of bytes the
 /// wrapper declared.
+///
+/// The declared length must be the bytes the container's syntax takes, which is what
+/// every stream measured writes (23 389 containers in 26 files). A walk steps over a
+/// container by that length, so a length that disagrees would make it skip the next
+/// container or search inside this one; such a container is refused, not opened as
+/// if the length were right.
 pub fn parse_emdf_with_sync(bytes: &[u8]) -> Result<(Container, usize), ContainerError> {
     let mut reader = BitReader::new(bytes);
     if reader.read(16)? != u32::from(EMDF_SYNCWORD) {
@@ -274,6 +280,11 @@ pub fn parse_emdf_with_sync(bytes: &[u8]) -> Result<(Container, usize), Containe
         ));
     }
     let container = parse(&mut reader, Flavor::Emdf)?;
+    if container.len_bits.div_ceil(8) != length {
+        return Err(ContainerError::Malformed(
+            "EMDF container length disagrees with its syntax",
+        ));
+    }
     Ok((container, length))
 }
 
@@ -532,6 +543,59 @@ mod tests {
         assert!(c.payloads[0].config.sample_offset_reserved_set);
         assert!(c.payloads[0].config.discard_unknown_payload);
         assert_eq!(c.payloads[0].data, vec![0xEE]);
+    }
+
+    /// `emdf_container_length` is the length of the container, and on every
+    /// stream measured it is exactly the bytes the syntax takes: 23 389
+    /// containers in 26 files. The length was refused only when it ran past
+    /// the data, so a wrong one opened as if it were right, and a walk that
+    /// steps over a container by its declared length could skip the next one
+    /// or search inside this one.
+    #[test]
+    fn a_declared_length_that_disagrees_with_the_syntax_is_refused() {
+        let body = {
+            let mut b = BitWriter::default();
+            b.push(2, 0);
+            b.push(3, 0);
+            b.push(5, 11);
+            b.push(1, 1);
+            b.push(11, 1023);
+            b.push(1, 1);
+            b.push(1, 0);
+            b.push(1, 0);
+            b.push(1, 0);
+            b.push(1, 1);
+            b.push(8, 1);
+            b.push(1, 0);
+            b.push(8, 0xEE);
+            b.push(5, 0);
+            b.push(4, 0);
+            while b.len % 8 != 0 {
+                b.push(1, 0);
+            }
+            b.bytes
+        };
+        let wrap = |declared: usize, extra: usize| {
+            let mut w = BitWriter::default();
+            w.push(16, u64::from(EMDF_SYNCWORD));
+            w.push(16, declared as u64);
+            w.push_bytes(&body);
+            w.push_bytes(&vec![0u8; extra]);
+            w.bytes
+        };
+        let (_, len) =
+            parse_emdf_with_sync(&wrap(body.len(), 0)).expect("the declared length is right");
+        assert_eq!(len, body.len());
+        for (declared, extra) in [(body.len() - 1, 0), (body.len() + 1, 1)] {
+            assert!(
+                matches!(
+                    parse_emdf_with_sync(&wrap(declared, extra)),
+                    Err(ContainerError::Malformed(_))
+                ),
+                "{declared} bytes declared for a container of {}",
+                body.len()
+            );
+        }
     }
 
     #[test]
