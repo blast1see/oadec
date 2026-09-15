@@ -19,7 +19,7 @@ through a review loop by a second model (§5).
 |---|---|
 | Are the recorded defects fixed? | Yes. Every gate the audits left behind passes with the media: the 22 media tests (27 at the head of the branch), the three TrueHD bit-exactness gates, the six-title JOC object gate, all four corruption campaigns (0 silent, 0 panics), and the ADM remediation stages (harness 27/27, Dolby and renderer stages, 50 of 51 decodes byte-identical and the one expected difference verified). |
 | Does every function work? | Yes, after five fixes. 212 smoke cases over the 12 subcommands: five real defects (empty or random input exiting 0 from `info`, `oamd` and `decode`), everything else as designed once the smoke expectations were corrected. At the head of the branch the only unexpected cases are the designed ones (§3). |
-| What else was wrong? | Twenty-one defects, all fixed: six from a second model's adversarial review of the released code, eight the audits had left open, two from the command matrix, two found while fixing the others, two in the project's own measuring tools, and one from the review loop over the finished branch. Every decoder fix comes with a test that fails on the old code (§5, §6, §7). |
+| What else was wrong? | Twenty-two defects, all fixed: six from a second model's adversarial review of the released code, eight the audits had left open, two from the command matrix, three found while fixing the others, two in the project's own measuring tools, and one from the review loop over the finished branch. Every decoder fix comes with a test that fails on the old code (§5, §6, §7). |
 | Is it close to Dolby? | TrueHD: exact. On sixteen titles nothing was fitted on, presentation 3 is byte-identical to `truehdd` on all sixteen and bit-exact with Dolby on every title Dolby opens at a dialogue norm of −31 dB; on the others Dolby applies its dialnorm gain and triangular dither, and nothing else differs. E-AC-3 JOC: worst object of a title 29.6–50.5 dB, median 39.6–65.4 dB over twelve titles, lag zero, correlation structure within 0.0021. The remainder is the E-AC-3 dither on some titles and the lowest 375 Hz subband on others, where reordering the correction and the matrix only makes it worse. |
 
 ## 2. What was re-run
@@ -316,6 +316,7 @@ commits on the branch.
 | T1 | re-run | The ADM regression stage crashed on a fresh work directory and could not pass after 0.3.0 | the stage itself | `27b65ac` |
 | T2 | re-run | The two gate scripts exited 0 whatever the verdict | their exit codes, with media and without | `f801d72` |
 | G1 | review loop, round 1 | `oamd` reported a walk it could not fully read as clean: containers that did not open, sync errors, unparsed frames and units, failed extra-data checks. Of the 30 clips in the work directory one changes its exit code, the two TrueHD streams spliced end to end, 0 to 7 on the resynchronisation at the splice, where `verify` exits 7 too | `oamd_and_emdf_judge_the_same_unread_metadata`, and the `oamd` check in `a_corrupted_evolution_block_fails_every_delivery_like_verify` | `d385cfd` |
+| W3 | while writing the test for G1 | An EMDF container whose declared length disagreed with its syntax opened as if it were right, since the length was checked only against the data after it. A frame whose skip fields held no container that opens left `verify` at exit 0 although it named that frame as the first problem, and the object and PCM decodes held the previous matrices without a word. Every stream measured declares the length exactly, 0 of 23 389 containers in 26 files otherwise, and no clip of the work directory changes its exit code; `13-emdf-container-length.json` | `a_declared_length_that_disagrees_with_the_syntax_is_refused`, `a_frame_whose_container_does_not_open_is_counted`, `a_container_whose_declared_length_disagrees_with_its_syntax_does_not_open` | `adb0b76` |
 
 ## 7. The measuring tools
 
@@ -370,9 +371,6 @@ BS.2088. The audit's D14 closes on this.
   work directory.
 - **A third ADM reader, DaVinci Resolve's Fairlight import,** was prepared for a manual
   check and is not part of any verdict here.
-- **The declared length of an EMDF container** is checked only against the data that
-  follows it. A container that declares fewer bytes than its syntax takes still opens, and
-  nothing reports the mismatch; found while writing the test for G1.
 
 ## 10. Reproducing
 
