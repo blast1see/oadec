@@ -1,10 +1,10 @@
 {
  "what": "The project's re-run gates: TrueHD bit-exactness and JOC objects against Dolby",
- "utc": "2026-09-15T13:06:33Z",
+ "utc": "2026-09-15T05:55:26Z",
  "commit": "1486e4eb0f26876c2c23c44980b8fe459bf417df",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
- "branch_commit": "6e562fc8716c281e208948b91f9a1237f854f1b0",
- "branch_binary_sha256": "6f26929c87171d5b36e74c3f3cced68cd4b8e65b3755b664b314b66d9c6be702",
+ "branch_commit": "52729db478d103bc5f6043f01a300a856493e5fc",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
  "why": "The gates are what a change to the decoder has to survive.",
  "method": "tools/regression_gates.sh and tools/joc_object_gate.py on oadec-work; then their exit codes on the same media (must be 0) and on an empty work directory (must be 3)",
  "reading": "three TrueHD gates PASS (FFmpeg p2, truehdd p3, Dolby p3); six JOC titles measured, 0 regressed, worst object 35.25 dB, lag 0; exit codes 0 with media and 3 without, after the gates learned to say so At the branch head: the three TrueHD gates PASS; the JOC object gate measures the same six titles to the same values, 0 regressed, worst object 35.25 dB",
