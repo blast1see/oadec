@@ -118,6 +118,9 @@ pub struct Options {
     /// `--ecpl-spec` entirely, which made three measurement flags read as
     /// applied while the object path decoded with the defaults.
     pub core: oadec_eac3::Options,
+    /// E-AC-3 JOC: the hidden measurement overrides (`--joc-lag`,
+    /// `--joc-low-band`, `--joc-phase`), none by default.
+    pub joc: crate::eac3_objects::JocOverrides,
     pub keep_duplicates: bool,
     pub bed_conform: bool,
     pub all_events: bool,
@@ -146,7 +149,15 @@ fn isf_hint(count: usize, isf_type: &str) -> String {
 
 /// Prints the loss ledger of an output, one line per class, and writes it as
 /// JSON when a path was given. Quiet when nothing was lost.
-pub(crate) fn report_losses(target: &str, losses: &LossLedger, path: Option<&Path>) -> Result<()> {
+/// `overrides` are the measurement overrides the run was given (see
+/// `eac3_objects::JocOverrides`); the report always carries the list, empty
+/// when there were none.
+pub(crate) fn report_losses(
+    target: &str,
+    losses: &LossLedger,
+    path: Option<&Path>,
+    overrides: &[serde_json::Value],
+) -> Result<()> {
     for line in losses.lines(target) {
         eprintln!("{line}");
     }
@@ -176,6 +187,7 @@ pub(crate) fn report_losses(target: &str, losses: &LossLedger, path: Option<&Pat
             "declared_loss": losses.declared_loss(),
             "losses": kinds,
             "ramp_sources": ramps,
+            "overrides": overrides,
         });
         let mut text = serde_json::to_string_pretty(&doc)?;
         text.push('\n');
@@ -571,6 +583,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         if opts.adm { "adm" } else { "damf" },
         &losses,
         opts.loss_report.as_deref(),
+        &[],
     )?;
     let mut f = crate::decode::truehd_findings(&pass, session.stats());
     f.note(payload_errors, "metadata payload errors");
