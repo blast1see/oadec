@@ -124,6 +124,22 @@ pub fn stream_check(path: &Path) -> Result<StreamCheck> {
     })
 }
 
+/// Starts [`stream_check`] on a thread of its own, for a command that reads the
+/// same stream in a pass of its own meanwhile.
+pub fn spawn_stream_check(path: &Path) -> std::thread::JoinHandle<Result<StreamCheck>> {
+    let path = path.to_path_buf();
+    std::thread::spawn(move || stream_check(&path))
+}
+
+/// The verdict of a check started with [`spawn_stream_check`].
+pub fn join_stream_check(
+    check: std::thread::JoinHandle<Result<StreamCheck>>,
+) -> Result<StreamCheck> {
+    check
+        .join()
+        .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+}
+
 /// Runs the command; returns `true` when the stream is clean. With `decode`,
 /// every presentation the stream carries is decoded as well and its lossless
 /// checks join the verdict.

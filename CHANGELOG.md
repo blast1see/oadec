@@ -82,6 +82,17 @@ Semantic Versioning.
   `emdf` goes from 91 s to 123 s and `oamd` from 94 s to 123 s, where `verify`
   alone takes 118 s; on a 2.6 GB TrueHD film `oamd` goes from 1.5 s to 27 s,
   where `verify` takes 28 s.
+- **Every TrueHD delivery takes the verdict of `verify` as well.** A decode
+  reads only what its presentation needs, so one bit changed in a substream
+  the presentation leaves out, or object metadata that will not parse, left
+  the PCM and WAVE decodes at exit 0 and `compare` calling the stream
+  bit-exact and clean, while `verify` exited 7. The decodes, the object
+  outputs and `compare` now run the checks of `verify` on a thread beside the
+  decode and count its verdict with their own. Of the 24 TrueHD inputs of the
+  work directory only the clip whose object metadata will not parse changes,
+  its PCM decodes from 0 to 7; a PCM decode of presentation 2 from a 2.6 GB
+  TrueHD film took 68 s before and 62 s after, the 28 s scan of `verify`
+  running beside it on another core.
 - **`info`, `oamd`, `emdf` and `decode` exit 2 on a file that holds no stream.**
   An empty or random file used to produce a report of nothing, or "nothing
   decoded", with exit 0. They now stop with a message naming the file, and
