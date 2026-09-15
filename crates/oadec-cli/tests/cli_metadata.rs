@@ -108,27 +108,28 @@ fn oamd_calls_the_units_of_an_eac3_stream_frames() {
     assert!(text.contains("access unit 0: OAMD v0 12 objects"), "{text}");
 }
 
-/// `oamd` walks an E-AC-3 stream the way `emdf` does, by E-AC-3 frame headers.
-/// An AC-3 syncframe has its CRC where E-AC-3 has the frame size, so an AC-3
-/// stream walked that way is misread frame by frame and comes out as a clean
-/// report of no metadata. The file sniffs as the AC-3 family all the same, so
-/// `oamd` tells the two apart by `bsid` and refuses AC-3 with exit 2, as it
-/// refused the whole family before it read E-AC-3. The file is one AC-3
-/// syncframe header (bsid 8, 448 kbit/s at 48 kHz, 3/2 with LFE) followed by
-/// zeros to the frame size.
+/// `oamd` walks an AC-3-family stream the way `emdf` does, and that walk frames
+/// AC-3 by its own header now, so an AC-3 stream is read rather than refused:
+/// three syncframes are three frames, none of them carrying a payload. The
+/// refusal this replaces was there because the walk read every frame header as
+/// E-AC-3, took an AC-3 frame's CRC for its size, and would have reported what
+/// it misread as a clean absence of metadata. The file is three AC-3
+/// syncframes (bsid 8, 448 kbit/s at 48 kHz, 3/2 with LFE), each a header with
+/// the CRC 0xFFFF followed by zeros; read as E-AC-3 that CRC is a frame of
+/// 4096 bytes.
 #[test]
-fn oamd_refuses_an_ac3_stream_rather_than_misreading_its_frames() {
-    let path = temp("ac3").join("header.ac3");
+fn oamd_reads_an_ac3_stream_frame_by_frame() {
+    let path = temp("ac3").join("three-frames.ac3");
     let mut frame = vec![0u8; 1792];
-    frame[..7].copy_from_slice(&[0x0B, 0x77, 0x00, 0x00, 0x1C, 0x40, 0xE1]);
-    std::fs::write(&path, &frame).unwrap();
-    let out = oadec(&["oamd", path.to_str().unwrap()]);
-    assert_eq!(out.status.code(), Some(2), "{}", stdout(&out));
-    assert!(
-        stderr(&out).contains("is AC-3 (bsid 8)"),
-        "the refusal names the syntax: {}",
-        stderr(&out)
-    );
+    frame[..7].copy_from_slice(&[0x0B, 0x77, 0xFF, 0xFF, 0x1E, 0x40, 0xE1]);
+    std::fs::write(&path, frame.repeat(3)).unwrap();
+    let out = oadec(&["oamd", "--json", path.to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    let v = json(&out);
+    assert_eq!(v["units"], 3, "{v}");
+    assert_eq!(v["units_with_oamd"], 0, "{v}");
+    assert_eq!(v["payloads"], 0, "{v}");
+    assert_eq!(v["clean"], true, "{v}");
 }
 
 /// `emdf --dump` printed a frame's object count and then only the first four

@@ -2,20 +2,19 @@
 //! containers in their skip fields and report the Object Audio Metadata timing
 //! they carry.
 //!
-//! The frames are walked by their sync words and sizes and each one is parsed
+//! The frames are found the way `info` and `verify` find them, by their sync
+//! words and their own headers, AC-3 and E-AC-3 alike, and each one is parsed
 //! far enough to reach its skip fields, which is where the containers are; no
 //! audio comes out. It settles where the encoder places metadata relative to
 //! the 1536-sample frames. The walk ([`for_each_container`]) is shared with
 //! `oadec oamd`, which reads the same containers for what the objects carry.
 
 use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::Read;
 use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
-use oadec_bits::BitReader;
+use oadec_eac3::StreamType;
 use oadec_eac3::frame::{Frame, Noise, Options as FrameOptions};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::Oamd;
@@ -60,37 +59,6 @@ pub struct EmdfSummary {
     /// changes at least one value, in order (first 64 only in text mode).
     #[serde(skip)]
     pub event_times: Vec<u64>,
-}
-
-/// E-AC-3 frame header fields the scan needs.
-struct FrameHead {
-    strmtyp: u8,
-    substreamid: u8,
-    frmsiz: usize,
-    numblks: u8,
-}
-
-fn parse_head(bytes: &[u8]) -> Option<FrameHead> {
-    if bytes.len() < 6 || bytes[0] != 0x0B || bytes[1] != 0x77 {
-        return None;
-    }
-    let mut r = BitReader::new(&bytes[2..]);
-    let strmtyp = r.read(2).ok()? as u8;
-    let substreamid = r.read(3).ok()? as u8;
-    let frmsiz = r.read(11).ok()? as usize;
-    let fscod = r.read(2).ok()? as u8;
-    let numblkscod = r.read(2).ok()? as u8;
-    let numblks = if fscod == 3 {
-        6
-    } else {
-        [1, 2, 3, 6][usize::from(numblkscod)]
-    };
-    Some(FrameHead {
-        strmtyp,
-        substreamid,
-        frmsiz,
-        numblks,
-    })
 }
 
 /// A container as the walk found it in a skip field: opened, or the error
@@ -176,55 +144,46 @@ pub(crate) struct Walk {
     pub frames_with_emdf: u64,
 }
 
-/// Walks the syncframes of the E-AC-3 stream at `path` and hands
+/// Walks the syncframes of the AC-3 or E-AC-3 stream at `path` and hands
 /// `on_container` every EMDF container of their skip fields, opened or not,
 /// in stream order.
 ///
 /// `emdf` reads the containers for when their metadata applies and `oamd` for
 /// what the objects carry. Both walk the stream here, so the two commands
 /// count the same frames and see the same payloads.
+///
+/// The syncframes are the ones `info` and `verify` decode, framed by
+/// [`crate::eac3::for_each_frame`] with the decoder's own header, so the frame
+/// count and the sync errors are theirs as well. The walk used to read the
+/// headers with a parser of its own that knew only E-AC-3, and an AC-3
+/// syncframe has its CRC where E-AC-3 has the frame size: on a 5.1 AC-3 clip
+/// in which `info` decodes 1171 frames and finds no sync error, it counted 902
+/// frames and 902 sync errors.
 pub(crate) fn for_each_container(
     path: &Path,
     mut on_container: impl FnMut(&Site, ContainerResult),
 ) -> Result<Walk> {
-    let mut data = Vec::new();
-    File::open(path)
+    let bytes = std::fs::metadata(path)
         .with_context(|| format!("opening {}", path.display()))?
-        .read_to_end(&mut data)?;
+        .len();
     let mut walk = Walk {
-        bytes: data.len() as u64,
+        bytes,
         ..Walk::default()
     };
-    let mut pos = 0usize;
     let mut noise = Noise::default();
     let mut sample_pos: u64 = 0; // first sample of the current independent frame
     let mut last_frame_len: u64 = 0;
-    while pos + 6 <= data.len() {
-        let Some(head) = parse_head(&data[pos..]) else {
-            walk.sync_errors += 1;
-            // resync on the next 0B 77
-            match data[pos + 1..].windows(2).position(|w| w == [0x0B, 0x77]) {
-                Some(k) => {
-                    pos += 1 + k;
-                    continue;
-                }
-                None => break,
-            }
-        };
-        let len = (head.frmsiz + 1) * 2;
-        if pos + len > data.len() {
-            break;
-        }
-        let frame = &data[pos..pos + len];
+    let (_, sync_errors, _) = crate::eac3::for_each_frame(path, |_, frame, header| {
         walk.frames += 1;
-        if head.strmtyp == 1 {
+        let dependent = header.stream_type == StreamType::Dependent;
+        if dependent {
             walk.dependent_frames += 1;
         } else {
             walk.independent_frames += 1;
             if walk.frames > 1 {
                 sample_pos += last_frame_len;
             }
-            last_frame_len = u64::from(head.numblks) * BLOCK_SAMPLES;
+            last_frame_len = u64::from(header.blocks) * BLOCK_SAMPLES;
         }
         let containers = find_emdf(frame, &mut noise, &mut walk.unparsed_frames);
         if !containers.is_empty() {
@@ -234,14 +193,16 @@ pub(crate) fn for_each_container(
             let site = Site {
                 frame_index: walk.frames - 1,
                 sample_pos,
-                substream_id: head.substreamid,
-                dependent: head.strmtyp == 1,
+                substream_id: header.substream_id,
+                dependent,
                 offset,
             };
             on_container(&site, c);
         }
-        pos += len;
-    }
+        Ok(())
+    })
+    .with_context(|| format!("reading {}", path.display()))?;
+    walk.sync_errors = sync_errors;
     Ok(walk)
 }
 
@@ -437,4 +398,62 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         );
     }
     Ok(clean)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// One AC-3 syncframe of 1792 bytes (bsid 8, 448 kbit/s at 48 kHz, 3/2 with
+    /// LFE): the header, then zeros. Its CRC is 0xFFFF, which read as an
+    /// E-AC-3 frame size makes a frame of 4096 bytes.
+    fn ac3_frame() -> Vec<u8> {
+        let mut frame = vec![0u8; 1792];
+        frame[..7].copy_from_slice(&[0x0B, 0x77, 0xFF, 0xFF, 0x1E, 0x40, 0xE1]);
+        frame
+    }
+
+    /// Walks `bytes` as a file, and frames the same file the way `info` and
+    /// `verify` do: (frames, sync errors, skipped bytes).
+    fn walk_and_verify(tag: &str, bytes: &[u8]) -> (Walk, (u64, u64, u64)) {
+        let path =
+            std::env::temp_dir().join(format!("oadec-emdf-walk-{tag}-{}.ac3", std::process::id()));
+        std::fs::write(&path, bytes).unwrap();
+        let walk = for_each_container(&path, |_, _| {}).unwrap();
+        let verifier = crate::eac3::for_each_frame(&path, |_, _, _| Ok(())).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        (walk, verifier)
+    }
+
+    /// The walk frames AC-3 by the decoder's own header. It read every frame as
+    /// E-AC-3 and took the CRC for the frame size, which made three frames one
+    /// frame of 4096 bytes and a sync error.
+    #[test]
+    fn the_walk_frames_ac3_by_its_own_header() {
+        let (walk, (frames, sync_errors, _)) = walk_and_verify("clean", &ac3_frame().repeat(3));
+        assert_eq!(
+            (walk.frames, walk.independent_frames, walk.sync_errors),
+            (3, 3, 0)
+        );
+        assert_eq!((walk.frames, walk.sync_errors), (frames, sync_errors));
+    }
+
+    /// Where a stream is damaged, the walk resynchronises where the verifier
+    /// does and counts the frames and sync errors it counts, so `emdf` reports
+    /// no fault `verify` does not find.
+    #[test]
+    fn the_walk_resynchronises_where_the_verifier_does() {
+        let frame = ac3_frame();
+        let stream = [
+            &frame[..],
+            &frame[..],
+            &[1, 2, 3][..],
+            &frame[..],
+            &frame[..1000],
+        ]
+        .concat();
+        let (walk, (frames, sync_errors, _)) = walk_and_verify("damaged", &stream);
+        assert!(walk.sync_errors > 0, "the damage is noticed");
+        assert_eq!((walk.frames, walk.sync_errors), (frames, sync_errors));
+    }
 }
