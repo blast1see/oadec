@@ -35,8 +35,113 @@ Semantic Versioning.
   exited 0, so a chain that checked their status called a failed gate green.
   They now exit 1 when a gate failed or a title regressed and 3 when one could
   not run.
+- **`oadec oamd` reads E-AC-3 streams.** It walks the EMDF containers in the
+  frames' skip fields as `oadec emdf` does and reports every Object Audio
+  Metadata payload in the same JSON shape as TrueHD, one syncframe per unit; it
+  used to refuse every AC-3-family file with exit 2.
+- **`oadec emdf --dump` prints every object.** The dump showed only the first
+  four objects of each payload (objects 0 to 3 of 16 on the JOC fixture).
+- **`emdf` and `oamd` frame AC-3 streams with the decoder's own header.** The
+  walk read every syncframe header as E-AC-3, and an AC-3 syncframe has its CRC
+  where E-AC-3 has the frame size: on a 5.1 AC-3 clip it counted 902 frames and
+  902 sync errors where `info` decodes 1171, and exited 7. It now frames as
+  `info` and `verify` do, and an AC-3 stream reports no containers.
+- **`info`, `oamd`, `emdf` and `decode` exit 2 on a file that holds no stream.**
+  An empty or random file used to produce a report of nothing, or "nothing
+  decoded", with exit 0. They now stop with a message naming the file, and
+  `decode` removes the empty output it had created. The same holds on the
+  E-AC-3 path, which a file takes when it opens with a sync word: on one with
+  no whole syncframe `info` printed "no decodable frames" and exited 0, and
+  `decode --format wav` or `pcm` exited 7 and left an empty file behind.
+- **Every TrueHD delivery counts the extra-data faults `verify` counts.** A
+  corrupted Evolution block (its header parity, padding, parity byte, length, or
+  a container that will not open) left `verify` at 7 and every TrueHD `decode`,
+  WAVE, PCM, DAMF and ADM alike, at 0; the object path skipped an unopenable
+  container in silence.
+- **The TrueHD WAVE mask names the channels written, or is zero.** It set
+  `SPEAKER_ALL` for wide left, dropped wide right, the surround-direct pair,
+  LFE2 and the top side pair, wrote LFE alone for the twelve objects of
+  presentation 3, and under `--order stream` called the side pair of a 7.1
+  decode the back pair. A mask is now written only when every channel has a
+  WAVE speaker bit and the channels come in bit order, with one warning
+  otherwise, as the E-AC-3 writer already did.
+- **The 24-bit writer saturates as the object writers do.** `decode` kept the
+  low three bytes of a sample, so a sample of 1 << 24 was written as zero; it
+  now clamps, prints how many samples it clamped and counts them in the verdict.
+  No stream measured reaches the case.
+- **A mid-stream configuration change ends the output in a playable file and
+  exits 7.** A major sync that changed the sampling frequency, the samples per
+  access unit or the substream layout made `decode` exit 2 and leave a WAVE
+  header declaring no data, while `verify` exited 7 on the same file; the ADM
+  and DAMF outputs kept sizes of zero. The decode now stops at that access unit,
+  finishes its files, says where it stopped and how many samples it wrote, and
+  exits 7. A change before any output is still exit 2.
+- **A WAVE output grows into RF64 beyond 4 GiB.** The 4 GiB check ran after the
+  bytes past the limit were written, so a 16-channel presentation longer than
+  about 31 minutes could not be written as WAV at all. WAVE outputs now reserve
+  the `JUNK` chunk the ADM writer reserves and are promoted to RF64 by the same
+  function; a WAV file under 4 GiB gains those 36 bytes, and ADM bytes do not
+  change.
+- **A frame that ends inside its own tail no longer fails an E-AC-3 delivery.**
+  `docs/exit-codes.md` counts such a frame without changing the verdict of a
+  decode, and both E-AC-3 delivery paths noted it anyway, so `decode` and
+  `compare` exited 7 on the frame of *The 400 Blows* the policy was written
+  about. The counts are still printed, `verify` still calls the file
+  non-conformant, and a tail overrun is no longer named as the first problem
+  in front of a real fault further on.
+- **The object path checks the declared size of every JOC payload.** `verify`
+  and the PCM path counted a payload whose syntax does not fill its declared
+  size as a fault; `decode --format damf` and `adm` took it straight into the
+  reconstruction and exited 0. The object path now counts it in the words
+  `verify` uses and exits 7, still using the matrices that parsed.
+- **A reserved `joc_ext_config_idx` is named, and the object decode can start
+  on one.** `verify` counted it among the JOC parse errors and the object path
+  among the metadata payload errors, holding the previous matrices without
+  saying why; when the first frame carried one, `decode --format damf` refused
+  the stream with exit 2. Both count it apart now (`joc.reserved_ext_config`
+  in `verify --json`) and name the frame and the value, and the object decode
+  starts from the zero history of clause 6.6.5 and exits 7.
+- **The JOC object decode no longer reads the environment.** `OADEC_JOC_LAG`,
+  `OADEC_JOC_LOW` and `OADEC_JOC_PHASE` changed the reconstruction and
+  appeared in no output, so a decode repeated from its command line could come
+  out different; `OADEC_DETAIL` did the same for `eac3-blocks`. They are hidden
+  flags now: `--joc-lag`, `--joc-low-band`, `--joc-phase`, and `--detail` on
+  `eac3-blocks`. A run that uses one says so on stderr and in the `overrides`
+  list of the loss report, and a decode with no JOC reconstruction to apply it
+  to refuses it with exit 2.
+- **A substream frame repeated inside one frame group no longer stalls an
+  E-AC-3 decode.** The programme decoder fed the repeat to the decoder of that
+  substream and queued it a second time, so every later group waited for a
+  frame that never matched and its audio piled up in memory: a DD+ 7.1 stream
+  with every dependent frame repeated decoded to one group of 375 and exited
+  0. The repeat is refused before the decoder sees it and counted, the stream
+  exits 7, and the rest of the programme is bit-identical to the well-formed
+  stream.
+- **A dependent substream that disappears holds back only a few groups.** Its
+  last frame never came out of its decoder, so every later group queued behind
+  it until the end of the stream. When `MAX_PENDING_GROUPS` groups are waiting
+  the substreams holding back the oldest one are flushed, and a member whose
+  frame still does not come is left out of that group. Both are counted
+  (`stalled_substreams`, `missing_substream_frames`), `verify --json` records
+  the widest the window got, and such a stream exits 7.
 
 ### Added
+
+- **`verify --decode` evaluates the lossless check words.** The integrity pass
+  makes no samples, so the check word a restart header carries was only ever
+  evaluated by a decode, for one presentation. With the flag, `verify` decodes
+  every presentation the stream carries and reports the words evaluated, failed
+  and skipped, and a failed word or a decode that stops early makes the stream
+  non-conformant. Without the flag the statistic is null rather than zero.
+
+- **`verify` holds E-AC-3 object streams to Table 56 and clause 8.3.** The EMDF
+  payload configuration of every OAMD and JOC payload is checked against
+  TS 103 420 Table 56, and `complexity_index_type_a` against the object total
+  of the Object Audio Metadata, as `payload_config_violations` and
+  `complexity_mismatches`. Both make `verify` exit 7 and neither changes the
+  verdict of a decode, since neither touches the audio or the metadata.
+  `codecdatae` is not pinned: the table prints 1 where the clause it cites
+  requires 0, and every payload measured, over 2.1 million frames, carries 0.
 
 - **A verification round on material nothing was fitted on.**
   `docs/audit/2026-09-14-verification-report.md` and
