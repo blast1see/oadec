@@ -1,10 +1,10 @@
 {
  "what": "The CI checks and the media conformance suite, run locally",
- "utc": "2026-09-15T13:06:33Z",
+ "utc": "2026-09-15T07:46:36Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
- "branch_commit": "26d581c24bfd9b4b0fe6bd72b216ed09aa2217d3",
- "branch_binary_sha256": "6f26929c87171d5b36e74c3f3cced68cd4b8e65b3755b664b314b66d9c6be702",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
  "why": "CI never runs the media tests; every dB claim rests on them.",
  "method": "cargo fmt/clippy/test (debug and release)/build/doc, and at the branch head cargo deny and cargo audit; the media suite with OADEC_MEDIA unset (must fail) and set",
  "reading": "all CI steps exit 0; the suite refuses to pass without media (exit 101) and passes 22 of 22 with it At the branch head: fmt, clippy, the workspace tests (261 passed, debug and release), the release build, doc, cargo deny and cargo audit exit 0; the media suite exits 101 without media and passes 27 of 27 with it in 1264 s, the five new media tests included. At 1a7e10c, after the changes of the review loop, the whole media suite passed 27 of 27 again (1235 s)",

@@ -1,10 +1,10 @@
 {
  "what": "RF64 or BW64: what the readers accept for an ADM file beyond 4 GiB",
- "utc": "2026-09-15T13:06:33Z",
+ "utc": "2026-09-15T05:55:26Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
- "branch_commit": "26d581c24bfd9b4b0fe6bd72b216ed09aa2217d3",
- "branch_binary_sha256": "6f26929c87171d5b36e74c3f3cced68cd4b8e65b3755b664b314b66d9c6be702",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
  "why": "ITU-R BS.2088-2 clauses 2.4-2.5 name the long form BW64; oadec writes RF64 (EBU Tech 3306 v1).",
  "method": "bw64_test.py on the 15 278 169 042-byte ADM of the whole of Pi (--dolby-origin-tag): every reader asked with the file as written and with only its first four bytes changed to BW64, then restored",
  "reading": "RF64: ffprobe, bwf_info, atmos_info 1.1 and 5.7.2, the EBU renderer's reader and the Conversion Tool all accept it. BW64: ffprobe and the EBU reader accept it; bwf_info spins (killed after 566 s with 486 s of CPU), atmos_info 1.1 and 5.7.2 refuse it ('missing RIFF/RF64 chunk') and the Conversion Tool refuses it ('must have a RIFF or RF64 chunk'). oadec keeps RF64, as a measured deviation from BS.2088",

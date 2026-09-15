@@ -1,10 +1,10 @@
 {
  "what": "Whether emdf and oamd decide as verify does, and what that costs",
- "utc": "2026-09-15T13:06:33Z",
+ "utc": "2026-09-15T13:08:31Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
- "branch_commit": "26d581c24bfd9b4b0fe6bd72b216ed09aa2217d3",
- "branch_binary_sha256": "6f26929c87171d5b36e74c3f3cced68cd4b8e65b3755b664b314b66d9c6be702",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
  "why": "docs/exit-codes.md has every command that delivers metadata decide with the faults verify counts. emdf and oamd re-derived the verdict from their own walk, and each of the first three rounds of the review loop found one more fault the walk missed.",
  "method": "Copies of the committed fixtures with one fault each that only verify judged, run through verify, emdf and oamd with the binary before the change (26d581c) as a throwaway probe, and with the CLI tests after it; the exit codes of verify, emdf and oamd on 55 inputs (the 30 clips, 16 fresh TrueHD titles, 6 fresh E-AC-3 titles and 3 AC-3 clips trimmed to whole frames) with the binary before and after; emdf and oamd timed once each on an 838 MB E-AC-3 film and a 2.6 GB TrueHD film, with the pass of verify after the walk (a first version) and beside it (the version committed), the file in the cache",
  "reading": "On every fault copy verify exited 7 and emdf and oamd 0 before the change; after it all three exit 7 (the CLI tests). On the 55 inputs no exit code changes and both commands exit as verify does on every one. Both now take about as long as verify: on the E-AC-3 film emdf 91 s to 123 s and oamd 94 s to 123 s, verify alone 118 s; on the TrueHD film oamd 1.5 s to 27 s, verify 28 s. With the pass of verify run after the walk instead of beside it, emdf took 209 s on the E-AC-3 film",

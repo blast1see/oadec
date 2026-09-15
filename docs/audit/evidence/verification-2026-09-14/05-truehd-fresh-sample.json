@@ -1,10 +1,10 @@
 {
  "what": "Sixteen TrueHD Atmos titles no earlier measurement named, against Dolby, truehdd and FFmpeg",
- "utc": "2026-09-15T13:06:33Z",
+ "utc": "2026-09-15T05:55:26Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
- "branch_commit": "26d581c24bfd9b4b0fe6bd72b216ed09aa2217d3",
- "branch_binary_sha256": "6f26929c87171d5b36e74c3f3cced68cd4b8e65b3755b664b314b66d9c6be702",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
  "why": "The bit-exact claim rested on two films.",
  "method": "90 s head cut (ffmpeg -c copy); presentation 3 against dlbtruehddec presentation=16 out-ch-config=21 (MP4 wrapper), truehdd decode --presentation 3 (CAF payload), and presentation 2 against FFmpeg via oadec compare",
  "reading": "truehdd: 16/16 byte-identical; FFmpeg presentation 2: 16/16 bit-exact; Dolby: opens 15, bit-exact on the 10 at dialogue norm -31, and on the 5 at -27/-28 differs only by the dialnorm gain plus dither (06)",

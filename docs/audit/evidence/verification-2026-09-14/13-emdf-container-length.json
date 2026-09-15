@@ -1,10 +1,10 @@
 {
  "what": "EMDF container length: what streams declare, and what a container that does not open does to each command",
- "utc": "2026-09-15T13:06:33Z",
+ "utc": "2026-09-15T07:13:47Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
- "branch_commit": "26d581c24bfd9b4b0fe6bd72b216ed09aa2217d3",
- "branch_binary_sha256": "6f26929c87171d5b36e74c3f3cced68cd4b8e65b3755b664b314b66d9c6be702",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
  "why": "The parser held emdf_container_length only to the data after it, and verify named a frame whose container did not open as the first problem yet exited 0.",
  "method": "A throwaway build printed every container whose emdf_container_length is not the bytes its syntax takes (ceil(len_bits / 8)), run with emdf over every E-AC-3 clip of the work directory, the six fresh JOC titles and the fixture. After the fix, verify and the object and PCM decodes ran with the binary before it and after it on the 25 E-AC-3 clips",
  "reading": "0 of 23 389 containers in 26 files declare a length other than the bytes their syntax takes. The length is held to the syntax, and in a substream that carries EMDF a frame whose skip fields hold data and no container that opens, erased or broken, fails verify, emdf, oamd and both decodes with exit 7. Skip fields that carry no EMDF at all are not a fault: two AC-3 clips fill them in some 1 100 frames, and the AC-3 core of a configuration 4 stream in 1 748 of its 1 875 frames. On every AC-3 and E-AC-3 clip, and on the AC-3 clips trimmed to whole frames, the fix changes no exit code of those five commands against 3418cdf",
