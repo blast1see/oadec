@@ -75,7 +75,13 @@ pub(crate) type ContainerResult =
 /// half of them and invented twenty false errors. The frame is parsed instead,
 /// and the sync word is looked for in the skip fields, where it is
 /// byte-aligned by construction.
-fn find_emdf(frame: &[u8], noise: &mut Noise, unparsed: &mut u64) -> Vec<(usize, ContainerResult)> {
+/// Returns the containers of the frame and whether its skip fields held any data
+/// at all.
+fn find_emdf(
+    frame: &[u8],
+    noise: &mut Noise,
+    unparsed: &mut u64,
+) -> (Vec<(usize, ContainerResult)>, bool) {
     let mut out = Vec::new();
     let opts = FrameOptions {
         dither: false,
@@ -83,11 +89,11 @@ fn find_emdf(frame: &[u8], noise: &mut Noise, unparsed: &mut u64) -> Vec<(usize,
     };
     let Ok(parsed) = Frame::parse(frame, noise, opts) else {
         *unparsed += 1;
-        return out;
+        return (out, false);
     };
     let total: usize = parsed.skip_fields.iter().map(Vec::len).sum();
     if total == 0 {
-        return out;
+        return (out, false);
     }
     let mut data = Vec::with_capacity(total);
     for s in &parsed.skip_fields {
@@ -113,7 +119,15 @@ fn find_emdf(frame: &[u8], noise: &mut Noise, unparsed: &mut u64) -> Vec<(usize,
         }
         i += 1;
     }
-    out
+    // A frame carries one container (TS 103 420 clause 8.2): a candidate that
+    // failed before one that opened was a false sync, as `verify` reads it, and a
+    // frame in which none opened reports its first failure once.
+    if read_one {
+        out.retain(|(_, c)| c.is_ok());
+    } else {
+        out.truncate(1);
+    }
+    (out, true)
 }
 
 /// Where the walk found a container.
@@ -131,7 +145,7 @@ pub(crate) struct Site {
 }
 
 /// What the walk counted besides the containers it handed out.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct Walk {
     pub frames: u64,
     pub independent_frames: u64,
@@ -142,6 +156,27 @@ pub(crate) struct Walk {
     pub unparsed_frames: u64,
     /// Frames holding at least one container, opened or not.
     pub frames_with_emdf: u64,
+    /// Containers that opened.
+    pub containers: u64,
+    /// Frames whose skip fields held data and no container that opens, erased
+    /// or broken, in a substream in which containers do open: those frames lost
+    /// their metadata. Skip fields may carry other data, so a substream that
+    /// carries no EMDF at all adds nothing; the AC-3 core of a configuration 4
+    /// stream fills them while its dependent substream carries the containers.
+    pub missing_containers: u64,
+    /// The first of them, in the words the reports use.
+    pub first_missing: Option<String>,
+}
+
+/// What the walk saw of the containers of one substream.
+#[derive(Debug, Default)]
+struct SubstreamContainers {
+    /// Containers that opened.
+    opened: u64,
+    /// Frames with skip data and no container that opens.
+    without: u64,
+    /// The first of those frames, and the words that name it.
+    first_without: Option<(u64, String)>,
 }
 
 /// Walks the syncframes of the AC-3 or E-AC-3 stream at `path` and hands
@@ -172,6 +207,7 @@ pub(crate) fn for_each_container(
     };
     let mut noise = Noise::default();
     let mut sample_pos: u64 = 0; // first sample of the current independent frame
+    let mut substreams: BTreeMap<(bool, u8), SubstreamContainers> = BTreeMap::new();
     let mut last_frame_len: u64 = 0;
     let (_, sync_errors, _) = crate::eac3::for_each_frame(path, |_, frame, header| {
         walk.frames += 1;
@@ -185,9 +221,28 @@ pub(crate) fn for_each_container(
             }
             last_frame_len = u64::from(header.blocks) * BLOCK_SAMPLES;
         }
-        let containers = find_emdf(frame, &mut noise, &mut walk.unparsed_frames);
+        let (containers, has_skip) = find_emdf(frame, &mut noise, &mut walk.unparsed_frames);
         if !containers.is_empty() {
             walk.frames_with_emdf += 1;
+        }
+        let opened = containers.iter().filter(|(_, c)| c.is_ok()).count() as u64;
+        walk.containers += opened;
+        let substream = substreams
+            .entry((dependent, header.substream_id))
+            .or_default();
+        substream.opened += opened;
+        if has_skip && opened == 0 {
+            substream.without += 1;
+            if substream.first_without.is_none() {
+                let index = walk.frames - 1;
+                let words = match containers.first() {
+                    Some((offset, Err(e))) => {
+                        format!("frame {index}, skip-field byte {offset}: {e}")
+                    }
+                    _ => format!("frame {index}: no EMDF container in the skip fields"),
+                };
+                substream.first_without = Some((index, words));
+            }
         }
         for (offset, c) in containers {
             let site = Site {
@@ -203,6 +258,19 @@ pub(crate) fn for_each_container(
     })
     .with_context(|| format!("reading {}", path.display()))?;
     walk.sync_errors = sync_errors;
+    // A substream carries EMDF when a container opens in it: the metadata of a
+    // programme rides in one substream (TS 103 420 clause 8.2), and the skip
+    // fields of the others may carry anything.
+    let mut first: Option<(u64, String)> = None;
+    for substream in substreams.into_values().filter(|s| s.opened > 0) {
+        walk.missing_containers += substream.without;
+        if let Some((index, words)) = substream.first_without
+            && first.as_ref().is_none_or(|(earliest, _)| index < *earliest)
+        {
+            first = Some((index, words));
+        }
+    }
+    walk.first_missing = first.map(|(_, words)| words);
     Ok(walk)
 }
 
@@ -231,14 +299,9 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             offset,
         } = site;
         match c {
-            Err(e) => {
-                s.container_errors += 1;
-                if s.first_error.is_none() {
-                    s.first_error = Some(format!(
-                        "frame {frame_index}, skip-field byte {offset}: {e}"
-                    ));
-                }
-            }
+            // counted once per frame by the walk, and only in a stream that
+            // carries EMDF
+            Err(_) => {}
             Ok(c) => {
                 s.containers += 1;
                 if opts.dump.is_some_and(|n| dumped < n) {
@@ -349,6 +412,10 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
     s.bytes = walk.bytes;
     s.sync_errors = walk.sync_errors;
     s.unparsed_frames = walk.unparsed_frames;
+    s.container_errors = walk.missing_containers;
+    if s.first_error.is_none() {
+        s.first_error = walk.first_missing.clone();
+    }
     s.frames_with_emdf = walk.frames_with_emdf;
     let elapsed = started.elapsed().as_secs_f64();
     let clean = s.sync_errors == 0

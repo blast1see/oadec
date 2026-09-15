@@ -503,19 +503,10 @@ fn walk_eac3(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSumm
     // a frame can hold more than one container and is counted once
     let mut last_with_oamd: Option<u64> = None;
     let walk = emdf::for_each_container(path, |site, c| {
-        let c = match c {
-            Ok(c) => c,
-            Err(e) => {
-                // in the words `emdf` uses for the same container
-                summary.container_errors += 1;
-                summary.note(|| {
-                    format!(
-                        "frame {}, skip-field byte {}: {e}",
-                        site.frame_index, site.offset
-                    )
-                });
-                return;
-            }
+        // a container that does not open is counted once per frame by the walk,
+        // in the words `emdf` uses, and only in a stream that carries EMDF
+        let Ok(c) = c else {
+            return;
         };
         if take_container(&mut summary, site.frame_index, &c, opts, dumped)
             && last_with_oamd != Some(site.frame_index)
@@ -527,6 +518,10 @@ fn walk_eac3(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSumm
     summary.units = walk.frames;
     summary.sync_errors = walk.sync_errors;
     summary.unparsed_units = walk.unparsed_frames;
+    summary.container_errors = walk.missing_containers;
+    if let Some(first) = walk.first_missing.clone() {
+        summary.note(|| first);
+    }
     if walk.sync_errors > 0 {
         summary.note(|| format!("{} sync errors while framing the stream", walk.sync_errors));
     }
