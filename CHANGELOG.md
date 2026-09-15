@@ -46,6 +46,11 @@ Semantic Versioning.
   where E-AC-3 has the frame size: on a 5.1 AC-3 clip it counted 902 frames and
   902 sync errors where `info` decodes 1171, and exited 7. It now frames as
   `info` and `verify` do, and an AC-3 stream reports no containers.
+- **`oamd` counts what it could not read, and exits 7 for it.** It skipped a
+  container that did not open, an access unit that did not parse and a failed
+  extra-data check without a word, and dropped the sync errors of its walk, so
+  a report missing metadata could still say clean. It now counts each of them,
+  names the first, and judges the walk as `emdf` and `verify` do.
 - **`info`, `oamd`, `emdf` and `decode` exit 2 on a file that holds no stream.**
   An empty or random file used to produce a report of nothing, or "nothing
   decoded", with exit 0. They now stop with a message naming the file, and
