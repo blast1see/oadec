@@ -545,6 +545,9 @@ struct FramePayloads {
     /// (TS 103 420 table 49): the payload was read through and refused, so its
     /// matrices are not used, and the header is all that is known of it.
     joc_reserved: Option<JocHeader>,
+    /// The skip fields held no EMDF container that opens, so whatever metadata
+    /// the frame carried is lost; `verify` counts the same frame.
+    container_failed: bool,
 }
 
 /// Extracts the OAMD and JOC payloads of one substream's skip fields.
@@ -562,6 +565,7 @@ fn frame_payloads(skip_fields: &[Vec<u8>], sparse: SparseReading) -> FramePayloa
     for s in skip_fields {
         data.extend_from_slice(s);
     }
+    let mut opened = false;
     let mut pos = 0usize;
     while pos + 4 <= data.len() {
         if data[pos] != 0x58 || data[pos + 1] != 0x38 {
@@ -570,6 +574,7 @@ fn frame_payloads(skip_fields: &[Vec<u8>], sparse: SparseReading) -> FramePayloa
         }
         match container::parse_emdf_with_sync(&data[pos..]) {
             Ok((c, used)) => {
+                opened = true;
                 for p in &c.payloads {
                     if p.id == PAYLOAD_ID_OAMD {
                         match Oamd::parse(&p.data) {
@@ -601,6 +606,7 @@ fn frame_payloads(skip_fields: &[Vec<u8>], sparse: SparseReading) -> FramePayloa
             }
         }
     }
+    out.container_failed = !opened;
     out
 }
 
@@ -624,6 +630,9 @@ struct Tally {
     /// JOC payloads whose `joc_ext_config_idx` is reserved; the matrices of
     /// the previous frame were held in their place.
     joc_reserved_ext: u64,
+    /// Frames whose skip fields held no EMDF container that opens; the matrices
+    /// of the previous frame were held in their place.
+    container_errors: u64,
     first_error: Option<String>,
 }
 
@@ -645,6 +654,10 @@ impl Tally {
         f.note(
             self.joc_reserved_ext,
             "JOC payloads with a reserved joc_ext_config_idx, matrices held from the previous frame",
+        );
+        f.note(
+            self.container_errors,
+            "frames whose EMDF container did not open, matrices held from the previous frame",
         );
         f.note(
             stats.dependent_dropped,
@@ -725,6 +738,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
             errors,
             joc_size_mismatches,
             joc_reserved,
+            container_failed,
         } = frame_payloads(
             &frame.metadata_part().decoded.skip_fields,
             if opts.sparse_as_printed {
@@ -735,6 +749,14 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         );
         tally.payload_errors += errors;
         tally.joc_size_mismatches += joc_size_mismatches;
+        if container_failed {
+            tally.container_errors += 1;
+            if tally.first_error.is_none() {
+                tally.first_error = Some(format!(
+                    "frame {frame_index}: no EMDF container in the skip fields opened; matrices held from the previous frame"
+                ));
+            }
+        }
         if let Some(h) = joc_reserved {
             // nothing after joc_data can be read, so the payload is not used
             // and the matrices of the previous frame hold
@@ -1010,6 +1032,29 @@ mod tests {
             payloads.joc_size_mismatches, 1,
             "the trailing byte went unnoticed"
         );
+    }
+
+    /// A frame whose skip fields hold no EMDF container that opens has lost its
+    /// metadata. `verify` counts such a frame; the object path held the
+    /// matrices of the frame before without a word and exited clean.
+    #[test]
+    fn a_frame_whose_container_does_not_open_is_counted() {
+        let good = emdf_with_joc(&joc_payload(0));
+        assert!(
+            !frame_payloads(std::slice::from_ref(&good), SparseReading::Measured).container_failed
+        );
+        let mut bad = good;
+        // the declared length, one byte short of the syntax
+        bad[3] = bad[3].wrapping_sub(1);
+        let payloads = frame_payloads(&[bad], SparseReading::Measured);
+        assert!(payloads.joc.is_none(), "nothing is read from it");
+        assert!(payloads.container_failed, "and the frame says so");
+        let tally = Tally {
+            container_errors: 1,
+            ..Tally::default()
+        };
+        let f = tally.findings(&oadec_eac3::ProgramStats::default(), &LossLedger::default());
+        assert!(!f.is_clean(), "{f:?}");
     }
 
     /// A payload whose `joc_ext_config_idx` is reserved is not a parse error

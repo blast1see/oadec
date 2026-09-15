@@ -531,3 +531,98 @@ fn oamd_and_emdf_judge_the_same_unread_metadata() {
     assert!(sync["sync_errors"].as_u64().unwrap() >= 1, "{sync}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// The bit offset, from the start of the frame, of the 16-bit length word of
+/// every EMDF container in a frame's skip fields that opens, and the length it
+/// declares.
+fn container_lengths(frame: &Frame) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    for (skip, &skip_bit) in frame.skip_fields.iter().zip(&frame.skip_bits) {
+        let mut i = 0;
+        while i + 4 <= skip.len() {
+            if skip[i] == 0x58
+                && skip[i + 1] == 0x38
+                && let Ok((_, used)) = container::parse_emdf_with_sync(&skip[i..])
+            {
+                out.push((skip_bit + 8 * (i + 2), used));
+                i += used.max(4);
+                continue;
+            }
+            i += 1;
+        }
+    }
+    out
+}
+
+/// A container declaring one byte fewer than its syntax takes opened as if the
+/// length were right, and every command called the copy clean. The length is
+/// held to the syntax now, and every command judges the frame whose container
+/// does not open: `verify`, `emdf` and `oamd` call the copy non-conformant, and
+/// the object decode, which holds the matrices of the frame before, exits 7 and
+/// names the frame, as the PCM decode exits 7. `verify` had counted such a frame
+/// and named it as the first problem, and still called the file clean.
+#[test]
+fn a_container_whose_declared_length_disagrees_with_its_syntax_does_not_open() {
+    let dir = temp("length");
+    let mut bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let mut index = 0;
+    let changed = rewrite_frames(&mut bytes, |frame| {
+        index += 1;
+        if index != 11 {
+            return Vec::new();
+        }
+        let lengths = container_lengths(frame);
+        assert_eq!(lengths.len(), 1, "frame 10 carries one container");
+        let (at, declared) = lengths[0];
+        vec![(at, 16, declared as u32 - 1)]
+    });
+    assert_eq!(changed, 1);
+    let file = dir.join("short.ec3");
+    std::fs::write(&file, &bytes).unwrap();
+
+    let (code, report) = verify_json(&file);
+    assert_eq!(code, Some(7), "verify: {report}");
+    assert_eq!(
+        report["first_error"], "frame 10: no EMDF container in the skip fields",
+        "{report}"
+    );
+    let (emdf_code, emdf) = metadata_json("emdf", &file);
+    let (oamd_code, oamd) = metadata_json("oamd", &file);
+    assert_eq!(
+        (emdf_code, oamd_code),
+        (Some(7), Some(7)),
+        "emdf {emdf} oamd {oamd}"
+    );
+    assert!(emdf["container_errors"].as_u64().unwrap() >= 1, "{emdf}");
+    assert_eq!(oamd["container_errors"], emdf["container_errors"], "{oamd}");
+
+    let out = oadec(&[
+        "decode",
+        file.to_str().unwrap(),
+        "--format",
+        "damf",
+        "-o",
+        dir.join("d").to_str().unwrap(),
+    ]);
+    let err = stderr(&out);
+    assert_eq!(out.status.code(), Some(7), "decode --format damf: {err}");
+    assert!(
+        err.contains("frame 10: no EMDF container"),
+        "the decode names the frame: {err}"
+    );
+    let pcm = oadec(&[
+        "decode",
+        file.to_str().unwrap(),
+        "--format",
+        "pcm",
+        "-o",
+        dir.join("p.f32").to_str().unwrap(),
+    ]);
+    assert_eq!(
+        pcm.status.code(),
+        Some(7),
+        "decode --format pcm: {}",
+        stderr(&pcm)
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
