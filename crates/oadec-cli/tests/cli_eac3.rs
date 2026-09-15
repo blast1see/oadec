@@ -436,3 +436,98 @@ fn a_file_without_a_whole_syncframe_is_refused_by_every_decode_format() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// The bit offset, from the start of the frame, of the 16-bit length word of
+/// every EMDF container in a frame's skip fields that opens.
+fn container_length_bits(frame: &Frame) -> Vec<usize> {
+    let mut out = Vec::new();
+    for (skip, &skip_bit) in frame.skip_fields.iter().zip(&frame.skip_bits) {
+        let mut i = 0;
+        while i + 4 <= skip.len() {
+            if skip[i] == 0x58
+                && skip[i + 1] == 0x38
+                && let Ok((_, used)) = container::parse_emdf_with_sync(&skip[i..])
+            {
+                out.push(skip_bit + 8 * (i + 2));
+                i += used.max(4);
+                continue;
+            }
+            i += 1;
+        }
+    }
+    out
+}
+
+/// The exit code and the `--json` report of a metadata command.
+fn metadata_json(command: &str, path: &Path) -> (Option<i32>, Value) {
+    let out = oadec(&[command, "--json", path.to_str().unwrap()]);
+    let report = serde_json::from_slice(&out.stdout).unwrap_or_else(|e| {
+        panic!(
+            "{command} --json of {} is not JSON ({e}): {}",
+            path.display(),
+            stderr(&out)
+        )
+    });
+    (out.status.code(), report)
+}
+
+/// `oamd` walks the containers `emdf` walks, and it reported an incomplete
+/// walk as clean: a container that does not open was skipped without a word,
+/// and the sync errors and unparsed frames of the walk were dropped. Both
+/// commands now judge the same walk. On a copy of the encode with one container
+/// too long for the frame, and on one with three bytes of noise between two frames, they
+/// agree: exit 7, and the same counts.
+#[test]
+fn oamd_and_emdf_judge_the_same_unread_metadata() {
+    let dir = temp("unread");
+    let original = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+
+    // the first container of frame 10 declares a length of 65 535 bytes, more than the frame holds
+    let mut cut = original.clone();
+    let mut index = 0;
+    let changed = rewrite_frames(&mut cut, |frame| {
+        index += 1;
+        if index != 11 {
+            return Vec::new();
+        }
+        let at = container_length_bits(frame);
+        assert!(!at.is_empty(), "frame 10 carries a container");
+        vec![(at[0], 16, 0xFFFF)]
+    });
+    assert_eq!(changed, 1);
+    let cut_path = dir.join("container.ec3");
+    std::fs::write(&cut_path, &cut).unwrap();
+
+    // three bytes of noise between frames 20 and 21
+    let frame_bytes = FrameHeader::parse(&original).unwrap().frame_bytes;
+    let mut noisy = original[..20 * frame_bytes].to_vec();
+    noisy.extend_from_slice(&[0x00, 0x11, 0x22]);
+    noisy.extend_from_slice(&original[20 * frame_bytes..]);
+    let noisy_path = dir.join("sync.ec3");
+    std::fs::write(&noisy_path, &noisy).unwrap();
+
+    for (path, what) in [(&cut_path, "container"), (&noisy_path, "sync")] {
+        let (emdf_code, emdf) = metadata_json("emdf", path);
+        let (oamd_code, oamd) = metadata_json("oamd", path);
+        assert_eq!(emdf_code, Some(7), "{what}: emdf {emdf}");
+        assert_eq!(oamd_code, Some(7), "{what}: oamd {oamd}");
+        assert_eq!(oamd["clean"], false, "{what}: {oamd}");
+        for key in ["sync_errors", "container_errors"] {
+            assert_eq!(
+                oamd[key], emdf[key],
+                "{what}: {key}: oamd {oamd} emdf {emdf}"
+            );
+        }
+        assert_eq!(oamd["unparsed_units"], emdf["unparsed_frames"], "{what}");
+        assert!(oamd["first_error"].is_string(), "{what}: {oamd}");
+    }
+    let (_, container) = metadata_json("oamd", &cut_path);
+    assert!(
+        container["container_errors"].as_u64().unwrap() >= 1,
+        "{container}"
+    );
+    assert!(container["payloads"].as_u64().unwrap() < 63, "{container}");
+    let (_, sync) = metadata_json("oamd", &noisy_path);
+    assert!(sync["sync_errors"].as_u64().unwrap() >= 1, "{sync}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}

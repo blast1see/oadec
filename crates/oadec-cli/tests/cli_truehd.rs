@@ -120,7 +120,8 @@ fn extra_counters(report: &serde_json::Value) -> Vec<(&'static str, u64)> {
 
 /// `verify` counts a corrupted Evolution extra-data block; the delivery paths
 /// must reach the same verdict on it instead of writing the output and
-/// exiting clean.
+/// exiting clean, and so must `oamd`, which reports the metadata the block
+/// carries.
 #[test]
 fn a_corrupted_evolution_block_fails_every_delivery_like_verify() {
     for site in [Site::Parity, Site::Frame] {
@@ -145,6 +146,19 @@ fn a_corrupted_evolution_block_fails_every_delivery_like_verify() {
             );
         }
         assert_eq!(verify.status.code(), Some(7), "verify: {fired:?}");
+
+        let oamd = oadec(&["oamd", "--json", clip]);
+        let summary: serde_json::Value = serde_json::from_slice(&oamd.stdout).unwrap();
+        assert_eq!(
+            oamd.status.code(),
+            Some(7),
+            "{site:?}: oamd on a stream verify rejects for {fired:?}: {summary}"
+        );
+        assert_eq!(summary["clean"], false, "{site:?}: {summary}");
+        assert!(
+            summary["extra_data_faults"].as_u64().unwrap() >= 1,
+            "{site:?}: {summary}"
+        );
 
         let base = dir.join("d");
         let damf = oadec(&[
