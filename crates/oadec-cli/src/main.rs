@@ -56,6 +56,12 @@ enum Command {
         /// Machine-readable JSON instead of text.
         #[arg(long)]
         json: bool,
+        /// TrueHD: also decode every presentation the stream carries and
+        /// evaluate the lossless check word of every restart header, which
+        /// the integrity pass alone cannot; several times slower. (E-AC-3
+        /// verification decodes every frame already.)
+        #[arg(long)]
+        decode: bool,
     },
     /// Walk an E-AC-3 stream, find the EMDF containers and report the metadata timing.
     Emdf {
@@ -327,12 +333,12 @@ fn main() -> ExitCode {
                     }
                 })
                 .map(|()| ExitCode::SUCCESS),
-            Command::Verify { file, json } => eac3::is_eac3(&file)
+            Command::Verify { file, json, decode } => eac3::is_eac3(&file)
                 .and_then(|is| {
                     if is {
                         eac3::verify(&file, json)
                     } else {
-                        verify::run(&file, json)
+                        verify::run(&file, json, decode)
                     }
                 })
                 .map(|clean| {

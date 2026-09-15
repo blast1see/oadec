@@ -1817,3 +1817,110 @@ fn a_configuration_change_leaves_a_consistent_wav_and_exits_7() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// The first byte at or after `from` that lies inside a substream segment, the
+/// substream it belongs to, and where the last whole access unit ends.
+fn first_segment_byte_at_or_after(bytes: &[u8], from: u64) -> (u64, usize, usize) {
+    let mut extractor = oadec_truehd::Extractor::new();
+    extractor.push(bytes);
+    let mut units = Vec::new();
+    while let Some(unit) = extractor.next_unit().expect("the clip frames") {
+        units.push(unit);
+    }
+    let (rest, _) = extractor.finish().expect("the clip frames");
+    units.extend(rest);
+    let end = units
+        .last()
+        .map_or(0, |u| u.offset as usize + u.bytes.len());
+    let mut config = None;
+    for unit in &units {
+        let (au, cfg) =
+            oadec_truehd::AccessUnit::parse(&unit.bytes, config.as_ref()).expect("the clip parses");
+        config = Some(cfg);
+        for i in 0..au.directory.len() {
+            let r = au.segment_range(i);
+            let (start, stop) = (unit.offset + r.start as u64, unit.offset + r.end as u64);
+            let at = from.max(start);
+            if at < stop {
+                return (at, i, end);
+            }
+        }
+    }
+    panic!("no segment byte at or after {from}");
+}
+
+/// `verify --decode` reports a corrupted audio byte through the decode of every
+/// presentation that reads it, and not only through the segment checks the
+/// scan makes.
+///
+/// One byte of a substream segment of the Pi head, the first at or after byte
+/// 6 000 000, is inverted; the head is cut at its last whole access unit so
+/// that the byte is the only thing wrong with it, and the same cut without the
+/// change is checked first. Measured, that byte breaks its segment's parity and
+/// CRC, and the decoders of the presentations that read its substream stop at
+/// that access unit before the next check word is due, so the statistic shows
+/// a stopped decode there; a presentation that does not read the substream
+/// evaluates its words to the end. Only a corruption that keeps the segment
+/// checks intact and the samples in range is left for the check word alone.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn verify_decode_reports_a_corrupted_segment_in_every_presentation_that_reads_it() {
+    let clip = media_dir().join("clips").join("pi-head50m.thd");
+    require(&clip);
+    let mut bytes = std::fs::read(&clip).unwrap();
+    let (at, substream, end) = first_segment_byte_at_or_after(&bytes, 6_000_000);
+    bytes.truncate(end);
+    let dir = std::env::temp_dir().join(format!("oadec-verify-decode-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let intact = dir.join("head.thd");
+    std::fs::write(&intact, &bytes).unwrap();
+    bytes[at as usize] ^= 0xFF;
+    let corrupt = dir.join("corrupt.thd");
+    std::fs::write(&corrupt, &bytes).unwrap();
+
+    let verify = |path: &Path| {
+        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["verify", "--decode", "--json"])
+            .arg(path)
+            .output()
+            .expect("run oadec verify");
+        let report: Value = serde_json::from_slice(&out.stdout).unwrap_or_else(|e| {
+            panic!(
+                "verify --decode is not JSON ({e}): {}",
+                String::from_utf8_lossy(&out.stderr)
+            )
+        });
+        (out.status.code(), report)
+    };
+
+    let (code, report) = verify(&intact);
+    let checks = &report["lossless_checks"];
+    assert_eq!(code, Some(0), "{:?} {checks}", nonzero_failures(&report));
+    assert!(checks["evaluated"].as_u64().unwrap() > 0, "{checks}");
+    assert_eq!(checks["failed"].as_u64(), Some(0), "{checks}");
+
+    let (code, report) = verify(&corrupt);
+    let checks = &report["lossless_checks"];
+    eprintln!(
+        "byte {at} (substream {substream}) inverted: failures {:?}; lossless checks {checks}",
+        nonzero_failures(&report)
+    );
+    assert_eq!(code, Some(7));
+    let per = checks["per_presentation"].as_array().unwrap();
+    let saw_it = |p: &Value| !p["error"].is_null() || p["failed"].as_u64().unwrap() > 0;
+    assert!(
+        per.iter().any(saw_it),
+        "no presentation's decode saw the byte: {checks}"
+    );
+    // presentation 0 is the two-channel substream 0 alone
+    let first = per
+        .iter()
+        .find(|p| p["presentation"].as_u64() == Some(0))
+        .expect("presentation 0");
+    if substream > 0 {
+        assert!(first["error"].is_null(), "{checks}");
+        assert_eq!(first["failed"].as_u64(), Some(0), "{checks}");
+        assert!(first["evaluated"].as_u64().unwrap() > 0, "{checks}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

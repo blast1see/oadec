@@ -246,3 +246,51 @@ fn the_wave_mask_is_written_only_when_it_is_true() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// `verify --decode` decodes every presentation the stream carries and reports
+/// the lossless check words the decoder evaluated, which the scan alone
+/// cannot: it parses the segments but makes no samples to check them against.
+#[test]
+fn verify_decode_reports_the_lossless_checks_of_every_presentation() {
+    let clip = fixture("authored-scene.mlp");
+    let clip = clip.to_str().unwrap();
+    let run = oadec(&["verify", "--decode", "--json", clip]);
+    assert_eq!(run.status.code(), Some(0), "{}", stderr(&run));
+    let report: serde_json::Value = serde_json::from_slice(&run.stdout).unwrap();
+    let checks = &report["lossless_checks"];
+    let evaluated = checks["evaluated"].as_u64().unwrap();
+    assert!(evaluated > 0, "{checks}");
+    assert_eq!(checks["failed"].as_u64(), Some(0), "{checks}");
+    let per = checks["per_presentation"].as_array().unwrap();
+    let presentations: Vec<u64> = per
+        .iter()
+        .map(|p| p["presentation"].as_u64().unwrap())
+        .collect();
+    assert_eq!(presentations, [0, 1, 2, 3], "the fixture carries four");
+    assert_eq!(
+        per.iter()
+            .map(|p| p["evaluated"].as_u64().unwrap())
+            .sum::<u64>(),
+        evaluated
+    );
+    assert!(per.iter().all(|p| p["error"].is_null()), "{checks}");
+    assert_eq!(report["clean"], serde_json::Value::Bool(true));
+
+    let text = oadec(&["verify", "--decode", clip]);
+    let stdout = String::from_utf8_lossy(&text.stdout);
+    assert!(
+        stdout.contains(&format!(
+            "Lossless checks:   {evaluated} evaluated, 0 failed"
+        )),
+        "{stdout}"
+    );
+
+    // without the flag there is no statistic, rather than a zero one
+    let plain = oadec(&["verify", "--json", clip]);
+    let report: serde_json::Value = serde_json::from_slice(&plain.stdout).unwrap();
+    assert!(
+        report["lossless_checks"].is_null(),
+        "{}",
+        report["lossless_checks"]
+    );
+}
