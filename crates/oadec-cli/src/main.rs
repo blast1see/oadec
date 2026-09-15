@@ -29,6 +29,7 @@ use clap::{Parser, Subcommand};
 use crate::compare::RefFormat;
 use crate::damf::{InterpolationArg, IsfArg};
 use crate::decode::{Format, Order};
+use crate::eac3_objects::{JocLowBand, JocOverrides, JocPhase};
 use crate::integrity::Verdict;
 
 /// Object-audio decoder engine for Dolby TrueHD Atmos and E-AC-3 JOC streams.
@@ -173,6 +174,21 @@ enum Command {
         /// where Dolby's decoder puts it; for measuring the difference.
         #[arg(long)]
         steep_as_printed: bool,
+        /// JOC measurement: hold the matrices back by this many time slots
+        /// instead of the measured alignment; announced on stderr and recorded
+        /// in the loss report.
+        #[arg(long, hide = true, value_name = "SLOTS")]
+        joc_lag: Option<usize>,
+        /// JOC measurement: how the lowest subband of a phase-shifted channel
+        /// is treated; announced on stderr and recorded in the loss report.
+        #[arg(long, hide = true, value_enum)]
+        joc_low_band: Option<JocLowBand>,
+        /// JOC measurement: which downmix channels carry the 90-degree phase
+        /// shift and which way it is taken out, instead of what the downmix
+        /// configuration says; announced on stderr and recorded in the loss
+        /// report.
+        #[arg(long, hide = true, value_name = "CH,CH:+|-|none", value_parser = JocPhase::parse)]
+        joc_phase: Option<JocPhase>,
     },
     /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
     /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
@@ -233,6 +249,9 @@ enum Command {
         /// Which substream of the group: 0 is the independent one.
         #[arg(long, default_value_t = 0)]
         part: usize,
+        /// Also print the exponents and bit allocation of every coded channel.
+        #[arg(long)]
+        detail: bool,
     },
     /// Write a Dolby Atmos master from a scene description, so a decode can be
     /// checked against authored metadata rather than against another decoder.
@@ -381,10 +400,23 @@ fn main() -> ExitCode {
                 flat_quadrature,
                 sparse_as_printed,
                 steep_as_printed,
+                joc_lag,
+                joc_low_band,
+                joc_phase,
             } => if let Err(e) = damf::check_presentation(format, presentation).and_then(|()| {
                 damf::check_interpolation(adm_interpolation.into(), dolby_origin_tag)
             }) {
                 Err(e)
+            } else if (joc_lag.is_some() || joc_low_band.is_some() || joc_phase.is_some())
+                && !(eac3::is_eac3(&file).unwrap_or(false)
+                    && matches!(format, Format::Damf | Format::Adm))
+            {
+                // A measurement override that reaches no JOC reconstruction would
+                // be read as applied while changing nothing.
+                Err(anyhow::anyhow!(
+                    "--joc-lag, --joc-low-band and --joc-phase measure the JOC object \
+                     decode: they apply to an E-AC-3 stream with --format damf or adm"
+                ))
             } else if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
             {
@@ -416,6 +448,11 @@ fn main() -> ExitCode {
                             flat_quadrature,
                             sparse_as_printed,
                             steep_as_printed,
+                            joc: JocOverrides {
+                                lag: joc_lag,
+                                low_band: joc_low_band,
+                                phase: joc_phase,
+                            },
                             core: oadec_eac3::Options {
                                 dither: !no_dither,
                                 tpnp: !no_tpnp,
@@ -460,6 +497,7 @@ fn main() -> ExitCode {
                         steep_as_printed: false,
                         // TrueHD carries no E-AC-3 core.
                         core: oadec_eac3::Options::default(),
+                        joc: JocOverrides::default(),
                     },
                 )
             } else {
@@ -526,9 +564,12 @@ fn main() -> ExitCode {
                     ExitCode::from(EXIT_NONCONFORMANT)
                 }
             }),
-            Command::Eac3Blocks { file, frame, part } => {
-                eac3::blocks(&file, frame, part).map(|()| ExitCode::SUCCESS)
-            }
+            Command::Eac3Blocks {
+                file,
+                frame,
+                part,
+                detail,
+            } => eac3::blocks(&file, frame, part, detail).map(|()| ExitCode::SUCCESS),
             Command::AtmosAuthor { scene, output } => {
                 author::run(&scene, &output).map(|()| ExitCode::SUCCESS)
             }

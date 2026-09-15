@@ -167,6 +167,64 @@ fn joc_payload_bits(frame: &Frame) -> Vec<usize> {
     joc_payloads(frame).into_iter().map(|(at, _)| at).collect()
 }
 
+/// The JOC measurement overrides were environment variables that changed the
+/// decode without a word (`OADEC_JOC_LAG`, `OADEC_JOC_LOW`, `OADEC_JOC_PHASE`).
+/// They are hidden flags now: a run with one says so on stderr and records it
+/// in the loss report, and the environment no longer reaches the decode.
+#[test]
+fn a_joc_lag_override_is_announced_and_recorded() {
+    let dir = temp("lag");
+    let file = fixture("authored-scene.ec3");
+    let default_lag = oadec_joc::LOW_DELAY - oadec_joc::MATRIX_ALIGN;
+    let lag = (default_lag + 1).to_string();
+    let run = |name: &str, flags: &[&str], env: Option<(&str, &str)>| {
+        let report = dir.join(format!("{name}.json"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_oadec"));
+        cmd.args(["decode", file.to_str().unwrap(), "--format", "damf"])
+            .args(flags)
+            .arg("--loss-report")
+            .arg(&report)
+            .arg("-o")
+            .arg(dir.join(name));
+        if let Some((key, value)) = env {
+            cmd.env(key, value);
+        }
+        let out = cmd.output().expect("run oadec");
+        assert_eq!(out.status.code(), Some(0), "{name}: {}", stderr(&out));
+        let audio = std::fs::read(dir.join(format!("{name}.atmos.audio"))).unwrap();
+        let report: Value = serde_json::from_slice(&std::fs::read(&report).unwrap()).unwrap();
+        (stderr(&out), audio, report)
+    };
+
+    let (err, default_audio, report) = run("default", &[], None);
+    assert!(!err.contains("measurement overrides"), "{err}");
+    assert_eq!(report["overrides"], serde_json::json!([]), "{report}");
+
+    let (err, audio, report) = run("lag", &["--joc-lag", &lag], None);
+    assert!(
+        err.contains(&format!(
+            "measurement overrides: joc-lag {lag} (default {default_lag})"
+        )),
+        "{err}"
+    );
+    assert_eq!(report["overrides"][0]["flag"], "joc-lag", "{report}");
+    assert_eq!(report["overrides"][0]["value"], default_lag + 1, "{report}");
+    assert_eq!(report["overrides"][0]["default"], default_lag, "{report}");
+    assert!(
+        audio != default_audio,
+        "--joc-lag did not reach the reconstruction"
+    );
+
+    let (err, audio, report) = run("env", &[], Some(("OADEC_JOC_LAG", lag.as_str())));
+    assert!(!err.contains("measurement overrides"), "{err}");
+    assert_eq!(report["overrides"], serde_json::json!([]), "{report}");
+    assert!(
+        audio == default_audio,
+        "OADEC_JOC_LAG still changes the decode"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// The committed encode looks like every JOC stream measured: its OAMD and JOC
 /// payload configurations meet table 56 of TS 103 420 as far as it is enforced,
 /// and its `complexity_index_type_a` is the OAMD object total of clause 8.3,

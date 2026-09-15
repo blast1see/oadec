@@ -1397,7 +1397,7 @@ fn the_matrix_alignment_is_the_best_one_on_a_clip_it_was_not_fitted_on() {
             .arg(&base)
             .arg(&file);
         if let Some(v) = lag {
-            cmd.env("OADEC_JOC_LAG", v);
+            cmd.args(["--joc-lag", v]);
         }
         let out = cmd.output().expect("run oadec decode");
         assert!(

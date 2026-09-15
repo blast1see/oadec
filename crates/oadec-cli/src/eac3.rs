@@ -1595,7 +1595,7 @@ pub struct CompareOptions {
 /// it. `part` selects within the group, 0 being the independent substream, so
 /// `--part 1` reads the dependent substream of a 7.1 stream, which is the only
 /// way to check a `bsi` path by hand.
-pub fn blocks(path: &Path, index: u64, part: usize) -> Result<()> {
+pub fn blocks(path: &Path, index: u64, part: usize, detail: bool) -> Result<()> {
     let mut group = 0u64;
     let mut in_group = 0usize;
     let mut started = false;
@@ -1659,7 +1659,7 @@ pub fn blocks(path: &Path, index: u64, part: usize) -> Result<()> {
                 let peak = c.iter().fold(0.0f64, |m, v| m.max(v.abs()));
                 let last = c.iter().rposition(|v| *v != 0.0).map_or(0, |i| i + 1);
                 println!("  ch {ch}: peak {peak:.6}, {last} coefficients");
-                if std::env::var_os("OADEC_DETAIL").is_some() {
+                if detail {
                     let exps = &block.info.exps[ch];
                     let bap = &block.info.bap[ch];
                     let shown = exps.len().min(48);
