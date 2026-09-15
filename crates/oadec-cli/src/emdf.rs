@@ -307,6 +307,12 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         );
     }
     let started = Instant::now();
+    // the checks of `verify` read the stream in a pass of their own; run it
+    // beside the walk instead of after it
+    let check = {
+        let path = path.to_path_buf();
+        std::thread::spawn(move || crate::verify::stream_check(&path))
+    };
     let mut s = EmdfSummary::default();
     let mut dumped = 0usize;
     let walk = for_each_container(path, |site, c| {
@@ -447,8 +453,18 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         ));
     }
     s.frames_with_emdf = walk.frames_with_emdf;
+    // what the walk does not read, a JOC payload, the payload configuration, the
+    // complexity index or the audio, `verify` checks: take its verdict rather
+    // than re-derive a part of it
+    let stream = check
+        .join()
+        .unwrap_or_else(|panic| std::panic::resume_unwind(panic))?;
+    if s.first_error.is_none() && !stream.clean {
+        s.first_error = stream.first_problem.clone();
+    }
     let elapsed = started.elapsed().as_secs_f64();
-    let clean = s.sync_errors == 0
+    let clean = stream.clean
+        && s.sync_errors == 0
         && s.skipped_bytes == 0
         && s.crc_failures == 0
         && s.unparsed_frames == 0
@@ -456,6 +472,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         && s.oamd_errors == 0;
     if opts.json {
         let mut value = serde_json::to_value(&s)?;
+        value["verify"] = serde_json::to_value(&stream)?;
         value["clean"] = serde_json::json!(clean);
         value["seconds"] = serde_json::json!(elapsed);
         println!("{}", serde_json::to_string_pretty(&value)?);
@@ -488,6 +505,14 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             "Event times:       {:?}{}",
             &s.event_times[..s.event_times.len().min(24)],
             if s.event_times.len() > 24 { " ..." } else { "" }
+        );
+        println!(
+            "Verify:            {}",
+            if stream.clean {
+                "clean"
+            } else {
+                "non-conformant"
+            }
         );
         if let Some(e) = &s.first_error {
             println!("First problem:     {e}");

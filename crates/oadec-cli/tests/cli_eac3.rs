@@ -281,6 +281,7 @@ fn a_payload_configuration_outside_table_56_is_non_conformant() {
         report["first_error"], "frame 0: payload 14: priority is not 0, Table 56 requires 0",
         "{report}"
     );
+    metadata_commands_follow_verify(&file);
 
     let out = oadec(&[
         "decode",
@@ -322,6 +323,7 @@ fn a_complexity_index_that_disagrees_with_the_oamd_is_non_conformant() {
         "frame 0: complexity_index_type_a 15 differs from the OAMD object total 16 (clause 8.3)",
         "{report}"
     );
+    metadata_commands_follow_verify(&file);
 
     let out = oadec(&[
         "decode",
@@ -371,6 +373,7 @@ fn a_reserved_joc_extension_is_named_and_the_matrices_held() {
         report["joc"]["errors"], 0,
         "a reserved extension is counted on its own: {report}"
     );
+    metadata_commands_follow_verify(&file);
 
     let out = oadec(&[
         "decode",
@@ -469,6 +472,25 @@ fn metadata_json(command: &str, path: &Path) -> (Option<i32>, Value) {
         )
     });
     (out.status.code(), report)
+}
+
+/// `emdf` and `oamd` decide with the checks `verify` makes. Their own walk reads
+/// the framing and the containers; a fault only `verify` looked at, in a JOC
+/// payload, the payload configuration or the complexity index, left them clean
+/// on a copy `verify` calls non-conformant. Both carry the verdict of `verify`
+/// in their report now, exit as it exits, and name what it found first.
+fn metadata_commands_follow_verify(file: &Path) {
+    let (code, report) = verify_json(file);
+    for command in ["emdf", "oamd"] {
+        let (own, r) = metadata_json(command, file);
+        assert_eq!(own, code, "{command}: {r}");
+        assert_eq!(r["clean"], report["clean"], "{command}: {r}");
+        assert_eq!(r["verify"]["clean"], report["clean"], "{command}: {r}");
+        assert_eq!(
+            r["verify"]["first_problem"], report["first_error"],
+            "{command}: {r}"
+        );
+    }
 }
 
 /// `oamd` walks the containers `emdf` walks, and it reported an incomplete
@@ -674,5 +696,42 @@ fn a_frame_whose_crc_fails_is_non_conformant_for_the_metadata_commands() {
         assert_eq!(report["crc_failures"], 1, "{command}: {report}");
         assert_eq!(report["container_errors"], 0, "{command}: {report}");
     }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A JOC payload whose object count no longer fits the rest of it cannot be read
+/// to its end, which `verify` counts. `emdf` and `oamd` read the Object Audio
+/// Metadata beside it and called the copy clean. The copy changes the object
+/// count of the JOC payload of frame 10 alone and repairs the frame check.
+#[test]
+fn a_joc_payload_that_cannot_be_read_fails_the_metadata_commands_as_it_fails_verify() {
+    let dir = temp("joc-objects");
+    let mut bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let mut index = 0;
+    // the 6-bit object count follows the 3-bit downmix configuration
+    let changed = rewrite_frames(&mut bytes, |frame| {
+        index += 1;
+        if index != 11 {
+            return Vec::new();
+        }
+        joc_payload_bits(frame)
+            .into_iter()
+            .map(|at| (at + 3, 6, 15))
+            .collect()
+    });
+    assert_eq!(changed, 1);
+    let file = dir.join("joc-objects.ec3");
+    std::fs::write(&file, &bytes).unwrap();
+
+    let (code, report) = verify_json(&file);
+    assert_eq!(code, Some(7), "{report}");
+    assert_eq!(report["failures"]["crc_failures"], 0, "{report}");
+    assert!(
+        report["first_error"]
+            .as_str()
+            .is_some_and(|e| e.starts_with("frame 10: JOC")),
+        "{report}"
+    );
+    metadata_commands_follow_verify(&file);
     std::fs::remove_dir_all(&dir).unwrap();
 }

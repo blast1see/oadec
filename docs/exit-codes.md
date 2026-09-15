@@ -9,7 +9,7 @@
 
 Every command uses the same codes, and 4 belongs to the object outputs alone
 (below). Every command that delivers audio or metadata decides between 0 and 7
-with the same list of faults that `verify` uses. That was not true before: `verify` read every counter and exited 7, while
+with the same list of faults that `verify` uses; `emdf` and `oamd`, which walk only the metadata they report, run the checks of `verify` over the stream beside their walk and take its verdict with their own. That was not true before: `verify` read every counter and exited 7, while
 `decode` re-derived a narrower rule of its own and exited 0 while printing the
 very CRC failure it had just found, and the object path read no integrity flag
 at all.
@@ -111,7 +111,7 @@ what the format is.
 |---|---|---|---|
 | `verify` | clean | non-conformant; with `--decode`, also a failed lossless check word or a presentation whose decode stopped | could not be read |
 | `info` | the stream was read | — | could not be read, or holds no stream |
-| `emdf`, `oamd` | clean | non-conformant | could not be read, or holds no stream |
+| `emdf`, `oamd` | clean | non-conformant: a fault `verify` finds in the stream, or one in the metadata they read | could not be read, or holds no stream |
 | `decode` (PCM, WAV, CAF, DAMF, ADM, objects) | clean | a fault above | fatal decode failure, no access unit or whole syncframe in the file, a configuration change before any output, or a JOC measurement override on a decode with no JOC reconstruction to apply it to |
 | `decode --format damf\|adm` with a declared loss | -- | 4 (above) | -- |
 | `compare` | matches and clean | differs, or a fault above | could not be read |

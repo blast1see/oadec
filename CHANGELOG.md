@@ -66,15 +66,22 @@ Semantic Versioning.
   other data, so in a substream with no EMDF at all they are not a fault: two
   AC-3 clips fill them in some 1 100 frames, and a configuration 4 stream in the
   frames of its AC-3 core. No clip of the work directory changes.
-- **`emdf` and `oamd` count what `verify` counts about the stream itself.**
-  They dropped the bytes the framing skipped or left trailing and never read
-  the CRC of a syncframe, so a stream cut inside a frame or an access unit, or
-  a frame whose CRC failed, was clean for them and non-conformant for
-  `verify`. Both now count skipped bytes, TrueHD trailing bytes and AC-3 and
-  E-AC-3 CRC failures into their verdict; a file with no complete frame or
-  access unit still exits 2. Of the 55 clips of the work directory they now
-  exit 7 on the 18 cut inside a frame or an access unit, as `verify` did, and
-  on the other 37 nothing changes.
+- **`emdf` and `oamd` decide with the checks `verify` makes.** They judged a
+  stream by what their own walk read, and missed every fault the walk does not
+  read: the bytes the framing skipped or left trailing, a failed frame CRC, a
+  bit changed in the audio of a TrueHD substream, a JOC payload that cannot be
+  read, a reserved JOC extension, a payload configuration outside Table 56, a
+  complexity index that disagrees with the objects. On each of those `verify`
+  exited 7 and both commands exited 0. Both now run the checks of `verify`
+  over the stream on a thread beside their walk, exit 7 when it would, report
+  its verdict and first problem under `verify`, and still count what their own
+  walk finds; a file with no complete frame or access unit still exits 2. Of
+  the 55 clips of the work directory, the 18 cut inside a frame or an access
+  unit now fail them as they fail `verify`, and the other 37 are unchanged.
+  Both commands now take about as long as `verify`: on an 838 MB E-AC-3 film
+  `emdf` goes from 91 s to 123 s and `oamd` from 94 s to 123 s, where `verify`
+  alone takes 118 s; on a 2.6 GB TrueHD film `oamd` goes from 1.5 s to 27 s,
+  where `verify` takes 28 s.
 - **`info`, `oamd`, `emdf` and `decode` exit 2 on a file that holds no stream.**
   An empty or random file used to produce a report of nothing, or "nothing
   decoded", with exit 0. They now stop with a message naming the file, and
