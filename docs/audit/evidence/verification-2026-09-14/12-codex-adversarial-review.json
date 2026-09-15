@@ -1,6 +1,6 @@
 {
  "what": "Adversarial reviews by a second model: of the post-audit code, and a gate loop over this branch",
- "utc": "2026-09-15T11:59:52Z",
+ "utc": "2026-09-15T16:53:52Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
  "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
@@ -316,6 +316,77 @@
        "Run the new regressions and full workspace suite in a writable environment."
       ]
      }
+    },
+    {
+     "round": 4,
+     "result": [
+      "ROUND_RESULT K=4 verdict=CHANGES_REQUESTED dur=498"
+     ],
+     "review": {
+      "verdict": "CHANGES_REQUESTED",
+      "summary": "The three prior findings are resolved. One reproducible correctness gap remains: TrueHD compare can report clean on malformed OAMD that verify rejects, and PCM/WAVE share the affected verdict path. Validation used read-only media probes and existing test binaries; no fresh workspace build was run.",
+      "coverage": {
+       "correctness": 1,
+       "security": 0,
+       "reliability": 0,
+       "simplification": 0,
+       "performance": 0
+      },
+      "findings": [
+       {
+        "id": "R4F1",
+        "lens": "correctness",
+        "file": "crates/oadec-truehd/src/decoder.rs",
+        "line_start": 112,
+        "line_end": 117,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Successful Evolution containers never have their OAMD payloads validated here. Consequently, malformed OAMD contributes no failure to DecodeStats or truehd_findings, which PCM, WAVE and compare share. Reproduced with the stored a8ebf73 binary, whose relevant sources match HEAD: on clips/thd-truncated-oamd.thd, verify exits 7 with oamd_errors=1 ('element 1 of 9 bytes runs past the payload'), while compare checks all 96,000 samples against an FFmpeg reference and exits 0, reporting BIT-EXACT. PCM/WAVE's clean verdict follows from the shared path; those writes were not executed. The audio matches, but the clean delivery verdict violates docs/exit-codes.md, which explicitly includes unparseable OAMD payloads among delivery faults.",
+        "suggestion": "Validate OAMD payloads inside successfully opened Evolution containers through shared TrueHD integrity logic, propagate their failures into DecodeStats and truehd_findings, and add PCM/WAVE/compare regressions using malformed OAMD with intact container framing and parity.",
+        "status": "open"
+       },
+       {
+        "id": "R1F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/oamd.rs",
+        "line_start": 609,
+        "line_end": 619,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: both metadata walks now account for unreadable units and containers, framing errors and TrueHD extra-data faults. The clean predicate includes these counters and the shared verifier verdict.",
+        "suggestion": "Retain the unread-metadata and corrupted-Evolution CLI regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R2F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/emdf.rs",
+        "line_start": 246,
+        "line_end": 253,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: the walker distinguishes nonempty skip fields without an openable container from empty skip fields, tracks them per substream, and counts missing containers where that substream carries EMDF. Both metadata commands consume the result.",
+        "suggestion": "Retain the erased-container and configuration-4 regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R3F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/emdf.rs",
+        "line_start": 434,
+        "line_end": 442,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: skipped bytes and frame CRC failures reach the metadata verdicts, and oamd also accounts for TrueHD trailing bytes. Both commands additionally incorporate stream_check, covering integrity faults their metadata walks do not inspect.",
+        "suggestion": "Retain the cut-stream, CRC and verifier-parity regressions.",
+        "status": "resolved"
+       }
+      ],
+      "next_steps": [
+       "Close R4F1 through shared TrueHD payload validation and delivery-verdict regression coverage.",
+       "Run the workspace and relevant media tests after the fix."
+      ]
+     }
     }
    ],
    "adjudication": {
@@ -379,7 +450,28 @@
      "found_while_fixing": [
       "neither command read the CRC of a syncframe, which verify counts as a fault: the copy with one bit of the closing CRC word of frame 10 flipped was clean for both"
      ],
-     "real_clips": "18 of 55 clips change, exactly those cut inside a frame or an access unit: emdf and oamd 0 -> 7 where verify already exited 7 (15 AC-3 and E-AC-3 clips with 128 to 2 240 bytes skipped at their end, 3 TrueHD clips with 46 or 84 trailing bytes); verify changes on none"
+     "real_clips": "18 of 55 clips change, exactly those cut inside a frame or an access unit: emdf and oamd 0 -> 7 where verify already exited 7 (15 AC-3 and E-AC-3 clips with 128 to 2 240 bytes skipped at their end, 3 TrueHD clips with 46 or 84 trailing bytes); verify changes on none",
+     "resolved_in_round": 4
+    },
+    "R4F1": {
+     "round": 4,
+     "lens": "correctness",
+     "severity": "medium",
+     "file": "crates/oadec-truehd/src/decoder.rs",
+     "issue": "the TrueHD decoder never validated the OAMD payloads of an Evolution container that opens, so the PCM and WAVE decodes and compare, which share truehd_findings, exited clean on a stream whose object metadata will not parse while verify exited 7",
+     "disposition": "AGREE",
+     "confirmed_by": "on clips/thd-truncated-oamd.thd verify exits 7 (oamd_errors 1), decode --format damf 7 and oamd 7, while decode --format pcm and wav exited 0 and compare against its own decode printed BIT-EXACT and exited 0; checking the class found the same for a substream the presentation leaves out: one bit of substream 1 of the fixture failed verify and left decode -p 0 --format pcm at 0 and compare -p 0 BIT-EXACT and 0",
+     "fixed_in": [
+      "77db761"
+     ],
+     "tests": [
+      "a_fault_only_verify_reads_fails_every_truehd_delivery",
+      "verify_and_decode_agree_about_a_truncated_object_metadata_element (media: the PCM and WAVE decodes and compare added)",
+      "the_verdict_of_verify_makes_a_decode_unclean (unit)"
+     ],
+     "tests_fail_before": "the CLI test failed on decode -p 0 --format pcm (exit 0) and the media test on decode --format pcm (exit 0) before the change",
+     "real_clips": "Of the 24 TrueHD inputs of the work directory only the clip whose object metadata will not parse changes, its PCM decodes from 0 to 7. Two inputs keep a delivery that does not exit as verify does, both unchanged: Up (2009), whose decodes fail a lossless check word verify reads only with --decode, and the spliced clip, whose presentation 2 decode cannot continue past the splice (exit 2)",
+     "timing": "a PCM decode of presentation 2 from a 2.6 GB TrueHD film took 68 s before and 62 s after, the 28 s scan of verify running beside it on another core"
     }
    }
   }

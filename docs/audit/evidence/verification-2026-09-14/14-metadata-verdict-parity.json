@@ -1,13 +1,13 @@
 {
  "what": "Whether emdf and oamd decide as verify does, and what that costs",
- "utc": "2026-09-15T13:08:31Z",
+ "utc": "2026-09-15T16:53:52Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
  "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
  "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
  "why": "docs/exit-codes.md has every command that delivers metadata decide with the faults verify counts. emdf and oamd re-derived the verdict from their own walk, and each of the first three rounds of the review loop found one more fault the walk missed.",
- "method": "Copies of the committed fixtures with one fault each that only verify judged, run through verify, emdf and oamd with the binary before the change (26d581c) as a throwaway probe, and with the CLI tests after it; the exit codes of verify, emdf and oamd on 55 inputs (the 30 clips, 16 fresh TrueHD titles, 6 fresh E-AC-3 titles and 3 AC-3 clips trimmed to whole frames) with the binary before and after; emdf and oamd timed once each on an 838 MB E-AC-3 film and a 2.6 GB TrueHD film, with the pass of verify after the walk (a first version) and beside it (the version committed), the file in the cache",
- "reading": "On every fault copy verify exited 7 and emdf and oamd 0 before the change; after it all three exit 7 (the CLI tests). On the 55 inputs no exit code changes and both commands exit as verify does on every one. Both now take about as long as verify: on the E-AC-3 film emdf 91 s to 123 s and oamd 94 s to 123 s, verify alone 118 s; on the TrueHD film oamd 1.5 s to 27 s, verify 28 s. With the pass of verify run after the walk instead of beside it, emdf took 209 s on the E-AC-3 film",
+ "method": "Copies of the committed fixtures with one fault each that only verify judged, run through verify, emdf and oamd with the binary before the change (26d581c) as a throwaway probe, and with the CLI tests after it; the exit codes of verify, emdf and oamd on 55 inputs (the 30 clips, 16 fresh TrueHD titles, 6 fresh E-AC-3 titles and 3 AC-3 clips trimmed to whole frames) with the binary before and after; emdf and oamd timed once each on an 838 MB E-AC-3 film and a 2.6 GB TrueHD film, with the pass of verify after the walk (a first version) and beside it (the version committed), the file in the cache; for the TrueHD deliveries (G4), the PCM decodes of presentations 0 and 2 on every TrueHD input and a PCM decode of the film, with the binary before and after",
+ "reading": "On every fault copy verify exited 7 and emdf and oamd 0 before the change; after it all three exit 7 (the CLI tests). On the 55 inputs no exit code changes and both commands exit as verify does on every one. Both now take about as long as verify: on the E-AC-3 film emdf 91 s to 123 s and oamd 94 s to 123 s, verify alone 118 s; on the TrueHD film oamd 1.5 s to 27 s, verify 28 s. With the pass of verify run after the walk instead of beside it, emdf took 209 s on the E-AC-3 film. The TrueHD deliveries, which read only the substreams their presentation needs, take the verdict of verify as well since G4: of the 24 TrueHD inputs only thd-truncated-oamd.thd changes, its PCM decodes 0 to 7, and a PCM decode of presentation 2 from the 2.6 GB film took 68 s before and 62 s after, the 28 s scan of verify running beside it on another core",
  "data": {
   "probe_before": [
    {
@@ -1003,6 +1003,417 @@
     "verify": {
      "rc": 0,
      "seconds": 27.8
+    }
+   }
+  },
+  "truehd_deliveries": {
+   "binaries": {
+    "before": "E:/oadec-work/verify-2026-09-14/bin/oadec-w4.exe",
+    "after": "E:/oadec-work/verify-2026-09-14/bin/oadec-g4.exe"
+   },
+   "summary": {
+    "inputs": 24,
+    "missing": [],
+    "changed": [
+     {
+      "name": "thd-truncated-oamd.thd",
+      "codes": [
+       "pcm_p0",
+       "pcm_p2"
+      ],
+      "before": {
+       "verify": 7,
+       "pcm_p0": 0,
+       "pcm_p2": 0
+      },
+      "after": {
+       "verify": 7,
+       "pcm_p0": 7,
+       "pcm_p2": 7
+      }
+     }
+    ],
+    "all_follow_verify_after": false
+   },
+   "rows": [
+    {
+     "name": "concat-pi-shaun.thd",
+     "before": {
+      "verify": 7,
+      "pcm_p0": 7,
+      "pcm_p2": 2
+     },
+     "after": {
+      "verify": 7,
+      "pcm_p0": 7,
+      "pcm_p2": 2
+     },
+     "changed": [],
+     "after_follows_verify": false
+    },
+    {
+     "name": "pi-head50m.thd",
+     "before": {
+      "verify": 7,
+      "pcm_p0": 7,
+      "pcm_p2": 7
+     },
+     "after": {
+      "verify": 7,
+      "pcm_p0": 7,
+      "pcm_p2": 7
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "shaun-head20m.thd",
+     "before": {
+      "verify": 7,
+      "pcm_p0": 7,
+      "pcm_p2": 7
+     },
+     "after": {
+      "verify": 7,
+      "pcm_p0": 7,
+      "pcm_p2": 7
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "talktome-head.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "thd-96k-revenant.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "thd-refused-aqp.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "thd-truncated-oamd.thd",
+     "before": {
+      "verify": 7,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 7,
+      "pcm_p0": 7,
+      "pcm_p2": 7
+     },
+     "changed": [
+      "pcm_p0",
+      "pcm_p2"
+     ],
+     "after_follows_verify": true
+    },
+    {
+     "name": "pi-head50m.mlp",
+     "before": {
+      "verify": 7,
+      "pcm_p0": 7,
+      "pcm_p2": 7
+     },
+     "after": {
+      "verify": 7,
+      "pcm_p0": 7,
+      "pcm_p2": 7
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "alien-romulus-2024.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "ben-hur-1959.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "bugonia-2025.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "captain-america-brave-new-world-2025.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "deadpool-and-wolverine-2024.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "evil-dead-rise-2023.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "gattaca-1997.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "john-wick-chapter-4-2023.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "mission-impossible-fallout-2018.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "moon-2009.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "oblivion-2013.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "prey-2022.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "sinners-2025.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "the-dark-tower-2017.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "the-green-knight-2021.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 0,
+      "pcm_p2": 0
+     },
+     "changed": [],
+     "after_follows_verify": true
+    },
+    {
+     "name": "up-2009.thd",
+     "before": {
+      "verify": 0,
+      "pcm_p0": 7,
+      "pcm_p2": 7
+     },
+     "after": {
+      "verify": 0,
+      "pcm_p0": 7,
+      "pcm_p2": 7
+     },
+     "changed": [],
+     "after_follows_verify": false
+    }
+   ],
+   "timing": {
+    "file": "E:/oadec-work/dual/quietplace.thd",
+    "bytes": 2632725572,
+    "verify": {
+     "rc": 0,
+     "seconds": 27.5
+    },
+    "pcm_p2_before": {
+     "rc": 0,
+     "seconds": 68.4
+    },
+    "pcm_p2_after": {
+     "rc": 0,
+     "seconds": 61.9
     }
    }
   }
