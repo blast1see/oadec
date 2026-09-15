@@ -1014,6 +1014,18 @@ fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
         p.program.layout_changes,
         "mid-stream channel layout changes",
     );
+    f.note(
+        p.program.duplicate_substream_frames,
+        "substream frames repeated within one group",
+    );
+    f.note(
+        p.program.stalled_substreams,
+        "substreams flushed after they stopped supplying frames",
+    );
+    f.note(
+        p.program.missing_substream_frames,
+        "substream frames that never came out of their decoder",
+    );
     for (key, sub) in &p.subs {
         let id = key.1;
         f.note(
@@ -1085,9 +1097,13 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "misaligned_substreams": p.program.misaligned,
                 "channels_over_capacity": p.program.over_capacity,
                 "layout_changes": p.program.layout_changes,
+                "duplicate_substream_frames": p.program.duplicate_substream_frames,
+                "stalled_substreams": p.program.stalled_substreams,
+                "missing_substream_frames": p.program.missing_substream_frames,
             },
             "program": program_parts(p, h),
             "other_program_frames": p.program.other_program_frames,
+            "max_pending_groups": p.program.max_pending_groups,
             "coverage": coverage_list(&p.coverage),
             "aht_frames": p.aht_frames,
             "spx_frames": p.spx_frames,
@@ -1282,6 +1298,18 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             p.program.over_capacity,
             p.program.layout_changes,
             p.program.orphan_dependents
+        );
+    }
+    if p.program.duplicate_substream_frames > 0 {
+        println!(
+            "Repeated frames:   {} substream frames repeated within one group, only the first of each decoded",
+            p.program.duplicate_substream_frames
+        );
+    }
+    if p.program.stalled_substreams > 0 || p.program.missing_substream_frames > 0 {
+        println!(
+            "Stalled groups:    {} substreams flushed after they stopped supplying frames, {} substream frames that never came out of their decoder",
+            p.program.stalled_substreams, p.program.missing_substream_frames
         );
     }
     if p.program.other_program_frames > 0 {

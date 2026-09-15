@@ -656,6 +656,18 @@ impl Tally {
         );
         f.note(stats.location_errors, "unreadable channel maps");
         f.note(stats.layout_changes, "mid-stream channel layout changes");
+        f.note(
+            stats.duplicate_substream_frames,
+            "substream frames repeated within one group",
+        );
+        f.note(
+            stats.stalled_substreams,
+            "substreams flushed after they stopped supplying frames",
+        );
+        f.note(
+            stats.missing_substream_frames,
+            "substream frames that never came out of their decoder",
+        );
         f.first_problem(self.first_error.as_deref().or(stats.first_error.as_deref()));
         f
     }
