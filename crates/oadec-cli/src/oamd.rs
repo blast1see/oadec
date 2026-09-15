@@ -1,5 +1,5 @@
-//! `oadec oamd`: parse every Object Audio Metadata payload of a TrueHD or
-//! E-AC-3 stream, tally what they contain and optionally dump them.
+//! `oadec oamd`: parse every Object Audio Metadata payload of a TrueHD, AC-3
+//! or E-AC-3 stream, tally what they contain and optionally dump them.
 //!
 //! TrueHD carries the payloads in the Evolution frames of its access units,
 //! E-AC-3 in the EMDF containers of its frames' skip fields, which are found by
@@ -7,13 +7,10 @@
 //! standing where an access unit stands.
 
 use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::Read;
 use std::path::Path;
 use std::time::Instant;
 
-use anyhow::{Context, Result};
-use oadec_eac3::{FrameHeader, Syntax};
+use anyhow::Result;
 use oadec_emdf::container::{self, Container, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::{Distance, Element, Gain, Oamd, Status};
 use oadec_truehd::{AccessUnit, ExtraKind, StreamConfig};
@@ -33,7 +30,7 @@ pub struct Options {
 /// What a pass over the payloads found.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct OamdSummary {
-    /// Access units of a TrueHD stream, syncframes of an E-AC-3 stream.
+    /// Access units of a TrueHD stream, syncframes of an AC-3 or E-AC-3 stream.
     pub units: u64,
     pub units_with_oamd: u64,
     pub payloads: u64,
@@ -434,10 +431,9 @@ fn walk_truehd(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSu
     Ok(summary)
 }
 
-/// E-AC-3: the payloads ride in the EMDF containers of the frames' skip
-/// fields, and every syncframe of the walk is a unit.
+/// AC-3 and E-AC-3: the payloads ride in the EMDF containers of the frames'
+/// skip fields, and every syncframe of the walk is a unit.
 fn walk_eac3(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSummary> {
-    refuse_ac3(path)?;
     let mut summary = OamdSummary::new("frame");
     // a frame can hold more than one container and is counted once
     let mut last_with_oamd: Option<u64> = None;
@@ -457,30 +453,6 @@ fn walk_eac3(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSumm
     })?;
     summary.units = walk.frames;
     Ok(summary)
-}
-
-/// Refuses an AC-3 stream, which sniffs as the same family as E-AC-3.
-///
-/// The walk reads E-AC-3 frame headers, and an AC-3 syncframe has its CRC
-/// where E-AC-3 has the frame size: walked that way an AC-3 stream is misread
-/// frame by frame (902 frames on a 5.1 clip in which `info` decodes 1171) and
-/// comes out as a clean report of no metadata.
-fn refuse_ac3(path: &Path) -> Result<()> {
-    let mut head = Vec::with_capacity(8);
-    File::open(path)
-        .with_context(|| format!("opening {}", path.display()))?
-        .take(8)
-        .read_to_end(&mut head)?;
-    if let Ok(h) = FrameHeader::parse(&head)
-        && h.syntax == Syntax::Ac3
-    {
-        anyhow::bail!(
-            "{} is AC-3 (bsid {}); `oadec oamd` reads the object audio metadata of E-AC-3 and TrueHD streams",
-            path.display(),
-            h.bsid
-        );
-    }
-    Ok(())
 }
 
 /// Runs the command; returns `true` when every payload parsed cleanly.
