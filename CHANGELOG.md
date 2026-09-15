@@ -153,9 +153,11 @@ Semantic Versioning.
   `docs/audit/evidence/verification-2026-09-14/`: every gate re-run with the
   media; sixteen TrueHD Atmos titles against Dolby, `truehdd` and FFmpeg; six
   E-AC-3 JOC titles against Dolby's object decoder, with the residual split by
-  dither and by subband; a 212-case command matrix; an adversarial review of the
-  post-audit code by a second model; and the long-form FourCC of an ADM file
-  beyond 4 GiB put to every reader.
+  dither and by subband and a reordering of the subband 0 correction measured and
+  ruled out; a 212-case command matrix, run again at the head of the branch; an
+  adversarial review of the post-audit code by a second model, and a review loop
+  over the finished branch; and the long-form FourCC of an ADM file beyond 4 GiB
+  put to every reader.
 
 ### Changed
 
