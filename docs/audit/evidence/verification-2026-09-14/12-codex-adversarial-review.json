@@ -1,13 +1,13 @@
 {
  "what": "Adversarial reviews by a second model: of the post-audit code, and a gate loop over this branch",
- "utc": "2026-09-15T16:53:52Z",
+ "utc": "2026-09-15T21:34:31Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
  "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
  "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
  "why": "The remediation and the fixes were written by one model; a second one looked for the strongest reasons they should not ship.",
  "method": "codex exec (codex-cli 0.154.0, read-only sandbox, JSON output schema of the codex-review-cc plugin) with the plugin's security, reliability and simplification checklists: once over git diff v0.2.0..HEAD -- crates Cargo.toml of the released code, then round by round over main...verification-2026-09-14 until it approved, every finding adjudicated and every accepted one fixed and tested before the next round",
- "reading": "CHANGES_REQUESTED with six findings. All six were checked against the code, and those that claimed a behaviour against a test that fails on the old code; all six were real and all six are fixed on the branch.",
+ "reading": "CHANGES_REQUESTED with six findings. All six were checked against the code, and those that claimed a behaviour against a test that fails on the old code; all six were real and all six are fixed on the branch. Round by round against main: rounds 1 to 4 each raised one correctness finding (R1F1, R2F1, R3F1, R4F1), each confirmed against the code, fixed test first and resolved by the next round. While round 4 waited on the usage limit of the reviewer, the class of R3F1 was closed as a whole (W4); R4F1 was closed for every TrueHD delivery (G4). Round 5, the last the loop allows, approved in 512 s, and the workspace tests of its approval passed (273).",
  "data": {
   "review": {
    "verdict": "CHANGES_REQUESTED",
@@ -387,6 +387,75 @@
        "Run the workspace and relevant media tests after the fix."
       ]
      }
+    },
+    {
+     "round": 5,
+     "result": [
+      "ROUND_RESULT K=5 verdict=APPROVED dur=512",
+      "APPROVED_AND_VERIFIED"
+     ],
+     "review": {
+      "verdict": "APPROVED",
+      "summary": "No new material findings across the five lenses. R1F1–R4F1 are resolved, with the delivery verdict aligned to docs/exit-codes.md. All 65 selected tests passed using existing test binaries; this read-only review did not perform a fresh build or rerun the full media suite. Coverage counts exclude resolved findings.",
+      "coverage": {
+       "correctness": 0,
+       "security": 0,
+       "reliability": 0,
+       "simplification": 0,
+       "performance": 0
+      },
+      "findings": [
+       {
+        "id": "R1F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/oamd.rs",
+        "line_start": 604,
+        "line_end": 614,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: unreadable units, containers, framing errors and TrueHD extra-data faults now contribute to the metadata verdict, alongside the shared verifier result.",
+        "suggestion": "Retain the unread-metadata and corrupted-Evolution regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R2F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/emdf.rs",
+        "line_start": 246,
+        "line_end": 253,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: nonempty skip fields without an openable container are tracked per substream and counted as missing containers when that substream carries EMDF. Both metadata commands consume this result.",
+        "suggestion": "Retain the erased-container, plain AC-3 and configuration-4 regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R3F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/oamd.rs",
+        "line_start": 608,
+        "line_end": 614,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: skipped bytes, trailing bytes and frame CRC failures now affect the metadata verdict. The additional shared verification pass also covers faults outside the metadata walk.",
+        "suggestion": "Retain the truncated-stream and failed-CRC regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R4F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/decode.rs",
+        "line_start": 261,
+        "line_end": 263,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: every TrueHD delivery now incorporates the shared stream verifier verdict, covering malformed OAMD and faults in substreams omitted by the selected presentation. PCM, WAVE, object outputs and compare all join this check.",
+        "suggestion": "Retain the malformed-OAMD and unselected-substream delivery regressions, including BIT-EXACT comparisons that must still exit 7.",
+        "status": "resolved"
+       }
+      ],
+      "next_steps": []
+     }
     }
    ],
    "adjudication": {
@@ -471,7 +540,8 @@
      ],
      "tests_fail_before": "the CLI test failed on decode -p 0 --format pcm (exit 0) and the media test on decode --format pcm (exit 0) before the change",
      "real_clips": "Of the 24 TrueHD inputs of the work directory only the clip whose object metadata will not parse changes, its PCM decodes from 0 to 7. Two inputs keep a delivery that does not exit as verify does, both unchanged: Up (2009), whose decodes fail a lossless check word verify reads only with --decode, and the spliced clip, whose presentation 2 decode cannot continue past the splice (exit 2)",
-     "timing": "a PCM decode of presentation 2 from a 2.6 GB TrueHD film took 68 s before and 62 s after, the 28 s scan of verify running beside it on another core"
+     "timing": "a PCM decode of presentation 2 from a 2.6 GB TrueHD film took 68 s before and 62 s after, the 28 s scan of verify running beside it on another core",
+     "resolved_in_round": 5
     }
    }
   }
