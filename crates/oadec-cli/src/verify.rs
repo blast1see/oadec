@@ -4,18 +4,116 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::Result;
+use oadec_truehd::{MAX_PRESENTATIONS, MajorSync, StreamConfig};
+use serde::Serialize;
 
-use crate::scan;
+use crate::decode::{Order, Session};
+use crate::{input, scan};
 
-/// Runs the command; returns `true` when the stream is clean.
-pub fn run(path: &Path, json: bool) -> Result<bool> {
+/// The lossless check words one presentation's decode evaluated.
+#[derive(Debug, Clone, Serialize)]
+pub struct PresentationChecks {
+    pub presentation: usize,
+    pub evaluated: u64,
+    pub failed: u64,
+    /// Checks not evaluated because their section spans a seamless branch.
+    pub skipped: u64,
+    /// The first problem the decoder described: a failed check, or a fault
+    /// the integrity pass counts as well.
+    pub first_problem: Option<String>,
+    /// Why the decode stopped before the end of the stream, if it did.
+    pub error: Option<String>,
+}
+
+/// What `verify --decode` adds to the integrity pass.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct LosslessChecks {
+    pub evaluated: u64,
+    pub failed: u64,
+    pub skipped: u64,
+    pub per_presentation: Vec<PresentationChecks>,
+}
+
+impl LosslessChecks {
+    /// Whether every check held and every presentation decoded to the end.
+    #[must_use]
+    pub fn is_clean(&self) -> bool {
+        self.failed == 0 && self.per_presentation.iter().all(|p| p.error.is_none())
+    }
+}
+
+/// Decodes every presentation the stream carries and collects the lossless
+/// check words the decoder evaluated.
+///
+/// The integrity pass parses every segment and checks its parity and CRC, but
+/// it makes no samples, so the check word a restart header carries over the
+/// decoded output of the section before it was never evaluated by `verify` --
+/// only by a decode, and only for the one presentation that decode asked for.
+/// A presentation that is a copy of another is not decoded twice: its samples,
+/// and so its checks, are the other one's.
+fn lossless_checks(path: &Path, ms: &MajorSync) -> Result<LosslessChecks> {
+    let config = StreamConfig::from_major_sync(ms)?;
+    let mut sessions: Vec<(usize, Session, Option<String>)> = (0..MAX_PRESENTATIONS)
+        .filter(|&p| config.presentations.is_carried(p))
+        .map(|p| (p, Session::new(p, false, Order::Stream), None))
+        .collect();
+    input::for_each_unit(path, |unit| {
+        for (_, session, error) in &mut sessions {
+            if error.is_none()
+                && let Err(e) = session.decode(&unit)
+            {
+                *error = Some(format!("{e:#}"));
+            }
+        }
+        Ok(())
+    })?;
+    let mut checks = LosslessChecks::default();
+    for (presentation, session, error) in sessions {
+        let p = match session.stats() {
+            Some(s) => PresentationChecks {
+                presentation,
+                evaluated: s.lossless_checks,
+                failed: s.lossless_mismatches,
+                skipped: s.lossless_checks_skipped,
+                first_problem: s.first_problem.clone(),
+                error,
+            },
+            None => PresentationChecks {
+                presentation,
+                evaluated: 0,
+                failed: 0,
+                skipped: 0,
+                first_problem: None,
+                error,
+            },
+        };
+        checks.evaluated += p.evaluated;
+        checks.failed += p.failed;
+        checks.skipped += p.skipped;
+        checks.per_presentation.push(p);
+    }
+    Ok(checks)
+}
+
+/// Runs the command; returns `true` when the stream is clean. With `decode`,
+/// every presentation the stream carries is decoded as well and its lossless
+/// checks join the verdict.
+pub fn run(path: &Path, json: bool, decode: bool) -> Result<bool> {
     let started = Instant::now();
     let scan = scan::scan(path)?;
+    let checks = match (&scan.first_major_sync, decode) {
+        (Some(ms), true) => Some(lossless_checks(path, ms)?),
+        (None, true) => Some(LosslessChecks::default()),
+        (_, false) => None,
+    };
     let elapsed = started.elapsed().as_secs_f64();
-    let clean = scan.failures.is_clean() && scan.first_major_sync.is_some();
+    let clean = scan.failures.is_clean()
+        && scan.first_major_sync.is_some()
+        && checks.as_ref().is_none_or(LosslessChecks::is_clean);
     let speed = scan.duration_seconds().map(|d| d / elapsed.max(1e-9));
     if json {
         let mut value = serde_json::to_value(&scan)?;
+        value["lossless_checks"] = serde_json::to_value(&checks)?;
         value["clean"] = serde_json::json!(clean);
         value["seconds"] = serde_json::json!(elapsed);
         value["realtime_factor"] = serde_json::json!(speed);
@@ -105,6 +203,27 @@ pub fn run(path: &Path, json: bool) -> Result<bool> {
             f.terminator_tail,
             f.unexpected_tail
         );
+        if let Some(c) = &checks {
+            println!(
+                "Lossless checks:   {} evaluated, {} failed, {} skipped",
+                c.evaluated, c.failed, c.skipped
+            );
+            for p in &c.per_presentation {
+                if let Some(e) = &p.error {
+                    println!(
+                        "                   presentation {}: the decode stopped: {e}",
+                        p.presentation
+                    );
+                } else if p.failed > 0
+                    && let Some(first) = &p.first_problem
+                {
+                    println!(
+                        "                   presentation {}: {} failed, first problem: {first}",
+                        p.presentation, p.failed
+                    );
+                }
+            }
+        }
         let t = &scan.timing_stats;
         println!(
             "Timing:            {} input timing jumps, {} output timing jumps, {} valid seamless branches, {} invalid branches, {} duplicate candidates, {} peak rate changes",

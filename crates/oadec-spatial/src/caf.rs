@@ -72,7 +72,7 @@ impl CafWriter {
         debug_assert!(samples.len().is_multiple_of(self.channels));
         self.buf.clear();
         for &s in samples {
-            let v = s.clamp(-(1 << 23), (1 << 23) - 1);
+            let (v, _) = crate::clamp_i24(s);
             let b = v.to_be_bytes();
             self.buf.extend_from_slice(&b[1..4]);
         }
