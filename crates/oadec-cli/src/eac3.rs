@@ -1353,38 +1353,6 @@ pub struct DecodeOptions {
     pub core_only: bool,
 }
 
-fn write_float_wav_header(
-    out: &mut impl Write,
-    channels: u16,
-    rate: u32,
-    mask: u32,
-    data_len: u32,
-) -> std::io::Result<()> {
-    let block_align = channels * 4;
-    out.write_all(b"RIFF")?;
-    out.write_all(&(data_len + 12 + 8 + 40 + 8 - 8).to_le_bytes())?;
-    out.write_all(b"WAVE")?;
-    out.write_all(b"fmt ")?;
-    out.write_all(&40u32.to_le_bytes())?;
-    out.write_all(&0xFFFEu16.to_le_bytes())?;
-    out.write_all(&channels.to_le_bytes())?;
-    out.write_all(&rate.to_le_bytes())?;
-    out.write_all(&(rate * u32::from(block_align)).to_le_bytes())?;
-    out.write_all(&block_align.to_le_bytes())?;
-    out.write_all(&32u16.to_le_bytes())?;
-    out.write_all(&22u16.to_le_bytes())?;
-    out.write_all(&32u16.to_le_bytes())?;
-    out.write_all(&mask.to_le_bytes())?;
-    // KSDATAFORMAT_SUBTYPE_IEEE_FLOAT
-    out.write_all(&[
-        0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B,
-        0x71,
-    ])?;
-    out.write_all(b"data")?;
-    out.write_all(&data_len.to_le_bytes())?;
-    Ok(())
-}
-
 /// `oadec decode` for AC-3 family streams: 32-bit float samples, as raw
 /// little-endian PCM or as WAVE.
 pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> {
@@ -1393,13 +1361,11 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> 
     }
     let started = Instant::now();
     let file = File::create(output).with_context(|| format!("creating {}", output.display()))?;
-    let mut out = BufWriter::with_capacity(4 << 20, file);
+    // the WAVE header waits for the first frame, which says what it holds
+    let mut out = Some(BufWriter::with_capacity(4 << 20, file));
+    let mut wav_out: Option<crate::decode::WavOut> = None;
     let mut header_written = false;
-    let mut data_len: u64 = 0;
     let mut order: Vec<usize> = Vec::new();
-    let mut channels = 0u16;
-    let mut rate = 0u32;
-    let mut mask = 0u32;
     let wav = opts.format == Format::Wav;
     let (p, sync_errors, skipped) = pass(
         path,
@@ -1412,12 +1378,15 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> 
             let (chans, pcm) = output_channels(frame, opts.core_only);
             if !header_written {
                 order = output_order(&chans, opts.order);
-                channels = chans.len() as u16;
-                rate = frame.core().header.sample_rate;
                 let ordered: Vec<ChannelLoc> = order.iter().map(|&i| chans[i]).collect();
-                mask = channel_mask(&ordered);
-                if wav {
-                    write_float_wav_header(&mut out, channels, rate, mask, 0)?;
+                let spec = crate::decode::WavSpec {
+                    channels: chans.len() as u16,
+                    rate: frame.core().header.sample_rate,
+                    mask: channel_mask(&ordered),
+                    sample: crate::decode::WavSample::Float32,
+                };
+                if wav && let Some(raw) = out.take() {
+                    wav_out = Some(crate::decode::WavOut::create(raw, spec)?);
                 }
                 header_written = true;
             }
@@ -1429,22 +1398,19 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> 
                     buf.extend_from_slice(&c[i].to_le_bytes());
                 }
             }
-            data_len += buf.len() as u64;
-            if wav && data_len > u64::from(u32::MAX) - 68 {
-                bail!("output exceeds the 4 GiB WAVE limit; use --format pcm");
+            match (&mut wav_out, &mut out) {
+                (Some(w), _) => w.write(&buf)?,
+                (None, Some(o)) => o.write_all(&buf)?,
+                (None, None) => unreachable!("the output stays open until the pass ends"),
             }
-            out.write_all(&buf)?;
             Ok(())
         },
     )?;
-    if wav && header_written {
-        out.flush()?;
-        let mut file = out.into_inner().map_err(|e| e.into_error())?;
-        file.seek(SeekFrom::Start(0))?;
-        write_float_wav_header(&mut file, channels, rate, mask, data_len as u32)?;
-        file.flush()?;
-    } else {
-        out.flush()?;
+    // a WAVE file an error drops on the way here closes itself
+    if let Some(w) = wav_out {
+        w.finish()?;
+    } else if let Some(mut o) = out {
+        o.flush()?;
     }
     print_pass(
         path,

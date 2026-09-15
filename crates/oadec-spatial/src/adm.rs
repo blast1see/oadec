@@ -12,7 +12,7 @@
 
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{self, BufWriter, Seek, SeekFrom, Write};
+use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use oadec_emdf::oamd::{BedChannel, Gain};
@@ -358,7 +358,7 @@ impl AdmWriter {
                 }
             }
             for &v in &samples {
-                let b = v.clamp(-(1 << 23), (1 << 23) - 1).to_le_bytes();
+                let b = crate::clamp_i24(v).0.to_le_bytes();
                 self.frame.extend_from_slice(&b[..3]);
             }
             self.frames += 1;
@@ -438,27 +438,8 @@ impl AdmWriter {
             .into_inner()
             .map_err(io::IntoInnerError::into_error)?;
         let total = file.metadata()?.len();
-        let riff_size = total - 8;
-        let rf64 = riff_size > u64::from(u32::MAX) || data_bytes > u64::from(u32::MAX);
-        if rf64 {
-            file.seek(SeekFrom::Start(0))?;
-            file.write_all(b"RF64")?;
-            file.write_all(&u32::MAX.to_le_bytes())?;
-            file.seek(SeekFrom::Start(12))?;
-            file.write_all(b"ds64")?;
-            file.write_all(&JUNK_LEN.to_le_bytes())?;
-            file.write_all(&riff_size.to_le_bytes())?;
-            file.write_all(&data_bytes.to_le_bytes())?;
-            file.write_all(&self.frames.to_le_bytes())?;
-            file.write_all(&0u32.to_le_bytes())?;
-            file.seek(SeekFrom::Start(DATA_SIZE_POS))?;
-            file.write_all(&u32::MAX.to_le_bytes())?;
-        } else {
-            file.seek(SeekFrom::Start(4))?;
-            file.write_all(&(riff_size as u32).to_le_bytes())?;
-            file.seek(SeekFrom::Start(DATA_SIZE_POS))?;
-            file.write_all(&(data_bytes as u32).to_le_bytes())?;
-        }
+        let rf64 =
+            crate::patch_riff_sizes(&mut file, total, DATA_SIZE_POS, data_bytes, self.frames)?;
         file.flush()?;
         Ok(AdmSummary {
             frames: self.frames,
@@ -1686,6 +1667,28 @@ mod tests {
         assert!(text.contains("interpolationLength=\"0.005208\""));
         assert!(text.contains("chna"));
         assert!(text.contains("dbmd"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A sample past the 24-bit range is written at the nearer end of it, not
+    /// with its top byte cut off: 1 << 24 would otherwise read back as zero.
+    #[test]
+    fn samples_past_24_bits_saturate_in_the_file() {
+        let dir = temp_dir("clamp");
+        let mut w = one_object_writer(&dir, 0);
+        let object = w.channels() - 1;
+        let rows = [[0i32, 1 << 24], [0, -(1 << 24)], [0, -5]];
+        w.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
+        w.finish().unwrap();
+        let bytes = std::fs::read(dir.join("t.wav")).unwrap();
+        let data = &bytes[DATA_SIZE_POS as usize + 4..];
+        let sample = |frame: usize| {
+            let at = (frame * (object + 1) + object) * 3;
+            [data[at], data[at + 1], data[at + 2]]
+        };
+        assert_eq!(sample(0), [0xFF, 0xFF, 0x7F]);
+        assert_eq!(sample(1), [0x00, 0x00, 0x80]);
+        assert_eq!(sample(2), [0xFB, 0xFF, 0xFF]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
