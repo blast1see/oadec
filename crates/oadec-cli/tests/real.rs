@@ -1662,3 +1662,59 @@ fn pi_head_adm_is_byte_identical_to_the_audited_file() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// `emdf` frames an AC-3 stream the way `info` and `verify` do.
+///
+/// Its walk read frame headers with a parser of its own that knew only E-AC-3,
+/// and an AC-3 syncframe has its CRC where E-AC-3 has the frame size: on
+/// `talktome-dd51-head.ac3` the walk counted 902 frames and 902 sync errors
+/// where `info` decodes 1171 frames and finds no sync error, and it exited 7.
+/// The walk now frames with the verifier's framing, so the frame count is the
+/// one `info` reports, the sync errors are no more than `verify` finds, and
+/// an AC-3 stream holds the containers the verifier counts in it: none.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn emdf_frames_ac3_streams_as_info_and_verify_do() {
+    let media = media_dir();
+    for name in [
+        "clips/talktome-dd51-head.ac3",
+        "clips/nightcrawler-dd20-head.ac3",
+    ] {
+        let file = media.join(name);
+        require(&file);
+        let report = |command: &str| -> Value {
+            let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+                .args([command, "--json"])
+                .arg(&file)
+                .output()
+                .unwrap_or_else(|e| panic!("run oadec {command}: {e}"));
+            serde_json::from_slice(&out.stdout)
+                .unwrap_or_else(|e| panic!("{name}: {command} output is not JSON ({e})"))
+        };
+        let info = report("info");
+        let verify = verify_json(&file);
+        let scan = report("emdf");
+        assert_eq!(info["syntax"], "AC-3", "{name}");
+        assert_eq!(
+            scan["frames"].as_u64(),
+            info["frames"].as_u64(),
+            "{name}: frame count"
+        );
+        for key in ["independent_frames", "dependent_frames"] {
+            assert_eq!(scan[key].as_u64(), info[key].as_u64(), "{name}: {key}");
+        }
+        assert_eq!(scan["containers"].as_u64(), Some(0), "{name}: containers");
+        assert_eq!(
+            scan["containers"], verify["emdf"]["containers"],
+            "{name}: containers against the verifier"
+        );
+        let found = verify["failures"]["sync_errors"]
+            .as_u64()
+            .expect("sync_errors");
+        assert!(
+            scan["sync_errors"].as_u64().expect("sync_errors") <= found,
+            "{name}: emdf reports {} sync errors, verify {found}",
+            scan["sync_errors"]
+        );
+    }
+}
