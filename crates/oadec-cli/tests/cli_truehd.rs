@@ -294,3 +294,51 @@ fn verify_decode_reports_the_lossless_checks_of_every_presentation() {
         report["lossless_checks"]
     );
 }
+
+/// A decode of a file that holds no TrueHD stream has nothing to deliver and
+/// says so with exit 2, whatever the format. The WAVE and PCM outputs used to
+/// print "nothing decoded" and exit as if the run had been judged.
+#[test]
+fn a_file_without_a_stream_is_refused_by_every_decode_format() {
+    let dir = temp("no-stream");
+    let empty = dir.join("empty.thd");
+    std::fs::write(&empty, b"").unwrap();
+    // a seeded xorshift: the same megabyte on every run
+    let mut x: u64 = 0x9E37_79B9_7F4A_7C15;
+    let noise_bytes: Vec<u8> = (0..1 << 20)
+        .map(|_| {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            (x >> 24) as u8
+        })
+        .collect();
+    let noise = dir.join("noise.thd");
+    std::fs::write(&noise, &noise_bytes).unwrap();
+    for input in [&empty, &noise] {
+        for format in ["wav", "pcm", "damf", "adm"] {
+            let out = dir.join(format!("out-{format}"));
+            let run = oadec(&[
+                "decode",
+                input.to_str().unwrap(),
+                "--format",
+                format,
+                "-o",
+                out.to_str().unwrap(),
+            ]);
+            assert_eq!(
+                run.status.code(),
+                Some(2),
+                "{} --format {format}: {}",
+                input.display(),
+                stderr(&run)
+            );
+            assert!(
+                !stderr(&run).trim().is_empty(),
+                "{} --format {format} exited 2 without a word",
+                input.display()
+            );
+        }
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

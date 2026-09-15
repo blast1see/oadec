@@ -556,6 +556,13 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
         }
         Ok(())
     })?;
+    if session.stats().is_none() {
+        // Nothing framed as TrueHD: there is no output to deliver and nothing
+        // to judge, which is an unusable input (exit 2), not a clean run.
+        drop(out);
+        let _ = std::fs::remove_file(output);
+        anyhow::bail!("no TrueHD access unit found in {}", path.display());
+    }
     match out {
         Some(Output::Wav(w)) => {
             w.finish()?;
