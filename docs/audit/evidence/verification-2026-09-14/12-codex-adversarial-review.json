@@ -1,6 +1,6 @@
 {
  "what": "Adversarial reviews by a second model: of the post-audit code, and a gate loop over this branch",
- "utc": "2026-09-15T07:13:47Z",
+ "utc": "2026-09-15T11:59:52Z",
  "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
  "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
  "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
@@ -257,6 +257,65 @@
        "Fix the missing-container accounting and run the new regression plus the workspace suite in a writable environment."
       ]
      }
+    },
+    {
+     "round": 3,
+     "result": [
+      "ROUND_RESULT K=3 verdict=CHANGES_REQUESTED dur=323"
+     ],
+     "review": {
+      "verdict": "CHANGES_REQUESTED",
+      "summary": "One material correctness gap remains: metadata commands report truncated streams as clean because they discard skipped/trailing-byte counts. R1F1 and R2F1 are resolved. Across five lenses, no other material finding was established. Sixty-one selected prebuilt tests passed; one file-writing test was blocked by the read-only sandbox. A fresh build and full suite were not run.",
+      "coverage": {
+       "correctness": 1,
+       "security": 0,
+       "reliability": 0,
+       "simplification": 0,
+       "performance": 0
+      },
+      "findings": [
+       {
+        "id": "R3F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/emdf.rs",
+        "line_start": 212,
+        "line_end": 212,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "The shared walker discards for_each_frame's skipped-byte count. A truncated final syncframe increases that count without increasing sync_errors, so emdf and oamd silently omit it and report clean. Confirmed with the prebuilt binary on E:/oadec-work/clips/disclosure-web-head.ec3: 976 complete frames followed by 1728 bytes of another frame; both metadata commands exit 0 with clean=true, while verify exits 7. The TrueHD walk similarly discards pass.trailing_bytes at oamd.rs:486: pi-head50m.thd returns clean from oamd despite 84 trailing bytes reported by verify. This contradicts docs/exit-codes.md's explicit skipped/trailing-byte policy.",
+        "suggestion": "Propagate skipped bytes through Walk and both metadata summaries into their clean predicates and diagnostics. On TrueHD, propagate extractor skipped bytes and trailing_bytes too. Add partial-final-frame regressions for both codecs, preserving exit 2 when no complete stream unit exists.",
+        "status": "open"
+       },
+       {
+        "id": "R1F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/oamd.rs",
+        "line_start": 554,
+        "line_end": 560,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: the previously reported container-open failures, unparsed units, sync errors and TrueHD extra-data faults now reach the OAMD summary and verdict.",
+        "suggestion": "Retain the malformed-container, framing-noise and corrupted-Evolution regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R2F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/emdf.rs",
+        "line_start": 224,
+        "line_end": 235,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: find_emdf distinguishes nonempty skip fields from absent skip data, and the walker counts frames without an opened container per EMDF-carrying substream. Both metadata commands consume that count; the erased-container regression covers the reported case.",
+        "suggestion": "Retain the erased-container regression and controls for unrelated AC-3 skip data and configuration 4.",
+        "status": "resolved"
+       }
+      ],
+      "next_steps": [
+       "Fix skipped/trailing-byte propagation and add boundary-truncation CLI regressions.",
+       "Run the new regressions and full workspace suite in a writable environment."
+      ]
+     }
     }
    ],
    "adjudication": {
@@ -297,7 +356,30 @@
      "found_while_fixing": [
       "adb0b76 counted skip fields carrying no EMDF at all into verify and the PCM delivery: 1 099 and 1 091 frames on two AC-3 clips, and every_eac3_stream_is_clean failed on both whole files",
       "a first version of the fix judged the whole stream: the AC-3 core of greenbook-cfg4-head.ec3 read as 1 748 lost containers; the walk now judges each substream apart"
-     ]
+     ],
+     "resolved_in_round": 3
+    },
+    "R3F1": {
+     "round": 3,
+     "lens": "correctness",
+     "severity": "medium",
+     "file": "crates/oadec-cli/src/emdf.rs",
+     "issue": "the walk emdf and oamd share dropped the skipped-byte count of the framing, and the TrueHD walk of oamd its skipped and trailing bytes, so a clip whose last syncframe or access unit is cut short was clean for both while verify exited 7",
+     "disposition": "AGREE",
+     "confirmed_by": "code read: the walk kept the sync errors of for_each_frame and dropped its skipped bytes, walk_truehd copied the resyncs of the pass and not its skipped or trailing bytes; on the binary before the fix disclosure-web-head.ec3 (1 728 bytes skipped) and pi-head50m.thd (84 trailing bytes) exited 0 from emdf and oamd and 7 from verify",
+     "fixed_in": [
+      "3e5af0e"
+     ],
+     "tests": [
+      "a_cut_stream_is_non_conformant_for_the_metadata_commands",
+      "a_frame_whose_crc_fails_is_non_conformant_for_the_metadata_commands",
+      "oamd_reads_an_ac3_stream_frame_by_frame (now expects the three CRC failures verify reports on its bogus-CRC frames)"
+     ],
+     "tests_fail_before": "on the binary at 1a7e10c every copy the two tests build exits 0 from emdf and oamd and 7 from verify: the E-AC-3 fixture cut 100 bytes short, the copy with one CRC bit flipped, the TrueHD fixture cut 50 bytes short at either end, and the three bogus-CRC AC-3 frames",
+     "found_while_fixing": [
+      "neither command read the CRC of a syncframe, which verify counts as a fault: the copy with one bit of the closing CRC word of frame 10 flipped was clean for both"
+     ],
+     "real_clips": "18 of 55 clips change, exactly those cut inside a frame or an access unit: emdf and oamd 0 -> 7 where verify already exited 7 (15 AC-3 and E-AC-3 clips with 128 to 2 240 bytes skipped at their end, 3 TrueHD clips with 46 or 84 trailing bytes); verify changes on none"
     }
    }
   }
