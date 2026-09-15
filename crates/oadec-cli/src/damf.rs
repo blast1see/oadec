@@ -658,6 +658,7 @@ mod tests {
 
     fn sink_options(adm: bool) -> Options {
         Options {
+            joc: crate::eac3_objects::JocOverrides::default(),
             clip_gain: false,
             flat_quadrature: false,
             sparse_as_printed: false,
