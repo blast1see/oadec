@@ -839,8 +839,11 @@ fn account(
     let extension = frame.metadata_part().decoded.bsi.joc_extension();
     let declares_joc = matches!(extension, Some((true, _)));
     let carries_emdf = declares_joc || p.emdf.declares_joc;
-    p.emdf
-        .scan(index, &frame.metadata_part().decoded.skip_fields, carries_emdf);
+    p.emdf.scan(
+        index,
+        &frame.metadata_part().decoded.skip_fields,
+        carries_emdf,
+    );
     p.emdf.declares_joc |= declares_joc;
     if p.metadata_bsi.is_none() {
         p.metadata_bsi = Some(frame.metadata_part().decoded.bsi.clone());

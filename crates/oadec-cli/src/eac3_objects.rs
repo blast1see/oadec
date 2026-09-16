@@ -1071,7 +1071,8 @@ mod tests {
     fn a_frame_whose_container_does_not_open_is_counted() {
         let good = emdf_with_joc(&joc_payload(0));
         assert!(
-            !frame_payloads(std::slice::from_ref(&good), SparseReading::Measured, true).container_failed
+            !frame_payloads(std::slice::from_ref(&good), SparseReading::Measured, true)
+                .container_failed
         );
         let mut bad = good;
         // the declared length, one byte short of the syntax
@@ -1093,7 +1094,11 @@ mod tests {
     /// its matrices are not used.
     #[test]
     fn a_reserved_joc_extension_is_kept_apart_with_its_header() {
-        let payloads = frame_payloads(&[emdf_with_joc(&joc_payload(5))], SparseReading::Measured, true);
+        let payloads = frame_payloads(
+            &[emdf_with_joc(&joc_payload(5))],
+            SparseReading::Measured,
+            true,
+        );
         assert!(payloads.joc.is_none(), "its matrices must not be used");
         assert_eq!(payloads.errors, 0, "it is not counted as a parse error");
         let header = payloads.joc_reserved.expect("the reserved payload is kept");
