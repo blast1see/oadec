@@ -372,6 +372,19 @@ commits on the branch.
 - **The two re-run gates** wrote their verdict into JSON and always exited 0. They
   now exit 1 on a failure and 3 when a gate could not run.
 
+- **The mutation round was asked about the rules this phase added.**
+  `tools/mutants.py` changes one load-bearing thing at a time and runs the
+  workspace suite after each; six mutants were written for the new rules: the
+  branch trigger without the peak data rate change, either rate condition
+  weighing the previous access unit against the rate that replaced the one its
+  bytes were carried at, the branch not reaching the other restart headers of
+  its unit, and the two halves of the missing-container rule. The first run
+  found a hole and named it: the walk arm of that rule was held by a media
+  test and by nothing else, so the mutant that put it back survived every test
+  that runs without the corpus. The rule is a named function with a unit test
+  of its cases now, and the second run catches it: 30 mutations, one survivor,
+  the matrix alignment this round already records as having no specification
+  behind it. `19-mutants-new-rules.json`.
 ## 8. A decision measured: RF64, not BW64
 
 `11-adm-long-form-fourcc.json`. ITU-R BS.2088-2 names the long form of a
