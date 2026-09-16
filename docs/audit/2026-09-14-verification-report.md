@@ -445,7 +445,7 @@ code in it reads the same programme. Screenshots are in the work directory
   `evidence/verification-2026-09-14/17-dolby-evolution-refusal.json`. What the validity
   check objects to is still unanswered: every Evolution frame of both groups reads the same
   here -- one protected frame per access unit, payload id 11 only, no parse error -- and
-  Dolby's check is inside a library this project cannot read.
+  Dolby's check is inside a library this project cannot read. Bisecting it would need the bytes that check reads, and no command here shows them: a scan for the EMDF sync word over the access unit tails finds 45 candidates in a title that carries 603 Evolution blocks, and 34 in one that carries 627, because compressed audio carries that pattern by chance. The tool for it would be a parsed dump of the extra data, the counterpart of `emdf --dump` for TrueHD, which this project does not have.
 - ~~**The lossless check words of Up (2009).**~~ Settled (§6). Six failures when the round
   began, all of them ours: two at access unit 54205, where the branch reached the one
   restart header it was judged at, and four at 77078, which this model did not see as a
