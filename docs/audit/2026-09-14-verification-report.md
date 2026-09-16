@@ -358,6 +358,7 @@ commits on the branch.
 | O4 | closing the open items | A seamless branch reached the one restart header it was judged at, and the decoder skips the lossless check word where the branch is, so every other substream of that access unit compared a check word across the splice. Which substream that was depends on the presentation, so presentations disagreed about the same access unit: 0 and 2 of Up (2009) skipped the check at access unit 54205 where 1 and 3 failed it | `the_branch_reaches_every_restart_header_of_the_unit`, and `a_branch_reaches_every_presentation` (media) | `0268009` |
 | G5 | review loop, round 6 | `tools/replay_fuzz.py` returned 0 whatever a corruption campaign found, and `tools/media_regression.sh` reads exit codes, so the aggregate verdict could pass over a silent accept, a fault reported at exit 0, a panic or a timeout. A timeout was doubly invisible: a non-zero exit with nothing said is what catching the corruption looks like | the campaign measured both ways on four sites of `talktome-joc-head.ec3`: with the release binary it passes and exits 0; with `$OADEC_BIN` pointed at a stand-in that exits 0 and says nothing, every command counts 4 silent accepts and the tool exits 1 | `c6c3a92` |
 | G6 | review loop, round 7 | A frame of a substream that declares the JOC extension carries an EMDF container (TS 103 420 clauses 8.2 and 8.3.1), and a frame with no skip field at all had lost one. The walk `emdf` and `oamd` share, the statistics `verify` keeps and the object path's payload reader all asked for skip bytes before they asked whether a container opened, so the loss was silent in every one and the object decode held the matrices of the frame before it | the unit tests `a_frame_without_skip_fields_loses_a_container_where_emdf_is_declared` and `a_frame_without_skip_fields_is_a_lost_container_where_joc_is_declared`; the material cannot show it, since emptying a frame's skip field desynchronises the block it sits in and the frame stops parsing before its skip fields (measured: 62 of 63 containers, 0 container errors, exit 7 on a mantissa error) | `df4c104` |
+| O5 | closing the open items, with `truehdd`'s debug log as the oracle | A stream may change the peak data rate its major sync declares at a branch and nowhere else, and this model counted those changes without using them, so a splice that moved neither clock was no branch: four lossless check words of Up (2009) failed at access unit 77078 in a stream two other decoders call conformant. Two conditions also weighed the previous access unit's bytes against the rate that had just replaced the one they were carried at, which is the opposite of what this module's documentation says | the unit test `a_peak_data_rate_change_is_a_branch_even_when_neither_clock_jumps`, which pins both; on the title itself `verify --decode` goes from four failed check words to none, with two valid branches at 54205 and 77078, and presentation 3 stays bit-exact against Dolby over 5 075 800 frames | `03c530f` |
 
 
 ## 7. The measuring tools
@@ -428,24 +429,14 @@ code in it reads the same programme. Screenshots are in the work directory
   decode and `truehdd` both read the object presentation of the refused titles cleanly,
   and the 89 are byte-identical to `truehdd`'s output, so the refusal measures Dolby's
   tool and not the streams.
-- **The lossless check words of Up (2009).** Six failures across the four presentations
-  when the round began; two of them were ours and are fixed (§6), and four remain. The two
-  were at access unit 54205, the seamless branch of the stream: the branch reached the one
-  restart header it was judged at, so the substreams of the other presentations compared a
-  check word across the splice, and presentations 0 and 2 skipped the check where 1 and 3
-  failed it. All four skip it now and agree.
-
-  The four that remain are one event, access unit 77078, one failure in each presentation.
-  Every restart header there carries a check word of 0x00 while the decoded state folds to
-  something else, and the output timing steps as it should: no clock jumps, so this model
-  judges no branch. `truehdd` reports a seamless branch at that access unit with an advance
-  of 40 and calls the stream conformant, so it recognises a restart this model does not.
-  What the evidence does not say is how it tells such a restart from an ordinary access
-  unit: a latency change alone cannot be the rule, since the advance breathes with the FIFO
-  in every stream measured -- taking it as the trigger judged 578 valid and 164 invalid
-  branches on this title alone and turned 14 of the 55 comparison inputs from exit 0 into
-  exit 7. Decodes of this title still exit 7; presentation 3 is still byte-identical to
-  `truehdd`.
+- ~~**The lossless check words of Up (2009).**~~ Settled (§6). Six failures when the round
+  began, all of them ours: two at access unit 54205, where the branch reached the one
+  restart header it was judged at, and four at 77078, which this model did not see as a
+  branch at all. It splices there without moving either clock, and what it does move is the
+  peak data rate its major sync declares, from 1889 to 2560 -- which a stream may do at a
+  branch and nowhere else. The model counted those changes and never used them. It uses
+  them now: `verify --decode` reports two valid branches, at 54205 and 77078, no failed
+  check word, and the title is clean, which is what `truehdd` says of it.
 - **A mid-stream configuration change** ends the output, by design rather than by
   omission. `StreamConfig::incompatible_with` names four fields, and every one of them
   changes the shape of what a decode writes: the substream count, `substream_info`, the
@@ -480,7 +471,11 @@ code in it reads the same programme. Screenshots are in the work directory
   fault only where containers open, and the second evidence that a substream carries EMDF
   is the JOC extension declared in its `addbsi`, which an OAMD-only substream does not
   carry; every JOC stream measured declares it in every frame. The object decode still
-  refuses a stream whose first frame carries no JOC payload it can start from.
+  refuses a stream whose first frame carries no JOC payload it can start from. One bound of
+  the fix for that hole is worth naming: the walk reads a stream forwards, so a frame that
+  carries no skip field *before* the first frame that declares the extension is not counted
+  against it. Every JOC stream measured declares it in every frame, and both the walk and
+  the statistics `verify` keeps read it the same way, so the two never disagree.
 
 ## 10. Reproducing
 
