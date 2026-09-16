@@ -116,6 +116,9 @@ pub struct BranchReport {
     pub unit: u64,
     pub input_jump: bool,
     pub output_jump: bool,
+    /// The major sync of that access unit declared a new peak data rate, which
+    /// a stream may do at a branch and nowhere else.
+    pub rate_change: bool,
     pub prev_advance: u32,
     pub advance: u32,
     pub valid: bool,
@@ -409,6 +412,7 @@ impl Scan {
                     unit: b.unit,
                     input_jump: b.input_jump,
                     output_jump: b.output_jump,
+                    rate_change: b.rate_change,
                     prev_advance: b.prev_advance,
                     advance: b.advance,
                     valid: b.is_valid(),
