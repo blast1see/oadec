@@ -293,6 +293,7 @@ pub fn parse_emdf_with_sync(bytes: &[u8]) -> Result<(Container, usize), Containe
 enum ConfigField {
     Duratione,
     Groupide,
+    CodecDatae,
     DiscardUnknownPayload,
     CreateDuplicate,
     RemoveDuplicate,
@@ -306,6 +307,7 @@ impl ConfigField {
         match self {
             Self::Duratione => Some(u32::from(cfg.duration.is_some())),
             Self::Groupide => Some(u32::from(cfg.group_id.is_some())),
+            Self::CodecDatae => Some(u32::from(cfg.codec_data.is_some())),
             Self::DiscardUnknownPayload => Some(u32::from(cfg.discard_unknown_payload)),
             Self::CreateDuplicate => cfg.create_duplicate.map(u32::from),
             Self::RemoveDuplicate => cfg.remove_duplicate.map(u32::from),
@@ -326,19 +328,22 @@ type Rule = (ConfigField, u32, &'static str);
 /// `discard_unknown_payload` 0, `create_duplicate` 0, `remove_duplicate` 0,
 /// `priority` 0, `proc_allowed` 0.
 ///
-/// Two rows are not in this list. `groupid` relates the two payloads, so
-/// [`table_56_group_violation`] checks it on the container. `codecdatae 1`
-/// contradicts clause H.2.2.3.7 of ETSI TS 102 366 V1.4.1, which the table
-/// cites and which says the field "shall be set to '0'" for payload
-/// configuration data that conforms to Annex H; every OAMD and JOC payload
-/// measured carries 0 (the committed fixture, sixteen clips and eleven whole
-/// JOC streams of the corpus, 2,1 million frames), so neither value is pinned.
+/// One row is not in this list: `groupid` relates the two payloads, so
+/// [`table_56_group_violation`] checks it on the container.
+///
+/// `codecdatae` is in it, pinned to 0 and not to the 1 the table prints. Clause
+/// H.2.2.3.7 of ETSI TS 102 366 V1.4.1, which the table cites, says the field
+/// "shall be set to '0'" for payload configuration data that conforms to Annex
+/// H, and every OAMD and JOC payload measured carries 0 (the committed fixture,
+/// sixteen clips and eleven whole JOC streams of the corpus, 2,1 million
+/// frames). A payload that carries the byte is reported against the clause,
+/// which the line names.
 ///
 /// `create_duplicate` and `remove_duplicate` exist only when
 /// `payload_frame_aligned` is 1, and `priority` and `proc_allowed` only when it
 /// is 1 or a sample offset is given; a field the syntax did not carry is not a
 /// violation.
-const TABLE_56_RULES: [Rule; 7] = [
+const TABLE_56_RULES: [Rule; 8] = [
     (
         ConfigField::Duratione,
         0,
@@ -348,6 +353,11 @@ const TABLE_56_RULES: [Rule; 7] = [
         ConfigField::Groupide,
         1,
         "groupide is 0, Table 56 requires 1",
+    ),
+    (
+        ConfigField::CodecDatae,
+        0,
+        "codecdatae is 1, clause H.2.2.3.7 of TS 102 366 requires 0",
     ),
     (
         ConfigField::DiscardUnknownPayload,
@@ -769,12 +779,22 @@ mod tests {
                 );
             }
         }
-        // Table 56 prints codecdatae 1, but clause H.2.2.3.7 of TS 102 366,
-        // which the table cites, requires 0 and every payload measured carries
-        // 0, so the field is not pinned either way.
-        for codec_data in [None, Some(0)] {
+        // Table 56 prints codecdatae 1, and clause H.2.2.3.7 of TS 102 366,
+        // which the table cites, requires 0. Every payload measured carries 0,
+        // so the field is held to the clause: no codec data is right, and a
+        // payload that carries the byte is reported whatever the byte says.
+        let bits = ConfigBits {
+            codec_data: None,
+            ..j
+        };
+        assert!(table_56_violations(PAYLOAD_ID_JOC, &bits.parse()).is_empty());
+        for codec_data in [Some(0), Some(0x5A)] {
             let bits = ConfigBits { codec_data, ..j };
-            assert!(table_56_violations(PAYLOAD_ID_JOC, &bits.parse()).is_empty());
+            assert_eq!(
+                table_56_violations(PAYLOAD_ID_JOC, &bits.parse()),
+                vec!["codecdatae is 1, clause H.2.2.3.7 of TS 102 366 requires 0"],
+                "codec_data {codec_data:?}"
+            );
         }
     }
 
