@@ -43,6 +43,18 @@ Semantic Versioning.
   there. Each step prints its exit code, the script fails if any step failed
   and names them. CI still cannot run any of it: the corpus is licensed
   material, tens of gigabytes of it, and no public runner may hold it.
+- **A corruption campaign says what it found in its exit code.**
+  `tools/replay_fuzz.py` recorded every trial and returned 0 whatever it
+  found, so a runner that reads exit codes -- `tools/media_regression.sh`,
+  which the same release adds -- could report that every media check passed
+  over a silent accept, a fault reported at exit 0, a panic, or a timeout. A
+  timeout was invisible for a second reason: it leaves a non-zero exit and
+  says nothing, which is exactly what a command that caught the corruption
+  looks like, so it is counted on its own now. The campaign writes `verdict`
+  and `faults` beside its summary, names the command and the counter on
+  stderr, and exits 1. A non-zero exit from the decoder is not a fault: that
+  is the corruption being caught. The stored campaigns of the corpus are
+  unaffected, 0 silent, 0 reported at exit 0 and 0 panics in all three kinds.
 - **`oadec oamd` reads E-AC-3 streams.** It walks the EMDF containers in the
   frames' skip fields as `oadec emdf` does and reports every Object Audio
   Metadata payload in the same JSON shape as TrueHD, one syncframe per unit; it
