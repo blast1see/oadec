@@ -341,10 +341,18 @@ impl EmdfStats {
         }
     }
 
-    fn scan(&mut self, frame_index: u64, skip_fields: &[Vec<u8>]) {
+    fn scan(&mut self, frame_index: u64, skip_fields: &[Vec<u8>], declares_emdf: bool) {
         self.last_clipgain = None;
         let total: usize = skip_fields.iter().map(Vec::len).sum();
         if total == 0 {
+            // A substream that declares the JOC extension carries a container in
+            // every frame, so a frame with no skip field at all has lost one.
+            // Returning here left that loss unreported (R7F1). A frame of a
+            // stream that carries no EMDF has lost nothing.
+            if declares_emdf {
+                self.container_errors += 1;
+                self.first_missing.get_or_insert(frame_index);
+            }
             return;
         }
         self.frames_with_skip += 1;
@@ -824,12 +832,16 @@ fn account(
     // container carrying OAMD and JOC is in the last dependent substream. With
     // none, `metadata_part` is the independent substream and this is exactly
     // what it was before.
-    p.emdf
-        .scan(index, &frame.metadata_part().decoded.skip_fields);
     // TS 103 420 clause 8.3.1: the addbsi extension is in the same substream
-    // as the container
+    // as the container. It is read before the scan, because a frame that
+    // carries no skip field at all is a lost container exactly where the
+    // substream declares one.
     let extension = frame.metadata_part().decoded.bsi.joc_extension();
-    p.emdf.declares_joc |= matches!(extension, Some((true, _)));
+    let declares_joc = matches!(extension, Some((true, _)));
+    let carries_emdf = declares_joc || p.emdf.declares_joc;
+    p.emdf
+        .scan(index, &frame.metadata_part().decoded.skip_fields, carries_emdf);
+    p.emdf.declares_joc |= declares_joc;
     if p.metadata_bsi.is_none() {
         p.metadata_bsi = Some(frame.metadata_part().decoded.bsi.clone());
     }
@@ -1946,6 +1958,33 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A substream that declares the JOC extension in its `addbsi` carries an
+    /// EMDF container in every frame (TS 103 420 clauses 8.2 and 8.3.1), so a
+    /// frame with no skip field at all has lost one. The scan returned before
+    /// counting when the skip bytes totalled zero, which left `verify` clean
+    /// over the loss while the object decode held the matrices of the frame
+    /// before it. Round 7 of the review loop found it (R7F1).
+    #[test]
+    fn a_frame_without_skip_fields_loses_a_container_where_emdf_is_declared() {
+        let mut declared = EmdfStats::default();
+        declared.scan(7, &[], true);
+        assert_eq!(declared.container_errors, 1);
+        assert_eq!(declared.first_missing, Some(7));
+        assert_eq!(
+            (declared.frames_with_skip, declared.skip_bytes),
+            (0, 0),
+            "there were no skip bytes to count"
+        );
+
+        // A frame of a stream that carries no EMDF has lost nothing: most
+        // AC-3 and E-AC-3 frames carry no skip field, and two AC-3 clips of
+        // the corpus fill theirs with something else entirely.
+        let mut plain = EmdfStats::default();
+        plain.scan(7, &[], false);
+        assert_eq!(plain.container_errors, 0);
+        assert_eq!(plain.first_missing, None);
+    }
 
     /// Every input the exit code is decided from, one at a time.
     ///
