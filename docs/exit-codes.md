@@ -113,12 +113,12 @@ what the format is.
 
 | Command | 0 | 7 | 2 |
 |---|---|---|---|
-| `verify` | clean | non-conformant; with `--decode`, also a failed lossless check word or a presentation whose decode stopped | could not be read |
+| `verify` | clean | non-conformant; with `--decode`, also a failed lossless check word or a presentation whose decode stopped | could not be read, or holds no stream |
 | `info` | the stream was read | — | could not be read, or holds no stream |
 | `emdf`, `oamd` | clean | non-conformant: a fault `verify` finds in the stream, or one in the metadata they read | could not be read, or holds no stream |
 | `decode` (PCM, WAV, CAF, DAMF, ADM, objects) | clean | a fault above | fatal decode failure, no access unit or whole syncframe in the file, a configuration change before any output, or a JOC measurement override on a decode with no JOC reconstruction to apply it to |
 | `decode --format damf\|adm` with a declared loss | -- | 4 (above) | -- |
-| `compare` | matches and clean | differs, or a fault above | could not be read |
+| `compare` | matches and clean | differs, or a fault above | could not be read, or holds no stream |
 | `thd-demux`, `eac3-joc-config`, `eac3-ecpl-inject` | always | — | could not be written |
 
 `compare` folds the two questions together on purpose: a comparison against a

@@ -369,6 +369,19 @@ reader twice, once as written and once with only its first four bytes changed:
 The file's consumer is a Dolby encoder, so `RF64` stays, as a measured deviation from
 BS.2088. The audit's D14 closes on this.
 
+### 8.1 A third reader: the Fairlight import of DaVinci Resolve
+
+Every ADM reader that had accepted the output so far was Dolby's own (the Conversion
+Tool, `atmos_info`, `bwf_info`) or the EBU renderer. The owner opened the ADM file of
+the Pi head by hand in DaVinci Resolve Studio 21, on the Fairlight page, and the DAMF
+set of the same decode after it. Resolve laid each out as one bed track and eleven
+object tracks, Object 11 to Object 21, with its Dolby renderer monitoring 7.1.4.
+That is what the file says it holds: `atmos_info` 5.7.2 reads a ten-channel bed (L, R,
+C, LFE, LSS, RSS, LRS, RRS, LTM, RTM) and eleven objects, ids 0 to 10, over 5 075 800
+samples, and exits 0 on both the ADM file and the DAMF set. A reader with no Dolby
+code in it reads the same programme. Screenshots are in the work directory
+(`resolve/resolve-fairlight-adm-1.png` and `-2.png`).
+
 ## 9. Still open
 
 - **The subband 0 residual of three titles.** Mercy, A Man Called Otto and Damsel leave
@@ -385,9 +398,6 @@ BS.2088. The audit's D14 closes on this.
   byte-identical to `truehdd`. Whether the stream or the check is wrong is not settled.
 - **A mid-stream configuration change** is still not decoded across. The output now ends
   at that access unit in a consistent file and the run exits 7.
-- **`verify` and `compare` on a file with no stream** exit 7 (non-conformant, different)
-  where the reporting and decoding commands exit 2. Neither reads as clean, and this round
-  left them as they are.
 - **`codecdatae`** is not held to Table 56, which prints 1 where the clause it cites
   requires 0; every payload measured carries 0.
 - **Material that does not exist anywhere in the library**: downmix configurations 1 and
@@ -399,8 +409,6 @@ BS.2088. The audit's D14 closes on this.
   `oamd`, like one that carries none, since a frame without a container is a fault only
   where containers open. The object decode still refuses a stream whose first frame
   carries no JOC payload it can start from.
-- **A third ADM reader, DaVinci Resolve's Fairlight import,** was prepared for a manual
-  check and is not part of any verdict here.
 
 ## 10. Reproducing
 

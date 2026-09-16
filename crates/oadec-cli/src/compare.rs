@@ -181,6 +181,11 @@ pub fn run(path: &Path, reference: &Path, opts: &Options) -> Result<bool> {
     })?;
     let leftover = reference.remaining()?;
     let leftover_samples = leftover / (opts.format.bytes() as u64 * channels.max(1) as u64);
+    if session.stats().is_none() {
+        // Nothing framed: the file is not a stream to judge but an unsupported
+        // input, exit 2, as it is for every command that reports one.
+        return Err(crate::info::no_stream(path));
+    }
     let elapsed = started.elapsed().as_secs_f64();
     print_summary(&session, elapsed);
     let rate = f64::from(session.sampling_frequency.max(1));

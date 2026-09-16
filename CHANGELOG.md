@@ -93,6 +93,13 @@ Semantic Versioning.
   its PCM decodes from 0 to 7; a PCM decode of presentation 2 from a 2.6 GB
   TrueHD film took 68 s before and 62 s after, the 28 s scan of `verify`
   running beside it on another core.
+- **`verify` and `compare` refuse a file that holds no stream.** They read a
+  file with no access unit and no whole syncframe as a stream with every
+  counter at zero and called it non-conformant, exit 7, where `info`, `emdf`,
+  `oamd` and every decode exit 2 on the same file. Both now stop with the
+  message the others print and exit 2; a stream that frames a unit and then
+  fails a check is still exit 7. The TrueHD decode, which had a message of its
+  own, says it with the same words.
 - **`info`, `oamd`, `emdf` and `decode` exit 2 on a file that holds no stream.**
   An empty or random file used to produce a report of nothing, or "nothing
   decoded", with exit 0. They now stop with a message naming the file, and
