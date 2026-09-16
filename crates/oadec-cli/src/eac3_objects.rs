@@ -555,10 +555,18 @@ struct FramePayloads {
 /// Which substream is [`ProgramFrame::metadata_part`]: the last dependent one
 /// when the programme has any, else the independent one (TS 103 420 clause
 /// 8.2).
-fn frame_payloads(skip_fields: &[Vec<u8>], sparse: SparseReading) -> FramePayloads {
+fn frame_payloads(
+    skip_fields: &[Vec<u8>],
+    sparse: SparseReading,
+    declares_emdf: bool,
+) -> FramePayloads {
     let mut out = FramePayloads::default();
     let total: usize = skip_fields.iter().map(Vec::len).sum();
     if total == 0 {
+        // The substream declares a JOC extension, so this frame carried a
+        // container and it is gone: the matrices of the frame before hold, and
+        // the delivery says so. Returning silently was R7F1.
+        out.container_failed = declares_emdf;
         return out;
     }
     let mut data = Vec::with_capacity(total);
@@ -746,6 +754,10 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
             } else {
                 SparseReading::Measured
             },
+            matches!(
+                frame.metadata_part().decoded.bsi.joc_extension(),
+                Some((true, _))
+            ),
         );
         tally.payload_errors += errors;
         tally.joc_size_mismatches += joc_size_mismatches;
@@ -1010,6 +1022,24 @@ mod tests {
         out
     }
 
+    /// The object path loses a frame's metadata when the substream declares the
+    /// JOC extension and the frame carries no skip field at all: there is no
+    /// container to read, so the matrices of the frame before hold. It returned
+    /// an empty payload set without a word, and the delivery stayed clean
+    /// (R7F1).
+    #[test]
+    fn a_frame_without_skip_fields_is_a_lost_container_where_joc_is_declared() {
+        let lost = frame_payloads(&[], SparseReading::Measured, true);
+        assert!(lost.container_failed, "the frame lost its container");
+        assert!(lost.joc.is_none() && lost.oamd.is_empty());
+
+        let plain = frame_payloads(&[], SparseReading::Measured, false);
+        assert!(
+            !plain.container_failed,
+            "a frame of a stream that carries no EMDF has lost nothing"
+        );
+    }
+
     /// A JOC payload that parses but declares a byte its syntax never reaches
     /// went straight into the reconstruction, and the object output exited
     /// clean where `verify` and the PCM path exit 7. The payload is still used;
@@ -1017,13 +1047,13 @@ mod tests {
     #[test]
     fn the_object_path_counts_a_joc_payload_whose_declared_size_is_wrong() {
         let exact = joc_payload(0);
-        let payloads = frame_payloads(&[emdf_with_joc(&exact)], SparseReading::Measured);
+        let payloads = frame_payloads(&[emdf_with_joc(&exact)], SparseReading::Measured, true);
         assert!(payloads.joc.is_some(), "the payload parses");
         assert_eq!((payloads.errors, payloads.joc_size_mismatches), (0, 0));
 
         let mut long = exact;
         long.push(0);
-        let payloads = frame_payloads(&[emdf_with_joc(&long)], SparseReading::Measured);
+        let payloads = frame_payloads(&[emdf_with_joc(&long)], SparseReading::Measured, true);
         assert!(
             payloads.joc.is_some(),
             "a trailing byte does not stop the parse"
@@ -1041,12 +1071,12 @@ mod tests {
     fn a_frame_whose_container_does_not_open_is_counted() {
         let good = emdf_with_joc(&joc_payload(0));
         assert!(
-            !frame_payloads(std::slice::from_ref(&good), SparseReading::Measured).container_failed
+            !frame_payloads(std::slice::from_ref(&good), SparseReading::Measured, true).container_failed
         );
         let mut bad = good;
         // the declared length, one byte short of the syntax
         bad[3] = bad[3].wrapping_sub(1);
-        let payloads = frame_payloads(&[bad], SparseReading::Measured);
+        let payloads = frame_payloads(&[bad], SparseReading::Measured, true);
         assert!(payloads.joc.is_none(), "nothing is read from it");
         assert!(payloads.container_failed, "and the frame says so");
         let tally = Tally {
@@ -1063,7 +1093,7 @@ mod tests {
     /// its matrices are not used.
     #[test]
     fn a_reserved_joc_extension_is_kept_apart_with_its_header() {
-        let payloads = frame_payloads(&[emdf_with_joc(&joc_payload(5))], SparseReading::Measured);
+        let payloads = frame_payloads(&[emdf_with_joc(&joc_payload(5))], SparseReading::Measured, true);
         assert!(payloads.joc.is_none(), "its matrices must not be used");
         assert_eq!(payloads.errors, 0, "it is not counted as a parse error");
         let header = payloads.joc_reserved.expect("the reserved payload is kept");

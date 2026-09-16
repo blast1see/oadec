@@ -262,7 +262,13 @@ pub(crate) fn for_each_container(
             .or_default();
         substream.opened += opened;
         substream.declares_joc |= declares_joc;
-        if has_skip && opened == 0 {
+        // A substream that declares the JOC extension carries an EMDF container
+        // in every frame (TS 103 420 clauses 8.2 and 8.3.1), so a frame with no
+        // skip field at all has lost one there. Asking for skip bytes first left
+        // that loss uncounted; asking only where a container could be keeps the
+        // exemption for ordinary frames, which carry no skip field and have lost
+        // nothing.
+        if opened == 0 && (has_skip || substream.declares_joc) {
             substream.without += 1;
             if substream.first_without.is_none() {
                 let index = walk.frames - 1;
@@ -270,7 +276,12 @@ pub(crate) fn for_each_container(
                     Some((offset, Err(e))) => {
                         format!("frame {index}, skip-field byte {offset}: {e}")
                     }
-                    _ => format!("frame {index}: no EMDF container in the skip fields"),
+                    _ if has_skip => {
+                        format!("frame {index}: no EMDF container in the skip fields")
+                    }
+                    _ => format!(
+                        "frame {index}: the substream declares a JOC extension and the frame carries no skip field"
+                    ),
                 };
                 substream.first_without = Some((index, words));
             }
