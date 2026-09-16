@@ -1,0 +1,99 @@
+{
+ "question": "can downmix configurations 1 and 2 be authored by relabelling a configuration 3 stream",
+ "answer": "no: joc_dmx_config_idx selects the number of downmix channels (table 48), which sets how much the JOC payload carries, so a relabelled payload is read to the wrong length",
+ "fixture": "%USERPROFILE%/Documents/oadec/crates/oadec-cli/tests/fixtures/authored-scene.ec3",
+ "indices_that_read_back": [
+  0,
+  3
+ ],
+ "indices_that_do_not": [
+  1,
+  2,
+  4,
+  5,
+  6,
+  7
+ ],
+ "rows": [
+  {
+   "dmx_config": 0,
+   "write": 0,
+   "verify": 0,
+   "first_error": null,
+   "joc_errors": 0,
+   "joc_payloads": 63,
+   "decode": 0,
+   "decode_message": "metadata: 63 payloads, 33 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD"
+  },
+  {
+   "dmx_config": 1,
+   "write": 0,
+   "verify": 7,
+   "first_error": "frame 0: JOC: payload ends early: bit read out of bounds: 1 bits requested at bit 2056 with 0 available",
+   "joc_errors": 63,
+   "joc_payloads": 63,
+   "decode": 2,
+   "decode_message": "error: the first frame carries no JOC payload"
+  },
+  {
+   "dmx_config": 2,
+   "write": 0,
+   "verify": 7,
+   "first_error": "frame 0: JOC: payload ends early: bit read out of bounds: 1 bits requested at bit 2056 with 0 available",
+   "joc_errors": 63,
+   "joc_payloads": 63,
+   "decode": 2,
+   "decode_message": "error: the first frame carries no JOC payload"
+  },
+  {
+   "dmx_config": 3,
+   "write": 0,
+   "verify": 0,
+   "first_error": null,
+   "joc_errors": 0,
+   "joc_payloads": 63,
+   "decode": 0,
+   "decode_message": "metadata: 63 payloads, 33 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD"
+  },
+  {
+   "dmx_config": 4,
+   "write": 0,
+   "verify": 7,
+   "first_error": "frame 0: JOC: payload ends early: bit read out of bounds: 1 bits requested at bit 2056 with 0 available",
+   "joc_errors": 63,
+   "joc_payloads": 63,
+   "decode": 2,
+   "decode_message": "error: the first frame carries no JOC payload"
+  },
+  {
+   "dmx_config": 5,
+   "write": 0,
+   "verify": 7,
+   "first_error": "frame 0: JOC: reserved joc_dmx_config_idx 5",
+   "joc_errors": 63,
+   "joc_payloads": 63,
+   "decode": 2,
+   "decode_message": "error: the first frame carries no JOC payload"
+  },
+  {
+   "dmx_config": 6,
+   "write": 0,
+   "verify": 7,
+   "first_error": "frame 0: JOC: reserved joc_dmx_config_idx 6",
+   "joc_errors": 63,
+   "joc_payloads": 63,
+   "decode": 2,
+   "decode_message": "error: the first frame carries no JOC payload"
+  },
+  {
+   "dmx_config": 7,
+   "write": 0,
+   "verify": 7,
+   "first_error": "frame 0: JOC: reserved joc_dmx_config_idx 7",
+   "joc_errors": 63,
+   "joc_payloads": 63,
+   "decode": 2,
+   "decode_message": "error: the first frame carries no JOC payload"
+  }
+ ]
+}

@@ -389,8 +389,24 @@ code in it reads the same programme. Screenshots are in the work directory
   Dolby-minus-flat there is explained by no fixed response. The obvious suspect, the
   order of the fixed filter and the interpolated matrix, is ruled out: every reordering
   tried moves subband 0 further from Dolby (§4.5). The error sits at −94 to −97 dBFS.
-- **Dolby's refusal of TrueHD object presentations.** It refuses 46 % of the library's
-  object presentations, and Up (2009) among the fresh titles. Not investigated again.
+- **Dolby's refusal of TrueHD object presentations.** `dlbtruehddec` opens 105 of 194 and
+  refuses 89, Up (2009) among them. The refusal was narrowed this round and is still
+  unexplained. It comes from `decode_oamdi()` as "Selected Dolby TrueHD presentation is
+  not available", and it strikes one combination only: the raw object output
+  (`out-ch-config=21`) at `presentation=16`. The same titles decode at presentations 2, 6
+  and 8, at 8 with the raw output, and at 16 with a channel output. Nothing in the streams
+  separates the two groups: every one of the 194 declares a sixteen-channel presentation,
+  all carry four substreams and the same flags, and `substream_info` and the dynamic
+  object count overlap. Neither does the object metadata, compared this round on twenty
+  titles from each group: the program shape is the same (dynamic objects only, an LFE bed,
+  no ISF), and object counts, element ids, blocks per payload, sample offsets, ramp
+  durations and block statuses overlap. The container is not involved either, since the
+  raw stream refuses the parser in both groups and the MP4 wrapper is required for both.
+  The association recorded in `docs/audit/conformance-matrix.md`, with
+  `channel_meaning.twoch_dialogue_norm`, is unchanged and remains an association. Our
+  decode and `truehdd` both read the object presentation of the refused titles cleanly,
+  and the 89 are byte-identical to `truehdd`'s output, so the refusal measures Dolby's
+  tool and not the streams.
 - **The lossless check words of Up (2009).** Six failures across the four presentations
   when the round began; two of them were ours and are fixed (§6), and four remain. The two
   were at access unit 54205, the seamless branch of the stream: the branch reached the one
@@ -420,9 +436,24 @@ code in it reads the same programme. Screenshots are in the work directory
   the other side.
 - **Material that does not exist anywhere in the library**: downmix configurations 1 and
   2, two-point interpolation, EMDF in auxiliary data, a stream carrying object divergence.
-  These stay N/T.
-- **CI does not run the media suite.** Every figure here rests on a local run with the
-  work directory.
+  These stay N/T, and the round settled why the first of them cannot simply be made.
+  `oadec eac3-joc-config` rewrites `joc_dmx_config_idx` in every JOC payload, so the
+  obvious move is to relabel a configuration 3 stream as 1 or 2. It does not work, and the
+  reason is in the field: the index selects the number of downmix channels of table 48,
+  which sets how much the payload carries. Relabelling the committed fixture to 1, 2 or 4
+  leaves a payload that ends early, at bit 2056 of the first frame, in all 63 frames;
+  `verify` exits 7 and the object decode refuses the stream. Only 0 and 3 read back, the
+  two an encoder writes. The reserved indices 5, 6 and 7 are refused by name, which is the
+  one thing the exercise does confirm on a real stream. Configurations 1 and 2 would have
+  to be encoded, not relabelled;
+  `evidence/verification-2026-09-14/15-dmx-relabel.json`.
+- **CI does not run the media suite,** and cannot: the corpus is licensed material, tens
+  of gigabytes of it, and no public runner may hold it. Every figure here rests on a local
+  run with the work directory. What the round could do is make that run one command with
+  one verdict rather than a sequence assembled by hand: `tools/media_regression.sh` runs
+  the media suite, the same suite without the corpus, the three TrueHD gates, the object
+  gate, the two corruption replays and the ADM harness when its environment is there,
+  prints an exit code for each and fails if any of them failed.
 - **A substream that carries Object Audio Metadata and no JOC, whose containers are all
   broken,** reads like one that carries none. A frame without a container that opens is a
   fault only where containers open, and the second evidence that a substream carries EMDF

@@ -120,6 +120,19 @@ that holds the streams and references and run:
 cargo test --release -p oadec-cli --test real -- --ignored
 ```
 
+Every check that needs the corpus -- that suite, the same suite without
+the corpus, the TrueHD bit-exactness gates, the object gate, the
+corruption replays and the ADM stages -- runs in one command with one
+verdict:
+
+```text
+tools/media_regression.sh /path/to/work-directory
+```
+
+It prints an exit code per step and fails if any step failed. CI cannot
+run it: the corpus is licensed material, tens of gigabytes of it, and no
+public runner may hold it.
+
 Those tests are `#[ignore]`d, so a plain `cargo test` never touches the media.
 Asking for `--ignored` without setting `OADEC_MEDIA` fails: a conformance suite
 that cannot reach its material must say so rather than report a pass.

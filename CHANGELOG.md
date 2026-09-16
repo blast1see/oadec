@@ -35,6 +35,14 @@ Semantic Versioning.
   exited 0, so a chain that checked their status called a failed gate green.
   They now exit 1 when a gate failed or a title regressed and 3 when one could
   not run.
+- **`tools/media_regression.sh` runs every check that needs the corpus, in one
+  command with one verdict.** The media suite, the same suite without the
+  corpus -- a suite that passes because it found nothing to read is the
+  failure that step guards against -- the three TrueHD gates, the object gate,
+  the two corruption replays and the ADM harness when its environment is
+  there. Each step prints its exit code, the script fails if any step failed
+  and names them. CI still cannot run any of it: the corpus is licensed
+  material, tens of gigabytes of it, and no public runner may hold it.
 - **`oadec oamd` reads E-AC-3 streams.** It walks the EMDF containers in the
   frames' skip fields as `oadec emdf` does and reports every Object Audio
   Metadata payload in the same JSON shape as TrueHD, one syncframe per unit; it
