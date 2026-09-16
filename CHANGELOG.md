@@ -111,6 +111,13 @@ Semantic Versioning.
   the deliveries count the lost containers of such a substream now. A
   substream that carries Object Audio Metadata and no JOC, with every
   container broken, still reads like one that carries none.
+- **`codecdatae` is held to the clause Table 56 cites.** The table prints 1
+  for the field while clause H.2.2.3.7 of TS 102 366, which the table cites,
+  says it shall be 0, and every OAMD and JOC payload measured carries 0: the
+  committed fixture, sixteen clips and eleven whole JOC streams, 2,1 million
+  frames. The field joins the checked rows of the payload configuration,
+  pinned to 0, and a payload that carries the byte is reported with the clause
+  named. No stream of the corpus changes.
 - **`info`, `oamd`, `emdf` and `decode` exit 2 on a file that holds no stream.**
   An empty or random file used to produce a report of nothing, or "nothing
   decoded", with exit 0. They now stop with a message naming the file, and

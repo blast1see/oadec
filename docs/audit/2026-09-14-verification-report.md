@@ -398,8 +398,6 @@ code in it reads the same programme. Screenshots are in the work directory
   byte-identical to `truehdd`. Whether the stream or the check is wrong is not settled.
 - **A mid-stream configuration change** is still not decoded across. The output now ends
   at that access unit in a consistent file and the run exits 7.
-- **`codecdatae`** is not held to Table 56, which prints 1 where the clause it cites
-  requires 0; every payload measured carries 0.
 - **Material that does not exist anywhere in the library**: downmix configurations 1 and
   2, two-point interpolation, EMDF in auxiliary data, a stream carrying object divergence.
   These stay N/T.
