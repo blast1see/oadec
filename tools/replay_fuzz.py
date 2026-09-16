@@ -11,6 +11,12 @@ For each site this runs `verify`, `decode --format pcm` and the object decode,
 and records the exit code, whether the command said anything about integrity,
 and the first line it said. A trial is `silent` when the command exits 0 and
 reports nothing: that is the defect.
+
+The campaign judges itself. A silent accept, a fault reported at exit 0, a panic
+or a timeout makes the run exit non-zero, so a runner that reads exit codes --
+`tools/media_regression.sh` -- cannot pass over what the campaign found. A
+non-zero exit from the decoder is not a fault: it is what catching the
+corruption looks like.
 """
 from __future__ import annotations
 import json, os, random, re, shutil, subprocess, sys, tempfile
@@ -94,9 +100,15 @@ def main() -> int:
         for name, cmd in commands(kind, mutated, work):
             rc, out = run(cmd)
             said, first = judge(out)
-            t[name] = {"exit": rc, "reported": said, "first": first,
+            # A timeout leaves a non-zero exit and nothing said, which is what a
+            # command that caught the corruption also looks like. It is counted
+            # on its own so that a campaign cannot pass because a decoder hung.
+            timed_out = rc == 124 and out == "TIMEOUT"
+            t[name] = {"exit": rc, "reported": said,
+                       "first": "TIMEOUT" if timed_out else first,
                        "silent": rc == 0 and not said,
-                       "panic": first.startswith("PANIC")}
+                       "panic": first.startswith("PANIC"),
+                       "timeout": timed_out}
         trials.append(t)
         for leftover in os.listdir(work):
             if leftover.startswith("out"):
@@ -109,12 +121,27 @@ def main() -> int:
     summary = {c: {"silent": sum(t[c]["silent"] for t in trials),
                    "nonzero_exit": sum(t[c]["exit"] != 0 for t in trials),
                    "reported_but_exit_0": sum(t[c]["reported"] and t[c]["exit"] == 0 for t in trials),
-                   "panics": sum(t[c]["panic"] for t in trials)} for c in cmds}
-    doc = {"source": src, "kind": kind, "seed": seed, "trials": n,
-           "binary": BIN, "summary": summary, "detail": trials}
+                   "panics": sum(t[c]["panic"] for t in trials),
+                   "timeouts": sum(t[c]["timeout"] for t in trials)} for c in cmds}
+    # What the campaign went looking for, in the four counters that mean it was
+    # found. `nonzero_exit` is not among them: that is the decoder catching the
+    # corruption, which is the outcome this campaign wants.
+    faults = {c: {k: v for k, v in s.items()
+                  if k in ("silent", "reported_but_exit_0", "panics", "timeouts") and v}
+              for c, s in summary.items()}
+    faults = {c: f for c, f in faults.items() if f}
+    doc = {"source": src, "kind": kind, "seed": seed, "trials": n, "binary": BIN,
+           "verdict": "FAIL" if faults else "PASS", "faults": faults,
+           "summary": summary, "detail": trials}
     with open(out_path, "w") as f:
         json.dump(doc, f, indent=1)
     print(json.dumps(summary, indent=1))
+    if faults:
+        for command, found in faults.items():
+            print(f"{command}: " + ", ".join(f"{k} {v}" for k, v in found.items()), file=sys.stderr)
+        print(f"campaign FAILED: {len(faults)} of {len(cmds)} commands; see {out_path}", file=sys.stderr)
+        return 1
+    print("campaign PASSED: no silent accept, nothing reported at exit 0, no panic, no timeout")
     return 0
 
 
