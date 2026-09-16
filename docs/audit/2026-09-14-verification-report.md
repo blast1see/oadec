@@ -307,7 +307,11 @@ W4 in §6. Round 5, the last the loop allows, approved the branch with G4 in it.
 A sixth round was run after the branch closed the open items of §9, five commits
 later. The loop's cap of five counts the debate over one body of work; this was
 a fresh gate over new work, and it found one thing, in the script written to
-close the item about CI, not in the decoder. Round 7 read the fix.
+close the item about CI, not in the decoder. Round 7, over the fix for it,
+stopped on the reviewer's usage limit after 145 s without reading anything and
+is scheduled for the reset. Until it returns, the fix for R6F1 stands on its own
+measurement -- the campaign passes with the release binary and fails with a
+stand-in that accepts corruption silently -- and not on a second model's word.
 
 ## 6. Defects found and fixed
 
