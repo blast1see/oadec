@@ -91,6 +91,10 @@ pub struct Branch {
     pub input_jump: bool,
     /// The output timing of the restart header was not the expected one.
     pub output_jump: bool,
+    /// The access unit's major sync declared a different peak data rate. A
+    /// stream may change it at a branch and nowhere else, so the change is the
+    /// stream saying that this access unit is one.
+    pub rate_change: bool,
     /// `advance` before the jump.
     pub prev_advance: u32,
     /// `advance` after the jump.
@@ -144,6 +148,16 @@ pub struct TimingModel {
     /// The branch judged in the access unit being read, for every restart
     /// header of it and not only the one it was judged at.
     unit_branch: Option<Branch>,
+    /// A major sync declared a new peak data rate and the access unit it opens
+    /// has not begun yet.
+    rate_changed: bool,
+    /// That change, for the access unit being read.
+    rate_changed_this_unit: bool,
+    /// The peak data rate the previous access unit's bytes were carried at,
+    /// which is what the data-rate condition measures them against. It differs
+    /// from the rate in force only in an access unit whose major sync changed
+    /// it, which is the one place the condition is asked about a branch.
+    prev_peak_data_rate: u32,
     /// Every jump seen, in order.
     pub branches: Vec<Branch>,
     /// Access units whose input timing jumped.
@@ -159,6 +173,7 @@ impl TimingModel {
     #[must_use]
     pub fn new(config: StreamTiming) -> Self {
         Self {
+            prev_peak_data_rate: config.peak_data_rate,
             config,
             units: 0,
             has_prev: false,
@@ -176,6 +191,8 @@ impl TimingModel {
             judged_this_unit: false,
             valid_branch_this_unit: false,
             unit_branch: None,
+            rate_changed: false,
+            rate_changed_this_unit: false,
             branches: Vec::new(),
             input_jumps: 0,
             output_jumps: 0,
@@ -193,7 +210,15 @@ impl TimingModel {
     pub fn update_config(&mut self, config: StreamTiming) {
         if config.peak_data_rate != self.config.peak_data_rate && self.has_prev {
             self.peak_rate_changes += 1;
+            // A stream may change the rate it declares at a branch and nowhere
+            // else, so the change is the stream saying this access unit is one.
+            // It is rare: 21 of the 23 TrueHD clips measured never change it.
+            self.rate_changed = true;
         }
+        // The previous access unit's bytes were carried at the rate in force
+        // before this major sync, and that is what the data-rate condition
+        // measures them against.
+        self.prev_peak_data_rate = self.config.peak_data_rate;
         self.config = config;
     }
 
@@ -206,14 +231,20 @@ impl TimingModel {
         self.judged_this_unit = false;
         self.valid_branch_this_unit = false;
         self.unit_branch = None;
+        // The major sync of this access unit, if it carried one, was read
+        // before the unit began.
+        self.rate_changed_this_unit = std::mem::take(&mut self.rate_changed);
         self.input_jump = false;
         if self.has_prev {
             let interval = u32::from(input_timing.wrapping_sub(self.prev_input_timing));
             let too_short = interval < spa >> 2;
             let under_fifo = interval < self.prev_fifo;
+            // The previous access unit had to arrive during this interval, and
+            // it was carried at the rate in force while it was being delivered:
+            // the rate this major sync replaced, not the one it declares.
             let over_rate = self.config.variable_rate
                 && (u64::from(self.prev_length_words) << 8)
-                    > u64::from(interval) * u64::from(self.config.peak_data_rate);
+                    > u64::from(interval) * u64::from(self.prev_peak_data_rate);
             let too_long = interval > self.config.samples_per_75ms();
             self.input_jump = too_short || under_fifo || over_rate || too_long;
             if self.input_jump {
@@ -262,7 +293,10 @@ impl TimingModel {
                     .wrapping_sub(self.input_timing),
             );
             self.advance = Some(advance);
-            if (r.output_jump || self.input_jump) && !self.judged_this_unit && self.has_prev {
+            if (r.output_jump || self.input_jump || self.rate_changed_this_unit)
+                && !self.judged_this_unit
+                && self.has_prev
+            {
                 let prev_advance = self.prev_advance.unwrap_or(advance);
                 let interval = (spa.wrapping_add(prev_advance).wrapping_sub(advance)) & 0xFFFF;
                 let conditions = if interval == 0 {
@@ -275,13 +309,14 @@ impl TimingModel {
                         fifo_duration: fifo_limit.is_some_and(|l| advance <= l),
                         within_75ms: limit_75.is_some_and(|l| advance <= l),
                         data_rate: (u64::from(self.prev_length_words) << 8)
-                            <= u64::from(self.config.peak_data_rate) * u64::from(interval),
+                            <= u64::from(self.prev_peak_data_rate) * u64::from(interval),
                     }
                 };
                 let branch = Branch {
                     unit: self.units,
                     input_jump: self.input_jump,
                     output_jump: r.output_jump,
+                    rate_change: self.rate_changed_this_unit,
                     prev_advance,
                     advance,
                     conditions,
@@ -308,6 +343,7 @@ impl TimingModel {
         self.prev_input_timing = self.input_timing;
         self.prev_length_words = self.length_words;
         self.prev_fifo = self.fifo;
+        self.prev_peak_data_rate = self.config.peak_data_rate;
         if let Some(a) = self.advance {
             self.prev_advance = Some(a);
         }
@@ -436,6 +472,57 @@ mod tests {
         m.end_unit();
         assert_eq!(m.valid_branches(), 1, "the branch is judged once");
         assert_eq!(m.invalid_branches(), 0);
+    }
+
+    /// A splice need not move either clock. The second branch of Up (2009)
+    /// changes the peak data rate its major sync declares, 1889 to 2560, and
+    /// `truehdd` calls that access unit a valid seamless branch; this model saw
+    /// nothing there, because it judged a branch on a clock jump alone, and the
+    /// lossless check words of that unit were compared across the splice.
+    ///
+    /// The rate is the stream's own signal and it is rare: of the 23 TrueHD
+    /// clips of the corpus, 21 never change it, and the two that do are the
+    /// spliced titles. The condition on the data rate is measured against the
+    /// rate in force before the new major sync, which is what this module's
+    /// documentation says and what the bytes of the previous access unit were
+    /// carried at; the two differ only here, at a rate change.
+    #[test]
+    fn a_peak_data_rate_change_is_a_branch_even_when_neither_clock_jumps() {
+        let mut m = TimingModel::new(cfg());
+        run_continuous(&mut m, 1000, 4000, 16);
+
+        // the next access unit carries a major sync declaring a lower rate: low
+        // enough that the previous unit's words would not fit under it, so the
+        // data-rate condition holds only when it is measured against the rate
+        // those words were carried at
+        let mut next = cfg();
+        next.peak_data_rate = 0x0400;
+        m.update_config(next);
+        let input = 1000u16.wrapping_add(16 * 40);
+        let output = 4000u16.wrapping_add(16 * 40);
+        assert!(!m.begin_unit(input, 300), "the input timing does not jump");
+
+        let r = m.restart_header(0, output);
+        assert!(!r.output_jump, "the output timing does not jump");
+        let b = r.branch.expect("a peak data rate change is judged");
+        assert!(b.rate_change, "the branch says what made it one");
+        assert!(!b.input_jump && !b.output_jump);
+        assert!(
+            b.conditions.data_rate,
+            "the previous unit's words fit under the rate they were carried at"
+        );
+        assert!(b.is_valid(), "{:?}", b.conditions);
+
+        // and, being a property of the access unit, it reaches every substream
+        for substream in 1..4 {
+            assert!(
+                m.restart_header(substream, output).branch.is_some(),
+                "substream {substream} did not hear about the branch"
+            );
+        }
+        m.end_unit();
+        assert_eq!(m.valid_branches(), 1, "judged once");
+        assert_eq!(m.peak_rate_changes, 1);
     }
 
     #[test]

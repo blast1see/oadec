@@ -2276,13 +2276,14 @@ fn verify_decode_reports_a_corrupted_segment_in_every_presentation_that_reads_it
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Up (2009) is spliced at access unit 54205, and `truehdd` calls the stream
-/// conformant. The branch used to reach the one restart header it was judged
-/// at, and the decoder skips the lossless check word where the branch is, so
-/// the other substreams of that access unit compared a check word across the
-/// splice: presentations 0 and 2 skipped the check there where 1 and 3 failed
-/// it. Every presentation must hear about the branch, and none may fail at the
-/// access unit that carries it.
+/// Up (2009) is spliced twice, at access units 54205 and 77078, and `truehdd`
+/// calls the stream conformant. Both branches must be seen and both must reach
+/// every substream of their access unit, because the decoder skips the lossless
+/// check word where the branch is: the branch that reached the one restart
+/// header it was judged at left presentations 0 and 2 skipping the check at
+/// 54205 where 1 and 3 failed it, and the splice at 77078, which moves neither
+/// clock and only changes the peak data rate its major sync declares, was not
+/// seen at all. Nothing may fail a check word in this title.
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn a_branch_reaches_every_presentation() {
@@ -2303,9 +2304,15 @@ fn a_branch_reaches_every_presentation() {
         )
     });
     let timing = &report["timing_stats"];
-    assert_eq!(timing["valid_branches"].as_u64(), Some(1), "{timing}");
+    assert_eq!(timing["valid_branches"].as_u64(), Some(2), "{timing}");
     assert_eq!(timing["invalid_branches"].as_u64(), Some(0), "{timing}");
-    let branch_unit = timing["branches"][0]["unit"].as_u64().expect("a branch");
+    let units: Vec<u64> = timing["branches"]
+        .as_array()
+        .expect("the branches")
+        .iter()
+        .map(|b| b["unit"].as_u64().expect("an access unit"))
+        .collect();
+    assert_eq!(units, vec![54205, 77078], "{timing}");
 
     let checks = &report["lossless_checks"];
     let per = checks["per_presentation"]
@@ -2315,16 +2322,18 @@ fn a_branch_reaches_every_presentation() {
     for row in per {
         assert_eq!(
             row["skipped"].as_u64(),
-            Some(1),
-            "presentation {} did not hear about the branch: {row}",
+            Some(2),
+            "presentation {} did not hear about both branches: {row}",
             row["presentation"]
         );
-        if let Some(problem) = row["first_problem"].as_str() {
-            assert!(
-                !problem.starts_with(&format!("access unit {branch_unit}:")),
-                "presentation {} failed at the branch itself: {problem}",
-                row["presentation"]
-            );
-        }
+        assert_eq!(
+            row["failed"].as_u64(),
+            Some(0),
+            "presentation {} failed a check word: {row}",
+            row["presentation"]
+        );
     }
+    assert_eq!(checks["failed"].as_u64(), Some(0), "{checks}");
+    assert_eq!(report["clean"], true, "the title is clean");
+    assert_eq!(out.status.code(), Some(0), "verify --decode: {report}");
 }

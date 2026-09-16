@@ -286,7 +286,7 @@ pub fn run(path: &Path, json: bool, decode: bool) -> Result<bool> {
         );
         for b in t.branches.iter().take(8) {
             println!(
-                "                   access unit {}: {} advance {} -> {} (step {}, fifo {}, 75ms {}, rate {})",
+                "                   access unit {}: {} advance {} -> {}{} (step {}, fifo {}, 75ms {}, rate {})",
                 b.unit,
                 if b.valid {
                     "seamless branch"
@@ -295,6 +295,11 @@ pub fn run(path: &Path, json: bool, decode: bool) -> Result<bool> {
                 },
                 b.prev_advance,
                 b.advance,
+                if b.rate_change {
+                    ", peak data rate changed"
+                } else {
+                    ""
+                },
                 b.advance_step,
                 b.fifo_duration,
                 b.within_75ms,
