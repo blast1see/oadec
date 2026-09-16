@@ -118,6 +118,19 @@ Semantic Versioning.
   frames. The field joins the checked rows of the payload configuration,
   pinned to 0, and a payload that carries the byte is reported with the clause
   named. No stream of the corpus changes.
+- **A seamless branch reaches every substream of its access unit.** The branch
+  was handed to the one restart header it was judged at, and the decoder skips
+  the lossless check word where the branch is, so every other substream of
+  that access unit compared a check word across the splice. Which header the
+  branch landed on depends on the presentation being decoded, so presentations
+  disagreed about the same access unit: on Up (2009) presentations 0 and 2
+  skipped the check at access unit 54205, the seamless branch of that stream,
+  where 1 and 3 failed it. The branch belongs to the access unit now and every
+  restart header of it hears about the branch. Two of that title's six
+  failures were this artefact and are gone; the four that remain are one event
+  at access unit 77078, and the four presentations agree about it. No new
+  branch is judged, so no stream can gain a fault from this: the 55 inputs of
+  the exit-code comparison keep their codes.
 - **`info`, `oamd`, `emdf` and `decode` exit 2 on a file that holds no stream.**
   An empty or random file used to produce a report of nothing, or "nothing
   decoded", with exit 0. They now stop with a message naming the file, and

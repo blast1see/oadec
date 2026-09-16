@@ -2275,3 +2275,56 @@ fn verify_decode_reports_a_corrupted_segment_in_every_presentation_that_reads_it
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// Up (2009) is spliced at access unit 54205, and `truehdd` calls the stream
+/// conformant. The branch used to reach the one restart header it was judged
+/// at, and the decoder skips the lossless check word where the branch is, so
+/// the other substreams of that access unit compared a check word across the
+/// splice: presentations 0 and 2 skipped the check there where 1 and 3 failed
+/// it. Every presentation must hear about the branch, and none may fail at the
+/// access unit that carries it.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn a_branch_reaches_every_presentation() {
+    let clip = media_dir().join("verify-2026-09-14/clips/up-2009.thd");
+    if !clip.exists() {
+        eprintln!("{} is not here; skipping", clip.display());
+        return;
+    }
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["verify", "--decode", "--json"])
+        .arg(&clip)
+        .output()
+        .expect("run oadec verify");
+    let report: Value = serde_json::from_slice(&out.stdout).unwrap_or_else(|e| {
+        panic!(
+            "verify --decode is not JSON ({e}): {}",
+            String::from_utf8_lossy(&out.stderr)
+        )
+    });
+    let timing = &report["timing_stats"];
+    assert_eq!(timing["valid_branches"].as_u64(), Some(1), "{timing}");
+    assert_eq!(timing["invalid_branches"].as_u64(), Some(0), "{timing}");
+    let branch_unit = timing["branches"][0]["unit"].as_u64().expect("a branch");
+
+    let checks = &report["lossless_checks"];
+    let per = checks["per_presentation"]
+        .as_array()
+        .expect("a row per presentation");
+    assert_eq!(per.len(), 4, "{checks}");
+    for row in per {
+        assert_eq!(
+            row["skipped"].as_u64(),
+            Some(1),
+            "presentation {} did not hear about the branch: {row}",
+            row["presentation"]
+        );
+        if let Some(problem) = row["first_problem"].as_str() {
+            assert!(
+                !problem.starts_with(&format!("access unit {branch_unit}:")),
+                "presentation {} failed at the branch itself: {problem}",
+                row["presentation"]
+            );
+        }
+    }
+}
