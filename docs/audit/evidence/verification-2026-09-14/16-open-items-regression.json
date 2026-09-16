@@ -2,8 +2,12 @@
  "what": "the phase that closed the open items of section 9 of the verification report",
  "when": "2026-09-16",
  "branch": "verification-2026-09-14",
- "head": "8e0dbbe",
+ "head": "08698e4",
  "commits": [
+  "08698e4 Format what the last commit wrote",
+  "3ac116c Record round 7 and its finding in the report",
+  "df4c104 Count a lost EMDF container where no skip field reaches the walk",
+  "40b7593 Record what the open-items phase measured",
   "8e0dbbe Say that round 7 is owed, not done",
   "c6cac26 Record round 6 and its finding in the report",
   "c6c3a92 A corruption campaign says what it found in its exit code",
@@ -262,6 +266,32 @@
    ],
    "duration_s": 331
   },
-  "7": null
+  "7": {
+   "verdict": "CHANGES_REQUESTED",
+   "coverage": {
+    "correctness": 1,
+    "security": 0,
+    "reliability": 0,
+    "simplification": 0,
+    "performance": 0
+   },
+   "findings": [
+    {
+     "id": "R7F1",
+     "lens": "correctness",
+     "severity": "medium",
+     "file": "crates/oadec-cli/src/emdf.rs",
+     "status": "open"
+    },
+    {
+     "id": "R6F1",
+     "lens": "reliability",
+     "severity": "medium",
+     "file": "tools/media_regression.sh",
+     "status": "resolved"
+    }
+   ],
+   "duration_s": 494
+  }
  }
 }
