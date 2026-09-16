@@ -146,6 +146,11 @@ pub fn join_stream_check(
 pub fn run(path: &Path, json: bool, decode: bool) -> Result<bool> {
     let started = Instant::now();
     let scan = scan::scan(path)?;
+    if scan.units == 0 {
+        // Nothing framed: the file is not a stream to judge but an unsupported
+        // input, exit 2, as it is for every command that reports one.
+        return Err(crate::info::no_stream(path));
+    }
     let checks = match (&scan.first_major_sync, decode) {
         (Some(ms), true) => Some(lossless_checks(path, ms)?),
         (None, true) => Some(LosslessChecks::default()),

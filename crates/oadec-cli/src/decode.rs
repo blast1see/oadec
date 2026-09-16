@@ -578,7 +578,7 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
         // to judge, which is an unusable input (exit 2), not a clean run.
         drop(out);
         let _ = std::fs::remove_file(output);
-        anyhow::bail!("no TrueHD access unit found in {}", path.display());
+        return Err(crate::info::no_stream(path));
     }
     match out {
         Some(Output::Wav(w)) => {

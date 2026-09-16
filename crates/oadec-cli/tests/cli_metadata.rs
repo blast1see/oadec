@@ -186,7 +186,9 @@ const NO_STREAM: &str = "no TrueHD access unit or E-AC-3 syncframe found in";
 /// stream they reported that too, with exit 0: "No major sync found" or "0 in
 /// 0 of 0 access units", which a script cannot tell from a clean stream. Both
 /// refuse such a file now. `emdf` refused both files already, since neither
-/// sniffs as E-AC-3.
+/// sniffs as E-AC-3. `verify` and `compare` read the same nothing and called
+/// it non-conformant with exit 7, where the policy has an unsupported input
+/// exit 2; they refuse it as well now.
 #[test]
 fn a_file_that_holds_no_stream_is_refused() {
     let dir = temp("no-stream");
@@ -196,7 +198,7 @@ fn a_file_that_holds_no_stream_is_refused() {
     std::fs::write(&random, noise(1 << 20, 0x2026_0915)).unwrap();
     for file in [&empty, &random] {
         let name = file.to_str().unwrap();
-        for command in ["info", "oamd", "emdf"] {
+        for command in ["info", "oamd", "emdf", "verify"] {
             let out = oadec(&[command, name]);
             assert_eq!(
                 out.status.code(),
@@ -212,6 +214,18 @@ fn a_file_that_holds_no_stream_is_refused() {
                 );
             }
         }
+        let out = oadec(&["compare", name, "--reference", name]);
+        assert_eq!(
+            out.status.code(),
+            Some(2),
+            "compare {name}: {}",
+            stdout(&out)
+        );
+        assert!(
+            stderr(&out).contains(NO_STREAM),
+            "compare {name}: {}",
+            stderr(&out)
+        );
     }
 }
 
@@ -219,14 +233,16 @@ fn a_file_that_holds_no_stream_is_refused() {
 /// hold no whole syncframe, the frames being 1792 bytes. `emdf` walked no
 /// frame and called that clean with exit 0, `oamd`, which walks the same way,
 /// did the same, and `info` printed "no decodable frames" and exited 0 as
-/// well. All three refuse it now.
+/// well, and `verify` and `compare` called the copy non-conformant with exit 7.
+/// All five refuse it now.
 #[test]
 fn an_eac3_sync_word_without_a_whole_frame_is_no_stream_either() {
     let path = temp("truncated").join("truncated.ec3");
     let bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
     std::fs::write(&path, &bytes[..100]).unwrap();
-    for command in ["info", "emdf", "oamd"] {
-        let out = oadec(&[command, path.to_str().unwrap()]);
+    let name = path.to_str().unwrap();
+    for command in ["info", "emdf", "oamd", "verify"] {
+        let out = oadec(&[command, name]);
         assert_eq!(out.status.code(), Some(2), "{command}: {}", stdout(&out));
         assert!(
             stderr(&out).contains(NO_STREAM),
@@ -234,6 +250,13 @@ fn an_eac3_sync_word_without_a_whole_frame_is_no_stream_either() {
             stderr(&out)
         );
     }
+    let out = oadec(&["compare", name, "--reference", name]);
+    assert_eq!(out.status.code(), Some(2), "compare: {}", stdout(&out));
+    assert!(
+        stderr(&out).contains(NO_STREAM),
+        "compare: {}",
+        stderr(&out)
+    );
 }
 
 /// The control for the two above: the fixtures are streams, and `info` and

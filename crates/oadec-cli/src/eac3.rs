@@ -1499,6 +1499,11 @@ pub fn info(path: &Path, json: bool) -> Result<()> {
 pub fn verify(path: &Path, json: bool) -> Result<bool> {
     let started = Instant::now();
     let (p, sync_errors, skipped) = pass(path, Options::default(), |_| Ok(()))?;
+    if p.independent + p.dependent == 0 {
+        // Nothing framed: the file is not a stream to judge but an unsupported
+        // input, exit 2, as it is for every command that reports one.
+        return Err(crate::info::no_stream(path));
+    }
     print_pass(
         path,
         &p,
@@ -1847,6 +1852,11 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
             Ok(())
         },
     )?;
+    if p.independent + p.dependent == 0 {
+        // Nothing framed: the file is not a stream to judge but an unsupported
+        // input, exit 2, as it is for every command that reports one.
+        return Err(crate::info::no_stream(path));
+    }
     let elapsed = started.elapsed().as_secs_f64();
     if opts.worst > 0 {
         worst_list.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
