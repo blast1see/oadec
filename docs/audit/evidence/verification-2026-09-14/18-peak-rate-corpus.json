@@ -1,0 +1,18 @@
+{
+ "question": "does the peak-data-rate branch rule change anything outside the 55 inputs it was measured on",
+ "method": "oadec verify --json over every TrueHD clip of the sweep corpus with the head the loop approved (oadec-g4) and with the rule (oadec-rate), comparing exit code and invalid branches",
+ "clips": 198,
+ "changed_exit_code_or_invalid_branches": [],
+ "clips_that_change_their_peak_data_rate": [
+  {
+   "name": "Eternals (2021)_1.thd",
+   "after": {
+    "rc": 0,
+    "valid": 1,
+    "invalid": 0,
+    "rate": 1
+   }
+  }
+ ],
+ "finding": "nothing moves: 0 of the clips change their exit code or their invalid branches, and one title of the corpus changes its peak data rate at all, where the rule judges one valid branch and no invalid one"
+}
