@@ -87,7 +87,7 @@ fn find_emdf(
     noise: &mut Noise,
     unparsed: &mut u64,
     crc_failures: &mut u64,
-) -> (Vec<(usize, ContainerResult)>, bool) {
+) -> (Vec<(usize, ContainerResult)>, bool, bool) {
     let mut out = Vec::new();
     let opts = FrameOptions {
         dither: false,
@@ -95,14 +95,20 @@ fn find_emdf(
     };
     let Ok(parsed) = Frame::parse(frame, noise, opts) else {
         *unparsed += 1;
-        return (out, false);
+        return (out, false, false);
     };
     if !parsed.crc_ok {
         *crc_failures += 1;
     }
+    // TS 103 420 clause 8.3.1: the extension is declared in the same substream
+    // as the container it rides in
+    let declares_joc = parsed
+        .bsi
+        .joc_extension()
+        .is_some_and(|(present, _)| present);
     let total: usize = parsed.skip_fields.iter().map(Vec::len).sum();
     if total == 0 {
-        return (out, false);
+        return (out, false, declares_joc);
     }
     let mut data = Vec::with_capacity(total);
     for s in &parsed.skip_fields {
@@ -136,7 +142,7 @@ fn find_emdf(
     } else {
         out.truncate(1);
     }
-    (out, true)
+    (out, true, declares_joc)
 }
 
 /// Where the walk found a container.
@@ -176,6 +182,8 @@ pub(crate) struct Walk {
     /// their metadata. Skip fields may carry other data, so a substream that
     /// carries no EMDF at all adds nothing; the AC-3 core of a configuration 4
     /// stream fills them while its dependent substream carries the containers.
+    /// A substream whose frames declare a JOC extension carries EMDF as well,
+    /// even when not one of its containers opens.
     pub missing_containers: u64,
     /// The first of them, in the words the reports use.
     pub first_missing: Option<String>,
@@ -190,6 +198,10 @@ struct SubstreamContainers {
     without: u64,
     /// The first of those frames, and the words that name it.
     first_without: Option<(u64, String)>,
+    /// A frame of the substream declared a JOC extension in its `addbsi`. That
+    /// extension rides in an EMDF container (TS 103 420 clause 8.3.1), so the
+    /// substream carries EMDF even when not one container opens.
+    declares_joc: bool,
 }
 
 /// Walks the syncframes of the AC-3 or E-AC-3 stream at `path` and hands
@@ -234,7 +246,7 @@ pub(crate) fn for_each_container(
             }
             last_frame_len = u64::from(header.blocks) * BLOCK_SAMPLES;
         }
-        let (containers, has_skip) = find_emdf(
+        let (containers, has_skip, declares_joc) = find_emdf(
             frame,
             &mut noise,
             &mut walk.unparsed_frames,
@@ -249,6 +261,7 @@ pub(crate) fn for_each_container(
             .entry((dependent, header.substream_id))
             .or_default();
         substream.opened += opened;
+        substream.declares_joc |= declares_joc;
         if has_skip && opened == 0 {
             substream.without += 1;
             if substream.first_without.is_none() {
@@ -277,11 +290,16 @@ pub(crate) fn for_each_container(
     .with_context(|| format!("reading {}", path.display()))?;
     walk.sync_errors = sync_errors;
     walk.skipped_bytes = skipped;
-    // A substream carries EMDF when a container opens in it: the metadata of a
-    // programme rides in one substream (TS 103 420 clause 8.2), and the skip
-    // fields of the others may carry anything.
+    // A substream carries EMDF when a container opens in it, or when its frames
+    // declare a JOC extension, which rides in one: the metadata of a programme
+    // rides in one substream (TS 103 420 clauses 8.2 and 8.3.1), and the skip
+    // fields of the others may carry anything. Without the second evidence a
+    // substream whose containers are all broken read like one that carries none.
     let mut first: Option<(u64, String)> = None;
-    for substream in substreams.into_values().filter(|s| s.opened > 0) {
+    for substream in substreams
+        .into_values()
+        .filter(|s| s.opened > 0 || s.declares_joc)
+    {
         walk.missing_containers += substream.without;
         if let Some((index, words)) = substream.first_without
             && first.as_ref().is_none_or(|(earliest, _)| index < *earliest)

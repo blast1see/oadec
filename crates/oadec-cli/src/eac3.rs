@@ -238,6 +238,10 @@ struct EmdfStats {
     false_syncs: u64,
     /// The first frame whose skip fields held no parsable container.
     first_missing: Option<u64>,
+    /// The scanned substream declared a JOC extension in its `addbsi`, which
+    /// rides in an EMDF container (TS 103 420 clause 8.3.1): it carries EMDF
+    /// even when not one container opens.
+    declares_joc: bool,
     payload_ids: BTreeMap<u32, u64>,
     oamd_ok: u64,
     oamd_errors: u64,
@@ -313,12 +317,14 @@ struct EmdfStats {
 
 impl EmdfStats {
     /// Frames that lost their container: frames whose skip fields held no
-    /// container that opens, in a stream in which containers do open. Skip
-    /// fields may carry other data, and two AC-3 clips of the corpus fill them in
-    /// some 1 100 frames without a single container, so in a stream that carries
-    /// no EMDF at all the count is not a fault.
+    /// container that opens, in a stream in which containers do open or whose
+    /// frames declare a JOC extension. Skip fields may carry other data, and two
+    /// AC-3 clips of the corpus fill them in some 1 100 frames without a single
+    /// container, so in a stream that carries no EMDF at all the count is not a
+    /// fault; a stream whose containers are all broken still declares the
+    /// extension, and its frames did lose their metadata.
     fn missing_containers(&self) -> u64 {
-        if self.containers > 0 {
+        if self.containers > 0 || self.declares_joc {
             self.container_errors
         } else {
             0
@@ -823,6 +829,7 @@ fn account(
     // TS 103 420 clause 8.3.1: the addbsi extension is in the same substream
     // as the container
     let extension = frame.metadata_part().decoded.bsi.joc_extension();
+    p.emdf.declares_joc |= matches!(extension, Some((true, _)));
     if p.metadata_bsi.is_none() {
         p.metadata_bsi = Some(frame.metadata_part().decoded.bsi.clone());
     }
