@@ -310,8 +310,12 @@ later. The loop's cap of five counts the debate over one body of work; this was
 a fresh gate over new work, and it found one thing, in the script written to
 close the item about CI, not in the decoder. Round 7 read the fix for it and
 called it resolved, and found one more, this time in the decoder's own
-accounting: R7F1, fixed here. The two rounds cost three attempts, since the
-reviewer's usage limit stopped the first of each.
+accounting: R7F1, fixed here. Round 8, which reads that fix, is owed: its first
+attempt stopped on the reviewer's usage limit after 55 s and it is scheduled for
+the reset. Until it returns, the fix for R7F1 stands on its own tests and
+measurements -- the two unit tests of the rule, the media suite at 28 of 28, and
+55 real inputs whose exit codes do not move -- and not on a second model's word.
+Four of the eight attempts these rounds took were stopped by that limit.
 
 ## 6. Defects found and fixed
 
