@@ -735,3 +735,76 @@ fn a_joc_payload_that_cannot_be_read_fails_the_metadata_commands_as_it_fails_ver
     metadata_commands_follow_verify(&file);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A substream in which every container is broken read like one that carries no
+/// EMDF at all. A frame whose skip fields hold no container that opens counts
+/// only where containers do open, because skip fields may carry anything else:
+/// two AC-3 clips of the work directory fill them in some 1 100 frames, and so
+/// does the AC-3 core of a configuration 4 stream. The JOC extension declared in
+/// the `addbsi` of a frame is the other evidence that its substream carries
+/// EMDF, since that extension rides in an EMDF container (TS 103 420 clause
+/// 8.3.1), and the fixture declares it in all 63 frames. Both copies below break
+/// every container, one by the declared length and one by erasing the sync word,
+/// and every command called them clean.
+#[test]
+fn a_substream_whose_containers_are_all_broken_is_still_a_fault() {
+    for (tag, erase) in [("length", false), ("sync", true)] {
+        let dir = temp(&format!("all-{tag}"));
+        let mut bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+        let changed = rewrite_frames(&mut bytes, |frame| {
+            container_lengths(frame)
+                .into_iter()
+                .map(|(at, declared)| {
+                    if erase {
+                        (at - 16, 16, 0)
+                    } else {
+                        (at, 16, declared as u32 - 1)
+                    }
+                })
+                .collect()
+        });
+        assert_eq!(changed, 63, "{tag}: every frame of the fixture carries one");
+        let file = dir.join(format!("all-{tag}.ec3"));
+        std::fs::write(&file, &bytes).unwrap();
+
+        let (code, report) = verify_json(&file);
+        assert_eq!(code, Some(7), "{tag} verify: {report}");
+        for command in ["emdf", "oamd"] {
+            let (code, r) = metadata_json(command, &file);
+            assert_eq!(code, Some(7), "{tag} {command}: {r}");
+            assert_eq!(r["clean"], false, "{tag} {command}: {r}");
+            assert_eq!(r["container_errors"], 63, "{tag} {command}: {r}");
+        }
+        let pcm = oadec(&[
+            "decode",
+            file.to_str().unwrap(),
+            "--format",
+            "pcm",
+            "-o",
+            dir.join("p.f32").to_str().unwrap(),
+        ]);
+        assert_eq!(
+            pcm.status.code(),
+            Some(7),
+            "{tag} decode --format pcm: {}",
+            stderr(&pcm)
+        );
+        // the object decode has nothing to start from and refuses the copy,
+        // which is exit 2 and not a verdict on the stream
+        let damf = oadec(&[
+            "decode",
+            file.to_str().unwrap(),
+            "--format",
+            "damf",
+            "-o",
+            dir.join("d").to_str().unwrap(),
+        ]);
+        assert_eq!(
+            damf.status.code(),
+            Some(2),
+            "{tag} decode --format damf: {}",
+            stderr(&damf)
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}

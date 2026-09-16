@@ -405,10 +405,12 @@ code in it reads the same programme. Screenshots are in the work directory
   These stay N/T.
 - **CI does not run the media suite.** Every figure here rests on a local run with the
   work directory.
-- **A substream in which every EMDF container is broken** reads, for `verify`, `emdf` and
-  `oamd`, like one that carries none, since a frame without a container is a fault only
-  where containers open. The object decode still refuses a stream whose first frame
-  carries no JOC payload it can start from.
+- **A substream that carries Object Audio Metadata and no JOC, whose containers are all
+  broken,** reads like one that carries none. A frame without a container that opens is a
+  fault only where containers open, and the second evidence that a substream carries EMDF
+  is the JOC extension declared in its `addbsi`, which an OAMD-only substream does not
+  carry; every JOC stream measured declares it in every frame. The object decode still
+  refuses a stream whose first frame carries no JOC payload it can start from.
 
 ## 10. Reproducing
 

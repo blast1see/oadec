@@ -100,6 +100,17 @@ Semantic Versioning.
   message the others print and exit 2; a stream that frames a unit and then
   fails a check is still exit 7. The TrueHD decode, which had a message of its
   own, says it with the same words.
+- **A substream whose EMDF containers are all broken is judged again.** A
+  frame whose skip fields hold no container that opens counts only where
+  containers do open, because skip fields may carry anything else: two AC-3
+  clips fill them in some 1 100 frames. A copy of the JOC fixture with every
+  container broken, by its declared length or by an erased sync word, was
+  clean for every command. The JOC extension declared in the `addbsi` is the
+  second evidence that a substream carries EMDF, since that extension rides in
+  an EMDF container (TS 103 420 clause 8.3.1); `verify`, `emdf`, `oamd` and
+  the deliveries count the lost containers of such a substream now. A
+  substream that carries Object Audio Metadata and no JOC, with every
+  container broken, still reads like one that carries none.
 - **`info`, `oamd`, `emdf` and `decode` exit 2 on a file that holds no stream.**
   An empty or random file used to produce a report of nothing, or "nothing
   decoded", with exit 0. They now stop with a message naming the file, and
