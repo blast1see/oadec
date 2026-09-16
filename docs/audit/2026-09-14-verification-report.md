@@ -298,10 +298,16 @@ repeated until it approved or five rounds were spent. `12-codex-adversarial-revi
 | 3 | CHANGES_REQUESTED, 323 s, after a first attempt stopped on the usage limit again | R1F1 and R2F1 resolved. R3F1, correctness, medium: the walk `emdf` and `oamd` share dropped the bytes the framing skipped, and the TrueHD walk of `oamd` the bytes it left trailing, so a clip whose last frame or access unit is cut short was clean for both while `verify` exited 7 | agree. The code confirmed it, and checking which stream faults of `verify` the walk still dropped found one more: neither command read the CRC of a syncframe. Fixed in `3e5af0e`: both count skipped bytes, TrueHD trailing bytes and AC-3 and E-AC-3 CRC failures into their verdict, and a file with no complete frame or access unit still exits 2. Of the 55 clips of the work directory, `emdf` and `oamd` now exit 7 on the 18 cut inside a frame or an access unit, as `verify` did, and nothing else changes |
 | 4 | CHANGES_REQUESTED, 498 s, on a second attempt after the first stopped on the usage limit | R1F1, R2F1 and R3F1 resolved. R4F1, correctness, medium: the TrueHD decoder never checked the object metadata inside an Evolution container that opens, so on a clip whose object metadata will not parse the PCM and WAVE decodes exited 0 and `compare` called the stream bit-exact and clean while `verify` exited 7 | agree. The code confirmed it, and a substream the presentation leaves out behaved the same. Fixed in `77db761` for every TrueHD delivery: each runs the checks of `verify` beside its decode (G4 in §6) |
 | 5 | APPROVED, 512 s, on a second attempt after the first stopped on the usage limit | R1F1, R2F1, R3F1 and R4F1 resolved; no new finding | the workspace tests the approval runs passed, 273 |
+| 6 | CHANGES_REQUESTED, 331 s | R6F1, reliability, medium: `tools/media_regression.sh` reads the exit code of every step it runs, and `tools/replay_fuzz.py` returned 0 whatever the campaign found, so a silent accept, a fault reported at exit 0, a panic or a timeout could not reach the aggregate verdict the script and the documents claim | agree; the campaign judges itself now and says so in its exit code, G5 in §6 |
 
 Round 4 first stopped on the usage limit of the reviewer after 360 s. While it waited,
 the class of R3F1 was checked as a whole instead of case by case, and it was still open:
 W4 in §6. Round 5, the last the loop allows, approved the branch with G4 in it.
+
+A sixth round was run after the branch closed the open items of §9, five commits
+later. The loop's cap of five counts the debate over one body of work; this was
+a fresh gate over new work, and it found one thing, in the script written to
+close the item about CI, not in the decoder. Round 7 read the fix.
 
 ## 6. Defects found and fixed
 
@@ -341,6 +347,7 @@ commits on the branch.
 | O2 | closing the open items | A substream whose EMDF containers are all broken read like one that carries none, so `verify`, `emdf`, `oamd` and the deliveries called it clean: a frame without a container that opens is a fault only where containers do open, and in such a substream none does. The JOC extension declared in the `addbsi` is the second evidence that a substream carries EMDF, since that extension rides in an EMDF container (TS 103 420 clause 8.3.1) | `a_substream_whose_containers_are_all_broken_is_still_a_fault` | `41011c0` |
 | O3 | closing the open items | `codecdatae` was held to nothing. Table 56 prints 1 for it; clause H.2.2.3.7 of TS 102 366, which the table cites, requires 0; every OAMD and JOC payload measured carries 0 | `a_field_outside_table_56_is_named` | `bc78fee` |
 | O4 | closing the open items | A seamless branch reached the one restart header it was judged at, and the decoder skips the lossless check word where the branch is, so every other substream of that access unit compared a check word across the splice. Which substream that was depends on the presentation, so presentations disagreed about the same access unit: 0 and 2 of Up (2009) skipped the check at access unit 54205 where 1 and 3 failed it | `the_branch_reaches_every_restart_header_of_the_unit`, and `a_branch_reaches_every_presentation` (media) | `0268009` |
+| G5 | review loop, round 6 | `tools/replay_fuzz.py` returned 0 whatever a corruption campaign found, and `tools/media_regression.sh` reads exit codes, so the aggregate verdict could pass over a silent accept, a fault reported at exit 0, a panic or a timeout. A timeout was doubly invisible: a non-zero exit with nothing said is what catching the corruption looks like | the campaign measured both ways on four sites of `talktome-joc-head.ec3`: with the release binary it passes and exits 0; with `$OADEC_BIN` pointed at a stand-in that exits 0 and says nothing, every command counts 4 silent accepts and the tool exits 1 | `c6c3a92` |
 
 
 ## 7. The measuring tools
