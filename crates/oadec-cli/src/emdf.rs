@@ -145,6 +145,18 @@ fn find_emdf(
     (out, true, declares_joc)
 }
 
+/// Whether a frame lost the EMDF container it should have carried.
+///
+/// A substream that declares the JOC extension carries one in every frame (TS
+/// 103 420 clauses 8.2 and 8.3.1), so a frame with no skip field at all has lost
+/// one there. Asking for skip bytes before asking whether a container opened
+/// left that loss uncounted (R7F1); asking only where a container could be keeps
+/// the exemption for ordinary frames, which carry no skip field and have lost
+/// nothing.
+fn frame_lost_container(opened: u64, has_skip: bool, declares_joc: bool) -> bool {
+    opened == 0 && (has_skip || declares_joc)
+}
+
 /// Where the walk found a container.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Site {
@@ -262,13 +274,7 @@ pub(crate) fn for_each_container(
             .or_default();
         substream.opened += opened;
         substream.declares_joc |= declares_joc;
-        // A substream that declares the JOC extension carries an EMDF container
-        // in every frame (TS 103 420 clauses 8.2 and 8.3.1), so a frame with no
-        // skip field at all has lost one there. Asking for skip bytes first left
-        // that loss uncounted; asking only where a container could be keeps the
-        // exemption for ordinary frames, which carry no skip field and have lost
-        // nothing.
-        if opened == 0 && (has_skip || substream.declares_joc) {
+        if frame_lost_container(opened, has_skip, substream.declares_joc) {
             substream.without += 1;
             if substream.first_without.is_none() {
                 let index = walk.frames - 1;
@@ -553,6 +559,31 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The three cases of the rule the walk reads. A mutation round found this
+    /// arm untested: the media suite held it and nothing else did, so a copy of
+    /// the old rule survived every test that runs without the corpus.
+    #[test]
+    fn a_frame_loses_its_container_where_one_should_be() {
+        // a substream that declares the JOC extension: a frame with no skip
+        // field at all has lost the container it should have carried
+        assert!(frame_lost_container(0, false, true));
+        // and so has one whose skip fields hold nothing that opens
+        assert!(frame_lost_container(0, true, true));
+        // an ordinary frame of a stream that carries no EMDF has lost nothing,
+        // which is what keeps two AC-3 clips of the corpus clean
+        assert!(!frame_lost_container(0, false, false));
+        // a frame whose skip fields carry something that is not EMDF is a loss
+        // only in a substream that carries EMDF, which the walk decides at the
+        // end of the pass
+        assert!(frame_lost_container(0, true, false));
+        // and a frame whose container opened has lost nothing, whatever else
+        for has_skip in [false, true] {
+            for declares in [false, true] {
+                assert!(!frame_lost_container(1, has_skip, declares));
+            }
+        }
+    }
 
     /// One AC-3 syncframe of 1792 bytes (bsid 8, 448 kbit/s at 48 kHz, 3/2 with
     /// LFE): the header, then zeros. Its CRC is 0xFFFF, which read as an
