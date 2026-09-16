@@ -2,8 +2,13 @@
  "what": "the phase that closed the open items of section 9 of the verification report",
  "when": "2026-09-16",
  "branch": "verification-2026-09-14",
- "head": "08698e4",
+ "head": "0d4fc91",
  "commits": [
+  "0d4fc91 Settle the lossless check words of Up (2009) in the report",
+  "03c530f A peak data rate change is a branch point",
+  "0629e49 Say that round 8 could not be run",
+  "5d2b409 Say that round 8 is owed",
+  "8113e63 Refresh the envelope with round 7 and the head it measured",
   "08698e4 Format what the last commit wrote",
   "3ac116c Record round 7 and its finding in the report",
   "df4c104 Count a lost EMDF container where no skip field reaches the walk",
@@ -56,7 +61,7 @@
    {
     "gate": "truehd-presentation-2-vs-ffmpeg",
     "verdict": "PASS",
-    "detail": "decoded 126895 access units, 5075800 samples x 8 channels (0:01:45.746), 0 dropped duplicates\nlossless checks: 1000 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: L R C LFE Lb Rb Ls Rs\nspeed: 0.85 s (124x realtime)\ncompared 5075800 samples x 8 channels (0:01:45.746) with the reference\nmismatching samples: 0 (max difference 0)\nlengths agree\nresult: BIT-EXACT\nintegrity: 84 trailing bytes that formed no access unit, 1 stream `oadec verify` calls non-conformant\nthe output was written and is not trustworthy; `oadec verify` reports the same faults"
+    "detail": "decoded 126895 access units, 5075800 samples x 8 channels (0:01:45.746), 0 dropped duplicates\nlossless checks: 1000 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: L R C LFE Lb Rb Ls Rs\nspeed: 0.86 s (122x realtime)\ncompared 5075800 samples x 8 channels (0:01:45.746) with the reference\nmismatching samples: 0 (max difference 0)\nlengths agree\nresult: BIT-EXACT\nintegrity: 84 trailing bytes that formed no access unit, 1 stream `oadec verify` calls non-conformant\nthe output was written and is not trustworthy; `oadec verify` reports the same faults"
    },
    {
     "gate": "truehd-presentation-3-vs-truehdd",
@@ -115,45 +120,46 @@
    ]
   },
   "after": {
-   "valid_branches": 1,
+   "valid_branches": 2,
    "invalid_branches": 0,
    "output_jumps": 4,
    "branch_units": [
-    54205
+    54205,
+    77078
    ],
    "lossless": {
-    "evaluated": 3388,
-    "failed": 4,
-    "skipped": 4
+    "evaluated": 3384,
+    "failed": 0,
+    "skipped": 8
    },
    "per_presentation": [
     {
      "presentation": 0,
-     "evaluated": 847,
-     "failed": 1,
-     "skipped": 1,
-     "first_problem": "access unit 77078: substream 0: lossless check 0xE3 differs from header 0x00"
+     "evaluated": 846,
+     "failed": 0,
+     "skipped": 2,
+     "first_problem": null
     },
     {
      "presentation": 1,
-     "evaluated": 847,
-     "failed": 1,
-     "skipped": 1,
-     "first_problem": "access unit 77078: substream 1: lossless check 0x05 differs from header 0x00"
+     "evaluated": 846,
+     "failed": 0,
+     "skipped": 2,
+     "first_problem": null
     },
     {
      "presentation": 2,
-     "evaluated": 847,
-     "failed": 1,
-     "skipped": 1,
-     "first_problem": "access unit 77078: substream 2: lossless check 0x95 differs from header 0x00"
+     "evaluated": 846,
+     "failed": 0,
+     "skipped": 2,
+     "first_problem": null
     },
     {
      "presentation": 3,
-     "evaluated": 847,
-     "failed": 1,
-     "skipped": 1,
-     "first_problem": "access unit 77078: substream 3: lossless check 0xA0 differs from header 0x00"
+     "evaluated": 846,
+     "failed": 0,
+     "skipped": 2,
+     "first_problem": null
     }
    ]
   }
