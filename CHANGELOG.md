@@ -67,6 +67,22 @@ Semantic Versioning.
   or E-AC-3 frame, in a substream that carries no EMDF, has lost nothing. No
   stream of the corpus changes: every EMDF stream measured carries skip data
   in every frame.
+- **A peak data rate change is a branch point, and the previous access unit is
+  measured against the rate it was carried at.** A stream declares its peak
+  data rate in the major sync and may change it at a branch and nowhere else,
+  so the change is the stream saying that access unit is one. This model
+  counted those changes and never used them: it judged a branch only where a
+  clock jumped, and Up (2009) splices once without moving either clock. Six of
+  its lossless check words failed, in a stream `truehdd` calls conformant;
+  four survived the fix that gave the branch to every substream of its access
+  unit, and they are gone now. The signal is the stream's own and it is rare
+  -- 21 of the 23 TrueHD clips measured never change the rate -- so it is not
+  the latency, which breathes with the FIFO in every stream. Two conditions
+  that read the rate were reading the wrong one: the branch's `data_rate` and
+  the input-timing test's `over_rate` both weigh the previous access unit's
+  bytes, and those bytes were carried at the rate the new major sync replaced,
+  which is what this module's own documentation said. The two rates differ
+  only in an access unit that changes them, so no other stream moves.
 - **`oadec oamd` reads E-AC-3 streams.** It walks the EMDF containers in the
   frames' skip fields as `oadec emdf` does and reports every Object Audio
   Metadata payload in the same JSON shape as TrueHD, one syncframe per unit; it
