@@ -429,6 +429,19 @@ code in it reads the same programme. Screenshots are in the work directory
   decode and `truehdd` both read the object presentation of the refused titles cleanly,
   and the 89 are byte-identical to `truehdd`'s output, so the refusal measures Dolby's
   tool and not the streams.
+
+  What the tool refuses on is known now, because it says so at `GST_DEBUG=dlbtruehddec:7`.
+  It plays the presentation -- "Playing presentation: 16ch", "decoded 16, outputting 16
+  channels" -- and then its own Evolution metadata validity check fails, info code 0xf9
+  from `dthd_evo.c:796`, and `decode_oamdi` reports that as "Selected Dolby TrueHD
+  presentation is not available". The message names the wrong thing: the presentation is
+  there and decoded. The failure tracks the split on eight titles wrapped and driven
+  identically, four refused with it and four opened without it, and it is the one thing
+  measured so far that does;
+  `evidence/verification-2026-09-14/17-dolby-evolution-refusal.json`. What the validity
+  check objects to is still unanswered: every Evolution frame of both groups reads the same
+  here -- one protected frame per access unit, payload id 11 only, no parse error -- and
+  Dolby's check is inside a library this project cannot read.
 - ~~**The lossless check words of Up (2009).**~~ Settled (§6). Six failures when the round
   began, all of them ours: two at access unit 54205, where the branch reached the one
   restart header it was judged at, and four at 77078, which this model did not see as a
