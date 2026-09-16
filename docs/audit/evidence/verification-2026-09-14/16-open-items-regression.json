@@ -2,8 +2,9 @@
  "what": "the phase that closed the open items of section 9 of the verification report",
  "when": "2026-09-16",
  "branch": "verification-2026-09-14",
- "head": "0d4fc91",
+ "head": "3287c3f",
  "commits": [
+  "3287c3f Refresh the envelope with the settled title",
   "0d4fc91 Settle the lossless check words of Up (2009) in the report",
   "03c530f A peak data rate change is a branch point",
   "0629e49 Say that round 8 could not be run",
@@ -250,6 +251,13 @@
   ],
   "negative": true,
   "verdict": "passed"
+ },
+ "media_suite_at_head": {
+  "verdict": "ok",
+  "passed": 28,
+  "failed": 0,
+  "seconds": 1223.43,
+  "note": "the media suite run at this head; the media_regression steps above were measured at an earlier one"
  },
  "review_rounds": {
   "6": {
