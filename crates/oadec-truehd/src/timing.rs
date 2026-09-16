@@ -141,6 +141,9 @@ pub struct TimingModel {
     last_output_timing: [Option<u16>; MAX_PRESENTATIONS],
     judged_this_unit: bool,
     valid_branch_this_unit: bool,
+    /// The branch judged in the access unit being read, for every restart
+    /// header of it and not only the one it was judged at.
+    unit_branch: Option<Branch>,
     /// Every jump seen, in order.
     pub branches: Vec<Branch>,
     /// Access units whose input timing jumped.
@@ -172,6 +175,7 @@ impl TimingModel {
             last_output_timing: [None; MAX_PRESENTATIONS],
             judged_this_unit: false,
             valid_branch_this_unit: false,
+            unit_branch: None,
             branches: Vec::new(),
             input_jumps: 0,
             output_jumps: 0,
@@ -201,6 +205,7 @@ impl TimingModel {
         self.fifo = self.config.fifo_duration(length_words);
         self.judged_this_unit = false;
         self.valid_branch_this_unit = false;
+        self.unit_branch = None;
         self.input_jump = false;
         if self.has_prev {
             let interval = u32::from(input_timing.wrapping_sub(self.prev_input_timing));
@@ -283,10 +288,18 @@ impl TimingModel {
                 };
                 self.valid_branch_this_unit = branch.is_valid();
                 self.branches.push(branch);
-                r.branch = Some(branch);
+                self.unit_branch = Some(branch);
             }
             self.judged_this_unit = true;
         }
+        // The branch is a property of the access unit. Every substream restarts
+        // at a splice and the lossless check word of each spans it, so a branch
+        // judged at one restart header holds for all of them; the decoder skips
+        // the check word where the branch is. Handing it to the one header it
+        // was judged at left the others comparing a check word across the
+        // splice, and which header that is depends on the presentation being
+        // decoded, so presentations disagreed on the same access unit.
+        r.branch = self.unit_branch;
         r
     }
 
@@ -392,6 +405,36 @@ mod tests {
             10,
         );
         assert_eq!(m.valid_branches(), 1);
+        assert_eq!(m.invalid_branches(), 0);
+    }
+
+    /// Every substream restarts at a splice and the lossless check word of each
+    /// spans it, so the branch is a property of the access unit. It used to
+    /// reach the one restart header it was judged at, and the decoder skips the
+    /// check word only where the branch is (`Decoder::restart_header`), so the
+    /// other substreams compared a check word across the splice. Which substream
+    /// that was depends on the presentation being decoded, which is how
+    /// presentations 0 and 2 of Up (2009) skipped the check at access unit 54205
+    /// where 1 and 3 failed it.
+    #[test]
+    fn the_branch_reaches_every_restart_header_of_the_unit() {
+        let mut m = TimingModel::new(cfg());
+        run_continuous(&mut m, 1000, 4000, 16);
+        let advance_before = 4000u16.wrapping_sub(40).wrapping_sub(1000);
+        let new_input = 30000u16;
+        let new_output = new_input.wrapping_add(40).wrapping_add(advance_before);
+        assert!(m.begin_unit(new_input, 300));
+        let first = m.restart_header(0, new_output);
+        assert!(first.branch.is_some_and(|b| b.is_valid()));
+        for substream in 1..4 {
+            let r = m.restart_header(substream, new_output);
+            assert!(
+                r.branch.is_some_and(|b| b.is_valid()),
+                "substream {substream} did not hear about the branch"
+            );
+        }
+        m.end_unit();
+        assert_eq!(m.valid_branches(), 1, "the branch is judged once");
         assert_eq!(m.invalid_branches(), 0);
     }
 

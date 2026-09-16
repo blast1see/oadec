@@ -391,13 +391,33 @@ code in it reads the same programme. Screenshots are in the work directory
   tried moves subband 0 further from Dolby (§4.5). The error sits at −94 to −97 dBFS.
 - **Dolby's refusal of TrueHD object presentations.** It refuses 46 % of the library's
   object presentations, and Up (2009) among the fresh titles. Not investigated again.
-- **The lossless check words of Up (2009).** Its decodes exit 7 on failed lossless check
-  words, which `verify` evaluates only with `--decode`; `verify --decode` counts six across
-  the four presentations, the first at access unit 54205, the one seamless branch of the
-  stream, and at 77078, where the restart headers carry 0x00. Presentation 3 is still
-  byte-identical to `truehdd`. Whether the stream or the check is wrong is not settled.
-- **A mid-stream configuration change** is still not decoded across. The output now ends
-  at that access unit in a consistent file and the run exits 7.
+- **The lossless check words of Up (2009).** Six failures across the four presentations
+  when the round began; two of them were ours and are fixed (§6), and four remain. The two
+  were at access unit 54205, the seamless branch of the stream: the branch reached the one
+  restart header it was judged at, so the substreams of the other presentations compared a
+  check word across the splice, and presentations 0 and 2 skipped the check where 1 and 3
+  failed it. All four skip it now and agree.
+
+  The four that remain are one event, access unit 77078, one failure in each presentation.
+  Every restart header there carries a check word of 0x00 while the decoded state folds to
+  something else, and the output timing steps as it should: no clock jumps, so this model
+  judges no branch. `truehdd` reports a seamless branch at that access unit with an advance
+  of 40 and calls the stream conformant, so it recognises a restart this model does not.
+  What the evidence does not say is how it tells such a restart from an ordinary access
+  unit: a latency change alone cannot be the rule, since the advance breathes with the FIFO
+  in every stream measured -- taking it as the trigger judged 578 valid and 164 invalid
+  branches on this title alone and turned 14 of the 55 comparison inputs from exit 0 into
+  exit 7. Decodes of this title still exit 7; presentation 3 is still byte-identical to
+  `truehdd`.
+- **A mid-stream configuration change** ends the output, by design rather than by
+  omission. `StreamConfig::incompatible_with` names four fields, and every one of them
+  changes the shape of what a decode writes: the substream count, `substream_info`, the
+  samples per access unit and the sampling frequency. One PCM or WAVE file cannot hold
+  both sides of such a change, so the output ends at that access unit in a consistent
+  file and the run says where it stopped and exits 7. A change that touches none of the
+  four is decoded through, which the unit tests of `crates/oadec-truehd/src/au.rs` hold,
+  and the media test `a_configuration_change_leaves_a_consistent_wav_and_exits_7` holds
+  the other side.
 - **Material that does not exist anywhere in the library**: downmix configurations 1 and
   2, two-point interpolation, EMDF in auxiliary data, a stream carrying object divergence.
   These stay N/T.
