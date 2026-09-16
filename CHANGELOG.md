@@ -55,6 +55,18 @@ Semantic Versioning.
   stderr, and exits 1. A non-zero exit from the decoder is not a fault: that
   is the corruption being caught. The stored campaigns of the corpus are
   unaffected, 0 silent, 0 reported at exit 0 and 0 panics in all three kinds.
+- **A frame with no skip field at all is a lost EMDF container where the
+  substream declares one.** A substream that declares the JOC extension in its
+  `addbsi` carries a container in every frame (TS 103 420 clauses 8.2 and
+  8.3.1). Three places asked whether the frame carried skip bytes before they
+  asked whether a container opened -- the walk `emdf` and `oamd` share, the
+  statistics `verify` keeps, and the object path's payload reader -- so a
+  frame with none at all was silent in all three, while the object decode held
+  the matrices of the frame before it. They ask only where a container could
+  be now, which leaves the exemption that matters untouched: an ordinary AC-3
+  or E-AC-3 frame, in a substream that carries no EMDF, has lost nothing. No
+  stream of the corpus changes: every EMDF stream measured carries skip data
+  in every frame.
 - **`oadec oamd` reads E-AC-3 streams.** It walks the EMDF containers in the
   frames' skip fields as `oadec emdf` does and reports every Object Audio
   Metadata payload in the same JSON shape as TrueHD, one syncframe per unit; it
