@@ -1,6 +1,11 @@
 {
   "what": "decode --start measured on the real corpus",
+  "utc": "2026-09-17T05:51:38Z",
+  "commit": "9695f3f -- the tree the measured binary was built from (the feature as first committed)",
   "binary": "(the release binary)",
+  "branch_commit": "9695f3f",
+  "why": "The feature shipped with a fixture test, and a unit test validates the rule, not the material. A rule about where a stream may be entered has to be measured on real streams before it ships.",
+  "method": "verify-2026-09-14/measure_seek.py: for each clip a full decode of presentation 2 to raw PCM, then a decode with --start at each time; the started output is compared byte for byte against the last N bytes of the full output, and the announced sample is checked against the byte offset (offset must be the announced sample count times the bytes of a frame). Edges run separately: past the end, negative, non-numeric, smaller than one access unit, and WAVE.",
   "cases": [
     {
       "clip": "pi-head50m.thd",

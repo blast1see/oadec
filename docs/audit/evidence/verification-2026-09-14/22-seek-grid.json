@@ -1,5 +1,11 @@
 {
   "what": "the reachable entry points of --start, measured",
+  "utc": "2026-09-17T05:51:38Z",
+  "commit": "49c9fd2 -- the tree the measured binary was built from (the feature with the two corrections)",
+  "binary_sha256": "557eed6cec58b1c7f3014422dc8d6ecd5abcc7a174422e33122d53cad5f2bf63",
+  "branch_commit": "49c9fd2",
+  "why": "The committed note claimed the snap forward is 128 access units. That number had not been measured, and the first corpus run already contradicted it by landing on access unit 1.",
+  "method": "verify-2026-09-14/probe_seek_grid.py: oadec info --json for each clip's rate, major sync count and max_major_sync_interval, then 14 starts per clip from 0 to 10 s. For each the announced sample gives the landing unit; the snap is that unit minus the first unit the start could have used (target // samples_per_au). Every started output is compared byte for byte with the tail of a full decode, which is also what proves the landing unit carries a major sync: without restart headers the filter histories would start from zero and the tail could not match.",
   "clips": [
     {
       "clip": "talktome-head.thd",
