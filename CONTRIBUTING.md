@@ -44,7 +44,7 @@ and `ec3/` (raw elementary streams), `ref-ffmpeg/` and `ref-truehdd/`
 committed.
 
 ```text
-OADEC_MEDIA=E:\oadec-work cargo test --release -p oadec-cli --test real -- --ignored
+OADEC_MEDIA=<work directory> cargo test --release -p oadec-cli --test real -- --ignored
 ```
 
 ## Commits

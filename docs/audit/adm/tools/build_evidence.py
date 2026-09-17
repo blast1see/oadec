@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Assemble the machine-readable evidence under docs/audit/evidence/adm/ from the work directory.
 
-    python build_evidence.py --work E:/oadec-work/audit/adm --repo %USERPROFILE%/Documents/oadec [--out docs/audit/evidence/adm]
+    python build_evidence.py --work <work directory> --repo <repository root> [--out docs/audit/evidence/adm]
 
 Every file is an evidence envelope (see admaudit.evidence) whose payload is
 taken verbatim from the measurement JSONs written by the run_* drivers; this
@@ -14,6 +14,7 @@ import argparse
 import glob
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -78,7 +79,7 @@ def main() -> int:
         ("conversion_tool", dolby.CONVERSION_TOOL, ["--version"]), ("dee", dolby.DEE, None),
         ("atmos_info_5.7.2", dolby.ATMOS_INFO["5.7.2"], ["-v", "1"]), ("atmos_info_1.1", dolby.ATMOS_INFO["1.1"], ["--version"]),
         ("bwf_info", dolby.BWF_INFO, ["--help"]), ("ear_render", os.path.join(os.path.dirname(py), "ear-render.exe"), None),
-        ("truehdd", r"%USERPROFILE%\.cargo\bin\truehdd.exe", ["--version"]),
+        ("truehdd", shutil.which("truehdd") or "truehdd", ["--version"]),
     ):
         try:
             tools[name] = provenance.tool_record(path, args) if os.path.isfile(path) else {"missing": path}
