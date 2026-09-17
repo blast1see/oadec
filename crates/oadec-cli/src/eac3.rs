@@ -75,6 +75,8 @@ pub(crate) fn for_each_frame(
     path: &Path,
     mut on_frame: impl FnMut(u64, &[u8], &FrameHeader) -> Result<()>,
 ) -> Result<(u64, u64, u64)> {
+    let file_bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+    let mut progress = crate::progress::Progress::new("reading", file_bytes);
     let mut file = BufReader::with_capacity(4 << 20, File::open(path)?);
     let mut buf: Vec<u8> = Vec::with_capacity(8 << 20);
     let mut base: u64 = 0; // file offset of buf[0]
@@ -99,6 +101,7 @@ pub(crate) fn for_each_frame(
             }
             continue;
         }
+        progress.at(base);
         let Some(pos) = find_sync(&buf, 0) else {
             skipped += buf.len() as u64;
             base += buf.len() as u64;
@@ -158,6 +161,8 @@ pub(crate) fn for_each_frame(
             break;
         }
     }
+    // The line is cleared when `progress` is dropped, which also covers the
+    // `?` on on_frame above.
     Ok((frames, sync_errors, skipped))
 }
 

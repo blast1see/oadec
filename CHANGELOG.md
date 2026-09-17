@@ -6,6 +6,18 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **A command that reads a whole file shows how far it has got.** A decode of a
+  feature film takes minutes and used to say nothing until it ended. The walks
+  every command shares now draw a percentage of the input in place, and a clean
+  decode ends by saying `done`. It is drawn only when stderr is a terminal:
+  four tools parse oadec's stderr and most of the CLI tests match on it, so a
+  piped or redirected run prints exactly what it printed before, byte for byte.
+  The line is cleared when the reporter is dropped, which covers the paths that
+  leave a walk early -- an error printed onto a half-drawn bar is worse than no
+  bar at all, and a test holds it by dropping one mid-walk.
+
 ## [0.5.0] - 2026-09-17
 
 ### Added

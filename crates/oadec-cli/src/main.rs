@@ -17,6 +17,7 @@ mod integrity;
 mod joc_config;
 mod joc_offset;
 mod oamd;
+mod progress;
 mod scan;
 mod thd_demux;
 mod verify;

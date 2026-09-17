@@ -28,6 +28,8 @@ pub fn for_each_unit(
 ) -> Result<PassSummary> {
     let mut file = File::open(path).with_context(|| format!("opening {}", path.display()))?;
     let file_bytes = file.metadata().map(|m| m.len()).unwrap_or(0);
+    // Drawn only on a terminal; a pipeline, a log and a test see nothing.
+    let mut progress = crate::progress::Progress::new("reading", file_bytes);
     let mut extractor = Extractor::new();
     let mut buf = vec![0u8; CHUNK];
     loop {
@@ -39,6 +41,7 @@ pub fn for_each_unit(
         }
         extractor.push(&buf[..n]);
         while let Some(unit) = extractor.next_unit()? {
+            progress.at(unit.offset);
             on_unit(unit)?;
         }
     }
@@ -46,6 +49,8 @@ pub fn for_each_unit(
     for unit in rest {
         on_unit(unit)?;
     }
+    // The line is cleared when `progress` is dropped, which covers the `?`
+    // paths above as well as this one.
     Ok(PassSummary {
         stats: extractor.stats,
         trailing_bytes,

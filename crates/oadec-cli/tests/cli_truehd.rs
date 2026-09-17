@@ -706,3 +706,66 @@ fn the_announced_sample_is_where_the_output_actually_begins() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// Progress is for a person watching, and for nobody else.
+///
+/// Four tools parse oadec's stderr, a media test reads it as text, and most of
+/// the assertions in this file match on it. A progress indicator that wrote
+/// unconditionally would break them all, and worse, would corrupt the logs the
+/// measurement scripts keep. It is rendered only when stderr is a terminal; a
+/// piped run -- which is what a test, a tool and a shell pipeline all are --
+/// must carry no trace of it.
+#[test]
+fn a_piped_run_carries_no_progress() {
+    let dir = temp("progress-piped");
+    let stream = fixture("authored-scene.mlp");
+    let out = oadec(&[
+        "decode",
+        stream.to_str().unwrap(),
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "-o",
+        dir.join("out.pcm").to_str().unwrap(),
+    ]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+
+    let said = stderr(&out);
+    assert!(
+        !said.contains('\r'),
+        "a piped run must not redraw a line: {said:?}"
+    );
+    assert!(
+        !said.contains('%'),
+        "a piped run must not print a percentage: {said:?}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A run that finishes cleanly says so.
+///
+/// The summary ends with the speed, which reads like a measurement rather than
+/// an answer to "did it work". One word on the last line says it did.
+#[test]
+fn a_clean_decode_says_it_is_done() {
+    let dir = temp("progress-done");
+    let stream = fixture("authored-scene.mlp");
+    let out = oadec(&[
+        "decode",
+        stream.to_str().unwrap(),
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "-o",
+        dir.join("out.pcm").to_str().unwrap(),
+    ]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    let said = stderr(&out);
+    assert!(
+        said.lines().last().is_some_and(|l| l.trim() == "done"),
+        "a clean decode must end by saying so: {said:?}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
