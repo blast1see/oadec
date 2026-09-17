@@ -188,10 +188,13 @@ impl Session {
                 self.started_at_sample = Some(self.skipped_samples);
                 // The snap forward can be as long as a major sync interval, so
                 // the run says what it decoded rather than what was asked for.
+                // It says it from `started_at_sample` rather than from the
+                // counter beside it: one field is where the decode began, and a
+                // second expression for the same thing is one nothing checks.
+                let at = self.started_at_sample.unwrap_or_default();
                 eprintln!(
-                    "starting at sample {} ({:.3} s), the first major sync at or after --start",
-                    self.skipped_samples,
-                    self.skipped_samples as f64 / f64::from(config.sampling_frequency)
+                    "starting at sample {at} ({:.3} s), the first major sync at or after --start",
+                    at as f64 / f64::from(config.sampling_frequency)
                 );
             }
             let mut decoder = Decoder::new(ms, self.presentation)?;
