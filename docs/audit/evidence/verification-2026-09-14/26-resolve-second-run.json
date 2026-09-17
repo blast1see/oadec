@@ -1,0 +1,35 @@
+{
+  "what": "DaVinci Resolve Studio 21 reads both outputs, second run",
+  "utc": "2026-09-17T07:27:00Z",
+  "why": "The first run (16 September) opened the ADM file. This one opens the DAMF set as well, so the two formats oadec writes are read side by side by the same non-Dolby reader, from the same decode.",
+  "method": "Resolve Studio 21, Fairlight page, by hand: the DAMF set and the ADM BWF of pi-head50m imported into separate empty projects; the screenshots record the track layout, the clip names and the monitoring format.",
+  "reader": "DaVinci Resolve Studio 21 (Blackmagic Design) -- independent of Dolby's own tools and of the EBU renderer",
+  "source": "pi-head50m, the head of Pi (1998) TrueHD Atmos, decoded by oadec: 10-channel bed + 11 dynamic objects",
+  "runs": [
+    {
+      "format": "DAMF",
+      "screenshot": "resolve/resolve-fairlight-damf-2026-09-17.png",
+      "clips": "pi-head50m_2GHZM2.L.wav, pi-head50m_2GHZM2.wav, pi-head50m_001..010_2GHZM2.wav",
+      "tracks": "A1 Bed 1-10, A2..A12 Object 11..Object 21",
+      "buses": "B1 Main, B2 Bed 1-10"
+    },
+    {
+      "format": "ADM BWF",
+      "screenshot": "resolve/resolve-fairlight-adm-2026-09-17.png",
+      "clips": "pi-head50m-adm_2GHZP5.L.wav, pi-head50m-adm_2GHZP5.wav, pi-head50m-adm_001..010_2GHZP5.wav",
+      "tracks": "A1 Bed 1-10, A2..A12 Object 11..Object 21",
+      "buses": "B1 Main, B2 Bed 1-10"
+    }
+  ],
+  "observed": {
+    "bed_track": "Bed 1-10, one track carrying the ten bed channels",
+    "object_tracks": 11,
+    "object_labels": "Object 11 to Object 21",
+    "duration_shown": "00:01:45:17",
+    "duration_expected": "105.746 s, which is 00:01:45:17 at 24 fps",
+    "monitoring": "Dolby renderer, 7.1.4, Auto",
+    "immersive_panner": "engaged; the bed feeds B2 and the objects the Main bus"
+  },
+  "reading": "Both formats lay out identically in a reader with no Dolby code in it: one bed track and eleven object tracks, numbered from 11 because the first ten channels are the bed, over the exact length of the decode. The programme Resolve sees is the programme atmos_info reads -- a ten-channel bed and eleven objects, ids 0 to 10, over 5 075 800 samples -- so the DAMF set and the ADM file describe the same thing to a third party. This is the second reader outside Dolby's tools and the EBU renderer, and the first time both output formats were checked in the same session.",
+  "limits": "A visual check of structure, not of sample values or object positions: it confirms what the file declares it holds, not that a position is where the metadata says. The sample-level comparison against Dolby's own object output is measured elsewhere (evidence 05, 06, 07)."
+}

@@ -432,6 +432,18 @@ samples, and exits 0 on both the ADM file and the DAMF set. A reader with no Dol
 code in it reads the same programme. Screenshots are in the work directory
 (`resolve/resolve-fairlight-adm-1.png` and `-2.png`).
 
+It was run a second time on 17 September, and that run adds what the first did not:
+the DAMF set and the ADM file were opened side by side, from the same decode. Both
+lay out identically -- one `Bed 1-10` track and eleven object tracks, `Object 11` to
+`Object 21`, numbered from eleven because the first ten channels are the bed -- over
+`00:01:45:17`, which is the 105.746 s the decode wrote, with the Dolby renderer
+monitoring 7.1.4. So the two formats oadec writes describe the same programme to a
+third party, not only to Dolby's tools. It remains a check of structure and not of
+sample values: it confirms what the file declares it holds, and the sample-level
+comparison against Dolby's own object output is Section 4.
+`26-resolve-second-run.json`; `resolve/resolve-fairlight-damf-2026-09-17.png` and
+`resolve-fairlight-adm-2026-09-17.png`.
+
 ## 9. Still open
 
 - **The subband 0 residual of three titles.** Mercy, A Man Called Otto and Damsel leave
