@@ -6,6 +6,8 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-17
+
 ### Added
 
 - **`decode --start <seconds>` begins a TrueHD decode inside the stream.** It
