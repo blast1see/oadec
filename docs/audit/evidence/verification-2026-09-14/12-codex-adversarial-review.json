@@ -1,0 +1,549 @@
+{
+ "what": "Adversarial reviews by a second model: of the post-audit code, and a gate loop over this branch",
+ "utc": "2026-09-15T21:34:31Z",
+ "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
+ "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
+ "why": "The remediation and the fixes were written by one model; a second one looked for the strongest reasons they should not ship.",
+ "method": "codex exec (codex-cli 0.154.0, read-only sandbox, JSON output schema of the codex-review-cc plugin) with the plugin's security, reliability and simplification checklists: once over git diff v0.2.0..HEAD -- crates Cargo.toml of the released code, then round by round over main...verification-2026-09-14 until it approved, every finding adjudicated and every accepted one fixed and tested before the next round",
+ "reading": "CHANGES_REQUESTED with six findings. All six were checked against the code, and those that claimed a behaviour against a test that fails on the old code; all six were real and all six are fixed on the branch. Round by round against main: rounds 1 to 4 each raised one correctness finding (R1F1, R2F1, R3F1, R4F1), each confirmed against the code, fixed test first and resolved by the next round. While round 4 waited on the usage limit of the reviewer, the class of R3F1 was closed as a whole (W4); R4F1 was closed for every TrueHD delivery (G4). Round 5, the last the loop allows, approved in 512 s, and the workspace tests of its approval passed (273).",
+ "data": {
+  "review": {
+   "verdict": "CHANGES_REQUESTED",
+   "summary": "Six material findings remain in queue recovery, integrity propagation, and loss accounting. Both committed fixtures verify cleanly with the prebuilt release binary; a fresh build and adversarial runtime tests were not run in the read-only workspace.",
+   "coverage": {
+    "correctness": 5,
+    "security": 1,
+    "reliability": 0,
+    "simplification": 0,
+    "performance": 0
+   },
+   "findings": [
+    {
+     "id": "R1F1",
+     "lens": "security",
+     "file": "crates/oadec-eac3/src/program.rs",
+     "line_start": 755,
+     "line_end": 763,
+     "severity": "high",
+     "confidence": 0.99,
+     "issue": "Malformed dependent-substream ordering can permanently block delivery while decoded PCM accumulates without a bound. push() deduplicates members but still feeds repeated substream IDs, producing two ready entries for one group. After the first is consumed, the stale entry prevents the next group from ever satisfying this equality. finish() neither repairs nor reports the unresolved groups, so smaller inputs can return a clean verdict with truncated output. A disappearing dependent also blocks subsequent groups until EOF because its decoder retains lookahead samples.",
+     "suggestion": "Reject duplicate group members before feeding their decoder, flush/reset discontinued substreams, and enforce a bounded pending-group window. Report unresolved or discarded groups as integrity faults, including at EOF. Test duplicate and disappearing dependents through ProgramDecoder.",
+     "status": "open"
+    },
+    {
+     "id": "R1F2",
+     "lens": "correctness",
+     "file": "crates/oadec-cli/src/decode.rs",
+     "line_start": 189,
+     "line_end": 196,
+     "severity": "high",
+     "confidence": 0.99,
+     "issue": "The shared TrueHD verdict still cannot see extra-data integrity failures. ExtraData::parse returns bad Evolution parity and truncation as fields, but neither DecodeStats nor this helper collects them. crates/oadec-cli/src/damf.rs also silently skips failed Evolution-container parses. A bit flip in a parseable OAMD coordinate can therefore alter exported object positions and exit 0: the extra-data parity fails while audio checks remain valid. scan.rs detects that failure, contradicting docs/exit-codes.md and the decoder remediation report.",
+     "suggestion": "Accumulate per-access-unit extra-data parity, truncation, and Evolution-container failures on delivery paths and include them in the verdict. Add a fixture mutation that preserves framing and audio but corrupts Evolution metadata, requiring verify and object decode to exit 7.",
+     "status": "open"
+    },
+    {
+     "id": "R1F3",
+     "lens": "correctness",
+     "file": "crates/oadec-cli/src/eac3_objects.rs",
+     "line_start": 394,
+     "line_end": 398,
+     "severity": "medium",
+     "confidence": 1.0,
+     "issue": "The object path treats successful JOC parsing as sufficient, although Joc::parse permits unconsumed trailing bytes. For a CRC-valid frame with an oversized JOC payload, verify and PCM decode count !j.size_ok(p.data.len()), but DAMF/ADM decode leaves payload_errors at zero and can exit clean. This violates the explicit payload-size fault policy in docs/exit-codes.md.",
+     "suggestion": "Check size_ok after every successful JOC parse and propagate mismatches into the object-output integrity verdict. Share payload validation with the verification path and test a CRC-valid payload-size mismatch.",
+     "status": "open"
+    },
+    {
+     "id": "R1F4",
+     "lens": "correctness",
+     "file": "crates/oadec-spatial/src/program.rs",
+     "line_start": 454,
+     "line_end": 472,
+     "severity": "medium",
+     "confidence": 1.0,
+     "issue": "Distance and divergence losses are counted only when the reduced ObjectState changes. Neither field exists in ObjectState, so an update that introduces only a specified distance or nonzero divergence is suppressed before these counters run. Both output formats silently discard the new semantics, and the ledger can remain empty unless --all-events is enabled. docs/audit/adm-remediation-plan.md requires these losses to be counted per dynamic-object update.",
+     "suggestion": "Count distance and divergence from the source update before applying the event-change filter. Add consecutive payload tests where only one of these discarded fields changes, using Timeline::new(false).",
+     "status": "open"
+    },
+    {
+     "id": "R1F5",
+     "lens": "correctness",
+     "file": "crates/oadec-spatial/src/adm.rs",
+     "line_start": 677,
+     "line_end": 684,
+     "severity": "medium",
+     "confidence": 1.0,
+     "issue": "Trailing events can disappear before their semantic losses are recorded. adm_equal ignores importance, screen_factor, and trim_bypass, so a final event changing only one of these fields is popped here. Their counters run afterward over the remaining blocks, leaving no diagnostic for the discarded change. This retains the silent-loss behavior that docs/audit/adm-remediation-report.md declares fixed.",
+     "suggestion": "Account for omitted semantics on in-range events before removing trailing ADM-equivalent states, while preserving the intended XML output. Test final events changing only importance, screen reference, or trim bypass.",
+     "status": "open"
+    },
+    {
+     "id": "R1F6",
+     "lens": "correctness",
+     "file": "crates/oadec-cli/src/eac3.rs",
+     "line_start": 876,
+     "line_end": 880,
+     "severity": "medium",
+     "confidence": 1.0,
+     "issue": "Frame-tail overruns now force delivery exit 7, contrary to the approved exception. docs/exit-codes.md and docs/audit/decoder-remediation-report.md explicitly retain a clean decode verdict when this is the only anomaly; docs/eac3.md documents the CRC-valid, decodable The 400 Blows example. This unconditional note, the dependent-substream equivalent, and eac3_objects.rs:644 instead classify the output as untrustworthy, breaking callers relying on that policy.",
+     "suggestion": "Continue counting and displaying tail overruns, and retain verify's non-conformant result, but exclude tail-only anomalies from delivery Findings. Add a regression asserting verify exits 7 while decode exits 0 when all other checks pass.",
+     "status": "open"
+    }
+   ],
+   "next_steps": [
+    "Fix queue progress and propagate the missing integrity checks.",
+    "Move loss accounting ahead of semantic filtering and restore the documented tail-overrun exception.",
+    "Add focused regression tests for the identified cases."
+   ]
+  },
+  "dispositions": {
+   "R1F1": {
+    "disposition": "AGREE",
+    "confirmed_by": "a DD+ 7.1 stream with every dependent frame repeated decoded to one group of 375 and exited 0; a dependent substream that disappears held every later group until the end of the stream",
+    "fixed_in": [
+     "82290a0",
+     "cc12bc7"
+    ],
+    "branch": "fix/program-decoder",
+    "tests": [
+     "a_duplicated_dependent_frame_is_counted_and_delivery_continues",
+     "a_dependent_substream_that_disappears_does_not_stall_delivery",
+     "a_repeated_independent_frame_is_a_group_of_its_own_and_nothing_waits"
+    ]
+   },
+   "R1F2": {
+    "disposition": "AGREE",
+    "confirmed_by": "a fixture with one Evolution byte changed: verify 7, every TrueHD decode 0",
+    "fixed_in": [
+     "6fcea74"
+    ],
+    "branch": "fix/truehd-delivery",
+    "tests": [
+     "every_extra_data_fault_makes_a_decode_unclean",
+     "CLI tests in cli_truehd.rs"
+    ]
+   },
+   "R1F3": {
+    "disposition": "AGREE",
+    "confirmed_by": "the object path used Joc::parse without size_ok, which verify and the PCM path check",
+    "fixed_in": [
+     "a97a0e8"
+    ],
+    "branch": "fix/eac3-delivery",
+    "tests": [
+     "oadec-emdf size_ok guard",
+     "object-path findings test",
+     "fixture guard"
+    ]
+   },
+   "R1F4": {
+    "disposition": "AGREE",
+    "confirmed_by": "unit tests failing on the old code: a distance-only and a divergence-only update counted 0",
+    "fixed_in": [
+     "2352bf1"
+    ],
+    "branch": "fix/spatial-ledger",
+    "tests": [
+     "a_distance_only_change_is_counted_once_without_an_event",
+     "a_divergence_only_change_is_counted_once_without_an_event"
+    ]
+   },
+   "R1F5": {
+    "disposition": "AGREE",
+    "confirmed_by": "unit test failing on the old code: ImportanceOmitted 0 where 3 were dropped",
+    "fixed_in": [
+     "7a6b93e"
+    ],
+    "branch": "fix/spatial-ledger",
+    "tests": [
+     "a_popped_trailing_event_still_has_its_losses_counted"
+    ]
+   },
+   "R1F6": {
+    "disposition": "AGREE",
+    "confirmed_by": "The 400 Blows (AC-3, one frame ending inside its tail): verify 7 as the policy says, decode 7 where the policy says 0",
+    "fixed_in": [
+     "08ec08b"
+    ],
+    "branch": "fix/eac3-delivery",
+    "tests": [
+     "unit tests of both delivery findings with only tail overruns"
+    ]
+   }
+  },
+  "gate_loop": {
+   "base": "main",
+   "rounds": [
+    {
+     "round": 1,
+     "result": [
+      "ROUND_RESULT K=1 verdict=CHANGES_REQUESTED dur=437"
+     ],
+     "review": {
+      "verdict": "CHANGES_REQUESTED",
+      "summary": "One material correctness gap remains: the new E-AC-3 oamd path can report incomplete metadata as clean after extraction failures. Across the five lenses, no other substantive finding was established. All 36 selected prebuilt tests passed; a fresh build and full suite were not run in the read-only workspace.",
+      "coverage": {
+       "correctness": 1,
+       "security": 0,
+       "reliability": 0,
+       "simplification": 0,
+       "performance": 0
+      },
+      "findings": [
+       {
+        "id": "R1F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/oamd.rs",
+        "line_start": 440,
+        "line_end": 446,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "The new E-AC-3 path silently discards container-open errors. It also copies only walk.frames into the summary, losing walk.unparsed_frames and walk.sync_errors. Consequently, a framed stream whose metadata container cannot open, or whose frame cannot be parsed far enough to extract metadata, can produce fewer payloads—or none—with clean=true and exit 0. This follows directly from the clean predicate at lines 472–473, which sees only payload-level errors. It violates docs/exit-codes.md: extraction failures affecting delivered metadata must not be reported as clean.",
+        "suggestion": "Propagate container, frame-parse and framing failures into the OAMD report and clean verdict, retaining frame/offset context. Add negative CLI tests with valid frames surrounding a malformed container or unparseable frame; require clean=false and exit 7 while preserving the clean AC-3 case with no metadata.",
+        "status": "open"
+       }
+      ],
+      "next_steps": [
+       "Fix OAMD extraction-error propagation and add the negative CLI regressions.",
+       "Run the full workspace tests from a writable build environment."
+      ]
+     }
+    },
+    {
+     "round": 2,
+     "result": [
+      "ROUND_RESULT K=2 verdict=CHANGES_REQUESTED dur=385"
+     ],
+     "review": {
+      "verdict": "CHANGES_REQUESTED",
+      "summary": "One new correctness gap remains: the shared metadata walker can silently omit a frame whose EMDF sync word is missing. R1F1 is resolved. Sixty selected prebuilt tests passed; one file-writing test was blocked by the read-only sandbox. A fresh build and full suite were not run.",
+      "coverage": {
+       "correctness": 1,
+       "security": 0,
+       "reliability": 0,
+       "simplification": 0,
+       "performance": 0
+      },
+      "findings": [
+       {
+        "id": "R1F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/oamd.rs",
+        "line_start": 559,
+        "line_end": 565,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: reported container failures, unparsed units, framing errors and TrueHD extra-data faults now reach OamdSummary and its clean verdict.",
+        "suggestion": "Retain the malformed-container, framing-noise and corrupted-Evolution regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R2F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/emdf.rs",
+        "line_start": 188,
+        "line_end": 192,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "The shared walk cannot distinguish empty skip fields from nonempty skip fields containing no EMDF sync word. find_emdf returns an empty vector for both, so this loop records no failure. From the code, replacing a middle frame's container bytes with zeros while preserving the skip lengths and correcting the frame CRC therefore makes emdf and oamd silently omit that metadata and return clean=true/exit 0. EmdfStats::scan and the object decoder count the same frame as a container failure. This contradicts docs/exit-codes.md and the every-delivery claim in docs/audit/conformance-matrix.md.",
+        "suggestion": "Propagate a frame-level failure when nonempty skip fields yield no opened container, including when no sync candidate exists. Preserve clean handling of genuinely empty skip fields. Add a CRC-valid fixture mutation erasing a middle frame's EMDF sync/container and require emdf, oamd, verify and both decode paths to exit 7.",
+        "status": "open"
+       }
+      ],
+      "next_steps": [
+       "Fix the missing-container accounting and run the new regression plus the workspace suite in a writable environment."
+      ]
+     }
+    },
+    {
+     "round": 3,
+     "result": [
+      "ROUND_RESULT K=3 verdict=CHANGES_REQUESTED dur=323"
+     ],
+     "review": {
+      "verdict": "CHANGES_REQUESTED",
+      "summary": "One material correctness gap remains: metadata commands report truncated streams as clean because they discard skipped/trailing-byte counts. R1F1 and R2F1 are resolved. Across five lenses, no other material finding was established. Sixty-one selected prebuilt tests passed; one file-writing test was blocked by the read-only sandbox. A fresh build and full suite were not run.",
+      "coverage": {
+       "correctness": 1,
+       "security": 0,
+       "reliability": 0,
+       "simplification": 0,
+       "performance": 0
+      },
+      "findings": [
+       {
+        "id": "R3F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/emdf.rs",
+        "line_start": 212,
+        "line_end": 212,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "The shared walker discards for_each_frame's skipped-byte count. A truncated final syncframe increases that count without increasing sync_errors, so emdf and oamd silently omit it and report clean. Confirmed with the prebuilt binary on E:/oadec-work/clips/disclosure-web-head.ec3: 976 complete frames followed by 1728 bytes of another frame; both metadata commands exit 0 with clean=true, while verify exits 7. The TrueHD walk similarly discards pass.trailing_bytes at oamd.rs:486: pi-head50m.thd returns clean from oamd despite 84 trailing bytes reported by verify. This contradicts docs/exit-codes.md's explicit skipped/trailing-byte policy.",
+        "suggestion": "Propagate skipped bytes through Walk and both metadata summaries into their clean predicates and diagnostics. On TrueHD, propagate extractor skipped bytes and trailing_bytes too. Add partial-final-frame regressions for both codecs, preserving exit 2 when no complete stream unit exists.",
+        "status": "open"
+       },
+       {
+        "id": "R1F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/oamd.rs",
+        "line_start": 554,
+        "line_end": 560,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: the previously reported container-open failures, unparsed units, sync errors and TrueHD extra-data faults now reach the OAMD summary and verdict.",
+        "suggestion": "Retain the malformed-container, framing-noise and corrupted-Evolution regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R2F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/emdf.rs",
+        "line_start": 224,
+        "line_end": 235,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: find_emdf distinguishes nonempty skip fields from absent skip data, and the walker counts frames without an opened container per EMDF-carrying substream. Both metadata commands consume that count; the erased-container regression covers the reported case.",
+        "suggestion": "Retain the erased-container regression and controls for unrelated AC-3 skip data and configuration 4.",
+        "status": "resolved"
+       }
+      ],
+      "next_steps": [
+       "Fix skipped/trailing-byte propagation and add boundary-truncation CLI regressions.",
+       "Run the new regressions and full workspace suite in a writable environment."
+      ]
+     }
+    },
+    {
+     "round": 4,
+     "result": [
+      "ROUND_RESULT K=4 verdict=CHANGES_REQUESTED dur=498"
+     ],
+     "review": {
+      "verdict": "CHANGES_REQUESTED",
+      "summary": "The three prior findings are resolved. One reproducible correctness gap remains: TrueHD compare can report clean on malformed OAMD that verify rejects, and PCM/WAVE share the affected verdict path. Validation used read-only media probes and existing test binaries; no fresh workspace build was run.",
+      "coverage": {
+       "correctness": 1,
+       "security": 0,
+       "reliability": 0,
+       "simplification": 0,
+       "performance": 0
+      },
+      "findings": [
+       {
+        "id": "R4F1",
+        "lens": "correctness",
+        "file": "crates/oadec-truehd/src/decoder.rs",
+        "line_start": 112,
+        "line_end": 117,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Successful Evolution containers never have their OAMD payloads validated here. Consequently, malformed OAMD contributes no failure to DecodeStats or truehd_findings, which PCM, WAVE and compare share. Reproduced with the stored a8ebf73 binary, whose relevant sources match HEAD: on clips/thd-truncated-oamd.thd, verify exits 7 with oamd_errors=1 ('element 1 of 9 bytes runs past the payload'), while compare checks all 96,000 samples against an FFmpeg reference and exits 0, reporting BIT-EXACT. PCM/WAVE's clean verdict follows from the shared path; those writes were not executed. The audio matches, but the clean delivery verdict violates docs/exit-codes.md, which explicitly includes unparseable OAMD payloads among delivery faults.",
+        "suggestion": "Validate OAMD payloads inside successfully opened Evolution containers through shared TrueHD integrity logic, propagate their failures into DecodeStats and truehd_findings, and add PCM/WAVE/compare regressions using malformed OAMD with intact container framing and parity.",
+        "status": "open"
+       },
+       {
+        "id": "R1F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/oamd.rs",
+        "line_start": 609,
+        "line_end": 619,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: both metadata walks now account for unreadable units and containers, framing errors and TrueHD extra-data faults. The clean predicate includes these counters and the shared verifier verdict.",
+        "suggestion": "Retain the unread-metadata and corrupted-Evolution CLI regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R2F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/emdf.rs",
+        "line_start": 246,
+        "line_end": 253,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: the walker distinguishes nonempty skip fields without an openable container from empty skip fields, tracks them per substream, and counts missing containers where that substream carries EMDF. Both metadata commands consume the result.",
+        "suggestion": "Retain the erased-container and configuration-4 regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R3F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/emdf.rs",
+        "line_start": 434,
+        "line_end": 442,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: skipped bytes and frame CRC failures reach the metadata verdicts, and oamd also accounts for TrueHD trailing bytes. Both commands additionally incorporate stream_check, covering integrity faults their metadata walks do not inspect.",
+        "suggestion": "Retain the cut-stream, CRC and verifier-parity regressions.",
+        "status": "resolved"
+       }
+      ],
+      "next_steps": [
+       "Close R4F1 through shared TrueHD payload validation and delivery-verdict regression coverage.",
+       "Run the workspace and relevant media tests after the fix."
+      ]
+     }
+    },
+    {
+     "round": 5,
+     "result": [
+      "ROUND_RESULT K=5 verdict=APPROVED dur=512",
+      "APPROVED_AND_VERIFIED"
+     ],
+     "review": {
+      "verdict": "APPROVED",
+      "summary": "No new material findings across the five lenses. R1F1–R4F1 are resolved, with the delivery verdict aligned to docs/exit-codes.md. All 65 selected tests passed using existing test binaries; this read-only review did not perform a fresh build or rerun the full media suite. Coverage counts exclude resolved findings.",
+      "coverage": {
+       "correctness": 0,
+       "security": 0,
+       "reliability": 0,
+       "simplification": 0,
+       "performance": 0
+      },
+      "findings": [
+       {
+        "id": "R1F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/oamd.rs",
+        "line_start": 604,
+        "line_end": 614,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: unreadable units, containers, framing errors and TrueHD extra-data faults now contribute to the metadata verdict, alongside the shared verifier result.",
+        "suggestion": "Retain the unread-metadata and corrupted-Evolution regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R2F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/emdf.rs",
+        "line_start": 246,
+        "line_end": 253,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: nonempty skip fields without an openable container are tracked per substream and counted as missing containers when that substream carries EMDF. Both metadata commands consume this result.",
+        "suggestion": "Retain the erased-container, plain AC-3 and configuration-4 regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R3F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/oamd.rs",
+        "line_start": 608,
+        "line_end": 614,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: skipped bytes, trailing bytes and frame CRC failures now affect the metadata verdict. The additional shared verification pass also covers faults outside the metadata walk.",
+        "suggestion": "Retain the truncated-stream and failed-CRC regressions.",
+        "status": "resolved"
+       },
+       {
+        "id": "R4F1",
+        "lens": "correctness",
+        "file": "crates/oadec-cli/src/decode.rs",
+        "line_start": 261,
+        "line_end": 263,
+        "severity": "medium",
+        "confidence": 0.99,
+        "issue": "Resolved: every TrueHD delivery now incorporates the shared stream verifier verdict, covering malformed OAMD and faults in substreams omitted by the selected presentation. PCM, WAVE, object outputs and compare all join this check.",
+        "suggestion": "Retain the malformed-OAMD and unselected-substream delivery regressions, including BIT-EXACT comparisons that must still exit 7.",
+        "status": "resolved"
+       }
+      ],
+      "next_steps": []
+     }
+    }
+   ],
+   "adjudication": {
+    "R1F1": {
+     "round": 1,
+     "lens": "correctness",
+     "severity": "medium",
+     "file": "crates/oadec-cli/src/oamd.rs",
+     "issue": "the E-AC-3 path of oamd dropped container-open errors and the sync errors and unparsed frames of its walk, so a report missing metadata could be clean with exit 0",
+     "disposition": "AGREE",
+     "confirmed_by": "code read: walk_eac3 dropped container errors, sync errors and unparsed frames; walk_truehd dropped unparsed access units, extra-data faults and Evolution container errors; clean read payload parse errors and padding only",
+     "fixed_in": [
+      "d385cfd"
+     ],
+     "tests": [
+      "oamd_and_emdf_judge_the_same_unread_metadata",
+      "a_corrupted_evolution_block_fails_every_delivery_like_verify"
+     ],
+     "real_clips": "1 of 30 clips changes its oamd exit code: concat-pi-shaun.thd 0 -> 7 on the extractor resync at the splice, where verify exits 7; cut heads keep 0",
+     "resolved_in_round": 2
+    },
+    "R2F1": {
+     "round": 2,
+     "lens": "correctness",
+     "severity": "medium",
+     "file": "crates/oadec-cli/src/emdf.rs",
+     "issue": "the walk emdf and oamd share could not tell empty skip fields from skip fields holding data and no sync word, so a frame whose container was erased was left out and both exited clean",
+     "disposition": "AGREE",
+     "confirmed_by": "code read: find_emdf returned an empty list for both; the CLI test erasing the sync word of frame 10 failed on emdf before the change",
+     "fixed_in": [
+      "0f267c2"
+     ],
+     "tests": [
+      "a_frame_whose_container_is_erased_is_a_fault_for_every_command",
+      "skip_fields_that_carry_no_emdf_are_not_a_fault",
+      "the_metadata_scanner_and_the_verifier_count_the_same_containers (media, with the configuration 4 head)"
+     ],
+     "found_while_fixing": [
+      "adb0b76 counted skip fields carrying no EMDF at all into verify and the PCM delivery: 1 099 and 1 091 frames on two AC-3 clips, and every_eac3_stream_is_clean failed on both whole files",
+      "a first version of the fix judged the whole stream: the AC-3 core of greenbook-cfg4-head.ec3 read as 1 748 lost containers; the walk now judges each substream apart"
+     ],
+     "resolved_in_round": 3
+    },
+    "R3F1": {
+     "round": 3,
+     "lens": "correctness",
+     "severity": "medium",
+     "file": "crates/oadec-cli/src/emdf.rs",
+     "issue": "the walk emdf and oamd share dropped the skipped-byte count of the framing, and the TrueHD walk of oamd its skipped and trailing bytes, so a clip whose last syncframe or access unit is cut short was clean for both while verify exited 7",
+     "disposition": "AGREE",
+     "confirmed_by": "code read: the walk kept the sync errors of for_each_frame and dropped its skipped bytes, walk_truehd copied the resyncs of the pass and not its skipped or trailing bytes; on the binary before the fix disclosure-web-head.ec3 (1 728 bytes skipped) and pi-head50m.thd (84 trailing bytes) exited 0 from emdf and oamd and 7 from verify",
+     "fixed_in": [
+      "3e5af0e"
+     ],
+     "tests": [
+      "a_cut_stream_is_non_conformant_for_the_metadata_commands",
+      "a_frame_whose_crc_fails_is_non_conformant_for_the_metadata_commands",
+      "oamd_reads_an_ac3_stream_frame_by_frame (now expects the three CRC failures verify reports on its bogus-CRC frames)"
+     ],
+     "tests_fail_before": "on the binary at 1a7e10c every copy the two tests build exits 0 from emdf and oamd and 7 from verify: the E-AC-3 fixture cut 100 bytes short, the copy with one CRC bit flipped, the TrueHD fixture cut 50 bytes short at either end, and the three bogus-CRC AC-3 frames",
+     "found_while_fixing": [
+      "neither command read the CRC of a syncframe, which verify counts as a fault: the copy with one bit of the closing CRC word of frame 10 flipped was clean for both"
+     ],
+     "real_clips": "18 of 55 clips change, exactly those cut inside a frame or an access unit: emdf and oamd 0 -> 7 where verify already exited 7 (15 AC-3 and E-AC-3 clips with 128 to 2 240 bytes skipped at their end, 3 TrueHD clips with 46 or 84 trailing bytes); verify changes on none",
+     "resolved_in_round": 4
+    },
+    "R4F1": {
+     "round": 4,
+     "lens": "correctness",
+     "severity": "medium",
+     "file": "crates/oadec-truehd/src/decoder.rs",
+     "issue": "the TrueHD decoder never validated the OAMD payloads of an Evolution container that opens, so the PCM and WAVE decodes and compare, which share truehd_findings, exited clean on a stream whose object metadata will not parse while verify exited 7",
+     "disposition": "AGREE",
+     "confirmed_by": "on clips/thd-truncated-oamd.thd verify exits 7 (oamd_errors 1), decode --format damf 7 and oamd 7, while decode --format pcm and wav exited 0 and compare against its own decode printed BIT-EXACT and exited 0; checking the class found the same for a substream the presentation leaves out: one bit of substream 1 of the fixture failed verify and left decode -p 0 --format pcm at 0 and compare -p 0 BIT-EXACT and 0",
+     "fixed_in": [
+      "77db761"
+     ],
+     "tests": [
+      "a_fault_only_verify_reads_fails_every_truehd_delivery",
+      "verify_and_decode_agree_about_a_truncated_object_metadata_element (media: the PCM and WAVE decodes and compare added)",
+      "the_verdict_of_verify_makes_a_decode_unclean (unit)"
+     ],
+     "tests_fail_before": "the CLI test failed on decode -p 0 --format pcm (exit 0) and the media test on decode --format pcm (exit 0) before the change",
+     "real_clips": "Of the 24 TrueHD inputs of the work directory only the clip whose object metadata will not parse changes, its PCM decodes from 0 to 7. Two inputs keep a delivery that does not exit as verify does, both unchanged: Up (2009), whose decodes fail a lossless check word verify reads only with --decode, and the spliced clip, whose presentation 2 decode cannot continue past the splice (exit 2)",
+     "timing": "a PCM decode of presentation 2 from a 2.6 GB TrueHD film took 68 s before and 62 s after, the 28 s scan of verify running beside it on another core",
+     "resolved_in_round": 5
+    }
+   }
+  }
+ }
+}

@@ -14,6 +14,15 @@ pub enum Error {
     /// The syntax was violated.
     #[error("{0}")]
     Malformed(String),
+    /// A major sync changed what the decoder was set up for: the substream
+    /// count, `substream_info`, the samples per access unit or the sampling
+    /// frequency (`StreamConfig::incompatible_with`). The access unit is not
+    /// decoded; everything before it was, and is sound.
+    #[error("{what} changed at a major sync")]
+    ConfigChanged {
+        /// What changed, as a phrase ("the sampling frequency").
+        what: &'static str,
+    },
 }
 
 impl Error {

@@ -531,6 +531,24 @@ pub struct ProgramStats {
     /// Dependent frames whose channels did not reach the programme, for any
     /// reason above.
     pub dependent_dropped: u64,
+    /// Frames of a substream that already had a frame in their group. Clause
+    /// E.1.3.1.2 gives each substream one frame per group; only the first
+    /// reaches the decoder.
+    pub duplicate_substream_frames: u64,
+    /// Times a substream held back the oldest waiting group while
+    /// [`MAX_PENDING_GROUPS`] groups waited, and was flushed and reset so
+    /// delivery could go on. A healthy substream releases its frame long
+    /// before that; this one had stopped supplying frames.
+    pub stalled_substreams: u64,
+    /// Substream frames a group was delivered without because they never came
+    /// out of their decoder, not even flushed. A dependent one is counted in
+    /// `dependent_dropped` as well; a group left without its independent
+    /// frame is not delivered at all.
+    pub missing_substream_frames: u64,
+    /// The most groups ever closed and waiting for their frames at once. With
+    /// [`ProgramDecoder::pop`] drained after every [`ProgramDecoder::push`],
+    /// never more than [`MAX_PENDING_GROUPS`].
+    pub max_pending_groups: usize,
     /// Decode errors per substream.
     pub decode_errors: BTreeMap<SubstreamKey, u64>,
     pub first_error: Option<String>,
@@ -546,6 +564,9 @@ impl ProgramStats {
             && self.over_capacity == 0
             && self.location_errors == 0
             && self.dependent_dropped == 0
+            && self.duplicate_substream_frames == 0
+            && self.stalled_substreams == 0
+            && self.missing_substream_frames == 0
             && self.decode_errors.values().all(|&n| n == 0)
     }
 
@@ -555,6 +576,26 @@ impl ProgramStats {
         }
     }
 }
+
+/// The most frames a healthy substream's decoder holds back at once: one for
+/// enhanced coupling, whose last block needs the first block of the next frame
+/// (clause E.3.5.5.1), and the frames spanning the `tpnp::REACH_BACK` samples
+/// of transient pre-noise look-ahead (clause E.3.7), which at the shortest
+/// frame, one block, are four.
+const MAX_HELD_FRAMES: usize =
+    1 + (crate::tpnp::REACH_BACK as usize).div_ceil(crate::header::BLOCK_SAMPLES);
+
+/// How many closed groups may wait for their frames before the substreams
+/// holding back the oldest are flushed.
+///
+/// A group closes when the next independent frame arrives. By then every
+/// substream of a healthy programme has released all but the few frames its
+/// look-ahead holds, so fewer groups than this are ever waiting. This many
+/// means a substream has stopped supplying frames: a decoder releases a frame
+/// only once it has seen the frames after it, so the last one stays inside,
+/// and every later group would wait behind its group until the end of the
+/// stream with its decoded audio held in memory.
+pub const MAX_PENDING_GROUPS: usize = MAX_HELD_FRAMES + 1;
 
 /// One substream's decoder and the group each frame in flight belongs to.
 #[derive(Debug)]
@@ -605,6 +646,9 @@ pub struct ProgramDecoder {
     program: Option<u8>,
     layout: Option<ProgramLayout>,
     stats: ProgramStats,
+    /// Set by [`Self::finish`]: no frame is coming any more, so a waiting
+    /// group is delivered without the frames it still lacks.
+    finished: bool,
 }
 
 impl ProgramDecoder {
@@ -620,6 +664,7 @@ impl ProgramDecoder {
             program: None,
             layout: None,
             stats: ProgramStats::default(),
+            finished: false,
         }
     }
 
@@ -653,11 +698,15 @@ impl ProgramDecoder {
     /// Feeds one syncframe, in bitstream order.
     ///
     /// A frame that will not decode is recorded and its substream reset, so a
-    /// broken dependent substream never costs the programme its core.
+    /// broken dependent substream never costs the programme its core. A second
+    /// frame of a substream in one group is counted and not decoded, and a
+    /// substream that stops supplying frames holds no more than
+    /// [`MAX_PENDING_GROUPS`] groups back.
     ///
     /// # Errors
     ///
-    /// Only from flushing a decoder after a failed frame.
+    /// Only from flushing a decoder: after a failed frame, or one holding a
+    /// group back.
     pub fn push(&mut self, bytes: &[u8], header: &FrameHeader) -> Result<()> {
         let key = (header.stream_type as u8, header.substream_id);
         let dependent = header.stream_type == StreamType::Dependent;
@@ -679,9 +728,7 @@ impl ProgramDecoder {
         }
         let slot = self.slot_for(key);
         if !dependent {
-            if let Some(g) = self.open.take() {
-                self.pending.push_back(g);
-            }
+            self.close_open_group()?;
             self.open = Some(GroupSlot {
                 index: self.next_group,
                 members: Vec::new(),
@@ -693,9 +740,20 @@ impl ProgramDecoder {
             return Ok(());
         };
         let group = open.index;
-        if !open.members.contains(&slot) {
-            open.members.push(slot);
+        if open.members.contains(&slot) {
+            // Clause E.1.3.1.2 gives a substream one frame per group. Decoded,
+            // a second one would be queued against this group again, and
+            // `pop`, which takes one frame per member per group, would wait
+            // behind the spare frame for the rest of the stream.
+            self.stats.duplicate_substream_frames += 1;
+            let (t, id) = key;
+            let kind = if t == 1 { "dependent" } else { "independent" };
+            self.stats.note(format!(
+                "group {group}, {kind} substream {id}: a second frame of this substream in the group; only the first is decoded"
+            ));
+            return Ok(());
         }
+        open.members.push(slot);
         let sub = &mut self.subs[slot];
         sub.inflight.push_back(group);
         match sub.dec.decode(bytes) {
@@ -731,7 +789,8 @@ impl ProgramDecoder {
     }
 
     /// Closes the stream: drains every substream's look-ahead and closes the
-    /// open group. Call [`Self::pop`] in a loop afterwards.
+    /// open group. Call [`Self::pop`] in a loop afterwards; it delivers every
+    /// group still waiting.
     ///
     /// # Errors
     ///
@@ -743,24 +802,127 @@ impl ProgramDecoder {
                 sub.ready.push_back((at, d));
             }
         }
-        if let Some(g) = self.open.take() {
-            self.pending.push_back(g);
+        self.finished = true;
+        self.close_open_group()
+    }
+
+    /// Moves the open group, if any, to the groups waiting for their frames.
+    ///
+    /// When that makes [`MAX_PENDING_GROUPS`] of them mid-stream and the oldest
+    /// still lacks a frame, a substream has stopped supplying frames: the ones
+    /// holding that group back are flushed and reset, and a member whose frame
+    /// still does not come is left out of it, so delivery goes on.
+    ///
+    /// # Errors
+    ///
+    /// Only from flushing a decoder.
+    fn close_open_group(&mut self) -> Result<()> {
+        let Some(g) = self.open.take() else {
+            return Ok(());
+        };
+        self.pending.push_back(g);
+        self.stats.max_pending_groups = self.stats.max_pending_groups.max(self.pending.len());
+        if !self.finished && self.pending.len() >= MAX_PENDING_GROUPS && !self.front_ready() {
+            self.flush_front_blockers()?;
+            self.release_front();
         }
         Ok(())
     }
 
-    /// The next group whose every substream has arrived.
-    pub fn pop(&mut self) -> Option<ProgramFrame> {
-        loop {
-            let g = self.pending.front()?;
-            let ready = g.members.iter().all(|&s| {
+    /// Whether every member of the oldest waiting group has its frame at the
+    /// head of its queue.
+    fn front_ready(&self) -> bool {
+        self.pending.front().is_some_and(|g| {
+            g.members.iter().all(|&s| {
                 self.subs[s]
                     .ready
                     .front()
                     .is_some_and(|(gi, _)| *gi == g.index)
-            });
-            if !ready {
-                return None;
+            })
+        })
+    }
+
+    /// Flushes and resets each substream that holds back the oldest waiting
+    /// group's frame and has nothing queued.
+    ///
+    /// A decoder releases a frame once it has seen the frames after it, so the
+    /// last frame of a substream that stopped arriving never comes out on its
+    /// own. Flushing is what [`Self::finish`] does at the end of the stream;
+    /// the reset makes a substream that comes back start clean, as after an
+    /// error.
+    fn flush_front_blockers(&mut self) -> Result<()> {
+        let Some(g) = self.pending.front() else {
+            return Ok(());
+        };
+        let index = g.index;
+        for &s in &g.members {
+            let sub = &mut self.subs[s];
+            if !sub.ready.is_empty() || sub.inflight.is_empty() {
+                continue;
+            }
+            while let Some(d) = sub.dec.flush()? {
+                let at = sub.inflight.pop_front().unwrap_or(index);
+                sub.ready.push_back((at, d));
+            }
+            sub.dec.reset();
+            // the decoder holds nothing now: a group still listed lost its
+            // frame inside it
+            sub.inflight.clear();
+            self.stats.stalled_substreams += 1;
+            let (t, id) = sub.key;
+            let kind = if t == 1 { "dependent" } else { "independent" };
+            self.stats.note(format!(
+                "group {index}, {kind} substream {id}: still held back with {MAX_PENDING_GROUPS} groups waiting, so the substream was flushed and reset"
+            ));
+        }
+        Ok(())
+    }
+
+    /// Leaves out of the oldest waiting group each member whose frame is not
+    /// at the head of its queue, which makes the group deliverable. A group
+    /// left without its independent substream produces no audio.
+    fn release_front(&mut self) {
+        let Some(g) = self.pending.front_mut() else {
+            return;
+        };
+        let index = g.index;
+        let (subs, stats) = (&self.subs, &mut self.stats);
+        g.members.retain(|&s| {
+            let sub = &subs[s];
+            if sub.ready.front().is_some_and(|(gi, _)| *gi == index) {
+                return true;
+            }
+            stats.missing_substream_frames += 1;
+            let (t, id) = sub.key;
+            if t == 1 {
+                stats.dependent_dropped += 1;
+                stats.note(format!(
+                    "group {index}, dependent substream {id}: its frame never came out of the decoder, so the group is delivered without it"
+                ));
+            } else {
+                stats.note(format!(
+                    "group {index}, independent substream {id}: its frame never came out of the decoder, so the group has no audio"
+                ));
+            }
+            false
+        });
+        if g.core.is_some_and(|c| !g.members.contains(&c)) {
+            g.core = None;
+        }
+    }
+
+    /// The next group whose every substream has arrived.
+    ///
+    /// After [`Self::finish`] no frame is coming, so every waiting group comes
+    /// out: a member whose frame never came out of its decoder is left out of
+    /// its group and counted.
+    pub fn pop(&mut self) -> Option<ProgramFrame> {
+        loop {
+            if !self.front_ready() {
+                if !self.finished || self.pending.is_empty() {
+                    return None;
+                }
+                self.release_front();
             }
             let g = self.pending.pop_front()?;
             // a group whose independent substream failed produced no audio
@@ -900,13 +1062,20 @@ mod tests {
         assert!(ProgramStats::default().is_clean(), "an empty pass is clean");
 
         type Set = fn(&mut ProgramStats);
-        let makes_it_unclean: [(&str, Set); 6] = [
+        let makes_it_unclean: [(&str, Set); 9] = [
             ("orphan_dependents", |s| s.orphan_dependents = 1),
             ("layout_changes", |s| s.layout_changes = 1),
             ("misaligned", |s| s.misaligned = 1),
             ("over_capacity", |s| s.over_capacity = 1),
             ("location_errors", |s| s.location_errors = 1),
             ("dependent_dropped", |s| s.dependent_dropped = 1),
+            ("stalled_substreams", |s| s.stalled_substreams = 1),
+            ("missing_substream_frames", |s| {
+                s.missing_substream_frames = 1
+            }),
+            ("duplicate_substream_frames", |s| {
+                s.duplicate_substream_frames = 1
+            }),
         ];
         for (name, set) in makes_it_unclean {
             let mut stats = ProgramStats::default();
@@ -921,10 +1090,12 @@ mod tests {
             "a decode error left the programme looking clean"
         );
 
-        let leaves_it_clean: [(&str, Set); 3] = [
+        let leaves_it_clean: [(&str, Set); 4] = [
             ("other_program_frames", |s| s.other_program_frames = 1),
             ("lfe_implied", |s| s.lfe_implied = 1),
             ("groups", |s| s.groups = 1),
+            // a healthy stream always has a group waiting for its look-ahead
+            ("max_pending_groups", |s| s.max_pending_groups = 1),
         ];
         for (name, set) in leaves_it_clean {
             let mut stats = ProgramStats::default();
@@ -1195,5 +1366,205 @@ mod tests {
         for cfg in 0..5u8 {
             assert_eq!(Lfe.joc_input(cfg), None, "the LFE bypasses JOC");
         }
+    }
+
+    /// A second frame of a substream in one group is refused before its
+    /// decoder sees it, so the check needs no decodable bytes: group 0 below
+    /// has had its independent frame and a frame of dependent substream 0, and
+    /// the same substream arrives again.
+    ///
+    /// Fed to the decoder, the repeat is queued against the group a second
+    /// time, and `pop`, which takes one frame per member per group, waits
+    /// behind the spare frame for the rest of the stream.
+    #[test]
+    fn a_repeated_substream_in_one_group_never_reaches_its_decoder() {
+        let mut dec = ProgramDecoder::new(Options::default());
+        let core = dec.slot_for((0, 0));
+        let dep = dec.slot_for((1, 0));
+        dec.program = Some(0);
+        dec.next_group = 1;
+        dec.open = Some(GroupSlot {
+            index: 0,
+            members: vec![core, dep],
+            core: Some(core),
+        });
+        dec.subs[dep].inflight.push_back(0);
+
+        dec.push(&[], &header(5, false, StreamType::Dependent))
+            .expect("a repeat is not an error");
+
+        let stats = dec.stats().clone();
+        assert_eq!(stats.duplicate_substream_frames, 1, "{stats:?}");
+        assert!(
+            stats.decode_errors.is_empty(),
+            "the repeat reached the decoder: {stats:?}"
+        );
+        assert!(!stats.is_clean(), "a repeat is an integrity fault");
+        assert_eq!(
+            dec.subs[dep].inflight,
+            [0],
+            "the group is still waiting for one frame of the substream, not two"
+        );
+        assert_eq!(
+            dec.open.as_ref().map(|g| g.members.clone()),
+            Some(vec![core, dep]),
+            "the substream is still a member of its group"
+        );
+        let first = stats.first_error.unwrap_or_default();
+        assert!(
+            first.starts_with("group 0, dependent substream 0:")
+                && first.contains("only the first"),
+            "{first}"
+        );
+    }
+
+    /// A decoded frame of silence in every coded channel, for driving the
+    /// group bookkeeping without a bit stream.
+    fn silence(stream_type: StreamType) -> Decoded {
+        let h = header(7, true, stream_type);
+        Decoded {
+            pcm: vec![vec![0.0; h.samples()]; h.nchans()],
+            header: h,
+            bsi: Bsi::default(),
+            skip_fields: Vec::new(),
+            auxdata: Vec::new(),
+            auxdata_overrun: false,
+            coverage: crate::frame::Coverage::default(),
+            crc_ok: true,
+            used_bits: 0,
+            transproc: Vec::new(),
+            tail_overrun: false,
+        }
+    }
+
+    /// The window rests on how many frames a healthy decoder holds back, so
+    /// that is pinned against the transient pre-noise buffer itself, released
+    /// one frame per frame fed as `Decoder::decode` releases them: one-block
+    /// frames are held longest, four of them, and enhanced coupling holds one
+    /// more.
+    #[test]
+    fn the_pending_window_covers_the_longest_healthy_look_ahead() {
+        let mut most = 0;
+        for blocks in [1, 2, 3, 6] {
+            let pcm = [vec![0.0f32; blocks * crate::header::BLOCK_SAMPLES]];
+            let mut post = crate::tpnp::Post::new();
+            let mut held = 0usize;
+            for i in 0..64 {
+                post.push(i, &pcm, &[]);
+                held += 1;
+                if post.pop(false).is_some() {
+                    held -= 1;
+                }
+                most = most.max(held);
+            }
+        }
+        assert_eq!(most + 1, MAX_HELD_FRAMES, "one-block frames set the window");
+    }
+
+    /// A group waits for a frame that never comes out of its decoder only
+    /// until [`MAX_PENDING_GROUPS`] groups wait; then the substream is flushed
+    /// and reset, the group is delivered without the frame, both are counted,
+    /// and the groups behind it follow.
+    ///
+    /// Group 0 lists dependent substream 0, whose decoder holds nothing: the
+    /// frame was lost inside it. Without the window, group 0 and every group
+    /// after it waited for the end of the stream.
+    #[test]
+    fn a_group_waits_for_a_frame_that_never_comes_no_longer_than_the_window() {
+        let mut dec = ProgramDecoder::new(Options::default());
+        let core = dec.slot_for((0, 0));
+        let dep = dec.slot_for((1, 0));
+        dec.subs[dep].inflight.push_back(0);
+        let mut delivered = Vec::new();
+        for index in 0..10 {
+            let members = if index == 0 {
+                vec![core, dep]
+            } else {
+                vec![core]
+            };
+            dec.open = Some(GroupSlot {
+                index,
+                members,
+                core: Some(core),
+            });
+            dec.subs[core]
+                .ready
+                .push_back((index, silence(StreamType::Independent)));
+            dec.close_open_group().expect("nothing to flush fails");
+            delivered.extend(std::iter::from_fn(|| dec.pop()).map(|f| f.index));
+        }
+        let stats = dec.stats();
+        assert_eq!(delivered, (0..10).collect::<Vec<_>>(), "{stats:?}");
+        assert_eq!(stats.max_pending_groups, MAX_PENDING_GROUPS, "{stats:?}");
+        assert_eq!(
+            (
+                stats.stalled_substreams,
+                stats.missing_substream_frames,
+                stats.dependent_dropped
+            ),
+            (1, 1, 1),
+            "{stats:?}"
+        );
+        assert!(!stats.is_clean());
+        assert!(dec.subs[dep].inflight.is_empty(), "the substream was reset");
+    }
+
+    /// At the end of the stream nothing is left waiting: a group whose
+    /// dependent frame never came out of its decoder is delivered without it,
+    /// one whose independent frame never did is not delivered, as a core that
+    /// fails to decode is not, and both are counted.
+    #[test]
+    fn the_end_of_the_stream_leaves_no_group_waiting() {
+        let mut dec = ProgramDecoder::new(Options::default());
+        let core = dec.slot_for((0, 0));
+        let dep = dec.slot_for((1, 0));
+        dec.subs[dep].inflight.push_back(0);
+        dec.subs[core].inflight.push_back(2);
+        for index in 0..3 {
+            let members = if index == 0 {
+                vec![core, dep]
+            } else {
+                vec![core]
+            };
+            dec.open = Some(GroupSlot {
+                index,
+                members,
+                core: Some(core),
+            });
+            if index < 2 {
+                dec.subs[core]
+                    .ready
+                    .push_back((index, silence(StreamType::Independent)));
+            }
+            dec.close_open_group().expect("nothing to flush fails");
+        }
+        assert!(
+            dec.pop().is_none(),
+            "mid-stream, group 0 waits for its dependent frame"
+        );
+
+        dec.finish().expect("nothing to flush fails");
+        let delivered: Vec<u64> = std::iter::from_fn(|| dec.pop()).map(|f| f.index).collect();
+        let stats = dec.stats();
+        assert_eq!(delivered, [0, 1], "{stats:?}");
+        assert_eq!(stats.groups, 2);
+        assert_eq!(
+            (
+                stats.stalled_substreams,
+                stats.missing_substream_frames,
+                stats.dependent_dropped
+            ),
+            (0, 2, 1),
+            "{stats:?}"
+        );
+        assert!(!stats.is_clean());
+        assert!(
+            stats
+                .first_error
+                .as_deref()
+                .is_some_and(|e| e.starts_with("group 0, dependent substream 0:")),
+            "{stats:?}"
+        );
+        assert!(dec.pending.is_empty());
     }
 }

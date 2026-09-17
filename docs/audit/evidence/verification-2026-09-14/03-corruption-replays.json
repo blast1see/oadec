@@ -1,0 +1,197 @@
+{
+ "what": "The stored corruption campaigns, replayed",
+ "utc": "2026-09-15T05:55:26Z",
+ "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
+ "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
+ "why": "The remediation closed 99 silent JOC accepts and 2 TrueHD ones; this checks they stay closed.",
+ "method": "tools/replay_fuzz.py (JOC seed 1 x120, TrueHD seed 7 x100, DD+ 7.1 seed 20260911 x150) and tools/fuzz_dependent_bsi.py (x200, CRC repaired)",
+ "reading": "0 silent successes and 0 panics on every path; the 41 silent dependent-bsi flips changed no output sample At the branch head: the same counts on every path: 0 silent, 0 panics; the 41 silent dependent-bsi flips changed no output sample, 0 silently corrupted",
+ "data": {
+  "replay-joc": {
+   "verify": {
+    "silent": 0,
+    "nonzero_exit": 120,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   },
+   "decode_pcm": {
+    "silent": 0,
+    "nonzero_exit": 120,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   },
+   "decode_damf": {
+    "silent": 0,
+    "nonzero_exit": 120,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   }
+  },
+  "replay-truehd": {
+   "verify": {
+    "silent": 0,
+    "nonzero_exit": 100,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   },
+   "decode_pcm": {
+    "silent": 0,
+    "nonzero_exit": 100,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   }
+  },
+  "replay-ddp71": {
+   "verify": {
+    "silent": 0,
+    "nonzero_exit": 150,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   },
+   "decode_programme": {
+    "silent": 0,
+    "nonzero_exit": 150,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   },
+   "decode_core_only": {
+    "silent": 0,
+    "nonzero_exit": 150,
+    "reported_but_exit_0": 0,
+    "panics": 0
+   }
+  },
+  "fuzz-dependent-bsi": {
+   "verify": {
+    "silent": 41,
+    "nonzero_exit": 159,
+    "reported_but_exit_0": 0,
+    "said_nothing_and_changed_nothing": 41,
+    "silently_corrupted": 0,
+    "panics": 0
+   },
+   "decode_programme": {
+    "silent": 41,
+    "nonzero_exit": 159,
+    "reported_but_exit_0": 0,
+    "said_nothing_and_changed_nothing": 41,
+    "silently_corrupted": 0,
+    "panics": 0
+   },
+   "decode_core_only": {
+    "silent": 41,
+    "nonzero_exit": 159,
+    "reported_but_exit_0": 0,
+    "said_nothing_and_changed_nothing": 41,
+    "silently_corrupted": 0,
+    "panics": 0
+   }
+  },
+  "branch_head": {
+   "replay-joc": {
+    "verify": {
+     "silent": 0,
+     "nonzero_exit": 120,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_pcm": {
+     "silent": 0,
+     "nonzero_exit": 120,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_damf": {
+     "silent": 0,
+     "nonzero_exit": 120,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    }
+   },
+   "replay-truehd": {
+    "verify": {
+     "silent": 0,
+     "nonzero_exit": 100,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_pcm": {
+     "silent": 0,
+     "nonzero_exit": 100,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    }
+   },
+   "replay-ddp71": {
+    "verify": {
+     "silent": 0,
+     "nonzero_exit": 150,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_programme": {
+     "silent": 0,
+     "nonzero_exit": 150,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    },
+    "decode_core_only": {
+     "silent": 0,
+     "nonzero_exit": 150,
+     "reported_but_exit_0": 0,
+     "panics": 0
+    }
+   },
+   "fuzz-dependent-bsi": {
+    "verify": {
+     "silent": 41,
+     "nonzero_exit": 159,
+     "reported_but_exit_0": 0,
+     "said_nothing_and_changed_nothing": 41,
+     "silently_corrupted": 0,
+     "panics": 0
+    },
+    "decode_programme": {
+     "silent": 41,
+     "nonzero_exit": 159,
+     "reported_but_exit_0": 0,
+     "said_nothing_and_changed_nothing": 41,
+     "silently_corrupted": 0,
+     "panics": 0
+    },
+    "decode_core_only": {
+     "silent": 41,
+     "nonzero_exit": 159,
+     "reported_but_exit_0": 0,
+     "said_nothing_and_changed_nothing": 41,
+     "silently_corrupted": 0,
+     "panics": 0
+    }
+   },
+   "steps": [
+    {
+     "step": "replay-fuzz-joc",
+     "rc": 0,
+     "secs": 22
+    },
+    {
+     "step": "replay-fuzz-truehd",
+     "rc": 0,
+     "secs": 5
+    },
+    {
+     "step": "replay-fuzz-ddp71",
+     "rc": 0,
+     "secs": 60
+    },
+    {
+     "step": "fuzz-dependent-bsi",
+     "rc": 0,
+     "secs": 89
+    }
+   ]
+  }
+ }
+}

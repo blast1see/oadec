@@ -262,6 +262,12 @@ pub fn parse_evolution(bytes: &[u8]) -> Result<Container, ContainerError> {
 /// Parses an EMDF container that starts with its sync word and byte length (the form
 /// found in an E-AC-3 skip field). Returns the container and the number of bytes the
 /// wrapper declared.
+///
+/// The declared length must be the bytes the container's syntax takes, which is what
+/// every stream measured writes (23 389 containers in 26 files). A walk steps over a
+/// container by that length, so a length that disagrees would make it skip the next
+/// container or search inside this one; such a container is refused, not opened as
+/// if the length were right.
 pub fn parse_emdf_with_sync(bytes: &[u8]) -> Result<(Container, usize), ContainerError> {
     let mut reader = BitReader::new(bytes);
     if reader.read(16)? != u32::from(EMDF_SYNCWORD) {
@@ -274,7 +280,141 @@ pub fn parse_emdf_with_sync(bytes: &[u8]) -> Result<(Container, usize), Containe
         ));
     }
     let container = parse(&mut reader, Flavor::Emdf)?;
+    if container.len_bits.div_ceil(8) != length {
+        return Err(ContainerError::Malformed(
+            "EMDF container length disagrees with its syntax",
+        ));
+    }
     Ok((container, length))
+}
+
+/// A field of `emdf_payload_config()` that table 56 fixes.
+#[derive(Debug, Clone, Copy)]
+enum ConfigField {
+    Duratione,
+    Groupide,
+    CodecDatae,
+    DiscardUnknownPayload,
+    CreateDuplicate,
+    RemoveDuplicate,
+    Priority,
+    ProcAllowed,
+}
+
+impl ConfigField {
+    /// The value the syntax carried, or `None` when it did not carry the field.
+    fn value(self, cfg: &PayloadConfig) -> Option<u32> {
+        match self {
+            Self::Duratione => Some(u32::from(cfg.duration.is_some())),
+            Self::Groupide => Some(u32::from(cfg.group_id.is_some())),
+            Self::CodecDatae => Some(u32::from(cfg.codec_data.is_some())),
+            Self::DiscardUnknownPayload => Some(u32::from(cfg.discard_unknown_payload)),
+            Self::CreateDuplicate => cfg.create_duplicate.map(u32::from),
+            Self::RemoveDuplicate => cfg.remove_duplicate.map(u32::from),
+            Self::Priority => cfg.priority.map(u32::from),
+            Self::ProcAllowed => cfg.proc_allowed.map(u32::from),
+        }
+    }
+}
+
+/// One row of table 56: the field, the value the table requires, and the line
+/// a violation is reported with.
+type Rule = (ConfigField, u32, &'static str);
+
+/// ETSI TS 103 420 V1.2.1 clause 8.2, table 56 "Payload configuration data", as
+/// far as it is enforced. The table prints nine rows, one value column for the
+/// OAMD and the JOC payload alike: `duratione` 0, `groupide` 1, `groupid`
+/// "equal for OAMD payload and JOC payload", `codecdatae` 1,
+/// `discard_unknown_payload` 0, `create_duplicate` 0, `remove_duplicate` 0,
+/// `priority` 0, `proc_allowed` 0.
+///
+/// One row is not in this list: `groupid` relates the two payloads, so
+/// [`table_56_group_violation`] checks it on the container.
+///
+/// `codecdatae` is in it, pinned to 0 and not to the 1 the table prints. Clause
+/// H.2.2.3.7 of ETSI TS 102 366 V1.4.1, which the table cites, says the field
+/// "shall be set to '0'" for payload configuration data that conforms to Annex
+/// H, and every OAMD and JOC payload measured carries 0 (the committed fixture,
+/// sixteen clips and eleven whole JOC streams of the corpus, 2,1 million
+/// frames). A payload that carries the byte is reported against the clause,
+/// which the line names.
+///
+/// `create_duplicate` and `remove_duplicate` exist only when
+/// `payload_frame_aligned` is 1, and `priority` and `proc_allowed` only when it
+/// is 1 or a sample offset is given; a field the syntax did not carry is not a
+/// violation.
+const TABLE_56_RULES: [Rule; 8] = [
+    (
+        ConfigField::Duratione,
+        0,
+        "duratione is 1, Table 56 requires 0",
+    ),
+    (
+        ConfigField::Groupide,
+        1,
+        "groupide is 0, Table 56 requires 1",
+    ),
+    (
+        ConfigField::CodecDatae,
+        0,
+        "codecdatae is 1, clause H.2.2.3.7 of TS 102 366 requires 0",
+    ),
+    (
+        ConfigField::DiscardUnknownPayload,
+        0,
+        "discard_unknown_payload is 1, Table 56 requires 0",
+    ),
+    (
+        ConfigField::CreateDuplicate,
+        0,
+        "create_duplicate is 1, Table 56 requires 0",
+    ),
+    (
+        ConfigField::RemoveDuplicate,
+        0,
+        "remove_duplicate is 1, Table 56 requires 0",
+    ),
+    (
+        ConfigField::Priority,
+        0,
+        "priority is not 0, Table 56 requires 0",
+    ),
+    (
+        ConfigField::ProcAllowed,
+        0,
+        "proc_allowed is not 0, Table 56 requires 0",
+    ),
+];
+
+/// Table 56 by payload id: both payloads of table 55 share its one column.
+const TABLE_56: [(u32, &[Rule]); 2] = [
+    (PAYLOAD_ID_OAMD, &TABLE_56_RULES),
+    (PAYLOAD_ID_JOC, &TABLE_56_RULES),
+];
+
+/// The table 56 requirements (ETSI TS 103 420 clause 8.2) that the
+/// configuration of a payload with id `id` breaks, one line each. Empty for a
+/// payload the table does not cover.
+#[must_use]
+pub fn table_56_violations(id: u32, cfg: &PayloadConfig) -> Vec<&'static str> {
+    TABLE_56
+        .iter()
+        .filter(|(payload, _)| *payload == id)
+        .flat_map(|(_, rules)| rules.iter())
+        .filter(|(field, required, _)| field.value(cfg).is_some_and(|v| v != *required))
+        .map(|&(_, _, violation)| violation)
+        .collect()
+}
+
+/// Table 56's `groupid` row: the OAMD and the JOC payload of a container carry
+/// the same group id. `None` when they do, or when the container does not hold
+/// both.
+#[must_use]
+pub fn table_56_group_violation(container: &Container) -> Option<&'static str> {
+    let oamd = container.payloads_with_id(PAYLOAD_ID_OAMD).next()?;
+    let joc = container.payloads_with_id(PAYLOAD_ID_JOC).next()?;
+    (oamd.config.group_id != joc.config.group_id)
+        .then_some("groupid of the OAMD and JOC payloads differ, Table 56 requires them equal")
 }
 
 #[cfg(test)]
@@ -415,6 +555,59 @@ mod tests {
         assert_eq!(c.payloads[0].data, vec![0xEE]);
     }
 
+    /// `emdf_container_length` is the length of the container, and on every
+    /// stream measured it is exactly the bytes the syntax takes: 23 389
+    /// containers in 26 files. The length was refused only when it ran past
+    /// the data, so a wrong one opened as if it were right, and a walk that
+    /// steps over a container by its declared length could skip the next one
+    /// or search inside this one.
+    #[test]
+    fn a_declared_length_that_disagrees_with_the_syntax_is_refused() {
+        let body = {
+            let mut b = BitWriter::default();
+            b.push(2, 0);
+            b.push(3, 0);
+            b.push(5, 11);
+            b.push(1, 1);
+            b.push(11, 1023);
+            b.push(1, 1);
+            b.push(1, 0);
+            b.push(1, 0);
+            b.push(1, 0);
+            b.push(1, 1);
+            b.push(8, 1);
+            b.push(1, 0);
+            b.push(8, 0xEE);
+            b.push(5, 0);
+            b.push(4, 0);
+            while b.len % 8 != 0 {
+                b.push(1, 0);
+            }
+            b.bytes
+        };
+        let wrap = |declared: usize, extra: usize| {
+            let mut w = BitWriter::default();
+            w.push(16, u64::from(EMDF_SYNCWORD));
+            w.push(16, declared as u64);
+            w.push_bytes(&body);
+            w.push_bytes(&vec![0u8; extra]);
+            w.bytes
+        };
+        let (_, len) =
+            parse_emdf_with_sync(&wrap(body.len(), 0)).expect("the declared length is right");
+        assert_eq!(len, body.len());
+        for (declared, extra) in [(body.len() - 1, 0), (body.len() + 1, 1)] {
+            assert!(
+                matches!(
+                    parse_emdf_with_sync(&wrap(declared, extra)),
+                    Err(ContainerError::Malformed(_))
+                ),
+                "{declared} bytes declared for a container of {}",
+                body.len()
+            );
+        }
+    }
+
     #[test]
     fn oversized_payload_is_rejected_not_panicked() {
         let mut w = BitWriter::default();
@@ -432,5 +625,212 @@ mod tests {
             ))
         );
         assert!(parse_evolution(&[]).is_err());
+    }
+
+    /// `emdf_payload_config()` written field by field and read back. The
+    /// constants are what DEE writes, measured on the fixture and on every
+    /// JOC stream of the corpus: no sample offset, no duration, group id 0, no
+    /// codec data, not discarded, and for JOC frame aligned, not duplicated,
+    /// priority and `proc_allowed` 0; OAMD is not frame aligned, so the last
+    /// four fields are absent from it.
+    #[derive(Debug, Clone, Copy)]
+    struct ConfigBits {
+        duration: Option<u64>,
+        group_id: Option<u64>,
+        codec_data: Option<u64>,
+        discard: bool,
+        frame_aligned: bool,
+        create: bool,
+        remove: bool,
+        priority: u64,
+        proc_allowed: u64,
+    }
+
+    impl ConfigBits {
+        const JOC: Self = Self {
+            duration: None,
+            group_id: Some(0),
+            codec_data: None,
+            discard: false,
+            frame_aligned: true,
+            create: false,
+            remove: false,
+            priority: 0,
+            proc_allowed: 0,
+        };
+        const OAMD: Self = Self {
+            frame_aligned: false,
+            ..Self::JOC
+        };
+
+        fn parse(self) -> PayloadConfig {
+            let mut w = BitWriter::default();
+            w.push(1, 0); // smploffste
+            match self.duration {
+                Some(d) => {
+                    w.push(1, 1);
+                    w.push(11, d);
+                    w.push(1, 0);
+                }
+                None => w.push(1, 0),
+            }
+            match self.group_id {
+                Some(g) => {
+                    w.push(1, 1);
+                    w.push(2, g);
+                    w.push(1, 0);
+                }
+                None => w.push(1, 0),
+            }
+            match self.codec_data {
+                Some(c) => {
+                    w.push(1, 1);
+                    w.push(8, c);
+                }
+                None => w.push(1, 0),
+            }
+            w.push(1, u64::from(self.discard));
+            if !self.discard {
+                w.push(1, u64::from(self.frame_aligned));
+                if self.frame_aligned {
+                    w.push(1, u64::from(self.create));
+                    w.push(1, u64::from(self.remove));
+                    w.push(5, self.priority);
+                    w.push(2, self.proc_allowed);
+                }
+            }
+            w.push(8, 0);
+            read_config(&mut BitReader::new(&w.bytes), Flavor::Emdf).unwrap()
+        }
+    }
+
+    /// Table 56 of TS 103 420 on the configurations DEE writes: nothing to
+    /// report, and a payload the table does not cover is not held to it.
+    #[test]
+    fn the_configurations_dee_writes_meet_table_56() {
+        assert_eq!(
+            table_56_violations(PAYLOAD_ID_JOC, &ConfigBits::JOC.parse()),
+            Vec::<&str>::new()
+        );
+        let oamd = ConfigBits::OAMD.parse();
+        assert_eq!((oamd.create_duplicate, oamd.priority), (None, None));
+        assert_eq!(
+            table_56_violations(PAYLOAD_ID_OAMD, &oamd),
+            Vec::<&str>::new()
+        );
+        // payload 1 as the same encoder configures it
+        let other = ConfigBits {
+            duration: Some(1536),
+            group_id: None,
+            ..ConfigBits::OAMD
+        };
+        assert!(table_56_violations(1, &other.parse()).is_empty());
+    }
+
+    /// Every field the table fixes, one at a time, on both payloads.
+    #[test]
+    fn a_field_outside_table_56_is_named() {
+        let j = ConfigBits::JOC;
+        for (bits, violation) in [
+            (
+                ConfigBits {
+                    duration: Some(1536),
+                    ..j
+                },
+                "duratione is 1, Table 56 requires 0",
+            ),
+            (
+                ConfigBits {
+                    group_id: None,
+                    ..j
+                },
+                "groupide is 0, Table 56 requires 1",
+            ),
+            (
+                ConfigBits { discard: true, ..j },
+                "discard_unknown_payload is 1, Table 56 requires 0",
+            ),
+            (
+                ConfigBits { create: true, ..j },
+                "create_duplicate is 1, Table 56 requires 0",
+            ),
+            (
+                ConfigBits { remove: true, ..j },
+                "remove_duplicate is 1, Table 56 requires 0",
+            ),
+            (
+                ConfigBits { priority: 3, ..j },
+                "priority is not 0, Table 56 requires 0",
+            ),
+            (
+                ConfigBits {
+                    proc_allowed: 2,
+                    ..j
+                },
+                "proc_allowed is not 0, Table 56 requires 0",
+            ),
+        ] {
+            let cfg = bits.parse();
+            for id in [PAYLOAD_ID_OAMD, PAYLOAD_ID_JOC] {
+                assert_eq!(
+                    table_56_violations(id, &cfg),
+                    vec![violation],
+                    "payload {id}"
+                );
+            }
+        }
+        // Table 56 prints codecdatae 1, and clause H.2.2.3.7 of TS 102 366,
+        // which the table cites, requires 0. Every payload measured carries 0,
+        // so the field is held to the clause: no codec data is right, and a
+        // payload that carries the byte is reported whatever the byte says.
+        let bits = ConfigBits {
+            codec_data: None,
+            ..j
+        };
+        assert!(table_56_violations(PAYLOAD_ID_JOC, &bits.parse()).is_empty());
+        for codec_data in [Some(0), Some(0x5A)] {
+            let bits = ConfigBits { codec_data, ..j };
+            assert_eq!(
+                table_56_violations(PAYLOAD_ID_JOC, &bits.parse()),
+                vec!["codecdatae is 1, clause H.2.2.3.7 of TS 102 366 requires 0"],
+                "codec_data {codec_data:?}"
+            );
+        }
+    }
+
+    /// Table 56's `groupid` row relates the two payloads of one container.
+    #[test]
+    fn the_oamd_and_joc_payloads_share_a_group_id() {
+        let payload = |id, group_id| Payload {
+            id,
+            config: PayloadConfig {
+                group_id,
+                ..PayloadConfig::default()
+            },
+            data: Vec::new(),
+            data_bit: 0,
+        };
+        let container = |payloads| Container {
+            version: 0,
+            key_id: 0,
+            payloads,
+            protection: Protection::default(),
+            len_bits: 0,
+        };
+        let same = container(vec![
+            payload(PAYLOAD_ID_OAMD, Some(0)),
+            payload(PAYLOAD_ID_JOC, Some(0)),
+        ]);
+        assert_eq!(table_56_group_violation(&same), None);
+        let apart = container(vec![
+            payload(PAYLOAD_ID_OAMD, Some(0)),
+            payload(PAYLOAD_ID_JOC, Some(1)),
+        ]);
+        assert_eq!(
+            table_56_group_violation(&apart),
+            Some("groupid of the OAMD and JOC payloads differ, Table 56 requires them equal")
+        );
+        let alone = container(vec![payload(PAYLOAD_ID_JOC, Some(1))]);
+        assert_eq!(table_56_group_violation(&alone), None);
     }
 }

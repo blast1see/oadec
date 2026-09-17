@@ -9,10 +9,14 @@
 
 Every command uses the same codes, and 4 belongs to the object outputs alone
 (below). Every command that delivers audio or metadata decides between 0 and 7
-with the same list of faults that `verify` uses. That was not true before: `verify` read every counter and exited 7, while
-`decode` re-derived a narrower rule of its own and exited 0 while printing the
-very CRC failure it had just found, and the object path read no integrity flag
-at all.
+with the same list of faults that `verify` uses; `emdf` and `oamd`, which walk
+only the metadata they report, run the checks of `verify` over the stream
+beside their walk and take its verdict with their own, and every TrueHD
+delivery does the same beside its decode, which reads only the substreams its
+presentation needs. That was not true before: `verify` read every counter and
+exited 7, while `decode` re-derived a narrower rule of its own and exited 0
+while printing the very CRC failure it had just found, and the object path
+read no integrity flag at all.
 
 ## What counts as a fault
 
@@ -23,18 +27,37 @@ Anything that makes the delivered output untrustworthy:
   lossless check word;
 - a sync error, a resynchronisation, or a byte of the file that was skipped or
   left trailing;
-- an Object Audio Metadata or JOC payload that would not parse, or whose
-  declared size was wrong;
+- an Object Audio Metadata or JOC payload that would not parse or whose
+  declared size was wrong, or a JOC payload whose `joc_ext_config_idx` is
+  reserved (the matrices of the previous frame are held in its place);
+- in a substream that carries EMDF, an E-AC-3 frame whose skip fields hold no
+  container that opens, whether it is erased, broken, or declares a length its
+  syntax disagrees with;
+- a TrueHD extra-data block whose header parity, padding, parity byte or
+  length is wrong, or whose Evolution container will not open;
+- a sample the decoder produced beyond 24 bits, which the writer can only
+  clamp;
+- a configuration that changed at a major sync after the output began: the
+  output ends at that access unit, its files are finished, and the run says
+  where it stopped;
 - a dependent substream that was seen and whose channels did not reach the
   output, an unreadable custom channel map, a dependent substream misaligned
-  with its independent one, or a channel layout that changed mid-stream.
+  with its independent one, or a channel layout that changed mid-stream;
+- a substream frame repeated inside one frame group, or a substream that
+  stopped supplying frames and was flushed so that the groups after it could
+  be delivered, leaving a group without its frame.
 
-Two things are deliberately **not** faults. A second programme in the bit stream
-is legal (clause E.2.8.3) and skipping it is what a decoder should do, so it is
-printed and not counted. And a frame that ends inside its own tail is out of
-spec but decodes to audio that FFmpeg, Dolby and oadec all agree on, so it is
-counted and reported without changing the verdict of a decode; `verify` still
-calls the file non-conformant, because that is what `verify` is for.
+Three things are deliberately **not** faults. A second programme in the bit
+stream is legal (clause E.2.8.3) and skipping it is what a decoder should do,
+so it is printed and not counted. A frame that ends inside its own tail is out
+of spec but decodes to audio that FFmpeg, Dolby and oadec all agree on, so it
+is counted and reported without changing the verdict of a decode; `verify`
+still calls the file non-conformant, because that is what `verify` is for.
+And an EMDF payload configuration outside TS 103 420 Table 56, or a
+`complexity_index_type_a` that disagrees with the object total of the Object
+Audio Metadata, changes neither the audio nor the metadata a decode delivers:
+`verify` counts both and exits 7, and a decode of the same file keeps its
+verdict.
 
 ## What a fault does
 
@@ -90,12 +113,12 @@ what the format is.
 
 | Command | 0 | 7 | 2 |
 |---|---|---|---|
-| `verify` | clean | non-conformant | could not be read |
-| `info` | always | — | could not be read |
-| `emdf`, `oamd` | clean | non-conformant | could not be read |
-| `decode` (PCM, WAV, CAF, DAMF, ADM, objects) | clean | a fault above | fatal decode failure |
+| `verify` | clean | non-conformant; with `--decode`, also a failed lossless check word or a presentation whose decode stopped | could not be read, or holds no stream |
+| `info` | the stream was read | — | could not be read, or holds no stream |
+| `emdf`, `oamd` | clean | non-conformant: a fault `verify` finds in the stream, or one in the metadata they read | could not be read, or holds no stream |
+| `decode` (PCM, WAV, CAF, DAMF, ADM, objects) | clean | a fault above | fatal decode failure, no access unit or whole syncframe in the file, a configuration change before any output, or a JOC measurement override on a decode with no JOC reconstruction to apply it to |
 | `decode --format damf\|adm` with a declared loss | -- | 4 (above) | -- |
-| `compare` | matches and clean | differs, or a fault above | could not be read |
+| `compare` | matches and clean | differs, or a fault above | could not be read, or holds no stream |
 | `thd-demux`, `eac3-joc-config`, `eac3-ecpl-inject` | always | — | could not be written |
 
 `compare` folds the two questions together on purpose: a comparison against a

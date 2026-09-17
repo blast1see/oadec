@@ -1,0 +1,311 @@
+{
+ "what": "the phase that closed the open items of section 9 of the verification report",
+ "when": "2026-09-16",
+ "branch": "verification-2026-09-14",
+ "head": "3287c3f",
+ "commits": [
+  "3287c3f Refresh the envelope with the settled title",
+  "0d4fc91 Settle the lossless check words of Up (2009) in the report",
+  "03c530f A peak data rate change is a branch point",
+  "0629e49 Say that round 8 could not be run",
+  "5d2b409 Say that round 8 is owed",
+  "8113e63 Refresh the envelope with round 7 and the head it measured",
+  "08698e4 Format what the last commit wrote",
+  "3ac116c Record round 7 and its finding in the report",
+  "df4c104 Count a lost EMDF container where no skip field reaches the walk",
+  "40b7593 Record what the open-items phase measured",
+  "8e0dbbe Say that round 7 is owed, not done",
+  "c6cac26 Record round 6 and its finding in the report",
+  "c6c3a92 A corruption campaign says what it found in its exit code",
+  "d0297fc Put the four open items closed into the table of defects",
+  "c2759cf Give the media corpus one command, and sharpen three open items",
+  "0268009 A seamless branch reaches every substream of its access unit",
+  "bc78fee Hold codecdatae to the clause Table 56 cites",
+  "41011c0 Judge a substream whose EMDF containers are all broken",
+  "ea38003 verify+compare: refuse a file that holds no stream"
+ ],
+ "exit_codes_on_55_real_inputs": {
+  "binaries": {
+   "before": "E:/oadec-work/verify-2026-09-14/bin/oadec-g4.exe",
+   "after": "E:/oadec-work/verify-2026-09-14/bin/oadec-openitems.exe"
+  },
+  "inputs": 55,
+  "changed": []
+ },
+ "command_matrix": {
+  "before": {
+   "binary": "E:\\oadec-work\\verify-2026-09-14\\bin\\oadec-b00f490.exe",
+   "cases": 212,
+   "unexpected": 51
+  },
+  "after": {
+   "binary": "E:\\oadec-work\\verify-2026-09-14\\bin\\oadec-branch.exe",
+   "cases": 212,
+   "unexpected": 51
+  },
+  "exit_codes_moved": [
+   [
+    "verify empty.bin",
+    7,
+    2
+   ],
+   [
+    "verify random.bin",
+    7,
+    2
+   ]
+  ],
+  "note": "the two that moved are `verify` on a file that holds no stream, 7 to 2, which is the fix itself"
+ },
+ "truehd_gates": {
+  "gates": [
+   {
+    "gate": "truehd-presentation-2-vs-ffmpeg",
+    "verdict": "PASS",
+    "detail": "decoded 126895 access units, 5075800 samples x 8 channels (0:01:45.746), 0 dropped duplicates\nlossless checks: 1000 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: L R C LFE Lb Rb Ls Rs\nspeed: 0.86 s (122x realtime)\ncompared 5075800 samples x 8 channels (0:01:45.746) with the reference\nmismatching samples: 0 (max difference 0)\nlengths agree\nresult: BIT-EXACT\nintegrity: 84 trailing bytes that formed no access unit, 1 stream `oadec verify` calls non-conformant\nthe output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "gate": "truehd-presentation-3-vs-truehdd",
+    "verdict": "PASS",
+    "detail": "reference 182728800 bytes, ours 182728800 bytes, common 182728800\ndiffering 4 KiB blocks: 0\nresult: BIT-EXACT"
+   },
+   {
+    "gate": "truehd-presentation-3-vs-dolby",
+    "verdict": "PASS",
+    "detail": "12 channels: 5075800 frames, 0 differing samples, max |diff| 0\nresult: BIT-EXACT"
+   }
+  ]
+ },
+ "up_2009_lossless_checks": {
+  "before": {
+   "valid_branches": 1,
+   "invalid_branches": 0,
+   "output_jumps": 4,
+   "branch_units": [
+    54205
+   ],
+   "lossless": {
+    "evaluated": 3390,
+    "failed": 6,
+    "skipped": 2
+   },
+   "per_presentation": [
+    {
+     "presentation": 0,
+     "evaluated": 847,
+     "failed": 1,
+     "skipped": 1,
+     "first_problem": "access unit 77078: substream 0: lossless check 0xE3 differs from header 0x00"
+    },
+    {
+     "presentation": 1,
+     "evaluated": 848,
+     "failed": 2,
+     "skipped": 0,
+     "first_problem": "access unit 54205: substream 1: lossless check 0x5F differs from header 0x00"
+    },
+    {
+     "presentation": 2,
+     "evaluated": 847,
+     "failed": 1,
+     "skipped": 1,
+     "first_problem": "access unit 77078: substream 2: lossless check 0x95 differs from header 0x00"
+    },
+    {
+     "presentation": 3,
+     "evaluated": 848,
+     "failed": 2,
+     "skipped": 0,
+     "first_problem": "access unit 54205: substream 3: lossless check 0x49 differs from header 0x00"
+    }
+   ]
+  },
+  "after": {
+   "valid_branches": 2,
+   "invalid_branches": 0,
+   "output_jumps": 4,
+   "branch_units": [
+    54205,
+    77078
+   ],
+   "lossless": {
+    "evaluated": 3384,
+    "failed": 0,
+    "skipped": 8
+   },
+   "per_presentation": [
+    {
+     "presentation": 0,
+     "evaluated": 846,
+     "failed": 0,
+     "skipped": 2,
+     "first_problem": null
+    },
+    {
+     "presentation": 1,
+     "evaluated": 846,
+     "failed": 0,
+     "skipped": 2,
+     "first_problem": null
+    },
+    {
+     "presentation": 2,
+     "evaluated": 846,
+     "failed": 0,
+     "skipped": 2,
+     "first_problem": null
+    },
+    {
+     "presentation": 3,
+     "evaluated": 846,
+     "failed": 0,
+     "skipped": 2,
+     "first_problem": null
+    }
+   ]
+  }
+ },
+ "downmix_relabel": "15-dmx-relabel.json",
+ "replay_verdict_proof": {
+  "real_binary": {
+   "verdict": "PASS",
+   "faults": {},
+   "summary": {
+    "verify": {
+     "silent": 0,
+     "nonzero_exit": 4,
+     "reported_but_exit_0": 0,
+     "panics": 0,
+     "timeouts": 0
+    },
+    "decode_pcm": {
+     "silent": 0,
+     "nonzero_exit": 4,
+     "reported_but_exit_0": 0,
+     "panics": 0,
+     "timeouts": 0
+    },
+    "decode_damf": {
+     "silent": 0,
+     "nonzero_exit": 4,
+     "reported_but_exit_0": 0,
+     "panics": 0,
+     "timeouts": 0
+    }
+   }
+  },
+  "silent_stand_in": {
+   "verdict": "FAIL",
+   "faults": {
+    "verify": {
+     "silent": 4
+    },
+    "decode_pcm": {
+     "silent": 4
+    },
+    "decode_damf": {
+     "silent": 4
+    }
+   },
+   "binary": "C:\\Program Files\\Git\\usr\\bin\\true.exe"
+  }
+ },
+ "media_regression": {
+  "steps": [
+   {
+    "step": "media-suite",
+    "exit": "0",
+    "seconds": 1240,
+    "log": "/e/oadec-work/verify-2026-09-14/logs/media-regression/media-suite.log"
+   },
+   {
+    "step": "truehd-gates",
+    "exit": "0",
+    "seconds": 11,
+    "log": "/e/oadec-work/verify-2026-09-14/logs/media-regression/truehd-gates.log"
+   },
+   {
+    "step": "joc-object-gate",
+    "exit": "0",
+    "seconds": 147,
+    "log": "/e/oadec-work/verify-2026-09-14/logs/media-regression/joc-object-gate.log"
+   },
+   {
+    "step": "replay-joc",
+    "exit": "0",
+    "seconds": 23,
+    "log": "/e/oadec-work/verify-2026-09-14/logs/media-regression/replay-joc.log"
+   },
+   {
+    "step": "replay-truehd",
+    "exit": "0",
+    "seconds": 5,
+    "log": "/e/oadec-work/verify-2026-09-14/logs/media-regression/replay-truehd.log"
+   },
+   {
+    "step": "adm-harness",
+    "exit": "0",
+    "seconds": 5,
+    "log": "/e/oadec-work/verify-2026-09-14/logs/media-regression/adm-harness.log"
+   }
+  ],
+  "negative": true,
+  "verdict": "passed"
+ },
+ "media_suite_at_head": {
+  "verdict": "ok",
+  "passed": 28,
+  "failed": 0,
+  "seconds": 1223.43,
+  "note": "the media suite run at this head; the media_regression steps above were measured at an earlier one"
+ },
+ "review_rounds": {
+  "6": {
+   "verdict": "CHANGES_REQUESTED",
+   "coverage": {
+    "correctness": 0,
+    "security": 0,
+    "reliability": 1,
+    "simplification": 0,
+    "performance": 0
+   },
+   "findings": [
+    {
+     "id": "R6F1",
+     "lens": "reliability",
+     "severity": "medium",
+     "file": "tools/media_regression.sh",
+     "status": "open"
+    }
+   ],
+   "duration_s": 331
+  },
+  "7": {
+   "verdict": "CHANGES_REQUESTED",
+   "coverage": {
+    "correctness": 1,
+    "security": 0,
+    "reliability": 0,
+    "simplification": 0,
+    "performance": 0
+   },
+   "findings": [
+    {
+     "id": "R7F1",
+     "lens": "correctness",
+     "severity": "medium",
+     "file": "crates/oadec-cli/src/emdf.rs",
+     "status": "open"
+    },
+    {
+     "id": "R6F1",
+     "lens": "reliability",
+     "severity": "medium",
+     "file": "tools/media_regression.sh",
+     "status": "resolved"
+    }
+   ],
+   "duration_s": 494
+  }
+ }
+}

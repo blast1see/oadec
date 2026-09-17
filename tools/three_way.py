@@ -13,6 +13,12 @@ distance by more than a small margin, channel by channel.
 `ours.f32` and `ffmpeg.f32` are interleaved 32-bit float little-endian in
 WAVE order; the Dolby WAVE may carry a decoder delay and a gain, both of
 which are measured and removed before the comparison.
+
+Decode the FFmpeg reference with `-drc_scale 0`. FFmpeg's AC-3 and E-AC-3
+decoders apply the stream's dynamic range words by default, a gain that moves
+with the programme (0.62 to 1.06 over half-second windows on one streaming
+stream), and against that reference every decoder looks 8 to 20 dB off. DEE's
+`ddp_decode` with `<drc>none</drc>` and oadec apply none.
 """
 
 import argparse

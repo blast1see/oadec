@@ -1,0 +1,2455 @@
+{
+ "what": "Six E-AC-3 JOC titles no earlier measurement named, against Dolby's object decoder",
+ "utc": "2026-09-15T05:55:26Z",
+ "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
+ "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
+ "why": "The object-domain figures came from clips the matrix alignment and the quadrature filter were fitted on.",
+ "method": "30 s cut from 10 minutes (tools/ec3_cut.py); dlbac3dec out-ch-config=21 drc-suppress=true drc-mode=custom-0 drop-delay=true; oadec decode --format damf --no-bed-conform; tools/objcmp.py; then --no-dither (dither-check) and a per-subband split of the residual (lowband, residual-bands)",
+ "reading": "worst object 29.55-49.53 dB, median 40.09-53.64 dB, lag 0, correlation-structure delta <= 0.0021 on every title. On Lion of the Desert and Kar Kardesligi switching our dither off gains 3.0 dB (dither-limited); on Mercy, A Man Called Otto and Damsel 72-96% of the residual lies in subband 0 (0-375 Hz) and the dither switch moves it by 0.0 dB",
+ "data": {
+  "titles": [
+   {
+    "title": "a-man-called-otto-2022",
+    "kind": "joc",
+    "clip": "a-man-called-otto-2022.ec3",
+    "bytes": 2887680,
+    "duration_s": 30.08,
+    "bit_rate": 768000,
+    "channels": [
+     "L",
+     "C",
+     "R",
+     "Ls",
+     "Rs",
+     "LFE"
+    ],
+    "downmix_configs": [
+     3
+    ],
+    "clipgain_x1000": [
+     1000
+    ],
+    "dependent_frames": 0,
+    "verify_exit": 0,
+    "verify_clean": true,
+    "sparse_objects": 0,
+    "steep_objects": 645,
+    "coarse_objects": 0,
+    "sparse_and_steep_objects": 0,
+    "decode_exit": 0,
+    "decode_secs": 0.9,
+    "dolby_exit": 0,
+    "dolby_secs": 0.6,
+    "oadec_channels": 16,
+    "dolby_channel_ratio": 15.987,
+    "dolby_opens_as_objects": true,
+    "name": "a-man-called-otto-2022",
+    "lag_samples": 0,
+    "lag_corr": 0.999999,
+    "compared_samples": 1200000,
+    "objects_worst_sdr_db": 30.33,
+    "objects_median_sdr_db": 44.25,
+    "lfe_sdr_db": null,
+    "max_obj_vs_obj_corr_ours": 0.9934,
+    "max_obj_vs_obj_corr_dolby": 0.9932,
+    "mean_obj_corr_ours": 0.1084,
+    "mean_obj_corr_dolby": 0.1084,
+    "corr_structure_max_abs_delta": 0.0015,
+    "pairs_over_0_9_ours": 6,
+    "pairs_over_0_9_dolby": 6,
+    "per_object_sdr_db": [
+     null,
+     46.87,
+     50.59,
+     48.06,
+     44.25,
+     30.33,
+     45.76,
+     30.34,
+     34.19,
+     33.72,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ],
+    "per_object_rms_dolby": [
+     0.0,
+     0.007165,
+     0.062737,
+     0.010008,
+     0.003507,
+     0.000676,
+     0.003506,
+     0.000553,
+     0.001691,
+     0.001712,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "source": "H:\\films\\A Man Called Otto (2022).mkv",
+    "stream": 0
+   },
+   {
+    "title": "damsel-2024",
+    "kind": "joc",
+    "clip": "damsel-2024.ec3",
+    "bytes": 2887680,
+    "duration_s": 30.08,
+    "bit_rate": 768000,
+    "channels": [
+     "L",
+     "C",
+     "R",
+     "Ls",
+     "Rs",
+     "LFE"
+    ],
+    "downmix_configs": [
+     3
+    ],
+    "clipgain_x1000": [
+     1000
+    ],
+    "dependent_frames": 0,
+    "verify_exit": 0,
+    "verify_clean": true,
+    "sparse_objects": 0,
+    "steep_objects": 165,
+    "coarse_objects": 0,
+    "sparse_and_steep_objects": 0,
+    "decode_exit": 0,
+    "decode_secs": 0.8,
+    "dolby_exit": 0,
+    "dolby_secs": 1.0,
+    "oadec_channels": 16,
+    "dolby_channel_ratio": 15.987,
+    "dolby_opens_as_objects": true,
+    "name": "damsel-2024",
+    "lag_samples": 0,
+    "lag_corr": 1.0,
+    "compared_samples": 1200000,
+    "objects_worst_sdr_db": 44.38,
+    "objects_median_sdr_db": 51.05,
+    "lfe_sdr_db": 85.67,
+    "max_obj_vs_obj_corr_ours": 0.7552,
+    "max_obj_vs_obj_corr_dolby": 0.7552,
+    "mean_obj_corr_ours": 0.0767,
+    "mean_obj_corr_dolby": 0.0767,
+    "corr_structure_max_abs_delta": 0.0005,
+    "pairs_over_0_9_ours": 0,
+    "pairs_over_0_9_dolby": 0,
+    "per_object_sdr_db": [
+     85.67,
+     49.67,
+     56.84,
+     58.49,
+     44.38,
+     50.49,
+     49.14,
+     52.42,
+     null,
+     null,
+     44.72,
+     51.05,
+     53.4,
+     null,
+     null,
+     54.43
+    ],
+    "per_object_rms_dolby": [
+     0.000661,
+     0.021186,
+     0.051399,
+     0.057067,
+     0.011277,
+     0.034595,
+     0.011813,
+     0.025076,
+     0.0,
+     0.0,
+     0.00718,
+     0.007388,
+     0.00988,
+     0.0,
+     0.0,
+     0.009357
+    ],
+    "source": "E:\\streaming\\Damsel (2024).mka",
+    "stream": 0
+   },
+   {
+    "title": "kar-kardesligi-2024",
+    "kind": "joc",
+    "clip": "kar-kardesligi-2024.ec3",
+    "bytes": 2887680,
+    "duration_s": 30.08,
+    "bit_rate": 768000,
+    "channels": [
+     "L",
+     "C",
+     "R",
+     "Ls",
+     "Rs",
+     "LFE"
+    ],
+    "downmix_configs": [
+     3
+    ],
+    "clipgain_x1000": [
+     1000
+    ],
+    "dependent_frames": 0,
+    "verify_exit": 0,
+    "verify_clean": true,
+    "sparse_objects": 0,
+    "steep_objects": 720,
+    "coarse_objects": 0,
+    "sparse_and_steep_objects": 0,
+    "decode_exit": 0,
+    "decode_secs": 0.9,
+    "dolby_exit": 0,
+    "dolby_secs": 0.6,
+    "oadec_channels": 16,
+    "dolby_channel_ratio": 15.987,
+    "dolby_opens_as_objects": true,
+    "name": "kar-kardesligi-2024",
+    "lag_samples": 0,
+    "lag_corr": 0.999999,
+    "compared_samples": 1200000,
+    "objects_worst_sdr_db": 39.29,
+    "objects_median_sdr_db": 53.64,
+    "lfe_sdr_db": 120.33,
+    "max_obj_vs_obj_corr_ours": 0.9466,
+    "max_obj_vs_obj_corr_dolby": 0.9466,
+    "mean_obj_corr_ours": 0.0866,
+    "mean_obj_corr_dolby": 0.0866,
+    "corr_structure_max_abs_delta": 0.0001,
+    "pairs_over_0_9_ours": 2,
+    "pairs_over_0_9_dolby": 2,
+    "per_object_sdr_db": [
+     120.33,
+     53.64,
+     60.67,
+     58.89,
+     40.74,
+     58.02,
+     39.29,
+     57.93,
+     48.9,
+     47.58,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ],
+    "per_object_rms_dolby": [
+     0.035932,
+     0.060777,
+     0.015519,
+     0.009667,
+     0.009934,
+     0.009688,
+     0.006358,
+     0.007499,
+     0.017241,
+     0.018124,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "source": "E:\\streaming\\Kar Kardesligi (2024).mka",
+    "stream": 1
+   },
+   {
+    "title": "dexter-resurrection-s01e01-a-beating-hea",
+    "kind": "joc",
+    "clip": "dexter-resurrection-s01e01-a-beating-hea.ec3",
+    "bytes": 2887680,
+    "duration_s": 30.08,
+    "bit_rate": 768000,
+    "channels": [
+     "L",
+     "C",
+     "R",
+     "Ls",
+     "Rs",
+     "LFE"
+    ],
+    "downmix_configs": [
+     3
+    ],
+    "clipgain_x1000": [
+     1000
+    ],
+    "dependent_frames": 0,
+    "verify_exit": 0,
+    "verify_clean": true,
+    "sparse_objects": 0,
+    "steep_objects": 0,
+    "coarse_objects": 0,
+    "sparse_and_steep_objects": 0,
+    "decode_exit": 0,
+    "decode_secs": 0.9,
+    "dolby_exit": 0,
+    "dolby_secs": 0.6,
+    "oadec_channels": 16,
+    "dolby_channel_ratio": 15.987,
+    "dolby_opens_as_objects": true,
+    "name": "dexter-resurrection-s01e01-a-beating-hea",
+    "lag_samples": 0,
+    "lag_corr": 1.0,
+    "compared_samples": 1200000,
+    "objects_worst_sdr_db": 49.53,
+    "objects_median_sdr_db": 53.0,
+    "lfe_sdr_db": 98.15,
+    "max_obj_vs_obj_corr_ours": 0.9994,
+    "max_obj_vs_obj_corr_dolby": 0.9994,
+    "mean_obj_corr_ours": 0.0568,
+    "mean_obj_corr_dolby": 0.0568,
+    "corr_structure_max_abs_delta": 0.0002,
+    "pairs_over_0_9_ours": 2,
+    "pairs_over_0_9_dolby": 2,
+    "per_object_sdr_db": [
+     98.15,
+     50.98,
+     53.15,
+     49.53,
+     53.0,
+     null,
+     49.66,
+     55.28,
+     null,
+     56.03,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ],
+    "per_object_rms_dolby": [
+     0.002782,
+     0.028791,
+     0.019447,
+     0.009763,
+     0.018678,
+     0.0,
+     0.00942,
+     4.6e-05,
+     0.0,
+     4e-05,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "source": "F:\\Dexter Resurrection S01\\Dexter Resurrection S01E01.mkv",
+    "stream": 0
+   },
+   {
+    "title": "mercy-2026",
+    "kind": "joc",
+    "clip": "mercy-2026.ec3",
+    "bytes": 2887680,
+    "duration_s": 30.08,
+    "bit_rate": 768000,
+    "channels": [
+     "L",
+     "C",
+     "R",
+     "Ls",
+     "Rs",
+     "LFE"
+    ],
+    "downmix_configs": [
+     3
+    ],
+    "clipgain_x1000": [
+     1000
+    ],
+    "dependent_frames": 0,
+    "verify_exit": 0,
+    "verify_clean": true,
+    "sparse_objects": 0,
+    "steep_objects": 0,
+    "coarse_objects": 0,
+    "sparse_and_steep_objects": 0,
+    "decode_exit": 0,
+    "decode_secs": 0.9,
+    "dolby_exit": 0,
+    "dolby_secs": 0.6,
+    "oadec_channels": 16,
+    "dolby_channel_ratio": 15.987,
+    "dolby_opens_as_objects": true,
+    "name": "mercy-2026",
+    "lag_samples": 0,
+    "lag_corr": 0.999986,
+    "compared_samples": 1200000,
+    "objects_worst_sdr_db": 29.55,
+    "objects_median_sdr_db": 40.57,
+    "lfe_sdr_db": 84.06,
+    "max_obj_vs_obj_corr_ours": 0.984,
+    "max_obj_vs_obj_corr_dolby": 0.984,
+    "mean_obj_corr_ours": 0.2972,
+    "mean_obj_corr_dolby": 0.297,
+    "corr_structure_max_abs_delta": 0.0021,
+    "pairs_over_0_9_ours": 6,
+    "pairs_over_0_9_dolby": 6,
+    "per_object_sdr_db": [
+     84.06,
+     38.91,
+     47.03,
+     38.76,
+     45.08,
+     29.55,
+     33.02,
+     46.18,
+     30.36,
+     34.2,
+     38.59,
+     44.4,
+     46.36,
+     46.47,
+     47.67,
+     40.57
+    ],
+    "per_object_rms_dolby": [
+     0.000538,
+     0.006585,
+     0.019282,
+     0.00599,
+     0.019567,
+     0.000435,
+     0.000575,
+     0.009371,
+     0.004863,
+     0.004959,
+     0.006204,
+     0.015965,
+     0.007126,
+     0.00721,
+     0.030035,
+     0.006647
+    ],
+    "source": "F:\\Mercy (2026).mkv",
+    "stream": 0
+   },
+   {
+    "title": "lion-of-the-desert-1980",
+    "kind": "joc",
+    "clip": "lion-of-the-desert-1980.ec3",
+    "bytes": 2887680,
+    "duration_s": 30.08,
+    "bit_rate": 768000,
+    "channels": [
+     "L",
+     "C",
+     "R",
+     "Ls",
+     "Rs",
+     "LFE"
+    ],
+    "downmix_configs": [
+     3
+    ],
+    "clipgain_x1000": [
+     1000
+    ],
+    "dependent_frames": 0,
+    "verify_exit": 0,
+    "verify_clean": true,
+    "sparse_objects": 0,
+    "steep_objects": 480,
+    "coarse_objects": 0,
+    "sparse_and_steep_objects": 0,
+    "decode_exit": 0,
+    "decode_secs": 0.9,
+    "dolby_exit": 0,
+    "dolby_secs": 0.6,
+    "oadec_channels": 16,
+    "dolby_channel_ratio": 15.987,
+    "dolby_opens_as_objects": true,
+    "name": "lion-of-the-desert-1980",
+    "lag_samples": 0,
+    "lag_corr": 1.0,
+    "compared_samples": 1200000,
+    "objects_worst_sdr_db": 35.31,
+    "objects_median_sdr_db": 40.09,
+    "lfe_sdr_db": 72.27,
+    "max_obj_vs_obj_corr_ours": 0.6339,
+    "max_obj_vs_obj_corr_dolby": 0.6339,
+    "mean_obj_corr_ours": 0.0331,
+    "mean_obj_corr_dolby": 0.0331,
+    "corr_structure_max_abs_delta": 0.0001,
+    "pairs_over_0_9_ours": 0,
+    "pairs_over_0_9_dolby": 0,
+    "per_object_sdr_db": [
+     72.27,
+     35.92,
+     67.52,
+     35.31,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     40.09,
+     40.93,
+     null,
+     null,
+     null,
+     null
+    ],
+    "per_object_rms_dolby": [
+     0.000141,
+     0.001711,
+     0.031586,
+     0.001605,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.001553,
+     0.001722,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "source": "I:\\films\\Lion of the Desert (1980).mkv",
+    "stream": 3
+   }
+  ],
+  "dither_check": {
+   "mercy-2026": {
+    "decode_exit": 0,
+    "dither_on": {
+     "objects_worst_sdr_db": 29.55,
+     "objects_median_sdr_db": 40.57
+    },
+    "dither_off": {
+     "objects_worst_sdr_db": 29.56,
+     "objects_median_sdr_db": 41.12
+    },
+    "per_object": [
+     {
+      "obj": 1,
+      "on": 38.91,
+      "off": 39.27,
+      "gain_db": 0.36,
+      "rms_dolby": 0.006585
+     },
+     {
+      "obj": 2,
+      "on": 47.03,
+      "off": 47.94,
+      "gain_db": 0.91,
+      "rms_dolby": 0.019282
+     },
+     {
+      "obj": 3,
+      "on": 38.76,
+      "off": 39.19,
+      "gain_db": 0.43,
+      "rms_dolby": 0.00599
+     },
+     {
+      "obj": 4,
+      "on": 45.08,
+      "off": 45.6,
+      "gain_db": 0.52,
+      "rms_dolby": 0.019567
+     },
+     {
+      "obj": 5,
+      "on": 29.55,
+      "off": 29.56,
+      "gain_db": 0.01,
+      "rms_dolby": 0.000435
+     },
+     {
+      "obj": 6,
+      "on": 33.02,
+      "off": 33.03,
+      "gain_db": 0.01,
+      "rms_dolby": 0.000575
+     },
+     {
+      "obj": 7,
+      "on": 46.18,
+      "off": 47.91,
+      "gain_db": 1.73,
+      "rms_dolby": 0.009371
+     },
+     {
+      "obj": 8,
+      "on": 30.36,
+      "off": 30.38,
+      "gain_db": 0.02,
+      "rms_dolby": 0.004863
+     },
+     {
+      "obj": 9,
+      "on": 34.2,
+      "off": 34.24,
+      "gain_db": 0.04,
+      "rms_dolby": 0.004959
+     },
+     {
+      "obj": 10,
+      "on": 38.59,
+      "off": 39.0,
+      "gain_db": 0.41,
+      "rms_dolby": 0.006204
+     },
+     {
+      "obj": 11,
+      "on": 44.4,
+      "off": 46.11,
+      "gain_db": 1.71,
+      "rms_dolby": 0.015965
+     },
+     {
+      "obj": 12,
+      "on": 46.36,
+      "off": 47.08,
+      "gain_db": 0.72,
+      "rms_dolby": 0.007126
+     },
+     {
+      "obj": 13,
+      "on": 46.47,
+      "off": 49.19,
+      "gain_db": 2.72,
+      "rms_dolby": 0.00721
+     },
+     {
+      "obj": 14,
+      "on": 47.67,
+      "off": 50.66,
+      "gain_db": 2.99,
+      "rms_dolby": 0.030035
+     },
+     {
+      "obj": 15,
+      "on": 40.57,
+      "off": 41.12,
+      "gain_db": 0.55,
+      "rms_dolby": 0.006647
+     }
+    ],
+    "median_gain_db": 0.52
+   },
+   "a-man-called-otto-2022": {
+    "decode_exit": 0,
+    "dither_on": {
+     "objects_worst_sdr_db": 30.33,
+     "objects_median_sdr_db": 44.25
+    },
+    "dither_off": {
+     "objects_worst_sdr_db": 30.34,
+     "objects_median_sdr_db": 45.61
+    },
+    "per_object": [
+     {
+      "obj": 1,
+      "on": 46.87,
+      "off": 47.5,
+      "gain_db": 0.63,
+      "rms_dolby": 0.007165
+     },
+     {
+      "obj": 2,
+      "on": 50.59,
+      "off": 53.53,
+      "gain_db": 2.94,
+      "rms_dolby": 0.062737
+     },
+     {
+      "obj": 3,
+      "on": 48.06,
+      "off": 49.26,
+      "gain_db": 1.2,
+      "rms_dolby": 0.010008
+     },
+     {
+      "obj": 4,
+      "on": 44.25,
+      "off": 45.61,
+      "gain_db": 1.36,
+      "rms_dolby": 0.003507
+     },
+     {
+      "obj": 5,
+      "on": 30.33,
+      "off": 30.34,
+      "gain_db": 0.01,
+      "rms_dolby": 0.000676
+     },
+     {
+      "obj": 6,
+      "on": 45.76,
+      "off": 47.27,
+      "gain_db": 1.51,
+      "rms_dolby": 0.003506
+     },
+     {
+      "obj": 7,
+      "on": 30.34,
+      "off": 30.34,
+      "gain_db": 0.0,
+      "rms_dolby": 0.000553
+     },
+     {
+      "obj": 8,
+      "on": 34.19,
+      "off": 34.87,
+      "gain_db": 0.68,
+      "rms_dolby": 0.001691
+     },
+     {
+      "obj": 9,
+      "on": 33.72,
+      "off": 34.23,
+      "gain_db": 0.51,
+      "rms_dolby": 0.001712
+     }
+    ],
+    "median_gain_db": 0.68
+   },
+   "lion-of-the-desert-1980": {
+    "decode_exit": 0,
+    "dither_on": {
+     "objects_worst_sdr_db": 35.31,
+     "objects_median_sdr_db": 40.09
+    },
+    "dither_off": {
+     "objects_worst_sdr_db": 38.34,
+     "objects_median_sdr_db": 43.07
+    },
+    "per_object": [
+     {
+      "obj": 1,
+      "on": 35.92,
+      "off": 38.92,
+      "gain_db": 3.0,
+      "rms_dolby": 0.001711
+     },
+     {
+      "obj": 2,
+      "on": 67.52,
+      "off": 70.43,
+      "gain_db": 2.91,
+      "rms_dolby": 0.031586
+     },
+     {
+      "obj": 3,
+      "on": 35.31,
+      "off": 38.34,
+      "gain_db": 3.03,
+      "rms_dolby": 0.001605
+     },
+     {
+      "obj": 10,
+      "on": 40.09,
+      "off": 43.07,
+      "gain_db": 2.98,
+      "rms_dolby": 0.001553
+     },
+     {
+      "obj": 11,
+      "on": 40.93,
+      "off": 43.94,
+      "gain_db": 3.01,
+      "rms_dolby": 0.001722
+     }
+    ],
+    "median_gain_db": 3.0
+   },
+   "kar-kardesligi-2024": {
+    "decode_exit": 0,
+    "dither_on": {
+     "objects_worst_sdr_db": 39.29,
+     "objects_median_sdr_db": 53.64
+    },
+    "dither_off": {
+     "objects_worst_sdr_db": 42.2,
+     "objects_median_sdr_db": 56.63
+    },
+    "per_object": [
+     {
+      "obj": 1,
+      "on": 53.64,
+      "off": 56.63,
+      "gain_db": 2.99,
+      "rms_dolby": 0.060777
+     },
+     {
+      "obj": 2,
+      "on": 60.67,
+      "off": 62.34,
+      "gain_db": 1.67,
+      "rms_dolby": 0.015519
+     },
+     {
+      "obj": 3,
+      "on": 58.89,
+      "off": 60.86,
+      "gain_db": 1.97,
+      "rms_dolby": 0.009667
+     },
+     {
+      "obj": 4,
+      "on": 40.74,
+      "off": 43.78,
+      "gain_db": 3.04,
+      "rms_dolby": 0.009934
+     },
+     {
+      "obj": 5,
+      "on": 58.02,
+      "off": 60.25,
+      "gain_db": 2.23,
+      "rms_dolby": 0.009688
+     },
+     {
+      "obj": 6,
+      "on": 39.29,
+      "off": 42.2,
+      "gain_db": 2.91,
+      "rms_dolby": 0.006358
+     },
+     {
+      "obj": 7,
+      "on": 57.93,
+      "off": 59.75,
+      "gain_db": 1.82,
+      "rms_dolby": 0.007499
+     },
+     {
+      "obj": 8,
+      "on": 48.9,
+      "off": 51.98,
+      "gain_db": 3.08,
+      "rms_dolby": 0.017241
+     },
+     {
+      "obj": 9,
+      "on": 47.58,
+      "off": 50.68,
+      "gain_db": 3.1,
+      "rms_dolby": 0.018124
+     }
+    ],
+    "median_gain_db": 2.91
+   }
+  },
+  "low_band": {
+   "mercy-2026": {
+    "summary": {
+     "objects": 15,
+     "worst_full": 28.72,
+     "median_full": 40.3,
+     "worst_without_band0": 36.39,
+     "median_without_band0": 42.4,
+     "worst_band0": 27.74,
+     "median_band0": 40.9,
+     "median_band0_share_of_residual": 0.81
+    },
+    "objects": [
+     {
+      "obj": 1,
+      "level_dbfs": -43.6,
+      "sdr_full_db": 38.61,
+      "sdr_without_band0_db": 37.27,
+      "band0_snr_db": 38.82,
+      "band0_share_of_residual": 0.847,
+      "band0_share_of_signal": 0.887
+     },
+     {
+      "obj": 2,
+      "level_dbfs": -34.3,
+      "sdr_full_db": 46.78,
+      "sdr_without_band0_db": 41.91,
+      "band0_snr_db": 47.99,
+      "band0_share_of_residual": 0.678,
+      "band0_share_of_signal": 0.895
+     },
+     {
+      "obj": 3,
+      "level_dbfs": -44.5,
+      "sdr_full_db": 38.31,
+      "sdr_without_band0_db": 39.03,
+      "band0_snr_db": 38.15,
+      "band0_share_of_residual": 0.833,
+      "band0_share_of_signal": 0.803
+     },
+     {
+      "obj": 4,
+      "level_dbfs": -34.2,
+      "sdr_full_db": 45.15,
+      "sdr_without_band0_db": 42.94,
+      "band0_snr_db": 45.55,
+      "band0_share_of_residual": 0.805,
+      "band0_share_of_signal": 0.883
+     },
+     {
+      "obj": 5,
+      "level_dbfs": -67.2,
+      "sdr_full_db": 28.72,
+      "sdr_without_band0_db": 46.04,
+      "band0_snr_db": 27.74,
+      "band0_share_of_residual": 0.996,
+      "band0_share_of_signal": 0.795
+     },
+     {
+      "obj": 6,
+      "level_dbfs": -64.8,
+      "sdr_full_db": 32.21,
+      "sdr_without_band0_db": 47.12,
+      "band0_snr_db": 31.69,
+      "band0_share_of_residual": 0.996,
+      "band0_share_of_signal": 0.884
+     },
+     {
+      "obj": 7,
+      "level_dbfs": -40.6,
+      "sdr_full_db": 46.03,
+      "sdr_without_band0_db": 42.4,
+      "band0_snr_db": 48.69,
+      "band0_share_of_residual": 0.402,
+      "band0_share_of_signal": 0.741
+     },
+     {
+      "obj": 8,
+      "level_dbfs": -46.3,
+      "sdr_full_db": 30.39,
+      "sdr_without_band0_db": 42.46,
+      "band0_snr_db": 29.67,
+      "band0_share_of_residual": 0.99,
+      "band0_share_of_signal": 0.839
+     },
+     {
+      "obj": 9,
+      "level_dbfs": -46.1,
+      "sdr_full_db": 33.92,
+      "sdr_without_band0_db": 43.13,
+      "band0_snr_db": 33.21,
+      "band0_share_of_residual": 0.98,
+      "band0_share_of_signal": 0.833
+     },
+     {
+      "obj": 10,
+      "level_dbfs": -44.1,
+      "sdr_full_db": 38.21,
+      "sdr_without_band0_db": 39.4,
+      "band0_snr_db": 37.94,
+      "band0_share_of_residual": 0.838,
+      "band0_share_of_signal": 0.787
+     },
+     {
+      "obj": 11,
+      "level_dbfs": -35.9,
+      "sdr_full_db": 44.35,
+      "sdr_without_band0_db": 36.39,
+      "band0_snr_db": 47.91,
+      "band0_share_of_residual": 0.398,
+      "band0_share_of_signal": 0.904
+     },
+     {
+      "obj": 12,
+      "level_dbfs": -42.9,
+      "sdr_full_db": 46.14,
+      "sdr_without_band0_db": 40.62,
+      "band0_snr_db": 47.21,
+      "band0_share_of_residual": 0.72,
+      "band0_share_of_signal": 0.921
+     },
+     {
+      "obj": 13,
+      "level_dbfs": -42.8,
+      "sdr_full_db": 46.37,
+      "sdr_without_band0_db": 42.63,
+      "band0_snr_db": 53.95,
+      "band0_share_of_residual": 0.109,
+      "band0_share_of_signal": 0.624
+     },
+     {
+      "obj": 14,
+      "level_dbfs": -30.4,
+      "sdr_full_db": 47.67,
+      "sdr_without_band0_db": 44.83,
+      "band0_snr_db": 64.59,
+      "band0_share_of_residual": 0.01,
+      "band0_share_of_signal": 0.486
+     },
+     {
+      "obj": 15,
+      "level_dbfs": -43.5,
+      "sdr_full_db": 40.3,
+      "sdr_without_band0_db": 36.79,
+      "band0_snr_db": 40.9,
+      "band0_share_of_residual": 0.789,
+      "band0_share_of_signal": 0.906
+     }
+    ],
+    "variants": {
+     "flat-quadrature": {
+      "exit": 0,
+      "summary": {
+       "objects": 15,
+       "worst_full": 6.7,
+       "median_full": 11.02,
+       "worst_without_band0": 36.39,
+       "median_without_band0": 42.4,
+       "worst_band0": 5.91,
+       "median_band0": 10.5,
+       "median_band0_share_of_residual": 1.0
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -43.6,
+        "sdr_full_db": 11.02,
+        "sdr_without_band0_db": 37.28,
+        "band0_snr_db": 10.5,
+        "band0_share_of_residual": 1.0,
+        "band0_share_of_signal": 0.887
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.3,
+        "sdr_full_db": 8.51,
+        "sdr_without_band0_db": 41.92,
+        "band0_snr_db": 8.03,
+        "band0_share_of_residual": 1.0,
+        "band0_share_of_signal": 0.895
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -44.5,
+        "sdr_full_db": 16.34,
+        "sdr_without_band0_db": 39.04,
+        "band0_snr_db": 15.39,
+        "band0_share_of_residual": 0.999,
+        "band0_share_of_signal": 0.803
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.2,
+        "sdr_full_db": 8.57,
+        "sdr_without_band0_db": 42.95,
+        "band0_snr_db": 8.03,
+        "band0_share_of_residual": 1.0,
+        "band0_share_of_signal": 0.883
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -67.2,
+        "sdr_full_db": 10.62,
+        "sdr_without_band0_db": 46.19,
+        "band0_snr_db": 9.62,
+        "band0_share_of_residual": 1.0,
+        "band0_share_of_signal": 0.795
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -64.8,
+        "sdr_full_db": 13.61,
+        "sdr_without_band0_db": 47.26,
+        "band0_snr_db": 13.07,
+        "band0_share_of_residual": 1.0,
+        "band0_share_of_signal": 0.884
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 12.88,
+        "sdr_without_band0_db": 42.4,
+        "band0_snr_db": 11.58,
+        "band0_share_of_residual": 1.0,
+        "band0_share_of_signal": 0.741
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -46.3,
+        "sdr_full_db": 7.92,
+        "sdr_without_band0_db": 42.59,
+        "band0_snr_db": 7.16,
+        "band0_share_of_residual": 1.0,
+        "band0_share_of_signal": 0.839
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -46.1,
+        "sdr_full_db": 6.7,
+        "sdr_without_band0_db": 43.19,
+        "band0_snr_db": 5.91,
+        "band0_share_of_residual": 1.0,
+        "band0_share_of_signal": 0.833
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -44.1,
+        "sdr_full_db": 15.22,
+        "sdr_without_band0_db": 39.41,
+        "band0_snr_db": 14.18,
+        "band0_share_of_residual": 0.999,
+        "band0_share_of_signal": 0.787
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -35.9,
+        "sdr_full_db": 11.14,
+        "sdr_without_band0_db": 36.39,
+        "band0_snr_db": 10.7,
+        "band0_share_of_residual": 1.0,
+        "band0_share_of_signal": 0.904
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -42.9,
+        "sdr_full_db": 10.34,
+        "sdr_without_band0_db": 40.63,
+        "band0_snr_db": 9.99,
+        "band0_share_of_residual": 1.0,
+        "band0_share_of_signal": 0.921
+       },
+       {
+        "obj": 13,
+        "level_dbfs": -42.8,
+        "sdr_full_db": 31.72,
+        "sdr_without_band0_db": 42.63,
+        "band0_snr_db": 29.8,
+        "band0_share_of_residual": 0.969,
+        "band0_share_of_signal": 0.624
+       },
+       {
+        "obj": 14,
+        "level_dbfs": -30.4,
+        "sdr_full_db": 44.15,
+        "sdr_without_band0_db": 44.83,
+        "band0_snr_db": 43.53,
+        "band0_share_of_residual": 0.56,
+        "band0_share_of_signal": 0.486
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -43.5,
+        "sdr_full_db": 9.06,
+        "sdr_without_band0_db": 36.8,
+        "band0_snr_db": 8.64,
+        "band0_share_of_residual": 1.0,
+        "band0_share_of_signal": 0.906
+       }
+      ]
+     },
+     "low-band-untouched": {
+      "exit": 0,
+      "summary": {
+       "objects": 15,
+       "worst_full": -1.76,
+       "median_full": 0.91,
+       "worst_without_band0": 10.07,
+       "median_without_band0": 16.33,
+       "worst_band0": -2.46,
+       "median_band0": -0.38,
+       "median_band0_share_of_residual": 0.99
+      },
+      "objects": [
+       {
+        "obj": 1,
+        "level_dbfs": -43.6,
+        "sdr_full_db": 0.91,
+        "sdr_without_band0_db": 21.13,
+        "band0_snr_db": 0.4,
+        "band0_share_of_residual": 0.999,
+        "band0_share_of_signal": 0.887
+       },
+       {
+        "obj": 2,
+        "level_dbfs": -34.3,
+        "sdr_full_db": -1.76,
+        "sdr_without_band0_db": 19.47,
+        "band0_snr_db": -2.24,
+        "band0_share_of_residual": 0.999,
+        "band0_share_of_signal": 0.895
+       },
+       {
+        "obj": 3,
+        "level_dbfs": -44.5,
+        "sdr_full_db": 3.62,
+        "sdr_without_band0_db": 15.48,
+        "band0_snr_db": 2.72,
+        "band0_share_of_residual": 0.987,
+        "band0_share_of_signal": 0.803
+       },
+       {
+        "obj": 4,
+        "level_dbfs": -34.2,
+        "sdr_full_db": -1.48,
+        "sdr_without_band0_db": 19.58,
+        "band0_snr_db": -2.02,
+        "band0_share_of_residual": 0.999,
+        "band0_share_of_signal": 0.883
+       },
+       {
+        "obj": 5,
+        "level_dbfs": -67.2,
+        "sdr_full_db": 1.19,
+        "sdr_without_band0_db": 16.71,
+        "band0_snr_db": 0.22,
+        "band0_share_of_residual": 0.994,
+        "band0_share_of_signal": 0.795
+       },
+       {
+        "obj": 6,
+        "level_dbfs": -64.8,
+        "sdr_full_db": 2.51,
+        "sdr_without_band0_db": 15.02,
+        "band0_snr_db": 2.01,
+        "band0_share_of_residual": 0.993,
+        "band0_share_of_signal": 0.884
+       },
+       {
+        "obj": 7,
+        "level_dbfs": -40.6,
+        "sdr_full_db": 0.36,
+        "sdr_without_band0_db": 16.16,
+        "band0_snr_db": -0.91,
+        "band0_share_of_residual": 0.993,
+        "band0_share_of_signal": 0.741
+       },
+       {
+        "obj": 8,
+        "level_dbfs": -46.3,
+        "sdr_full_db": -1.71,
+        "sdr_without_band0_db": 14.95,
+        "band0_snr_db": -2.46,
+        "band0_share_of_residual": 0.997,
+        "band0_share_of_signal": 0.839
+       },
+       {
+        "obj": 9,
+        "level_dbfs": -46.1,
+        "sdr_full_db": -1.55,
+        "sdr_without_band0_db": 16.33,
+        "band0_snr_db": -2.34,
+        "band0_share_of_residual": 0.997,
+        "band0_share_of_signal": 0.833
+       },
+       {
+        "obj": 10,
+        "level_dbfs": -44.1,
+        "sdr_full_db": 3.1,
+        "sdr_without_band0_db": 16.33,
+        "band0_snr_db": 2.11,
+        "band0_share_of_residual": 0.99,
+        "band0_share_of_signal": 0.787
+       },
+       {
+        "obj": 11,
+        "level_dbfs": -35.9,
+        "sdr_full_db": 1.31,
+        "sdr_without_band0_db": 21.53,
+        "band0_snr_db": 0.87,
+        "band0_share_of_residual": 0.999,
+        "band0_share_of_signal": 0.904
+       },
+       {
+        "obj": 12,
+        "level_dbfs": -42.9,
+        "sdr_full_db": -0.2,
+        "sdr_without_band0_db": 10.07,
+        "band0_snr_db": -0.52,
+        "band0_share_of_residual": 0.993,
+        "band0_share_of_signal": 0.921
+       },
+       {
+        "obj": 13,
+        "level_dbfs": -42.8,
+        "sdr_full_db": 1.61,
+        "sdr_without_band0_db": 15.48,
+        "band0_snr_db": -0.38,
+        "band0_share_of_residual": 0.985,
+        "band0_share_of_signal": 0.624
+       },
+       {
+        "obj": 14,
+        "level_dbfs": -30.4,
+        "sdr_full_db": 14.86,
+        "sdr_without_band0_db": 32.13,
+        "band0_snr_db": 11.77,
+        "band0_share_of_residual": 0.99,
+        "band0_share_of_signal": 0.486
+       },
+       {
+        "obj": 15,
+        "level_dbfs": -43.5,
+        "sdr_full_db": -1.47,
+        "sdr_without_band0_db": 20.22,
+        "band0_snr_db": -1.9,
+        "band0_share_of_residual": 0.999,
+        "band0_share_of_signal": 0.906
+       }
+      ]
+     }
+    }
+   },
+   "a-man-called-otto-2022": {
+    "summary": {
+     "objects": 9,
+     "worst_full": 29.74,
+     "median_full": 44.12,
+     "worst_without_band0": 26.2,
+     "median_without_band0": 44.4,
+     "worst_band0": 25.2,
+     "median_band0": 46.39,
+     "median_band0_share_of_residual": 0.72
+    },
+    "objects": [
+     {
+      "obj": 1,
+      "level_dbfs": -42.9,
+      "sdr_full_db": 46.73,
+      "sdr_without_band0_db": 44.4,
+      "band0_snr_db": 47.37,
+      "band0_share_of_residual": 0.723,
+      "band0_share_of_signal": 0.838
+     },
+     {
+      "obj": 2,
+      "level_dbfs": -24.0,
+      "sdr_full_db": 50.65,
+      "sdr_without_band0_db": 47.7,
+      "band0_snr_db": 138.36,
+      "band0_share_of_residual": 0.0,
+      "band0_share_of_signal": 0.493
+     },
+     {
+      "obj": 3,
+      "level_dbfs": -40.0,
+      "sdr_full_db": 47.86,
+      "sdr_without_band0_db": 45.1,
+      "band0_snr_db": 49.36,
+      "band0_share_of_residual": 0.534,
+      "band0_share_of_signal": 0.753
+     },
+     {
+      "obj": 4,
+      "level_dbfs": -49.1,
+      "sdr_full_db": 44.12,
+      "sdr_without_band0_db": 39.24,
+      "band0_snr_db": 46.39,
+      "band0_share_of_residual": 0.496,
+      "band0_share_of_signal": 0.836
+     },
+     {
+      "obj": 5,
+      "level_dbfs": -63.4,
+      "sdr_full_db": 29.74,
+      "sdr_without_band0_db": 47.7,
+      "band0_snr_db": 25.2,
+      "band0_share_of_residual": 0.99,
+      "band0_share_of_signal": 0.348
+     },
+     {
+      "obj": 6,
+      "level_dbfs": -49.1,
+      "sdr_full_db": 45.79,
+      "sdr_without_band0_db": 39.6,
+      "band0_snr_db": 48.81,
+      "band0_share_of_residual": 0.431,
+      "band0_share_of_signal": 0.863
+     },
+     {
+      "obj": 7,
+      "level_dbfs": -65.1,
+      "sdr_full_db": 30.02,
+      "sdr_without_band0_db": 48.28,
+      "band0_snr_db": 25.59,
+      "band0_share_of_residual": 0.99,
+      "band0_share_of_signal": 0.357
+     },
+     {
+      "obj": 8,
+      "level_dbfs": -55.4,
+      "sdr_full_db": 34.01,
+      "sdr_without_band0_db": 26.2,
+      "band0_snr_db": 35.17,
+      "band0_share_of_residual": 0.732,
+      "band0_share_of_signal": 0.955
+     },
+     {
+      "obj": 9,
+      "level_dbfs": -55.3,
+      "sdr_full_db": 33.54,
+      "sdr_without_band0_db": 26.77,
+      "band0_snr_db": 34.35,
+      "band0_share_of_residual": 0.793,
+      "band0_share_of_signal": 0.956
+     }
+    ]
+   },
+   "lion-of-the-desert-1980": {
+    "summary": {
+     "objects": 5,
+     "worst_full": 35.35,
+     "median_full": 40.13,
+     "worst_without_band0": 33.83,
+     "median_without_band0": 37.54,
+     "worst_band0": 63.87,
+     "median_band0": 106.21,
+     "median_band0_share_of_residual": 0.0
+    },
+    "objects": [
+     {
+      "obj": 1,
+      "level_dbfs": -55.3,
+      "sdr_full_db": 35.93,
+      "sdr_without_band0_db": 34.28,
+      "band0_snr_db": 107.04,
+      "band0_share_of_residual": 0.0,
+      "band0_share_of_signal": 0.316
+     },
+     {
+      "obj": 2,
+      "level_dbfs": -30.0,
+      "sdr_full_db": 67.54,
+      "sdr_without_band0_db": 65.0,
+      "band0_snr_db": 133.25,
+      "band0_share_of_residual": 0.0,
+      "band0_share_of_signal": 0.443
+     },
+     {
+      "obj": 3,
+      "level_dbfs": -55.9,
+      "sdr_full_db": 35.35,
+      "sdr_without_band0_db": 33.83,
+      "band0_snr_db": 106.21,
+      "band0_share_of_residual": 0.0,
+      "band0_share_of_signal": 0.295
+     },
+     {
+      "obj": 10,
+      "level_dbfs": -56.2,
+      "sdr_full_db": 40.13,
+      "sdr_without_band0_db": 37.54,
+      "band0_snr_db": 63.87,
+      "band0_share_of_residual": 0.002,
+      "band0_share_of_signal": 0.45
+     },
+     {
+      "obj": 11,
+      "level_dbfs": -55.3,
+      "sdr_full_db": 40.95,
+      "sdr_without_band0_db": 37.85,
+      "band0_snr_db": 64.64,
+      "band0_share_of_residual": 0.002,
+      "band0_share_of_signal": 0.512
+     }
+    ]
+   },
+   "kar-kardesligi-2024": {
+    "summary": {
+     "objects": 9,
+     "worst_full": 39.39,
+     "median_full": 53.72,
+     "worst_without_band0": 33.9,
+     "median_without_band0": 46.36,
+     "worst_band0": 60.37,
+     "median_band0": 64.71,
+     "median_band0_share_of_residual": 0.01
+    },
+    "objects": [
+     {
+      "obj": 1,
+      "level_dbfs": -24.3,
+      "sdr_full_db": 53.72,
+      "sdr_without_band0_db": 51.31,
+      "band0_snr_db": 137.93,
+      "band0_share_of_residual": 0.0,
+      "band0_share_of_signal": 0.425
+     },
+     {
+      "obj": 2,
+      "level_dbfs": -36.2,
+      "sdr_full_db": 60.68,
+      "sdr_without_band0_db": 50.58,
+      "band0_snr_db": 64.71,
+      "band0_share_of_residual": 0.371,
+      "band0_share_of_signal": 0.938
+     },
+     {
+      "obj": 3,
+      "level_dbfs": -40.3,
+      "sdr_full_db": 58.88,
+      "sdr_without_band0_db": 48.52,
+      "band0_snr_db": 64.37,
+      "band0_share_of_residual": 0.264,
+      "band0_share_of_signal": 0.932
+     },
+     {
+      "obj": 4,
+      "level_dbfs": -40.1,
+      "sdr_full_db": 40.86,
+      "sdr_without_band0_db": 33.9,
+      "band0_snr_db": 64.28,
+      "band0_share_of_residual": 0.004,
+      "band0_share_of_signal": 0.799
+     },
+     {
+      "obj": 5,
+      "level_dbfs": -40.3,
+      "sdr_full_db": 58.03,
+      "sdr_without_band0_db": 46.36,
+      "band0_snr_db": 64.87,
+      "band0_share_of_residual": 0.196,
+      "band0_share_of_signal": 0.945
+     },
+     {
+      "obj": 6,
+      "level_dbfs": -43.9,
+      "sdr_full_db": 39.39,
+      "sdr_without_band0_db": 35.19,
+      "band0_snr_db": 60.37,
+      "band0_share_of_residual": 0.005,
+      "band0_share_of_signal": 0.622
+     },
+     {
+      "obj": 7,
+      "level_dbfs": -42.5,
+      "sdr_full_db": 57.92,
+      "sdr_without_band0_db": 49.33,
+      "band0_snr_db": 62.82,
+      "band0_share_of_residual": 0.292,
+      "band0_share_of_signal": 0.902
+     },
+     {
+      "obj": 8,
+      "level_dbfs": -35.3,
+      "sdr_full_db": 48.89,
+      "sdr_without_band0_db": 44.36,
+      "band0_snr_db": 129.88,
+      "band0_share_of_residual": 0.0,
+      "band0_share_of_signal": 0.647
+     },
+     {
+      "obj": 9,
+      "level_dbfs": -34.8,
+      "sdr_full_db": 47.63,
+      "sdr_without_band0_db": 45.74,
+      "band0_snr_db": 127.8,
+      "band0_share_of_residual": 0.0,
+      "band0_share_of_signal": 0.353
+     }
+    ]
+   },
+   "damsel-2024": {
+    "summary": {
+     "objects": 11,
+     "worst_full": 44.28,
+     "median_full": 50.98,
+     "worst_without_band0": 47.04,
+     "median_without_band0": 59.06,
+     "worst_band0": 38.29,
+     "median_band0": 48.28,
+     "median_band0_share_of_residual": 0.96
+    },
+    "objects": [
+     {
+      "obj": 1,
+      "level_dbfs": -33.5,
+      "sdr_full_db": 49.64,
+      "sdr_without_band0_db": 47.04,
+      "band0_snr_db": 130.13,
+      "band0_share_of_residual": 0.0,
+      "band0_share_of_signal": 0.45
+     },
+     {
+      "obj": 2,
+      "level_dbfs": -25.8,
+      "sdr_full_db": 56.83,
+      "sdr_without_band0_db": 51.68,
+      "band0_snr_db": 75.51,
+      "band0_share_of_residual": 0.009,
+      "band0_share_of_signal": 0.698
+     },
+     {
+      "obj": 3,
+      "level_dbfs": -24.9,
+      "sdr_full_db": 58.43,
+      "sdr_without_band0_db": 52.31,
+      "band0_snr_db": 74.98,
+      "band0_share_of_residual": 0.017,
+      "band0_share_of_signal": 0.76
+     },
+     {
+      "obj": 4,
+      "level_dbfs": -39.0,
+      "sdr_full_db": 44.28,
+      "sdr_without_band0_db": 56.49,
+      "band0_snr_db": 38.72,
+      "band0_share_of_residual": 0.956,
+      "band0_share_of_signal": 0.266
+     },
+     {
+      "obj": 5,
+      "level_dbfs": -29.2,
+      "sdr_full_db": 50.5,
+      "sdr_without_band0_db": 59.06,
+      "band0_snr_db": 49.82,
+      "band0_share_of_residual": 0.977,
+      "band0_share_of_signal": 0.835
+     },
+     {
+      "obj": 6,
+      "level_dbfs": -38.6,
+      "sdr_full_db": 49.17,
+      "sdr_without_band0_db": 57.09,
+      "band0_snr_db": 44.1,
+      "band0_share_of_residual": 0.883,
+      "band0_share_of_signal": 0.275
+     },
+     {
+      "obj": 7,
+      "level_dbfs": -32.0,
+      "sdr_full_db": 52.27,
+      "sdr_without_band0_db": 63.71,
+      "band0_snr_db": 50.69,
+      "band0_share_of_residual": 0.977,
+      "band0_share_of_signal": 0.68
+     },
+     {
+      "obj": 10,
+      "level_dbfs": -42.9,
+      "sdr_full_db": 44.99,
+      "sdr_without_band0_db": 62.04,
+      "band0_snr_db": 38.29,
+      "band0_share_of_residual": 0.984,
+      "band0_share_of_signal": 0.21
+     },
+     {
+      "obj": 11,
+      "level_dbfs": -42.6,
+      "sdr_full_db": 50.98,
+      "sdr_without_band0_db": 67.19,
+      "band0_snr_db": 43.79,
+      "band0_share_of_residual": 0.981,
+      "band0_share_of_signal": 0.187
+     },
+     {
+      "obj": 12,
+      "level_dbfs": -40.1,
+      "sdr_full_db": 53.31,
+      "sdr_without_band0_db": 66.09,
+      "band0_snr_db": 46.57,
+      "band0_share_of_residual": 0.958,
+      "band0_share_of_signal": 0.203
+     },
+     {
+      "obj": 15,
+      "level_dbfs": -40.6,
+      "sdr_full_db": 54.52,
+      "sdr_without_band0_db": 66.53,
+      "band0_snr_db": 48.28,
+      "band0_share_of_residual": 0.951,
+      "band0_share_of_signal": 0.227
+     }
+    ]
+   },
+   "dexter-resurrection-s01e01-a-beating-hea": {
+    "summary": {
+     "objects": 5,
+     "worst_full": 49.61,
+     "median_full": 50.96,
+     "worst_without_band0": 48.23,
+     "median_without_band0": 49.6,
+     "worst_band0": 49.27,
+     "median_band0": 129.77,
+     "median_band0_share_of_residual": 0.0
+    },
+    "objects": [
+     {
+      "obj": 1,
+      "level_dbfs": -30.8,
+      "sdr_full_db": 50.96,
+      "sdr_without_band0_db": 48.3,
+      "band0_snr_db": 132.66,
+      "band0_share_of_residual": 0.0,
+      "band0_share_of_signal": 0.458
+     },
+     {
+      "obj": 2,
+      "level_dbfs": -34.2,
+      "sdr_full_db": 53.11,
+      "sdr_without_band0_db": 50.25,
+      "band0_snr_db": 129.77,
+      "band0_share_of_residual": 0.0,
+      "band0_share_of_signal": 0.481
+     },
+     {
+      "obj": 3,
+      "level_dbfs": -40.2,
+      "sdr_full_db": 49.61,
+      "sdr_without_band0_db": 49.95,
+      "band0_snr_db": 49.27,
+      "band0_share_of_residual": 0.527,
+      "band0_share_of_signal": 0.488
+     },
+     {
+      "obj": 4,
+      "level_dbfs": -34.6,
+      "sdr_full_db": 52.95,
+      "sdr_without_band0_db": 49.6,
+      "band0_snr_db": 129.94,
+      "band0_share_of_residual": 0.0,
+      "band0_share_of_signal": 0.537
+     },
+     {
+      "obj": 6,
+      "level_dbfs": -40.5,
+      "sdr_full_db": 49.67,
+      "sdr_without_band0_db": 48.23,
+      "band0_snr_db": 51.39,
+      "band0_share_of_residual": 0.369,
+      "band0_share_of_signal": 0.547
+     }
+    ]
+   }
+  },
+  "residual_bands": {
+   "mercy-2026": {
+    "obj5": {
+     "sdr_db": 29.55,
+     "object_level_dbfs": -67.24,
+     "residual_on_total_db": -30.84,
+     "residual_off_total_db": -30.85,
+     "dither_switch_gain_db": 0.01,
+     "residual_share_in_top6_bands": 0.998,
+     "top_bands": [
+      {
+       "band": 0,
+       "hz": "0-375",
+       "share": 0.996,
+       "band_snr_db": 27.7,
+       "dither_off_gain_db": 0.0
+      },
+      {
+       "band": 45,
+       "hz": "16875-17250",
+       "share": 0.001,
+       "band_snr_db": -0.3,
+       "dither_off_gain_db": 1.59
+      },
+      {
+       "band": 10,
+       "hz": "3750-4125",
+       "share": 0.001,
+       "band_snr_db": 31.1,
+       "dither_off_gain_db": 0.48
+      },
+      {
+       "band": 1,
+       "hz": "375-750",
+       "share": 0.0,
+       "band_snr_db": 53.9,
+       "dither_off_gain_db": 0.0
+      },
+      {
+       "band": 34,
+       "hz": "12750-13125",
+       "share": 0.0,
+       "band_snr_db": 12.6,
+       "dither_off_gain_db": 3.71
+      },
+      {
+       "band": 33,
+       "hz": "12375-12750",
+       "share": 0.0,
+       "band_snr_db": 14.4,
+       "dither_off_gain_db": 4.69
+      }
+     ],
+     "band_snr_db_by_band": [
+      27.7,
+      53.9,
+      68.9,
+      82.4,
+      75.8,
+      77.0,
+      70.4,
+      74.0,
+      44.8,
+      57.1,
+      31.1,
+      35.6,
+      39.3,
+      42.3,
+      35.9,
+      36.2,
+      40.5,
+      49.1,
+      48.8,
+      45.2,
+      34.0,
+      33.3,
+      32.1,
+      35.6,
+      30.7,
+      31.7,
+      33.1,
+      36.3,
+      43.1,
+      37.5,
+      40.0,
+      29.4,
+      27.2,
+      14.4,
+      12.6,
+      14.5,
+      16.2,
+      12.3,
+      10.9,
+      12.9,
+      17.9,
+      12.8,
+      12.6,
+      7.8,
+      8.6,
+      -0.3,
+      -3.2,
+      -2.9,
+      -3.0,
+      -3.0,
+      -3.3,
+      -4.0,
+      -3.1,
+      -3.3,
+      -3.8,
+      -13.3,
+      -13.6,
+      -14.3,
+      -13.8,
+      -14.3,
+      -13.9,
+      -14.2,
+      -14.1,
+      -13.9
+     ]
+    },
+    "obj8": {
+     "sdr_db": 30.36,
+     "object_level_dbfs": -46.26,
+     "residual_on_total_db": -11.53,
+     "residual_off_total_db": -11.55,
+     "dither_switch_gain_db": 0.02,
+     "residual_share_in_top6_bands": 0.996,
+     "top_bands": [
+      {
+       "band": 0,
+       "hz": "0-375",
+       "share": 0.99,
+       "band_snr_db": 29.7,
+       "dither_off_gain_db": -0.0
+      },
+      {
+       "band": 45,
+       "hz": "16875-17250",
+       "share": 0.004,
+       "band_snr_db": -0.9,
+       "dither_off_gain_db": 3.28
+      },
+      {
+       "band": 1,
+       "hz": "375-750",
+       "share": 0.001,
+       "band_snr_db": 50.6,
+       "dither_off_gain_db": -0.0
+      },
+      {
+       "band": 46,
+       "hz": "17250-17625",
+       "share": 0.001,
+       "band_snr_db": -1.6,
+       "dither_off_gain_db": 3.14
+      },
+      {
+       "band": 51,
+       "hz": "19125-19500",
+       "share": 0.0,
+       "band_snr_db": 11.7,
+       "dither_off_gain_db": 3.57
+      },
+      {
+       "band": 47,
+       "hz": "17625-18000",
+       "share": 0.0,
+       "band_snr_db": 1.3,
+       "dither_off_gain_db": 3.13
+      }
+     ],
+     "band_snr_db_by_band": [
+      29.7,
+      50.6,
+      65.3,
+      79.2,
+      70.8,
+      77.5,
+      67.8,
+      77.7,
+      36.5,
+      48.4,
+      43.2,
+      43.4,
+      52.3,
+      51.7,
+      34.9,
+      34.4,
+      38.3,
+      46.7,
+      47.1,
+      47.8,
+      39.1,
+      49.8,
+      43.3,
+      32.6,
+      33.3,
+      33.0,
+      32.2,
+      40.4,
+      40.9,
+      36.3,
+      37.9,
+      25.5,
+      34.5,
+      33.7,
+      29.0,
+      29.4,
+      25.8,
+      25.2,
+      22.6,
+      16.0,
+      16.0,
+      19.3,
+      17.1,
+      12.9,
+      7.9,
+      -0.9,
+      -1.6,
+      1.3,
+      6.0,
+      8.3,
+      12.0,
+      11.7,
+      12.2,
+      11.4,
+      6.4,
+      35.8,
+      42.0,
+      43.5,
+      41.8,
+      43.0,
+      41.7,
+      42.6,
+      41.8,
+      41.5
+     ]
+    },
+    "obj6": {
+     "sdr_db": 33.02,
+     "object_level_dbfs": -64.8,
+     "residual_on_total_db": -31.89,
+     "residual_off_total_db": -31.89,
+     "dither_switch_gain_db": 0.01,
+     "residual_share_in_top6_bands": 0.999,
+     "top_bands": [
+      {
+       "band": 0,
+       "hz": "0-375",
+       "share": 0.996,
+       "band_snr_db": 31.7,
+       "dither_off_gain_db": 0.0
+      },
+      {
+       "band": 45,
+       "hz": "16875-17250",
+       "share": 0.001,
+       "band_snr_db": -0.5,
+       "dither_off_gain_db": 2.24
+      },
+      {
+       "band": 10,
+       "hz": "3750-4125",
+       "share": 0.001,
+       "band_snr_db": 30.5,
+       "dither_off_gain_db": 0.75
+      },
+      {
+       "band": 1,
+       "hz": "375-750",
+       "share": 0.0,
+       "band_snr_db": 55.7,
+       "dither_off_gain_db": -0.0
+      },
+      {
+       "band": 51,
+       "hz": "19125-19500",
+       "share": 0.0,
+       "band_snr_db": -3.2,
+       "dither_off_gain_db": 3.77
+      },
+      {
+       "band": 53,
+       "hz": "19875-20250",
+       "share": 0.0,
+       "band_snr_db": -1.9,
+       "dither_off_gain_db": 2.43
+      }
+     ],
+     "band_snr_db_by_band": [
+      31.7,
+      55.7,
+      68.5,
+      79.9,
+      75.3,
+      76.3,
+      72.4,
+      69.6,
+      57.0,
+      56.2,
+      30.5,
+      37.9,
+      52.9,
+      51.6,
+      37.1,
+      36.1,
+      39.8,
+      38.7,
+      53.1,
+      37.7,
+      33.3,
+      37.8,
+      41.8,
+      34.6,
+      30.5,
+      31.3,
+      30.3,
+      37.2,
+      38.7,
+      30.9,
+      34.7,
+      28.1,
+      24.5,
+      22.1,
+      18.8,
+      18.4,
+      19.7,
+      16.0,
+      15.0,
+      13.0,
+      16.6,
+      11.5,
+      12.8,
+      7.7,
+      8.4,
+      -0.5,
+      -1.1,
+      -1.9,
+      -1.5,
+      -1.4,
+      -2.5,
+      -3.2,
+      -3.0,
+      -1.9,
+      1.3,
+      20.6,
+      20.4,
+      20.3,
+      20.3,
+      20.2,
+      20.1,
+      20.0,
+      20.0,
+      19.2
+     ]
+    }
+   },
+   "a-man-called-otto-2022": {
+    "obj5": {
+     "sdr_db": 30.33,
+     "object_level_dbfs": -63.4,
+     "residual_on_total_db": -28.14,
+     "residual_off_total_db": -28.14,
+     "dither_switch_gain_db": 0.0,
+     "residual_share_in_top6_bands": 1.0,
+     "top_bands": [
+      {
+       "band": 0,
+       "hz": "0-375",
+       "share": 0.99,
+       "band_snr_db": 25.2,
+       "dither_off_gain_db": 0.0
+      },
+      {
+       "band": 1,
+       "hz": "375-750",
+       "share": 0.009,
+       "band_snr_db": 43.9,
+       "dither_off_gain_db": -0.0
+      },
+      {
+       "band": 14,
+       "hz": "5250-5625",
+       "share": 0.0,
+       "band_snr_db": 39.9,
+       "dither_off_gain_db": 5.0
+      },
+      {
+       "band": 17,
+       "hz": "6375-6750",
+       "share": 0.0,
+       "band_snr_db": 34.9,
+       "dither_off_gain_db": 5.28
+      },
+      {
+       "band": 13,
+       "hz": "4875-5250",
+       "share": 0.0,
+       "band_snr_db": 41.5,
+       "dither_off_gain_db": 3.26
+      },
+      {
+       "band": 12,
+       "hz": "4500-4875",
+       "share": 0.0,
+       "band_snr_db": 42.2,
+       "dither_off_gain_db": 2.73
+      }
+     ],
+     "band_snr_db_by_band": [
+      25.2,
+      43.9,
+      73.4,
+      87.3,
+      79.2,
+      84.9,
+      78.8,
+      85.0,
+      81.3,
+      83.6,
+      77.1,
+      55.1,
+      42.2,
+      41.5,
+      39.9,
+      40.0,
+      46.2,
+      34.9,
+      37.6,
+      50.4,
+      43.6,
+      45.7,
+      39.3,
+      32.6,
+      32.3,
+      31.6,
+      27.4,
+      28.2,
+      30.0,
+      25.7,
+      27.4,
+      32.4,
+      30.2,
+      28.1,
+      28.2,
+      24.2,
+      14.5,
+      13.6,
+      13.7,
+      8.3,
+      7.1,
+      2.5,
+      1.5,
+      3.6,
+      3.1,
+      -2.1,
+      -2.9,
+      -3.1,
+      -3.7,
+      -3.6,
+      -3.0,
+      -3.5,
+      -3.3,
+      -3.1,
+      -6.0,
+      -11.3,
+      -11.0,
+      -11.3,
+      -11.1,
+      -11.4,
+      -11.2,
+      -11.4,
+      -11.4,
+      -11.4
+     ]
+    },
+    "obj7": {
+     "sdr_db": 30.34,
+     "object_level_dbfs": -65.14,
+     "residual_on_total_db": -30.15,
+     "residual_off_total_db": -30.16,
+     "dither_switch_gain_db": 0.0,
+     "residual_share_in_top6_bands": 0.999,
+     "top_bands": [
+      {
+       "band": 0,
+       "hz": "0-375",
+       "share": 0.99,
+       "band_snr_db": 25.6,
+       "dither_off_gain_db": -0.0
+      },
+      {
+       "band": 1,
+       "hz": "375-750",
+       "share": 0.008,
+       "band_snr_db": 44.0,
+       "dither_off_gain_db": 0.0
+      },
+      {
+       "band": 18,
+       "hz": "6750-7125",
+       "share": 0.0,
+       "band_snr_db": 30.6,
+       "dither_off_gain_db": 2.93
+      },
+      {
+       "band": 12,
+       "hz": "4500-4875",
+       "share": 0.0,
+       "band_snr_db": 42.1,
+       "dither_off_gain_db": 5.69
+      },
+      {
+       "band": 15,
+       "hz": "5625-6000",
+       "share": 0.0,
+       "band_snr_db": 40.3,
+       "dither_off_gain_db": 2.8
+      },
+      {
+       "band": 17,
+       "hz": "6375-6750",
+       "share": 0.0,
+       "band_snr_db": 39.0,
+       "dither_off_gain_db": 4.06
+      }
+     ],
+     "band_snr_db_by_band": [
+      25.6,
+      44.0,
+      74.0,
+      86.2,
+      80.1,
+      84.6,
+      79.5,
+      84.9,
+      82.3,
+      84.1,
+      81.2,
+      57.7,
+      42.1,
+      47.1,
+      44.8,
+      40.3,
+      51.3,
+      39.0,
+      30.6,
+      40.7,
+      40.8,
+      39.1,
+      38.4,
+      33.9,
+      32.0,
+      30.2,
+      28.6,
+      30.3,
+      24.1,
+      21.4,
+      26.8,
+      28.1,
+      30.1,
+      28.4,
+      27.3,
+      25.7,
+      17.9,
+      17.4,
+      17.8,
+      15.5,
+      11.6,
+      6.3,
+      3.8,
+      9.1,
+      8.0,
+      -1.2,
+      -3.9,
+      -2.7,
+      -2.1,
+      -3.6,
+      -3.2,
+      -4.0,
+      -4.2,
+      -4.6,
+      -7.8,
+      -13.7,
+      -13.1,
+      -13.7,
+      -13.3,
+      -13.6,
+      -13.5,
+      -13.6,
+      -13.5,
+      -13.6
+     ]
+    },
+    "obj9": {
+     "sdr_db": 33.72,
+     "object_level_dbfs": -55.33,
+     "residual_on_total_db": -23.69,
+     "residual_off_total_db": -24.16,
+     "dither_switch_gain_db": 0.47,
+     "residual_share_in_top6_bands": 0.931,
+     "top_bands": [
+      {
+       "band": 0,
+       "hz": "0-375",
+       "share": 0.793,
+       "band_snr_db": 34.4,
+       "dither_off_gain_db": -0.0
+      },
+      {
+       "band": 46,
+       "hz": "17250-17625",
+       "share": 0.032,
+       "band_snr_db": -3.1,
+       "dither_off_gain_db": 3.07
+      },
+      {
+       "band": 47,
+       "hz": "17625-18000",
+       "share": 0.029,
+       "band_snr_db": -3.1,
+       "dither_off_gain_db": 3.09
+      },
+      {
+       "band": 48,
+       "hz": "18000-18375",
+       "share": 0.028,
+       "band_snr_db": -3.2,
+       "dither_off_gain_db": 3.15
+      },
+      {
+       "band": 45,
+       "hz": "16875-17250",
+       "share": 0.026,
+       "band_snr_db": -0.8,
+       "dither_off_gain_db": 3.09
+      },
+      {
+       "band": 49,
+       "hz": "18375-18750",
+       "share": 0.023,
+       "band_snr_db": -3.1,
+       "dither_off_gain_db": 3.14
+      }
+     ],
+     "band_snr_db_by_band": [
+      34.4,
+      40.9,
+      57.9,
+      70.9,
+      64.1,
+      70.9,
+      60.1,
+      68.4,
+      61.6,
+      69.2,
+      61.7,
+      51.1,
+      48.2,
+      54.1,
+      48.4,
+      39.7,
+      44.8,
+      51.5,
+      42.5,
+      51.6,
+      49.7,
+      46.4,
+      39.9,
+      35.9,
+      38.2,
+      39.8,
+      33.1,
+      31.8,
+      34.2,
+      33.5,
+      38.9,
+      35.0,
+      35.1,
+      32.2,
+      32.1,
+      32.2,
+      31.0,
+      28.7,
+      24.9,
+      16.8,
+      14.9,
+      14.0,
+      13.5,
+      14.0,
+      12.1,
+      -0.8,
+      -3.1,
+      -3.1,
+      -3.2,
+      -3.1,
+      -3.1,
+      -3.0,
+      -3.0,
+      -3.2,
+      -2.9,
+      -2.6,
+      0.7,
+      -0.9,
+      0.7,
+      -1.1,
+      0.8,
+      -1.1,
+      0.8,
+      -3.5
+     ]
+    }
+   }
+  }
+ }
+}

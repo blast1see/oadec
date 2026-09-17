@@ -136,11 +136,11 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "oadec-bits"
-version = "0.3.0"
+version = "0.4.0"
 
 [[package]]
 name = "oadec-cli"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -156,7 +156,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-eac3"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "log",
  "oadec-bits",
@@ -166,7 +166,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-emdf"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "oadec-bits",
  "thiserror",
@@ -174,7 +174,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-joc"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "oadec-bits",
  "oadec-emdf",
@@ -183,7 +183,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-spatial"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "oadec-emdf",
  "thiserror",
@@ -191,7 +191,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-truehd"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "log",
  "oadec-bits",

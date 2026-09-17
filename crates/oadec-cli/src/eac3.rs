@@ -13,7 +13,7 @@ use oadec_eac3::{
     find_sync,
 };
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
-use oadec_emdf::joc::{Joc, Slope, SparseReading};
+use oadec_emdf::joc::{Joc, JocError, Slope, SparseReading};
 use oadec_emdf::oamd::Oamd;
 use serde_json::{Value, json};
 
@@ -230,10 +230,18 @@ struct EmdfStats {
     frames_with_skip: u64,
     skip_bytes: u64,
     containers: u64,
-    /// Frames whose skip fields held no parsable container.
+    /// Frames whose skip fields held no parsable container. Skip fields may
+    /// carry other data, so these are a fault only in a stream that carries
+    /// EMDF; see [`EmdfStats::missing_containers`].
     container_errors: u64,
     /// Sync words inside payload bytes that did not start a container.
     false_syncs: u64,
+    /// The first frame whose skip fields held no parsable container.
+    first_missing: Option<u64>,
+    /// The scanned substream declared a JOC extension in its `addbsi`, which
+    /// rides in an EMDF container (TS 103 420 clause 8.3.1): it carries EMDF
+    /// even when not one container opens.
+    declares_joc: bool,
     payload_ids: BTreeMap<u32, u64>,
     oamd_ok: u64,
     oamd_errors: u64,
@@ -249,7 +257,16 @@ struct EmdfStats {
     // JOC side information statistics
     joc_ok: u64,
     joc_errors: u64,
+    /// JOC payloads whose `joc_ext_config_idx` is reserved (TS 103 420 table
+    /// 49), counted apart from the payloads that would not parse.
+    joc_reserved_ext: u64,
     joc_size_mismatch: u64,
+    /// Fields of the OAMD and JOC payload configurations outside table 56 of
+    /// TS 103 420, as far as `container::table_56_violations` enforces it.
+    payload_config_violations: u64,
+    /// The object total of the first OAMD payload that parsed: the bed, ISF
+    /// and dynamic objects `complexity_index_type_a` has to equal.
+    oamd_total: Option<usize>,
     /// Frames carrying auxiliary data user bits (clause 4.4.4), and how many
     /// bytes of them, and how many EMDF containers they hold. Annex H names
     /// `auxdata` as a place a container may be carried, next to the skip
@@ -299,6 +316,21 @@ struct EmdfStats {
 }
 
 impl EmdfStats {
+    /// Frames that lost their container: frames whose skip fields held no
+    /// container that opens, in a stream in which containers do open or whose
+    /// frames declare a JOC extension. Skip fields may carry other data, and two
+    /// AC-3 clips of the corpus fill them in some 1 100 frames without a single
+    /// container, so in a stream that carries no EMDF at all the count is not a
+    /// fault; a stream whose containers are all broken still declares the
+    /// extension, and its frames did lose their metadata.
+    fn missing_containers(&self) -> u64 {
+        if self.containers > 0 || self.declares_joc {
+            self.container_errors
+        } else {
+            0
+        }
+    }
+
     /// Records where a rare syntax branch occurred, up to a cap: the counts
     /// answer "does anything use this", the frame numbers answer "where do I
     /// cut a clip that does".
@@ -309,10 +341,18 @@ impl EmdfStats {
         }
     }
 
-    fn scan(&mut self, frame_index: u64, skip_fields: &[Vec<u8>]) {
+    fn scan(&mut self, frame_index: u64, skip_fields: &[Vec<u8>], declares_emdf: bool) {
         self.last_clipgain = None;
         let total: usize = skip_fields.iter().map(Vec::len).sum();
         if total == 0 {
+            // A substream that declares the JOC extension carries a container in
+            // every frame, so a frame with no skip field at all has lost one.
+            // Returning here left that loss unreported (R7F1). A frame of a
+            // stream that carries no EMDF has lost nothing.
+            if declares_emdf {
+                self.container_errors += 1;
+                self.first_missing.get_or_insert(frame_index);
+            }
             return;
         }
         self.frames_with_skip += 1;
@@ -336,6 +376,25 @@ impl EmdfStats {
                 Ok((c, used)) => {
                     self.containers += 1;
                     found = true;
+                    // TS 103 420 table 56 fixes most of the configuration of
+                    // the OAMD and JOC payloads
+                    let mut violations: Vec<String> = Vec::new();
+                    for p in &c.payloads {
+                        for v in container::table_56_violations(p.id, &p.config) {
+                            violations.push(format!("payload {}: {v}", p.id));
+                        }
+                    }
+                    if let Some(v) = container::table_56_group_violation(&c) {
+                        violations.push(format!(
+                            "payloads {PAYLOAD_ID_OAMD} and {PAYLOAD_ID_JOC}: {v}"
+                        ));
+                    }
+                    self.payload_config_violations += violations.len() as u64;
+                    if self.first_error.is_none()
+                        && let Some(v) = violations.first()
+                    {
+                        self.first_error = Some(format!("frame {frame_index}: {v}"));
+                    }
                     for p in &c.payloads {
                         *self.payload_ids.entry(p.id).or_default() += 1;
                         if p.id == PAYLOAD_ID_JOC {
@@ -430,6 +489,14 @@ impl EmdfStats {
                                         }
                                     }
                                 }
+                                Err(JocError::ExtConfig(ext)) => {
+                                    self.joc_reserved_ext += 1;
+                                    if self.first_error.is_none() {
+                                        self.first_error = Some(format!(
+                                            "frame {frame_index}: joc_ext_config_idx {ext} is reserved"
+                                        ));
+                                    }
+                                }
                                 Err(e) => {
                                     self.joc_errors += 1;
                                     if self.first_error.is_none() {
@@ -443,6 +510,12 @@ impl EmdfStats {
                             match Oamd::parse(&p.data) {
                                 Ok(oamd) => {
                                     self.oamd_ok += 1;
+                                    let program = &oamd.program;
+                                    self.oamd_total.get_or_insert(
+                                        program.bed_objects()
+                                            + program.isf_objects()
+                                            + program.dynamic_objects,
+                                    );
                                     let counts = oamd.gain_and_size_counts();
                                     if !counts.gains_db.is_empty() {
                                         self.note_rare("oamd-object-gain", frame_index);
@@ -472,11 +545,9 @@ impl EmdfStats {
         }
         if !found {
             self.container_errors += 1;
-            if self.first_error.is_none() {
-                self.first_error = Some(format!(
-                    "frame {frame_index}: no EMDF container in the skip fields"
-                ));
-            }
+            // a fault only if the stream turns out to carry EMDF, which is known
+            // at the end of the pass (`missing_containers`)
+            self.first_missing.get_or_insert(frame_index);
         }
     }
 }
@@ -570,6 +641,15 @@ struct Pass {
     crc_failures: u64,
     tail_overruns: u64,
     first_error: Option<String>,
+    /// The first problem that is a fault of a delivery: `first_error` less the
+    /// conformance findings a delivery does not fail on (see `findings`).
+    first_fault: Option<String>,
+    /// Frames whose `complexity_index_type_a` breaks TS 103 420 clause 8.3.2.2.
+    complexity_mismatches: u64,
+    /// The first frame's `bsi` of the substream that carries the EMDF
+    /// container, whose `addbsi` holds the extension of TS 103 420 clause 8.3
+    /// (clause 8.3.1): the last dependent substream when there is one.
+    metadata_bsi: Option<oadec_eac3::Bsi>,
     coverage: Coverage,
     emdf: EmdfStats,
     first: Option<(FrameHeader, oadec_eac3::Bsi)>,
@@ -681,6 +761,17 @@ fn pass(
     if p.first_error.is_none() {
         p.first_error = p.program.first_error.clone();
     }
+    if p.first_fault.is_none() {
+        p.first_fault = p.program.first_error.clone();
+    }
+    if p.emdf.missing_containers() > 0
+        && p.emdf.first_error.is_none()
+        && let Some(frame) = p.emdf.first_missing
+    {
+        p.emdf.first_error = Some(format!(
+            "frame {frame}: no EMDF container in the skip fields"
+        ));
+    }
     let _ = frames;
     Ok((p, sync_errors, skipped))
 }
@@ -729,16 +820,43 @@ fn account(
     }
     if !d.crc_ok {
         p.crc_failures += 1;
+        let problem = format!("frame {index}: CRC failure");
+        if p.first_fault.is_none() {
+            p.first_fault = Some(problem.clone());
+        }
         if p.first_error.is_none() {
-            p.first_error = Some(format!("frame {index}: CRC failure"));
+            p.first_error = Some(problem);
         }
     }
     // TS 103 420 clause 8.2: with dependent substreams present the EMDF
     // container carrying OAMD and JOC is in the last dependent substream. With
     // none, `metadata_part` is the independent substream and this is exactly
     // what it was before.
-    p.emdf
-        .scan(index, &frame.metadata_part().decoded.skip_fields);
+    // TS 103 420 clause 8.3.1: the addbsi extension is in the same substream
+    // as the container. It is read before the scan, because a frame that
+    // carries no skip field at all is a lost container exactly where the
+    // substream declares one.
+    let extension = frame.metadata_part().decoded.bsi.joc_extension();
+    let declares_joc = matches!(extension, Some((true, _)));
+    let carries_emdf = declares_joc || p.emdf.declares_joc;
+    p.emdf.scan(
+        index,
+        &frame.metadata_part().decoded.skip_fields,
+        carries_emdf,
+    );
+    p.emdf.declares_joc |= declares_joc;
+    if p.metadata_bsi.is_none() {
+        p.metadata_bsi = Some(frame.metadata_part().decoded.bsi.clone());
+    }
+    if let Some((true, complexity)) = extension
+        && let Some(total) = p.emdf.oamd_total
+        && let Some(problem) = complexity_problem(complexity, total)
+    {
+        p.complexity_mismatches += 1;
+        if p.first_error.is_none() {
+            p.first_error = Some(format!("frame {index}: {problem}"));
+        }
+    }
     if frame.parts.len() > 1 {
         p.emdf.containers_in_independent += count_containers(&d.skip_fields);
     }
@@ -811,8 +929,28 @@ fn joc_peak(j: &Joc) -> f64 {
     peak
 }
 
+/// TS 103 420 clause 8.3.2.2: `complexity_index_type_a` equals the total of
+/// bed, ISF and dynamic objects the OAMD programme assignment declares, and is
+/// at most 16. What is wrong with an index, if anything.
+fn complexity_problem(complexity: u8, oamd_total: usize) -> Option<String> {
+    if usize::from(complexity) != oamd_total {
+        Some(format!(
+            "complexity_index_type_a {complexity} differs from the OAMD object total {oamd_total} (clause 8.3)"
+        ))
+    } else if complexity > 16 {
+        Some(format!(
+            "complexity_index_type_a {complexity} exceeds 16 (clause 8.3)"
+        ))
+    } else {
+        None
+    }
+}
+
 /// Whether a pass found nothing wrong: every frame decoded, every CRC and
-/// every metadata payload checked out, and no byte of the file was skipped.
+/// every metadata payload checked out, in a stream that carries EMDF every frame
+/// with skip fields held a container that opens, no byte of the file was
+/// skipped, and the payload configuration and the complexity index are what
+/// TS 103 420 requires.
 fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
     p.decode_errors == 0
         && p.crc_failures == 0
@@ -821,7 +959,11 @@ fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
         && skipped == 0
         && p.emdf.oamd_errors == 0
         && p.emdf.joc_errors == 0
+        && p.emdf.joc_reserved_ext == 0
         && p.emdf.joc_size_mismatch == 0
+        && p.emdf.missing_containers() == 0
+        && p.emdf.payload_config_violations == 0
+        && p.complexity_mismatches == 0
         // A dependent substream that was seen and whose channels did not reach
         // the output means the programme was truncated, whatever the frames
         // that did decode looked like. A second programme is legal and is not
@@ -872,12 +1014,17 @@ fn program_parts(p: &Pass, h: &FrameHeader) -> Vec<Value> {
     parts
 }
 
-/// The same faults `is_clean` weighs, in the form a delivery path reports.
+/// The faults `is_clean` weighs, in the form a delivery path reports, less the
+/// findings that make a file non-conformant without making what was delivered
+/// untrustworthy (`docs/exit-codes.md`): frames that end inside their own tail,
+/// which are out of spec and decode to the audio FFmpeg, Dolby and oadec agree
+/// on; payload configurations outside table 56 of TS 103 420; and a complexity
+/// index that disagrees with the OAMD. A delivery prints them and keeps its
+/// verdict; `verify` still calls the file non-conformant.
 fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
     let mut f = Findings::default();
     f.note(p.decode_errors, "frames failed to decode");
     f.note(p.crc_failures, "CRC failures");
-    f.note(p.tail_overruns, "frames ending inside the frame tail");
     f.note(sync_errors, "sync errors");
     f.note(skipped, "bytes skipped");
     f.note(
@@ -886,8 +1033,16 @@ fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
     );
     f.note(p.emdf.joc_errors, "JOC payloads failed to parse");
     f.note(
+        p.emdf.joc_reserved_ext,
+        "JOC payloads with a reserved joc_ext_config_idx",
+    );
+    f.note(
         p.emdf.joc_size_mismatch,
         "JOC payloads whose declared size was wrong",
+    );
+    f.note(
+        p.emdf.missing_containers(),
+        "frames whose skip fields held no EMDF container that opens",
     );
     f.note(
         p.program.dependent_dropped,
@@ -910,6 +1065,18 @@ fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
         p.program.layout_changes,
         "mid-stream channel layout changes",
     );
+    f.note(
+        p.program.duplicate_substream_frames,
+        "substream frames repeated within one group",
+    );
+    f.note(
+        p.program.stalled_substreams,
+        "substreams flushed after they stopped supplying frames",
+    );
+    f.note(
+        p.program.missing_substream_frames,
+        "substream frames that never came out of their decoder",
+    );
     for (key, sub) in &p.subs {
         let id = key.1;
         f.note(
@@ -920,12 +1087,8 @@ fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
             sub.crc_failures,
             &format!("CRC failures in dependent substream {id}"),
         );
-        f.note(
-            sub.tail_overruns,
-            &format!("frames of dependent substream {id} ending inside the frame tail"),
-        );
     }
-    f.first_problem(p.first_error.as_deref());
+    f.first_problem(p.first_fault.as_deref());
     f
 }
 
@@ -939,7 +1102,10 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
         oadec_eac3::ProgramLayout::names,
     );
     let duration = p.samples as f64 / f64::from(h.sample_rate);
-    let joc = bsi.joc_extension();
+    // TS 103 420 clause 8.3.1: the extension is in the substream that carries
+    // the container, which is not the independent one when a dependent follows
+    let meta = p.metadata_bsi.as_ref().unwrap_or(bsi);
+    let joc = meta.joc_extension();
     if json {
         let e = &p.emdf;
         let payload_ids: serde_json::Map<String, Value> = e
@@ -969,7 +1135,10 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "tail_overruns": p.tail_overruns,
                 "oamd_errors": e.oamd_errors,
                 "joc_errors": e.joc_errors,
+                "joc_reserved_ext_config": e.joc_reserved_ext,
                 "joc_size_mismatches": e.joc_size_mismatch,
+                "payload_config_violations": e.payload_config_violations,
+                "complexity_mismatches": p.complexity_mismatches,
                 "dependent_dropped": p.program.dependent_dropped,
                 "orphan_dependents": p.program.orphan_dependents,
                 "substream_decode_errors": p.subs.values().map(|s| s.decode_errors).sum::<u64>(),
@@ -979,9 +1148,13 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "misaligned_substreams": p.program.misaligned,
                 "channels_over_capacity": p.program.over_capacity,
                 "layout_changes": p.program.layout_changes,
+                "duplicate_substream_frames": p.program.duplicate_substream_frames,
+                "stalled_substreams": p.program.stalled_substreams,
+                "missing_substream_frames": p.program.missing_substream_frames,
             },
             "program": program_parts(p, h),
             "other_program_frames": p.program.other_program_frames,
+            "max_pending_groups": p.program.max_pending_groups,
             "coverage": coverage_list(&p.coverage),
             "aht_frames": p.aht_frames,
             "spx_frames": p.spx_frames,
@@ -1033,6 +1206,7 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             "joc": (e.joc > 0).then(|| json!({
                 "parsed": e.joc_ok,
                 "errors": e.joc_errors,
+                "reserved_ext_config": e.joc_reserved_ext,
                 "size_mismatches": e.joc_size_mismatch,
                 "non_zero_padding": e.joc_padding_nonzero,
                 "downmix_configs": e.joc_dmx.keys().collect::<Vec<_>>(),
@@ -1155,8 +1329,8 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 .slack_bits
                 .map_or_else(|| "-".to_string(), |(lo, hi)| format!("{lo} to {hi}"));
             println!(
-                "                     {} frames merged, {} CRC failures, {} decode errors, {} bits unread",
-                sub.frames, sub.crc_failures, sub.decode_errors, slack
+                "                     {} frames merged, {} CRC failures, {} decode errors, {} frames ending inside the frame tail, {} bits unread",
+                sub.frames, sub.crc_failures, sub.decode_errors, sub.tail_overruns, slack
             );
             if sub.lfe_implied > 0 {
                 println!(
@@ -1175,6 +1349,18 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             p.program.over_capacity,
             p.program.layout_changes,
             p.program.orphan_dependents
+        );
+    }
+    if p.program.duplicate_substream_frames > 0 {
+        println!(
+            "Repeated frames:   {} substream frames repeated within one group, only the first of each decoded",
+            p.program.duplicate_substream_frames
+        );
+    }
+    if p.program.stalled_substreams > 0 || p.program.missing_substream_frames > 0 {
+        println!(
+            "Stalled groups:    {} substreams flushed after they stopped supplying frames, {} substream frames that never came out of their decoder",
+            p.program.stalled_substreams, p.program.missing_substream_frames
         );
     }
     if p.program.other_program_frames > 0 {
@@ -1196,12 +1382,18 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             "JOC extension:     flag {}, complexity index {} (addbsi {} bytes)",
             flag,
             complexity,
-            bsi.addbsi.len()
+            meta.addbsi.len()
         ),
         None => println!(
             "JOC extension:     none (addbsi {} bytes)",
-            bsi.addbsi.len()
+            meta.addbsi.len()
         ),
+    }
+    if p.emdf.payload_config_violations > 0 || p.complexity_mismatches > 0 {
+        println!(
+            "Conformance:       {} payload configuration fields outside TS 103 420 table 56, {} frames whose complexity index breaks clause 8.3",
+            p.emdf.payload_config_violations, p.complexity_mismatches
+        );
     }
     println!(
         "Coding tools:      {} (AHT in {} frames, spectral extension in {}, enhanced coupling in {}, transient pre-noise in {})",
@@ -1227,9 +1419,10 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
     if p.emdf.joc > 0 {
         let e = &p.emdf;
         println!(
-            "JOC parse:         {} ok, {} errors, {} size mismatches, {} non-zero paddings; dmx configs {:?}; objects per payload {:?}; seq_count 0 in {} payloads; clipgain x1000 {:?}",
+            "JOC parse:         {} ok, {} errors, {} reserved extensions, {} size mismatches, {} non-zero paddings; dmx configs {:?}; objects per payload {:?}; seq_count 0 in {} payloads; clipgain x1000 {:?}",
             e.joc_ok,
             e.joc_errors,
+            e.joc_reserved_ext,
             e.joc_size_mismatch,
             e.joc_padding_nonzero,
             e.joc_dmx,
@@ -1308,6 +1501,11 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
 pub fn info(path: &Path, json: bool) -> Result<()> {
     let started = Instant::now();
     let (p, sync_errors, skipped) = pass(path, Options::default(), |_| Ok(()))?;
+    if p.independent + p.dependent == 0 {
+        // A sync word opened the file and no whole syncframe followed: a report
+        // of nothing reads like a clean stream that holds nothing.
+        return Err(crate::info::no_stream(path));
+    }
     print_pass(
         path,
         &p,
@@ -1323,6 +1521,11 @@ pub fn info(path: &Path, json: bool) -> Result<()> {
 pub fn verify(path: &Path, json: bool) -> Result<bool> {
     let started = Instant::now();
     let (p, sync_errors, skipped) = pass(path, Options::default(), |_| Ok(()))?;
+    if p.independent + p.dependent == 0 {
+        // Nothing framed: the file is not a stream to judge but an unsupported
+        // input, exit 2, as it is for every command that reports one.
+        return Err(crate::info::no_stream(path));
+    }
     print_pass(
         path,
         &p,
@@ -1341,6 +1544,16 @@ pub fn verify(path: &Path, json: bool) -> Result<bool> {
     Ok(clean)
 }
 
+/// The checks of `verify` over an AC-3 or E-AC-3 stream: its verdict and the
+/// first problem its report names.
+pub fn stream_check(path: &Path) -> Result<crate::verify::StreamCheck> {
+    let (p, sync_errors, skipped) = pass(path, Options::default(), |_| Ok(()))?;
+    Ok(crate::verify::StreamCheck {
+        clean: is_clean(&p, sync_errors, skipped),
+        first_problem: p.first_error.clone().or_else(|| p.emdf.first_error.clone()),
+    })
+}
+
 /// Options of `decode` for AC-3 family streams.
 #[derive(Debug, Clone, Copy)]
 pub struct DecodeOptions {
@@ -1353,38 +1566,6 @@ pub struct DecodeOptions {
     pub core_only: bool,
 }
 
-fn write_float_wav_header(
-    out: &mut impl Write,
-    channels: u16,
-    rate: u32,
-    mask: u32,
-    data_len: u32,
-) -> std::io::Result<()> {
-    let block_align = channels * 4;
-    out.write_all(b"RIFF")?;
-    out.write_all(&(data_len + 12 + 8 + 40 + 8 - 8).to_le_bytes())?;
-    out.write_all(b"WAVE")?;
-    out.write_all(b"fmt ")?;
-    out.write_all(&40u32.to_le_bytes())?;
-    out.write_all(&0xFFFEu16.to_le_bytes())?;
-    out.write_all(&channels.to_le_bytes())?;
-    out.write_all(&rate.to_le_bytes())?;
-    out.write_all(&(rate * u32::from(block_align)).to_le_bytes())?;
-    out.write_all(&block_align.to_le_bytes())?;
-    out.write_all(&32u16.to_le_bytes())?;
-    out.write_all(&22u16.to_le_bytes())?;
-    out.write_all(&32u16.to_le_bytes())?;
-    out.write_all(&mask.to_le_bytes())?;
-    // KSDATAFORMAT_SUBTYPE_IEEE_FLOAT
-    out.write_all(&[
-        0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B,
-        0x71,
-    ])?;
-    out.write_all(b"data")?;
-    out.write_all(&data_len.to_le_bytes())?;
-    Ok(())
-}
-
 /// `oadec decode` for AC-3 family streams: 32-bit float samples, as raw
 /// little-endian PCM or as WAVE.
 pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> {
@@ -1393,13 +1574,11 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> 
     }
     let started = Instant::now();
     let file = File::create(output).with_context(|| format!("creating {}", output.display()))?;
-    let mut out = BufWriter::with_capacity(4 << 20, file);
+    // the WAVE header waits for the first frame, which says what it holds
+    let mut out = Some(BufWriter::with_capacity(4 << 20, file));
+    let mut wav_out: Option<crate::decode::WavOut> = None;
     let mut header_written = false;
-    let mut data_len: u64 = 0;
     let mut order: Vec<usize> = Vec::new();
-    let mut channels = 0u16;
-    let mut rate = 0u32;
-    let mut mask = 0u32;
     let wav = opts.format == Format::Wav;
     let (p, sync_errors, skipped) = pass(
         path,
@@ -1412,12 +1591,15 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> 
             let (chans, pcm) = output_channels(frame, opts.core_only);
             if !header_written {
                 order = output_order(&chans, opts.order);
-                channels = chans.len() as u16;
-                rate = frame.core().header.sample_rate;
                 let ordered: Vec<ChannelLoc> = order.iter().map(|&i| chans[i]).collect();
-                mask = channel_mask(&ordered);
-                if wav {
-                    write_float_wav_header(&mut out, channels, rate, mask, 0)?;
+                let spec = crate::decode::WavSpec {
+                    channels: chans.len() as u16,
+                    rate: frame.core().header.sample_rate,
+                    mask: channel_mask(&ordered),
+                    sample: crate::decode::WavSample::Float32,
+                };
+                if wav && let Some(raw) = out.take() {
+                    wav_out = Some(crate::decode::WavOut::create(raw, spec)?);
                 }
                 header_written = true;
             }
@@ -1429,22 +1611,27 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> 
                     buf.extend_from_slice(&c[i].to_le_bytes());
                 }
             }
-            data_len += buf.len() as u64;
-            if wav && data_len > u64::from(u32::MAX) - 68 {
-                bail!("output exceeds the 4 GiB WAVE limit; use --format pcm");
+            match (&mut wav_out, &mut out) {
+                (Some(w), _) => w.write(&buf)?,
+                (None, Some(o)) => o.write_all(&buf)?,
+                (None, None) => unreachable!("the output stays open until the pass ends"),
             }
-            out.write_all(&buf)?;
             Ok(())
         },
     )?;
-    if wav && header_written {
-        out.flush()?;
-        let mut file = out.into_inner().map_err(|e| e.into_error())?;
-        file.seek(SeekFrom::Start(0))?;
-        write_float_wav_header(&mut file, channels, rate, mask, data_len as u32)?;
-        file.flush()?;
-    } else {
-        out.flush()?;
+    if p.independent + p.dependent == 0 {
+        // No whole syncframe: nothing to deliver and nothing to judge, which is
+        // an unusable input (exit 2) and not a faulty run, as in a TrueHD decode.
+        drop(wav_out);
+        drop(out);
+        let _ = std::fs::remove_file(output);
+        return Err(crate::info::no_stream(path));
+    }
+    // a WAVE file an error drops on the way here closes itself
+    if let Some(w) = wav_out {
+        w.finish()?;
+    } else if let Some(mut o) = out {
+        o.flush()?;
     }
     print_pass(
         path,
@@ -1481,7 +1668,7 @@ pub struct CompareOptions {
 /// it. `part` selects within the group, 0 being the independent substream, so
 /// `--part 1` reads the dependent substream of a 7.1 stream, which is the only
 /// way to check a `bsi` path by hand.
-pub fn blocks(path: &Path, index: u64, part: usize) -> Result<()> {
+pub fn blocks(path: &Path, index: u64, part: usize, detail: bool) -> Result<()> {
     let mut group = 0u64;
     let mut in_group = 0usize;
     let mut started = false;
@@ -1545,7 +1732,7 @@ pub fn blocks(path: &Path, index: u64, part: usize) -> Result<()> {
                 let peak = c.iter().fold(0.0f64, |m, v| m.max(v.abs()));
                 let last = c.iter().rposition(|v| *v != 0.0).map_or(0, |i| i + 1);
                 println!("  ch {ch}: peak {peak:.6}, {last} coefficients");
-                if std::env::var_os("OADEC_DETAIL").is_some() {
+                if detail {
                     let exps = &block.info.exps[ch];
                     let bap = &block.info.bap[ch];
                     let shown = exps.len().min(48);
@@ -1687,6 +1874,11 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
             Ok(())
         },
     )?;
+    if p.independent + p.dependent == 0 {
+        // Nothing framed: the file is not a stream to judge but an unsupported
+        // input, exit 2, as it is for every command that reports one.
+        return Err(crate::info::no_stream(path));
+    }
     let elapsed = started.elapsed().as_secs_f64();
     if opts.worst > 0 {
         worst_list.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
@@ -1770,6 +1962,33 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
 mod tests {
     use super::*;
 
+    /// A substream that declares the JOC extension in its `addbsi` carries an
+    /// EMDF container in every frame (TS 103 420 clauses 8.2 and 8.3.1), so a
+    /// frame with no skip field at all has lost one. The scan returned before
+    /// counting when the skip bytes totalled zero, which left `verify` clean
+    /// over the loss while the object decode held the matrices of the frame
+    /// before it. Round 7 of the review loop found it (R7F1).
+    #[test]
+    fn a_frame_without_skip_fields_loses_a_container_where_emdf_is_declared() {
+        let mut declared = EmdfStats::default();
+        declared.scan(7, &[], true);
+        assert_eq!(declared.container_errors, 1);
+        assert_eq!(declared.first_missing, Some(7));
+        assert_eq!(
+            (declared.frames_with_skip, declared.skip_bytes),
+            (0, 0),
+            "there were no skip bytes to count"
+        );
+
+        // A frame of a stream that carries no EMDF has lost nothing: most
+        // AC-3 and E-AC-3 frames carry no skip field, and two AC-3 clips of
+        // the corpus fill theirs with something else entirely.
+        let mut plain = EmdfStats::default();
+        plain.scan(7, &[], false);
+        assert_eq!(plain.container_errors, 0);
+        assert_eq!(plain.first_missing, None);
+    }
+
     /// Every input the exit code is decided from, one at a time.
     ///
     /// This function had no test at all: a mutation pass short-circuited it to
@@ -1790,13 +2009,22 @@ mod tests {
         );
 
         type Set = fn(&mut Pass);
-        let unclean: [(&str, Set); 7] = [
+        let unclean: [(&str, Set); 11] = [
             ("decode_errors", |p| p.decode_errors = 1),
             ("crc_failures", |p| p.crc_failures = 1),
             ("tail_overruns", |p| p.tail_overruns = 1),
             ("emdf.oamd_errors", |p| p.emdf.oamd_errors = 1),
             ("emdf.joc_errors", |p| p.emdf.joc_errors = 1),
+            ("emdf.joc_reserved_ext", |p| p.emdf.joc_reserved_ext = 1),
+            ("emdf.payload_config_violations", |p| {
+                p.emdf.payload_config_violations = 1
+            }),
+            ("complexity_mismatches", |p| p.complexity_mismatches = 1),
             ("emdf.joc_size_mismatch", |p| p.emdf.joc_size_mismatch = 1),
+            ("emdf.container_errors", |p| {
+                p.emdf.containers = 1;
+                p.emdf.container_errors = 1
+            }),
             ("program.dependent_dropped", |p| {
                 p.program.dependent_dropped = 1
             }),
@@ -1835,6 +2063,128 @@ mod tests {
         assert!(
             is_clean(&other, 0, 0),
             "a second programme should not make a stream unclean"
+        );
+    }
+
+    /// Clause 8.3.2.2 of TS 103 420, both halves: the index equals the OAMD
+    /// object total, and it is at most 16.
+    #[test]
+    fn the_complexity_index_is_the_oamd_object_total_and_at_most_16() {
+        assert_eq!(complexity_problem(16, 16), None);
+        assert_eq!(
+            complexity_problem(12, 12),
+            None,
+            "pi-head-joc384 declares 12"
+        );
+        assert_eq!(
+            complexity_problem(15, 16).as_deref(),
+            Some("complexity_index_type_a 15 differs from the OAMD object total 16 (clause 8.3)")
+        );
+        assert_eq!(
+            complexity_problem(17, 17).as_deref(),
+            Some("complexity_index_type_a 17 exceeds 16 (clause 8.3)")
+        );
+    }
+
+    /// Skip fields may carry other data: two AC-3 clips of the corpus fill them
+    /// in some 1 100 frames without a single EMDF container. A frame whose skip
+    /// fields hold no container that opens is a fault only in a stream that
+    /// carries EMDF, where it means a container was lost; counted anywhere else
+    /// it called clean AC-3 streams non-conformant.
+    #[test]
+    fn skip_fields_that_carry_no_emdf_are_not_a_fault() {
+        let mut plain = Pass::default();
+        plain.emdf.frames_with_skip = 1099;
+        plain.emdf.container_errors = 1099;
+        assert!(
+            is_clean(&plain, 0, 0),
+            "verify called a stream without EMDF non-conformant"
+        );
+        assert!(
+            findings(&plain, 0, 0).is_clean(),
+            "a delivery failed on a stream without EMDF"
+        );
+        let mut lost = Pass::default();
+        lost.emdf.containers = 62;
+        lost.emdf.container_errors = 1;
+        assert!(!is_clean(&lost, 0, 0), "a lost container left verify clean");
+        assert!(
+            !findings(&lost, 0, 0).is_clean(),
+            "a lost container left a delivery clean"
+        );
+    }
+
+    /// A payload configuration outside table 56 and a complexity index that
+    /// disagrees with the OAMD make a file non-conformant and change nothing
+    /// that was delivered, so, like a tail overrun, they fail `verify` and not
+    /// a delivery.
+    #[test]
+    fn the_checks_of_clause_8_fail_verify_and_not_a_delivery() {
+        let mut table_56 = Pass::default();
+        table_56.emdf.payload_config_violations = 1;
+        let complexity = Pass {
+            complexity_mismatches: 1,
+            ..Pass::default()
+        };
+        for (name, pass) in [("table 56", table_56), ("complexity", complexity)] {
+            assert!(!is_clean(&pass, 0, 0), "{name} left verify clean");
+            let f = findings(&pass, 0, 0);
+            assert!(f.is_clean(), "{name} failed a delivery: {f:?}");
+        }
+    }
+
+    /// A frame that ends inside its own tail is out of spec and decodes to
+    /// audio FFmpeg, Dolby and oadec agree on (`docs/eac3.md`), so a delivery
+    /// counts and prints it without failing on it, while `verify` still calls
+    /// the file non-conformant (`docs/exit-codes.md`). `findings` noted both
+    /// tail counters, so `decode` and `compare` exited 7 on exactly the frame
+    /// the policy was written about.
+    #[test]
+    fn a_tail_overrun_alone_fails_verify_and_not_a_delivery() {
+        let core = Pass {
+            tail_overruns: 1,
+            first_error: Some("frame 224: the audio blocks end inside the frame tail".into()),
+            ..Pass::default()
+        };
+        assert!(
+            !is_clean(&core, 0, 0),
+            "verify must still call the file non-conformant"
+        );
+        let f = findings(&core, 0, 0);
+        assert!(
+            f.is_clean(),
+            "a delivery failed on a tail overrun alone: {f:?}"
+        );
+
+        let mut dependent = Pass::default();
+        dependent.subs.insert(
+            (1, 0),
+            SubStats {
+                tail_overruns: 1,
+                ..SubStats::default()
+            },
+        );
+        assert!(!is_clean(&dependent, 0, 0));
+        let f = findings(&dependent, 0, 0);
+        assert!(
+            f.is_clean(),
+            "a delivery failed on a dependent substream's tail overrun alone: {f:?}"
+        );
+
+        // beside a real fault the delivery fails, and names the fault first
+        let both = Pass {
+            tail_overruns: 1,
+            crc_failures: 1,
+            first_error: Some("frame 5: the audio blocks end inside the frame tail".into()),
+            first_fault: Some("frame 22: CRC failure".into()),
+            ..Pass::default()
+        };
+        let f = findings(&both, 0, 0);
+        assert!(!f.is_clean());
+        let shown = format!("{f:?}");
+        assert!(
+            shown.contains("frame 22: CRC failure") && !shown.contains("frame tail"),
+            "the delivery's first problem is not its first fault: {shown}"
         );
     }
 }

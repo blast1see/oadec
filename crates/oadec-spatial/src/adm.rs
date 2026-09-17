@@ -12,7 +12,7 @@
 
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{self, BufWriter, Seek, SeekFrom, Write};
+use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use oadec_emdf::oamd::{BedChannel, Gain};
@@ -358,7 +358,7 @@ impl AdmWriter {
                 }
             }
             for &v in &samples {
-                let b = v.clamp(-(1 << 23), (1 << 23) - 1).to_le_bytes();
+                let b = crate::clamp_i24(v).0.to_le_bytes();
                 self.frame.extend_from_slice(&b[..3]);
             }
             self.frames += 1;
@@ -438,27 +438,8 @@ impl AdmWriter {
             .into_inner()
             .map_err(io::IntoInnerError::into_error)?;
         let total = file.metadata()?.len();
-        let riff_size = total - 8;
-        let rf64 = riff_size > u64::from(u32::MAX) || data_bytes > u64::from(u32::MAX);
-        if rf64 {
-            file.seek(SeekFrom::Start(0))?;
-            file.write_all(b"RF64")?;
-            file.write_all(&u32::MAX.to_le_bytes())?;
-            file.seek(SeekFrom::Start(12))?;
-            file.write_all(b"ds64")?;
-            file.write_all(&JUNK_LEN.to_le_bytes())?;
-            file.write_all(&riff_size.to_le_bytes())?;
-            file.write_all(&data_bytes.to_le_bytes())?;
-            file.write_all(&self.frames.to_le_bytes())?;
-            file.write_all(&0u32.to_le_bytes())?;
-            file.seek(SeekFrom::Start(DATA_SIZE_POS))?;
-            file.write_all(&u32::MAX.to_le_bytes())?;
-        } else {
-            file.seek(SeekFrom::Start(4))?;
-            file.write_all(&(riff_size as u32).to_le_bytes())?;
-            file.seek(SeekFrom::Start(DATA_SIZE_POS))?;
-            file.write_all(&(data_bytes as u32).to_le_bytes())?;
-        }
+        let rf64 =
+            crate::patch_riff_sizes(&mut file, total, DATA_SIZE_POS, data_bytes, self.frames)?;
         file.flush()?;
         Ok(AdmSummary {
             frames: self.frames,
@@ -671,18 +652,17 @@ impl AdmWriter {
             }
             // The Dolby converters write one block per event but drop a trailing
             // event whose ADM content equals the previous one (an event that only
-            // changed the ramp or the trim, which ADM has no fields for). The
-            // real first event behind a synthetic block is never popped.
+            // changed what a profile block has no field for: the ramp, an active
+            // object's importance, a screen reference, the trim bypass). The real
+            // first event behind a synthetic block is never popped. What a dropped
+            // event carried that no block could is still counted, after the
+            // blocks, so that an object's examples stay in time order.
             let keep = if synthetic { 2 } else { 1 };
-            while events.len() > keep
-                && adm_equal(
-                    &events[events.len() - 2].1,
-                    &events[events.len() - 1].1,
-                    real,
-                )
-            {
-                events.pop();
+            let mut kept = events.len();
+            while kept > keep && adm_equal(&events[kept - 2].1, &events[kept - 1].1, real) {
+                kept -= 1;
             }
+            let trailing = events.split_off(kept);
             for (n, (pos, s)) in events.iter().enumerate() {
                 let next = events.get(n + 1).map_or(self.frames, |(p, _)| *p);
                 if next <= *pos {
@@ -692,15 +672,7 @@ impl AdmWriter {
                 if !real && n > 0 && s.ramp != INTERPOLATION_SAMPLES {
                     ledger.note_ramp(element_id, *pos, s.ramp);
                 }
-                if s.active && s.importance != 1.0 {
-                    ledger.note(LossKind::ImportanceOmitted, element_id, *pos);
-                }
-                if s.screen_factor != 0.0 {
-                    ledger.note(LossKind::ScreenReferenceDropped, element_id, *pos);
-                }
-                if s.trim_bypass {
-                    ledger.note(LossKind::TrimBypassDropped, element_id, *pos);
-                }
+                note_unwritable(&mut ledger, element_id, *pos, s);
                 x.push_str(&format!(
                     "\t\t\t\t\t<audioBlockFormat audioBlockFormatID=\"AB_{id:08x}_{:08x}\" rtime=\"{}\" duration=\"{}\">\n\t\t\t\t\t\t<cartesian>1</cartesian>\n",
                     n + 1,
@@ -755,6 +727,9 @@ impl AdmWriter {
                     x.push_str("\t\t\t\t\t\t</zoneExclusion>\n");
                 }
                 x.push_str("\t\t\t\t\t</audioBlockFormat>\n");
+            }
+            for (pos, s) in &trailing {
+                note_unwritable(&mut ledger, element_id, *pos, s);
             }
             x.push_str("\t\t\t\t</audioChannelFormat>\n");
         }
@@ -822,6 +797,21 @@ fn active_gain_text(g: Gain) -> Option<String> {
     match g {
         Gain::Db(0) => None,
         Gain::Db(_) | Gain::MinusInfinity => Some(format!("{:.10}", f64::from(g.linear()))),
+    }
+}
+
+/// Counts what the profile has no field for in a state, whether the state
+/// becomes a block or is a trailing event dropped for equalling the previous
+/// block: an active object's importance, a screen reference, a trim bypass.
+fn note_unwritable(ledger: &mut LossLedger, element: u32, pos: u64, s: &ObjectState) {
+    if s.active && s.importance != 1.0 {
+        ledger.note(LossKind::ImportanceOmitted, element, pos);
+    }
+    if s.screen_factor != 0.0 {
+        ledger.note(LossKind::ScreenReferenceDropped, element, pos);
+    }
+    if s.trim_bypass {
+        ledger.note(LossKind::TrimBypassDropped, element, pos);
     }
 }
 
@@ -1013,6 +1003,73 @@ mod tests {
         assert_eq!(l.examples(LossKind::ScreenReferenceDropped), &[(10, 2000)]);
         assert_eq!(l.count(LossKind::TrimBypassDropped), 1);
         assert!(!l.declared_loss());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A trailing event whose ADM content equals the previous block's is not
+    /// written (the Dolby converters drop it the same way), but what it
+    /// carried that no block could, an importance, a screen reference or a
+    /// trim bypass, is still a loss of the file; it used to be popped before
+    /// the ledger saw it.
+    #[test]
+    fn a_popped_trailing_event_still_has_its_losses_counted() {
+        use crate::loss::LossKind;
+        let dir = temp_dir("popped-trailing");
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
+            isf_objects: 0,
+            dynamic_objects: 4,
+        };
+        let mut w =
+            AdmWriter::create(&dir.join("t.wav"), &program, 48000, &AdmOptions::default()).unwrap();
+        let rows = vec![[0i32; 5]; 96_000];
+        w.write_frames(rows.iter().map(|r| &r[..]), 5).unwrap();
+        for id in 10..14 {
+            w.push_event(&object_event(id, 0, state()));
+        }
+        let mut important = state();
+        important.importance = 0.5;
+        w.push_event(&object_event(10, 24_000, important.clone()));
+        let mut on_screen = state();
+        on_screen.screen_factor = 0.5;
+        w.push_event(&object_event(11, 24_000, on_screen));
+        let mut bypassed = state();
+        bypassed.trim_bypass = true;
+        w.push_event(&object_event(12, 24_000, bypassed));
+        // two trailing events in a row, the second one adding a trim bypass
+        w.push_event(&object_event(13, 24_000, important.clone()));
+        important.trim_bypass = true;
+        w.push_event(&object_event(13, 48_000, important));
+        let summary = w.finish().unwrap();
+        assert_eq!(
+            summary.blocks, 4,
+            "none of the trailing events is an ADM difference: one block per object"
+        );
+        let l = &summary.losses;
+        assert_eq!(l.count(LossKind::ImportanceOmitted), 3);
+        assert_eq!(
+            l.examples(LossKind::ImportanceOmitted),
+            &[(10, 24_000), (13, 24_000), (13, 48_000)]
+        );
+        assert_eq!(l.count(LossKind::ScreenReferenceDropped), 1);
+        assert_eq!(
+            l.examples(LossKind::ScreenReferenceDropped),
+            &[(11, 24_000)]
+        );
+        assert_eq!(l.count(LossKind::TrimBypassDropped), 2);
+        assert_eq!(
+            l.examples(LossKind::TrimBypassDropped),
+            &[(12, 24_000), (13, 48_000)]
+        );
+        let text = written_text(&dir);
+        for k in 1..=4 {
+            assert_eq!(
+                block_times(&text, k),
+                vec![("00:00:00.00000".to_string(), "00:00:02.00000".to_string())],
+                "object {k} has its first block only"
+            );
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -1610,6 +1667,28 @@ mod tests {
         assert!(text.contains("interpolationLength=\"0.005208\""));
         assert!(text.contains("chna"));
         assert!(text.contains("dbmd"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A sample past the 24-bit range is written at the nearer end of it, not
+    /// with its top byte cut off: 1 << 24 would otherwise read back as zero.
+    #[test]
+    fn samples_past_24_bits_saturate_in_the_file() {
+        let dir = temp_dir("clamp");
+        let mut w = one_object_writer(&dir, 0);
+        let object = w.channels() - 1;
+        let rows = [[0i32, 1 << 24], [0, -(1 << 24)], [0, -5]];
+        w.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
+        w.finish().unwrap();
+        let bytes = std::fs::read(dir.join("t.wav")).unwrap();
+        let data = &bytes[DATA_SIZE_POS as usize + 4..];
+        let sample = |frame: usize| {
+            let at = (frame * (object + 1) + object) * 3;
+            [data[at], data[at + 1], data[at + 2]]
+        };
+        assert_eq!(sample(0), [0xFF, 0xFF, 0x7F]);
+        assert_eq!(sample(1), [0x00, 0x00, 0x80]);
+        assert_eq!(sample(2), [0xFB, 0xFF, 0xFF]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -6,6 +6,317 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-17
+
+### Fixed
+
+- **A distance- or divergence-only update is counted in the loss ledger.** The
+  timeline counted `distance-dropped` and `divergence-dropped` only for an
+  update that became an event. Neither value is part of the reduced object
+  state, so an update changing only one of them never reached the counters,
+  and the ledger stayed empty unless `--all-events`. Such an update is now
+  counted when the value appears or changes, not when a later payload restates
+  it; events are counted as before.
+- **A trailing ADM event dropped for equalling the previous block still has its
+  losses counted.** The ADM writer drops such an event, as Dolby's converters
+  do, but it did so before the ledger ran. A last event that changed only an
+  active object's importance, the screen reference or the trim bypass left
+  `importance-omitted`, `screen-reference-dropped` or `trim-bypass-dropped` at
+  zero. These are now counted for the dropped event too; the written file is
+  unchanged.
+- **The ADM remediation's regression stage runs on a fresh work directory and
+  survives a version bump.** It decoded the audited records in sorted order, so
+  the check of the one expected difference opened a DAMF that a later record
+  writes and the stage died; and since 0.3.0 the version string in every
+  `.atmos` header and `dbmd` chunk made 48 outputs miss their audited hashes.
+  It now decodes every record before judging any and compares with exactly the
+  version bytes put back: 51 records, 50 identical, the expected difference
+  verified, no exit code changed.
+- **`tools/regression_gates.sh` and `tools/joc_object_gate.py` say their verdict
+  in the exit code.** They wrote PASS, FAIL or REGRESSED into JSON and always
+  exited 0, so a chain that checked their status called a failed gate green.
+  They now exit 1 when a gate failed or a title regressed and 3 when one could
+  not run.
+- **`tools/media_regression.sh` runs every check that needs the corpus, in one
+  command with one verdict.** The media suite, the same suite without the
+  corpus -- a suite that passes because it found nothing to read is the
+  failure that step guards against -- the three TrueHD gates, the object gate,
+  the two corruption replays and the ADM harness when its environment is
+  there. Each step prints its exit code, the script fails if any step failed
+  and names them. CI still cannot run any of it: the corpus is licensed
+  material, tens of gigabytes of it, and no public runner may hold it.
+- **A corruption campaign says what it found in its exit code.**
+  `tools/replay_fuzz.py` recorded every trial and returned 0 whatever it
+  found, so a runner that reads exit codes -- `tools/media_regression.sh`,
+  which the same release adds -- could report that every media check passed
+  over a silent accept, a fault reported at exit 0, a panic, or a timeout. A
+  timeout was invisible for a second reason: it leaves a non-zero exit and
+  says nothing, which is exactly what a command that caught the corruption
+  looks like, so it is counted on its own now. The campaign writes `verdict`
+  and `faults` beside its summary, names the command and the counter on
+  stderr, and exits 1. A non-zero exit from the decoder is not a fault: that
+  is the corruption being caught. The stored campaigns of the corpus are
+  unaffected, 0 silent, 0 reported at exit 0 and 0 panics in all three kinds.
+- **A frame with no skip field at all is a lost EMDF container where the
+  substream declares one.** A substream that declares the JOC extension in its
+  `addbsi` carries a container in every frame (TS 103 420 clauses 8.2 and
+  8.3.1). Three places asked whether the frame carried skip bytes before they
+  asked whether a container opened -- the walk `emdf` and `oamd` share, the
+  statistics `verify` keeps, and the object path's payload reader -- so a
+  frame with none at all was silent in all three, while the object decode held
+  the matrices of the frame before it. They ask only where a container could
+  be now, which leaves the exemption that matters untouched: an ordinary AC-3
+  or E-AC-3 frame, in a substream that carries no EMDF, has lost nothing. No
+  stream of the corpus changes: every EMDF stream measured carries skip data
+  in every frame.
+- **A peak data rate change is a branch point, and the previous access unit is
+  measured against the rate it was carried at.** A stream declares its peak
+  data rate in the major sync and may change it at a branch and nowhere else,
+  so the change is the stream saying that access unit is one. This model
+  counted those changes and never used them: it judged a branch only where a
+  clock jumped, and Up (2009) splices once without moving either clock. Six of
+  its lossless check words failed, in a stream `truehdd` calls conformant;
+  four survived the fix that gave the branch to every substream of its access
+  unit, and they are gone now. The signal is the stream's own and it is rare
+  -- 21 of the 23 TrueHD clips measured never change the rate -- so it is not
+  the latency, which breathes with the FIFO in every stream. Two conditions
+  that read the rate were reading the wrong one: the branch's `data_rate` and
+  the input-timing test's `over_rate` both weigh the previous access unit's
+  bytes, and those bytes were carried at the rate the new major sync replaced,
+  which is what this module's own documentation said. The two rates differ
+  only in an access unit that changes them, so no other stream moves.
+- **`emdf` walks a TrueHD stream and shows the Evolution block around the
+  container.** It reported the EMDF containers of E-AC-3 skip fields and
+  refused everything else, pointing at `oamd`; TrueHD carries the same
+  containers in the extra data at the end of an access unit, wrapped in an
+  Evolution frame with its own header, parity byte and padding. With `--dump`
+  that layer is printed as well -- the header nibble and length, both
+  parities, the padding, and the frame bytes in hex -- because it is what a
+  decoder validates before it reads anything inside, and nothing here showed
+  it. It cannot be found by scanning for the sync word: compressed audio
+  carries that pattern by chance, 45 times in a title that holds 603 blocks,
+  while the access unit says exactly where the block is.
+- **`oadec oamd` reads E-AC-3 streams.** It walks the EMDF containers in the
+  frames' skip fields as `oadec emdf` does and reports every Object Audio
+  Metadata payload in the same JSON shape as TrueHD, one syncframe per unit; it
+  used to refuse every AC-3-family file with exit 2.
+- **`oadec emdf --dump` prints every object.** The dump showed only the first
+  four objects of each payload (objects 0 to 3 of 16 on the JOC fixture).
+- **`emdf` and `oamd` frame AC-3 streams with the decoder's own header.** The
+  walk read every syncframe header as E-AC-3, and an AC-3 syncframe has its CRC
+  where E-AC-3 has the frame size: on a 5.1 AC-3 clip it counted 902 frames and
+  902 sync errors where `info` decodes 1171, and exited 7. It now frames as
+  `info` and `verify` do, and an AC-3 stream reports no containers.
+- **`oamd` counts what it could not read, and exits 7 for it.** It skipped a
+  container that did not open, an access unit that did not parse and a failed
+  extra-data check without a word, and dropped the sync errors of its walk, so
+  a report missing metadata could still say clean. It now counts each of them,
+  names the first, and judges the walk as `emdf` and `verify` do.
+- **An EMDF container whose declared length disagrees with its syntax does not
+  open, and a frame that loses its container is a fault everywhere.** The
+  parser refused `emdf_container_length` only when it ran past the data, so a
+  wrong length opened as if it were right, and a walk stepping over the
+  container by that length could skip the next one; every stream measured
+  writes the length exactly, 23 389 containers in 26 files. `verify` counted a
+  frame whose skip fields held no container that opens and even named it as the
+  first problem, yet called the file clean, and the object and PCM decodes held
+  the previous matrices without a word, and `emdf` and `oamd` reported nothing
+  for a frame whose container was erased. In a substream that carries EMDF such
+  a frame now makes `verify`, `emdf` and `oamd` exit 7 and fails every E-AC-3
+  delivery, whether its container is erased or broken. Skip fields may carry
+  other data, so in a substream with no EMDF at all they are not a fault: two
+  AC-3 clips fill them in some 1 100 frames, and a configuration 4 stream in the
+  frames of its AC-3 core. No clip of the work directory changes.
+- **`emdf` and `oamd` decide with the checks `verify` makes.** They judged a
+  stream by what their own walk read, and missed every fault the walk does not
+  read: the bytes the framing skipped or left trailing, a failed frame CRC, a
+  bit changed in the audio of a TrueHD substream, a JOC payload that cannot be
+  read, a reserved JOC extension, a payload configuration outside Table 56, a
+  complexity index that disagrees with the objects. On each of those `verify`
+  exited 7 and both commands exited 0. Both now run the checks of `verify`
+  over the stream on a thread beside their walk, exit 7 when it would, report
+  its verdict and first problem under `verify`, and still count what their own
+  walk finds; a file with no complete frame or access unit still exits 2. Of
+  the 55 clips of the work directory, the 18 cut inside a frame or an access
+  unit now fail them as they fail `verify`, and the other 37 are unchanged.
+  Both commands now take about as long as `verify`: on an 838 MB E-AC-3 film
+  `emdf` goes from 91 s to 123 s and `oamd` from 94 s to 123 s, where `verify`
+  alone takes 118 s; on a 2.6 GB TrueHD film `oamd` goes from 1.5 s to 27 s,
+  where `verify` takes 28 s.
+- **Every TrueHD delivery takes the verdict of `verify` as well.** A decode
+  reads only what its presentation needs, so one bit changed in a substream
+  the presentation leaves out, or object metadata that will not parse, left
+  the PCM and WAVE decodes at exit 0 and `compare` calling the stream
+  bit-exact and clean, while `verify` exited 7. The decodes, the object
+  outputs and `compare` now run the checks of `verify` on a thread beside the
+  decode and count its verdict with their own. Of the 24 TrueHD inputs of the
+  work directory only the clip whose object metadata will not parse changes,
+  its PCM decodes from 0 to 7; a PCM decode of presentation 2 from a 2.6 GB
+  TrueHD film took 68 s before and 62 s after, the 28 s scan of `verify`
+  running beside it on another core.
+- **`verify` and `compare` refuse a file that holds no stream.** They read a
+  file with no access unit and no whole syncframe as a stream with every
+  counter at zero and called it non-conformant, exit 7, where `info`, `emdf`,
+  `oamd` and every decode exit 2 on the same file. Both now stop with the
+  message the others print and exit 2; a stream that frames a unit and then
+  fails a check is still exit 7. The TrueHD decode, which had a message of its
+  own, says it with the same words.
+- **A substream whose EMDF containers are all broken is judged again.** A
+  frame whose skip fields hold no container that opens counts only where
+  containers do open, because skip fields may carry anything else: two AC-3
+  clips fill them in some 1 100 frames. A copy of the JOC fixture with every
+  container broken, by its declared length or by an erased sync word, was
+  clean for every command. The JOC extension declared in the `addbsi` is the
+  second evidence that a substream carries EMDF, since that extension rides in
+  an EMDF container (TS 103 420 clause 8.3.1); `verify`, `emdf`, `oamd` and
+  the deliveries count the lost containers of such a substream now. A
+  substream that carries Object Audio Metadata and no JOC, with every
+  container broken, still reads like one that carries none.
+- **`codecdatae` is held to the clause Table 56 cites.** The table prints 1
+  for the field while clause H.2.2.3.7 of TS 102 366, which the table cites,
+  says it shall be 0, and every OAMD and JOC payload measured carries 0: the
+  committed fixture, sixteen clips and eleven whole JOC streams, 2,1 million
+  frames. The field joins the checked rows of the payload configuration,
+  pinned to 0, and a payload that carries the byte is reported with the clause
+  named. No stream of the corpus changes.
+- **A seamless branch reaches every substream of its access unit.** The branch
+  was handed to the one restart header it was judged at, and the decoder skips
+  the lossless check word where the branch is, so every other substream of
+  that access unit compared a check word across the splice. Which header the
+  branch landed on depends on the presentation being decoded, so presentations
+  disagreed about the same access unit: on Up (2009) presentations 0 and 2
+  skipped the check at access unit 54205, the seamless branch of that stream,
+  where 1 and 3 failed it. The branch belongs to the access unit now and every
+  restart header of it hears about the branch. Two of that title's six
+  failures were this artefact and are gone; the four that remain are one event
+  at access unit 77078, and the four presentations agree about it. No new
+  branch is judged, so no stream can gain a fault from this: the 55 inputs of
+  the exit-code comparison keep their codes.
+- **`info`, `oamd`, `emdf` and `decode` exit 2 on a file that holds no stream.**
+  An empty or random file used to produce a report of nothing, or "nothing
+  decoded", with exit 0. They now stop with a message naming the file, and
+  `decode` removes the empty output it had created. The same holds on the
+  E-AC-3 path, which a file takes when it opens with a sync word: on one with
+  no whole syncframe `info` printed "no decodable frames" and exited 0, and
+  `decode --format wav` or `pcm` exited 7 and left an empty file behind.
+- **Every TrueHD delivery counts the extra-data faults `verify` counts.** A
+  corrupted Evolution block (its header parity, padding, parity byte, length, or
+  a container that will not open) left `verify` at 7 and every TrueHD `decode`,
+  WAVE, PCM, DAMF and ADM alike, at 0; the object path skipped an unopenable
+  container in silence.
+- **The TrueHD WAVE mask names the channels written, or is zero.** It set
+  `SPEAKER_ALL` for wide left, dropped wide right, the surround-direct pair,
+  LFE2 and the top side pair, wrote LFE alone for the twelve objects of
+  presentation 3, and under `--order stream` called the side pair of a 7.1
+  decode the back pair. A mask is now written only when every channel has a
+  WAVE speaker bit and the channels come in bit order, with one warning
+  otherwise, as the E-AC-3 writer already did.
+- **The 24-bit writer saturates as the object writers do.** `decode` kept the
+  low three bytes of a sample, so a sample of 1 << 24 was written as zero; it
+  now clamps, prints how many samples it clamped and counts them in the verdict.
+  No stream measured reaches the case.
+- **A mid-stream configuration change ends the output in a playable file and
+  exits 7.** A major sync that changed the sampling frequency, the samples per
+  access unit or the substream layout made `decode` exit 2 and leave a WAVE
+  header declaring no data, while `verify` exited 7 on the same file; the ADM
+  and DAMF outputs kept sizes of zero. The decode now stops at that access unit,
+  finishes its files, says where it stopped and how many samples it wrote, and
+  exits 7. A change before any output is still exit 2.
+- **A WAVE output grows into RF64 beyond 4 GiB.** The 4 GiB check ran after the
+  bytes past the limit were written, so a 16-channel presentation longer than
+  about 31 minutes could not be written as WAV at all. WAVE outputs now reserve
+  the `JUNK` chunk the ADM writer reserves and are promoted to RF64 by the same
+  function; a WAV file under 4 GiB gains those 36 bytes, and ADM bytes do not
+  change.
+- **A frame that ends inside its own tail no longer fails an E-AC-3 delivery.**
+  `docs/exit-codes.md` counts such a frame without changing the verdict of a
+  decode, and both E-AC-3 delivery paths noted it anyway, so `decode` and
+  `compare` exited 7 on the frame of *The 400 Blows* the policy was written
+  about. The counts are still printed, `verify` still calls the file
+  non-conformant, and a tail overrun is no longer named as the first problem
+  in front of a real fault further on.
+- **The object path checks the declared size of every JOC payload.** `verify`
+  and the PCM path counted a payload whose syntax does not fill its declared
+  size as a fault; `decode --format damf` and `adm` took it straight into the
+  reconstruction and exited 0. The object path now counts it in the words
+  `verify` uses and exits 7, still using the matrices that parsed.
+- **A reserved `joc_ext_config_idx` is named, and the object decode can start
+  on one.** `verify` counted it among the JOC parse errors and the object path
+  among the metadata payload errors, holding the previous matrices without
+  saying why; when the first frame carried one, `decode --format damf` refused
+  the stream with exit 2. Both count it apart now (`joc.reserved_ext_config`
+  in `verify --json`) and name the frame and the value, and the object decode
+  starts from the zero history of clause 6.6.5 and exits 7.
+- **The JOC object decode no longer reads the environment.** `OADEC_JOC_LAG`,
+  `OADEC_JOC_LOW` and `OADEC_JOC_PHASE` changed the reconstruction and
+  appeared in no output, so a decode repeated from its command line could come
+  out different; `OADEC_DETAIL` did the same for `eac3-blocks`. They are hidden
+  flags now: `--joc-lag`, `--joc-low-band`, `--joc-phase`, and `--detail` on
+  `eac3-blocks`. A run that uses one says so on stderr and in the `overrides`
+  list of the loss report, and a decode with no JOC reconstruction to apply it
+  to refuses it with exit 2.
+- **A substream frame repeated inside one frame group no longer stalls an
+  E-AC-3 decode.** The programme decoder fed the repeat to the decoder of that
+  substream and queued it a second time, so every later group waited for a
+  frame that never matched and its audio piled up in memory: a DD+ 7.1 stream
+  with every dependent frame repeated decoded to one group of 375 and exited
+  0. The repeat is refused before the decoder sees it and counted, the stream
+  exits 7, and the rest of the programme is bit-identical to the well-formed
+  stream.
+- **A dependent substream that disappears holds back only a few groups.** Its
+  last frame never came out of its decoder, so every later group queued behind
+  it until the end of the stream. When `MAX_PENDING_GROUPS` groups are waiting
+  the substreams holding back the oldest one are flushed, and a member whose
+  frame still does not come is left out of that group. Both are counted
+  (`stalled_substreams`, `missing_substream_frames`), `verify --json` records
+  the widest the window got, and such a stream exits 7.
+
+### Added
+
+- **`verify --decode` evaluates the lossless check words.** The integrity pass
+  makes no samples, so the check word a restart header carries was only ever
+  evaluated by a decode, for one presentation. With the flag, `verify` decodes
+  every presentation the stream carries and reports the words evaluated, failed
+  and skipped, and a failed word or a decode that stops early makes the stream
+  non-conformant. Without the flag the statistic is null rather than zero.
+
+- **`verify` holds E-AC-3 object streams to Table 56 and clause 8.3.** The EMDF
+  payload configuration of every OAMD and JOC payload is checked against
+  TS 103 420 Table 56, and `complexity_index_type_a` against the object total
+  of the Object Audio Metadata, as `payload_config_violations` and
+  `complexity_mismatches`. Both make `verify` exit 7 and neither changes the
+  verdict of a decode, since neither touches the audio or the metadata.
+  `codecdatae` is not pinned: the table prints 1 where the clause it cites
+  requires 0, and every payload measured, over 2.1 million frames, carries 0.
+
+- **A verification round on material nothing was fitted on.**
+  `docs/audit/2026-09-14-verification-report.md` and
+  `docs/audit/evidence/verification-2026-09-14/`: every gate re-run with the
+  media; sixteen TrueHD Atmos titles against Dolby, `truehdd` and FFmpeg; six
+  E-AC-3 JOC titles against Dolby's object decoder, with the residual split by
+  dither and by subband and a reordering of the subband 0 correction measured and
+  ruled out; a 212-case command matrix, run again at the head of the branch; an
+  adversarial review of the post-audit code by a second model, and a review loop
+  over the finished branch; and the long-form FourCC of an ADM file beyond 4 GiB
+  put to every reader.
+
+### Changed
+
+- **The README, the conformance matrix, `docs/joc.md` and `docs/dolby-tools.md`
+  say what was measured.** Presentation 3 is bit-exact with Dolby's object
+  output at a dialogue norm of −31 dB; at any other, Dolby applies the dialnorm
+  gain and ±1 LSB triangular dither and nothing else differs. JOC objects are at
+  29.6 to 50.5 dB (worst object of a title) and 39.6 to 65.4 dB (median) over
+  twelve titles, where the README said 40 to 56 dB per object. Five matrix rows
+  the ADM remediation closed no longer read FAIL. Three evidence notes carry a
+  superseded or withdrawn banner, and `tools/three_way.py` says to decode the
+  FFmpeg reference with `-drc_scale 0`.
+- **ADM files beyond 4 GiB stay `RF64`.** ITU-R BS.2088-2 names the long form
+  `BW64`, but with only those four bytes changed `bwf_info` hangs and
+  `atmos_info` 1.1 and 5.7.2 and the Dolby Atmos Conversion Tool refuse the
+  file, while all of them read the `RF64` form. The ADM audit's D14 closes as a
+  measured deviation from BS.2088.
+
 ## [0.3.0] - 2026-09-14
 
 ### Fixed

@@ -18,13 +18,13 @@ Atmos track can become an E-AC-3 Atmos track without losing the objects.
 | TrueHD framing, major sync, `info`, `verify` | done | six films, every integrity counter zero |
 | Substream syntax (restart/block headers, matrices, filters, Huffman) | done | 24 million segments, zero parity or CRC failures |
 | Presentations 0–2 (2 / 6 / 8 channels) | done | **bit-exact** with FFmpeg over six whole films |
-| Presentation 3 (16-channel objects, restart sync `0x31EC`) | done | **bit-exact with the Dolby decoder's own object output**, every sample of 12 and 16 objects on two films; all 47,718 lossless checks pass |
+| Presentation 3 (16-channel objects, restart sync `0x31EC`) | done | **bit-exact with the Dolby decoder's own object output** on every presentation it opens at a dialogue normalisation of −31 dB (twelve titles); at any other dialogue norm Dolby applies the dialnorm gain and ±1 LSB triangular dither, and that is all that differs (five titles, gain within 3·10⁻⁵ dB). Its object mode refuses 89 of 194 library presentations; those decode byte-identical to `truehdd`, as all sixteen fresh titles do. All 47,718 lossless checks pass |
 | Object Audio Metadata (ETSI TS 103 420) | done | 1,344,146 payloads, zero parse errors |
 | Timing model, seamless branches, duplicates | done | Braveheart: 0 branches, the same as truehdd |
 | DAMF writer, Dolby validators, encoder round trip | done | validators exit 0; the encoder produces E-AC-3 JOC and TrueHD Atmos from our sets |
 | ADM BWF writer | done | structurally identical to the Dolby converter's own output; semantic fidelity audited against Dolby's converters and the audit's findings closed ([report](docs/audit/adm-remediation-report.md)) |
-| E-AC-3 / AC-3 core decoder (ETSI TS 102 366) | done | 19 streams, 3.3 million frames, zero CRC or parse failures; closer to a Dolby decode than FFmpeg is on every channel of the hardest streams |
-| JOC objects (ETSI TS 103 420) to DAMF / ADM | done | 380,000 payloads parse to the byte; against the Dolby decoder's own object output, 40 to 56 dB per object, at the dither floor in every band the core decode is exact in |
+| E-AC-3 / AC-3 core decoder (ETSI TS 102 366) | done | 19 streams, 3.3 million frames, zero CRC or parse failures; closer to a Dolby decode than FFmpeg is on every channel of the hardest streams, and of two fresh DD+ 5.1 cores once FFmpeg's default dynamic range compression is off (`-drc_scale 0`) |
+| JOC objects (ETSI TS 103 420) to DAMF / ADM | done | 380,000 payloads parse to the byte; against the Dolby decoder's own object output, over twelve titles (six never measured before), the worst object of a title sits at 29.6 to 50.5 dB and the median at 39.6 to 65.4 dB, at lag zero and with the inter-object correlation structure within 0.0021. The remainder is the E-AC-3 dither on some titles (switching ours off gains 3 dB) and the lowest 375 Hz subband on others (up to 96% of the residual, band SNR 25 to 40 dB) |
 | Enhanced coupling (clause E.3.5.5) | done | no stream in the world carries it, so `oadec eac3-ecpl-inject` makes one; both Dolby decoders accept it and agree with us at the dither floor |
 | Transient pre-noise processing (clause E.3.7) | done | 3.6 dB closer to the Dolby decode inside the corrected regions; FFmpeg applies nothing |
 | JOC clip gain (clause 6.3.3.2) | done | the standard defines the value and not its use; a two-level encode shows the encoder divides the downmix by it, and the Dolby object decoder agrees on a title that changes it mid-reel |
@@ -32,9 +32,12 @@ Atmos track can become an E-AC-3 Atmos track without losing the objects.
 The numbers behind the table: [`docs/evidence/`](docs/evidence/). Format
 notes in our own words: [`docs/truehd.md`](docs/truehd.md),
 [`docs/oamd.md`](docs/oamd.md), [`docs/eac3.md`](docs/eac3.md),
-[`docs/joc.md`](docs/joc.md). Every coding tool of the format is now decoded,
-including the three nothing else decodes: enhanced coupling, transient
-pre-noise processing and the JOC clip gain. Design and milestones:
+[`docs/joc.md`](docs/joc.md). Every coding tool the corpus exercises is decoded,
+including three nothing else decodes: enhanced coupling, transient pre-noise
+processing and the JOC clip gain. Two syntax elements are implemented but
+untested for want of material and of an oracle: the enhanced-coupling angle
+and chaos terms, and delta bit allocation (rows 69 and 73 of the
+[conformance matrix](docs/audit/conformance-matrix.md)). Design and milestones:
 [`docs/superpowers/specs/2026-09-06-oadec-design.md`](docs/superpowers/specs/2026-09-06-oadec-design.md).
 
 ## Quick start
@@ -50,6 +53,7 @@ oadec thd-demux dump.thd -o film.thd --core core.ac3   # a Blu-ray dump with its
 oadec compare film.thd -p 2 -r ref.s32            # sample-by-sample against a reference
 oadec oamd    film.thd --dump 3                   # the object metadata payloads
 oadec emdf    film.ec3                            # EMDF containers of an E-AC-3 stream
+oadec emdf    film.thd --dump 1                  # and of a TrueHD access unit, with its Evolution block
 oadec info    film.ec3                            # E-AC-3: frames, coding tools, JOC statistics
 oadec decode  film.ec3 --format damf -o out/film  # JOC objects + metadata as a DAMF set
 oadec compare film.ec3 -r ref.f32                 # against a 32-bit float reference (FFmpeg)
@@ -116,6 +120,19 @@ that holds the streams and references and run:
 ```text
 cargo test --release -p oadec-cli --test real -- --ignored
 ```
+
+Every check that needs the corpus -- that suite, the same suite without
+the corpus, the TrueHD bit-exactness gates, the object gate, the
+corruption replays and the ADM stages -- runs in one command with one
+verdict:
+
+```text
+tools/media_regression.sh /path/to/work-directory
+```
+
+It prints an exit code per step and fails if any step failed. CI cannot
+run it: the corpus is licensed material, tens of gigabytes of it, and no
+public runner may hold it.
 
 Those tests are `#[ignore]`d, so a plain `cargo test` never touches the media.
 Asking for `--ignored` without setting `OADEC_MEDIA` fails: a conformance suite

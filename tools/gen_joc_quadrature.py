@@ -29,7 +29,7 @@ The measurement needs three decodes of the same stream:
 
 * ours with subband 0 left alone:
 
-      OADEC_JOC_LOW=untouched oadec decode in.ec3 --format damf \
+      oadec decode in.ec3 --format damf --joc-low-band untouched \
           --no-bed-conform -o untouched
 
 Those two differ only in subband 0, so their difference is a basis: at every

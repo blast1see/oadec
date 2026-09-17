@@ -1,0 +1,107 @@
+{
+ "question": "why dlbtruehddec refuses the object output of 46 per cent of the library",
+ "method": "GST_DEBUG=dlbtruehddec:7 on the same pipeline the sweep used (out-ch-config=21 presentation=16), one MP4 per title, wrapped with the flags of fresh.py",
+ "finding": "the refusal is not an unavailable presentation: the decoder plays presentation 16 and sets a 16-channel output, then its own Evolution metadata validity check fails (info code 0xf9 from dthd_evo.c:796) and decode_oamdi reports it as \"Selected Dolby TrueHD presentation is not available\". The failure tracks the split on eight titles, four from each group",
+ "rows": [
+  {
+   "title": "A Quiet Place (2018)",
+   "group": "refused",
+   "wrap": "sweep wrap, 20 s",
+   "log": "orig-aqp-20.log",
+   "evolution_validity_failures": 2,
+   "presentation_not_available": 2,
+   "played_presentation": true,
+   "channels_out": 16
+  },
+  {
+   "title": "A Quiet Place (2018)",
+   "group": "refused",
+   "wrap": "sweep wrap, 60 s",
+   "log": "orig-aqp-60.log",
+   "evolution_validity_failures": 2,
+   "presentation_not_available": 2,
+   "played_presentation": true,
+   "channels_out": 16
+  },
+  {
+   "title": "A Quiet Place (2018)",
+   "group": "refused",
+   "wrap": "sweep wrap, 180 s",
+   "log": "orig-aqp-180.log",
+   "evolution_validity_failures": 2,
+   "presentation_not_available": 2,
+   "played_presentation": true,
+   "channels_out": 16
+  },
+  {
+   "title": "Avatar (2009)",
+   "group": "opened",
+   "wrap": "sweep wrap, 20 s",
+   "log": "orig-avatar-20.log",
+   "evolution_validity_failures": 0,
+   "presentation_not_available": 0,
+   "played_presentation": true,
+   "channels_out": 16
+  },
+  {
+   "title": "A Quiet Place Part II (2020)",
+   "group": "refused",
+   "wrap": "whole sweep clip",
+   "log": "full2-AQuietPlaceP.log",
+   "evolution_validity_failures": 2,
+   "presentation_not_available": 2,
+   "played_presentation": true,
+   "channels_out": 16
+  },
+  {
+   "title": "Knives Out (2019)",
+   "group": "refused",
+   "wrap": "whole sweep clip",
+   "log": "full2-KnivesOut.log",
+   "evolution_validity_failures": 2,
+   "presentation_not_available": 2,
+   "played_presentation": true,
+   "channels_out": 16
+  },
+  {
+   "title": "1917 (2019)",
+   "group": "refused",
+   "wrap": "whole sweep clip",
+   "log": "full2-1917.log",
+   "evolution_validity_failures": 2,
+   "presentation_not_available": 2,
+   "played_presentation": true,
+   "channels_out": 16
+  },
+  {
+   "title": "F1 The Movie (2025)",
+   "group": "opened",
+   "wrap": "whole sweep clip",
+   "log": "full2-F1TheMovie.log",
+   "evolution_validity_failures": 0,
+   "presentation_not_available": 0,
+   "played_presentation": true,
+   "channels_out": 16
+  },
+  {
+   "title": "Kick-Ass (2010)",
+   "group": "opened",
+   "wrap": "whole sweep clip",
+   "log": "full2-KickAss.log",
+   "evolution_validity_failures": 0,
+   "presentation_not_available": 0,
+   "played_presentation": true,
+   "channels_out": 16
+  },
+  {
+   "title": "Nosferatu (2024)",
+   "group": "opened",
+   "wrap": "whole sweep clip",
+   "log": "full2-Nosferatu.log",
+   "evolution_validity_failures": 0,
+   "presentation_not_available": 0,
+   "played_presentation": true,
+   "channels_out": 16
+  }
+ ]
+}

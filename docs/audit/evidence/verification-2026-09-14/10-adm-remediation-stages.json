@@ -1,0 +1,709 @@
+{
+ "what": "The ADM remediation validation stages, re-run",
+ "utc": "2026-09-15T05:55:26Z",
+ "commit": "c142b8f86112353609aa1f2e61dafaa9cf982c69",
+ "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc",
+ "branch_commit": "3418cdfbd01f2f365b24ba7033c379419df66c5a",
+ "branch_binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5",
+ "why": "The regression stage could not pass after the version bump and crashed on a fresh work directory.",
+ "method": "docs/audit/adm-remediation/tools/run_remediation.py --stage harness|regression|dolby|render (Dolby tools and the EBU renderer on); the audit toolkit's self-tests",
+ "reading": "with the v0.3.0 binary: harness 27/27 expectations; dolby and render stages met every expectation; regression (after its fix): 51 records, 50 identical of which 48 outputs only up to the version string, the one expected difference verified, 0 unexplained, 0 exit codes changed; 136 self-tests pass At the branch head: the harness, regression, dolby and render stages exit 0; the regression has 51 records, 50 identical (48 up to the version string), the one expected difference verified, 0 unexplained, 0 exit codes changed; 136 self-tests pass",
+ "data": {
+  "stage_exit_codes": [
+   {
+    "step": "adm-harness",
+    "rc": 0,
+    "secs": 5
+   },
+   {
+    "step": "adm-regression",
+    "rc": 1,
+    "secs": 55
+   },
+   {
+    "step": "adm-dolby",
+    "rc": 0,
+    "secs": 10
+   },
+   {
+    "step": "adm-render",
+    "rc": 0,
+    "secs": 82
+   }
+  ],
+  "regression": {
+   "records": 51,
+   "identical": 50,
+   "identical_outputs_modulo_version": 48,
+   "audited_tool_version": "0.2.0",
+   "current_tool_version": "0.3.0",
+   "different": 1,
+   "expected_differences_verified": 1,
+   "unexplained_differences": [],
+   "exit_mismatches": 0,
+   "binary_sha256": "099fbc8bce3c2d6e88b1569a2bc24d3660c8021d31ba6891a060896c3363e2cc"
+  },
+  "regression_records": [
+   {
+    "record": "work/joc/disclosure-web-head/default/disclosure-web-head.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/disclosure-web-head/default/disclosure-web-head.damf.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/extraction-nf-head/default/extraction-nf-head.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/extraction-nf-head/default/extraction-nf-head.damf.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/fast-joc/default/fast-joc.adm.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/fast-joc/default/fast-joc.damf.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/gainsize-joc/default/gainsize-joc.adm.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/gainsize-joc/default/gainsize-joc.damf.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/glassonion-nf-head/default/glassonion-nf-head.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/glassonion-nf-head/default/glassonion-nf-head.damf.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/greenbook-cfg4-head/default/greenbook-cfg4-head.adm.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/greenbook-cfg4-head/default/greenbook-cfg4-head.damf.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/joc-steep-jackal/default/joc-steep-jackal.adm.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/joc-steep-jackal/default/joc-steep-jackal.damf.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/kingsman-joc-head/default/kingsman-joc-head.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/kingsman-joc-head/default/kingsman-joc-head.damf.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/knivesout-joc-head/default/knivesout-joc-head.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/knivesout-joc-head/default/knivesout-joc-head.damf.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/onset-768/default/onset-768.adm.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/onset-768/default/onset-768.damf.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/scene-joc/default/scene-joc.adm.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/scene-joc/default/scene-joc.damf.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/snatch-joc-head/default/snatch-joc-head.adm.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/snatch-joc-head/default/snatch-joc-head.damf.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/talktome-joc-head/default/talktome-joc-head.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/talktome-joc-head/default/talktome-joc-head.damf.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/teleport-768/default/teleport-768.adm.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/joc/teleport-768/default/teleport-768.damf.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/pi-head50m/default/pi-head50m.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/pi-head50m/default/pi-head50m.damf.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/pi-head50m/nbc/pi-head50m.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": false
+   },
+   {
+    "record": "work/pi-head50m/nbc/pi-head50m.damf.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/pi-head50m/tag/pi-head50m.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/braveheart-h/default/braveheart-h.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/braveheart-h/default/braveheart-h.damf.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/fast-thd/default/fast-thd.adm.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/fast-thd/default/fast-thd.damf.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/gainsize-thd/default/gainsize-thd.adm.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/gainsize-thd/default/gainsize-thd.damf.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/kingsman-h/default/kingsman-h.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/kingsman-h/default/kingsman-h.damf.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/knivesout-h/default/knivesout-h.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/knivesout-h/default/knivesout-h.damf.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/scene-thd/default/scene-thd.adm.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/scene-thd/default/scene-thd.damf.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/shaun-head20m/default/shaun-head20m.adm.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/shaun-head20m/default/shaun-head20m.damf.run.json",
+    "exit": 7,
+    "audited_exit": 7,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/talktome-head/default/talktome-head.adm.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/talktome-head/default/talktome-head.damf.run.json",
+    "exit": 0,
+    "audited_exit": 0,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/thd-96k-revenant/default/thd-96k-revenant.adm.run.json",
+    "exit": 2,
+    "audited_exit": 2,
+    "all_identical": true
+   },
+   {
+    "record": "work/thd/thd-96k-revenant/default/thd-96k-revenant.damf.run.json",
+    "exit": 2,
+    "audited_exit": 2,
+    "all_identical": true
+   }
+  ],
+  "branch_head": {
+   "stage_exit_codes": [
+    {
+     "step": "adm-harness-build",
+     "rc": 0,
+     "secs": 5
+    },
+    {
+     "step": "adm-harness",
+     "rc": 0,
+     "secs": 5
+    },
+    {
+     "step": "adm-regression",
+     "rc": 0,
+     "secs": 57
+    },
+    {
+     "step": "adm-dolby",
+     "rc": 0,
+     "secs": 12
+    },
+    {
+     "step": "adm-render",
+     "rc": 0,
+     "secs": 98
+    },
+    {
+     "step": "adm-toolkit-selftest",
+     "rc": 0,
+     "secs": 1
+    }
+   ],
+   "regression": {
+    "records": 51,
+    "identical": 50,
+    "identical_outputs_modulo_version": 48,
+    "audited_tool_version": "0.2.0",
+    "current_tool_version": "0.3.0",
+    "different": 1,
+    "expected_differences_verified": 1,
+    "unexplained_differences": [],
+    "exit_mismatches": 0,
+    "binary_sha256": "5cd48fc596613885eb7d00230cb7fab90bba340515880938d598dca4a3f45ae5"
+   },
+   "regression_records": [
+    {
+     "record": "work/joc/disclosure-web-head/default/disclosure-web-head.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/disclosure-web-head/default/disclosure-web-head.damf.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/extraction-nf-head/default/extraction-nf-head.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/extraction-nf-head/default/extraction-nf-head.damf.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/fast-joc/default/fast-joc.adm.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/fast-joc/default/fast-joc.damf.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/gainsize-joc/default/gainsize-joc.adm.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/gainsize-joc/default/gainsize-joc.damf.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/glassonion-nf-head/default/glassonion-nf-head.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/glassonion-nf-head/default/glassonion-nf-head.damf.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/greenbook-cfg4-head/default/greenbook-cfg4-head.adm.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/greenbook-cfg4-head/default/greenbook-cfg4-head.damf.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/joc-steep-jackal/default/joc-steep-jackal.adm.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/joc-steep-jackal/default/joc-steep-jackal.damf.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/kingsman-joc-head/default/kingsman-joc-head.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/kingsman-joc-head/default/kingsman-joc-head.damf.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/knivesout-joc-head/default/knivesout-joc-head.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/knivesout-joc-head/default/knivesout-joc-head.damf.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/onset-768/default/onset-768.adm.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/onset-768/default/onset-768.damf.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/scene-joc/default/scene-joc.adm.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/scene-joc/default/scene-joc.damf.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/snatch-joc-head/default/snatch-joc-head.adm.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/snatch-joc-head/default/snatch-joc-head.damf.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/talktome-joc-head/default/talktome-joc-head.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/talktome-joc-head/default/talktome-joc-head.damf.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/teleport-768/default/teleport-768.adm.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/joc/teleport-768/default/teleport-768.damf.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/pi-head50m/default/pi-head50m.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/pi-head50m/default/pi-head50m.damf.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/pi-head50m/nbc/pi-head50m.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": false
+    },
+    {
+     "record": "work/pi-head50m/nbc/pi-head50m.damf.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/pi-head50m/tag/pi-head50m.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/braveheart-h/default/braveheart-h.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/braveheart-h/default/braveheart-h.damf.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/fast-thd/default/fast-thd.adm.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/fast-thd/default/fast-thd.damf.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/gainsize-thd/default/gainsize-thd.adm.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/gainsize-thd/default/gainsize-thd.damf.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/kingsman-h/default/kingsman-h.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/kingsman-h/default/kingsman-h.damf.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/knivesout-h/default/knivesout-h.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/knivesout-h/default/knivesout-h.damf.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/scene-thd/default/scene-thd.adm.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/scene-thd/default/scene-thd.damf.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/shaun-head20m/default/shaun-head20m.adm.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/shaun-head20m/default/shaun-head20m.damf.run.json",
+     "exit": 7,
+     "audited_exit": 7,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/talktome-head/default/talktome-head.adm.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/talktome-head/default/talktome-head.damf.run.json",
+     "exit": 0,
+     "audited_exit": 0,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/thd-96k-revenant/default/thd-96k-revenant.adm.run.json",
+     "exit": 2,
+     "audited_exit": 2,
+     "all_identical": true
+    },
+    {
+     "record": "work/thd/thd-96k-revenant/default/thd-96k-revenant.damf.run.json",
+     "exit": 2,
+     "audited_exit": 2,
+     "all_identical": true
+    }
+   ]
+  }
+ }
+}
