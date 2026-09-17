@@ -47,6 +47,7 @@ cargo build --release
 oadec info    film.thd                            # what the stream declares
 oadec verify  film.thd                            # every integrity rule; exit 7 on failure (docs/exit-codes.md)
 oadec decode  film.thd -p 2 -o film-7.1.wav       # a channel presentation as WAVE
+oadec decode  film.thd -p 2 --start 90 -o cut.wav # from 90 s, at the next major sync
 oadec decode  film.thd --format damf -o out/film  # objects + metadata as a DAMF set
 oadec decode  film.thd --format adm  -o out/film  # objects + metadata as ADM BWF
 oadec thd-demux dump.thd -o film.thd --core core.ac3   # a Blu-ray dump with its core inside
