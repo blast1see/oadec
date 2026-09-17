@@ -697,6 +697,8 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
         stop.print(samples);
     }
     print_summary(&session, started.elapsed().as_secs_f64());
+    // The summary ends with a measurement; this says whether it worked.
+    eprintln!("done");
     let stream = crate::verify::join_stream_check(check)?;
     let mut f = truehd_findings(&pass, session.stats(), &stream);
     f.note(session.clipped, "samples clipped to 24 bits");
