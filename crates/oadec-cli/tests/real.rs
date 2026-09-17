@@ -655,6 +655,11 @@ fn relabelling_the_downmix_configuration_moves_only_three_bits() {
 /// routes, so they must agree about how many EMDF containers are there. They
 /// did not: the scanner used to hunt the sync word in the raw frame bytes,
 /// which finds only the containers that land on a byte boundary.
+///
+/// The configuration 4 head carries its containers in the dependent substream
+/// and other data in the skip fields of its AC-3 core. Those core frames have
+/// lost nothing, and a scanner that judged the whole stream at once counted
+/// 1 748 of them as missing containers.
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn the_metadata_scanner_and_the_verifier_count_the_same_containers() {
@@ -663,6 +668,7 @@ fn the_metadata_scanner_and_the_verifier_count_the_same_containers() {
         "clips/talktome-joc-head.ec3",
         "clips/kingsman-joc-head.ec3",
         "clips/disclosure-web-head.ec3",
+        "clips/greenbook-cfg4-head.ec3",
         "ec3/pi-head-joc384.ec3",
     ] {
         let file = media.join(name);
@@ -980,6 +986,253 @@ fn the_merged_channels_carry_the_tones_they_were_authored_with() {
             own - other
         );
     }
+}
+
+/// The frame groups of an E-AC-3 stream: each independent frame with the
+/// dependent frames that follow it, cut at the sizes their headers give.
+fn frame_groups(data: &[u8]) -> Vec<Vec<&[u8]>> {
+    let mut groups: Vec<Vec<&[u8]>> = Vec::new();
+    let mut at = 0;
+    while at < data.len() {
+        let header = oadec_eac3::FrameHeader::parse(&data[at..]).expect("a syncframe header");
+        let frame = &data[at..at + header.frame_bytes];
+        if header.stream_type == oadec_eac3::StreamType::Dependent {
+            groups
+                .last_mut()
+                .expect("a dependent frame follows an independent one")
+                .push(frame);
+        } else {
+            groups.push(vec![frame]);
+        }
+        at += header.frame_bytes;
+    }
+    groups
+}
+
+/// The interleaved samples of a 32-bit float WAVE file, with its channel count.
+fn wav_f32(path: &Path) -> (Vec<f32>, usize) {
+    let b = std::fs::read(path).expect("wav");
+    assert_eq!(&b[..4], b"RIFF", "{} is not a WAVE file", path.display());
+    let (mut at, mut channels) = (12, 0);
+    while at + 8 <= b.len() {
+        let id = &b[at..at + 4];
+        let size = u32::from_le_bytes(b[at + 4..at + 8].try_into().unwrap()) as usize;
+        let body = at + 8;
+        if id == b"fmt " {
+            channels = usize::from(u16::from_le_bytes([b[body + 2], b[body + 3]]));
+        } else if id == b"data" {
+            let end = b.len().min(body + size);
+            let samples = b[body..end]
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .copied()
+                .map(f32::from_le_bytes)
+                .collect();
+            return (samples, channels);
+        }
+        at = body + size + (size & 1);
+    }
+    panic!("{} has no data chunk", path.display());
+}
+
+/// A substream repeated inside one frame group is counted, and the programme
+/// still arrives whole.
+///
+/// Clause E.1.3.1.2 gives each substream one frame in a group. A second
+/// dependent frame with the same substream id used to reach that substream's
+/// decoder as its next frame and be queued against the group a second time.
+/// Delivery takes one frame per substream per group, so the spare frame stayed
+/// at the head of the queue, no later group could match it, and every group
+/// after the first waited for an end of stream that did not release them
+/// either. The decode wrote one group of 375 and exited 0.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn a_duplicated_dependent_frame_is_counted_and_delivery_continues() {
+    let media = media_dir();
+    let source = media.join("clips/ddp71-tones.ec3");
+    require(&source);
+    let data = std::fs::read(&source).expect("read the clip");
+    let groups = frame_groups(&data);
+    assert_eq!(groups.len(), 375);
+    assert!(
+        groups.iter().all(|g| g.len() == 2),
+        "every group of the clip is one independent and one dependent frame"
+    );
+
+    let dir = std::env::temp_dir().join(format!("oadec-repeated-dependent-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("scratch directory");
+    let repeated = dir.join("repeated.ec3");
+    let mut malformed = Vec::with_capacity(data.len() * 3 / 2);
+    for g in &groups {
+        malformed.extend_from_slice(g[0]);
+        malformed.extend_from_slice(g[1]);
+        malformed.extend_from_slice(g[1]);
+    }
+    std::fs::write(&repeated, &malformed).expect("write the malformed stream");
+
+    let decode = |input: &Path, name: &str| {
+        let out = dir.join(name);
+        let run = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["decode", "--format", "wav", "-o"])
+            .arg(&out)
+            .arg(input)
+            .output()
+            .expect("run oadec decode");
+        let (pcm, channels) = wav_f32(&out);
+        (run, pcm, channels)
+    };
+    let (clean, reference, width) = decode(&source, "original.wav");
+    assert_eq!(
+        clean.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&clean.stderr)
+    );
+    assert_eq!(width, 8);
+
+    let (run, pcm, channels) = decode(&repeated, "repeated.wav");
+    let log = String::from_utf8_lossy(&run.stderr);
+    assert_eq!(channels, 8, "{log}");
+    assert_eq!(
+        pcm.len() / 8,
+        reference.len() / 8,
+        "samples per channel delivered (exit {:?}): {log}",
+        run.status.code()
+    );
+    assert_eq!(run.status.code(), Some(7), "{log}");
+    assert!(
+        log.contains("integrity: 375 substream frames repeated within one group"),
+        "{log}"
+    );
+    // the repeats never reached a decoder, so every channel is the clean
+    // decode's to the bit, the core's with the rest
+    for (ch, name) in ["L", "R", "C", "LFE", "Lrs", "Rrs", "Ls", "Rs"]
+        .iter()
+        .enumerate()
+    {
+        assert!(
+            pcm.iter()
+                .skip(ch)
+                .step_by(8)
+                .eq(reference.iter().skip(ch).step_by(8)),
+            "{name} differs from the decode of the well-formed stream"
+        );
+    }
+
+    let report = verify_json(&repeated);
+    assert_eq!(
+        nonzero_failures(&report),
+        ["duplicate_substream_frames=375"]
+    );
+    assert_eq!(report["frames"].as_u64(), Some(375), "groups delivered");
+    assert_eq!(report["dependent_frames"].as_u64(), Some(750));
+    std::fs::remove_dir_all(&dir).expect("remove the scratch directory");
+}
+
+/// A dependent substream that stops mid-stream holds its last group back no
+/// longer than the pending window, and every group is delivered.
+///
+/// A decoder releases a frame only once it has seen what follows it -- one
+/// frame for enhanced coupling, 1 023 samples for transient pre-noise
+/// processing -- so the last frame of a substream that stops arriving stays
+/// inside its decoder. Its group used to wait for the end of the stream, and
+/// every later group waited behind it with its decoded audio in memory: here
+/// the whole second half of the clip. The substream is now flushed once
+/// `MAX_PENDING_GROUPS` groups wait, which is a fault of its own, and the
+/// groups without it are the layout change they always were.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn a_dependent_substream_that_disappears_does_not_stall_delivery() {
+    let media = media_dir();
+    let source = media.join("clips/ddp71-tones.ec3");
+    require(&source);
+    let data = std::fs::read(&source).expect("read the clip");
+    let groups = frame_groups(&data);
+    assert_eq!(groups.len(), 375);
+    let half = groups.len() / 2;
+
+    let dir =
+        std::env::temp_dir().join(format!("oadec-vanishing-dependent-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("scratch directory");
+    let cut = dir.join("cut.ec3");
+    let mut malformed = Vec::with_capacity(data.len());
+    for (i, g) in groups.iter().enumerate() {
+        malformed.extend_from_slice(g[0]);
+        if i < half {
+            malformed.extend_from_slice(g[1]);
+        }
+    }
+    std::fs::write(&cut, &malformed).expect("write the malformed stream");
+
+    let decode = |input: &Path, name: &str| {
+        let out = dir.join(name);
+        let run = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["decode", "--format", "wav", "-o"])
+            .arg(&out)
+            .arg(input)
+            .output()
+            .expect("run oadec decode");
+        let (pcm, channels) = wav_f32(&out);
+        (run, pcm, channels)
+    };
+    let (clean, reference, _) = decode(&source, "original.wav");
+    assert_eq!(
+        clean.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&clean.stderr)
+    );
+
+    let (run, pcm, channels) = decode(&cut, "cut.wav");
+    let log = String::from_utf8_lossy(&run.stderr);
+    assert_eq!(channels, 8, "{log}");
+    assert_eq!(
+        pcm.len(),
+        reference.len(),
+        "every group is delivered: {log}"
+    );
+    assert_eq!(run.status.code(), Some(7), "{log}");
+
+    let report = verify_json(&cut);
+    assert_eq!(report["frames"].as_u64(), Some(375), "groups delivered");
+    let window = report["max_pending_groups"]
+        .as_u64()
+        .expect("the pending window is reported");
+    assert!(
+        window <= oadec_eac3::MAX_PENDING_GROUPS as u64,
+        "{window} groups waited at once, past the window of {}",
+        oadec_eac3::MAX_PENDING_GROUPS
+    );
+    assert!(
+        log.contains("1 substreams flushed after they stopped supplying frames"),
+        "{log}"
+    );
+    assert_eq!(
+        nonzero_failures(&report),
+        ["layout_changes=188", "stalled_substreams=1"]
+    );
+
+    // interchange order: L, R, C and the LFE come from the independent
+    // substream all the way through, the rest from the dependent one for as
+    // long as it lasted
+    let frames = pcm.len() / 8;
+    let lasted = half * 1536;
+    for (ch, name) in ["L", "R", "C", "LFE", "Lrs", "Rrs", "Ls", "Rs"]
+        .iter()
+        .enumerate()
+    {
+        let n = if ch < 4 { frames } else { lasted };
+        assert!(
+            pcm.iter()
+                .skip(ch)
+                .step_by(8)
+                .take(n)
+                .eq(reference.iter().skip(ch).step_by(8).take(n)),
+            "{name} differs from the decode of the well-formed stream in its first {n} samples"
+        );
+    }
+    std::fs::remove_dir_all(&dir).expect("remove the scratch directory");
 }
 
 /// Interleaved samples of a CAF file, as `f64` in −1..1, with its channel
@@ -1331,6 +1584,48 @@ fn verify_and_decode_agree_about_a_truncated_object_metadata_element() {
         String::from_utf8_lossy(&decode.stderr)
     );
 
+    // the PCM and WAVE decodes of presentation 2 and `compare` do not read the
+    // object metadata, and they exited 0, `compare` calling the stream bit-exact
+    // and clean; they take the verdict of `verify` now
+    let pcm = std::env::temp_dir().join(format!("oadec-truncated-oamd-{}.pcm", std::process::id()));
+    let wav = std::env::temp_dir().join(format!("oadec-truncated-oamd-{}.wav", std::process::id()));
+    for (format, target) in [("pcm", &pcm), ("wav", &wav)] {
+        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["decode", "-p", "2", "--format", format, "-o"])
+            .arg(target)
+            .arg(&file)
+            .output()
+            .expect("run oadec decode");
+        assert_eq!(
+            out.status.code(),
+            Some(7),
+            "decode --format {format} called the truncated element clean: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args([
+            "compare",
+            "-p",
+            "2",
+            "--reference-format",
+            "s24le",
+            "--reference",
+        ])
+        .arg(&pcm)
+        .arg(&file)
+        .output()
+        .expect("run oadec compare");
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    let _ = std::fs::remove_file(&pcm);
+    let _ = std::fs::remove_file(&wav);
+    assert!(text.contains("result: BIT-EXACT"), "{text}");
+    assert_eq!(
+        out.status.code(),
+        Some(7),
+        "compare called the truncated element clean:\n{text}"
+    );
+
     // and a clean stream still passes both, so the rule is not "always 7"
     let clean = media.join("thd/pi.thd");
     if clean.exists() {
@@ -1397,7 +1692,7 @@ fn the_matrix_alignment_is_the_best_one_on_a_clip_it_was_not_fitted_on() {
             .arg(&base)
             .arg(&file);
         if let Some(v) = lag {
-            cmd.env("OADEC_JOC_LAG", v);
+            cmd.args(["--joc-lag", v]);
         }
         let out = cmd.output().expect("run oadec decode");
         assert!(
@@ -1661,4 +1956,384 @@ fn pi_head_adm_is_byte_identical_to_the_audited_file() {
         "the default ADM output of pi-head50m changed outside the dbmd payload"
     );
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// `emdf` frames an AC-3 stream the way `info` and `verify` do.
+///
+/// Its walk read frame headers with a parser of its own that knew only E-AC-3,
+/// and an AC-3 syncframe has its CRC where E-AC-3 has the frame size: on
+/// `talktome-dd51-head.ac3` the walk counted 902 frames and 902 sync errors
+/// where `info` decodes 1171 frames and finds no sync error, and it exited 7.
+/// The walk now frames with the verifier's framing, so the frame count is the
+/// one `info` reports, the sync errors are no more than `verify` finds, and
+/// an AC-3 stream holds the containers the verifier counts in it: none.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn emdf_frames_ac3_streams_as_info_and_verify_do() {
+    let media = media_dir();
+    for name in [
+        "clips/talktome-dd51-head.ac3",
+        "clips/nightcrawler-dd20-head.ac3",
+    ] {
+        let file = media.join(name);
+        require(&file);
+        let report = |command: &str| -> Value {
+            let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+                .args([command, "--json"])
+                .arg(&file)
+                .output()
+                .unwrap_or_else(|e| panic!("run oadec {command}: {e}"));
+            serde_json::from_slice(&out.stdout)
+                .unwrap_or_else(|e| panic!("{name}: {command} output is not JSON ({e})"))
+        };
+        let info = report("info");
+        let verify = verify_json(&file);
+        let scan = report("emdf");
+        assert_eq!(info["syntax"], "AC-3", "{name}");
+        assert_eq!(
+            scan["frames"].as_u64(),
+            info["frames"].as_u64(),
+            "{name}: frame count"
+        );
+        for key in ["independent_frames", "dependent_frames"] {
+            assert_eq!(scan[key].as_u64(), info[key].as_u64(), "{name}: {key}");
+        }
+        assert_eq!(scan["containers"].as_u64(), Some(0), "{name}: containers");
+        assert_eq!(
+            scan["containers"], verify["emdf"]["containers"],
+            "{name}: containers against the verifier"
+        );
+        let found = verify["failures"]["sync_errors"]
+            .as_u64()
+            .expect("sync_errors");
+        assert!(
+            scan["sync_errors"].as_u64().expect("sync_errors") <= found,
+            "{name}: emdf reports {} sync errors, verify {found}",
+            scan["sync_errors"]
+        );
+    }
+}
+
+/// Rewrites the sampling-frequency code of every major sync at or after byte
+/// `from` and repairs its CRC-16, the way `tools/thd_patch_major_sync.py`
+/// rewrites a field; returns how many major syncs changed and where the last
+/// whole access unit ends.
+fn patch_rate_after(bytes: &mut [u8], from: u64, code: u8) -> (usize, usize) {
+    let mut extractor = oadec_truehd::Extractor::new();
+    extractor.push(bytes);
+    let mut units = Vec::new();
+    while let Some(unit) = extractor.next_unit().expect("the clip frames") {
+        units.push((unit.offset, unit.bytes.len(), unit.has_major_sync));
+    }
+    let (rest, _) = extractor.finish().expect("the clip frames");
+    units.extend(
+        rest.iter()
+            .map(|u| (u.offset, u.bytes.len(), u.has_major_sync)),
+    );
+    let mut changed = 0;
+    for &(offset, _, has_major_sync) in &units {
+        if !has_major_sync || offset < from {
+            continue;
+        }
+        // the major sync follows the four-byte access-unit header
+        let at = offset as usize + 4;
+        let ms = oadec_truehd::MajorSync::parse(&bytes[at..]).expect("a major sync");
+        assert!(ms.crc_ok, "the clip is intact at byte {offset}");
+        assert_eq!(
+            ms.format_info.sampling_frequency_code, 0,
+            "the clip is 48 kHz"
+        );
+        bytes[at + 4] = (bytes[at + 4] & 0x0F) | (code << 4);
+        let crc_at = at + ms.len_bytes - 2;
+        let crc = oadec_bits::CRC16_MAJOR_SYNC.update_bytes(0, &bytes[at..crc_at]);
+        bytes[crc_at..crc_at + 2].copy_from_slice(&crc.to_be_bytes());
+        changed += 1;
+    }
+    let end = units
+        .last()
+        .map_or(0, |&(offset, len, _)| offset as usize + len);
+    (changed, end)
+}
+
+/// The chunks of a RIFF or RF64 WAVE file up to `data`: (id, body offset,
+/// declared size).
+fn wave_chunks(bytes: &[u8]) -> Vec<([u8; 4], usize, u64)> {
+    assert!(matches!(&bytes[..4], b"RIFF" | b"RF64"));
+    assert_eq!(&bytes[8..12], b"WAVE");
+    let mut out = Vec::new();
+    let mut at = 12;
+    while at + 8 <= bytes.len() {
+        let id: [u8; 4] = bytes[at..at + 4].try_into().unwrap();
+        let size = u32::from_le_bytes(bytes[at + 4..at + 8].try_into().unwrap()) as usize;
+        out.push((id, at + 8, size as u64));
+        if &id == b"data" {
+            break;
+        }
+        at += 8 + size + (size & 1);
+    }
+    out
+}
+
+/// A configuration change at a major sync ends the output where it happens,
+/// in a file that says so, and the run exits 7.
+///
+/// It used to stop the decode with exit 2 before the WAVE header was patched,
+/// leaving `data` at zero bytes over every sample written before the change.
+/// `verify` counts the change and exits 7, and a delivery decides between 0
+/// and 7 with the faults `verify` uses.
+///
+/// No stored clip changes configuration (`concat-pi-shaun.thd` splices two
+/// streams with the same one), so the stream is made the way the remediation
+/// report made it: every major sync of the Pi head from byte 1 101 614 on
+/// says 44,1 kHz instead of 48, its CRC repaired, and the cut ends at the last
+/// whole access unit so that the change is the only thing wrong with it.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn a_configuration_change_leaves_a_consistent_wav_and_exits_7() {
+    let clip = media_dir().join("clips").join("pi-head50m.thd");
+    require(&clip);
+    let dir = std::env::temp_dir().join(format!("oadec-config-change-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut bytes = std::fs::read(&clip).unwrap();
+    let (changed, end) = patch_rate_after(&mut bytes, 1_101_614, 8);
+    assert!(changed > 0, "no major sync after the splice point");
+    bytes.truncate(end);
+    let spliced = dir.join("rate-change.thd");
+    std::fs::write(&spliced, &bytes).unwrap();
+
+    let report = verify_json(&spliced);
+    assert!(
+        report["failures"]["config_changes"].as_u64().unwrap() >= 1,
+        "verify does not see the change: {:?}",
+        nonzero_failures(&report)
+    );
+    eprintln!("verify: {:?}", nonzero_failures(&report));
+
+    let wav = dir.join("out.wav");
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", "-p", "2", "--format", "wav", "-o"])
+        .arg(&wav)
+        .arg(&spliced)
+        .output()
+        .expect("run oadec decode");
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(7), "{err}");
+    assert!(
+        err.contains("the sampling frequency changed at a major sync"),
+        "{err}"
+    );
+    assert!(err.contains("stopped at access unit"), "{err}");
+
+    let b = std::fs::read(&wav).unwrap();
+    assert_eq!(&b[..4], b"RIFF", "a short file keeps the RIFF form");
+    assert_eq!(
+        u64::from(u32::from_le_bytes(b[4..8].try_into().unwrap())),
+        b.len() as u64 - 8,
+        "the RIFF size covers the file"
+    );
+    let chunks = wave_chunks(&b);
+    let &(_, fmt, _) = chunks.iter().find(|c| &c.0 == b"fmt ").expect("fmt");
+    let block_align = u64::from(u16::from_le_bytes(
+        b[fmt + 12..fmt + 14].try_into().unwrap(),
+    ));
+    let &(_, data, size) = chunks.iter().find(|c| &c.0 == b"data").expect("data");
+    assert!(size > 0, "the samples before the change are declared");
+    assert_eq!(size % block_align, 0, "whole frames");
+    assert_eq!(
+        data as u64 + size + (size & 1),
+        b.len() as u64,
+        "the data chunk is the rest of the file"
+    );
+
+    // the object path stops at the same access unit and finishes its files
+    let base = dir.join("objects");
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", "--format", "damf", "-o"])
+        .arg(&base)
+        .arg(&spliced)
+        .output()
+        .expect("run oadec decode");
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(7), "{err}");
+    assert!(
+        err.contains("the sampling frequency changed at a major sync"),
+        "{err}"
+    );
+    let caf = std::fs::read(dir.join("objects.atmos.audio")).unwrap();
+    assert_eq!(&caf[52..56], b"data");
+    assert_eq!(
+        i64::from_be_bytes(caf[56..64].try_into().unwrap()),
+        caf.len() as i64 - 64,
+        "the CAF data size covers the rest of the file"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// The first byte at or after `from` that lies inside a substream segment, the
+/// substream it belongs to, and where the last whole access unit ends.
+fn first_segment_byte_at_or_after(bytes: &[u8], from: u64) -> (u64, usize, usize) {
+    let mut extractor = oadec_truehd::Extractor::new();
+    extractor.push(bytes);
+    let mut units = Vec::new();
+    while let Some(unit) = extractor.next_unit().expect("the clip frames") {
+        units.push(unit);
+    }
+    let (rest, _) = extractor.finish().expect("the clip frames");
+    units.extend(rest);
+    let end = units
+        .last()
+        .map_or(0, |u| u.offset as usize + u.bytes.len());
+    let mut config = None;
+    for unit in &units {
+        let (au, cfg) =
+            oadec_truehd::AccessUnit::parse(&unit.bytes, config.as_ref()).expect("the clip parses");
+        config = Some(cfg);
+        for i in 0..au.directory.len() {
+            let r = au.segment_range(i);
+            let (start, stop) = (unit.offset + r.start as u64, unit.offset + r.end as u64);
+            let at = from.max(start);
+            if at < stop {
+                return (at, i, end);
+            }
+        }
+    }
+    panic!("no segment byte at or after {from}");
+}
+
+/// `verify --decode` reports a corrupted audio byte through the decode of every
+/// presentation that reads it, and not only through the segment checks the
+/// scan makes.
+///
+/// One byte of a substream segment of the Pi head, the first at or after byte
+/// 6 000 000, is inverted; the head is cut at its last whole access unit so
+/// that the byte is the only thing wrong with it, and the same cut without the
+/// change is checked first. Measured, that byte breaks its segment's parity and
+/// CRC, and the decoders of the presentations that read its substream stop at
+/// that access unit before the next check word is due, so the statistic shows
+/// a stopped decode there; a presentation that does not read the substream
+/// evaluates its words to the end. Only a corruption that keeps the segment
+/// checks intact and the samples in range is left for the check word alone.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn verify_decode_reports_a_corrupted_segment_in_every_presentation_that_reads_it() {
+    let clip = media_dir().join("clips").join("pi-head50m.thd");
+    require(&clip);
+    let mut bytes = std::fs::read(&clip).unwrap();
+    let (at, substream, end) = first_segment_byte_at_or_after(&bytes, 6_000_000);
+    bytes.truncate(end);
+    let dir = std::env::temp_dir().join(format!("oadec-verify-decode-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let intact = dir.join("head.thd");
+    std::fs::write(&intact, &bytes).unwrap();
+    bytes[at as usize] ^= 0xFF;
+    let corrupt = dir.join("corrupt.thd");
+    std::fs::write(&corrupt, &bytes).unwrap();
+
+    let verify = |path: &Path| {
+        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["verify", "--decode", "--json"])
+            .arg(path)
+            .output()
+            .expect("run oadec verify");
+        let report: Value = serde_json::from_slice(&out.stdout).unwrap_or_else(|e| {
+            panic!(
+                "verify --decode is not JSON ({e}): {}",
+                String::from_utf8_lossy(&out.stderr)
+            )
+        });
+        (out.status.code(), report)
+    };
+
+    let (code, report) = verify(&intact);
+    let checks = &report["lossless_checks"];
+    assert_eq!(code, Some(0), "{:?} {checks}", nonzero_failures(&report));
+    assert!(checks["evaluated"].as_u64().unwrap() > 0, "{checks}");
+    assert_eq!(checks["failed"].as_u64(), Some(0), "{checks}");
+
+    let (code, report) = verify(&corrupt);
+    let checks = &report["lossless_checks"];
+    eprintln!(
+        "byte {at} (substream {substream}) inverted: failures {:?}; lossless checks {checks}",
+        nonzero_failures(&report)
+    );
+    assert_eq!(code, Some(7));
+    let per = checks["per_presentation"].as_array().unwrap();
+    let saw_it = |p: &Value| !p["error"].is_null() || p["failed"].as_u64().unwrap() > 0;
+    assert!(
+        per.iter().any(saw_it),
+        "no presentation's decode saw the byte: {checks}"
+    );
+    // presentation 0 is the two-channel substream 0 alone
+    let first = per
+        .iter()
+        .find(|p| p["presentation"].as_u64() == Some(0))
+        .expect("presentation 0");
+    if substream > 0 {
+        assert!(first["error"].is_null(), "{checks}");
+        assert_eq!(first["failed"].as_u64(), Some(0), "{checks}");
+        assert!(first["evaluated"].as_u64().unwrap() > 0, "{checks}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Up (2009) is spliced twice, at access units 54205 and 77078, and `truehdd`
+/// calls the stream conformant. Both branches must be seen and both must reach
+/// every substream of their access unit, because the decoder skips the lossless
+/// check word where the branch is: the branch that reached the one restart
+/// header it was judged at left presentations 0 and 2 skipping the check at
+/// 54205 where 1 and 3 failed it, and the splice at 77078, which moves neither
+/// clock and only changes the peak data rate its major sync declares, was not
+/// seen at all. Nothing may fail a check word in this title.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn a_branch_reaches_every_presentation() {
+    let clip = media_dir().join("verify-2026-09-14/clips/up-2009.thd");
+    if !clip.exists() {
+        eprintln!("{} is not here; skipping", clip.display());
+        return;
+    }
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["verify", "--decode", "--json"])
+        .arg(&clip)
+        .output()
+        .expect("run oadec verify");
+    let report: Value = serde_json::from_slice(&out.stdout).unwrap_or_else(|e| {
+        panic!(
+            "verify --decode is not JSON ({e}): {}",
+            String::from_utf8_lossy(&out.stderr)
+        )
+    });
+    let timing = &report["timing_stats"];
+    assert_eq!(timing["valid_branches"].as_u64(), Some(2), "{timing}");
+    assert_eq!(timing["invalid_branches"].as_u64(), Some(0), "{timing}");
+    let units: Vec<u64> = timing["branches"]
+        .as_array()
+        .expect("the branches")
+        .iter()
+        .map(|b| b["unit"].as_u64().expect("an access unit"))
+        .collect();
+    assert_eq!(units, vec![54205, 77078], "{timing}");
+
+    let checks = &report["lossless_checks"];
+    let per = checks["per_presentation"]
+        .as_array()
+        .expect("a row per presentation");
+    assert_eq!(per.len(), 4, "{checks}");
+    for row in per {
+        assert_eq!(
+            row["skipped"].as_u64(),
+            Some(2),
+            "presentation {} did not hear about both branches: {row}",
+            row["presentation"]
+        );
+        assert_eq!(
+            row["failed"].as_u64(),
+            Some(0),
+            "presentation {} failed a check word: {row}",
+            row["presentation"]
+        );
+    }
+    assert_eq!(checks["failed"].as_u64(), Some(0), "{checks}");
+    assert_eq!(report["clean"], true, "the title is clean");
+    assert_eq!(out.status.code(), Some(0), "verify --decode: {report}");
 }

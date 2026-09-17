@@ -1,0 +1,65 @@
+{
+ "question": "what would the suite have caught of the rules this phase added",
+ "method": "tools/mutants.py: one load-bearing change at a time, cargo test --workspace --locked after each, the tree restored between them. Six mutants were added for the new rules: the branch trigger without the peak data rate change, either rate condition weighing the previous access unit against the rate that replaced the one its bytes were carried at, the branch not reaching the other restart headers of its unit, and the two halves of the missing-container rule",
+ "first_run": {
+  "mutations": 30,
+  "survived": [
+   "the missing container, the walk asking for skip bytes first",
+   "the matrix alignment, 10 -> 9"
+  ]
+ },
+ "after_the_fix": {
+  "mutations": 30,
+  "survived": [
+   "the matrix alignment, 10 -> 9"
+  ]
+ },
+ "finding": "the first run named a hole: the walk arm of the missing-container rule was held only by a media test, so the mutant that put it back survived every test that runs without the corpus. The rule became a named function with a unit test, and the second run catches it. The one survivor left is the matrix alignment, which the round already records as having no specification behind it",
+ "new_rule_mutants": [
+  {
+   "mutation": "the branch trigger, without the peak data rate change",
+   "caught": true,
+   "failing_tests": [
+    "timing::tests::a_peak_data_rate_change_is_a_branch_even_when_neither_clock_jumps"
+   ]
+  },
+  {
+   "mutation": "the branch data rate, the previous unit weighed against the new rate",
+   "caught": true,
+   "failing_tests": [
+    "timing::tests::a_peak_data_rate_change_is_a_branch_even_when_neither_clock_jumps"
+   ]
+  },
+  {
+   "mutation": "the branch reaching only the restart header it was judged at",
+   "caught": true,
+   "failing_tests": [
+    "timing::tests::a_peak_data_rate_change_is_a_branch_even_when_neither_clock_jumps",
+    "timing::tests::a_seamless_branch_is_recognised_when_the_conditions_hold",
+    "timing::tests::an_advance_that_grows_too_much_is_not_a_valid_branch",
+    "timing::tests::the_branch_reaches_every_restart_header_of_the_unit"
+   ]
+  },
+  {
+   "mutation": "the missing container, the walk asking for skip bytes first",
+   "caught": true,
+   "failing_tests": [
+    "emdf::tests::a_frame_loses_its_container_where_one_should_be"
+   ]
+  },
+  {
+   "mutation": "the missing container, the statistics not counting a frame without skip fields",
+   "caught": true,
+   "failing_tests": [
+    "eac3::tests::a_frame_without_skip_fields_loses_a_container_where_emdf_is_declared"
+   ]
+  },
+  {
+   "mutation": "a mid-stream sampling-rate change is allowed again",
+   "caught": true,
+   "failing_tests": [
+    "au::tests::a_rate_change_at_a_major_sync_is_refused_like_any_other_layout_change"
+   ]
+  }
+ ]
+}

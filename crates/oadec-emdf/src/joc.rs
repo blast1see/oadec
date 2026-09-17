@@ -159,15 +159,24 @@ fn huff_decode(r: &mut BitReader<'_>, table: &[[i16; 2]]) -> Result<u32> {
     }
 }
 
-impl Joc {
-    /// Parses a payload of EMDF id 14.
-    #[allow(
-        clippy::needless_range_loop,
-        reason = "band and channel indices address several parallel arrays"
-    )]
-    pub fn parse(data: &[u8], sparse_mode: SparseReading) -> Result<Self> {
-        let mut r = BitReader::new(data);
-        // joc_header
+/// `joc_header()` of clause 6.2.2 on its own: what a payload says about its
+/// downmix and its objects, which precedes everything a reserved
+/// `joc_ext_config_idx` makes unreadable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct JocHeader {
+    pub dmx_config: u8,
+    pub num_channels: usize,
+    pub num_objects: usize,
+    pub ext_config: u8,
+}
+
+impl JocHeader {
+    /// Reads the header at the start of a payload of EMDF id 14.
+    pub fn parse(data: &[u8]) -> Result<Self> {
+        Self::read(&mut BitReader::new(data))
+    }
+
+    fn read(r: &mut BitReader<'_>) -> Result<Self> {
         let dmx_config = r.read(3)? as u8;
         let num_channels = *NUM_CHANNELS
             .get(usize::from(dmx_config))
@@ -176,8 +185,40 @@ impl Joc {
         if objects_bits > 15 {
             return Err(JocError::Objects(objects_bits));
         }
-        let num_objects = usize::from(objects_bits) + 1;
-        let ext_config = r.read(3)? as u8;
+        Ok(Self {
+            dmx_config,
+            num_channels,
+            num_objects: usize::from(objects_bits) + 1,
+            ext_config: r.read(3)? as u8,
+        })
+    }
+}
+
+impl Joc {
+    /// The payload's `joc_header()`.
+    #[must_use]
+    pub const fn header(&self) -> JocHeader {
+        JocHeader {
+            dmx_config: self.dmx_config,
+            num_channels: self.num_channels,
+            num_objects: self.num_objects,
+            ext_config: self.ext_config,
+        }
+    }
+
+    /// Parses a payload of EMDF id 14.
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "band and channel indices address several parallel arrays"
+    )]
+    pub fn parse(data: &[u8], sparse_mode: SparseReading) -> Result<Self> {
+        let mut r = BitReader::new(data);
+        let JocHeader {
+            dmx_config,
+            num_channels,
+            num_objects,
+            ext_config,
+        } = JocHeader::read(&mut r)?;
         // joc_info
         let clip_x = r.read(3)? as i32;
         let clip_y = r.read(5)? as f64;
@@ -518,6 +559,77 @@ mod tests {
         assert_eq!(&obj.mtx_q[0][3][..3], &[58, 58, 58]);
         assert_eq!(&obj.mtx_q[0][4][..3], &[53, 58, 63]);
         assert_eq!(obj.mtx_q[1], obj.mtx_q[0]);
+    }
+
+    /// `joc_ext_config_idx` 1 to 7 are reserved (table 49) and what
+    /// `joc_ext_data()` would hold is not defined, so the parser reads the
+    /// payload through and then refuses it with an error of its own, which
+    /// the object path and `verify` can name.
+    #[test]
+    fn a_reserved_ext_config_is_refused_by_name() {
+        for ext in 1..=7u32 {
+            let mut w = Writer { bits: Vec::new() };
+            w.put(0, 3); // dmx 5.X
+            w.put(0, 6); // one object
+            w.put(ext, 3); // joc_ext_config_idx, reserved
+            w.put(4, 3); // clipgain x = 4 -> 2^0
+            w.put(0, 5); // clipgain y = 0 -> 1.0
+            w.put(7, 10); // seq count
+            w.put(0, 1); // the object is absent
+            while !w.bits.len().is_multiple_of(8) {
+                w.bits.push(false);
+            }
+            assert_eq!(
+                Joc::parse(&w.bytes(), SparseReading::Measured),
+                Err(JocError::ExtConfig(ext as u8)),
+                "joc_ext_config_idx {ext}"
+            );
+            // and the header in front of it stays readable
+            let header = JocHeader::parse(&w.bytes()).unwrap();
+            assert_eq!(
+                (
+                    header.dmx_config,
+                    header.num_channels,
+                    header.num_objects,
+                    header.ext_config
+                ),
+                (0, 5, 1, ext as u8)
+            );
+        }
+    }
+
+    /// The object path judges a payload's declared size by `size_ok`, so a
+    /// byte the syntax never reaches has to make it false. The parse itself
+    /// succeeds: it stops where the syntax does.
+    #[test]
+    fn a_trailing_byte_is_a_size_mismatch() {
+        let mut w = Writer { bits: Vec::new() };
+        w.put(0, 3); // dmx 5.X
+        w.put(0, 6); // one object
+        w.put(0, 3); // no extension
+        w.put(4, 3); // clipgain x = 4 -> 2^0
+        w.put(0, 5); // clipgain y = 0 -> 1.0
+        w.put(7, 10); // seq count
+        w.put(0, 1); // the object is absent
+        while !w.bits.len().is_multiple_of(8) {
+            w.bits.push(false);
+        }
+        let mut bytes = w.bytes();
+        let exact = Joc::parse(&bytes, SparseReading::Measured).unwrap();
+        assert!(
+            exact.size_ok(bytes.len()),
+            "the payload as written is exact"
+        );
+        bytes.push(0);
+        let long = Joc::parse(&bytes, SparseReading::Measured).unwrap();
+        assert_eq!(
+            long.bits_used, exact.bits_used,
+            "the parse stops where the syntax does"
+        );
+        assert!(
+            !long.size_ok(bytes.len()),
+            "one trailing byte is a declared size the syntax does not fill"
+        );
     }
 
     /// Clause 6.6.2 applies its modulo from the second parameter band on, not

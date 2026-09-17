@@ -26,11 +26,11 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "oadec-bits"
-version = "0.3.0"
+version = "0.4.0"
 
 [[package]]
 name = "oadec-emdf"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "oadec-bits",
  "thiserror",
@@ -38,7 +38,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-spatial"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "oadec-emdf",
  "thiserror",
@@ -107,9 +107,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "3.0.5"
+version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12df2e0110f65b775f769bb17ef989067a1d931b2eb822bd4346631eeada89f9"
+checksum = "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -138,9 +138,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.24"
+version = "1.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+checksum = "ab72a15cf68d77cb0987d3684aa8a45c5ef827e8cb49ee2f30bfd7ba2feb519f"
 
 [[package]]
 name = "zmij"

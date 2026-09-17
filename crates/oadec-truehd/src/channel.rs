@@ -457,6 +457,19 @@ impl ChannelLabel {
         }
     }
 
+    /// The `dwChannelMask` bit of `WAVEFORMATEXTENSIBLE` for the label, or
+    /// `None` for a speaker WAVE has no bit for.
+    ///
+    /// WAVE defines eighteen speaker bits, front left (0) to top back right
+    /// (17), and the interchange index follows them that far. Past that the
+    /// index is FFmpeg's channel id and not a mask bit: wide left is 31, which
+    /// in a mask means `SPEAKER_ALL`, and the rest do not fit in 32 bits.
+    #[must_use]
+    pub fn wave_bit(self) -> Option<u8> {
+        let index = self.interchange_index();
+        (index <= 17).then_some(index)
+    }
+
     /// Labels of the channels a presentation outputs, in stream order. For the
     /// object presentation only the bed channels are labelled; the remaining
     /// output channels are the dynamic objects, in order.
@@ -508,5 +521,39 @@ mod order_tests {
         );
         // objects after a one-channel bed keep their order
         assert_eq!(L::interchange_order(&[L::LFE], 4), vec![0, 1, 2, 3]);
+    }
+
+    /// WAVE names eighteen speakers, front left (bit 0) to top back right
+    /// (bit 17). Every label past that has no bit, however it sorts in the
+    /// interchange order: wide left used to set bit 31, which in a mask is
+    /// `SPEAKER_ALL`, and the six after it fell off the 32-bit mask.
+    #[test]
+    fn wave_bits_stop_at_top_back_right() {
+        let named = [
+            (L::L, 0),
+            (L::R, 1),
+            (L::C, 2),
+            (L::LFE, 3),
+            (L::Lb, 4),
+            (L::Rb, 5),
+            (L::Lsc, 6),
+            (L::Rsc, 7),
+            (L::Cb, 8),
+            (L::Ls, 9),
+            (L::Rs, 10),
+            (L::Tc, 11),
+            (L::Tfl, 12),
+            (L::Tfc, 13),
+            (L::Tfr, 14),
+            (L::Tbl, 15),
+            (L::Tbr, 17),
+        ];
+        for (label, bit) in named {
+            assert_eq!(label.wave_bit(), Some(bit), "{label}");
+            assert_eq!(label.interchange_index(), bit, "{label}");
+        }
+        for label in [L::Lw, L::Rw, L::Lsd, L::Rsd, L::LFE2, L::Tsl, L::Tsr] {
+            assert_eq!(label.wave_bit(), None, "{label} has no WAVE speaker bit");
+        }
     }
 }

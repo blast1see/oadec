@@ -2,19 +2,19 @@
 //! containers in their skip fields and report the Object Audio Metadata timing
 //! they carry.
 //!
-//! The frames are walked by their sync words and sizes and each one is parsed
+//! The frames are found the way `info` and `verify` find them, by their sync
+//! words and their own headers, AC-3 and E-AC-3 alike, and each one is parsed
 //! far enough to reach its skip fields, which is where the containers are; no
 //! audio comes out. It settles where the encoder places metadata relative to
-//! the 1536-sample frames.
+//! the 1536-sample frames. The walk ([`for_each_container`]) is shared with
+//! `oadec oamd`, which reads the same containers for what the objects carry.
 
 use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::Read;
 use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
-use oadec_bits::BitReader;
+use oadec_eac3::StreamType;
 use oadec_eac3::frame::{Frame, Noise, Options as FrameOptions};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::Oamd;
@@ -38,6 +38,11 @@ pub struct EmdfSummary {
     pub dependent_frames: u64,
     pub bytes: u64,
     pub sync_errors: u64,
+    /// Bytes the framing skipped: before the first syncframe, where sync was
+    /// lost, and a last syncframe cut short. `verify` counts them as faults.
+    pub skipped_bytes: u64,
+    /// Syncframes whose CRC failed; `verify` counts them as faults.
+    pub crc_failures: u64,
     /// Frames the parser could not read far enough to reach the skip fields.
     pub unparsed_frames: u64,
     pub frames_with_emdf: u64,
@@ -61,36 +66,10 @@ pub struct EmdfSummary {
     pub event_times: Vec<u64>,
 }
 
-/// E-AC-3 frame header fields the scan needs.
-struct FrameHead {
-    strmtyp: u8,
-    substreamid: u8,
-    frmsiz: usize,
-    numblks: u8,
-}
-
-fn parse_head(bytes: &[u8]) -> Option<FrameHead> {
-    if bytes.len() < 6 || bytes[0] != 0x0B || bytes[1] != 0x77 {
-        return None;
-    }
-    let mut r = BitReader::new(&bytes[2..]);
-    let strmtyp = r.read(2).ok()? as u8;
-    let substreamid = r.read(3).ok()? as u8;
-    let frmsiz = r.read(11).ok()? as usize;
-    let fscod = r.read(2).ok()? as u8;
-    let numblkscod = r.read(2).ok()? as u8;
-    let numblks = if fscod == 3 {
-        6
-    } else {
-        [1, 2, 3, 6][usize::from(numblkscod)]
-    };
-    Some(FrameHead {
-        strmtyp,
-        substreamid,
-        frmsiz,
-        numblks,
-    })
-}
+/// A container as the walk found it in a skip field: opened, or the error
+/// that kept it closed.
+pub(crate) type ContainerResult =
+    std::result::Result<container::Container, container::ContainerError>;
 
 /// The EMDF containers of one frame.
 ///
@@ -101,14 +80,14 @@ fn parse_head(bytes: &[u8]) -> Option<FrameHead> {
 /// half of them and invented twenty false errors. The frame is parsed instead,
 /// and the sync word is looked for in the skip fields, where it is
 /// byte-aligned by construction.
+/// Returns the containers of the frame and whether its skip fields held any data
+/// at all.
 fn find_emdf(
     frame: &[u8],
     noise: &mut Noise,
     unparsed: &mut u64,
-) -> Vec<(
-    usize,
-    std::result::Result<container::Container, container::ContainerError>,
-)> {
+    crc_failures: &mut u64,
+) -> (Vec<(usize, ContainerResult)>, bool, bool) {
     let mut out = Vec::new();
     let opts = FrameOptions {
         dither: false,
@@ -116,11 +95,20 @@ fn find_emdf(
     };
     let Ok(parsed) = Frame::parse(frame, noise, opts) else {
         *unparsed += 1;
-        return out;
+        return (out, false, false);
     };
+    if !parsed.crc_ok {
+        *crc_failures += 1;
+    }
+    // TS 103 420 clause 8.3.1: the extension is declared in the same substream
+    // as the container it rides in
+    let declares_joc = parsed
+        .bsi
+        .joc_extension()
+        .is_some_and(|(present, _)| present);
     let total: usize = parsed.skip_fields.iter().map(Vec::len).sum();
     if total == 0 {
-        return out;
+        return (out, false, declares_joc);
     }
     let mut data = Vec::with_capacity(total);
     for s in &parsed.skip_fields {
@@ -146,200 +134,628 @@ fn find_emdf(
         }
         i += 1;
     }
-    out
+    // A frame carries one container (TS 103 420 clause 8.2): a candidate that
+    // failed before one that opened was a false sync, as `verify` reads it, and a
+    // frame in which none opened reports its first failure once.
+    if read_one {
+        out.retain(|(_, c)| c.is_ok());
+    } else {
+        out.truncate(1);
+    }
+    (out, true, declares_joc)
 }
 
-/// Runs the command; returns `true` when every container and payload parsed.
-pub fn run(path: &Path, opts: &Options) -> Result<bool> {
-    // the containers are in E-AC-3 skip fields; a TrueHD stream has none and
-    // walking it for E-AC-3 sync words would report nothing but sync errors
-    if !crate::eac3::is_eac3(path).unwrap_or(false) {
-        anyhow::bail!(
-            concat!(
-                "{} is not an E-AC-3 stream. TrueHD carries its object metadata ",
-                "in the access units instead; use `oadec oamd` for that."
-            ),
-            path.display()
-        );
-    }
-    let started = Instant::now();
-    let mut data = Vec::new();
-    File::open(path)
+/// Whether a frame lost the EMDF container it should have carried.
+///
+/// A substream that declares the JOC extension carries one in every frame (TS
+/// 103 420 clauses 8.2 and 8.3.1), so a frame with no skip field at all has lost
+/// one there. Asking for skip bytes before asking whether a container opened
+/// left that loss uncounted (R7F1); asking only where a container could be keeps
+/// the exemption for ordinary frames, which carry no skip field and have lost
+/// nothing.
+fn frame_lost_container(opened: u64, has_skip: bool, declares_joc: bool) -> bool {
+    opened == 0 && (has_skip || declares_joc)
+}
+
+/// Where the walk found a container.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Site {
+    /// The syncframe, counted from 0 over every substream.
+    pub frame_index: u64,
+    /// The first sample of the independent frame the syncframe belongs to.
+    pub sample_pos: u64,
+    pub substream_id: u8,
+    /// Whether the syncframe belongs to a dependent substream.
+    pub dependent: bool,
+    /// The byte of the frame's joined skip fields the container starts at.
+    pub offset: usize,
+}
+
+/// What the walk counted besides the containers it handed out.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Walk {
+    pub frames: u64,
+    pub independent_frames: u64,
+    pub dependent_frames: u64,
+    pub bytes: u64,
+    pub sync_errors: u64,
+    /// Frames the parser could not read far enough to reach the skip fields.
+    pub unparsed_frames: u64,
+    /// Bytes the framing skipped, a last syncframe cut short included.
+    pub skipped_bytes: u64,
+    /// Syncframes that parsed and whose CRC failed.
+    pub crc_failures: u64,
+    /// Frames holding at least one container, opened or not.
+    pub frames_with_emdf: u64,
+    /// Containers that opened.
+    pub containers: u64,
+    /// Frames whose skip fields held data and no container that opens, erased
+    /// or broken, in a substream in which containers do open: those frames lost
+    /// their metadata. Skip fields may carry other data, so a substream that
+    /// carries no EMDF at all adds nothing; the AC-3 core of a configuration 4
+    /// stream fills them while its dependent substream carries the containers.
+    /// A substream whose frames declare a JOC extension carries EMDF as well,
+    /// even when not one of its containers opens.
+    pub missing_containers: u64,
+    /// The first of them, in the words the reports use.
+    pub first_missing: Option<String>,
+}
+
+/// What the walk saw of the containers of one substream.
+#[derive(Debug, Default)]
+struct SubstreamContainers {
+    /// Containers that opened.
+    opened: u64,
+    /// Frames with skip data and no container that opens.
+    without: u64,
+    /// The first of those frames, and the words that name it.
+    first_without: Option<(u64, String)>,
+    /// A frame of the substream declared a JOC extension in its `addbsi`. That
+    /// extension rides in an EMDF container (TS 103 420 clause 8.3.1), so the
+    /// substream carries EMDF even when not one container opens.
+    declares_joc: bool,
+}
+
+/// Walks the syncframes of the AC-3 or E-AC-3 stream at `path` and hands
+/// `on_container` every EMDF container of their skip fields, opened or not,
+/// in stream order.
+///
+/// `emdf` reads the containers for when their metadata applies and `oamd` for
+/// what the objects carry. Both walk the stream here, so the two commands
+/// count the same frames and see the same payloads.
+///
+/// The syncframes are the ones `info` and `verify` decode, framed by
+/// [`crate::eac3::for_each_frame`] with the decoder's own header, so the frame
+/// count and the sync errors are theirs as well. The walk used to read the
+/// headers with a parser of its own that knew only E-AC-3, and an AC-3
+/// syncframe has its CRC where E-AC-3 has the frame size: on a 5.1 AC-3 clip
+/// in which `info` decodes 1171 frames and finds no sync error, it counted 902
+/// frames and 902 sync errors.
+pub(crate) fn for_each_container(
+    path: &Path,
+    mut on_container: impl FnMut(&Site, ContainerResult),
+) -> Result<Walk> {
+    let bytes = std::fs::metadata(path)
         .with_context(|| format!("opening {}", path.display()))?
-        .read_to_end(&mut data)?;
-    let mut s = EmdfSummary {
-        bytes: data.len() as u64,
-        ..EmdfSummary::default()
+        .len();
+    let mut walk = Walk {
+        bytes,
+        ..Walk::default()
     };
-    let mut pos = 0usize;
     let mut noise = Noise::default();
     let mut sample_pos: u64 = 0; // first sample of the current independent frame
-    let mut dumped = 0usize;
+    let mut substreams: BTreeMap<(bool, u8), SubstreamContainers> = BTreeMap::new();
     let mut last_frame_len: u64 = 0;
-    while pos + 6 <= data.len() {
-        let Some(head) = parse_head(&data[pos..]) else {
-            s.sync_errors += 1;
-            // resync on the next 0B 77
-            match data[pos + 1..].windows(2).position(|w| w == [0x0B, 0x77]) {
-                Some(k) => {
-                    pos += 1 + k;
-                    continue;
-                }
-                None => break,
-            }
-        };
-        let len = (head.frmsiz + 1) * 2;
-        if pos + len > data.len() {
-            break;
-        }
-        let frame = &data[pos..pos + len];
-        s.frames += 1;
-        if head.strmtyp == 1 {
-            s.dependent_frames += 1;
+    let (_, sync_errors, skipped) = crate::eac3::for_each_frame(path, |_, frame, header| {
+        walk.frames += 1;
+        let dependent = header.stream_type == StreamType::Dependent;
+        if dependent {
+            walk.dependent_frames += 1;
         } else {
-            s.independent_frames += 1;
-            if s.frames > 1 {
+            walk.independent_frames += 1;
+            if walk.frames > 1 {
                 sample_pos += last_frame_len;
             }
-            last_frame_len = u64::from(head.numblks) * BLOCK_SAMPLES;
+            last_frame_len = u64::from(header.blocks) * BLOCK_SAMPLES;
         }
-        let frame_index = s.frames - 1;
-        let containers = find_emdf(frame, &mut noise, &mut s.unparsed_frames);
+        let (containers, has_skip, declares_joc) = find_emdf(
+            frame,
+            &mut noise,
+            &mut walk.unparsed_frames,
+            &mut walk.crc_failures,
+        );
         if !containers.is_empty() {
-            s.frames_with_emdf += 1;
+            walk.frames_with_emdf += 1;
+        }
+        let opened = containers.iter().filter(|(_, c)| c.is_ok()).count() as u64;
+        walk.containers += opened;
+        let substream = substreams
+            .entry((dependent, header.substream_id))
+            .or_default();
+        substream.opened += opened;
+        substream.declares_joc |= declares_joc;
+        if frame_lost_container(opened, has_skip, substream.declares_joc) {
+            substream.without += 1;
+            if substream.first_without.is_none() {
+                let index = walk.frames - 1;
+                let words = match containers.first() {
+                    Some((offset, Err(e))) => {
+                        format!("frame {index}, skip-field byte {offset}: {e}")
+                    }
+                    _ if has_skip => {
+                        format!("frame {index}: no EMDF container in the skip fields")
+                    }
+                    _ => format!(
+                        "frame {index}: the substream declares a JOC extension and the frame carries no skip field"
+                    ),
+                };
+                substream.first_without = Some((index, words));
+            }
         }
         for (offset, c) in containers {
-            match c {
-                Err(e) => {
-                    s.container_errors += 1;
-                    if s.first_error.is_none() {
-                        s.first_error = Some(format!(
-                            "frame {frame_index}, skip-field byte {offset}: {e}"
-                        ));
+            let site = Site {
+                frame_index: walk.frames - 1,
+                sample_pos,
+                substream_id: header.substream_id,
+                dependent,
+                offset,
+            };
+            on_container(&site, c);
+        }
+        Ok(())
+    })
+    .with_context(|| format!("reading {}", path.display()))?;
+    walk.sync_errors = sync_errors;
+    walk.skipped_bytes = skipped;
+    // A substream carries EMDF when a container opens in it, or when its frames
+    // declare a JOC extension, which rides in one: the metadata of a programme
+    // rides in one substream (TS 103 420 clauses 8.2 and 8.3.1), and the skip
+    // fields of the others may carry anything. Without the second evidence a
+    // substream whose containers are all broken read like one that carries none.
+    let mut first: Option<(u64, String)> = None;
+    for substream in substreams
+        .into_values()
+        .filter(|s| s.opened > 0 || s.declares_joc)
+    {
+        walk.missing_containers += substream.without;
+        if let Some((index, words)) = substream.first_without
+            && first.as_ref().is_none_or(|(earliest, _)| index < *earliest)
+        {
+            first = Some((index, words));
+        }
+    }
+    walk.first_missing = first.map(|(_, words)| words);
+    Ok(walk)
+}
+
+/// Counts what an Object Audio Metadata element says about its timing.
+///
+/// Both walks record the same things here -- the E-AC-3 skip fields and the
+/// TrueHD extra data -- so they record them in one place. `sample_pos` is the
+/// first sample of the frame that carries the payload, which the event time is
+/// derived from; the TrueHD walk has no frame start to offer and passes `None`,
+/// and no event time is recorded for it.
+fn take_oamd_timing(
+    s: &mut EmdfSummary,
+    o: &oadec_emdf::oamd::ObjectElement,
+    smploffst: u32,
+    sample_pos: Option<u64>,
+) {
+    *s.oamd_sample_offsets
+        .entry(o.timing.sample_offset)
+        .or_default() += 1;
+    for b in &o.timing.blocks {
+        *s.oamd_block_offsets
+            .entry(b.block_offset_factor)
+            .or_default() += 1;
+        *s.oamd_ramps.entry(b.ramp_duration).or_default() += 1;
+        if let Some(pos) = sample_pos {
+            let t = pos
+                + u64::from(smploffst)
+                + u64::from(o.timing.sample_offset)
+                + u64::from(b.block_offset_factor) * 32;
+            *s.event_times_mod_frame.entry(t % 1536).or_default() += 1;
+            s.event_times.push(t);
+        }
+    }
+}
+
+/// Walks a TrueHD stream: the EMDF containers are in the extra data at the end
+/// of an access unit, inside an Evolution frame.
+///
+/// The frame is found from the access unit's own syntax, not by hunting for the
+/// sync word: compressed audio carries that pattern by chance, often enough to
+/// drown the real containers. With `--dump` the block around the container is
+/// printed as well -- its header, the parity of the header and of the Evolution
+/// frame, and the frame bytes -- because that layer is what a decoder validates
+/// before it reads anything inside it, and nothing here showed it before.
+///
+/// Event times are not derived here. They are the position of a frame start
+/// plus the offsets inside the payload, and an access unit's sample position is
+/// what `oadec oamd` reports for a TrueHD stream.
+fn run_truehd(path: &Path, opts: &Options) -> Result<bool> {
+    let started = Instant::now();
+    // the checks of `verify` read the stream in a pass of their own; run it
+    // beside the walk instead of after it
+    let check = crate::verify::spawn_stream_check(path);
+    let mut s = EmdfSummary::default();
+    let mut dumped = 0usize;
+    let mut config: Option<oadec_truehd::StreamConfig> = None;
+    let pass = crate::input::for_each_unit(path, |unit| {
+        let index = s.frames;
+        s.frames += 1;
+        let (au, cfg) = match oadec_truehd::AccessUnit::parse(&unit.bytes, config.as_ref()) {
+            Ok(x) => x,
+            Err(e) => {
+                s.unparsed_frames += 1;
+                if s.first_error.is_none() {
+                    s.first_error = Some(format!("access unit {index}: {e}"));
+                }
+                return Ok(());
+            }
+        };
+        config = Some(cfg);
+        let Some(extra) = &au.extra else {
+            return Ok(());
+        };
+        let note = |s: &mut EmdfSummary, what: &str| {
+            s.container_errors += 1;
+            if s.first_error.is_none() {
+                s.first_error = Some(format!("access unit {index}: {what}"));
+            }
+        };
+        if !extra.header_parity_ok {
+            note(&mut s, "extra data header parity mismatch");
+        }
+        if !extra.padding_zero {
+            note(&mut s, "non-zero extra data padding");
+        }
+        let (reserved, frame) = match &extra.kind {
+            oadec_truehd::ExtraKind::Evolution { reserved, frame } => (*reserved, frame),
+            oadec_truehd::ExtraKind::Truncated => {
+                note(&mut s, "extra data runs past the access unit");
+                return Ok(());
+            }
+            oadec_truehd::ExtraKind::Padding | oadec_truehd::ExtraKind::Opaque(_) => {
+                return Ok(());
+            }
+        };
+        if extra.parity_ok == Some(false) {
+            note(&mut s, "Evolution parity mismatch");
+        }
+        if frame.is_empty() {
+            return Ok(());
+        }
+        let container = match container::parse_evolution(frame) {
+            Ok(c) => c,
+            Err(e) => {
+                note(&mut s, &format!("evolution frame: {e}"));
+                return Ok(());
+            }
+        };
+        s.containers += 1;
+        s.frames_with_emdf += 1;
+        let dumping = opts.dump.is_some_and(|n| dumped < n);
+        if dumping {
+            dumped += 1;
+            println!(
+                "access unit {index}: extra data: header nibble {:#X}, {} words, header parity {}, evolution frame {} bytes, reserved {:#X}, frame parity {}, padding {}",
+                extra.header_nibble,
+                extra.length_words,
+                if extra.header_parity_ok {
+                    "ok"
+                } else {
+                    "MISMATCH"
+                },
+                frame.len(),
+                reserved,
+                match extra.parity_ok {
+                    Some(true) => "ok",
+                    Some(false) => "MISMATCH",
+                    None => "absent",
+                },
+                if extra.padding_zero {
+                    "zero"
+                } else {
+                    "NON-ZERO"
+                }
+            );
+            println!("  evolution bytes: {}", hex(frame));
+            println!(
+                "  container: version {}, key_id {}, protection {:?}, {} payloads {:?}",
+                container.version,
+                container.key_id,
+                container.protection,
+                container.payloads.len(),
+                container
+                    .payloads
+                    .iter()
+                    .map(|p| (
+                        p.id,
+                        p.data.len(),
+                        p.config.sample_offset,
+                        p.config.duration,
+                        p.config.group_id,
+                    ))
+                    .collect::<Vec<_>>()
+            );
+        }
+        for p in &container.payloads {
+            *s.payload_ids.entry(p.id).or_default() += 1;
+            if p.id == PAYLOAD_ID_JOC {
+                s.joc_payloads += 1;
+            }
+            if dumping {
+                println!("    payload {} = {}", p.id, hex(&p.data));
+            }
+            if p.id != PAYLOAD_ID_OAMD {
+                continue;
+            }
+            let smploffst = p.config.sample_offset.unwrap_or(0);
+            *s.oamd_smploffst.entry(smploffst).or_default() += 1;
+            match Oamd::parse(&p.data) {
+                Ok(oamd) => {
+                    s.oamd_payloads += 1;
+                    if let Some(o) = oamd.object_element() {
+                        take_oamd_timing(&mut s, o, smploffst, None);
                     }
                 }
-                Ok(c) => {
-                    s.containers += 1;
-                    if opts.dump.is_some_and(|n| dumped < n) {
-                        // the container's own header, which nothing else
-                        // reports and which two streams can differ in while
-                        // every field above them matches
-                        println!(
-                            "  container: version {}, key_id {}, protection {:?}, {} payloads {:?}",
-                            c.version,
-                            c.key_id,
-                            c.protection,
-                            c.payloads.len(),
-                            c.payloads
-                                .iter()
-                                .map(|p| (
-                                    p.id,
-                                    p.data.len(),
-                                    p.config.sample_offset,
-                                    p.config.duration,
-                                    p.config.group_id,
-                                    p.config.discard_unknown_payload,
-                                    p.config.payload_frame_aligned,
-                                    p.config.create_duplicate,
-                                ))
-                                .collect::<Vec<_>>()
-                        );
-                        for p in &c.payloads {
-                            if p.data.len() <= 8 {
-                                println!("    payload {} = {:02x?}", p.id, p.data);
-                            }
-                        }
-                    }
-                    for p in &c.payloads {
-                        *s.payload_ids.entry(p.id).or_default() += 1;
-                        if p.id == PAYLOAD_ID_JOC {
-                            s.joc_payloads += 1;
-                        }
-                        if p.id != PAYLOAD_ID_OAMD {
-                            continue;
-                        }
-                        let smploffst = p.config.sample_offset.unwrap_or(0);
-                        *s.oamd_smploffst.entry(smploffst).or_default() += 1;
-                        match Oamd::parse(&p.data) {
-                            Ok(oamd) => {
-                                s.oamd_payloads += 1;
-                                if let Some(o) = oamd.object_element() {
-                                    *s.oamd_sample_offsets
-                                        .entry(o.timing.sample_offset)
-                                        .or_default() += 1;
-                                    for b in &o.timing.blocks {
-                                        *s.oamd_block_offsets
-                                            .entry(b.block_offset_factor)
-                                            .or_default() += 1;
-                                        *s.oamd_ramps.entry(b.ramp_duration).or_default() += 1;
-                                        let t = sample_pos
-                                            + u64::from(smploffst)
-                                            + u64::from(o.timing.sample_offset)
-                                            + u64::from(b.block_offset_factor) * 32;
-                                        *s.event_times_mod_frame.entry(t % 1536).or_default() += 1;
-                                        s.event_times.push(t);
-                                    }
-                                    if opts.dump.is_some_and(|n| dumped < n) {
-                                        dumped += 1;
-                                        println!(
-                                            "frame {frame_index} (sample {sample_pos}, substream {}{}): EMDF at byte {offset}, smploffst {smploffst}, OAMD {} objects, sample_offset {}, blocks {:?}",
-                                            head.substreamid,
-                                            if head.strmtyp == 1 { " dependent" } else { "" },
-                                            oamd.object_count,
-                                            o.timing.sample_offset,
-                                            o.timing
-                                                .blocks
-                                                .iter()
-                                                .map(|b| (b.block_offset_factor, b.ramp_duration))
-                                                .collect::<Vec<_>>()
-                                        );
-                                        for (i, updates) in o.objects.iter().enumerate().take(4) {
-                                            let u = &updates[0];
-                                            let p = u.render.position([0; 3]);
-                                            println!(
-                                                "    obj {i}: {}gain {:?} pos ({:.3}, {:.3}, {:.3}) size {:.2}",
-                                                if u.in_bed_or_isf { "bed " } else { "" },
-                                                u.basic.gain,
-                                                p[0],
-                                                p[1],
-                                                p[2],
-                                                u.render.size[0]
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                s.oamd_errors += 1;
-                                if s.first_error.is_none() {
-                                    s.first_error = Some(format!("frame {frame_index}: OAMD: {e}"));
-                                }
-                            }
-                        }
+                Err(e) => {
+                    s.oamd_errors += 1;
+                    if s.first_error.is_none() {
+                        s.first_error = Some(format!("access unit {index}: OAMD: {e}"));
                     }
                 }
             }
         }
-        pos += len;
+        Ok(())
+    })?;
+    if s.frames == 0 {
+        return Err(crate::info::no_stream(path));
+    }
+    s.bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+    s.sync_errors = pass.stats.resyncs;
+    s.skipped_bytes = pass.stats.skipped_bytes;
+    if s.first_error.is_none() && s.skipped_bytes > 0 {
+        s.first_error = Some(format!(
+            "{} bytes skipped while framing the stream",
+            s.skipped_bytes
+        ));
+    }
+    // what the walk does not read -- the audio, the timing, the lossless checks
+    // -- `verify` checks: take its verdict rather than re-derive a part of it
+    let stream = crate::verify::join_stream_check(check)?;
+    if s.first_error.is_none() && !stream.clean {
+        s.first_error = stream.first_problem.clone();
     }
     let elapsed = started.elapsed().as_secs_f64();
-    let clean = s.sync_errors == 0
+    let clean = stream.clean
+        && s.sync_errors == 0
+        && s.skipped_bytes == 0
         && s.unparsed_frames == 0
         && s.container_errors == 0
         && s.oamd_errors == 0;
     if opts.json {
         let mut value = serde_json::to_value(&s)?;
+        value["verify"] = serde_json::to_value(&stream)?;
         value["clean"] = serde_json::json!(clean);
         value["seconds"] = serde_json::json!(elapsed);
         println!("{}", serde_json::to_string_pretty(&value)?);
     } else {
         println!(
-            "Frames:            {} ({} independent, {} dependent), {} bytes, {} sync errors, {} unparsed",
+            "Access units:      {}, {} bytes, {} sync errors, {} bytes skipped, {} unparsed",
+            s.frames, s.bytes, s.sync_errors, s.skipped_bytes, s.unparsed_frames
+        );
+        println!(
+            "EMDF:              {} access units with containers, {} containers, {} container errors, payload ids {:?}",
+            s.frames_with_emdf, s.containers, s.container_errors, s.payload_ids
+        );
+        println!(
+            "OAMD:              {} payloads ({} errors), {} JOC payloads",
+            s.oamd_payloads, s.oamd_errors, s.joc_payloads
+        );
+        println!("smploffst:         {:?}", s.oamd_smploffst);
+        println!("Sample offsets:    {:?}", s.oamd_sample_offsets);
+        println!("Block offsets:     {:?}", s.oamd_block_offsets);
+        println!("Ramp durations:    {:?}", s.oamd_ramps);
+        println!(
+            "Verify:            {}",
+            if stream.clean {
+                "clean"
+            } else {
+                "non-conformant"
+            }
+        );
+        if let Some(e) = &s.first_error {
+            println!("First problem:     {e}");
+        }
+        println!("Speed:             {elapsed:.2} s");
+        println!(
+            "Result:            {}",
+            if clean { "CLEAN" } else { "PROBLEMS" }
+        );
+    }
+    Ok(clean)
+}
+
+/// Bytes as hex, for a dump that is read by eye and diffed between streams.
+fn hex(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .map(|b| format!("{b:02X}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Runs the command; returns `true` when every container and payload parsed.
+pub fn run(path: &Path, opts: &Options) -> Result<bool> {
+    // The containers are in the skip fields of an E-AC-3 frame and in the extra
+    // data of a TrueHD access unit. Both walks find the same containers and
+    // report the same things about them; only the place differs.
+    if !crate::eac3::is_eac3(path).unwrap_or(false) {
+        return run_truehd(path, opts);
+    }
+    let started = Instant::now();
+    // the checks of `verify` read the stream in a pass of their own; run it
+    // beside the walk instead of after it
+    let check = crate::verify::spawn_stream_check(path);
+    let mut s = EmdfSummary::default();
+    let mut dumped = 0usize;
+    let walk = for_each_container(path, |site, c| {
+        let &Site {
+            frame_index,
+            sample_pos,
+            substream_id,
+            dependent,
+            offset,
+        } = site;
+        match c {
+            // counted once per frame by the walk, and only in a stream that
+            // carries EMDF
+            Err(_) => {}
+            Ok(c) => {
+                s.containers += 1;
+                if opts.dump.is_some_and(|n| dumped < n) {
+                    // the container's own header, which nothing else
+                    // reports and which two streams can differ in while
+                    // every field above them matches
+                    println!(
+                        "  container: version {}, key_id {}, protection {:?}, {} payloads {:?}",
+                        c.version,
+                        c.key_id,
+                        c.protection,
+                        c.payloads.len(),
+                        c.payloads
+                            .iter()
+                            .map(|p| (
+                                p.id,
+                                p.data.len(),
+                                p.config.sample_offset,
+                                p.config.duration,
+                                p.config.group_id,
+                                p.config.discard_unknown_payload,
+                                p.config.payload_frame_aligned,
+                                p.config.create_duplicate,
+                            ))
+                            .collect::<Vec<_>>()
+                    );
+                    for p in &c.payloads {
+                        if p.data.len() <= 8 {
+                            println!("    payload {} = {:02x?}", p.id, p.data);
+                        }
+                    }
+                }
+                for p in &c.payloads {
+                    *s.payload_ids.entry(p.id).or_default() += 1;
+                    if p.id == PAYLOAD_ID_JOC {
+                        s.joc_payloads += 1;
+                    }
+                    if p.id != PAYLOAD_ID_OAMD {
+                        continue;
+                    }
+                    let smploffst = p.config.sample_offset.unwrap_or(0);
+                    *s.oamd_smploffst.entry(smploffst).or_default() += 1;
+                    match Oamd::parse(&p.data) {
+                        Ok(oamd) => {
+                            s.oamd_payloads += 1;
+                            if let Some(o) = oamd.object_element() {
+                                take_oamd_timing(&mut s, o, smploffst, Some(sample_pos));
+                                if opts.dump.is_some_and(|n| dumped < n) {
+                                    dumped += 1;
+                                    println!(
+                                        "frame {frame_index} (sample {sample_pos}, substream {substream_id}{}): EMDF at byte {offset}, smploffst {smploffst}, OAMD {} objects, sample_offset {}, blocks {:?}",
+                                        if dependent { " dependent" } else { "" },
+                                        oamd.object_count,
+                                        o.timing.sample_offset,
+                                        o.timing
+                                            .blocks
+                                            .iter()
+                                            .map(|b| (b.block_offset_factor, b.ramp_duration))
+                                            .collect::<Vec<_>>()
+                                    );
+                                    for (i, updates) in o.objects.iter().enumerate() {
+                                        let u = &updates[0];
+                                        let p = u.render.position([0; 3]);
+                                        println!(
+                                            "    obj {i}: {}gain {:?} pos ({:.3}, {:.3}, {:.3}) size {:.2}",
+                                            if u.in_bed_or_isf { "bed " } else { "" },
+                                            u.basic.gain,
+                                            p[0],
+                                            p[1],
+                                            p[2],
+                                            u.render.size[0]
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            s.oamd_errors += 1;
+                            if s.first_error.is_none() {
+                                s.first_error = Some(format!("frame {frame_index}: OAMD: {e}"));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    })?;
+    if walk.frames == 0 {
+        return Err(crate::info::no_stream(path));
+    }
+    s.frames = walk.frames;
+    s.independent_frames = walk.independent_frames;
+    s.dependent_frames = walk.dependent_frames;
+    s.bytes = walk.bytes;
+    s.sync_errors = walk.sync_errors;
+    s.skipped_bytes = walk.skipped_bytes;
+    s.crc_failures = walk.crc_failures;
+    s.unparsed_frames = walk.unparsed_frames;
+    s.container_errors = walk.missing_containers;
+    if s.first_error.is_none() {
+        s.first_error = walk.first_missing.clone();
+    }
+    if s.first_error.is_none() && walk.crc_failures > 0 {
+        s.first_error = Some(format!("{} syncframes whose CRC failed", walk.crc_failures));
+    }
+    if s.first_error.is_none() && walk.skipped_bytes > 0 {
+        s.first_error = Some(format!(
+            "{} bytes skipped while framing the stream",
+            walk.skipped_bytes
+        ));
+    }
+    s.frames_with_emdf = walk.frames_with_emdf;
+    // what the walk does not read, a JOC payload, the payload configuration, the
+    // complexity index or the audio, `verify` checks: take its verdict rather
+    // than re-derive a part of it
+    let stream = crate::verify::join_stream_check(check)?;
+    if s.first_error.is_none() && !stream.clean {
+        s.first_error = stream.first_problem.clone();
+    }
+    let elapsed = started.elapsed().as_secs_f64();
+    let clean = stream.clean
+        && s.sync_errors == 0
+        && s.skipped_bytes == 0
+        && s.crc_failures == 0
+        && s.unparsed_frames == 0
+        && s.container_errors == 0
+        && s.oamd_errors == 0;
+    if opts.json {
+        let mut value = serde_json::to_value(&s)?;
+        value["verify"] = serde_json::to_value(&stream)?;
+        value["clean"] = serde_json::json!(clean);
+        value["seconds"] = serde_json::json!(elapsed);
+        println!("{}", serde_json::to_string_pretty(&value)?);
+    } else {
+        println!(
+            "Frames:            {} ({} independent, {} dependent), {} bytes, {} sync errors, {} bytes skipped, {} CRC failures, {} unparsed",
             s.frames,
             s.independent_frames,
             s.dependent_frames,
             s.bytes,
             s.sync_errors,
+            s.skipped_bytes,
+            s.crc_failures,
             s.unparsed_frames
         );
         println!(
@@ -360,6 +776,14 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             &s.event_times[..s.event_times.len().min(24)],
             if s.event_times.len() > 24 { " ..." } else { "" }
         );
+        println!(
+            "Verify:            {}",
+            if stream.clean {
+                "clean"
+            } else {
+                "non-conformant"
+            }
+        );
         if let Some(e) = &s.first_error {
             println!("First problem:     {e}");
         }
@@ -370,4 +794,87 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         );
     }
     Ok(clean)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The three cases of the rule the walk reads. A mutation round found this
+    /// arm untested: the media suite held it and nothing else did, so a copy of
+    /// the old rule survived every test that runs without the corpus.
+    #[test]
+    fn a_frame_loses_its_container_where_one_should_be() {
+        // a substream that declares the JOC extension: a frame with no skip
+        // field at all has lost the container it should have carried
+        assert!(frame_lost_container(0, false, true));
+        // and so has one whose skip fields hold nothing that opens
+        assert!(frame_lost_container(0, true, true));
+        // an ordinary frame of a stream that carries no EMDF has lost nothing,
+        // which is what keeps two AC-3 clips of the corpus clean
+        assert!(!frame_lost_container(0, false, false));
+        // a frame whose skip fields carry something that is not EMDF is a loss
+        // only in a substream that carries EMDF, which the walk decides at the
+        // end of the pass
+        assert!(frame_lost_container(0, true, false));
+        // and a frame whose container opened has lost nothing, whatever else
+        for has_skip in [false, true] {
+            for declares in [false, true] {
+                assert!(!frame_lost_container(1, has_skip, declares));
+            }
+        }
+    }
+
+    /// One AC-3 syncframe of 1792 bytes (bsid 8, 448 kbit/s at 48 kHz, 3/2 with
+    /// LFE): the header, then zeros. Its CRC is 0xFFFF, which read as an
+    /// E-AC-3 frame size makes a frame of 4096 bytes.
+    fn ac3_frame() -> Vec<u8> {
+        let mut frame = vec![0u8; 1792];
+        frame[..7].copy_from_slice(&[0x0B, 0x77, 0xFF, 0xFF, 0x1E, 0x40, 0xE1]);
+        frame
+    }
+
+    /// Walks `bytes` as a file, and frames the same file the way `info` and
+    /// `verify` do: (frames, sync errors, skipped bytes).
+    fn walk_and_verify(tag: &str, bytes: &[u8]) -> (Walk, (u64, u64, u64)) {
+        let path =
+            std::env::temp_dir().join(format!("oadec-emdf-walk-{tag}-{}.ac3", std::process::id()));
+        std::fs::write(&path, bytes).unwrap();
+        let walk = for_each_container(&path, |_, _| {}).unwrap();
+        let verifier = crate::eac3::for_each_frame(&path, |_, _, _| Ok(())).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        (walk, verifier)
+    }
+
+    /// The walk frames AC-3 by the decoder's own header. It read every frame as
+    /// E-AC-3 and took the CRC for the frame size, which made three frames one
+    /// frame of 4096 bytes and a sync error.
+    #[test]
+    fn the_walk_frames_ac3_by_its_own_header() {
+        let (walk, (frames, sync_errors, _)) = walk_and_verify("clean", &ac3_frame().repeat(3));
+        assert_eq!(
+            (walk.frames, walk.independent_frames, walk.sync_errors),
+            (3, 3, 0)
+        );
+        assert_eq!((walk.frames, walk.sync_errors), (frames, sync_errors));
+    }
+
+    /// Where a stream is damaged, the walk resynchronises where the verifier
+    /// does and counts the frames and sync errors it counts, so `emdf` reports
+    /// no fault `verify` does not find.
+    #[test]
+    fn the_walk_resynchronises_where_the_verifier_does() {
+        let frame = ac3_frame();
+        let stream = [
+            &frame[..],
+            &frame[..],
+            &[1, 2, 3][..],
+            &frame[..],
+            &frame[..1000],
+        ]
+        .concat();
+        let (walk, (frames, sync_errors, _)) = walk_and_verify("damaged", &stream);
+        assert!(walk.sync_errors > 0, "the damage is noticed");
+        assert_eq!((walk.frames, walk.sync_errors), (frames, sync_errors));
+    }
 }

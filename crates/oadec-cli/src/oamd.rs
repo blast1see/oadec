@@ -1,17 +1,22 @@
-//! `oadec oamd`: parse every Object Audio Metadata payload of a TrueHD stream,
-//! tally what they contain and optionally dump them.
+//! `oadec oamd`: parse every Object Audio Metadata payload of a TrueHD, AC-3
+//! or E-AC-3 stream, tally what they contain and optionally dump them.
+//!
+//! TrueHD carries the payloads in the Evolution frames of its access units,
+//! E-AC-3 in the EMDF containers of its frames' skip fields, which are found by
+//! the walk `oadec emdf` makes. Both are reported in one shape, with a frame
+//! standing where an access unit stands.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::Instant;
 
 use anyhow::Result;
-use oadec_emdf::container::{self, PAYLOAD_ID_OAMD};
+use oadec_emdf::container::{self, Container, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::{Distance, Element, Gain, Oamd, Status};
 use oadec_truehd::{AccessUnit, ExtraKind, StreamConfig};
 use serde::Serialize;
 
-use crate::input;
+use crate::{emdf, input};
 
 /// Options of the command.
 #[derive(Debug, Clone)]
@@ -25,6 +30,7 @@ pub struct Options {
 /// What a pass over the payloads found.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct OamdSummary {
+    /// Access units of a TrueHD stream, syncframes of an AC-3 or E-AC-3 stream.
     pub units: u64,
     pub units_with_oamd: u64,
     pub payloads: u64,
@@ -36,6 +42,28 @@ pub struct OamdSummary {
     pub padding_long: u64,
     /// Elements that overran their declared size.
     pub size_mismatches: u64,
+    /// Sync lost and found again inside the stream: the sync errors of the walk
+    /// over AC-3 and E-AC-3 syncframes, the resynchronisations of the TrueHD
+    /// extractor. The first lock is not one.
+    pub sync_errors: u64,
+    /// Bytes the framing skipped: before the first unit, where sync was lost,
+    /// and on AC-3 and E-AC-3 a last syncframe cut short. `verify` counts them.
+    pub skipped_bytes: u64,
+    /// TrueHD: bytes at the end of the file that formed no access unit.
+    pub trailing_bytes: u64,
+    /// AC-3 and E-AC-3: syncframes whose CRC failed.
+    pub crc_failures: u64,
+    /// Units that did not parse far enough to reach their metadata: access
+    /// units that failed to parse, or syncframes that did not parse as far as
+    /// their skip fields.
+    pub unparsed_units: u64,
+    /// Containers that did not open: an EMDF container in the skip fields, or
+    /// the container of an Evolution frame.
+    pub container_errors: u64,
+    /// Failed checks of the TrueHD extra-data block that carries the metadata:
+    /// header parity, padding, a length past the access unit, the Evolution
+    /// parity byte. `verify` makes the same checks.
+    pub extra_data_faults: u64,
     pub container_sample_offsets: BTreeMap<u32, u64>,
     pub object_counts: BTreeMap<usize, u64>,
     pub element_ids: BTreeMap<u8, u64>,
@@ -60,8 +88,8 @@ pub struct OamdSummary {
     pub muted_updates: u64,
     /// Updates carrying a non-zero `object_size`.
     pub sized_updates: u64,
-    /// The first access units carrying each of the two, capped, so a clip can
-    /// be cut from one if anything ever does.
+    /// The first units carrying each of the two, capped, so a clip can be cut
+    /// from one if anything ever does.
     pub first_gain_units: Vec<u64>,
     pub first_size_units: Vec<u64>,
     pub payloads_with_trim: u64,
@@ -69,6 +97,10 @@ pub struct OamdSummary {
     pub payloads_with_unknown_elements: u64,
     pub program: Option<ProgramSummary>,
     pub program_changes: u64,
+    /// What the text calls a unit: "access unit" in TrueHD, "frame" in
+    /// E-AC-3. The JSON has the same shape for both.
+    #[serde(skip)]
+    pub unit_word: &'static str,
 }
 
 /// The program assignment as first seen.
@@ -106,6 +138,20 @@ fn gain_text(g: Gain) -> String {
 }
 
 impl OamdSummary {
+    fn new(unit_word: &'static str) -> Self {
+        Self {
+            unit_word,
+            ..Self::default()
+        }
+    }
+
+    /// Records the first problem, in the words of the check that found it.
+    fn note(&mut self, message: impl FnOnce() -> String) {
+        if self.first_error.is_none() {
+            self.first_error = Some(message());
+        }
+    }
+
     fn take(&mut self, unit_index: u64, container_offset: Option<u32>, oamd: &Oamd) {
         self.payloads += 1;
         *self
@@ -155,8 +201,8 @@ impl OamdSummary {
                 self.size_mismatches += 1;
                 if self.first_error.is_none() {
                     self.first_error = Some(format!(
-                        "access unit {unit_index}: element {} overran its {} bytes",
-                        e.id, e.size_bytes
+                        "{} {unit_index}: element {} overran its {} bytes",
+                        self.unit_word, e.id, e.size_bytes
                     ));
                 }
             }
@@ -164,8 +210,8 @@ impl OamdSummary {
                 self.padding_long += 1;
                 if self.first_error.is_none() {
                     self.first_error = Some(format!(
-                        "access unit {unit_index}: element {} padded by {} bits",
-                        e.id, e.padding_bits
+                        "{} {unit_index}: element {} padded by {} bits",
+                        self.unit_word, e.id, e.padding_bits
                     ));
                 }
             }
@@ -238,9 +284,9 @@ impl OamdSummary {
     }
 }
 
-fn dump_payload(unit_index: u64, container_offset: Option<u32>, oamd: &Oamd) {
+fn dump_payload(unit_word: &str, unit_index: u64, container_offset: Option<u32>, oamd: &Oamd) {
     println!(
-        "access unit {unit_index}: OAMD v{} {} objects, container sample offset {:?}, {} elements, padding {} bits",
+        "{unit_word} {unit_index}: OAMD v{} {} objects, container sample offset {:?}, {} elements, padding {} bits",
         oamd.version,
         oamd.object_count,
         container_offset,
@@ -335,101 +381,273 @@ fn dump_payload(unit_index: u64, container_offset: Option<u32>, oamd: &Oamd) {
     }
 }
 
-/// Runs the command; returns `true` when every payload parsed cleanly.
-pub fn run(path: &Path, opts: &Options) -> Result<bool> {
-    // an E-AC-3 stream carries its Object Audio Metadata in the EMDF
-    // containers of the skip fields, not in TrueHD access units; walking it
-    // for access units finds nothing and would report a clean zero
-    if crate::eac3::is_eac3(path).unwrap_or(false) {
-        anyhow::bail!(
-            concat!(
-                "{} is E-AC-3; its object metadata rides in the EMDF containers, ",
-                "not in TrueHD access units. Use `oadec emdf` for the payloads ",
-                "and their timing, or `oadec info` for the tallies."
-            ),
-            path.display()
-        );
+/// Reads every Object Audio Metadata payload of one container into the
+/// summary, and into the dump while it has room; returns whether the container
+/// carried one.
+fn take_container(
+    summary: &mut OamdSummary,
+    index: u64,
+    c: &Container,
+    opts: &Options,
+    dumped: &mut usize,
+) -> bool {
+    let mut any = false;
+    for p in c.payloads.iter().filter(|p| p.id == PAYLOAD_ID_OAMD) {
+        any = true;
+        match Oamd::parse(&p.data) {
+            Ok(oamd) => {
+                summary.take(index, p.config.sample_offset, &oamd);
+                if opts.dump.is_some_and(|n| *dumped < n) {
+                    dump_payload(summary.unit_word, index, p.config.sample_offset, &oamd);
+                    *dumped += 1;
+                }
+            }
+            Err(e) => {
+                if opts.dump.is_some() {
+                    println!(
+                        "{} {index}: payload of {} bytes failed: {e}",
+                        summary.unit_word,
+                        p.data.len()
+                    );
+                    println!(
+                        "  {}",
+                        p.data
+                            .iter()
+                            .map(|b| format!("{b:02x}"))
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    );
+                }
+                summary.payloads += 1;
+                summary.parse_errors += 1;
+                if summary.first_error.is_none() {
+                    summary.first_error = Some(format!("{} {index}: {e}", summary.unit_word));
+                }
+            }
+        }
     }
-    let started = Instant::now();
-    let mut summary = OamdSummary::default();
+    any
+}
+
+/// TrueHD: the payloads ride in the Evolution frames of the access units.
+///
+/// A unit whose metadata cannot be read is counted, not skipped: a report that
+/// leaves it out without a word reads like a stream that carries less.
+fn walk_truehd(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSummary> {
+    let mut summary = OamdSummary::new("access unit");
     let mut config: Option<StreamConfig> = None;
-    let mut dumped = 0usize;
-    input::for_each_unit(path, |unit| {
+    let pass = input::for_each_unit(path, |unit| {
         let index = summary.units;
         summary.units += 1;
-        let Ok((au, cfg)) = AccessUnit::parse(&unit.bytes, config.as_ref()) else {
-            return Ok(());
+        let (au, cfg) = match AccessUnit::parse(&unit.bytes, config.as_ref()) {
+            Ok(x) => x,
+            Err(e) => {
+                summary.unparsed_units += 1;
+                summary.note(|| format!("access unit {index}: {e}"));
+                return Ok(());
+            }
         };
         config = Some(cfg);
         let Some(extra) = &au.extra else {
             return Ok(());
         };
-        let ExtraKind::Evolution { frame, .. } = &extra.kind else {
-            return Ok(());
+        // the checks `verify` makes of the block that carries the metadata
+        if !extra.header_parity_ok {
+            summary.extra_data_faults += 1;
+            summary.note(|| format!("access unit {index}: extra data header parity mismatch"));
+        }
+        if !extra.padding_zero {
+            summary.extra_data_faults += 1;
+            summary.note(|| format!("access unit {index}: non-zero extra data padding"));
+        }
+        let frame = match &extra.kind {
+            ExtraKind::Evolution { frame, .. } => frame,
+            ExtraKind::Truncated => {
+                summary.extra_data_faults += 1;
+                summary
+                    .note(|| format!("access unit {index}: extra data runs past the access unit"));
+                return Ok(());
+            }
+            ExtraKind::Padding | ExtraKind::Opaque(_) => return Ok(()),
         };
+        if extra.parity_ok == Some(false) {
+            summary.extra_data_faults += 1;
+            summary.note(|| format!("access unit {index}: Evolution parity mismatch"));
+        }
         if frame.is_empty() {
             return Ok(());
         }
-        let Ok(c) = container::parse_evolution(frame) else {
-            return Ok(());
-        };
-        let mut any = false;
-        for p in c.payloads.iter().filter(|p| p.id == PAYLOAD_ID_OAMD) {
-            any = true;
-            match Oamd::parse(&p.data) {
-                Ok(oamd) => {
-                    summary.take(index, p.config.sample_offset, &oamd);
-                    if opts.dump.is_some_and(|n| dumped < n) {
-                        dump_payload(index, p.config.sample_offset, &oamd);
-                        dumped += 1;
-                    }
-                }
-                Err(e) => {
-                    if opts.dump.is_some() {
-                        println!(
-                            "access unit {index}: payload of {} bytes failed: {e}",
-                            p.data.len()
-                        );
-                        println!(
-                            "  {}",
-                            p.data
-                                .iter()
-                                .map(|b| format!("{b:02x}"))
-                                .collect::<Vec<_>>()
-                                .join(" ")
-                        );
-                    }
-                    summary.payloads += 1;
-                    summary.parse_errors += 1;
-                    if summary.first_error.is_none() {
-                        summary.first_error = Some(format!("access unit {index}: {e}"));
-                    }
-                }
+        let c = match container::parse_evolution(frame) {
+            Ok(c) => c,
+            Err(e) => {
+                summary.container_errors += 1;
+                summary.note(|| format!("access unit {index}: evolution frame: {e}"));
+                return Ok(());
             }
-        }
-        if any {
+        };
+        if take_container(&mut summary, index, &c, opts, dumped) {
             summary.units_with_oamd += 1;
         }
         Ok(())
     })?;
+    summary.sync_errors = pass.stats.resyncs;
+    summary.skipped_bytes = pass.stats.skipped_bytes;
+    summary.trailing_bytes = pass.trailing_bytes;
+    if pass.stats.resyncs > 0 {
+        summary.note(|| {
+            format!(
+                "{} sync errors while framing the stream",
+                pass.stats.resyncs
+            )
+        });
+    }
+    if pass.stats.skipped_bytes > 0 {
+        summary.note(|| {
+            format!(
+                "{} bytes skipped while framing the stream",
+                pass.stats.skipped_bytes
+            )
+        });
+    }
+    if pass.trailing_bytes > 0 {
+        summary.note(|| {
+            format!(
+                "{} trailing bytes that formed no access unit",
+                pass.trailing_bytes
+            )
+        });
+    }
+    Ok(summary)
+}
+
+/// AC-3 and E-AC-3: the payloads ride in the EMDF containers of the skip
+/// fields, and every syncframe of the walk is a unit. The walk is the one
+/// `emdf` makes, and what it could not read is judged as `emdf` judges it.
+fn walk_eac3(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSummary> {
+    let mut summary = OamdSummary::new("frame");
+    // a frame can hold more than one container and is counted once
+    let mut last_with_oamd: Option<u64> = None;
+    let walk = emdf::for_each_container(path, |site, c| {
+        // a container that does not open is counted once per frame by the walk,
+        // in the words `emdf` uses, and only in a stream that carries EMDF
+        let Ok(c) = c else {
+            return;
+        };
+        if take_container(&mut summary, site.frame_index, &c, opts, dumped)
+            && last_with_oamd != Some(site.frame_index)
+        {
+            last_with_oamd = Some(site.frame_index);
+            summary.units_with_oamd += 1;
+        }
+    })?;
+    summary.units = walk.frames;
+    summary.sync_errors = walk.sync_errors;
+    summary.skipped_bytes = walk.skipped_bytes;
+    summary.crc_failures = walk.crc_failures;
+    summary.unparsed_units = walk.unparsed_frames;
+    summary.container_errors = walk.missing_containers;
+    if let Some(first) = walk.first_missing.clone() {
+        summary.note(|| first);
+    }
+    if walk.sync_errors > 0 {
+        summary.note(|| format!("{} sync errors while framing the stream", walk.sync_errors));
+    }
+    if walk.unparsed_frames > 0 {
+        summary.note(|| {
+            format!(
+                "{} frames did not parse as far as their skip fields",
+                walk.unparsed_frames
+            )
+        });
+    }
+    if walk.crc_failures > 0 {
+        summary.note(|| format!("{} syncframes whose CRC failed", walk.crc_failures));
+    }
+    if walk.skipped_bytes > 0 {
+        summary.note(|| {
+            format!(
+                "{} bytes skipped while framing the stream",
+                walk.skipped_bytes
+            )
+        });
+    }
+    Ok(summary)
+}
+
+/// Runs the command; returns `true` when every unit was read and every payload
+/// parsed cleanly.
+pub fn run(path: &Path, opts: &Options) -> Result<bool> {
+    let eac3 = crate::eac3::is_eac3(path).unwrap_or(false);
+    let started = Instant::now();
+    // the checks of `verify` read the stream in a pass of their own; run it
+    // beside the walk instead of after it
+    let check = crate::verify::spawn_stream_check(path);
+    let mut dumped = 0usize;
+    let mut summary = if eac3 {
+        walk_eac3(path, opts, &mut dumped)?
+    } else {
+        walk_truehd(path, opts, &mut dumped)?
+    };
+    if summary.units == 0 {
+        return Err(crate::info::no_stream(path));
+    }
+    // what the walk does not read, the audio of either codec and on E-AC-3 the
+    // JOC payloads, the payload configuration and the complexity index,
+    // `verify` checks: take its verdict rather than re-derive a part of it
+    let stream = crate::verify::join_stream_check(check)?;
+    if !stream.clean
+        && let Some(problem) = &stream.first_problem
+    {
+        summary.note(|| problem.clone());
+    }
     let elapsed = started.elapsed().as_secs_f64();
-    let clean =
-        summary.parse_errors == 0 && summary.padding_long == 0 && summary.padding_nonzero == 0;
+    let clean = stream.clean
+        && summary.parse_errors == 0
+        && summary.padding_long == 0
+        && summary.padding_nonzero == 0
+        && summary.sync_errors == 0
+        && summary.unparsed_units == 0
+        && summary.container_errors == 0
+        && summary.extra_data_faults == 0
+        && summary.skipped_bytes == 0
+        && summary.trailing_bytes == 0
+        && summary.crc_failures == 0;
     if opts.json {
         let mut value = serde_json::to_value(&summary)?;
+        value["verify"] = serde_json::to_value(&stream)?;
         value["clean"] = serde_json::json!(clean);
         value["seconds"] = serde_json::json!(elapsed);
         println!("{}", serde_json::to_string_pretty(&value)?);
     } else {
         println!(
-            "OAMD payloads:     {} in {} of {} access units; {} parse errors, {} non-zero paddings, {} long paddings, {} size mismatches",
+            "OAMD payloads:     {} in {} of {} {}s; {} parse errors, {} non-zero paddings, {} long paddings, {} size mismatches",
             summary.payloads,
             summary.units_with_oamd,
             summary.units,
+            summary.unit_word,
             summary.parse_errors,
             summary.padding_nonzero,
             summary.padding_long,
             summary.size_mismatches
+        );
+        println!(
+            "Unread:            {} sync errors, {} bytes skipped, {} trailing bytes, {} CRC failures, {} unparsed {}s, {} containers that did not open, {} extra-data faults",
+            summary.sync_errors,
+            summary.skipped_bytes,
+            summary.trailing_bytes,
+            summary.crc_failures,
+            summary.unparsed_units,
+            summary.unit_word,
+            summary.container_errors,
+            summary.extra_data_faults
+        );
+        println!(
+            "Verify:            {}",
+            if stream.clean {
+                "clean"
+            } else {
+                "non-conformant"
+            }
         );
         if let Some(p) = &summary.program {
             println!(
@@ -471,8 +689,8 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
                 String::new()
             } else {
                 format!(
-                    " (first access units: gain {:?}, size {:?})",
-                    summary.first_gain_units, summary.first_size_units
+                    " (first {}s: gain {:?}, size {:?})",
+                    summary.unit_word, summary.first_gain_units, summary.first_size_units
                 )
             }
         );
