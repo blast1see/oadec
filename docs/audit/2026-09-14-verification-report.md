@@ -385,6 +385,18 @@ commits on the branch.
   of its cases now, and the second run catches it: 30 mutations, one survivor,
   the matrix alignment this round already records as having no specification
   behind it. `19-mutants-new-rules.json`.
+- **`emdf` reads a TrueHD stream, so the Evolution block can be seen.** The
+  command walked E-AC-3 skip fields and refused everything else; TrueHD
+  carries the same containers in the extra data at the end of an access unit,
+  inside an Evolution frame with its own header, parity byte and padding,
+  which is the layer a decoder validates before it reads anything inside.
+  `--dump` prints it: the header nibble and length, both parities, the padding
+  and the frame bytes. Written test first, on the committed fixture: 63
+  containers in 2 400 access units, no container error. Measured after:
+  `verify`, `oamd` and `emdf` return the same exit code on eight TrueHD clips
+  and on both fixtures, the media suite passes 28 of 28, and the workspace
+  suite, clippy and the format check are clean. What the tool then showed
+  about Dolby's refusal is in §9, and it is a negative result.
 ## 8. A decision measured: RF64, not BW64
 
 `11-adm-long-form-fourcc.json`. ITU-R BS.2088-2 names the long form of a
