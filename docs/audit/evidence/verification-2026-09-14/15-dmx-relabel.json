@@ -1,7 +1,7 @@
 {
  "question": "can downmix configurations 1 and 2 be authored by relabelling a configuration 3 stream",
  "answer": "no: joc_dmx_config_idx selects the number of downmix channels (table 48), which sets how much the JOC payload carries, so a relabelled payload is read to the wrong length",
- "fixture": "%USERPROFILE%/Documents/oadec/crates/oadec-cli/tests/fixtures/authored-scene.ec3",
+ "fixture": "crates/oadec-cli/tests/fixtures/authored-scene.ec3",
  "indices_that_read_back": [
   0,
   3

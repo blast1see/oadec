@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render docs/audit/adm-conformance-matrix.md from the evidence files.
 
-    python build_matrix.py --repo %USERPROFILE%/Documents/oadec
+    python build_matrix.py --repo <repository root>
 
 The rows (feature, semantics, results, classification) are the audit's
 judgements and live in ``matrix_rows.py``; every number quoted in a row is
