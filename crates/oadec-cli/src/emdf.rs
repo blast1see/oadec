@@ -328,6 +328,38 @@ pub(crate) fn for_each_container(
     Ok(walk)
 }
 
+/// Counts what an Object Audio Metadata element says about its timing.
+///
+/// Both walks record the same things here -- the E-AC-3 skip fields and the
+/// TrueHD extra data -- so they record them in one place. `sample_pos` is the
+/// first sample of the frame that carries the payload, which the event time is
+/// derived from; the TrueHD walk has no frame start to offer and passes `None`,
+/// and no event time is recorded for it.
+fn take_oamd_timing(
+    s: &mut EmdfSummary,
+    o: &oadec_emdf::oamd::ObjectElement,
+    smploffst: u32,
+    sample_pos: Option<u64>,
+) {
+    *s.oamd_sample_offsets
+        .entry(o.timing.sample_offset)
+        .or_default() += 1;
+    for b in &o.timing.blocks {
+        *s.oamd_block_offsets
+            .entry(b.block_offset_factor)
+            .or_default() += 1;
+        *s.oamd_ramps.entry(b.ramp_duration).or_default() += 1;
+        if let Some(pos) = sample_pos {
+            let t = pos
+                + u64::from(smploffst)
+                + u64::from(o.timing.sample_offset)
+                + u64::from(b.block_offset_factor) * 32;
+            *s.event_times_mod_frame.entry(t % 1536).or_default() += 1;
+            s.event_times.push(t);
+        }
+    }
+}
+
 /// Walks a TrueHD stream: the EMDF containers are in the extra data at the end
 /// of an access unit, inside an Evolution frame.
 ///
@@ -465,15 +497,7 @@ fn run_truehd(path: &Path, opts: &Options) -> Result<bool> {
                 Ok(oamd) => {
                     s.oamd_payloads += 1;
                     if let Some(o) = oamd.object_element() {
-                        *s.oamd_sample_offsets
-                            .entry(o.timing.sample_offset)
-                            .or_default() += 1;
-                        for b in &o.timing.blocks {
-                            *s.oamd_block_offsets
-                                .entry(b.block_offset_factor)
-                                .or_default() += 1;
-                            *s.oamd_ramps.entry(b.ramp_duration).or_default() += 1;
-                        }
+                        take_oamd_timing(&mut s, o, smploffst, None);
                     }
                 }
                 Err(e) => {
@@ -635,21 +659,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
                         Ok(oamd) => {
                             s.oamd_payloads += 1;
                             if let Some(o) = oamd.object_element() {
-                                *s.oamd_sample_offsets
-                                    .entry(o.timing.sample_offset)
-                                    .or_default() += 1;
-                                for b in &o.timing.blocks {
-                                    *s.oamd_block_offsets
-                                        .entry(b.block_offset_factor)
-                                        .or_default() += 1;
-                                    *s.oamd_ramps.entry(b.ramp_duration).or_default() += 1;
-                                    let t = sample_pos
-                                        + u64::from(smploffst)
-                                        + u64::from(o.timing.sample_offset)
-                                        + u64::from(b.block_offset_factor) * 32;
-                                    *s.event_times_mod_frame.entry(t % 1536).or_default() += 1;
-                                    s.event_times.push(t);
-                                }
+                                take_oamd_timing(&mut s, o, smploffst, Some(sample_pos));
                                 if opts.dump.is_some_and(|n| dumped < n) {
                                     dumped += 1;
                                     println!(
