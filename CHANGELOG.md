@@ -6,6 +6,8 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-17
+
 ### Fixed
 
 - **A distance- or divergence-only update is counted in the loss ledger.** The
