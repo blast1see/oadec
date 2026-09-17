@@ -53,6 +53,7 @@ oadec thd-demux dump.thd -o film.thd --core core.ac3   # a Blu-ray dump with its
 oadec compare film.thd -p 2 -r ref.s32            # sample-by-sample against a reference
 oadec oamd    film.thd --dump 3                   # the object metadata payloads
 oadec emdf    film.ec3                            # EMDF containers of an E-AC-3 stream
+oadec emdf    film.thd --dump 1                  # and of a TrueHD access unit, with its Evolution block
 oadec info    film.ec3                            # E-AC-3: frames, coding tools, JOC statistics
 oadec decode  film.ec3 --format damf -o out/film  # JOC objects + metadata as a DAMF set
 oadec compare film.ec3 -r ref.f32                 # against a 32-bit float reference (FFmpeg)

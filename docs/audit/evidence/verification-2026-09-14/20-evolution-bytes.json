@@ -1,0 +1,48 @@
+{
+ "question": "do the Evolution bytes of a TrueHD access unit separate the titles Dolby opens from the ones it refuses at the object output",
+ "method": "oadec emdf --dump 1 on the first access unit that carries a container, comparing the extra-data header, the parities, the Evolution frame and the first ten bytes of the OAMD payload",
+ "answer": "no. A Quiet Place (refused) and F1 (opened) match in every length and in the protection layout and differ in one byte of the payload, 0x42 against 0x02; A Quiet Place Part II, also refused, carries 0x02 there like F1. Nothing in the first payload tracks the split",
+ "first_payload_bytes": [
+  {
+   "title": "A Quiet Place (2018)",
+   "group": "refused",
+   "bytes": "17 84 47 C0 00 D1 42 27 00 08"
+  },
+  {
+   "title": "A Quiet Place Part II (2020)",
+   "group": "refused",
+   "bytes": "17 84 47 C0 00 D1 02 27 00 08"
+  },
+  {
+   "title": "Knives Out (2019)",
+   "group": "refused",
+   "bytes": "17 84 47 A0 00 A2 70 00 80 40"
+  },
+  {
+   "title": "1917 (2019)",
+   "group": "refused",
+   "bytes": "17 84 47 C0 00 C2 82 27 00 08"
+  },
+  {
+   "title": "F1 The Movie (2025)",
+   "group": "opened",
+   "bytes": "17 84 47 C0 00 D1 02 27 00 08"
+  },
+  {
+   "title": "Kick-Ass (2010)",
+   "group": "opened",
+   "bytes": "1F 84 4B C0 00 D2 02 27 00 08"
+  },
+  {
+   "title": "Nosferatu (2024)",
+   "group": "opened",
+   "bytes": "17 84 47 A0 00 EB 13 80 04 02"
+  },
+  {
+   "title": "Warrior (2011)",
+   "group": "opened",
+   "bytes": "1F 84 4A 42 00 30 60 89 C0 02"
+  }
+ ],
+ "note": "the tool itself is the result: these bytes could not be read before, and a byte scan for the sync word finds 45 candidates in a title that holds 603 blocks"
+}

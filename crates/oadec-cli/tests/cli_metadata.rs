@@ -140,6 +140,41 @@ fn oamd_reads_an_ac3_stream_frame_by_frame() {
 /// objects: "OAMD 16 objects" and obj 0 to 3 on the JOC encode, a quarter of
 /// the metadata the dump was asked for, reading like a stream of four
 /// objects. Every object has its line now, in order.
+/// `emdf` used to refuse a TrueHD stream and point at `oamd`, so no command of
+/// this project showed what a TrueHD access unit carries around its EMDF
+/// container: the extra-data header and its parity, and the Evolution frame
+/// itself. That is the layer Dolby's own validity check reads -- it refuses 46
+/// per cent of the library there, with a message naming the wrong thing -- and
+/// it cannot be found by scanning for the sync word, which compressed audio
+/// carries by chance. The walk finds it, because the access unit says where it
+/// is.
+#[test]
+fn emdf_walks_a_truehd_stream_and_dumps_its_evolution_block() {
+    let out = oadec(&["emdf", "--json", &fixture("authored-scene.mlp")]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    let v = json(&out);
+    assert_eq!(v["frames"].as_u64(), Some(2400), "{v}");
+    assert_eq!(v["containers"].as_u64(), Some(63), "{v}");
+    assert_eq!(v["container_errors"].as_u64(), Some(0), "{v}");
+    assert_eq!(v["oamd_payloads"].as_u64(), Some(63), "{v}");
+    assert_eq!(v["payload_ids"]["11"].as_u64(), Some(63), "{v}");
+    assert_eq!(v["clean"], true, "{v}");
+
+    let dump = oadec(&["emdf", "--dump", "1", &fixture("authored-scene.mlp")]);
+    assert_eq!(dump.status.code(), Some(0), "{}", stderr(&dump));
+    let text = stdout(&dump);
+    // the block around the container, which nothing else printed
+    assert!(text.contains("extra data:"), "{text}");
+    assert!(text.contains("header parity ok"), "{text}");
+    assert!(text.contains("evolution frame"), "{text}");
+    assert!(text.contains("evolution bytes:"), "{text}");
+    // and the container inside it, as the E-AC-3 walk prints it
+    assert!(text.contains("container: version"), "{text}");
+    assert!(text.contains("payload 11"), "{text}");
+    // one access unit dumped, not sixty-three
+    assert_eq!(text.matches("evolution bytes:").count(), 1, "{text}");
+}
+
 #[test]
 fn emdf_dump_prints_every_object() {
     let out = oadec(&["emdf", "--dump", "1", &fixture("authored-scene.ec3")]);

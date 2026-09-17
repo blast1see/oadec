@@ -328,18 +328,248 @@ pub(crate) fn for_each_container(
     Ok(walk)
 }
 
+/// Walks a TrueHD stream: the EMDF containers are in the extra data at the end
+/// of an access unit, inside an Evolution frame.
+///
+/// The frame is found from the access unit's own syntax, not by hunting for the
+/// sync word: compressed audio carries that pattern by chance, often enough to
+/// drown the real containers. With `--dump` the block around the container is
+/// printed as well -- its header, the parity of the header and of the Evolution
+/// frame, and the frame bytes -- because that layer is what a decoder validates
+/// before it reads anything inside it, and nothing here showed it before.
+///
+/// Event times are not derived here. They are the position of a frame start
+/// plus the offsets inside the payload, and an access unit's sample position is
+/// what `oadec oamd` reports for a TrueHD stream.
+fn run_truehd(path: &Path, opts: &Options) -> Result<bool> {
+    let started = Instant::now();
+    // the checks of `verify` read the stream in a pass of their own; run it
+    // beside the walk instead of after it
+    let check = crate::verify::spawn_stream_check(path);
+    let mut s = EmdfSummary::default();
+    let mut dumped = 0usize;
+    let mut config: Option<oadec_truehd::StreamConfig> = None;
+    let pass = crate::input::for_each_unit(path, |unit| {
+        let index = s.frames;
+        s.frames += 1;
+        let (au, cfg) = match oadec_truehd::AccessUnit::parse(&unit.bytes, config.as_ref()) {
+            Ok(x) => x,
+            Err(e) => {
+                s.unparsed_frames += 1;
+                if s.first_error.is_none() {
+                    s.first_error = Some(format!("access unit {index}: {e}"));
+                }
+                return Ok(());
+            }
+        };
+        config = Some(cfg);
+        let Some(extra) = &au.extra else {
+            return Ok(());
+        };
+        let note = |s: &mut EmdfSummary, what: &str| {
+            s.container_errors += 1;
+            if s.first_error.is_none() {
+                s.first_error = Some(format!("access unit {index}: {what}"));
+            }
+        };
+        if !extra.header_parity_ok {
+            note(&mut s, "extra data header parity mismatch");
+        }
+        if !extra.padding_zero {
+            note(&mut s, "non-zero extra data padding");
+        }
+        let (reserved, frame) = match &extra.kind {
+            oadec_truehd::ExtraKind::Evolution { reserved, frame } => (*reserved, frame),
+            oadec_truehd::ExtraKind::Truncated => {
+                note(&mut s, "extra data runs past the access unit");
+                return Ok(());
+            }
+            oadec_truehd::ExtraKind::Padding | oadec_truehd::ExtraKind::Opaque(_) => {
+                return Ok(());
+            }
+        };
+        if extra.parity_ok == Some(false) {
+            note(&mut s, "Evolution parity mismatch");
+        }
+        if frame.is_empty() {
+            return Ok(());
+        }
+        let container = match container::parse_evolution(frame) {
+            Ok(c) => c,
+            Err(e) => {
+                note(&mut s, &format!("evolution frame: {e}"));
+                return Ok(());
+            }
+        };
+        s.containers += 1;
+        s.frames_with_emdf += 1;
+        let dumping = opts.dump.is_some_and(|n| dumped < n);
+        if dumping {
+            dumped += 1;
+            println!(
+                "access unit {index}: extra data: header nibble {:#X}, {} words, header parity {}, evolution frame {} bytes, reserved {:#X}, frame parity {}, padding {}",
+                extra.header_nibble,
+                extra.length_words,
+                if extra.header_parity_ok {
+                    "ok"
+                } else {
+                    "MISMATCH"
+                },
+                frame.len(),
+                reserved,
+                match extra.parity_ok {
+                    Some(true) => "ok",
+                    Some(false) => "MISMATCH",
+                    None => "absent",
+                },
+                if extra.padding_zero {
+                    "zero"
+                } else {
+                    "NON-ZERO"
+                }
+            );
+            println!("  evolution bytes: {}", hex(frame));
+            println!(
+                "  container: version {}, key_id {}, protection {:?}, {} payloads {:?}",
+                container.version,
+                container.key_id,
+                container.protection,
+                container.payloads.len(),
+                container
+                    .payloads
+                    .iter()
+                    .map(|p| (
+                        p.id,
+                        p.data.len(),
+                        p.config.sample_offset,
+                        p.config.duration,
+                        p.config.group_id,
+                    ))
+                    .collect::<Vec<_>>()
+            );
+        }
+        for p in &container.payloads {
+            *s.payload_ids.entry(p.id).or_default() += 1;
+            if p.id == PAYLOAD_ID_JOC {
+                s.joc_payloads += 1;
+            }
+            if dumping {
+                println!("    payload {} = {}", p.id, hex(&p.data));
+            }
+            if p.id != PAYLOAD_ID_OAMD {
+                continue;
+            }
+            let smploffst = p.config.sample_offset.unwrap_or(0);
+            *s.oamd_smploffst.entry(smploffst).or_default() += 1;
+            match Oamd::parse(&p.data) {
+                Ok(oamd) => {
+                    s.oamd_payloads += 1;
+                    if let Some(o) = oamd.object_element() {
+                        *s.oamd_sample_offsets
+                            .entry(o.timing.sample_offset)
+                            .or_default() += 1;
+                        for b in &o.timing.blocks {
+                            *s.oamd_block_offsets
+                                .entry(b.block_offset_factor)
+                                .or_default() += 1;
+                            *s.oamd_ramps.entry(b.ramp_duration).or_default() += 1;
+                        }
+                    }
+                }
+                Err(e) => {
+                    s.oamd_errors += 1;
+                    if s.first_error.is_none() {
+                        s.first_error = Some(format!("access unit {index}: OAMD: {e}"));
+                    }
+                }
+            }
+        }
+        Ok(())
+    })?;
+    if s.frames == 0 {
+        return Err(crate::info::no_stream(path));
+    }
+    s.bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+    s.sync_errors = pass.stats.resyncs;
+    s.skipped_bytes = pass.stats.skipped_bytes;
+    if s.first_error.is_none() && s.skipped_bytes > 0 {
+        s.first_error = Some(format!(
+            "{} bytes skipped while framing the stream",
+            s.skipped_bytes
+        ));
+    }
+    // what the walk does not read -- the audio, the timing, the lossless checks
+    // -- `verify` checks: take its verdict rather than re-derive a part of it
+    let stream = crate::verify::join_stream_check(check)?;
+    if s.first_error.is_none() && !stream.clean {
+        s.first_error = stream.first_problem.clone();
+    }
+    let elapsed = started.elapsed().as_secs_f64();
+    let clean = stream.clean
+        && s.sync_errors == 0
+        && s.skipped_bytes == 0
+        && s.unparsed_frames == 0
+        && s.container_errors == 0
+        && s.oamd_errors == 0;
+    if opts.json {
+        let mut value = serde_json::to_value(&s)?;
+        value["verify"] = serde_json::to_value(&stream)?;
+        value["clean"] = serde_json::json!(clean);
+        value["seconds"] = serde_json::json!(elapsed);
+        println!("{}", serde_json::to_string_pretty(&value)?);
+    } else {
+        println!(
+            "Access units:      {}, {} bytes, {} sync errors, {} bytes skipped, {} unparsed",
+            s.frames, s.bytes, s.sync_errors, s.skipped_bytes, s.unparsed_frames
+        );
+        println!(
+            "EMDF:              {} access units with containers, {} containers, {} container errors, payload ids {:?}",
+            s.frames_with_emdf, s.containers, s.container_errors, s.payload_ids
+        );
+        println!(
+            "OAMD:              {} payloads ({} errors), {} JOC payloads",
+            s.oamd_payloads, s.oamd_errors, s.joc_payloads
+        );
+        println!("smploffst:         {:?}", s.oamd_smploffst);
+        println!("Sample offsets:    {:?}", s.oamd_sample_offsets);
+        println!("Block offsets:     {:?}", s.oamd_block_offsets);
+        println!("Ramp durations:    {:?}", s.oamd_ramps);
+        println!(
+            "Verify:            {}",
+            if stream.clean {
+                "clean"
+            } else {
+                "non-conformant"
+            }
+        );
+        if let Some(e) = &s.first_error {
+            println!("First problem:     {e}");
+        }
+        println!("Speed:             {elapsed:.2} s");
+        println!(
+            "Result:            {}",
+            if clean { "CLEAN" } else { "PROBLEMS" }
+        );
+    }
+    Ok(clean)
+}
+
+/// Bytes as hex, for a dump that is read by eye and diffed between streams.
+fn hex(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .map(|b| format!("{b:02X}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// Runs the command; returns `true` when every container and payload parsed.
 pub fn run(path: &Path, opts: &Options) -> Result<bool> {
-    // the containers are in E-AC-3 skip fields; a TrueHD stream has none and
-    // walking it for E-AC-3 sync words would report nothing but sync errors
+    // The containers are in the skip fields of an E-AC-3 frame and in the extra
+    // data of a TrueHD access unit. Both walks find the same containers and
+    // report the same things about them; only the place differs.
     if !crate::eac3::is_eac3(path).unwrap_or(false) {
-        anyhow::bail!(
-            concat!(
-                "{} is not an E-AC-3 stream. TrueHD carries its object metadata ",
-                "in the access units instead; use `oadec oamd` for that."
-            ),
-            path.display()
-        );
+        return run_truehd(path, opts);
     }
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own; run it
