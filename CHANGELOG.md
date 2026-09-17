@@ -17,7 +17,9 @@ Semantic Versioning.
   option is refused where it cannot be honoured rather than ignored -- on an
   E-AC-3 stream, whose decoder carries enhanced coupling, a held frame and a
   pre-noise queue across frames, and on the object outputs, whose writers walk
-  the whole programme for one metadata timeline.
+  the whole programme for one metadata timeline. A start the stream never
+  reaches is refused with the length the stream actually has, rather than with
+  the complaint that belongs to a file carrying no stream at all.
 
 ## [0.4.0] - 2026-09-17
 
