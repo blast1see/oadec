@@ -10,13 +10,26 @@ Semantic Versioning.
 
 - **A command that reads a whole file shows how far it has got.** A decode of a
   feature film takes minutes and used to say nothing until it ended. The walks
-  every command shares now draw a percentage of the input in place, and a clean
-  decode ends by saying `done`. It is drawn only when stderr is a terminal:
-  four tools parse oadec's stderr and most of the CLI tests match on it, so a
-  piped or redirected run prints exactly what it printed before, byte for byte.
-  The line is cleared when the reporter is dropped, which covers the paths that
-  leave a walk early -- an error printed onto a half-drawn bar is worse than no
-  bar at all, and a test holds it by dropping one mid-walk.
+  every command shares now draw a bar with the share of the input read, the
+  bytes, the rate and an estimate of what is left, and a clean decode ends by
+  saying `done`:
+
+  ```text
+  reading  ██████████░░░░░░░░░░  50%  1.9 GiB/3.7 GiB  40 MiB/s  eta 0:48
+  ```
+
+  Three rules decide whether it is drawn, and each is held by a test. **Only on
+  a terminal**, because four tools parse oadec's stderr and most of the CLI
+  tests match on it, so a piped or redirected run prints exactly what it printed
+  before, byte for byte. **Only from the thread doing the work**: `decode` and
+  the DAMF writer read the file a second time on another thread for the checks
+  `verify` performs beside the decode, and when both walks reported, the two
+  drew on one line and the percentage jumped between them -- a fast scan at 54 %
+  and the slow decode at 23 %, a second apart. **One reporter at a time**, by a
+  claim released on drop, so a future second walk cannot bring the defect back.
+  The line is also cleared when the reporter is dropped, which covers the paths
+  that leave a walk early: an error printed onto a half-drawn bar is worse than
+  no bar at all.
 
 ## [0.5.0] - 2026-09-17
 
