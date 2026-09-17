@@ -1,0 +1,697 @@
+{
+  "what": "the reachable entry points of --start, measured",
+  "utc": "2026-09-17T05:51:38Z",
+  "commit": "49c9fd2 -- the tree the measured binary was built from (the feature with the two corrections)",
+  "binary_sha256": "557eed6cec58b1c7f3014422dc8d6ecd5abcc7a174422e33122d53cad5f2bf63",
+  "branch_commit": "49c9fd2",
+  "why": "The committed note claimed the snap forward is 128 access units. That number had not been measured, and the first corpus run already contradicted it by landing on access unit 1.",
+  "method": "verify-2026-09-14/probe_seek_grid.py: oadec info --json for each clip's rate, major sync count and max_major_sync_interval, then 14 starts per clip from 0 to 10 s. For each the announced sample gives the landing unit; the snap is that unit minus the first unit the start could have used (target // samples_per_au). Every started output is compared byte for byte with the tail of a full decode, which is also what proves the landing unit carries a major sync: without restart headers the filter histories would start from zero and the tail could not match.",
+  "clips": [
+    {
+      "clip": "talktome-head.thd",
+      "samples_per_au": 40,
+      "sampling_frequency": 48000,
+      "units": 48000,
+      "major_syncs": 377,
+      "max_major_sync_interval": 128,
+      "mean_major_sync_interval": 127.32,
+      "duration_seconds": 40.0,
+      "probes": [
+        {
+          "start": 0.0,
+          "rc": 0,
+          "sample": 0,
+          "unit": 0,
+          "first_eligible_unit": 0,
+          "snap_units": 0,
+          "snap_ms": 0.0,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.0005,
+          "rc": 0,
+          "sample": 0,
+          "unit": 0,
+          "first_eligible_unit": 0,
+          "snap_units": 0,
+          "snap_ms": 0.0,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.001,
+          "rc": 0,
+          "sample": 5080,
+          "unit": 127,
+          "first_eligible_unit": 1,
+          "snap_units": 126,
+          "snap_ms": 105.0,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.002,
+          "rc": 0,
+          "sample": 5080,
+          "unit": 127,
+          "first_eligible_unit": 2,
+          "snap_units": 125,
+          "snap_ms": 104.17,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.005,
+          "rc": 0,
+          "sample": 5080,
+          "unit": 127,
+          "first_eligible_unit": 6,
+          "snap_units": 121,
+          "snap_ms": 100.83,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.01,
+          "rc": 0,
+          "sample": 5080,
+          "unit": 127,
+          "first_eligible_unit": 12,
+          "snap_units": 115,
+          "snap_ms": 95.83,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.02,
+          "rc": 0,
+          "sample": 5080,
+          "unit": 127,
+          "first_eligible_unit": 24,
+          "snap_units": 103,
+          "snap_ms": 85.83,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.05,
+          "rc": 0,
+          "sample": 5080,
+          "unit": 127,
+          "first_eligible_unit": 60,
+          "snap_units": 67,
+          "snap_ms": 55.83,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.1,
+          "rc": 0,
+          "sample": 5080,
+          "unit": 127,
+          "first_eligible_unit": 120,
+          "snap_units": 7,
+          "snap_ms": 5.83,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.5,
+          "rc": 0,
+          "sample": 25400,
+          "unit": 635,
+          "first_eligible_unit": 600,
+          "snap_units": 35,
+          "snap_ms": 29.17,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 1.0,
+          "rc": 0,
+          "sample": 50800,
+          "unit": 1270,
+          "first_eligible_unit": 1200,
+          "snap_units": 70,
+          "snap_ms": 58.33,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 2.5,
+          "rc": 0,
+          "sample": 121920,
+          "unit": 3048,
+          "first_eligible_unit": 3000,
+          "snap_units": 48,
+          "snap_ms": 40.0,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 5.0,
+          "rc": 0,
+          "sample": 243840,
+          "unit": 6096,
+          "first_eligible_unit": 6000,
+          "snap_units": 96,
+          "snap_ms": 80.0,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 10.0,
+          "rc": 0,
+          "sample": 481720,
+          "unit": 12043,
+          "first_eligible_unit": 12000,
+          "snap_units": 43,
+          "snap_ms": 35.83,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        }
+      ],
+      "full_rc": 0
+    },
+    {
+      "clip": "pi-head50m.thd",
+      "samples_per_au": 40,
+      "sampling_frequency": 48000,
+      "units": 126895,
+      "major_syncs": 1001,
+      "max_major_sync_interval": 128,
+      "mean_major_sync_interval": 126.77,
+      "duration_seconds": 105.746,
+      "probes": [
+        {
+          "start": 0.0,
+          "rc": 7,
+          "sample": 0,
+          "unit": 0,
+          "first_eligible_unit": 0,
+          "snap_units": 0,
+          "snap_ms": 0.0,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.0005,
+          "rc": 7,
+          "sample": 0,
+          "unit": 0,
+          "first_eligible_unit": 0,
+          "snap_units": 0,
+          "snap_ms": 0.0,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.001,
+          "rc": 7,
+          "sample": 40,
+          "unit": 1,
+          "first_eligible_unit": 1,
+          "snap_units": 0,
+          "snap_ms": 0.0,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.002,
+          "rc": 7,
+          "sample": 5000,
+          "unit": 125,
+          "first_eligible_unit": 2,
+          "snap_units": 123,
+          "snap_ms": 102.5,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.005,
+          "rc": 7,
+          "sample": 5000,
+          "unit": 125,
+          "first_eligible_unit": 6,
+          "snap_units": 119,
+          "snap_ms": 99.17,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.01,
+          "rc": 7,
+          "sample": 5000,
+          "unit": 125,
+          "first_eligible_unit": 12,
+          "snap_units": 113,
+          "snap_ms": 94.17,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.02,
+          "rc": 7,
+          "sample": 5000,
+          "unit": 125,
+          "first_eligible_unit": 24,
+          "snap_units": 101,
+          "snap_ms": 84.17,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.05,
+          "rc": 7,
+          "sample": 5000,
+          "unit": 125,
+          "first_eligible_unit": 60,
+          "snap_units": 65,
+          "snap_ms": 54.17,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.1,
+          "rc": 7,
+          "sample": 5000,
+          "unit": 125,
+          "first_eligible_unit": 120,
+          "snap_units": 5,
+          "snap_ms": 4.17,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.5,
+          "rc": 7,
+          "sample": 25320,
+          "unit": 633,
+          "first_eligible_unit": 600,
+          "snap_units": 33,
+          "snap_ms": 27.5,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 1.0,
+          "rc": 7,
+          "sample": 50920,
+          "unit": 1273,
+          "first_eligible_unit": 1200,
+          "snap_units": 73,
+          "snap_ms": 60.83,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 2.5,
+          "rc": 7,
+          "sample": 122600,
+          "unit": 3065,
+          "first_eligible_unit": 3000,
+          "snap_units": 65,
+          "snap_ms": 54.17,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 5.0,
+          "rc": 7,
+          "sample": 240360,
+          "unit": 6009,
+          "first_eligible_unit": 6000,
+          "snap_units": 9,
+          "snap_ms": 7.5,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 10.0,
+          "rc": 7,
+          "sample": 482680,
+          "unit": 12067,
+          "first_eligible_unit": 12000,
+          "snap_units": 67,
+          "snap_ms": 55.83,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        }
+      ],
+      "full_rc": 7
+    },
+    {
+      "clip": "thd-96k-revenant.thd",
+      "samples_per_au": 80,
+      "sampling_frequency": 96000,
+      "units": 36000,
+      "major_syncs": 282,
+      "max_major_sync_interval": 128,
+      "mean_major_sync_interval": 127.66,
+      "duration_seconds": 30.0,
+      "probes": [
+        {
+          "start": 0.0,
+          "rc": 0,
+          "sample": 0,
+          "unit": 0,
+          "first_eligible_unit": 0,
+          "snap_units": 0,
+          "snap_ms": 0.0,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.0005,
+          "rc": 0,
+          "sample": 0,
+          "unit": 0,
+          "first_eligible_unit": 0,
+          "snap_units": 0,
+          "snap_ms": 0.0,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.001,
+          "rc": 0,
+          "sample": 10240,
+          "unit": 128,
+          "first_eligible_unit": 1,
+          "snap_units": 127,
+          "snap_ms": 105.83,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.002,
+          "rc": 0,
+          "sample": 10240,
+          "unit": 128,
+          "first_eligible_unit": 2,
+          "snap_units": 126,
+          "snap_ms": 105.0,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.005,
+          "rc": 0,
+          "sample": 10240,
+          "unit": 128,
+          "first_eligible_unit": 6,
+          "snap_units": 122,
+          "snap_ms": 101.67,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.01,
+          "rc": 0,
+          "sample": 10240,
+          "unit": 128,
+          "first_eligible_unit": 12,
+          "snap_units": 116,
+          "snap_ms": 96.67,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.02,
+          "rc": 0,
+          "sample": 10240,
+          "unit": 128,
+          "first_eligible_unit": 24,
+          "snap_units": 104,
+          "snap_ms": 86.67,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.05,
+          "rc": 0,
+          "sample": 10240,
+          "unit": 128,
+          "first_eligible_unit": 60,
+          "snap_units": 68,
+          "snap_ms": 56.67,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.1,
+          "rc": 0,
+          "sample": 10240,
+          "unit": 128,
+          "first_eligible_unit": 120,
+          "snap_units": 8,
+          "snap_ms": 6.67,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.5,
+          "rc": 0,
+          "sample": 51200,
+          "unit": 640,
+          "first_eligible_unit": 600,
+          "snap_units": 40,
+          "snap_ms": 33.33,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 1.0,
+          "rc": 0,
+          "sample": 102400,
+          "unit": 1280,
+          "first_eligible_unit": 1200,
+          "snap_units": 80,
+          "snap_ms": 66.67,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 2.5,
+          "rc": 0,
+          "sample": 245760,
+          "unit": 3072,
+          "first_eligible_unit": 3000,
+          "snap_units": 72,
+          "snap_ms": 60.0,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 5.0,
+          "rc": 0,
+          "sample": 481280,
+          "unit": 6016,
+          "first_eligible_unit": 6000,
+          "snap_units": 16,
+          "snap_ms": 13.33,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 10.0,
+          "rc": 0,
+          "sample": 962560,
+          "unit": 12032,
+          "first_eligible_unit": 12000,
+          "snap_units": 32,
+          "snap_ms": 26.67,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        }
+      ],
+      "full_rc": 0
+    },
+    {
+      "clip": "shaun-head20m.thd",
+      "samples_per_au": 40,
+      "sampling_frequency": 48000,
+      "units": 48587,
+      "major_syncs": 384,
+      "max_major_sync_interval": 128,
+      "mean_major_sync_interval": 126.53,
+      "duration_seconds": 40.489,
+      "probes": [
+        {
+          "start": 0.0,
+          "rc": 7,
+          "sample": 0,
+          "unit": 0,
+          "first_eligible_unit": 0,
+          "snap_units": 0,
+          "snap_ms": 0.0,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.0005,
+          "rc": 7,
+          "sample": 0,
+          "unit": 0,
+          "first_eligible_unit": 0,
+          "snap_units": 0,
+          "snap_ms": 0.0,
+          "unit_is_on_a_128_grid": true,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.001,
+          "rc": 7,
+          "sample": 720,
+          "unit": 18,
+          "first_eligible_unit": 1,
+          "snap_units": 17,
+          "snap_ms": 14.17,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.002,
+          "rc": 7,
+          "sample": 720,
+          "unit": 18,
+          "first_eligible_unit": 2,
+          "snap_units": 16,
+          "snap_ms": 13.33,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.005,
+          "rc": 7,
+          "sample": 720,
+          "unit": 18,
+          "first_eligible_unit": 6,
+          "snap_units": 12,
+          "snap_ms": 10.0,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.01,
+          "rc": 7,
+          "sample": 720,
+          "unit": 18,
+          "first_eligible_unit": 12,
+          "snap_units": 6,
+          "snap_ms": 5.0,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.02,
+          "rc": 7,
+          "sample": 5840,
+          "unit": 146,
+          "first_eligible_unit": 24,
+          "snap_units": 122,
+          "snap_ms": 101.67,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.05,
+          "rc": 7,
+          "sample": 5840,
+          "unit": 146,
+          "first_eligible_unit": 60,
+          "snap_units": 86,
+          "snap_ms": 71.67,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.1,
+          "rc": 7,
+          "sample": 5840,
+          "unit": 146,
+          "first_eligible_unit": 120,
+          "snap_units": 26,
+          "snap_ms": 21.67,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 0.5,
+          "rc": 7,
+          "sample": 26320,
+          "unit": 658,
+          "first_eligible_unit": 600,
+          "snap_units": 58,
+          "snap_ms": 48.33,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 1.0,
+          "rc": 7,
+          "sample": 51920,
+          "unit": 1298,
+          "first_eligible_unit": 1200,
+          "snap_units": 98,
+          "snap_ms": 81.67,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 2.5,
+          "rc": 7,
+          "sample": 123600,
+          "unit": 3090,
+          "first_eligible_unit": 3000,
+          "snap_units": 90,
+          "snap_ms": 75.0,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 5.0,
+          "rc": 7,
+          "sample": 241360,
+          "unit": 6034,
+          "first_eligible_unit": 6000,
+          "snap_units": 34,
+          "snap_ms": 28.33,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        },
+        {
+          "start": 10.0,
+          "rc": 7,
+          "sample": 483000,
+          "unit": 12075,
+          "first_eligible_unit": 12000,
+          "snap_units": 75,
+          "snap_ms": 62.5,
+          "unit_is_on_a_128_grid": false,
+          "tail_is_byte_identical": true
+        }
+      ],
+      "full_rc": 7
+    }
+  ],
+  "edges": {
+    "negative": {
+      "rc": 2,
+      "said": "error: --start takes a time in seconds, not -1",
+      "bytes": 0
+    },
+    "negative with space": {
+      "rc": 2,
+      "said": "error: unexpected argument '-1' found\n\n  tip: to pass '-1' as a value, use '-- -1'\n\nUsage: oadec.exe decode [OPTIONS] --output <OUTPUT> <FILE>\n\nFor more information, try '--help'.",
+      "bytes": 0
+    },
+    "zero": {
+      "rc": 0,
+      "said": "starting at sample 0 (0.000 s), the first major sync at or after --start\ndecoded 48000 access units, 1920000 samples x 8 channels (0:00:40.000), 0 dropped duplicates\nlossless checks: 376 performed, 0 ",
+      "bytes": 46080000
+    }
+  },
+  "reading": "56 starts across four titles, 14 per title, every one of them a byte-identical tail of a full decode -- which is also the proof that every landing access unit really carries a major sync, since a unit without restart headers would begin from zero filter history and could not reproduce the tail. The worst snap forward was 126, 123, 127 and 122 access units (about 105 ms), bounded by the 128-unit max_major_sync_interval each stream reports, but the landing points are not on a 128 grid: pi-head50m carries a major sync at unit 1 and shaun-head20m at unit 18, because a cut clip's sync points are irregular. This refuted the sentence first committed in docs/truehd.md, which asserted 128 access units without measuring."
+}

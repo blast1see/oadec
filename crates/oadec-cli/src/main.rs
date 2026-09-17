@@ -108,6 +108,14 @@ enum Command {
         /// Keep access units flagged as duplicates at seamless branches.
         #[arg(long)]
         keep_duplicates: bool,
+        /// TrueHD: begin the output this many seconds into the stream, at the
+        /// first access unit at or after it that carries a major sync. What is
+        /// written is the tail of a full decode, sample for sample, because a
+        /// restart header re-initialises every substream. E-AC-3 is refused:
+        /// its decoder carries enhanced coupling, a held frame and a pre-noise
+        /// queue across frames, so a frame is not a clean entry point.
+        #[arg(long, value_name = "SECONDS")]
+        start: Option<f64>,
         /// DAMF: write the coded bed channels only instead of the full 7.1.2 bed.
         #[arg(long)]
         no_bed_conform: bool,
@@ -390,6 +398,7 @@ fn main() -> ExitCode {
                 format,
                 order,
                 keep_duplicates,
+                start,
                 no_bed_conform,
                 all_events,
                 dolby_origin_tag,
@@ -422,6 +431,22 @@ fn main() -> ExitCode {
                 Err(anyhow::anyhow!(
                     "--joc-lag, --joc-low-band and --joc-phase measure the JOC object \
                      decode: they apply to an E-AC-3 stream with --format damf or adm"
+                ))
+            } else if start.is_some()
+                && (eac3::is_eac3(&file).unwrap_or(false)
+                    || matches!(format, Format::Damf | Format::Adm))
+            {
+                // An option that reads as applied while changing nothing is the
+                // defect this round fixed for the measurement overrides. A start
+                // is exact only where a restart header re-initialises the
+                // decoder, which is the TrueHD sample output: an E-AC-3 decoder
+                // carries enhanced coupling, a held frame and a pre-noise queue
+                // across frames, and the object writers walk the whole programme
+                // to build one metadata timeline.
+                Err(anyhow::anyhow!(
+                    "--start begins a TrueHD decode at a major sync, which is exact because a \
+                     restart header re-initialises every substream: it applies to a TrueHD \
+                     stream with --format pcm or wav"
                 ))
             } else if eac3::is_eac3(&file).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
@@ -515,6 +540,7 @@ fn main() -> ExitCode {
                         format,
                         order,
                         keep_duplicates,
+                        start,
                     },
                 )
                 .map(Verdict::from_clean)

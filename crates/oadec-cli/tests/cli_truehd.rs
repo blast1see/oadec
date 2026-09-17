@@ -436,3 +436,273 @@ fn a_fault_only_verify_reads_fails_every_truehd_delivery() {
     assert_eq!(out.status.code(), Some(7), "{text}{}", stderr(&out));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// `decode --start` begins at the first major sync at or after the requested
+/// time. Applying a restart header clears the filter history of every substream,
+/// so that access unit is a clean entry point and what the run writes is the
+/// tail of a full decode, byte for byte. The run says where it landed, because
+/// the snap forward can be as long as a major sync interval.
+#[test]
+fn a_decode_that_starts_inside_the_stream_is_the_tail_of_a_full_one() {
+    let dir = temp("seek");
+    let stream = fixture("authored-scene.mlp");
+    let stream = stream.to_str().unwrap();
+    let whole = dir.join("whole.pcm");
+    let part = dir.join("part.pcm");
+
+    let full = oadec(&[
+        "decode",
+        stream,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "-o",
+        whole.to_str().unwrap(),
+    ]);
+    assert_eq!(full.status.code(), Some(0), "{}", stderr(&full));
+
+    let cut = oadec(&[
+        "decode",
+        stream,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "--start",
+        "0.5",
+        "-o",
+        part.to_str().unwrap(),
+    ]);
+    assert_eq!(cut.status.code(), Some(0), "{}", stderr(&cut));
+    let said = format!(
+        "{}{}",
+        String::from_utf8_lossy(&cut.stdout),
+        String::from_utf8_lossy(&cut.stderr)
+    );
+    assert!(
+        said.contains("starting at"),
+        "the run must say where it started: {said}"
+    );
+
+    let whole_bytes = std::fs::read(&whole).unwrap();
+    let part_bytes = std::fs::read(&part).unwrap();
+    assert!(
+        !part_bytes.is_empty() && part_bytes.len() < whole_bytes.len(),
+        "a start inside the stream writes less: {} of {}",
+        part_bytes.len(),
+        whole_bytes.len()
+    );
+    let tail = &whole_bytes[whole_bytes.len() - part_bytes.len()..];
+    assert_eq!(
+        tail,
+        &part_bytes[..],
+        "the samples a started decode writes are not the tail of a full one"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// `--start` is exact only where a restart header re-initialises the decoder,
+/// which is the TrueHD sample output. On an E-AC-3 stream, whose decoder carries
+/// enhanced coupling, a held frame and a pre-noise queue across frames, and on
+/// the object outputs, whose writers walk the whole programme for one metadata
+/// timeline, it cannot be honoured -- so it is refused with the reason rather
+/// than swallowed, which is what this round fixed for the measurement overrides.
+#[test]
+fn a_start_is_refused_where_it_cannot_be_honoured() {
+    let dir = temp("seek-guard");
+    let thd = fixture("authored-scene.mlp");
+    let thd = thd.to_str().unwrap();
+    let ec3 = fixture("authored-scene.ec3");
+    let ec3 = ec3.to_str().unwrap();
+
+    for (stream, format) in [(ec3, "pcm"), (ec3, "damf"), (thd, "damf")] {
+        let out = oadec(&[
+            "decode",
+            stream,
+            "-p",
+            if format == "damf" { "3" } else { "2" },
+            "--format",
+            format,
+            "--start",
+            "0.5",
+            "-o",
+            dir.join("refused").to_str().unwrap(),
+        ]);
+        assert_eq!(
+            out.status.code(),
+            Some(2),
+            "{stream} --format {format} took --start: {}",
+            stderr(&out)
+        );
+        let said = stderr(&out);
+        assert!(
+            said.contains("--start begins a TrueHD decode"),
+            "the refusal must say what --start applies to: {said}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A start the stream never reaches says so, and says how long the stream is.
+///
+/// Every access unit is swallowed and nothing is decoded, which reaches the same
+/// place as a file that carried no stream at all -- but the cause is not the
+/// same, and the complaint for an empty file ("no TrueHD access unit ... found")
+/// is false here: the file is full of them. Naming the wrong cause is the defect
+/// this round fixed once already, where Dolby's own decoder reported an Evolution
+/// validity failure as "presentation is not available".
+#[test]
+fn a_start_past_the_end_of_the_stream_names_its_own_cause() {
+    let dir = temp("seek-past-end");
+    let stream = fixture("authored-scene.mlp");
+    let stream = stream.to_str().unwrap();
+    let out_path = dir.join("nothing.pcm");
+
+    let out = oadec(&[
+        "decode",
+        stream,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "--start",
+        "9999",
+        "-o",
+        out_path.to_str().unwrap(),
+    ]);
+    let said = stderr(&out);
+    assert_eq!(out.status.code(), Some(2), "a start past the end: {said}");
+    assert!(
+        said.contains("past the end of the stream"),
+        "the refusal must name its own cause: {said}"
+    );
+    assert!(
+        said.contains("2.000 s"),
+        "and the length the stream actually has, so a reachable time can be chosen: {said}"
+    );
+    assert!(
+        !said.contains("no TrueHD access unit"),
+        "the file is full of access units; that complaint belongs to an empty one: {said}"
+    );
+    assert!(
+        !out_path.exists(),
+        "a refused start must not leave an empty output behind"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A unit that ends exactly at the requested time is before the start.
+///
+/// The rule swallows an access unit while it ends at or before the target, so
+/// the boundary is the one place where `<=` and `<` differ, and a start that
+/// falls anywhere else cannot tell them apart -- which is why the mutation round
+/// found this rule held by nothing. Major syncs of the fixture are at units 0,
+/// 125 and 250; unit 125 covers samples 5000 to 5039, so a target of exactly
+/// 5040 is its end and it must be skipped, landing at unit 250. One sample
+/// earlier and unit 125 is where the decode begins.
+#[test]
+fn a_start_lands_on_the_unit_whose_end_passes_the_requested_time() {
+    let dir = temp("seek-boundary");
+    let stream = fixture("authored-scene.mlp");
+    let stream = stream.to_str().unwrap();
+
+    // 0.1049 s is 5035 samples: inside unit 125, which therefore begins the decode
+    // 0.105  s is 5040 samples: exactly the end of unit 125, which is thus before the start
+    for (start, expected) in [("0.1049", 5000u64), ("0.105", 10000)] {
+        let out = oadec(&[
+            "decode",
+            stream,
+            "-p",
+            "2",
+            "--format",
+            "pcm",
+            "--start",
+            start,
+            "-o",
+            dir.join(format!("b{start}.pcm")).to_str().unwrap(),
+        ]);
+        assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+        let said = stderr(&out);
+        let sample = said
+            .split("starting at sample ")
+            .nth(1)
+            .and_then(|s| s.split_whitespace().next())
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or_else(|| panic!("the run must say where it started: {said}"));
+        assert_eq!(
+            sample, expected,
+            "--start {start} began at sample {sample}, not {expected}: a unit that ends at \
+             or before the requested time is before the start"
+        );
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// The announced sample is where the decode actually began.
+///
+/// A correct tail does not prove this: the bytes written are the same whatever
+/// number the run prints, so an announcement that lies is invisible to every
+/// other check here. The arithmetic that catches it is the one the corpus
+/// measurement used -- what the full decode wrote, minus what the started decode
+/// wrote, must be exactly the announced sample count times the bytes of a frame.
+/// Presentation 2 of the fixture is 8 channels of 24-bit, so a frame is 24 bytes.
+#[test]
+fn the_announced_sample_is_where_the_output_actually_begins() {
+    let dir = temp("seek-announce");
+    let stream = fixture("authored-scene.mlp");
+    let stream = stream.to_str().unwrap();
+    let whole = dir.join("whole.pcm");
+    let part = dir.join("part.pcm");
+
+    let full = oadec(&[
+        "decode",
+        stream,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "-o",
+        whole.to_str().unwrap(),
+    ]);
+    assert_eq!(full.status.code(), Some(0), "{}", stderr(&full));
+
+    let cut = oadec(&[
+        "decode",
+        stream,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "--start",
+        "0.5",
+        "-o",
+        part.to_str().unwrap(),
+    ]);
+    assert_eq!(cut.status.code(), Some(0), "{}", stderr(&cut));
+
+    let said = stderr(&cut);
+    let announced = said
+        .split("starting at sample ")
+        .nth(1)
+        .and_then(|s| s.split_whitespace().next())
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or_else(|| panic!("the run must say where it started: {said}"));
+    assert!(
+        announced > 0,
+        "a start of 0.5 s cannot begin at sample 0: {said}"
+    );
+
+    const BYTES_PER_FRAME: u64 = 8 * 3; // presentation 2, 24-bit
+    let whole_len = std::fs::metadata(&whole).unwrap().len();
+    let part_len = std::fs::metadata(&part).unwrap().len();
+    assert_eq!(
+        whole_len - part_len,
+        announced * BYTES_PER_FRAME,
+        "the run announced sample {announced}, but the output is short by {} bytes, which is \
+         {} frames: the announcement does not say where the output begins",
+        whole_len - part_len,
+        (whole_len - part_len) / BYTES_PER_FRAME
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}

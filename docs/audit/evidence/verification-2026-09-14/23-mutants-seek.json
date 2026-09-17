@@ -1,0 +1,319 @@
+{
+  "what": "the mutation round asked about the rules --start added, first run",
+  "utc": "2026-09-17T06:12:00Z",
+  "commit": "d0e2750 -- the tree the run was made on",
+  "why": "A green suite says nothing about what it would have caught, and this round already found a rule held only by a media test.",
+  "method": "tools/mutants.py: one load-bearing change at a time, cargo test --workspace --locked after each, the tree restored between them.",
+  "reading": "34 mutations, 3 survivors: the known matrix alignment, and two of the four written for --start -- the start boundary, and the announced sample. Both were real: no test used a start falling on the end of a major-sync unit, and the announced sample's value was never read by anything.",
+  "rows": [
+    {
+      "mutation": "the branch trigger, without the peak data rate change",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "timing::tests::a_peak_data_rate_change_is_a_branch_even_when_neither_clock_jumps"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the branch data rate, the previous unit weighed against the new rate",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "timing::tests::a_peak_data_rate_change_is_a_branch_even_when_neither_clock_jumps"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the input timing rate test, the previous unit weighed against the new rate",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "timing::tests::a_peak_data_rate_change_is_a_branch_even_when_neither_clock_jumps"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the branch reaching only the restart header it was judged at",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "timing::tests::a_peak_data_rate_change_is_a_branch_even_when_neither_clock_jumps",
+        "timing::tests::a_seamless_branch_is_recognised_when_the_conditions_hold",
+        "timing::tests::an_advance_that_grows_too_much_is_not_a_valid_branch",
+        "timing::tests::the_branch_reaches_every_restart_header_of_the_unit"
+      ],
+      "failing_count": 4
+    },
+    {
+      "mutation": "the missing container, the walk asking for skip bytes first",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "emdf::tests::a_frame_loses_its_container_where_one_should_be"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the missing container, the statistics not counting a frame without skip fields",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "eac3::tests::a_frame_without_skip_fields_loses_a_container_where_emdf_is_declared"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the block-offset step, 32 -> 31",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "program::tests::an_update_starts_at_sample_offset_plus_thirty_two_per_block_factor"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the steep switch, one slot back -> none",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "tests::steep_switches_one_slot_before_the_printed_reading"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the steep switch, one slot back -> two",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "tests::an_offset_the_frame_cannot_hold_leaves_the_previous_matrix_alone",
+        "tests::steep_switches_one_slot_before_the_printed_reading"
+      ],
+      "failing_count": 2
+    },
+    {
+      "mutation": "dequantisation, nquant 96 -> 95",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "tests::dequantization_ranges_match_the_note_of_clause_6_6_4"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "dequantisation, the 820 scale -> 821",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "tests::dequantization_ranges_match_the_note_of_clause_6_6_4"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the smooth ramp, ts + 1 -> ts",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "tests::every_interpolation_branch_matches_pseudocode_6"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the WAVE mask of the left channel",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "program::tests::a_dependent_substream_replaces_the_surrounds_and_adds_the_rear_pair",
+        "program::tests::a_seven_one_programme_sorts_into_wave_order"
+      ],
+      "failing_count": 2
+    },
+    {
+      "mutation": "the interchange rank of an unmapped location, 32 -> 0",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "program::tests::interchange_rank_follows_the_mask_bit"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the JOC input of the left surround, 3 -> 4",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "program::tests::the_joc_downmix_inputs_cover_seven_channels"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the height pair of configuration 4 mapped like configuration 1",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "program::tests::the_joc_downmix_inputs_cover_seven_channels"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the OAMD sample-offset table, 8 -> 9",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "oamd::tests::the_timing_tables_are_the_ones_the_clauses_print"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the ramp-duration table, 32 -> 33",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "oamd::tests::the_timing_tables_are_the_ones_the_clauses_print"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the matrix alignment, 10 -> 9",
+      "applied": true,
+      "caught": false,
+      "failing_tests": [],
+      "failing_count": 0
+    },
+    {
+      "mutation": "the sparse chain, measured -> as printed",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "joc::tests::a_first_band_index_naming_no_channel_selects_none_of_them",
+        "joc::tests::sparse_object_places_the_vector_on_one_channel_per_band"
+      ],
+      "failing_count": 2
+    },
+    {
+      "mutation": "the TrueHD major-sync CRC polynomial, 0x002D -> 0x002F",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "crc::tests::the_major_sync_polynomial_is_the_one_that_reads_real_streams"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the restart-header CRC polynomial, 0x1D -> 0x1F",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "crc::tests::restart_crc_over_a_bit_range_matches_the_reference"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the substream CRC initial value, 0xA2 -> 0xA3",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "crc::tests::substream_crc_equals_the_textbook_formulation"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the DAMF y coordinate, front and back swapped",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "program::tests::positions_convert_to_damf_coordinates"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "a dropped dependent substream no longer makes a stream unclean",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "eac3::tests::a_tail_overrun_alone_fails_verify_and_not_a_delivery",
+        "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean",
+        "eac3::tests::skip_fields_that_carry_no_emdf_are_not_a_fault",
+        "eac3::tests::the_checks_of_clause_8_fail_verify_and_not_a_delivery"
+      ],
+      "failing_count": 4
+    },
+    {
+      "mutation": "the programme verdict ignores a dropped dependent substream",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the programme verdict counts a second programme as unclean",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "a mid-stream sampling-rate change is allowed again",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "au::tests::a_rate_change_at_a_major_sync_is_refused_like_any_other_layout_change"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the TrueHD verdict stops reading a counter",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "scan::tests::every_counter_in_the_truehd_verdict_can_make_a_stream_unclean"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "an inactive object counts as an authored mute",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "oamd::tests::a_non_unity_gain_and_a_non_zero_size_are_counted_and_an_inactive_object_is_not"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "the start boundary, a unit that ends exactly at the target counted as after it",
+      "applied": true,
+      "caught": false,
+      "failing_tests": [],
+      "failing_count": 0
+    },
+    {
+      "mutation": "the announced sample, reported as the beginning of the stream",
+      "applied": true,
+      "caught": false,
+      "failing_tests": [],
+      "failing_count": 0
+    },
+    {
+      "mutation": "a start that was never reached reported as a file carrying no stream",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "a_start_past_the_end_of_the_stream_names_its_own_cause"
+      ],
+      "failing_count": 1
+    },
+    {
+      "mutation": "--start accepted on E-AC-3 and the object outputs instead of refused",
+      "applied": true,
+      "caught": true,
+      "failing_tests": [
+        "a_start_is_refused_where_it_cannot_be_honoured"
+      ],
+      "failing_count": 1
+    }
+  ]
+}

@@ -1,0 +1,252 @@
+{
+  "what": "decode --start measured on the real corpus",
+  "utc": "2026-09-17T05:51:38Z",
+  "commit": "9695f3f -- the tree the measured binary was built from (the feature as first committed)",
+  "binary": "(the release binary)",
+  "branch_commit": "9695f3f",
+  "why": "The feature shipped with a fixture test, and a unit test validates the rule, not the material. A rule about where a stream may be entered has to be measured on real streams before it ships.",
+  "method": "verify-2026-09-14/measure_seek.py: for each clip a full decode of presentation 2 to raw PCM, then a decode with --start at each time; the started output is compared byte for byte against the last N bytes of the full output, and the announced sample is checked against the byte offset (offset must be the announced sample count times the bytes of a frame). Edges run separately: past the end, negative, non-numeric, smaller than one access unit, and WAVE.",
+  "cases": [
+    {
+      "clip": "pi-head50m.thd",
+      "presentation": "2",
+      "full": {
+        "rc": 7,
+        "bytes": 121819200,
+        "seconds": 0.8
+      },
+      "starts": [
+        {
+          "start_requested": 0.0,
+          "rc": 7,
+          "announced_sample": 0,
+          "announced_seconds": 0.0,
+          "seconds": 0.8,
+          "tail_is_byte_identical": true,
+          "full_bytes": 121819200,
+          "started_bytes": 121819200,
+          "offset_bytes": 0,
+          "announcement_is_truthful": true
+        },
+        {
+          "start_requested": 0.5,
+          "rc": 7,
+          "announced_sample": 25320,
+          "announced_seconds": 0.527,
+          "seconds": 0.8,
+          "tail_is_byte_identical": true,
+          "full_bytes": 121819200,
+          "started_bytes": 121211520,
+          "offset_bytes": 607680,
+          "bytes_per_frame": 24.0,
+          "announcement_is_truthful": true
+        },
+        {
+          "start_requested": 2.0,
+          "rc": 7,
+          "announced_sample": 97000,
+          "announced_seconds": 2.021,
+          "seconds": 0.8,
+          "tail_is_byte_identical": true,
+          "full_bytes": 121819200,
+          "started_bytes": 119491200,
+          "offset_bytes": 2328000,
+          "bytes_per_frame": 24.0,
+          "announcement_is_truthful": true
+        },
+        {
+          "start_requested": 5.0,
+          "rc": 7,
+          "announced_sample": 240360,
+          "announced_seconds": 5.008,
+          "seconds": 0.7,
+          "tail_is_byte_identical": true,
+          "full_bytes": 121819200,
+          "started_bytes": 116050560,
+          "offset_bytes": 5768640,
+          "bytes_per_frame": 24.0,
+          "announcement_is_truthful": true
+        }
+      ]
+    },
+    {
+      "clip": "pi-head50m.mlp",
+      "presentation": "2",
+      "full": {
+        "rc": 7,
+        "bytes": 121819200,
+        "seconds": 0.8
+      },
+      "starts": [
+        {
+          "start_requested": 1.0,
+          "rc": 7,
+          "announced_sample": 50920,
+          "announced_seconds": 1.061,
+          "seconds": 0.8,
+          "tail_is_byte_identical": true,
+          "full_bytes": 121819200,
+          "started_bytes": 120597120,
+          "offset_bytes": 1222080,
+          "bytes_per_frame": 24.0,
+          "announcement_is_truthful": true
+        }
+      ]
+    },
+    {
+      "clip": "shaun-head20m.thd",
+      "presentation": "2",
+      "full": {
+        "rc": 7,
+        "bytes": 46643520,
+        "seconds": 0.4
+      },
+      "starts": [
+        {
+          "start_requested": 1.0,
+          "rc": 7,
+          "announced_sample": 51920,
+          "announced_seconds": 1.082,
+          "seconds": 0.3,
+          "tail_is_byte_identical": true,
+          "full_bytes": 46643520,
+          "started_bytes": 45397440,
+          "offset_bytes": 1246080,
+          "bytes_per_frame": 24.0,
+          "announcement_is_truthful": true
+        }
+      ]
+    },
+    {
+      "clip": "talktome-head.thd",
+      "presentation": "2",
+      "full": {
+        "rc": 0,
+        "bytes": 46080000,
+        "seconds": 0.3
+      },
+      "starts": [
+        {
+          "start_requested": 1.0,
+          "rc": 0,
+          "announced_sample": 50800,
+          "announced_seconds": 1.058,
+          "seconds": 0.3,
+          "tail_is_byte_identical": true,
+          "full_bytes": 46080000,
+          "started_bytes": 44860800,
+          "offset_bytes": 1219200,
+          "bytes_per_frame": 24.0,
+          "announcement_is_truthful": true
+        }
+      ]
+    },
+    {
+      "clip": "thd-96k-revenant.thd",
+      "presentation": "2",
+      "full": {
+        "rc": 0,
+        "bytes": 69120000,
+        "seconds": 0.4
+      },
+      "starts": [
+        {
+          "start_requested": 1.0,
+          "rc": 0,
+          "announced_sample": 102400,
+          "announced_seconds": 1.067,
+          "seconds": 0.4,
+          "tail_is_byte_identical": true,
+          "full_bytes": 69120000,
+          "started_bytes": 66662400,
+          "offset_bytes": 2457600,
+          "bytes_per_frame": 24.0,
+          "announcement_is_truthful": true
+        }
+      ]
+    },
+    {
+      "clip": "concat-pi-shaun.thd",
+      "presentation": "2",
+      "full": {
+        "rc": 2,
+        "bytes": 121819200,
+        "seconds": 0.8
+      },
+      "starts": [
+        {
+          "start_requested": 0.5,
+          "rc": 2,
+          "announced_sample": 25320,
+          "announced_seconds": 0.527,
+          "seconds": 0.8,
+          "tail_is_byte_identical": true,
+          "full_bytes": 121819200,
+          "started_bytes": 121211520,
+          "offset_bytes": 607680,
+          "bytes_per_frame": 24.0,
+          "announcement_is_truthful": true
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "case": "start past the end of the stream",
+      "args": [
+        "--start",
+        "99999"
+      ],
+      "rc": 2,
+      "bytes": 0,
+      "said": "error: no TrueHD access unit or E-AC-3 syncframe found in pi-head50m.thd"
+    },
+    {
+      "case": "a negative start",
+      "args": [
+        "--start",
+        "-1"
+      ],
+      "rc": 2,
+      "bytes": 0,
+      "said": "error: unexpected argument '-1' found\n\n  tip: to pass '-1' as a value, use '-- -1'\n\nUsage: oadec.exe decode [OPTIONS] --output <OUTPUT> <FILE>\n\nFor more information, try '--help'."
+    },
+    {
+      "case": "a start that is not a number",
+      "args": [
+        "--start",
+        "abc"
+      ],
+      "rc": 2,
+      "bytes": 0,
+      "said": "error: invalid value 'abc' for '--start <SECONDS>': invalid float literal\n\nFor more information, try '--help'."
+    },
+    {
+      "case": "a start smaller than one access unit",
+      "args": [
+        "--start",
+        "0.001"
+      ],
+      "rc": 7,
+      "bytes": 121818240,
+      "said": "starting at sample 40 (0.001 s), the first major sync at or after --start\ndecoded 126894 access units, 5075760 samples x 8 channels (0:01:45.745), 0 dropped duplicates\nlossless checks: 999 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: L R C LFE Lb Rb Ls Rs\nspeed: 0.78 s "
+    },
+    {
+      "case": "wav: the header must declare what was written",
+      "args": [
+        "--start",
+        "1.0"
+      ],
+      "rc": 7,
+      "bytes": 120597224,
+      "said": "starting at sample 50920 (1.061 s), the first major sync at or after --start\ndecoded 125622 access units, 5024880 samples x 8 channels (0:01:44.685), 0 dropped duplicates\nlossless checks: 989 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: L R C LFE Lb Rb Ls Rs\nspeed: 0.77",
+      "wav": {
+        "declared": 120597120,
+        "actual": 120597120,
+        "fourcc": "RIFF"
+      }
+    }
+  ],
+  "outcome": "The first edge recorded here is the defect, not the behaviour: a start past the end exited 2 -- the right code -- while saying 'no TrueHD access unit or E-AC-3 syncframe found', which is false of a file holding 126 895 access units. That complaint belongs to an empty or unframed file. It now says how long the stream actually is: '--start 99999 s is past the end of the stream, which is 105.746 s long (126895 access units, 5075800 samples)', held by a_start_past_the_end_of_the_stream_names_its_own_cause. An empty file, an unframed file, and a run with no --start were re-checked and still get the original complaint.",
+  "reading": "9 starts across 6 titles: every started decode is the byte-identical tail of a full decode, every announced sample is truthful (the byte offset is exactly the announced sample count times 24 bytes per frame, 8 channels of 24-bit), and every exit code equals the one the full decode of the same clip returns -- 7 where the clip is a truncated head, 2 at the append in concat-pi-shaun, 0 where the stream is whole. The WAVE header declares what was written, not the length of the stream."
+}

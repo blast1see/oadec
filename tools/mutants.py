@@ -153,6 +153,23 @@ MUTANTS = [
      'crates/oadec-emdf/src/oamd.rs',
      '                    if u.basic_status != Status::Default {',
      '                    if true {'),
+    # --- the rules --start added -------------------------------------------
+    ('the start boundary, a unit that ends exactly at the target counted as after it',
+     'crates/oadec-cli/src/decode.rs',
+     'if self.skipped_samples + per_unit <= target {',
+     'if self.skipped_samples + per_unit < target {'),
+    ('the announced sample, reported as the beginning of the stream',
+     'crates/oadec-cli/src/decode.rs',
+     'self.started_at_sample = Some(self.skipped_samples);',
+     'self.started_at_sample = Some(0);'),
+    ('a start that was never reached reported as a file carrying no stream',
+     'crates/oadec-cli/src/decode.rs',
+     'if self.started_at_sample.is_some() || self.skipped_units == 0 {',
+     'if self.started_at_sample.is_none() || self.skipped_units == 0 {'),
+    ('--start accepted on E-AC-3 and the object outputs instead of refused',
+     'crates/oadec-cli/src/main.rs',
+     '            } else if start.is_some()',
+     '            } else if false && start.is_some()'),
 ]
 
 
