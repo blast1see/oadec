@@ -6,6 +6,8 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-17
+
 ### Added
 
 - **A command that reads a whole file shows how far it has got.** A decode of a
@@ -30,6 +32,20 @@ Semantic Versioning.
   The line is also cleared when the reporter is dropped, which covers the paths
   that leave a walk early: an error printed onto a half-drawn bar is worse than
   no bar at all.
+
+### Changed
+
+- **Nothing in the published tree names the machine it was written on.** Four
+  files gave a usage example, a hardcoded tool path or a recorded command line
+  with one user's home directory in it, which would have published a user name
+  along with the code; the ADM evidence tool now asks PATH for `truehdd` rather
+  than a fixed location. The audit inventory carried the same path 53 times and
+  is immutable by decision, so the rule it lives under gained a stated exception
+  for publication: a path that names a machine may be made repository-relative,
+  because it identifies a person rather than a measurement. Nothing else moved --
+  the record count, every hash, and the keys the byte-identity gate looks records
+  up by were compared before and after. The ADM harness also builds beside its
+  own manifest, so its target directory is ignored now.
 
 ## [0.5.0] - 2026-09-17
 
