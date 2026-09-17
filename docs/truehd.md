@@ -64,10 +64,22 @@ and restart headers is thus not an approximation of a full decode from byte 0 --
 it is the same samples. `oadec decode --start <seconds>` uses that: it swallows
 access units until the requested time, begins at the first major sync at or
 after it, and says which sample that was, because the snap forward can be as
-long as a major sync interval (128 access units in the streams measured here).
-A test in `crates/oadec-cli/tests/cli_truehd.rs`,
+long as one major sync interval. A test in
+`crates/oadec-cli/tests/cli_truehd.rs`,
 `a_decode_that_starts_inside_the_stream_is_the_tail_of_a_full_one`, holds it by
-comparing the bytes.
+comparing the bytes. A start the stream never reaches is refused with the length
+it actually has, rather than with the complaint for a file that carried no
+stream at all.
+
+How far the snap can be was measured, not assumed: across four titles and 56
+starts, every one of them a byte-identical tail, the worst snap was 126, 123,
+127 and 122 access units -- about 105 ms. It is bounded by the maximum major
+sync interval `oadec info` reports as `max_major_sync_interval`, 128 in all four
+streams, but the landing points are not on a fixed grid, because a cut clip's
+sync points are irregular: pi-head50m carries one at access unit 1 and
+shaun-head20m at unit 18. Evidence:
+`docs/audit/evidence/verification-2026-09-14/21-seek-corpus.json` and
+`22-seek-grid.json`.
 
 ## Block header, matrices, filters, samples
 

@@ -74,6 +74,10 @@ pub struct Session {
     skipped_samples: u64,
     /// Where the decode actually began, once it has.
     pub started_at_sample: Option<u64>,
+    /// The stream's own rate, read from the first major sync. A start that is
+    /// never reached turns the swallowed count into the length of the stream.
+    skip_per_unit: u64,
+    skip_rate: u32,
     decoder: Option<Decoder>,
     order: Vec<usize>,
     /// WAVE channel mask of the output order.
@@ -105,6 +109,8 @@ impl Session {
             skipped_units: 0,
             skipped_samples: 0,
             started_at_sample: None,
+            skip_per_unit: 0,
+            skip_rate: 0,
             decoder: None,
             order: Vec::new(),
             mask: 0,
@@ -120,6 +126,33 @@ impl Session {
     /// unit at or after it that carries a major sync.
     pub fn start_at(&mut self, seconds: f64) {
         self.start_seconds = Some(seconds);
+    }
+
+    /// What to say when a start was asked for and never reached.
+    ///
+    /// Every access unit was swallowed and nothing was decoded, which otherwise
+    /// reads as "no access unit found" -- true of an empty or unframed file,
+    /// false here, where the file is full of them and the time asked for simply
+    /// does not exist. `None` when a start was not asked for, when one was
+    /// reached, or when the file really carried nothing.
+    pub fn start_never_reached(&self) -> Option<String> {
+        let seconds = self.start_seconds?;
+        if self.started_at_sample.is_some() || self.skipped_units == 0 {
+            return None;
+        }
+        let units = self.skipped_units;
+        if self.skip_rate == 0 || self.skip_per_unit == 0 {
+            return Some(format!(
+                "--start {seconds} s is past the end of the stream: all {units} access units were \
+                 swallowed and nothing was decoded"
+            ));
+        }
+        let samples = units * self.skip_per_unit;
+        let length = samples as f64 / f64::from(self.skip_rate);
+        Some(format!(
+            "--start {seconds} s is past the end of the stream, which is {length:.3} s long \
+             ({units} access units, {samples} samples)"
+        ))
     }
 
     /// Decodes one access unit; `None` for a dropped duplicate or one before the
@@ -145,6 +178,8 @@ impl Session {
                 let config = oadec_truehd::StreamConfig::from_major_sync(ms)?;
                 let per_unit = config.samples_per_au as u64;
                 let target = (seconds * f64::from(config.sampling_frequency)).max(0.0) as u64;
+                self.skip_per_unit = per_unit;
+                self.skip_rate = config.sampling_frequency;
                 self.skipped_samples = self.skipped_units * per_unit;
                 if self.skipped_samples + per_unit <= target {
                     self.skipped_units += 1;
@@ -641,6 +676,11 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
         // to judge, which is an unusable input (exit 2), not a clean run.
         drop(out);
         let _ = std::fs::remove_file(output);
+        // ... unless the file was fine and the start was simply never reached,
+        // which is a different complaint and names a different fix.
+        if let Some(complaint) = session.start_never_reached() {
+            bail!("{complaint}");
+        }
         return Err(crate::info::no_stream(path));
     }
     match out {
