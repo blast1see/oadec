@@ -61,9 +61,10 @@ oadec compare film.ec3 -r ref.f32                 # against a 32-bit float refer
 ```
 
 `film.thd` is a raw TrueHD elementary stream, for example extracted with
-mkvextract. A command that reads a whole file draws how far it has got and
-says `done` when it finishes, on a terminal; piped or redirected it prints
-neither, so a log or a script sees exactly what it always did. The DAMF set can be handed to the Dolby Encoding Engine as it
+mkvextract. A command that reads a whole file draws a bar with the
+share read, the rate and what is left, and says `done` when it finishes, on
+a terminal; piped or redirected it prints neither, so a log or a script sees
+exactly what it always did. The DAMF set can be handed to the Dolby Encoding Engine as it
 is (`encode_to_atmos_ddp` takes it as `damf`, `encode_to_dthd` as
 `atmos_mezz`). The ADM file passes the Dolby validators only with
 `--dolby-origin-tag`, which writes the creator string they insist on; the
