@@ -436,3 +436,110 @@ fn a_fault_only_verify_reads_fails_every_truehd_delivery() {
     assert_eq!(out.status.code(), Some(7), "{text}{}", stderr(&out));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// `decode --start` begins at the first major sync at or after the requested
+/// time. Applying a restart header clears the filter history of every substream,
+/// so that access unit is a clean entry point and what the run writes is the
+/// tail of a full decode, byte for byte. The run says where it landed, because
+/// the snap forward can be as long as a major sync interval.
+#[test]
+fn a_decode_that_starts_inside_the_stream_is_the_tail_of_a_full_one() {
+    let dir = temp("seek");
+    let stream = fixture("authored-scene.mlp");
+    let stream = stream.to_str().unwrap();
+    let whole = dir.join("whole.pcm");
+    let part = dir.join("part.pcm");
+
+    let full = oadec(&[
+        "decode",
+        stream,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "-o",
+        whole.to_str().unwrap(),
+    ]);
+    assert_eq!(full.status.code(), Some(0), "{}", stderr(&full));
+
+    let cut = oadec(&[
+        "decode",
+        stream,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "--start",
+        "0.5",
+        "-o",
+        part.to_str().unwrap(),
+    ]);
+    assert_eq!(cut.status.code(), Some(0), "{}", stderr(&cut));
+    let said = format!(
+        "{}{}",
+        String::from_utf8_lossy(&cut.stdout),
+        String::from_utf8_lossy(&cut.stderr)
+    );
+    assert!(
+        said.contains("starting at"),
+        "the run must say where it started: {said}"
+    );
+
+    let whole_bytes = std::fs::read(&whole).unwrap();
+    let part_bytes = std::fs::read(&part).unwrap();
+    assert!(
+        !part_bytes.is_empty() && part_bytes.len() < whole_bytes.len(),
+        "a start inside the stream writes less: {} of {}",
+        part_bytes.len(),
+        whole_bytes.len()
+    );
+    let tail = &whole_bytes[whole_bytes.len() - part_bytes.len()..];
+    assert_eq!(
+        tail,
+        &part_bytes[..],
+        "the samples a started decode writes are not the tail of a full one"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// `--start` is exact only where a restart header re-initialises the decoder,
+/// which is the TrueHD sample output. On an E-AC-3 stream, whose decoder carries
+/// enhanced coupling, a held frame and a pre-noise queue across frames, and on
+/// the object outputs, whose writers walk the whole programme for one metadata
+/// timeline, it cannot be honoured -- so it is refused with the reason rather
+/// than swallowed, which is what this round fixed for the measurement overrides.
+#[test]
+fn a_start_is_refused_where_it_cannot_be_honoured() {
+    let dir = temp("seek-guard");
+    let thd = fixture("authored-scene.mlp");
+    let thd = thd.to_str().unwrap();
+    let ec3 = fixture("authored-scene.ec3");
+    let ec3 = ec3.to_str().unwrap();
+
+    for (stream, format) in [(ec3, "pcm"), (ec3, "damf"), (thd, "damf")] {
+        let out = oadec(&[
+            "decode",
+            stream,
+            "-p",
+            if format == "damf" { "3" } else { "2" },
+            "--format",
+            format,
+            "--start",
+            "0.5",
+            "-o",
+            dir.join("refused").to_str().unwrap(),
+        ]);
+        assert_eq!(
+            out.status.code(),
+            Some(2),
+            "{stream} --format {format} took --start: {}",
+            stderr(&out)
+        );
+        let said = stderr(&out);
+        assert!(
+            said.contains("--start begins a TrueHD decode"),
+            "the refusal must say what --start applies to: {said}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}

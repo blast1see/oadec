@@ -6,6 +6,19 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **`decode --start <seconds>` begins a TrueHD decode inside the stream.** It
+  swallows access units until the requested time, begins at the first one at
+  or after it that carries a major sync, and says which sample that was. The
+  result is not an approximation: applying a restart header re-initialises
+  every substream, filter histories included, so what is written is the tail
+  of a full decode, byte for byte, which a test asserts by comparing them. The
+  option is refused where it cannot be honoured rather than ignored -- on an
+  E-AC-3 stream, whose decoder carries enhanced coupling, a held frame and a
+  pre-noise queue across frames, and on the object outputs, whose writers walk
+  the whole programme for one metadata timeline.
+
 ## [0.4.0] - 2026-09-17
 
 ### Fixed

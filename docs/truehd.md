@@ -56,6 +56,19 @@ then `gain s9, time:3`, else 12 reserved bits), `ch_assign:6` per matrix
 channel (a permutation), `crc:8` (polynomial `0x1D`, register from 0, over the
 bits from the sync word to just before the CRC).
 
+A restart header is therefore an entry point. Applying one re-initialises the
+substream: the channel assignment, the dither, the matrices and the FIR and IIR
+histories of every channel, which is what carries audio state from one access
+unit to the next. A decode that begins at an access unit carrying a major sync
+and restart headers is thus not an approximation of a full decode from byte 0 --
+it is the same samples. `oadec decode --start <seconds>` uses that: it swallows
+access units until the requested time, begins at the first major sync at or
+after it, and says which sample that was, because the snap forward can be as
+long as a major sync interval (128 access units in the streams measured here).
+A test in `crates/oadec-cli/tests/cli_truehd.rs`,
+`a_decode_that_starts_inside_the_stream_is_the_tail_of_a_full_one`, holds it by
+comparing the bytes.
+
 ## Block header, matrices, filters, samples
 
 The guard bits, block size, matrix syntax for the three sync words (two extra
