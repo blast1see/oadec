@@ -591,3 +591,118 @@ fn a_start_past_the_end_of_the_stream_names_its_own_cause() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A unit that ends exactly at the requested time is before the start.
+///
+/// The rule swallows an access unit while it ends at or before the target, so
+/// the boundary is the one place where `<=` and `<` differ, and a start that
+/// falls anywhere else cannot tell them apart -- which is why the mutation round
+/// found this rule held by nothing. Major syncs of the fixture are at units 0,
+/// 125 and 250; unit 125 covers samples 5000 to 5039, so a target of exactly
+/// 5040 is its end and it must be skipped, landing at unit 250. One sample
+/// earlier and unit 125 is where the decode begins.
+#[test]
+fn a_start_lands_on_the_unit_whose_end_passes_the_requested_time() {
+    let dir = temp("seek-boundary");
+    let stream = fixture("authored-scene.mlp");
+    let stream = stream.to_str().unwrap();
+
+    // 0.1049 s is 5035 samples: inside unit 125, which therefore begins the decode
+    // 0.105  s is 5040 samples: exactly the end of unit 125, which is thus before the start
+    for (start, expected) in [("0.1049", 5000u64), ("0.105", 10000)] {
+        let out = oadec(&[
+            "decode",
+            stream,
+            "-p",
+            "2",
+            "--format",
+            "pcm",
+            "--start",
+            start,
+            "-o",
+            dir.join(format!("b{start}.pcm")).to_str().unwrap(),
+        ]);
+        assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+        let said = stderr(&out);
+        let sample = said
+            .split("starting at sample ")
+            .nth(1)
+            .and_then(|s| s.split_whitespace().next())
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or_else(|| panic!("the run must say where it started: {said}"));
+        assert_eq!(
+            sample, expected,
+            "--start {start} began at sample {sample}, not {expected}: a unit that ends at \
+             or before the requested time is before the start"
+        );
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// The announced sample is where the decode actually began.
+///
+/// A correct tail does not prove this: the bytes written are the same whatever
+/// number the run prints, so an announcement that lies is invisible to every
+/// other check here. The arithmetic that catches it is the one the corpus
+/// measurement used -- what the full decode wrote, minus what the started decode
+/// wrote, must be exactly the announced sample count times the bytes of a frame.
+/// Presentation 2 of the fixture is 8 channels of 24-bit, so a frame is 24 bytes.
+#[test]
+fn the_announced_sample_is_where_the_output_actually_begins() {
+    let dir = temp("seek-announce");
+    let stream = fixture("authored-scene.mlp");
+    let stream = stream.to_str().unwrap();
+    let whole = dir.join("whole.pcm");
+    let part = dir.join("part.pcm");
+
+    let full = oadec(&[
+        "decode",
+        stream,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "-o",
+        whole.to_str().unwrap(),
+    ]);
+    assert_eq!(full.status.code(), Some(0), "{}", stderr(&full));
+
+    let cut = oadec(&[
+        "decode",
+        stream,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "--start",
+        "0.5",
+        "-o",
+        part.to_str().unwrap(),
+    ]);
+    assert_eq!(cut.status.code(), Some(0), "{}", stderr(&cut));
+
+    let said = stderr(&cut);
+    let announced = said
+        .split("starting at sample ")
+        .nth(1)
+        .and_then(|s| s.split_whitespace().next())
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or_else(|| panic!("the run must say where it started: {said}"));
+    assert!(
+        announced > 0,
+        "a start of 0.5 s cannot begin at sample 0: {said}"
+    );
+
+    const BYTES_PER_FRAME: u64 = 8 * 3; // presentation 2, 24-bit
+    let whole_len = std::fs::metadata(&whole).unwrap().len();
+    let part_len = std::fs::metadata(&part).unwrap().len();
+    assert_eq!(
+        whole_len - part_len,
+        announced * BYTES_PER_FRAME,
+        "the run announced sample {announced}, but the output is short by {} bytes, which is \
+         {} frames: the announcement does not say where the output begins",
+        whole_len - part_len,
+        (whole_len - part_len) / BYTES_PER_FRAME
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
