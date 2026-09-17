@@ -543,3 +543,51 @@ fn a_start_is_refused_where_it_cannot_be_honoured() {
     }
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A start the stream never reaches says so, and says how long the stream is.
+///
+/// Every access unit is swallowed and nothing is decoded, which reaches the same
+/// place as a file that carried no stream at all -- but the cause is not the
+/// same, and the complaint for an empty file ("no TrueHD access unit ... found")
+/// is false here: the file is full of them. Naming the wrong cause is the defect
+/// this round fixed once already, where Dolby's own decoder reported an Evolution
+/// validity failure as "presentation is not available".
+#[test]
+fn a_start_past_the_end_of_the_stream_names_its_own_cause() {
+    let dir = temp("seek-past-end");
+    let stream = fixture("authored-scene.mlp");
+    let stream = stream.to_str().unwrap();
+    let out_path = dir.join("nothing.pcm");
+
+    let out = oadec(&[
+        "decode",
+        stream,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "--start",
+        "9999",
+        "-o",
+        out_path.to_str().unwrap(),
+    ]);
+    let said = stderr(&out);
+    assert_eq!(out.status.code(), Some(2), "a start past the end: {said}");
+    assert!(
+        said.contains("past the end of the stream"),
+        "the refusal must name its own cause: {said}"
+    );
+    assert!(
+        said.contains("2.000 s"),
+        "and the length the stream actually has, so a reachable time can be chosen: {said}"
+    );
+    assert!(
+        !said.contains("no TrueHD access unit"),
+        "the file is full of access units; that complaint belongs to an empty one: {said}"
+    );
+    assert!(
+        !out_path.exists(),
+        "a refused start must not leave an empty output behind"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
