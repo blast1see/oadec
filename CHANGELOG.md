@@ -83,6 +83,17 @@ Semantic Versioning.
   bytes, and those bytes were carried at the rate the new major sync replaced,
   which is what this module's own documentation said. The two rates differ
   only in an access unit that changes them, so no other stream moves.
+- **`emdf` walks a TrueHD stream and shows the Evolution block around the
+  container.** It reported the EMDF containers of E-AC-3 skip fields and
+  refused everything else, pointing at `oamd`; TrueHD carries the same
+  containers in the extra data at the end of an access unit, wrapped in an
+  Evolution frame with its own header, parity byte and padding. With `--dump`
+  that layer is printed as well -- the header nibble and length, both
+  parities, the padding, and the frame bytes in hex -- because it is what a
+  decoder validates before it reads anything inside, and nothing here showed
+  it. It cannot be found by scanning for the sync word: compressed audio
+  carries that pattern by chance, 45 times in a title that holds 603 blocks,
+  while the access unit says exactly where the block is.
 - **`oadec oamd` reads E-AC-3 streams.** It walks the EMDF containers in the
   frames' skip fields as `oadec emdf` does and reports every Object Audio
   Metadata payload in the same JSON shape as TrueHD, one syncframe per unit; it

@@ -64,9 +64,9 @@ enum Command {
         #[arg(long)]
         decode: bool,
     },
-    /// Walk an AC-3 or E-AC-3 stream, find the EMDF containers and report the metadata timing.
+    /// Walk an AC-3, E-AC-3 or TrueHD stream, find the EMDF containers and report the metadata timing.
     Emdf {
-        /// Raw AC-3 or E-AC-3 (.ac3/.ec3/.eac3) elementary stream.
+        /// Raw AC-3, E-AC-3 (.ac3/.ec3/.eac3) or TrueHD (.thd/.mlp) elementary stream.
         file: PathBuf,
         /// Machine-readable JSON instead of text.
         #[arg(long)]
