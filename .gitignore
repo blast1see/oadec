@@ -33,6 +33,8 @@ __pycache__/
 # alternate build directories
 /target-alt
 /target-*
+# the ADM harness is its own Cargo project, so it builds beside its own manifest
+docs/audit/adm/harness/target/
 
 # The two encodes of the synthetic test scene are the one exception to the
 # rule above: they are generated from crates/oadec-cli/tests/fixtures/
