@@ -352,13 +352,16 @@ commits on the branch.
 | G2 | review loop, round 2 | `emdf` and `oamd` left out a frame whose container was erased, its skip fields left the length they were, and exited clean where `verify` and both decodes exited 7. Checking the fix showed that W3 had counted skip fields carrying no EMDF at all into `verify` and the PCM delivery, which failed `every_eac3_stream_is_clean` on two AC-3 files; a frame without a container that opens is now a fault only in a substream that carries EMDF, which also keeps the AC-3 core of a configuration 4 stream out of the count. No AC-3 or E-AC-3 clip changes its exit code | `a_frame_whose_container_is_erased_is_a_fault_for_every_command`, `skip_fields_that_carry_no_emdf_are_not_a_fault`; the configuration 4 head in the media test `the_metadata_scanner_and_the_verifier_count_the_same_containers` | `0f267c2` |
 | G3 | review loop, round 3 | `emdf` and `oamd` dropped the bytes their walk skipped or left trailing and never read the CRC of a syncframe, so a clip cut inside a frame or an access unit, or a frame whose CRC failed, was clean for both where `verify` exited 7. Of the 55 clips of the work directory the 18 cut inside a frame or an access unit change, 0 to 7, and no other; a file with no complete frame or access unit still exits 2 | `a_cut_stream_is_non_conformant_for_the_metadata_commands`, `a_frame_whose_crc_fails_is_non_conformant_for_the_metadata_commands` | `3e5af0e` |
 | W4 | checking the class of G3 as a whole | `emdf` and `oamd` re-derived the verdict of a stream from their own walk and missed every fault the walk does not read: on copies with a bit changed in a TrueHD substream, a JOC payload that cannot be read, a reserved JOC extension, a payload configuration outside Table 56 or a wrong complexity index, `verify` exited 7 and both commands 0. They run the checks of `verify` on a thread beside their walk now and take its verdict; run after the walk instead, that pass had taken `emdf` to 209 s on the E-AC-3 film below. No clip of the 55 changes its exit code, and on every one both exit as `verify` does; on an 838 MB E-AC-3 film `emdf` goes from 91 s to 123 s and `oamd` from 94 s to 123 s, where `verify` alone takes 118 s; on a 2.6 GB TrueHD film `oamd` goes from 1.5 s to 27 s, where `verify` takes 28 s, each command timed once with the file in the cache; `14-metadata-verdict-parity.json` | `a_bit_changed_in_a_truehd_substream_fails_oamd_as_it_fails_verify`, `a_joc_payload_that_cannot_be_read_fails_the_metadata_commands_as_it_fails_verify`, and the `emdf` and `oamd` checks of the Table 56, complexity index and reserved JOC extension tests | `981d262` |
-| G4 | review loop, round 4 | The TrueHD deliveries judged a stream by what their decode read: a substream the presentation leaves out, or object metadata that will not parse, could be broken while the PCM and WAVE decodes exited 0 and `compare` called the stream bit-exact and clean, where `verify` exited 7. Every TrueHD delivery runs the checks of `verify` on a thread beside its decode now and counts its verdict. Of the 24 TrueHD inputs of the work directory only the clip whose object metadata will not parse changes, its PCM decodes from 0 to 7; a PCM decode of presentation 2 from a 2.6 GB TrueHD film took 68 s before and 62 s after, the 28 s scan of `verify` running beside it on another core. Two inputs keep a delivery that does not exit as `verify` does, both unchanged: Up (2009), whose decodes fail a lossless check word `verify` reads only with `--decode`, and the spliced clip, whose presentation 2 decode cannot continue past the splice (exit 2) | `a_fault_only_verify_reads_fails_every_truehd_delivery`; the media test `verify_and_decode_agree_about_a_truncated_object_metadata_element`; the unit test `the_verdict_of_verify_makes_a_decode_unclean` | `77db761` || O1 | closing the open items | `verify` and `compare` read a file that holds no stream, an empty one or a random one, and reported a clean verdict over nothing at exit 0, where every other command refuses it at exit 2 | `a_file_that_holds_no_stream_is_refused`, which now runs both commands | `ea38003` |
+| G4 | review loop, round 4 | The TrueHD deliveries judged a stream by what their decode read: a substream the presentation leaves out, or object metadata that will not parse, could be broken while the PCM and WAVE decodes exited 0 and `compare` called the stream bit-exact and clean, where `verify` exited 7. Every TrueHD delivery runs the checks of `verify` on a thread beside its decode now and counts its verdict. Of the 24 TrueHD inputs of the work directory only the clip whose object metadata will not parse changes, its PCM decodes from 0 to 7; a PCM decode of presentation 2 from a 2.6 GB TrueHD film took 68 s before and 62 s after, the 28 s scan of `verify` running beside it on another core. Two inputs keep a delivery that does not exit as `verify` does, both unchanged: Up (2009), whose decodes fail a lossless check word `verify` reads only with `--decode`, and the spliced clip, whose presentation 2 decode cannot continue past the splice (exit 2) | `a_fault_only_verify_reads_fails_every_truehd_delivery`; the media test `verify_and_decode_agree_about_a_truncated_object_metadata_element`; the unit test `the_verdict_of_verify_makes_a_decode_unclean` | `77db761` |
+| O1 | closing the open items | `verify` and `compare` read a file that holds no stream, an empty one or a random one, and reported a clean verdict over nothing at exit 0, where every other command refuses it at exit 2 | `a_file_that_holds_no_stream_is_refused`, which now runs both commands | `ea38003` |
 | O2 | closing the open items | A substream whose EMDF containers are all broken read like one that carries none, so `verify`, `emdf`, `oamd` and the deliveries called it clean: a frame without a container that opens is a fault only where containers do open, and in such a substream none does. The JOC extension declared in the `addbsi` is the second evidence that a substream carries EMDF, since that extension rides in an EMDF container (TS 103 420 clause 8.3.1) | `a_substream_whose_containers_are_all_broken_is_still_a_fault` | `41011c0` |
 | O3 | closing the open items | `codecdatae` was held to nothing. Table 56 prints 1 for it; clause H.2.2.3.7 of TS 102 366, which the table cites, requires 0; every OAMD and JOC payload measured carries 0 | `a_field_outside_table_56_is_named` | `bc78fee` |
 | O4 | closing the open items | A seamless branch reached the one restart header it was judged at, and the decoder skips the lossless check word where the branch is, so every other substream of that access unit compared a check word across the splice. Which substream that was depends on the presentation, so presentations disagreed about the same access unit: 0 and 2 of Up (2009) skipped the check at access unit 54205 where 1 and 3 failed it | `the_branch_reaches_every_restart_header_of_the_unit`, and `a_branch_reaches_every_presentation` (media) | `0268009` |
 | G5 | review loop, round 6 | `tools/replay_fuzz.py` returned 0 whatever a corruption campaign found, and `tools/media_regression.sh` reads exit codes, so the aggregate verdict could pass over a silent accept, a fault reported at exit 0, a panic or a timeout. A timeout was doubly invisible: a non-zero exit with nothing said is what catching the corruption looks like | the campaign measured both ways on four sites of `talktome-joc-head.ec3`: with the release binary it passes and exits 0; with `$OADEC_BIN` pointed at a stand-in that exits 0 and says nothing, every command counts 4 silent accepts and the tool exits 1 | `c6c3a92` |
 | G6 | review loop, round 7 | A frame of a substream that declares the JOC extension carries an EMDF container (TS 103 420 clauses 8.2 and 8.3.1), and a frame with no skip field at all had lost one. The walk `emdf` and `oamd` share, the statistics `verify` keeps and the object path's payload reader all asked for skip bytes before they asked whether a container opened, so the loss was silent in every one and the object decode held the matrices of the frame before it | the unit tests `a_frame_without_skip_fields_loses_a_container_where_emdf_is_declared` and `a_frame_without_skip_fields_is_a_lost_container_where_joc_is_declared`. Material cannot make the case a clean stream: emptying a frame's skip field shifts everything the block reads after it, so the frame decodes to a fault. That was measured on one frame and then on all of them -- every non-initial frame of the fixture, 62 copies, each one a fault. The accounting does work on material, though: `emdf` counts `container_errors 1` on those copies and names the case, "the substream declares a JOC extension and the frame carries no skip field" | `df4c104` |
 | O5 | closing the open items, with `truehdd`'s debug log as the oracle | A stream may change the peak data rate its major sync declares at a branch and nowhere else, and this model counted those changes without using them, so a splice that moved neither clock was no branch: four lossless check words of Up (2009) failed at access unit 77078 in a stream two other decoders call conformant. Two conditions also weighed the previous access unit's bytes against the rate that had just replaced the one they were carried at, which is the opposite of what this module's documentation says | the unit test `a_peak_data_rate_change_is_a_branch_even_when_neither_clock_jumps`, which pins both; on the title itself `verify --decode` goes from four failed check words to none, with two valid branches at 54205 and 77078, and presentation 3 stays bit-exact against Dolby over 5 075 800 frames. Over the whole sweep corpus, 198 clips, nothing moves: no exit code and no count of invalid branches changes, and one title of the 198 changes its peak data rate at all, where the rule judges one valid branch (`evidence/verification-2026-09-14/18-peak-rate-corpus.json`) | `03c530f` |
+| M1 | measuring a new feature on the corpus | A start past the end of the stream exited 2 with the complaint that belongs to a file carrying no stream, on a file holding 126 895 access units. The exit code was right, so no test and no gate could see it: both read exit codes, and only the sentence was wrong. It names the length the stream actually has now, from the rate the stream declares | `a_start_past_the_end_of_the_stream_names_its_own_cause` | `49c9fd2` |
+| M2 | the mutation round, on the rules `--start` added | Two of four mutants survived. A unit ending exactly at the target counted as after it rather than before was held by nothing, because the two readings differ only where the requested time falls on the end of a major-sync unit. And `started_at_sample` set to `Some(0)` survived twice: the announcement formatted the counter beside the field while the field was only asked `is_some()`, so the value was dead and no test could observe it. The announcement is derived from the field now; 34 mutations, 1 survivor, the matrix alignment | `a_start_lands_on_the_unit_whose_end_passes_the_requested_time`, `the_announced_sample_is_where_the_output_actually_begins` | `2d97bd0`, `6bf81c7` |
 
 
 ## 7. The measuring tools
@@ -527,3 +530,74 @@ Scripts and logs of this round are in `E:\oadec-work\verify-2026-09-14\`
 `build_evidence.py`, `final_regression.sh`, `smoke_final.py`, `codex_baseline.sh`,
 `codex_round.sh`, `final_summary.py`, `exp_lowband.py`); they are not part of the
 repository. The experiment of §4.5 is the local branch `exp/lowband-after-matrix`.
+
+
+## Addendum, 2026-09-17: seek and random access
+
+The round closed with 0.4.0. What follows was built after it, on `seek-random-access`, and is
+recorded here because it closes a row the matrix carried as not implemented, and because measuring
+it found three things wrong -- one in the code, one in what had just been written about it, and one
+the mutation round found in the code again after the first two were fixed.
+
+**The row.** "Seek and random access: no seek API, files are always decoded from byte 0" was N/I.
+For the TrueHD sample output it need not be. Applying a restart header re-initialises the substream
+-- the channel assignment, the dither, the matrices, and the FIR and IIR histories that are what
+carry audio state from one access unit to the next -- so an access unit carrying a major sync and
+restart headers is a clean entry point, and a decode that begins there is not an approximation of a
+full decode. It is the same samples. `decode --start <seconds>` swallows access units until the
+requested time, begins at the first one at or after it that carries a major sync, and says which
+sample that was. It is refused where it cannot be honoured rather than ignored: on E-AC-3, whose
+decoder carries enhanced coupling synthesis, a held frame and a pre-noise queue across frames, and
+on the object outputs, whose writers walk the whole programme for one metadata timeline. `9695f3f`.
+
+**The measurement, and why it was made.** The feature shipped with a fixture test, and this round's
+own lesson is that a unit test validates the rule and not the material. So it was run on the corpus:
+9 starts over six clips, then 14 starts over each of four titles. Every one of the 65 started decodes
+is the byte-identical tail of a full decode of the same clip. Every announced sample is truthful --
+the byte offset is exactly the announced sample count times the 24 bytes of a frame, 8 channels of
+24-bit -- which a correct tail alone does not prove, since a wrong announcement writes the same
+bytes. Every exit code equals the one the same clip's full decode returns: 7 on a truncated head, 2
+at the append in `concat-pi-shaun.thd`, 0 where the stream is whole. The WAVE header declares what
+was written, not the length of the stream. The 56 tails are also what proves every landing unit
+really carries a major sync: without restart headers the filter histories would begin from zero and
+the tail could not match. `21-seek-corpus.json`, `22-seek-grid.json`.
+
+**First: a message that lies.** A start past the end of the stream exited 2 -- the right code --
+while saying "no TrueHD access unit or E-AC-3 syncframe found", of a file holding 126 895 access
+units. Every unit had been swallowed because the time asked for does not exist in the stream, and
+the complaint belonging to an empty or unframed file was reused to describe it. No test and no gate
+could see it: both read exit codes, and the exit code was correct. It says the length the stream
+actually has now, taken from the rate the stream declares, so the 96 kHz clip reports its own
+30.000 s. An empty file, 400 KB of random bytes and a run with no `--start` were re-checked and
+still get the original complaint, which is theirs. `49c9fd2`.
+
+**Second: a number written without measuring it.** The notes said the snap forward is "128 access
+units in the streams measured here". It had not been measured, and it is wrong: the worst snap
+across the four titles was 126, 123, 127 and 122 access units, about 105 ms. It is bounded by the
+128-unit `max_major_sync_interval` each stream reports, but the landing points are not on a 128
+grid, because a cut clip's sync points are irregular -- `pi-head50m.thd` carries a major sync at
+access unit 1 and `shaun-head20m.thd` at unit 18. The paragraph gives the bound, the measurement and
+where it was measured. `49c9fd2`, `8888103`.
+
+**Third: dead state, found by the mutation round.** Four mutants were written for the rules `--start`
+added. Two were caught by the tests that came with the feature; two survived. The first, a unit that
+ends exactly at the target counted as after it rather than before, was a real hole -- the two
+readings differ only where the requested time falls on the end of a major-sync unit, and no test
+used such a start. The second survived twice, once before a test existed for it and once after, and
+applying it by hand explained why: with `started_at_sample` set to `Some(0)` the binary still printed
+"starting at sample 25400". The announcement formatted the counter beside the field, while the field
+itself was only ever asked `is_some()`; `Some(0)` is still `is_some()`, so nothing could observe the
+change and no test could have caught it. Four places named the field and not one read its value.
+The announcement is derived from the field now, so a wrong value is visible in the first line the run
+prints, and the kill was proved by hand before it was believed: with the mutation applied the test
+fails, without it the test passes. The round then reads 34 mutations, 1 survivor -- the matrix
+alignment this report already records as having no specification behind it.
+`2d97bd0`, `6bf81c7`; the three runs are `23-mutants-seek.json` (the holes),
+`24-mutants-seek-held.json` (the boundary held, the announcement still not) and
+`25-mutants-seek-held.json` (both held).
+
+**Gates.** `cargo test -p oadec-cli --test cli_truehd` 10 passed; the workspace suite 285 passed, 0
+failed over 23 targets; the format check and clippy with `-D warnings` clean; CI green on every
+commit of the branch, five jobs each. The media suite was re-run because the change touches the
+decode path: 28 passed, 0 failed, 1 193 s on the same corpus, so nothing the real material covers
+regressed.
