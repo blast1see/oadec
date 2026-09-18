@@ -1,0 +1,5375 @@
+{
+  "what": "branch classification, old binary against new, on every TrueHD input",
+  "utc": "2026-09-18T13:40:00Z",
+  "commit": "f2286db (old, v0.6.0) against the tree with the fix (new)",
+  "why": "The fix changes branch classification, and a classification rule once passed every unit test here and then turned 14 of 55 inputs from exit 0 to 7. Every TrueHD input is verified with both binaries.",
+  "method": "verify on every .thd and .mlp under the work directory with the v0.6.0 binary and the fixed one; exit code, verdict and valid/invalid branch counts compared.",
+  "reading": "3 of 282 changed, all from an invalid branch to a valid one, none the other way, and no exit code moved except leon.thd (7 -> 0). truehdd adjudicated all three: leon.thd 8 branches 0 invalid; the Incredibles clip 1 branch 0 invalid; the full Incredibles 20 branches 0 invalid. Both Incredibles files stay non-conformant for reasons unrelated to branches -- the clip is cut mid-stream with its first OAMD element truncated, and the full film is damaged, which truehdd also reports as fatal. oadec counts 22 branch points in the full Incredibles before the fix and after it; the fix changes how three are judged, not how many are found.",
+  "change": "the advance before a branch is carried forward unit by unit instead of held at the last restart",
+  "inputs": 282,
+  "changed": [
+    "The Incredibles (2004).a1.thd",
+    "leon.thd",
+    "incredibles.thd"
+  ],
+  "rows": [
+    {
+      "input": "fz-thd.thd",
+      "bytes": 400000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.0
+      },
+      "changed": false
+    },
+    {
+      "input": "authored-scene.mlp",
+      "bytes": 546456,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.0
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.0
+      },
+      "changed": false
+    },
+    {
+      "input": "thd-truncated-oamd.thd",
+      "bytes": 712758,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.0
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.0
+      },
+      "changed": false
+    },
+    {
+      "input": "Indiana.Jones.and.the.Dial.of.Destin_5.thd",
+      "bytes": 1121728,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Out of Africa (1985)_3.thd",
+      "bytes": 1320664,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Moon (2009)_1.thd",
+      "bytes": 1686240,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Titanic (1997)_1.thd",
+      "bytes": 1775334,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Requiem for A Dream (2000)_1.thd",
+      "bytes": 2361540,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Batman (2022)_1.thd",
+      "bytes": 2574200,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Whiplash (2014)_1.thd",
+      "bytes": 2636040,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Punch-Drunk Love (2002)_1.thd",
+      "bytes": 2717776,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "F1 The Movie (2025)_1.thd",
+      "bytes": 2788156,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "scene-legacy-off.mlp",
+      "bytes": 3351984,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.0
+      },
+      "changed": false
+    },
+    {
+      "input": "scene-drc-off.mlp",
+      "bytes": 3354856,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.0
+      },
+      "changed": false
+    },
+    {
+      "input": "scene-thd.mlp",
+      "bytes": 3354856,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.0
+      },
+      "changed": false
+    },
+    {
+      "input": "scene-2ch-speech-drc.mlp",
+      "bytes": 3354856,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.0
+      },
+      "changed": false
+    },
+    {
+      "input": "scene-headphone-encoded.mlp",
+      "bytes": 3354856,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.0
+      },
+      "changed": false
+    },
+    {
+      "input": "scene-surround-encoded.mlp",
+      "bytes": 3354856,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.0
+      },
+      "changed": false
+    },
+    {
+      "input": "Saving Private Ryan (1998)_1.thd",
+      "bytes": 3424642,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Knives Out (2019)_1.thd",
+      "bytes": 3495368,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "pi-441k-control.thd",
+      "bytes": 3633396,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "pi-48k-control.thd",
+      "bytes": 3633396,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "pi-rate-change.thd",
+      "bytes": 3633396,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Titanic (1997)_3.thd",
+      "bytes": 3884520,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Truman Show (1998)_1.thd",
+      "bytes": 3984724,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "F1 The Movie (2025)_4.thd",
+      "bytes": 4000056,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Stand by Me (1986)_1.thd",
+      "bytes": 4113760,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Gladiator II (2024)_1.thd",
+      "bytes": 4214534,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "gainsize-thd.mlp",
+      "bytes": 4251940,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.0
+      },
+      "changed": false
+    },
+    {
+      "input": "Back to the Future (1985)_2.thd",
+      "bytes": 4261456,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Schindlers List (1993)_1.thd",
+      "bytes": 4436384,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Apocalypse Now (1979) Final Cut_1.thd",
+      "bytes": 4458700,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Okja (2017)_1.thd",
+      "bytes": 4534614,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "One Battle After Another (2025)_1.thd",
+      "bytes": 4546438,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Guardians.of.the.Galaxy.Vol.3.2023.U_1.thd",
+      "bytes": 4622710,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Joker (2019)_1.thd",
+      "bytes": 4741856,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Dune Part One (2021)_1.thd",
+      "bytes": 4769160,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Wild Robot (2024)_1.thd",
+      "bytes": 4826326,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Ben-Hur (1959)_1.thd",
+      "bytes": 4849292,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The.Hobbit.The.Battle.of.the.Five.Ar_1.thd",
+      "bytes": 4950060,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The.Lord.of.the.Rings.The.Two.Towers_1.thd",
+      "bytes": 5034276,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "1917 (2019)_1.thd",
+      "bytes": 5036108,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Pi (1998)_2.thd",
+      "bytes": 5086768,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Ready Player One (2018)_1.thd",
+      "bytes": 5100104,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Dune Part Two (2024)_1.thd",
+      "bytes": 5130194,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The.Hobbit.The.Desolation.of.Smaug.2_1.thd",
+      "bytes": 5149512,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Monty.Python.and.the.Holy.Grail.1975_1.thd",
+      "bytes": 5174338,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Terminator (1984)_1.thd",
+      "bytes": 5255832,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The.Lord.of.the.Rings.The.Return.of._1.thd",
+      "bytes": 5291924,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Edge of Tomorrow (2014)_1.thd",
+      "bytes": 5332158,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Sicario (2015)_1.thd",
+      "bytes": 5341998,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Talk to Me (2023)_1.thd",
+      "bytes": 5354344,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The.Lord.of.the.Rings.The.Fellowship_1.thd",
+      "bytes": 5365242,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The.Hobbit.An.Unexpected.Journey.201_1.thd",
+      "bytes": 5365588,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Sinners (2025)_1.thd",
+      "bytes": 5417388,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "aqp-20.thd",
+      "bytes": 5479064,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "A Quiet Place (2018)_1.thd",
+      "bytes": 5479064,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "thd-refused-aqp.thd",
+      "bytes": 5479064,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Indiana.Jones.and.the.Kingdom.of.the_1.thd",
+      "bytes": 5484272,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Nosferatu (2024)_1.thd",
+      "bytes": 5524250,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Sicario.Day.of.The.Soldado.2018.Hybr_1.thd",
+      "bytes": 5575340,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Everything.Everywhere.All.at.Once.20_1.thd",
+      "bytes": 5608290,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Green Mile (1999)_1.thd",
+      "bytes": 5614054,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Raiders of the Lost Ark (1981)_1.thd",
+      "bytes": 5649344,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Jaws (1975)_2.thd",
+      "bytes": 5715626,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Back.to.the.Future.Part.II.1989.2160_2.thd",
+      "bytes": 5727500,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Northman (2022)_1.thd",
+      "bytes": 5777874,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "WALL-E (2008)_1.thd",
+      "bytes": 5793674,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Bugonia (2025)_1.thd",
+      "bytes": 5812222,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Awakenings (1990)_1.thd",
+      "bytes": 5823446,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Green Knight (2021)_1.thd",
+      "bytes": 5996240,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "North by Northwest (1959)_3.thd",
+      "bytes": 6040728,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Furiosa A Mad Max Saga (2024)_1.thd",
+      "bytes": 6060484,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Blade Runner 2049 (2017)_1.thd",
+      "bytes": 6077208,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Spider-Man.Across.the.Spider-Verse.2_1.thd",
+      "bytes": 6100574,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "V for Vendetta (2005)_1.thd",
+      "bytes": 6139176,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Forrest Gump (1994)_1.thd",
+      "bytes": 6180812,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Eternals (2021)_1.thd",
+      "bytes": 6188696,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 1,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 1,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The.Exorcist.1973.Extended.Directors_1.thd",
+      "bytes": 6211044,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "A Beautiful Mind (2001)_1.thd",
+      "bytes": 6223394,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Doctor Sleep (2019)_1.thd",
+      "bytes": 6229612,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The.Bridge.on.the.River.Kwai.1957.21_2.thd",
+      "bytes": 6291212,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Warrior (2011)_1.thd",
+      "bytes": 6299674,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Spider-Man Far from Home (2019)_1.thd",
+      "bytes": 6370502,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Lawrence of Arabia (1962)_1.thd",
+      "bytes": 6395640,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Mission.Impossible.The.Final.Reckoni_1.thd",
+      "bytes": 6467120,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Babylon (2022)_1.thd",
+      "bytes": 6508194,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Mission.Impossible.Dead.Reckoning.Pa_1.thd",
+      "bytes": 6573898,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Others (2001)_1.thd",
+      "bytes": 6647808,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Lee Cronin's The Mummy (2026)_1.thd",
+      "bytes": 6761086,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Pirates.of.the.Caribbean.The.Curse.o_1.thd",
+      "bytes": 6837746,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Annihilation (2018)_1.thd",
+      "bytes": 6894758,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Indiana.Jones.and.the.Dial.of.Destin_1.thd",
+      "bytes": 7088256,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Blade Runner (1982) The Final Cut_1.thd",
+      "bytes": 7214298,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Jurassic Park (1993)_2.thd",
+      "bytes": 7267696,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "A.Quiet.Place.Part.II.2020.REPACK.UH_1.thd",
+      "bytes": 7347274,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Spider-Man.Into.the.Spider-Verse.201_1.thd",
+      "bytes": 7362634,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "How.to.Train.Your.Dragon.The.Hidden._1.thd",
+      "bytes": 7398964,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Iron Man (2008)_1.thd",
+      "bytes": 7411372,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Indiana.Jones.and.the.Last.Crusade.1_1.thd",
+      "bytes": 7472960,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The.Lord.of.the.Rings.The.Fellowship_3.thd",
+      "bytes": 7488962,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "John.Wick.Chapter.3.Parabellum.2019._1.thd",
+      "bytes": 7497154,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Glory (1989)_2.thd",
+      "bytes": 7544722,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Blade (1998)_1.thd",
+      "bytes": 7550092,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Indiana.Jones.and.the.Temple.of.Doom_1.thd",
+      "bytes": 7579802,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Top Gun Maverick (2022) IMAX_1.thd",
+      "bytes": 7580386,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Black.Panther.Wakanda.Forever.2022.U_1.thd",
+      "bytes": 7628150,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "John Wick Chapter 4 (2023)_1.thd",
+      "bytes": 7680046,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Thor (2011)_1.thd",
+      "bytes": 7736014,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Big Fish (2003)_1.thd",
+      "bytes": 7821746,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Pirates.of.the.Caribbean.Dead.Mans.C_1.thd",
+      "bytes": 7843396,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "fast-thd.mlp",
+      "bytes": 7868810,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Ant-Man and the Wasp (2018)_1.thd",
+      "bytes": 7907440,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "John Wick Chapter 4 (2023)_4.thd",
+      "bytes": 7996236,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Captain.America.The.First.Avenger.20_1.thd",
+      "bytes": 8078032,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "District 9 (2009)_1.thd",
+      "bytes": 8099966,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "T2 Trainspotting (2017)_1.thd",
+      "bytes": 8151838,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Marvels (2023)_1.thd",
+      "bytes": 8203408,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Guardians of the Galaxy (2014)_1.thd",
+      "bytes": 8273300,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "American Psycho (2000) Unrated_1.thd",
+      "bytes": 8303880,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Spider-Man No Way Home (2021)_1.thd",
+      "bytes": 8340004,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Zombieland (2009)_1.thd",
+      "bytes": 8395472,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Hamnet (2025)_1.thd",
+      "bytes": 8458604,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Mission.Impossible.Rogue.Nation.2015_1.thd",
+      "bytes": 8482236,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Ant-Man.and.the.Wasp.Quantumania.202_1.thd",
+      "bytes": 8486046,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Aliens (1986) Special Edition_1.thd",
+      "bytes": 8560948,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Star.Wars.Episode.IV.A.New.Hope.1977_1.thd",
+      "bytes": 8576842,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Oblivion (2013)_1.thd",
+      "bytes": 8594456,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Black Panther (2018)_1.thd",
+      "bytes": 8598858,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Pirates.of.the.Caribbean.On.Stranger_1.thd",
+      "bytes": 8655028,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Dark Tower (2017)_1.thd",
+      "bytes": 8691668,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Pirates.of.the.Caribbean.At.Worlds.E_1.thd",
+      "bytes": 8708828,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Shaun of the Dead (2004)_1.thd",
+      "bytes": 8826018,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "John Wick Chapter 2 (2017)_1.thd",
+      "bytes": 8827514,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Deadpool and Wolverine (2024)_1.thd",
+      "bytes": 8918242,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Thunderbolts (2025)_1.thd",
+      "bytes": 8931808,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Avatar Fire and Ash (2025)_1.thd",
+      "bytes": 8943392,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "avatar-20.thd",
+      "bytes": 8943392,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Ant-Man (2015)_1.thd",
+      "bytes": 8965708,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Kingdom.of.Heaven.DC.Roadshow.Versio_1.thd",
+      "bytes": 8973188,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Back.to.the.Future.Part.III.1990.216_2.thd",
+      "bytes": 8990230,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Doctor.Strange.in.the.Multiverse.of._1.thd",
+      "bytes": 8993284,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Captain.America.Brave.New.World.2025_1.thd",
+      "bytes": 9038908,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Avengers Infinity War (2018)_1.thd",
+      "bytes": 9159614,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Braveheart (1995)_1.thd",
+      "bytes": 9165126,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Master.and.Commander.The.Far.Side.of_1.thd",
+      "bytes": 9183430,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Black Widow (2021)_1.thd",
+      "bytes": 9234064,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Shang-Chi.and.the.Legend.of.the.Ten._1.thd",
+      "bytes": 9282486,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Mission Impossible Fallout (2018)_1.thd",
+      "bytes": 9304922,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Avatar The Way of Water (2022)_1.thd",
+      "bytes": 9326024,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Gattaca (1997)_1.thd",
+      "bytes": 9390860,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Spider-Man Homecoming (2017)_1.thd",
+      "bytes": 9429938,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The.Fantastic.Four.First.Steps.2025._1.thd",
+      "bytes": 9474062,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Braveheart (1995)_3.thd",
+      "bytes": 9602862,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Rush (2013)_1.thd",
+      "bytes": 9624652,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Thor Ragnarok (2017)_1.thd",
+      "bytes": 9666888,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Fifth Element (1997)_1.thd",
+      "bytes": 9707760,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Avatar Fire and Ash (2025)_3.thd",
+      "bytes": 9717640,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Iron Man 2 (2010)_1.thd",
+      "bytes": 9742460,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Legends of the Fall (1994)_1.thd",
+      "bytes": 9749626,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Hacksaw Ridge (2016)_1.thd",
+      "bytes": 9858016,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Dangal (2016)_1.thd",
+      "bytes": 9918534,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Magnificent Seven (2016)_1.thd",
+      "bytes": 9949076,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Gladiator (2000) Extended Cut_2.thd",
+      "bytes": 9960426,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Green Book (2018)_1.thd",
+      "bytes": 9961182,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Avengers Endgame (2019)_1.thd",
+      "bytes": 9991148,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Kick-Ass (2010)_1.thd",
+      "bytes": 10188700,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Captain.America.The.Winter.Soldier.2_1.thd",
+      "bytes": 10219334,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Iron Man 3 (2013)_1.thd",
+      "bytes": 10311540,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Parasite (2019)_1.thd",
+      "bytes": 10324638,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Cruella (2021)_1.thd",
+      "bytes": 10487536,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Avatar (2009)_1.thd",
+      "bytes": 10527456,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Alien Romulus (2024)_1.thd",
+      "bytes": 10536132,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "John Wick (2014)_1.thd",
+      "bytes": 10590052,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Star.Wars.Episode.V.The.Empire.Strik_1.thd",
+      "bytes": 10611542,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Captain America Civil War (2016)_1.thd",
+      "bytes": 10618810,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Star.Wars.Episode.VI.Return.of.the.J_1.thd",
+      "bytes": 10657382,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Thor Love and Thunder (2022)_1.thd",
+      "bytes": 10707068,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Alita Battle Angel (2019)_1.thd",
+      "bytes": 10715300,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Snatch (2000)_1.thd",
+      "bytes": 10743066,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Evil Dead Rise (2023)_1.thd",
+      "bytes": 10929792,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Avengers (2012)_1.thd",
+      "bytes": 10942656,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Captain Marvel (2019)_1.thd",
+      "bytes": 10978538,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Leon (1994) International Cut_1.thd",
+      "bytes": 11016660,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Thor The Dark World (2013)_1.thd",
+      "bytes": 11234016,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Matrix (1999)_1.thd",
+      "bytes": 11590414,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Dredd (2012)_1.thd",
+      "bytes": 11676362,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Mad Max Fury Road (2015)_1.thd",
+      "bytes": 11774408,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Kingdom.of.Heaven.DC.Roadshow.Versio_4.thd",
+      "bytes": 11994860,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "braveheart-2ch0.thd",
+      "bytes": 12000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "knivesout-2ch1.thd",
+      "bytes": 12000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "knivesout-h.thd",
+      "bytes": 12000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "kingsman-2ch1.thd",
+      "bytes": 12000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "braveheart-h.thd",
+      "bytes": 12000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "kingsman-h.thd",
+      "bytes": 12000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Deadpool (2016)_1.thd",
+      "bytes": 12030724,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "thd-base.thd",
+      "bytes": 12410796,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "thd-c2.thd",
+      "bytes": 12410796,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "talktome-head.thd",
+      "bytes": 12410796,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "thd-corrupt.thd",
+      "bytes": 12410796,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "Doctor Strange (2016)_1.thd",
+      "bytes": 12498466,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Inside Out (2015)_1.thd",
+      "bytes": 12519138,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Martian (2015) Theatrical_1.thd",
+      "bytes": 12523242,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Alien Covenant (2017)_1.thd",
+      "bytes": 12654498,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Logan (2017)_1.thd",
+      "bytes": 12851888,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "thd-96k-revenant.thd",
+      "bytes": 13052334,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "revenant96.thd",
+      "bytes": 13052334,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Kingsman The Golden Circle (2017)_1.thd",
+      "bytes": 13552128,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Prey (2022)_1.thd",
+      "bytes": 14341904,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "Monsters Inc (2001)_1.thd",
+      "bytes": 14869240,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "The Incredibles (2004)_1.thd",
+      "bytes": 15005938,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Deadpool 2 (2018)_1.thd",
+      "bytes": 15576226,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Finding Nemo (2003)_1.thd",
+      "bytes": 15679796,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Ratatouille (2007)_1.thd",
+      "bytes": 15714336,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Ford v Ferrari (2019)_1.thd",
+      "bytes": 15929198,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "re-kingsman.mlp",
+      "bytes": 16118894,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Up (2009)_1.thd",
+      "bytes": 16149810,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Pirates.of.the.Caribbean.Dead.Men.Te_1.thd",
+      "bytes": 16949662,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Coco (2017)_1.thd",
+      "bytes": 17228472,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Toy Story (1995)_1.thd",
+      "bytes": 17580572,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "The Lion King (1994)_1.thd",
+      "bytes": 17588274,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "Toy Story 3 (2010)_1.thd",
+      "bytes": 17816476,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "Guardians.of.the.Galaxy.Vol.2.2017.U_1.thd",
+      "bytes": 17924984,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "moon-2009.thd",
+      "bytes": 18446206,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "shaun-cut.thd",
+      "bytes": 19994568,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "shaun-ctl1.thd",
+      "bytes": 19994568,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "shaun-2ch1.thd",
+      "bytes": 20000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "shaun-head20m.thd",
+      "bytes": 20000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "ben-hur-1959.thd",
+      "bytes": 21474302,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "The Kings Man (2021)_1.thd",
+      "bytes": 23092564,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "re-pi.mlp",
+      "bytes": 23933684,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "re-shaun.mlp",
+      "bytes": 24877528,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "braveheart.thd",
+      "bytes": 25000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "talktome.thd",
+      "bytes": 25000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "kingsman.thd",
+      "bytes": 25000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.1
+      },
+      "changed": false
+    },
+    {
+      "input": "shaun.thd",
+      "bytes": 25000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "pi.thd",
+      "bytes": 25000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "knivesout.thd",
+      "bytes": 25000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "aqp-60.thd",
+      "bytes": 25038618,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.2
+      },
+      "changed": false
+    },
+    {
+      "input": "warrior-head.thd",
+      "bytes": 26251164,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "sinners-2025.thd",
+      "bytes": 29562454,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "bugonia-2025.thd",
+      "bytes": 30027856,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "re-knivesout.mlp",
+      "bytes": 34299338,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "oblivion-2013.thd",
+      "bytes": 38116820,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "john-wick-chapter-4-2023.thd",
+      "bytes": 41507742,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "the-green-knight-2021.thd",
+      "bytes": 41956804,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "alien-romulus-2024.thd",
+      "bytes": 42090424,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.5
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.5
+      },
+      "changed": false
+    },
+    {
+      "input": "The Incredibles (2004).a1.thd",
+      "bytes": 42244452,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 1,
+        "seconds": 0.4
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 1,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": true
+    },
+    {
+      "input": "deadpool-and-wolverine-2024.thd",
+      "bytes": 44472592,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.5
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.5
+      },
+      "changed": false
+    },
+    {
+      "input": "leon-head.thd",
+      "bytes": 45040426,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.5
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "changed": false
+    },
+    {
+      "input": "gattaca-1997.thd",
+      "bytes": 45557510,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "the-dark-tower-2017.thd",
+      "bytes": 46436414,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.5
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "captain-america-brave-new-world-2025.thd",
+      "bytes": 47094254,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.5
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "changed": false
+    },
+    {
+      "input": "pi-head-dee.mlp",
+      "bytes": 49280010,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 1.8
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.7
+      },
+      "changed": false
+    },
+    {
+      "input": "pi-head-nc-dee.mlp",
+      "bytes": 49280010,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.6
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "changed": false
+    },
+    {
+      "input": "pi-no2ch.thd",
+      "bytes": 50000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 1.9
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "changed": false
+    },
+    {
+      "input": "pi-head50m.mlp",
+      "bytes": 50000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "changed": false
+    },
+    {
+      "input": "pi-head50m.thd",
+      "bytes": 50000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 1.4
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "changed": false
+    },
+    {
+      "input": "mission-impossible-fallout-2018.thd",
+      "bytes": 52367034,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 1.8
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.3
+      },
+      "changed": false
+    },
+    {
+      "input": "prey-2022.thd",
+      "bytes": 52753724,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 1.8
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.4
+      },
+      "changed": false
+    },
+    {
+      "input": "evil-dead-rise-2023.thd",
+      "bytes": 59043148,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 1.6
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.5
+      },
+      "changed": false
+    },
+    {
+      "input": "ca-head.thd",
+      "bytes": 60000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 2.3
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.6
+      },
+      "changed": false
+    },
+    {
+      "input": "aqp-180.thd",
+      "bytes": 63304456,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 1.8
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 0.6
+      },
+      "changed": false
+    },
+    {
+      "input": "concat-pi-shaun.thd",
+      "bytes": 70000000,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 1,
+        "invalid": 0,
+        "seconds": 1.0
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 1,
+        "invalid": 0,
+        "seconds": 0.5
+      },
+      "changed": false
+    },
+    {
+      "input": "up-2009.thd",
+      "bytes": 70502586,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 2,
+        "invalid": 0,
+        "seconds": 2.7
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 2,
+        "invalid": 0,
+        "seconds": 0.5
+      },
+      "changed": false
+    },
+    {
+      "input": "talktome.thd",
+      "bytes": 2298410182,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 56.9
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 34.5
+      },
+      "changed": false
+    },
+    {
+      "input": "knivesout.thd",
+      "bytes": 2524964712,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 65.0
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 39.4
+      },
+      "changed": false
+    },
+    {
+      "input": "pi-441.thd",
+      "bytes": 2608566196,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 29.4
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 27.1
+      },
+      "changed": false
+    },
+    {
+      "input": "pi.thd",
+      "bytes": 2608566196,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 39.9
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 27.2
+      },
+      "changed": false
+    },
+    {
+      "input": "quietplace.thd",
+      "bytes": 2632725572,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 42.5
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 28.1
+      },
+      "changed": false
+    },
+    {
+      "input": "shaun.thd",
+      "bytes": 3240631342,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 34.2
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 33.6
+      },
+      "changed": false
+    },
+    {
+      "input": "cloudatlas-demux.thd",
+      "bytes": 4165670388,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 55.9
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 55.3
+      },
+      "changed": false
+    },
+    {
+      "input": "cloudatlas-demux.thd",
+      "bytes": 4165670388,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 55.3
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 57.1
+      },
+      "changed": false
+    },
+    {
+      "input": "cloudatlas-demux.thd",
+      "bytes": 4165670388,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 54.8
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 56.6
+      },
+      "changed": false
+    },
+    {
+      "input": "cloudatlas-demux.thd",
+      "bytes": 4165670388,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 62.7
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 54.7
+      },
+      "changed": false
+    },
+    {
+      "input": "cloudatlas-demux.thd",
+      "bytes": 4165670388,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 55.7
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 55.5
+      },
+      "changed": false
+    },
+    {
+      "input": "cloudatlas.thd",
+      "bytes": 4165670388,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 64.0
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 55.8
+      },
+      "changed": false
+    },
+    {
+      "input": "leon.thd",
+      "bytes": 4366252198,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 6,
+        "invalid": 2,
+        "seconds": 43.9
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 8,
+        "invalid": 0,
+        "seconds": 44.2
+      },
+      "changed": true
+    },
+    {
+      "input": "fifthelement.thd",
+      "bytes": 5349001352,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 44.8
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 44.7
+      },
+      "changed": false
+    },
+    {
+      "input": "incredibles.thd",
+      "bytes": 6359937158,
+      "old": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 19,
+        "invalid": 3,
+        "seconds": 55.6
+      },
+      "new": {
+        "exit": 7,
+        "result": "NON-CONFORMANT",
+        "valid": 22,
+        "invalid": 0,
+        "seconds": 54.5
+      },
+      "changed": true
+    },
+    {
+      "input": "braveheart.thd",
+      "bytes": 6412062258,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 62.0
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 61.5
+      },
+      "changed": false
+    },
+    {
+      "input": "kingsman.thd",
+      "bytes": 7432969084,
+      "old": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 49.7
+      },
+      "new": {
+        "exit": 0,
+        "result": "CLEAN",
+        "valid": 0,
+        "invalid": 0,
+        "seconds": 65.8
+      },
+      "changed": false
+    }
+  ]
+}

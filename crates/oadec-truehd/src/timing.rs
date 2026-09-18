@@ -250,6 +250,14 @@ impl TimingModel {
             if self.input_jump {
                 self.input_jumps += 1;
             }
+            // The advance of this unit follows from the last one's: the output
+            // clock moves on by samples_per_au and the input clock by
+            // `interval`. Without this, a unit with no restart header kept the
+            // advance of the last restart -- up to 128 units stale in a
+            // variable-rate stream -- and a branch was judged against that.
+            if let Some(a) = self.advance {
+                self.advance = Some((a + spa).wrapping_sub(interval) & 0xFFFF);
+            }
         }
         for implied in self.implied.iter_mut().flatten() {
             *implied = implied.wrapping_add(spa as u16);
@@ -523,6 +531,52 @@ mod tests {
         m.end_unit();
         assert_eq!(m.valid_branches(), 1, "judged once");
         assert_eq!(m.peak_rate_changes, 1);
+    }
+
+    #[test]
+    fn a_branch_is_judged_against_the_unit_before_it_not_the_last_restart() {
+        // The advance drifts between restart headers in a variable-rate stream,
+        // and a branch has to be judged against the advance of the unit just
+        // before it -- not the one the last restart header measured, which can
+        // be up to 128 units old.
+        //
+        // Every other test here feeds a stream whose input and output clocks
+        // both move by exactly one access unit, so the advance never changes
+        // and the two readings coincide: the fixture shared the assumption the
+        // code made, and none of them could see this. Leon (1994),
+        // International Cut, PROPER: eight branches, all valid to truehdd;
+        // oadec called two invalid, having judged them against advances of 376
+        // and 14 where the buffer actually stood near 1 800.
+        let mut m = TimingModel::new(cfg());
+        let mut input = 1000u16;
+        // a restart at unit 0 measures an advance of 100 ...
+        assert!(!m.begin_unit(input, 100));
+        let first = m.restart_header(0, input.wrapping_add(40).wrapping_add(100));
+        assert!(first.branch.is_none());
+        m.end_unit();
+        // ... then seven units arrive faster than real time, 30 samples apart
+        // rather than 40, with no restart header: the buffer fills and the
+        // advance grows by 10 a unit, to 170
+        for k in 1..8 {
+            input = input.wrapping_add(30);
+            assert!(!m.begin_unit(input, 100), "no input jump at unit {k}");
+            m.end_unit();
+        }
+        // A branch at unit 8 lands at an advance of 160: a fall from 170, the
+        // shape of every seamless branch -- but a rise from the stale 100.
+        input = input.wrapping_add(30);
+        m.begin_unit(input, 100);
+        let r = m.restart_header(0, input.wrapping_add(40).wrapping_add(160));
+        let b = r.branch.expect("an output jump is judged");
+        assert_eq!(
+            b.prev_advance, 170,
+            "judged against the unit before it, not the last restart"
+        );
+        assert_eq!(b.advance, 160);
+        assert!(b.conditions.advance_step, "{:?}", b.conditions);
+        assert!(b.is_valid(), "{:?}", b.conditions);
+        m.end_unit();
+        assert_eq!(m.invalid_branches(), 0);
     }
 
     #[test]

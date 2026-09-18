@@ -6,6 +6,29 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A seamless branch is judged against the access unit just before it.** The
+  timing model measured the advance only at restart headers, which come about
+  once every 128 access units, and carried that value unchanged through every
+  unit in between. In a variable-rate stream the buffer fills and drains across
+  those units, so a branch was judged against an advance up to 128 units old.
+  Where the stale value happened to be small, an ordinary fall in the advance
+  read as a rise, the branch was called invalid, and the lossless check words
+  across it -- meaningless at a splice, and skipped at every branch recognised
+  as one -- were evaluated and failed in every substream. Reported on Leon
+  (1994), International Cut, PROPER: eight branches, all valid to `truehdd`,
+  two of them rejected here, judged against advances of 376 and 14 where the
+  buffer stood near 1 800. The advance is carried forward unit by unit now, and
+  the file is clean. The decoded samples were right all along and are unchanged
+  -- a decode before and after is byte-identical -- only the verdict and the
+  exit code were wrong. Across all 282 TrueHD inputs of the work directory,
+  three changed, all from an invalid branch to a valid one and all confirmed by
+  `truehdd`; none moved the other way. No test could see this before: every
+  fixture advanced both clocks by exactly one access unit, so the advance never
+  changed and the stale value always equalled the true one. The new test uses a
+  variable-rate stream, and fails without the fix.
+
 ## [0.6.0] - 2026-09-17
 
 ### Added
