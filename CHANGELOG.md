@@ -6,6 +6,8 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-18
+
 ### Fixed
 
 - **A seamless branch is judged against the access unit just before it.** The

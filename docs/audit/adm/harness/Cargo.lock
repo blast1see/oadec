@@ -26,11 +26,11 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "oadec-bits"
-version = "0.6.0"
+version = "0.6.1"
 
 [[package]]
 name = "oadec-emdf"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "oadec-bits",
  "thiserror",
@@ -38,7 +38,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-spatial"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "oadec-emdf",
  "thiserror",
