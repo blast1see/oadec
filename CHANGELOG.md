@@ -6,6 +6,21 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Every clean decode says `done`, and no other decode does.** The word was
+  added to the TrueHD PCM and WAVE path alone, and its test used `--format pcm`;
+  the DAMF and ADM writers and both E-AC-3 paths went through their own code and
+  never said it -- and a whole film to DAMF for the Dolby encoder is the run it
+  was asked for. Worse, the PCM path printed it straight after its summary,
+  before the checks `verify` performs beside the decode were joined, so a decode
+  that wrote its samples and then found the stream faulty said `done` and, a line
+  later, that its output was not trustworthy. It is said once now, where every
+  decode path's verdict becomes an exit code, and only when that verdict is clean.
+  The fuzz campaign counts a trial as silent when it exits 0 and says nothing
+  about integrity, and a bare `done` is not integrity, so a silent accept stays
+  silent.
+
 ## [0.6.1] - 2026-09-18
 
 ### Fixed

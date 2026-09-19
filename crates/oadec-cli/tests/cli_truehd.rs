@@ -769,3 +769,64 @@ fn a_clean_decode_says_it_is_done() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A decode that wrote its objects cleanly says so, on every object path.
+///
+/// `done` was added to the PCM and WAVE path only, and the test for it used
+/// `--format pcm`; the DAMF and ADM writers go through their own code and never
+/// said it -- and that is the path the owner actually runs, a whole film to DAMF
+/// for the Dolby encoder. It is said once now, where every decode path's verdict
+/// becomes an exit code, and only when that verdict is clean.
+#[test]
+fn a_clean_object_decode_says_it_is_done() {
+    let dir = temp("done-objects");
+    let stream = fixture("authored-scene.mlp");
+    for format in ["damf", "adm"] {
+        let base = dir.join(format);
+        let out = oadec(&[
+            "decode",
+            stream.to_str().unwrap(),
+            "--format",
+            format,
+            "-o",
+            base.to_str().unwrap(),
+        ]);
+        let said = stderr(&out);
+        assert_eq!(out.status.code(), Some(0), "{format}: {said}");
+        assert!(
+            said.lines().last().is_some_and(|l| l.trim() == "done"),
+            "a clean {format} decode must end by saying so: {said:?}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A decode that fails a check must not end on a word that reads as success.
+///
+/// The PCM path printed `done` straight after its summary, before the checks of
+/// `verify` were joined and reported -- so a decode that wrote its samples and
+/// then found the stream faulty said `done` and, a line later, that the output
+/// was not trustworthy. `done` belongs to a clean verdict and to nothing else.
+#[test]
+fn a_decode_that_fails_a_check_does_not_say_done() {
+    let dir = temp("done-faulty");
+    let clip = dir.join("faulty.mlp");
+    corrupt_evolution_extra_data(&fixture("authored-scene.mlp"), &clip, Site::Parity);
+    let clip = clip.to_str().unwrap();
+    for format in ["pcm", "damf"] {
+        let target = dir.join(format!("out-{format}"));
+        let target = target.to_str().unwrap();
+        let out = oadec(&["decode", clip, "--format", format, "-o", target]);
+        let said = stderr(&out);
+        assert_eq!(
+            out.status.code(),
+            Some(7),
+            "{format} on a faulty stream: {said}"
+        );
+        assert!(
+            !said.lines().any(|l| l.trim() == "done"),
+            "a {format} decode that failed a check said done: {said:?}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
