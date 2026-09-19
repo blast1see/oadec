@@ -546,7 +546,17 @@ fn main() -> ExitCode {
                 )
                 .map(Verdict::from_clean)
             }
-            .map(|verdict| ExitCode::from(verdict.exit_code())),
+            .map(|verdict| {
+                // Said once, here, where every decode path's verdict becomes an
+                // exit code -- TrueHD and E-AC-3, samples and objects -- and only
+                // for a run that ended clean. A decode that wrote its output and
+                // then failed a check must not end on a word that reads as
+                // success.
+                if matches!(verdict, Verdict::Clean) {
+                    eprintln!("done");
+                }
+                ExitCode::from(verdict.exit_code())
+            }),
             Command::Compare {
                 file,
                 reference,

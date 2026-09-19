@@ -808,3 +808,31 @@ fn a_substream_whose_containers_are_all_broken_is_still_a_fault() {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
+
+/// A clean E-AC-3 decode says it is done, to samples and to objects alike.
+///
+/// The E-AC-3 paths have their own decoders and never said it; the word was
+/// printed by the TrueHD PCM path alone.
+#[test]
+fn a_clean_eac3_decode_says_it_is_done() {
+    let dir = temp("done-eac3");
+    let stream = fixture("authored-scene.ec3");
+    for format in ["pcm", "damf"] {
+        let target = dir.join(format!("out-{format}"));
+        let out = oadec(&[
+            "decode",
+            stream.to_str().unwrap(),
+            "--format",
+            format,
+            "-o",
+            target.to_str().unwrap(),
+        ]);
+        let said = stderr(&out);
+        assert_eq!(out.status.code(), Some(0), "{format}: {said}");
+        assert!(
+            said.lines().last().is_some_and(|l| l.trim() == "done"),
+            "a clean E-AC-3 {format} decode must end by saying so: {said:?}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
