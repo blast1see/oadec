@@ -6,6 +6,8 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-09-19
+
 ### Fixed
 
 - **Every clean decode says `done`, and no other decode does.** The word was
