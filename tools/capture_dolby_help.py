@@ -28,6 +28,15 @@ CMDS = [
 # Anything after this marker is written by hand and survives a recapture.
 KEEP = "<!-- hand-written below -->"
 
+
+def scrub(text: str) -> str:
+    """Leave out what describes this installation rather than the tool: the
+    licence banner DEE prints at start-up, and the home directory a default
+    path was resolved against (`--temp-dir` defaults to the working directory)."""
+    lines = [line for line in text.split("\n") if "Features enabled by the license:" not in line]
+    return "\n".join(lines).replace(str(Path.home()), "%USERPROFILE%")
+
+
 target = Path("docs/dolby-tools.md")
 tail = ""
 if target.exists():
@@ -41,7 +50,7 @@ out = ["# Dolby tool command lines on the development machine", "",
        "Notes below the marker at the end are written by hand and are kept.", ""]
 for cmd in CMDS:
     res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    text = (res.stdout + res.stderr).replace("\r", "").strip()
+    text = scrub((res.stdout + res.stderr).replace("\r", "").strip())
     out += [f"## `{Path(cmd[0]).name} {' '.join(cmd[1:])}`", "", "```text", text[:12000], "```", ""]
 target.write_text("\n".join(out) + tail, encoding="utf-8")
 print("wrote docs/dolby-tools.md", sum(len(x) for x in out), "chars")

@@ -6,6 +6,22 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- **The published tree describes the measurements, not the machine or the copies
+  they were made on.** A source film is named by its title and year instead of
+  the file name of the copy that was read, a source is described by its kind --
+  disc or streaming -- the work directory and the source folders have neutral
+  names, a path under a home directory is written relative to `%USERPROFILE%`,
+  and captured Dolby tool output leaves out the licence banner printed at
+  start-up. The ADM audit's immutability rule
+  states this as its second exception for publication; measured hashes, findings,
+  exit codes and the keys the byte-identity gate reads are unchanged.
+- `tools/capture_dolby_help.py` leaves the licence banner and the home directory
+  out of what it records, so a recapture cannot put them back, and
+  `tools/extract_corpus.py` finds the seamless-branching title under the user's
+  own profile.
+
 ## [0.6.2] - 2026-09-19
 
 ### Fixed

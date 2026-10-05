@@ -44,7 +44,7 @@ COPIES = [
     (r"E:\samples\Nightcrawler (2014)-Turkish.ac3", "ec3/nightcrawler-dd20.ac3"),
     (r"E:\samples\Hannibal (2001) - 2 - E-AC3, [tur], 2.0 channels, 224kbps, 48kHz.eac3", "ec3/hannibal-ddp20.eac3"),
 ]
-BRAVEHEART_GLOB = r"%USERPROFILE%\Braveheart*\*.thd"
+BRAVEHEART_GLOB = os.path.expandvars(r"%USERPROFILE%\Braveheart*\*.thd")
 
 
 def identify(mkv: str) -> list[dict]:
