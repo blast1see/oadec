@@ -10,7 +10,7 @@ copied from a commercial title.
 | `authored-scene.json` | 1 372 | `1c12a6255439012927293e83b467edb98085bc02014fd6791f6eff7e0c0316c7` | the scene, written by hand |
 | `authored-scene.ec3` | 112 896 | `c4481f2599328b3c21c98b9f8390bca7ec448077937bf41f74f834ce89f9efe8` | Dolby Encoding Engine 5.2.1, job `fixture-joc.xml` (E-AC-3 JOC, 448 kbit/s) |
 | `authored-scene.mlp` | 546 456 | `d782d604093578e8c73a190e37ef7a6f7a4b5b7421cfaa274f9bfd406b026061` | Dolby Encoding Engine 5.2.1, job `fixture-thd.xml` (TrueHD Atmos, 12 spatial clusters) |
-| `fixture-joc.xml`, `fixture-thd.xml` | | `093e98de811a516936d87a9165a85434636bdebcdffef11cda6d8e6219960388`, `cd81ee244a5500565fd34d95197c50d5a0f4e772df27c41e931b0b0499143343` | the DEE jobs, verbatim (their paths name the machine they ran on) |
+| `fixture-joc.xml`, `fixture-thd.xml` | | `093e98de811a516936d87a9165a85434636bdebcdffef11cda6d8e6219960388`, `cd81ee244a5500565fd34d95197c50d5a0f4e772df27c41e931b0b0499143343` | the DEE jobs, verbatim but for the work directory's name (their paths name where they ran) |
 
 ## The scene
 
