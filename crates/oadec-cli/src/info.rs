@@ -236,6 +236,9 @@ pub fn run(path: &Path, json: bool) -> Result<()> {
     }
     if json {
         let mut value = serde_json::to_value(&scan)?;
+        // `substreams` below is the declared count, which replaces the scan's
+        // per-substream statistics under the same key; they stay reachable here.
+        value["substream_stats"] = value["substreams"].clone();
         if let Some(ms) = &scan.first_major_sync {
             let map = ms.presentation_map();
             let restricted = ms.flags & oadec_truehd::sync::FLAG_RESTRICTED_8CH != 0;

@@ -6,6 +6,23 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The DVD-Audio sync pattern inside a damaged TrueHD stream no longer ends the
+  run.** The extractor and the framing took either sync pattern for a major sync
+  and refused the DVD-Audio (FBB) one outright, so four bytes in the wrong place
+  of a damaged unit made every command exit 2 with no report. Once a stream is
+  locked only its own pattern opens a major sync; the unit fails its parity, the
+  stream resyncs, and the run reports the damage and exits 7. A DVD-Audio stream
+  is still refused by name, now only when its major sync verifies (an FBB major
+  sync is 28 bytes with the FBA CRC-16 over the first 26, measured on three
+  DVD-Audio streams). On 43 real TrueHD streams every exit code, JSON field, text
+  line and decoded byte is unchanged.
+- `info --json` wrote the declared substream count under `substreams`, the key of
+  the pass's per-substream statistics, so they were missing from every report; they
+  are kept under `substream_stats`. `verify --json` and `info --json` also report
+  `foreign_syncs`, the DVD-Audio patterns passed over.
+
 ## [0.7.0] - 2026-11-09
 
 ### Added

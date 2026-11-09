@@ -16,6 +16,9 @@ use crate::sync::MajorSync;
 /// Stream-level parameters in force for an access unit, taken from the last major sync.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StreamConfig {
+    /// The sync pattern of the stream ([`crate::sync::SYNC_FBA`]); only this
+    /// pattern opens a major sync once the stream is configured.
+    pub format_sync: u32,
     /// Number of substreams.
     pub substreams: u8,
     /// Major sync `flags`.
@@ -48,6 +51,7 @@ impl StreamConfig {
             )));
         }
         Ok(Self {
+            format_sync: ms.format_sync,
             substreams: ms.substreams,
             flags: ms.flags,
             sampling_frequency,
@@ -74,7 +78,9 @@ impl StreamConfig {
     /// rate is therefore compared in its own right.
     #[must_use]
     pub fn incompatible_with(&self, next: &Self) -> Option<&'static str> {
-        if self.substreams != next.substreams {
+        if self.format_sync != next.format_sync {
+            Some("the format sync")
+        } else if self.substreams != next.substreams {
             Some("the substream count")
         } else if self.substream_info != next.substream_info {
             Some("substream_info")
@@ -179,7 +185,15 @@ impl AccessUnit {
 
         let mut pos = 4;
         let mut major_sync = None;
-        let config = if MajorSync::pattern_at(&au[4..]).is_some() {
+        // Once configured, only the stream's own pattern opens a major sync; the
+        // other format's four bytes are directory data like any other, for the
+        // parity to judge (the extractor applies the same rule).
+        let opens_major_sync = match (MajorSync::pattern_at(&au[4..]), config) {
+            (Some(pattern), Some(cfg)) => pattern == cfg.format_sync,
+            (Some(_), None) => true,
+            (None, _) => false,
+        };
+        let config = if opens_major_sync {
             let ms = MajorSync::parse(&au[4..])?;
             pos += ms.len_bytes;
             let cfg = StreamConfig::from_major_sync(&ms)?;
@@ -284,7 +298,7 @@ impl AccessUnit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testutil::{atmos_major_sync, build_au};
+    use crate::testutil::{atmos_major_sync, build_au, fbb_pattern_minor_unit};
 
     /// The same major sync with a different `audio_sampling_frequency_1`.
     ///
@@ -365,6 +379,34 @@ mod tests {
         let mut other_flags = base.clone();
         other_flags.flags ^= 0x1000;
         assert_eq!(base.incompatible_with(&other_flags), None);
+    }
+
+    /// The other format's sync pattern is directory data once a stream is
+    /// configured.
+    ///
+    /// A minor-sync unit whose first directory entry carries the extra word can
+    /// spell `F8 72 6F BB` -- end pointer `0x872`, then a DRC word -- and frame
+    /// correctly. Taking either pattern for a major sync refused such a unit as
+    /// a DVD-Audio stream; only the stream's own pattern opens one.
+    #[test]
+    fn the_other_formats_pattern_is_directory_data_in_a_configured_stream() {
+        let ms = atmos_major_sync();
+        let seg: &[u8] = &[0u8; 2];
+        let (_, config) =
+            AccessUnit::parse(&build_au(Some(&ms), &[seg, seg, seg, seg], &[], 0), None).unwrap();
+        let au = fbb_pattern_minor_unit(0x0028);
+
+        let (unit, _) = AccessUnit::parse(&au, Some(&config)).unwrap();
+        assert!(unit.major_sync.is_none());
+        assert!(unit.header_parity_ok);
+        assert!(unit.directory[0].extra_word);
+        assert_eq!(unit.directory[0].end_ptr_words, 0x872);
+        assert_eq!(unit.segments_start, 14);
+        // with nothing configured the pattern can only open a major sync
+        assert!(matches!(
+            AccessUnit::parse(&au, None),
+            Err(Error::UnsupportedFbb)
+        ));
     }
 
     #[test]

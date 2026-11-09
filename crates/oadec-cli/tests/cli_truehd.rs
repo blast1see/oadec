@@ -830,3 +830,76 @@ fn a_decode_that_fails_a_check_does_not_say_done() {
     }
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// The DVD-Audio sync pattern inside a damaged TrueHD unit is damage, not the
+/// end of the run.
+///
+/// The extractor and the framing took either sync pattern for a major sync and
+/// refused the DVD-Audio one outright, so four bytes landing in the wrong place
+/// of a damaged unit ended every command with exit 2 and no report -- for a
+/// fault that a resync recovers from like any other. Once a stream is locked
+/// only its own pattern opens a major sync: the unit fails its parity, the
+/// stream resyncs at the next major sync, and each command reaches the verdict
+/// it reaches for any damage.
+#[test]
+fn a_dvd_audio_pattern_in_a_damaged_unit_is_damage_not_the_end_of_the_run() {
+    let src = fixture("authored-scene.mlp");
+    let all = units(&src);
+    let (unit, _) = all
+        .iter()
+        .skip(all.len() / 2)
+        .find(|(u, _)| !u.has_major_sync)
+        .expect("a mid-stream minor-sync unit");
+    let mut bytes = std::fs::read(&src).unwrap();
+    let at = unit.offset as usize + 4;
+    bytes[at..at + 4].copy_from_slice(&[0xF8, 0x72, 0x6F, 0xBB]);
+    let dir = temp("foreign-sync");
+    let clip = dir.join("foreign.mlp");
+    std::fs::write(&clip, &bytes).unwrap();
+    let clip = clip.to_str().unwrap();
+
+    let verify = oadec(&["verify", "--json", clip]);
+    assert_eq!(verify.status.code(), Some(7), "verify: {}", stderr(&verify));
+    let report: serde_json::Value = serde_json::from_slice(&verify.stdout).unwrap();
+    assert!(report["foreign_syncs"].as_u64().unwrap() >= 1, "{report}");
+    assert!(
+        report["failures"]["resyncs"].as_u64().unwrap() >= 1,
+        "{report}"
+    );
+
+    let target = dir.join("out.pcm");
+    let decode = oadec(&[
+        "decode",
+        clip,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "-o",
+        target.to_str().unwrap(),
+    ]);
+    assert_eq!(decode.status.code(), Some(7), "decode: {}", stderr(&decode));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// `info --json` keeps the per-substream statistics of the pass.
+///
+/// The declared substream count is written under `substreams`, the key the
+/// pass uses for its statistics, so they were dropped from every `info --json`
+/// report; they are kept under `substream_stats`.
+#[test]
+fn info_json_keeps_the_per_substream_statistics() {
+    let out = oadec(&[
+        "info",
+        "--json",
+        fixture("authored-scene.mlp").to_str().unwrap(),
+    ]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let count = report["substreams"].as_u64().unwrap();
+    let stats = report["substream_stats"].as_array().unwrap();
+    assert_eq!(stats.len(), 4);
+    for (i, st) in stats.iter().enumerate().take(count as usize) {
+        assert!(st["segments"].as_u64().unwrap() > 0, "substream {i}: {st}");
+    }
+}

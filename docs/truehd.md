@@ -14,6 +14,15 @@ the real streams decide.
   of the header and directory bytes, folded to four bits, equal `0xF`.
 * A major sync (`0xF8726FBA`) may follow; it ends with a CRC-16 (polynomial
   `0x002D`, shift-then-XOR register from 0) over everything before it.
+* The DVD-Audio form (`0xF8726FBB`, FBB) has no extension: its major sync is
+  always 28 bytes, the same CRC-16 over the first 26 at bytes 26-27. Three
+  DVD-Audio streams verify this way at that offset and no other, one written by
+  Meridian's own encoder (evidence
+  `docs/audit/evidence/verification-upgrade-2026-11/01-fbb-major-sync-crc.json`).
+  Once the extractor has locked onto a stream, only that stream's pattern opens
+  a major sync; the other pattern is data like any other byte, so damage that
+  leaves it at the start of a unit is judged by the unit's parity and recovered
+  from by a resync.
 * One directory entry per substream: `extra_word:1, restart_nonexistent:1,
   crc_present:1, reserved:1, end_ptr:12` (words from the start of the segments),
   plus `drc_gain_update s9, drc_time_update:3, reserved:4` when `extra_word`.

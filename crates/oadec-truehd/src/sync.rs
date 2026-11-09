@@ -41,6 +41,10 @@ pub const BASE_SAMPLES_PER_AU: u16 = 40;
 /// Smallest major sync in bytes (no extra channel meaning).
 pub const MIN_LEN_BYTES: usize = 28;
 
+/// Length of an FBB (DVD-Audio) major sync in bytes, CRC included. FBB has no
+/// extension: 26 bytes of information, then the CRC-16 over them.
+pub const FBB_LEN_BYTES: usize = 28;
+
 /// The 32-bit `format_info` word of an FBA major sync.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct FormatInfo {
@@ -122,6 +126,25 @@ impl MajorSync {
     pub fn pattern_at(bytes: &[u8]) -> Option<u32> {
         let word = u32::from_be_bytes(bytes.get(..4)?.try_into().ok()?);
         (word == SYNC_FBA || word == SYNC_FBB).then_some(word)
+    }
+
+    /// Whether `bytes` start with an FBB (DVD-Audio) major sync whose CRC-16 holds.
+    ///
+    /// An FBB major sync is [`FBB_LEN_BYTES`] long, with the CRC-16 of the FBA
+    /// major sync (same generator, same register) over its first 26 bytes. That
+    /// is measured, not assumed: three DVD-Audio streams, one of them written by
+    /// Meridian's own encoder, verify this way at byte 26 and at no other offset
+    /// (docs/truehd.md). The extractor needs it to tell a DVD-Audio stream from
+    /// the same four bytes met by chance inside damaged data.
+    #[must_use]
+    pub fn fbb_crc_ok(bytes: &[u8]) -> bool {
+        let Some(head) = bytes.get(..FBB_LEN_BYTES) else {
+            return false;
+        };
+        let crc_offset = FBB_LEN_BYTES - 2;
+        u32::from_be_bytes([head[0], head[1], head[2], head[3]]) == SYNC_FBB
+            && CRC16_MAJOR_SYNC.update_bytes(0, &head[..crc_offset])
+                == u16::from_be_bytes([head[crc_offset], head[crc_offset + 1]])
     }
 
     /// Parses a major sync that starts at `bytes[0]`.

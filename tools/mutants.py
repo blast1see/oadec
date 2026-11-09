@@ -278,6 +278,23 @@ MUTANTS = [
      'crates/oadec-cli/src/main.rs',
      '            } else if start.is_some()',
      '            } else if false && start.is_some()'),
+    # --- verification upgrade: a foreign sync pattern ---------------------
+    ('the hunt for sync ends the run at any DVD-Audio pattern again',
+     'crates/oadec-truehd/src/extract.rs',
+     'if self.format_sync.is_none() && MajorSync::fbb_crc_ok(&self.buf[sync_at..]) {',
+     'if true {'),
+    ('a DVD-Audio major sync believed without its CRC',
+     'crates/oadec-truehd/src/extract.rs',
+     'if self.format_sync.is_none() && MajorSync::fbb_crc_ok(&self.buf[sync_at..]) {',
+     'if self.format_sync.is_none() {'),
+    ('the framing takes the other format\'s pattern for a major sync',
+     'crates/oadec-truehd/src/au.rs',
+     '(Some(pattern), Some(cfg)) => pattern == cfg.format_sync,',
+     '(Some(_), Some(_)) => true,'),
+    ('the extractor takes the other format\'s pattern for a major sync',
+     'crates/oadec-truehd/src/extract.rs',
+     'let has_major_sync = pattern.is_some() && pattern == self.format_sync;',
+     'let has_major_sync = pattern.is_some();'),
 ]
 
 

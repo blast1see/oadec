@@ -225,6 +225,10 @@ pub struct Scan {
     pub extra: ExtraStats,
     pub failures: Failures,
     pub first_error: Option<String>,
+    /// DVD-Audio (FBB) sync patterns met inside this TrueHD stream and passed
+    /// over. Not a fault by itself: the damage that exposed one is counted
+    /// where it was found.
+    pub foreign_syncs: u64,
 }
 
 fn note_first(slot: &mut Option<String>, message: impl FnOnce() -> String) {
@@ -259,6 +263,7 @@ impl Scan {
             extra: ExtraStats::default(),
             failures: Failures::default(),
             first_error: None,
+            foreign_syncs: 0,
         }
     }
 
@@ -601,6 +606,7 @@ impl Scan {
         self.failures.skipped_bytes = summary.stats.skipped_bytes;
         self.failures.trailing_bytes = summary.trailing_bytes;
         self.failures.major_sync_crc += summary.stats.major_sync_crc_failures;
+        self.foreign_syncs = summary.stats.foreign_syncs;
         if self.min_unit_bytes == usize::MAX {
             self.min_unit_bytes = 0;
         }
@@ -686,11 +692,22 @@ mod tests {
         }
 
         // and every `u64` of the struct is in that list, so a counter added
-        // later cannot sit outside the verdict unnoticed
+        // later cannot sit outside the verdict unnoticed: the serialized
+        // struct has exactly the listed keys, each of them set by its entry
         let mut all = Failures::default();
         for (_, set) in counters {
             set(&mut all);
         }
         assert!(!all.is_clean());
+        let value = serde_json::to_value(all).unwrap();
+        let keys = value.as_object().unwrap();
+        assert_eq!(
+            keys.len(),
+            counters.len(),
+            "a counter is missing from the list"
+        );
+        for (name, _) in counters {
+            assert_eq!(keys[name], 1, "{name} is not the field its entry sets");
+        }
     }
 }
