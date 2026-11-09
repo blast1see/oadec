@@ -193,8 +193,9 @@ fn the_truehd_fixture_decodes_to_agreeing_damf_and_adm_outputs() {
     assert!(!err.contains("not representable"), "{err}");
 }
 
-/// E-AC-3 JOC: the encoder writes fifteen objects and a trim element whose
-/// warp mode neither output can carry, which the run must say.
+/// E-AC-3 JOC: the encoder writes fifteen objects and a trim element. Its warp
+/// mode is warping, which is what the encoder writes again when an output says
+/// nothing, so nothing is lost and the run must not say otherwise.
 #[test]
 fn the_joc_fixture_decodes_to_agreeing_damf_and_adm_outputs() {
     let (err, axml) = both_outputs_agree("authored-scene.ec3", "joc", 25);
@@ -202,10 +203,104 @@ fn the_joc_fixture_decodes_to_agreeing_damf_and_adm_outputs() {
         axml.contains("audioObjectName=\"Atmos_Obj_15\""),
         "{axml:.400}"
     );
+    assert!(!err.contains("warp mode"), "{err}");
+}
+
+/// The `dbmd` chunk of a WAVE file, by walking its chunks.
+fn dbmd_chunk(path: &Path) -> Vec<u8> {
+    let b = std::fs::read(path).unwrap();
+    let mut pos = 12;
+    while pos + 8 <= b.len() {
+        let size = u32::from_le_bytes(b[pos + 4..pos + 8].try_into().unwrap()) as usize;
+        if &b[pos..pos + 4] == b"dbmd" {
+            return b[pos + 8..pos + 8 + size].to_vec();
+        }
+        pos += 8 + size + (size & 1);
+    }
+    panic!("no dbmd chunk in {}", path.display());
+}
+
+/// `--warp-mode` reaches the two outputs where Dolby's converter puts it:
+/// `warpMode` in the `.atmos` header and byte 152 of `dbmd` segment 9. `stream`
+/// takes what the stream declares, and a TrueHD stream declares none.
+#[test]
+fn warp_mode_reaches_the_damf_header_and_the_adm_dbmd() {
+    let dir = temp("warp");
+    let joc = fixture("authored-scene.ec3");
+    let thd = fixture("authored-scene.mlp");
+    let header = |input: &Path, tag: &str, warp: Option<&str>| {
+        let base = dir.join(tag);
+        let base_text = base.to_str().unwrap().to_owned();
+        let mut args = vec!["decode", input.to_str().unwrap(), "--format", "damf"];
+        args.extend(["-o", base_text.as_str()]);
+        if let Some(w) = warp {
+            args.extend(["--warp-mode", w]);
+        }
+        let o = oadec(&args);
+        assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+        (
+            std::fs::read_to_string(dir.join(format!("{tag}.atmos"))).unwrap(),
+            String::from_utf8_lossy(&o.stderr).into_owned(),
+        )
+    };
+
+    let (plain, _) = header(&joc, "none", None);
+    assert!(!plain.contains("warpMode"), "{plain}");
+    let (kept, err) = header(&joc, "kept", Some("stream"));
+    assert!(kept.contains("    warpMode: warping\n"), "{kept}");
+    assert!(!err.contains("warp mode"), "{err}");
+
+    let (forced, err) = header(&joc, "forced", Some("lo-ro"));
+    assert!(forced.contains("    warpMode: LoRo\n"), "{forced}");
     assert!(
-        err.contains("not representable in DAMF or the ADM profile: 1 warp mode setting"),
-        "{err}"
+        err.contains("approximations: 1 warp mode setting"),
+        "the stream says warping and the output says otherwise: {err}"
     );
+
+    let (thd_kept, err) = header(&thd, "thd", Some("stream"));
+    assert!(!thd_kept.contains("warpMode"), "{thd_kept}");
+    assert!(err.contains("has declared a warp mode"), "{err}");
+    let (thd_set, _) = header(&thd, "thdset", Some("normal"));
+    assert!(thd_set.contains("    warpMode: normal\n"), "{thd_set}");
+
+    const WARP: usize = 4 + 100 + 3 + 152;
+    for (arg, byte) in [
+        (None, 0x84),
+        (Some("stream"), 0x81),
+        (Some("pro-logic-iix"), 0x82),
+    ] {
+        let base = dir.join("adm");
+        let base_text = base.to_str().unwrap().to_owned();
+        let mut args = vec!["decode", joc.to_str().unwrap(), "--format", "adm"];
+        args.extend(["-o", base_text.as_str()]);
+        if let Some(w) = arg {
+            args.extend(["--warp-mode", w]);
+        }
+        let o = oadec(&args);
+        assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+        assert_eq!(dbmd_chunk(&dir.join("adm.wav"))[WARP], byte, "{arg:?}");
+    }
+
+    let o = oadec(&[
+        "decode",
+        joc.to_str().unwrap(),
+        "--format",
+        "pcm",
+        "-o",
+        dir.join("x.pcm").to_str().unwrap(),
+        "--warp-mode",
+        "stream",
+    ]);
+    assert!(
+        !o.status.success(),
+        "a sample output has no warp mode to carry"
+    );
+    assert!(
+        String::from_utf8_lossy(&o.stderr).contains("--warp-mode"),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 /// `-p 2` used to be accepted and ignored by the object formats.

@@ -20,7 +20,7 @@ use oadec_emdf::oamd::{BedChannel, Gain};
 use crate::dbmd;
 use crate::loss::{LossKind, LossLedger};
 use crate::program::{
-    BedState, ElementState, Event, IsfPolicy, ObjectState, Program, STANDARD_BED,
+    BedState, ElementState, Event, IsfPolicy, ObjectState, Program, STANDARD_BED, WarpMode,
 };
 
 /// Interpolation length of every block after the first, in samples.
@@ -61,6 +61,9 @@ pub struct AdmOptions {
     pub allow_non_profile_rate: bool,
     /// How interpolation lengths are written.
     pub interpolation: Interpolation,
+    /// The warp mode to say in `dbmd`. `None` says "not indicated", which
+    /// Dolby's encoders read as warping.
+    pub warp_mode: Option<WarpMode>,
 }
 
 impl Default for AdmOptions {
@@ -74,6 +77,7 @@ impl Default for AdmOptions {
             isf: IsfPolicy::Error,
             allow_non_profile_rate: false,
             interpolation: Interpolation::Profile,
+            warp_mode: None,
         }
     }
 }
@@ -430,7 +434,13 @@ impl AdmWriter {
             Interpolation::Profile => self.options.tool.clone(),
             Interpolation::Real => format!("{} ({NON_PROFILE_MARK})", self.options.tool),
         };
-        let dbmd = dbmd::build(bed_mask, &lfe, &self.options.creator, &tool);
+        let dbmd = dbmd::build(
+            bed_mask,
+            &lfe,
+            &self.options.creator,
+            &tool,
+            self.options.warp_mode,
+        );
         write_chunk(&mut self.out, b"dbmd", &dbmd)?;
         self.out.flush()?;
         let mut file = self

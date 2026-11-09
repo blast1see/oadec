@@ -28,7 +28,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 use crate::compare::RefFormat;
-use crate::damf::{InterpolationArg, IsfArg};
+use crate::damf::{InterpolationArg, IsfArg, WarpArg};
 use crate::decode::{Format, Order};
 use crate::eac3_objects::{JocLowBand, JocOverrides, JocPhase};
 use crate::integrity::Verdict;
@@ -152,6 +152,12 @@ enum Command {
         /// --dolby-origin-tag).
         #[arg(long, value_enum, default_value_t = InterpolationArg::Profile)]
         adm_interpolation: InterpolationArg,
+        /// DAMF/ADM: name a warp mode in the output: the one the stream declares
+        /// (`stream`; a TrueHD stream declares none) or a given one. Without this
+        /// the output names none and Dolby's encoders write warping, which is not
+        /// what most E-AC-3 streams declare. See docs/dolby-tools.md.
+        #[arg(long, value_enum, value_name = "MODE")]
+        warp_mode: Option<WarpArg>,
         /// E-AC-3: write only the 5.1-compatible channels of the independent
         /// substream instead of the whole programme, which is what a decoder
         /// limited to 5.1 produces (clause E.2.8.2).
@@ -408,6 +414,7 @@ fn main() -> ExitCode {
                 adm_allow_non_profile_rate,
                 fps,
                 adm_interpolation,
+                warp_mode,
                 core_only,
                 no_dither,
                 no_tpnp,
@@ -423,6 +430,13 @@ fn main() -> ExitCode {
                 damf::check_interpolation(adm_interpolation.into(), dolby_origin_tag)
             }) {
                 Err(e)
+            } else if warp_mode.is_some() && !matches!(format, Format::Damf | Format::Adm) {
+                // Samples have nowhere to say it, and an option that reads as
+                // applied while changing nothing is the defect named below.
+                Err(anyhow::anyhow!(
+                    "--warp-mode names a warp mode in an object output: it applies to \
+                     --format damf or adm"
+                ))
             } else if (joc_lag.is_some() || joc_low_band.is_some() || joc_phase.is_some())
                 && !(eac3::is_eac3(&file).unwrap_or(false)
                     && matches!(format, Format::Damf | Format::Adm))
@@ -476,6 +490,7 @@ fn main() -> ExitCode {
                             allow_non_profile_rate: adm_allow_non_profile_rate,
                             fps: fps.clone(),
                             interpolation: adm_interpolation.into(),
+                            warp: warp_mode,
                             clip_gain: !no_clip_gain,
                             flat_quadrature,
                             sparse_as_printed,
@@ -522,6 +537,7 @@ fn main() -> ExitCode {
                         allow_non_profile_rate: adm_allow_non_profile_rate,
                         fps: fps.clone(),
                         interpolation: adm_interpolation.into(),
+                        warp: warp_mode,
                         // TrueHD carries no JOC, so neither of these apply.
                         clip_gain: false,
                         flat_quadrature: false,

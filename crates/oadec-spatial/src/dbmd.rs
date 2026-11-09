@@ -7,10 +7,14 @@
 //! `sum(payload) + size + checksum == 0 (mod 256)`, closed by a zero id.
 //! Segment 7 is constant; segment 9 carries the tool names and, at bytes
 //! 135–136, the bed channel mask (LE, bit i = channel i in L R C LFE Lss Rss
-//! Lrs Rrs Lfh Rfh Lts Rts Lrh Rrh Lw Rw order); segment 10 carries the
+//! Lrs Rrs Lfh Rfh Lts Rts Lrh Rrh Lw Rw order) and, at byte 152, the warp mode
+//! (0x84 for none, 0x80 plus the code, learned the same way from the Conversion
+//! Tool's `--set_warp_mode`); segment 10 carries the
 //! channel count, a constant block, one zero byte per channel and one flag
 //! byte per channel (0x80 for the LFE, 0x84 for every other channel). Bytes outside those fields are copied
 //! from the reference so that the Dolby tools read the chunk as Dolby Atmos.
+
+use crate::program::WarpMode;
 
 /// Chunk version.
 pub const VERSION: [u8; 4] = [0x06, 0x00, 0x00, 0x01];
@@ -66,9 +70,16 @@ fn put_string(dst: &mut [u8], text: &str) {
 
 /// Builds the chunk payload for a program whose bed channels are `bed_mask`
 /// (bit order as in the module documentation) and whose audio channels carry
-/// `lfe_flags[i] == true` when channel `i` is an LFE.
+/// `lfe_flags[i] == true` when channel `i` is an LFE, and which names `warp`
+/// when it has a warp mode to say.
 #[must_use]
-pub fn build(bed_mask: u16, lfe_flags: &[bool], creator: &str, tool: &str) -> Vec<u8> {
+pub fn build(
+    bed_mask: u16,
+    lfe_flags: &[bool],
+    creator: &str,
+    tool: &str,
+    warp: Option<WarpMode>,
+) -> Vec<u8> {
     let mut out = Vec::with_capacity(560);
     out.extend_from_slice(&VERSION);
     push_segment(&mut out, 7, &decode(SEGMENT_7));
@@ -76,6 +87,9 @@ pub fn build(bed_mask: u16, lfe_flags: &[bool], creator: &str, tool: &str) -> Ve
     put_string(&mut s9[0..32], creator);
     put_string(&mut s9[32..96], tool);
     s9[135..137].copy_from_slice(&bed_mask.to_le_bytes());
+    if let Some(w) = warp {
+        s9[152] = 0x80 | w.code();
+    }
     push_segment(&mut out, 9, &s9);
     let mut s10 = Vec::with_capacity(5 + 137 + 2 * lfe_flags.len());
     s10.extend_from_slice(&[0xBD, 0x6F, 0x72, 0xF8]);
@@ -100,7 +114,7 @@ mod tests {
         assert_eq!(decode(SEGMENT_9).len(), 248);
         assert_eq!(decode(SEGMENT_10_MIDDLE).len(), 137);
         let flags: Vec<bool> = (0..21).map(|i| i == 3).collect();
-        let d = build(0x0CFF, &flags, "Created using oadec", "oadec");
+        let d = build(0x0CFF, &flags, "Created using oadec", "oadec", None);
         assert_eq!(d.len(), 4 + (4 + 96) + (4 + 248) + (4 + 184) + 1);
         let mut pos = 4;
         while d[pos] != 0 {
@@ -114,5 +128,32 @@ mod tests {
         }
         assert_eq!(&d[4 + 100 + 3 + 135..4 + 100 + 3 + 137], &[0xFF, 0x0C]);
         assert!(d[4 + 100 + 3..].starts_with(b"Created using oadec"));
+    }
+
+    /// Byte 152 of segment 9 is the warp mode: the Conversion Tool writes 0x84
+    /// when it has none and 0x80 plus the code when told one, and the encoder
+    /// reads the code back into the stream. The segment's checksum follows.
+    #[test]
+    fn the_warp_mode_is_a_byte_of_segment_nine_under_its_checksum() {
+        const WARP: usize = 4 + 100 + 3 + 152;
+        let flags = [false, false, false, true];
+        let at = |warp| build(0x000F, &flags, "c", "t", warp)[WARP];
+        assert_eq!(at(None), 0x84, "not indicated");
+        assert_eq!(at(Some(WarpMode::Normal)), 0x80);
+        assert_eq!(at(Some(WarpMode::Warping)), 0x81);
+        assert_eq!(at(Some(WarpMode::ProLogicIIx)), 0x82);
+        assert_eq!(at(Some(WarpMode::LoRo)), 0x83);
+
+        let d = build(0x000F, &flags, "c", "t", Some(WarpMode::LoRo));
+        let start = 4 + 100;
+        assert_eq!(d[start], 9, "segment 9");
+        let size = usize::from(u16::from_le_bytes([d[start + 1], d[start + 2]]));
+        let sum = d[start + 3..start + 3 + size]
+            .iter()
+            .map(|&b| u32::from(b))
+            .sum::<u32>()
+            + size as u32
+            + u32::from(d[start + 3 + size]);
+        assert_eq!(sum & 0xFF, 0, "checksum of the changed segment");
     }
 }
