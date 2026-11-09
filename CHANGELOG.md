@@ -58,6 +58,20 @@ Semantic Versioning.
   key or the length of the word; E-AC-3 containers name key 0 in 13 heads and key
   1 in 20.
 
+- **The decoder buffer, modelled and checked against Dolby's encoder.** `verify`
+  models the TrueHD decoder buffer of Dolby's high-level description (section
+  2.7) and reports its peaks: the longest delay through it, the deepest each
+  substream and each decoder fills it against what they may, the fastest
+  delivery and where. What the description leaves open was measured against the
+  verification report Dolby's own TrueHD encoder prints: on five encodes (48 and
+  96 kHz, two to four substreams, objects) every figure of the report comes out
+  the same, the unit each peak is first reached at included. The bounds are
+  warnings: delay over 75 ms or under one frame, a substream over 15 000 bytes a
+  channel, the stream over the 120 000 bytes every decoder has, delivery over the
+  declared peak or over 18 Mbit/s. On real material they fire only where the
+  stream is already damaged. `verify --trace-fifo FILE` writes, per unit, what it
+  puts into the buffer and when. `tools/fifo_oracle.py` repeats the comparison.
+
 ### Changed
 
 - `verify --decode` counts what `decode` counts against its verdict and it did

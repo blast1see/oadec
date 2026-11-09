@@ -178,7 +178,7 @@ pub fn join_stream_check(
 }
 
 /// How `verify` judges a TrueHD stream and how much of what it found it lists.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Options {
     /// Machine-readable JSON instead of text.
     pub json: bool,
@@ -189,6 +189,8 @@ pub struct Options {
     /// Findings listed in full per rule (0 lists every one); counts are
     /// never limited.
     pub max_per_rule: usize,
+    /// Where to write the decoder-buffer trace, one row per access unit.
+    pub trace_fifo: Option<std::path::PathBuf>,
 }
 
 impl Default for Options {
@@ -198,8 +200,46 @@ impl Default for Options {
             decode: false,
             fail_on: Severity::Error,
             max_per_rule: Tally::DEFAULT_MAX_PER_RULE,
+            trace_fifo: None,
         }
     }
+}
+
+/// Writes what every unit puts into the decoder buffer as CSV.
+fn write_trace(path: &Path, layouts: &[oadec_truehd::buffer::UnitLayout]) -> Result<()> {
+    use std::io::Write as _;
+    let mut w = std::io::BufWriter::new(std::fs::File::create(path)?);
+    writeln!(
+        w,
+        "unit,offset,bytes,input_timing,major_sync,dir0,dir1,dir2,dir3,ss0,ss1,ss2,ss3,extra,out0,out1,out2,out3"
+    )?;
+    for l in layouts {
+        let ot = |i: usize| l.output_timing[i].map_or_else(String::new, |v| v.to_string());
+        writeln!(
+            w,
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            l.index,
+            l.offset,
+            l.len_bytes,
+            l.input_timing,
+            l.major_sync_bytes,
+            l.directory_bytes[0],
+            l.directory_bytes[1],
+            l.directory_bytes[2],
+            l.directory_bytes[3],
+            l.substream_bytes[0],
+            l.substream_bytes[1],
+            l.substream_bytes[2],
+            l.substream_bytes[3],
+            l.extra_bytes,
+            ot(0),
+            ot(1),
+            ot(2),
+            ot(3)
+        )?;
+    }
+    w.flush()?;
+    Ok(())
 }
 
 /// Records what the decodes of `verify --decode` found as findings.
@@ -307,6 +347,73 @@ fn location_json(scan: &scan::Scan, at: &Location) -> Value {
         "substream": at.substream,
         "seconds": at.unit.and_then(|u| seconds_at(scan, u)),
     })
+}
+
+/// The `buffer` object of `verify --json`: the decoder-buffer model's peaks.
+fn buffer_json(scan: &scan::Scan) -> Value {
+    let (Some(m), Some(cfg)) = (&scan.fifo, &scan.config) else {
+        return Value::Null;
+    };
+    let fs = f64::from(cfg.sampling_frequency);
+    let substreams = usize::from(cfg.substreams).min(4);
+    json!({
+        "model": "docs/truehd.md, Decoder buffer",
+        "max_latency": {
+            "samples": m.max_latency.value,
+            "ms": m.max_latency.value as f64 * 1000.0 / fs,
+            "unit": m.max_latency.unit,
+        },
+        "min_latency": m.min_latency.map(|(v, u)| json!({"samples": v, "unit": u})),
+        "max_data_rate": {"bps": m.max_rate.value, "unit": m.max_rate.unit},
+        "substreams": (0..substreams).map(|s| json!({
+            "depth": m.depth[s].value,
+            "unit": m.depth[s].unit,
+            "allowed": m.allowed(s),
+        })).collect::<Vec<_>>(),
+        "decoders": (0..4).filter(|&p| m.decoder_mask(p) != 0).map(|p| json!({
+            "presentation": p,
+            "substream_mask": m.decoder_mask(p),
+            "depth": m.depth[4 + p].value,
+            "unit": m.depth[4 + p].unit,
+        })).collect::<Vec<_>>(),
+        "whole_stream": {
+            "depth": m.depth[8].value,
+            "unit": m.depth[8].unit,
+            "buffer_every_decoder_has": oadec_truehd::buffer::MIN_FIFO_BYTES,
+        },
+        "restarts": m.restarts,
+    })
+}
+
+/// The `Buffer:` lines of the text report.
+fn print_buffer(scan: &scan::Scan) {
+    let (Some(m), Some(cfg)) = (&scan.fifo, &scan.config) else {
+        return;
+    };
+    let fs = f64::from(cfg.sampling_frequency);
+    println!(
+        "Buffer:            delay up to {} samples ({:.1} ms, au {}); delivery up to {:.3} Mbit/s (au {})",
+        m.max_latency.value,
+        m.max_latency.value as f64 * 1000.0 / fs,
+        m.max_latency.unit,
+        m.max_rate.value as f64 / 1e6,
+        m.max_rate.unit
+    );
+    let substreams = usize::from(cfg.substreams).min(4);
+    let depths = (0..substreams)
+        .map(|s| format!("{}/{}", m.depth[s].value, m.allowed(s)))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let decoders = (0..4)
+        .filter(|&p| m.decoder_mask(p) != 0)
+        .map(|p| format!("p{p} {}", m.depth[4 + p].value))
+        .collect::<Vec<_>>()
+        .join(", ");
+    println!(
+        "                   substream depth {depths} bytes; decoders {decoders}; stream {}/{} bytes",
+        m.depth[8].value,
+        oadec_truehd::buffer::MIN_FIFO_BYTES
+    );
 }
 
 /// The `diagnostics` object of `verify --json`.
@@ -532,7 +639,10 @@ fn print_diagnostics(scan: &scan::Scan, fail_on: Severity) {
 /// checks join the verdict.
 pub fn run(path: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
-    let mut scan = scan::scan_with(path, opts.max_per_rule)?;
+    let mut scan = scan::scan_keeping(path, opts.max_per_rule, opts.trace_fifo.is_some())?;
+    if let (Some(out), Some(layouts)) = (&opts.trace_fifo, &scan.layouts) {
+        write_trace(out, layouts)?;
+    }
     if scan.units == 0 {
         // Nothing framed: the file is not a stream to judge but an unsupported
         // input, exit 2, as it is for every command that reports one.
@@ -575,6 +685,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         let mut value = serde_json::to_value(&scan)?;
         value["lossless_checks"] = serde_json::to_value(&checks)?;
         value["diagnostics"] = diagnostics_json(&scan, opts.fail_on);
+        value["buffer"] = buffer_json(&scan);
         value["clean"] = serde_json::json!(clean);
         value["seconds"] = serde_json::json!(elapsed);
         value["realtime_factor"] = serde_json::json!(speed);
@@ -718,6 +829,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
                 b.data_rate
             );
         }
+        print_buffer(&scan);
         print_diagnostics(&scan, opts.fail_on);
         if let Some(err) = &scan.first_error {
             println!("First error:       {err}");

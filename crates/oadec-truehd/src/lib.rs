@@ -10,6 +10,7 @@
 
 pub mod au;
 pub mod block;
+pub mod buffer;
 pub mod channel;
 pub mod damage;
 pub mod decoder;

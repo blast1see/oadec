@@ -30,6 +30,7 @@ const CENSUS: &str =
     "docs/audit/evidence/verification-upgrade-2026-11/04-integrity-rule-census.json";
 const PROTECTION: &str =
     "docs/audit/evidence/verification-upgrade-2026-11/05-protection-census.json";
+const FIFO: &str = "docs/audit/evidence/verification-upgrade-2026-11/06-fifo-model.json";
 
 /// Where a rule comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -426,6 +427,54 @@ catalog! {
         legacy: None,
         summary: "an Evolution container codes its primary protection length as 00, which ETSI TS 102 366 reserves",
         provenance: [spec(TS_102_366, "H.2.2.4.1, Table H.2.5"), measured(PROTECTION)],
+    },
+    /// A substream's depth in the decoder buffer.
+    BufferSubstreamDepth {
+        id: "buffer.substream_depth",
+        severity: Warning,
+        legacy: None,
+        summary: "a substream fills the decoder buffer beyond 15 000 bytes for each channel its restart header spans",
+        provenance: [measured(FIFO)],
+    },
+    /// The whole stream's depth in the decoder buffer.
+    BufferStreamDepth {
+        id: "buffer.stream_depth",
+        severity: Warning,
+        legacy: None,
+        summary: "the stream fills the decoder buffer beyond the 120 000 bytes every decoder has",
+        provenance: [spec(DOLBY_HL, "2.7"), measured(FIFO)],
+    },
+    /// The delay through the buffer, upper bound.
+    BufferLatencyOver75ms {
+        id: "buffer.latency_over_75ms",
+        severity: Warning,
+        legacy: None,
+        summary: "an access unit waits more than 75 ms in the decoder buffer before its output",
+        provenance: [measured(FIFO), secondary("the bound Dolby's TrueHD encoder writes to (74.2 ms in its report) and states in its messages")],
+    },
+    /// The delay through the buffer, lower bound.
+    BufferLatencyUnderFrame {
+        id: "buffer.latency_under_frame",
+        severity: Warning,
+        legacy: None,
+        summary: "an access unit arrives less than one frame before its output",
+        provenance: [measured(FIFO), secondary("a bound Dolby's TrueHD encoder states in its messages")],
+    },
+    /// Delivery over the declared peak.
+    RateOverDeclaredPeak {
+        id: "rate.over_declared_peak",
+        severity: Warning,
+        legacy: None,
+        summary: "an access unit is delivered faster than the peak data rate its major sync declares",
+        provenance: [spec(DOLBY_HL, "2.7, 4.2"), measured(FIFO)],
+    },
+    /// Delivery over the format's ceiling.
+    RateOverCeiling {
+        id: "rate.over_ceiling",
+        severity: Warning,
+        legacy: None,
+        summary: "an access unit is delivered faster than 18 Mbit/s",
+        provenance: [spec(DOLBY_HL, "2.7"), measured(FIFO)],
     },
     /// `verify --decode`: the lossless check word.
     DecodeLosslessCheck {

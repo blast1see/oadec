@@ -214,3 +214,37 @@ audio. `crates/oadec-cli/tests/cli_rules.rs` checks the reading against the
 decoder: a damaged and an undamaged copy decode identically outside the region,
 and a presentation that reads no damaged substream decodes identically
 everywhere.
+
+## Decoder buffer
+
+Dolby's high-level description (section 2.7) gives the model: an access unit
+enters the decoder's buffer whole at its `input_timing`, and the data of a
+frame leaves when the frame's output comes -- the `output_timing` of the
+restart headers at a major sync, one frame later for each unit after it. The
+encoder keeps the buffer from running over or under, holds the delay through
+it, and keeps the delivery within the peak data rate; every decoder has at
+least 120 000 bytes of buffer, and no unit is delivered faster than
+18 Mbit/s.
+
+What the description leaves open was measured against the verification report
+Dolby's own TrueHD encoder prints for each stream it writes
+(`docs/audit/evidence/verification-upgrade-2026-11/06-fifo-model.json`,
+`tools/fifo_oracle.py`):
+
+* a unit leaves one frame after its output time;
+* the delay through the buffer is the output time less the input time;
+* a substream's depth counts its segments; a decoder's depth counts the
+  segments and directory entries of the substreams it reads, plus the header,
+  major sync and extra data of every unit;
+* a substream may fill 15 000 bytes for each channel its restart header spans,
+  as the encoder's report states for every substream;
+* a unit's delivery rate is its bits over the input interval to the next unit,
+  and the peak is the first unit that reaches it.
+
+On five encodes -- 48 and 96 kHz, two to four substreams, objects, a
+rate-optimised encode -- every figure of the report comes out the same.
+`verify` prints the peaks (`Buffer:`; `buffer` in `--json`) and judges the
+bounds as warnings: delay over 75 ms or under one frame, a substream or the
+stream over its allowance, delivery over the declared peak or over 18 Mbit/s.
+On real material they fire only inside damage regions. `verify --trace-fifo
+FILE` writes what every unit puts into the buffer and when, as CSV.

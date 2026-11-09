@@ -277,6 +277,12 @@ pub struct Scan {
     /// to be held to.
     #[serde(skip)]
     program_from_sync: Option<oadec_spatial::Program>,
+    /// What each unit puts into the decoder buffer, kept when asked for.
+    #[serde(skip)]
+    pub layouts: Option<Vec<oadec_truehd::buffer::UnitLayout>>,
+    /// The decoder buffer, unit by unit.
+    #[serde(skip)]
+    pub fifo: Option<oadec_truehd::buffer::BufferModel>,
 }
 
 /// The findings of a pass and the damage they describe.
@@ -328,6 +334,45 @@ fn fault(
 ) {
     failures.bump(rule, 1);
     diag.add(rule, at, 1, message);
+}
+
+/// The rule a finding of the buffer model falls under.
+fn excess_rule(excess: &oadec_truehd::buffer::Excess) -> RuleId {
+    use oadec_truehd::buffer::Excess;
+    match excess {
+        Excess::SubstreamDepth { .. } => RuleId::BufferSubstreamDepth,
+        Excess::StreamDepth { .. } => RuleId::BufferStreamDepth,
+        Excess::LatencyOver75ms { .. } => RuleId::BufferLatencyOver75ms,
+        Excess::LatencyUnderFrame { .. } => RuleId::BufferLatencyUnderFrame,
+        Excess::RateOverDeclared { .. } => RuleId::RateOverDeclaredPeak,
+        Excess::RateOverCeiling { .. } => RuleId::RateOverCeiling,
+    }
+}
+
+/// A finding of the buffer model, in words.
+fn excess_text(excess: &oadec_truehd::buffer::Excess, fs: u32) -> String {
+    use oadec_truehd::buffer::Excess;
+    let ms = |samples: u64| samples as f64 * 1000.0 / f64::from(fs);
+    match *excess {
+        Excess::SubstreamDepth {
+            substream,
+            depth,
+            allowed,
+        } => format!("substream {substream} holds {depth} bytes, {allowed} allowed"),
+        Excess::StreamDepth { depth } => {
+            format!("the stream holds {depth} bytes, the buffer every decoder has is 120000")
+        }
+        Excess::LatencyOver75ms { samples } => {
+            format!("{samples} samples ({:.1} ms) in the buffer", ms(samples))
+        }
+        Excess::LatencyUnderFrame { samples } => {
+            format!("{samples} samples in the buffer, less than one frame")
+        }
+        Excess::RateOverDeclared { bps, declared } => {
+            format!("delivered at {bps} bit/s, {declared} declared")
+        }
+        Excess::RateOverCeiling { bps } => format!("delivered at {bps} bit/s"),
+    }
 }
 
 /// Whether a major sync at access unit `index` is one of the two a bitstream
@@ -401,6 +446,8 @@ impl Scan {
             diag: Diagnostics::new(max_per_rule),
             branches_judged: 0,
             program_from_sync: None,
+            layouts: None,
+            fifo: None,
         }
     }
 
@@ -757,7 +804,52 @@ impl Scan {
         if let Some(model) = &mut self.timing {
             model.begin_unit(au.header.input_timing, u32::from(au.header.length_words));
         }
-        self.take_segments(&au, unit, index);
+        let mut layout = oadec_truehd::buffer::UnitLayout {
+            index,
+            offset: unit.offset,
+            len_bytes: unit.bytes.len() as u32,
+            input_timing: au.header.input_timing,
+            major_sync_bytes: au.major_sync.as_ref().map_or(0, |m| m.len_bytes as u32),
+            extra_bytes: (unit.bytes.len() - au.segments_end()) as u32,
+            substreams: config.substreams,
+            ..Default::default()
+        };
+        for (i, e) in au.directory.iter().enumerate().take(4) {
+            layout.directory_bytes[i] = if e.extra_word { 4 } else { 2 };
+            layout.substream_bytes[i] = au.segment_range(i).len() as u32;
+        }
+        self.take_segments(&au, unit, index, &mut layout);
+        if let Some(ms) = &au.major_sync {
+            let peak = ms.peak_bit_rate().unwrap_or(0);
+            match &mut self.fifo {
+                Some(model) => model.set_declared_peak(peak),
+                None => {
+                    let masks = core::array::from_fn(|p| {
+                        if config.presentations.is_carried(p) {
+                            config.presentations.mask(p)
+                        } else {
+                            0
+                        }
+                    });
+                    self.fifo = Some(oadec_truehd::buffer::BufferModel::new(
+                        config.sampling_frequency,
+                        config.samples_per_au,
+                        peak,
+                        masks,
+                    ));
+                }
+            }
+        }
+        if let Some(model) = &mut self.fifo {
+            for excess in model.take(&layout) {
+                self.diag.tally.add(excess_rule(&excess), at_unit, 1, || {
+                    excess_text(&excess, config.sampling_frequency)
+                });
+            }
+        }
+        if let Some(layouts) = &mut self.layouts {
+            layouts.push(layout);
+        }
         if let Some(model) = &mut self.timing {
             model.end_unit();
             let stats = &mut self.timing_stats;
@@ -843,7 +935,13 @@ impl Scan {
     }
 
     /// Parses every substream segment of one access unit and tallies the results.
-    fn take_segments(&mut self, au: &AccessUnit, unit: &Unit, index: u64) {
+    fn take_segments(
+        &mut self,
+        au: &AccessUnit,
+        unit: &Unit,
+        index: u64,
+        layout: &mut oadec_truehd::buffer::UnitLayout,
+    ) {
         let Some(parser) = self.parser.as_mut() else {
             return;
         };
@@ -907,6 +1005,8 @@ impl Scan {
             let f = &mut self.failures;
             let d = &mut self.diag;
             if let Some(rh) = seg.blocks.first().and_then(|b| b.restart.as_ref()) {
+                layout.output_timing[i] = Some(rh.output_timing);
+                layout.restart_channels[i] = Some(rh.max_chan.saturating_sub(rh.min_chan) + 1);
                 match unit_output_timing {
                     Some(first) if first != rh.output_timing && !timing_disagrees => {
                         timing_disagrees = true;
@@ -1118,7 +1218,16 @@ pub fn scan(path: &Path) -> Result<Scan> {
 /// Scans a whole file, listing up to `max_per_rule` findings of each rule in
 /// full (0 lists all). The limit never changes a count or a verdict.
 pub fn scan_with(path: &Path, max_per_rule: usize) -> Result<Scan> {
+    scan_keeping(path, max_per_rule, false)
+}
+
+/// Like [`scan_with`], also keeping what every unit puts into the decoder
+/// buffer when `keep_layouts` is set.
+pub fn scan_keeping(path: &Path, max_per_rule: usize, keep_layouts: bool) -> Result<Scan> {
     let mut scan = Scan::new(path, max_per_rule);
+    if keep_layouts {
+        scan.layouts = Some(Vec::new());
+    }
     let mut since_major_sync = 0u64;
     let summary = input::for_each_unit(path, |unit| {
         scan.take_unit(&unit, &mut since_major_sync);

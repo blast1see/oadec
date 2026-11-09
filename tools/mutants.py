@@ -341,6 +341,23 @@ MUTANTS = [
      'crates/oadec-emdf/src/container.rs',
      'let secondary_len = PROTECTION_SIZES[usize::from(secondary_code)];',
      'let secondary_len = PROTECTION_SIZES[usize::from(primary_code)];'),
+    # --- verification upgrade: the decoder buffer --------------------------
+    ('a unit leaves the buffer at its output time, not a frame later',
+     'crates/oadec-truehd/src/buffer.rs',
+     'self.live.push(Reverse((output + self.spa, add)));',
+     'self.live.push(Reverse((output, add)));'),
+    ('the allowance of a substream, 10 000 bytes a channel',
+     'crates/oadec-truehd/src/buffer.rs',
+     '    15_000 * channels',
+     '    10_000 * channels'),
+    ('the 75 ms bound, 3 samples in 41 instead of 40',
+     'crates/oadec-truehd/src/buffer.rs',
+     'if latency * 40 > self.fs * 3 {',
+     'if latency * 41 > self.fs * 3 {'),
+    ('a rate judged after rounding instead of exactly',
+     'crates/oadec-truehd/src/buffer.rs',
+     'if self.declared_peak_bps > 0 && bits_fs > self.declared_peak_bps * interval {',
+     'if self.declared_peak_bps > 0 && bps > self.declared_peak_bps + 1 {'),
 ]
 
 

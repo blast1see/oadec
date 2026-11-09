@@ -79,6 +79,10 @@ enum Command {
         /// counts and the verdict never change with it.
         #[arg(long, value_name = "N")]
         max_per_rule: Option<usize>,
+        /// TrueHD: write what every access unit puts into the decoder buffer,
+        /// and when, as CSV.
+        #[arg(long, value_name = "FILE")]
+        trace_fifo: Option<PathBuf>,
     },
     /// Print one access unit of a TrueHD stream field by field, with where each
     /// part sits in the file: the place a finding of verify points to, opened up.
@@ -412,10 +416,11 @@ fn main() -> ExitCode {
                 decode,
                 fail_on,
                 max_per_rule,
+                trace_fifo,
             } => eac3::is_eac3(&file)
                 .and_then(|is| {
                     if is {
-                        if fail_on.is_some() || max_per_rule.is_some() {
+                        if fail_on.is_some() || max_per_rule.is_some() || trace_fifo.is_some() {
                             // An option that reads as applied while changing
                             // nothing is the defect named below: E-AC-3 checks
                             // have no rule catalog yet.
@@ -436,6 +441,7 @@ fn main() -> ExitCode {
                                     .and_then(Severity::from_name)
                                     .unwrap_or(Severity::Error),
                                 max_per_rule: max_per_rule.unwrap_or(Tally::DEFAULT_MAX_PER_RULE),
+                                trace_fifo,
                             },
                         )
                     }

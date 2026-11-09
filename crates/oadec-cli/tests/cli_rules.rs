@@ -649,3 +649,40 @@ fn a_reserved_protection_length_is_reported() {
     assert_eq!(report["extra"]["protection"]["reserved_primary_code"], 1);
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// The decoder-buffer peaks are reported and hang together, and the trace
+/// has a row for every access unit.
+#[test]
+fn the_decoder_buffer_is_reported_and_traced() {
+    let dir = temp("buffer");
+    let trace = dir.join("trace.csv");
+    let clip = fixture("authored-scene.mlp");
+    let out = oadec(&[
+        "verify",
+        "--json",
+        "--trace-fifo",
+        trace.to_str().unwrap(),
+        clip.to_str().unwrap(),
+    ]);
+    assert_eq!(out.status.code(), Some(0));
+    let report: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let b = &report["buffer"];
+    let units = report["units"].as_u64().unwrap();
+    let whole = b["whole_stream"]["depth"].as_u64().unwrap();
+    assert!(whole > 0 && whole <= 120_000, "{b}");
+    for d in b["decoders"].as_array().unwrap() {
+        assert!(d["depth"].as_u64().unwrap() <= whole, "{b}");
+    }
+    for s in b["substreams"].as_array().unwrap() {
+        assert!(
+            s["depth"].as_u64().unwrap() <= s["allowed"].as_u64().unwrap(),
+            "{b}"
+        );
+    }
+    let latency = b["max_latency"]["samples"].as_u64().unwrap();
+    assert!((40..=3600).contains(&latency), "{b}");
+    assert!(b["max_data_rate"]["unit"].as_u64().unwrap() < units);
+    let rows = std::fs::read_to_string(&trace).unwrap().lines().count() as u64;
+    assert_eq!(rows, units + 1, "a header and one row a unit");
+    std::fs::remove_dir_all(&dir).ok();
+}
