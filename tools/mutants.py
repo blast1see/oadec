@@ -295,6 +295,27 @@ MUTANTS = [
      'crates/oadec-truehd/src/extract.rs',
      'let has_major_sync = pattern.is_some() && pattern == self.format_sync;',
      'let has_major_sync = pattern.is_some();'),
+    # --- verification upgrade: rules, findings, regions --------------------
+    ('the default threshold of verify raised to fatal',
+     'crates/oadec-cli/src/main.rs',
+     '.unwrap_or(Severity::Error),',
+     '.unwrap_or(Severity::Fatal),'),
+    ('a finding that bumps no counter',
+     'crates/oadec-cli/src/scan.rs',
+     '    failures.bump(rule, 1);',
+     ''),
+    ('a listing limit that caps the count as well',
+     'crates/oadec-truehd/src/diag.rs',
+     '                t.count += 1;',
+     '                if limit == 0 || t.listed.len() < limit {\n                    t.count += 1;\n                }'),
+    ('any restart ends the damage of every substream',
+     'crates/oadec-truehd/src/damage.rs',
+     'open.damaged &= !(1u8 << substream);',
+     'open.damaged = 0;'),
+    ('a restart in a faulted segment ends its own damage',
+     'crates/oadec-cli/src/scan.rs',
+     'if seg.has_restart && clean_segment {',
+     'if seg.has_restart {'),
 ]
 
 

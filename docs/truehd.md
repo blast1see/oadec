@@ -186,3 +186,31 @@ engine agree on **all 40 606 400 samples**, zero lag, no sample different at
   zero. TrueHD invents nothing at decode time, so two correct decoders have
   nothing to differ about. `docs/dolby-tools.md` has the pipeline and
   `docs/evidence/2026-09-10.md` the numbers.
+
+## Diagnostics
+
+Every check `verify` makes is a rule in [`conformance-rules.md`](conformance-rules.md):
+a stable name, a default severity, and the source the rule rests on. The
+severity follows the source. A clause of Dolby's high-level description, a
+measurement recorded under `docs/audit/evidence/`, or a clause of the ETSI
+specifications for the metadata may fail a stream; a rule that only another
+implementation states warns at most.
+
+A finding carries its place: the access unit (counted as `verify` counts them),
+the byte offset, the substream, and for a segment that does not parse the bit
+the reader stood at when it gave up -- the end of the last field it read. Time
+is the unit index times the samples per unit, so it is nominal: a gap or a
+branch earlier in the stream is not accounted for.
+
+A damage region follows from how the format restarts. A substream is decoded
+from its restart headers on, and a restart header re-initialises everything its
+decoding carries, so a fault in a substream leaves it untrustworthy until that
+substream's next restart header, and a presentation is damaged where any
+substream it reads is. A fault in the access unit as a whole damages every
+substream. Bytes the extractor passed over are lost, and the unit it found sync
+again at carries a major sync and so is a clean entry point by itself. A fault
+in the extra data damages the object metadata of that unit and none of the
+audio. `crates/oadec-cli/tests/cli_rules.rs` checks the reading against the
+decoder: a damaged and an undamaged copy decode identically outside the region,
+and a presentation that reads no damaged substream decodes identically
+everywhere.

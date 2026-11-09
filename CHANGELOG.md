@@ -6,6 +6,33 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **Every check `verify` makes on TrueHD is a named rule** (`sync.crc`,
+  `segment.parity`, `timing.invalid_branch` ...) with a default severity and the
+  source it rests on: a clause of a public specification, a measurement in the
+  repository, or another implementation. `oadec rules` lists them and explains
+  one; `docs/conformance-rules.md` is the catalog rendered, and tests hold the
+  catalog to its own policy (a rule only another implementation states cannot
+  fail a stream by default) and the document to the catalog.
+- **A finding says where it is**: access unit, byte offset and, for a segment that
+  does not parse, the bit the reader stopped at; the substream; and the time.
+  `verify` lists the findings of each rule (`--max-per-rule`, default 20) and a
+  per-rule summary before the verdict; `verify --json` carries them under
+  `diagnostics`. Every counter `verify --json` has always reported is a rule
+  whose findings add up to it, which a test checks on five kinds of damage.
+- **Damage regions**: which stretch of the programme each fault leaves
+  untrustworthy, which presentations it reaches, and the first access unit where
+  the stream is clean again. A substream is untrustworthy until its own next
+  restart header; a test decodes a damaged and an undamaged copy and finds the
+  differences exactly inside the region, and none in a presentation outside it.
+  On a full title with real damage the regions end at its seamless branches.
+- `verify --fail-on <info|warning|error|fatal>` sets the threshold of the
+  verdict. The default, `error`, is the verdict `verify` has always given. The
+  rule options are refused on E-AC-3, which has no catalog yet.
+- `oadec au FILE --index N` prints one access unit field by field, with where
+  each part sits: the place a finding points to, opened up.
+
 ### Fixed
 
 - **The DVD-Audio sync pattern inside a damaged TrueHD stream no longer ends the

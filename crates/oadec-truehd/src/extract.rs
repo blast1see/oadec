@@ -27,6 +27,29 @@ pub struct Unit {
     pub has_major_sync: bool,
     /// Sync was (re)acquired at this access unit.
     pub resynced: bool,
+    /// What the extractor passed over between the previous unit and this one.
+    pub gap_before: Option<Gap>,
+}
+
+/// Bytes the extractor passed over between two access units: where the
+/// damage it recovered from is.
+///
+/// The extractor counts what it skips over the whole stream; a gap says where
+/// each run of it was, so a report can point at the place rather than give a
+/// total. Summed over every unit and [`Extractor::take_gap`], the fields equal
+/// the matching [`ExtractStats`] counters.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Gap {
+    /// Stream offset of the first byte passed over.
+    pub offset: u64,
+    /// Bytes skipped.
+    pub bytes: u64,
+    /// Major syncs among them whose CRC-16 failed.
+    pub major_sync_crc_failures: u64,
+    /// Sync patterns of the other format among them.
+    pub foreign_syncs: u64,
+    /// Times sync was found again after it was lost here.
+    pub resyncs: u64,
 }
 
 /// Extraction statistics.
@@ -61,6 +84,8 @@ pub struct Extractor {
     ever_locked: bool,
     /// The sync pattern of the stream, from the first major sync locked onto.
     format_sync: Option<u32>,
+    /// What has been passed over since the last unit handed out.
+    gap: Option<Gap>,
     /// Statistics so far.
     pub stats: ExtractStats,
 }
@@ -87,8 +112,34 @@ impl Extractor {
             substreams: None,
             ever_locked: false,
             format_sync: None,
+            gap: None,
             stats: ExtractStats::default(),
         }
+    }
+
+    /// What has been passed over since the last unit handed out, if anything:
+    /// after [`Extractor::finish`], the damage at the end of the stream that
+    /// no unit followed.
+    pub fn take_gap(&mut self) -> Option<Gap> {
+        self.gap.take()
+    }
+
+    /// The gap being built, opened at the current position if there is none.
+    fn gap_here(&mut self) -> &mut Gap {
+        let offset = self.base + self.pos as u64;
+        self.gap.get_or_insert(Gap {
+            offset,
+            ..Gap::default()
+        })
+    }
+
+    fn note_crc_failure(&mut self) {
+        self.stats.major_sync_crc_failures += 1;
+        self.gap_here().major_sync_crc_failures += 1;
+    }
+
+    fn note_foreign_in_gap(&mut self) {
+        self.gap_here().foreign_syncs += 1;
     }
 
     /// Appends stream bytes.
@@ -122,7 +173,9 @@ impl Extractor {
 
     fn skip_to(&mut self, new_pos: usize) {
         if new_pos > self.pos {
-            self.stats.skipped_bytes += (new_pos - self.pos) as u64;
+            let n = (new_pos - self.pos) as u64;
+            self.stats.skipped_bytes += n;
+            self.gap_here().bytes += n;
             self.pos = new_pos;
         }
     }
@@ -158,6 +211,7 @@ impl Extractor {
                     return Err(Error::UnsupportedFbb);
                 }
                 self.stats.foreign_syncs += 1;
+                self.note_foreign_in_gap();
                 self.skip_to(sync_at + 1);
                 continue;
             }
@@ -170,7 +224,7 @@ impl Extractor {
                     return Ok(true);
                 }
                 Ok(_) => {
-                    self.stats.major_sync_crc_failures += 1;
+                    self.note_crc_failure();
                     self.skip_to(sync_at + 1);
                 }
                 Err(_) => self.skip_to(sync_at + 1),
@@ -214,6 +268,7 @@ impl Extractor {
                 resynced = self.ever_locked;
                 if self.ever_locked {
                     self.stats.resyncs += 1;
+                    self.gap_here().resyncs += 1;
                 }
                 self.ever_locked = true;
             }
@@ -234,7 +289,8 @@ impl Extractor {
             let mut major_sync_len = 0;
             let pattern = MajorSync::pattern_at(&self.buf[start + 4..]);
             let has_major_sync = pattern.is_some() && pattern == self.format_sync;
-            if pattern.is_some() && !has_major_sync {
+            let foreign = pattern.is_some() && !has_major_sync;
+            if foreign {
                 self.stats.foreign_syncs += 1;
             }
             if has_major_sync {
@@ -244,7 +300,7 @@ impl Extractor {
                         self.substreams = Some(ms.substreams);
                     }
                     Ok(_) => {
-                        self.stats.major_sync_crc_failures += 1;
+                        self.note_crc_failure();
                         self.locked = false;
                         self.skip_to(start + 1);
                         continue;
@@ -257,6 +313,9 @@ impl Extractor {
                 }
             }
             if !self.header_parity_ok(start, len, major_sync_len) {
+                if foreign {
+                    self.note_foreign_in_gap();
+                }
                 self.locked = false;
                 self.skip_to(start + 1);
                 continue;
@@ -272,6 +331,7 @@ impl Extractor {
                 bytes,
                 has_major_sync,
                 resynced,
+                gap_before: self.gap.take(),
             }));
         }
     }
@@ -361,6 +421,53 @@ mod tests {
             ex.stats.skipped_bytes,
             (units[1].len() + units[2].len()) as u64
         );
+    }
+
+    #[test]
+    fn a_gap_says_where_the_skipped_bytes_were_and_adds_up_to_the_totals() {
+        let (bytes, units) = stream();
+        let mut data = vec![0x11u8; 3]; // leading garbage
+        data.extend_from_slice(&bytes);
+        let second = 3 + units[0].len();
+        data[second + 3] ^= 0x01; // the second unit fails its parity
+        data.extend_from_slice(&units[0]);
+        let mut ex = Extractor::new();
+        ex.push(&data);
+        let mut got = Vec::new();
+        while let Some(u) = ex.next_unit().unwrap() {
+            got.push(u);
+        }
+        let (rest, trailing) = ex.finish().unwrap();
+        got.extend(rest);
+        assert_eq!(trailing, 0);
+        assert_eq!(got.len(), 2);
+        assert_eq!(
+            got[0].gap_before,
+            Some(Gap {
+                offset: 0,
+                bytes: 3,
+                ..Gap::default()
+            })
+        );
+        assert_eq!(
+            got[1].gap_before,
+            Some(Gap {
+                offset: second as u64,
+                bytes: (units[1].len() + units[2].len()) as u64,
+                resyncs: 1,
+                ..Gap::default()
+            })
+        );
+        let gaps: Vec<Gap> = got.iter().filter_map(|u| u.gap_before).collect();
+        assert_eq!(
+            gaps.iter().map(|g| g.bytes).sum::<u64>(),
+            ex.stats.skipped_bytes
+        );
+        assert_eq!(
+            gaps.iter().map(|g| g.resyncs).sum::<u64>(),
+            ex.stats.resyncs
+        );
+        assert_eq!(ex.take_gap(), None);
     }
 
     #[test]

@@ -81,12 +81,59 @@ impl Segment {
         substream: usize,
         crc_present: bool,
         buf: &mut SampleBuffer,
-        mut on_block: F,
+        on_block: F,
     ) -> Result<Self>
     where
         F: FnMut(&Block, &ParserState, &SampleBuffer) -> Result<()>,
     {
         let mut reader = BitReader::new(bytes);
+        Self::parse_inner(
+            &mut reader,
+            bytes,
+            state,
+            substream,
+            crc_present,
+            buf,
+            on_block,
+        )
+    }
+
+    /// Like [`Segment::parse`], and when the segment does not parse, also says
+    /// at which bit of the segment the reader stood: the end of the last field
+    /// it read, which is where a report should point. The error is the one
+    /// [`Segment::parse`] returns, unchanged.
+    pub fn parse_located(
+        bytes: &[u8],
+        state: &mut ParserState,
+        substream: usize,
+        crc_present: bool,
+        buf: &mut SampleBuffer,
+    ) -> core::result::Result<Self, (Error, usize)> {
+        let mut reader = BitReader::new(bytes);
+        Self::parse_inner(
+            &mut reader,
+            bytes,
+            state,
+            substream,
+            crc_present,
+            buf,
+            |_, _, _| Ok(()),
+        )
+        .map_err(|e| (e, reader.position()))
+    }
+
+    fn parse_inner<F>(
+        reader: &mut BitReader<'_>,
+        bytes: &[u8],
+        state: &mut ParserState,
+        substream: usize,
+        crc_present: bool,
+        buf: &mut SampleBuffer,
+        mut on_block: F,
+    ) -> Result<Self>
+    where
+        F: FnMut(&Block, &ParserState, &SampleBuffer) -> Result<()>,
+    {
         let expected_end = bytes.len() * 8;
         buf.clear();
         state.substream[substream].crc_present = crc_present;
@@ -101,7 +148,7 @@ impl Segment {
                     "substream {substream}: more than {MAX_BLOCKS} blocks in a segment"
                 )));
             }
-            let block = Block::parse(&mut reader, state, substream, buf)?;
+            let block = Block::parse(reader, state, substream, buf)?;
             seg.has_restart |= block.restart.is_some();
             seg.samples += block.block_size;
             on_block(&block, state, buf)?;

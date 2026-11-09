@@ -4,8 +4,12 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::Result;
-use oadec_truehd::{MAX_PRESENTATIONS, MajorSync, StreamConfig};
+use oadec_truehd::damage::{Region, RegionKind};
+use oadec_truehd::{
+    Location, MAX_PRESENTATIONS, MajorSync, Provenance, RuleId, Severity, StreamConfig, Tally,
+};
 use serde::Serialize;
+use serde_json::{Value, json};
 
 use crate::decode::{Order, Session};
 use crate::{input, scan};
@@ -140,30 +144,362 @@ pub fn join_stream_check(
         .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
 }
 
+/// How `verify` judges a TrueHD stream and how much of what it found it lists.
+#[derive(Debug, Clone, Copy)]
+pub struct Options {
+    /// Machine-readable JSON instead of text.
+    pub json: bool,
+    /// Decode every presentation and evaluate the lossless check words.
+    pub decode: bool,
+    /// The lightest severity that fails the run.
+    pub fail_on: Severity,
+    /// Findings listed in full per rule (0 lists every one); counts are
+    /// never limited.
+    pub max_per_rule: usize,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            json: false,
+            decode: false,
+            fail_on: Severity::Error,
+            max_per_rule: Tally::DEFAULT_MAX_PER_RULE,
+        }
+    }
+}
+
+/// Records what the decodes of `verify --decode` found as findings.
+fn record_lossless(diag: &mut Tally, checks: &LosslessChecks) {
+    for p in &checks.per_presentation {
+        if p.failed > 0 {
+            diag.add(
+                RuleId::DecodeLosslessCheck,
+                Location::default(),
+                p.failed,
+                || {
+                    format!(
+                        "presentation {}: {} of {} check words failed; first: {}",
+                        p.presentation,
+                        p.failed,
+                        p.evaluated,
+                        p.first_problem.as_deref().unwrap_or("-")
+                    )
+                },
+            );
+        }
+        if let Some(e) = &p.error {
+            diag.add(RuleId::DecodeStopped, Location::default(), 1, || {
+                format!("presentation {}: {e}", p.presentation)
+            });
+        }
+    }
+}
+
+/// `h:mm:ss.mmm` of a sample position.
+fn clock(seconds: f64) -> String {
+    let ms = (seconds * 1000.0).round() as u64;
+    format!(
+        "{}:{:02}:{:02}.{:03}",
+        ms / 3_600_000,
+        ms / 60_000 % 60,
+        ms / 1000 % 60,
+        ms % 1000
+    )
+}
+
+/// The time at the start of access unit `unit`, by the nominal count of
+/// samples per unit (a gap or a branch is not accounted for).
+fn seconds_at(scan: &scan::Scan, unit: u64) -> Option<f64> {
+    let cfg = scan.config.as_ref()?;
+    Some(unit as f64 * f64::from(cfg.samples_per_au) / f64::from(cfg.sampling_frequency))
+}
+
+/// A location as text: `au 101 @0x1A2B4+3 ss1 0:00:02.104`.
+fn location_text(scan: &scan::Scan, at: &Location) -> String {
+    let mut parts = Vec::new();
+    if let Some(u) = at.unit {
+        parts.push(format!("au {u}"));
+    }
+    if let Some(o) = at.offset {
+        parts.push(match at.bit {
+            Some(b) => format!("@0x{o:X}+{b}"),
+            None => format!("@0x{o:X}"),
+        });
+    }
+    if let Some(ss) = at.substream {
+        parts.push(format!("ss{ss}"));
+    }
+    if let Some(t) = at.unit.and_then(|u| seconds_at(scan, u)) {
+        parts.push(clock(t));
+    }
+    if parts.is_empty() {
+        "--".to_string()
+    } else {
+        parts.join(" ")
+    }
+}
+
+fn location_json(scan: &scan::Scan, at: &Location) -> Value {
+    json!({
+        "unit": at.unit,
+        "offset": at.offset,
+        "bit": at.bit,
+        "substream": at.substream,
+        "seconds": at.unit.and_then(|u| seconds_at(scan, u)),
+    })
+}
+
+/// The `diagnostics` object of `verify --json`.
+fn diagnostics_json(scan: &scan::Scan, fail_on: Severity) -> Value {
+    let d = &scan.diag.tally;
+    let rules: Vec<Value> = d
+        .iter()
+        .map(|(rule, t)| {
+            let info = rule.info();
+            json!({
+                "id": info.id,
+                "severity": info.severity.name(),
+                "count": t.count,
+                "magnitude": t.magnitude,
+                "provenance": info.provenance.iter().map(Provenance::kind).collect::<Vec<_>>(),
+                "legacy_counter": info.legacy_counter,
+                "first": location_json(scan, &t.first.at),
+                "first_message": t.first.message,
+                "last": location_json(scan, &t.last),
+                "listed": t.listed.len(),
+                "suppressed": t.suppressed(),
+            })
+        })
+        .collect();
+    let findings: Vec<Value> = d
+        .iter()
+        .flat_map(|(_, t)| t.listed.iter())
+        .map(|f| {
+            let mut v = location_json(scan, &f.at);
+            v["rule"] = json!(f.rule.info().id);
+            v["severity"] = json!(f.rule.info().severity.name());
+            v["magnitude"] = json!(f.magnitude);
+            v["message"] = json!(f.message);
+            v
+        })
+        .collect();
+    let counts: serde_json::Map<String, Value> = Severity::ALL
+        .iter()
+        .map(|s| (s.name().to_string(), json!(d.count_at(*s))))
+        .collect();
+    json!({
+        "schema": 1,
+        "fail_on": fail_on.name(),
+        "worst": d.worst().map(Severity::name),
+        "max_per_rule": d.max_per_rule(),
+        "counts": counts,
+        "rules": rules,
+        "findings": findings,
+        "regions": scan.diag.regions.iter().map(|r| region_json(scan, r)).collect::<Vec<_>>(),
+        "regions_overflow": scan.diag.regions_overflow,
+    })
+}
+
+/// The presentations that read a damaged substream (audio), carry the object
+/// metadata (metadata), or all of them (lost bytes).
+fn presentations_hit(scan: &scan::Scan, region: &Region) -> Vec<usize> {
+    let Some(cfg) = scan.config.as_ref() else {
+        return Vec::new();
+    };
+    let map = cfg.presentations;
+    (0..MAX_PRESENTATIONS)
+        .filter(|&p| map.is_carried(p))
+        .filter(|&p| match region.kind {
+            RegionKind::Audio => map.mask(p) & region.substreams != 0,
+            RegionKind::Metadata => p == 3,
+            RegionKind::Lost => true,
+        })
+        .collect()
+}
+
+fn region_json(scan: &scan::Scan, r: &Region) -> Value {
+    json!({
+        "kind": r.kind.name(),
+        "first_unit": r.first_unit,
+        "last_unit": r.last_unit,
+        "start_seconds": seconds_at(scan, r.first_unit),
+        "end_seconds": seconds_at(scan, r.last_unit + 1),
+        "substreams": (0..8).filter(|s| r.substreams >> s & 1 == 1).collect::<Vec<_>>(),
+        "presentations": presentations_hit(scan, r),
+        "rules": r.rules.iter().map(|x| x.info().id).collect::<Vec<_>>(),
+        "entry_unit": r.entry_unit,
+        "entry_seconds": r.entry_unit.and_then(|u| seconds_at(scan, u)),
+        "lost_bytes": r.lost_bytes,
+    })
+}
+
+/// One damage region as text.
+fn region_text(scan: &scan::Scan, r: &Region) -> String {
+    let when = |u: u64| seconds_at(scan, u).map_or_else(|| format!("au {u}"), clock);
+    let what = match r.kind {
+        RegionKind::Lost => format!("{} bytes lost before au {}", r.lost_bytes, r.first_unit),
+        RegionKind::Audio | RegionKind::Metadata => {
+            let units = if r.first_unit == r.last_unit {
+                format!("au {}", r.first_unit)
+            } else {
+                format!("au {}-{}", r.first_unit, r.last_unit)
+            };
+            format!(
+                "{} {}..{} ({units})",
+                r.kind.name(),
+                when(r.first_unit),
+                when(r.last_unit + 1)
+            )
+        }
+    };
+    let hit = presentations_hit(scan, r)
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(" ");
+    let entry = r.entry_unit.map_or_else(
+        || "not clean again before the end".to_string(),
+        |u| format!("clean again at au {u} ({})", when(u)),
+    );
+    let at = if r.kind == RegionKind::Lost {
+        format!("{what} ({})", when(r.first_unit))
+    } else {
+        what
+    };
+    format!("{at}; presentations {hit}; {entry}")
+}
+
+/// The `Findings:` and `Rules:` blocks of the text report: every listed
+/// finding, then one line per rule that fired, at most six of them, the
+/// heaviest first, so the last lines of the report keep the summary and the
+/// verdict.
+fn print_diagnostics(scan: &scan::Scan, fail_on: Severity) {
+    let d = &scan.diag.tally;
+    if d.is_empty() {
+        return;
+    }
+    let mut first = true;
+    for (rule, t) in d.iter() {
+        for f in &t.listed {
+            println!(
+                "{}{:<8} {:<26} {}  {}",
+                if first {
+                    "Findings:          "
+                } else {
+                    "                   "
+                },
+                rule.info().severity.name(),
+                rule.info().id,
+                location_text(scan, &f.at),
+                f.message
+            );
+            first = false;
+        }
+        if t.suppressed() > 0 {
+            println!(
+                "                   {}: {} listed, {} more not listed (--max-per-rule), last at {}",
+                rule.info().id,
+                t.listed.len(),
+                t.suppressed(),
+                location_text(scan, &t.last)
+            );
+        }
+    }
+    let counts = Severity::ALL
+        .iter()
+        .rev()
+        .map(|s| format!("{} {}", d.count_at(*s), s.name()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    println!("Rules:             {counts} (fail on {})", fail_on.name());
+    let mut fired: Vec<_> = d.iter().collect();
+    fired.sort_by_key(|(r, _)| core::cmp::Reverse(r.info().severity));
+    for (rule, t) in fired.iter().take(6) {
+        let span = if t.count > 1 {
+            format!(
+                "{} .. {}",
+                location_text(scan, &t.first.at),
+                location_text(scan, &t.last)
+            )
+        } else {
+            location_text(scan, &t.first.at)
+        };
+        println!(
+            "                   {:<8} {:<26} {:>6}x  {}",
+            rule.info().severity.name(),
+            rule.info().id,
+            t.count,
+            span
+        );
+    }
+    if fired.len() > 6 {
+        println!(
+            "                   and {} more rules (verify --json)",
+            fired.len() - 6
+        );
+    }
+    let regions = &scan.diag.regions;
+    let total = regions.len() as u64 + scan.diag.regions_overflow;
+    for (k, r) in regions.iter().take(4).enumerate() {
+        println!(
+            "{}{}",
+            if k == 0 {
+                format!(
+                    "Damage:            {total} region{}; ",
+                    if total == 1 { "" } else { "s" }
+                )
+            } else {
+                "                   ".to_string()
+            },
+            region_text(scan, r)
+        );
+    }
+    if total > 4 {
+        println!(
+            "                   and {} more regions (verify --json)",
+            total - 4
+        );
+    }
+}
+
 /// Runs the command; returns `true` when the stream is clean. With `decode`,
 /// every presentation the stream carries is decoded as well and its lossless
 /// checks join the verdict.
-pub fn run(path: &Path, json: bool, decode: bool) -> Result<bool> {
+pub fn run(path: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
-    let scan = scan::scan(path)?;
+    let mut scan = scan::scan_with(path, opts.max_per_rule)?;
     if scan.units == 0 {
         // Nothing framed: the file is not a stream to judge but an unsupported
         // input, exit 2, as it is for every command that reports one.
         return Err(crate::info::no_stream(path));
     }
-    let checks = match (&scan.first_major_sync, decode) {
+    let checks = match (&scan.first_major_sync, opts.decode) {
         (Some(ms), true) => Some(lossless_checks(path, ms)?),
         (None, true) => Some(LosslessChecks::default()),
         (_, false) => None,
     };
+    if let Some(c) = &checks {
+        record_lossless(&mut scan.diag.tally, c);
+    }
     let elapsed = started.elapsed().as_secs_f64();
-    let clean = scan.failures.is_clean()
-        && scan.first_major_sync.is_some()
-        && checks.as_ref().is_none_or(LosslessChecks::is_clean);
+    // The verdict is the worst finding against the threshold. Every counter
+    // the verdict used to read is a rule at `error` or above, so at the
+    // default threshold the two readings are the same one.
+    let clean = scan.first_major_sync.is_some() && scan.diag.tally.passes(opts.fail_on);
+    debug_assert!(
+        opts.fail_on != Severity::Error
+            || clean
+                == (scan.failures.is_clean()
+                    && scan.first_major_sync.is_some()
+                    && checks.as_ref().is_none_or(LosslessChecks::is_clean)),
+        "the rule verdict and the counter verdict disagree"
+    );
     let speed = scan.duration_seconds().map(|d| d / elapsed.max(1e-9));
-    if json {
+    if opts.json {
         let mut value = serde_json::to_value(&scan)?;
         value["lossless_checks"] = serde_json::to_value(&checks)?;
+        value["diagnostics"] = diagnostics_json(&scan, opts.fail_on);
         value["clean"] = serde_json::json!(clean);
         value["seconds"] = serde_json::json!(elapsed);
         value["realtime_factor"] = serde_json::json!(speed);
@@ -307,6 +643,7 @@ pub fn run(path: &Path, json: bool, decode: bool) -> Result<bool> {
                 b.data_rate
             );
         }
+        print_diagnostics(&scan, opts.fail_on);
         if let Some(err) = &scan.first_error {
             println!("First error:       {err}");
         }

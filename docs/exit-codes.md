@@ -122,6 +122,19 @@ what the format is.
 | `compare` | matches and clean | differs, or a fault above | could not be read, or holds no stream |
 | `thd-demux`, `eac3-joc-config`, `eac3-ecpl-inject` | always | — | could not be written |
 
+## The threshold of `verify`
+
+On a TrueHD stream every check is a named rule with a default severity
+(`info`, `warning`, `error` or `fatal`; `oadec rules` lists them and
+[`conformance-rules.md`](conformance-rules.md) has the sources). `verify`
+exits 7 when its worst finding is at or above `--fail-on`, `error` by
+default. Every fault in the list above is a rule at `error` or `fatal`, so the
+default is the verdict `verify` has always given, and the counters of
+`verify --json` are unchanged. `--fail-on warning` also fails on rules no
+public specification or measurement confirms; `--fail-on fatal` passes a stream
+whose only faults left it readable. `--max-per-rule` changes what is listed and
+never a count or a verdict. The other commands keep the default.
+
 `compare` folds the two questions together on purpose: a comparison against a
 reference is only worth reporting if the decode under it was sound, and the
 printed result says which of the two failed.
