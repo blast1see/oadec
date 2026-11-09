@@ -13,13 +13,31 @@ implements the whole syntax; `oadec oamd` walks a TrueHD stream and reports.
   `nonstd_bed_channel_assignment[]` are read as unsigned integers; element `k`
   of an `n`-bit array is bit `n − 1 − k`. With the opposite reading the object
   element of every payload overruns its size.
+* **Two presence arrays name their elements from the top.** The syntax asks
+  `ext_prec_pos_presence[2]` for x and `[0]` for z, and `trim_balance_presence[4]`
+  for the centre trim and `[0]` for the surround balance (table 34). By the rule
+  above element 2 of three is bit 0, so x is bit 0 and z bit 2. These fields do not
+  change how many bits are read, so no size check can tell, and neither can a
+  pattern like `0b101`. The code had x at the top bit until the one stream in 144
+  titles with extended precision showed otherwise: read that way 1 762 of its 4 052
+  positions land outside the room, against none, and z moves with eight times the
+  jitter. `truehdd` reads it the same way and agrees to the sample.
 * **Element sizes are byte-tight.** `oa_element_size` covers the alternate id,
   the discard flag, the element and its padding; on 1,344,146 payloads of the
   six-film corpus every element ends within 7 zero bits of its declared size,
   which is the strongest available check that every field was read at the
-  right width. One exception: the very first payload of Shaun of the Dead
-  declares 34 bytes for an object element that needs 47. The parser tolerates
-  an overrun of the last element (flagged as `size_ok = false`).
+  right width. The exception is the first payload of a segment, at the start of a
+  stream or at a seamless branch, whose size belongs to some other payload: Shaun of
+  the Dead declares 34 bytes for an object element that needs 47, and seven of 144
+  TrueHD Atmos titles declare 9, 34 or 51 for one that fits in fewer, 4 to 28 bits past
+  the end of the payload. This was once held to be a payload cut short, because `truehdd`
+  warns about it, but that warning is the same size check. The content is all there:
+  every such element ends less than a byte of zero fill before the end of its payload,
+  and `truehdd` reads the same events. So the parser reads a last element either way and
+  flags it (`size_ok = false`), and `verify` says so. That reading is earned per element:
+  one past the payload is refused if its bits run out, if more than that fill follows it,
+  or if its id has no syntax to ask. An element with another after it has to be right,
+  because the next one starts where it ends.
 * **Reuse never crosses payloads.** Block 0 of every object always carries a
   full update (status 01 is implied), so differential positions and reuse
   statuses only refer to the previous block of the same object in the same
@@ -38,6 +56,27 @@ payload applies to; the interpolation to the new values takes `ramp_duration`
 samples. Every stream of the corpus uses one block per payload with
 `block_offset_factor` 0 or 1 and `ramp_duration` 1536 (the codec frame), one
 payload per 1536 samples, `sample_offset` cycling through 0, 8, 16, 24.
+
+## What a library carries
+
+Six films say little about what a writer will ever meet, so
+`tools/metadata_census.py` read the head of all 1 446 Dolby tracks of a library:
+277 object tracks, 144 TrueHD and 133 E-AC-3
+(`docs/audit/evidence/metadata-bridge-2026-11-09/01-metadata-census.json`).
+
+| Field | Where it is found |
+|---|---|
+| Trim element | 130 of 133 E-AC-3, **0 of 144 TrueHD** |
+| `warp_mode` | normal 78, warping 28, Lo/Ro 24, Pro Logic IIx 0 |
+| Explicit trim configurations | 2 |
+| Extended object element | 1, a TrueHD stream |
+| Snap, screen reference, object gain, size, additional table data, alternate object data, `bed_chan_distribute`, unknown elements | 0 |
+| Element ids 3 and 4 (`truehdd` names them headphone and object description) | 0 |
+
+A head is a sample: a field that first appears later is not counted. Beside these
+the E-AC-3 tracks carry EMDF payloads 1 (programme loudness, 372 tracks) and 2
+(programme information, 140); `oadec emdf` reads both, and `docs/dolby-tools.md` says
+what they are worth.
 
 ## What the corpus exercises
 

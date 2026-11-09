@@ -23,10 +23,10 @@ use oadec_joc::{
     Analysis, BANDS, Carry, Complex, DELAY, JocDecoder, LOW_DELAY, MATRIX_ALIGN, Quadrature,
     SteepReading, Synthesis,
 };
-use oadec_spatial::{LossLedger, Program, Timeline};
+use oadec_spatial::{LossLedger, Program, Timeline, declared_warp};
 use serde_json::{Value, json};
 
-use crate::damf::{Options, Sink};
+use crate::damf::{Options, Sink, WarpArg, note_no_warp_mode, open_sink};
 use crate::decode::format_duration;
 use crate::eac3::for_each_frame;
 use crate::integrity::{Findings, Verdict};
@@ -811,7 +811,18 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
                 },
                 &opts.joc,
             )?);
-            sink = Some(Sink::create(dir, &name, &p, rate, opts)?);
+            if opts.warp == Some(WarpArg::Stream) && declared_warp(o).is_none() {
+                note_no_warp_mode("the first payload of this stream declares no warp mode");
+            }
+            sink = Some(open_sink(
+                dir,
+                &name,
+                &p,
+                rate,
+                opts,
+                declared_warp(o),
+                &mut timeline,
+            )?);
             let clip = match &joc {
                 Some(j) => format!(
                     "clip gain {:.3}{}",

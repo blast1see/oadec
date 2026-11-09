@@ -831,6 +831,7 @@ Options:
 ```text
 Dolby Reference Player 3.2.0.8040
 ```
+
 <!-- hand-written below -->
 
 ## DEE 5.2.1 `ddp_decode` as a reference decoder
@@ -998,3 +999,130 @@ Two `convert_atmos_mezz` habits worth knowing. The output `file_name` is taken l
 looks for an `.atmos.dbmd` sidecar beside a DAMF set and warns when there is none
 (`Sys - AtmosMasterFileStorageDesc - Error 2 while reading "...atmos.dbmd"`); the conversion
 completes without it.
+
+## What the encoders read from a DAMF set
+
+The Conversion Tool writes `warpMode`, `ffoa` and, per object, `decorr` into its own
+sets, and the tools accept more keys than that. Whether an encoder listens is a separate
+question, so each key was added to an authored set and the set encoded with
+`dee_ddpjoc_encoder` and `dee_dthd_encoder` (`tools/damf_key_probe.py`). Two
+encodes of the unchanged set are bit-identical, so any changed byte is the key's
+doing. Evidence: `docs/audit/evidence/metadata-bridge-2026-11-09/02-damf-key-probe.json`.
+
+| Key in the `.atmos` header | Encoder output |
+|---|---|
+| `warpMode` | **changes**: see below |
+| `dialNorm`, `ffoa`, `scNumberOfElements` | identical |
+| `downmixType_5to2`, `downmixType_7to5`, `bedDistribution`, `positionSmoothed`, `51-to-20_LsRs90degPhaseShift`, `surroundTrim_5_1`, `surroundTrim_7_1` | identical (`downmixType_*` take `LoRo_Stereo`, `LtRt_ProLogic`, `LtRt_PLII` and `LoRoStandard`, `ProLogicIIx`, `directRender`; the others are boolean; a wrong value refuses the file) |
+| `trimMode` and the trim keys | identical in every layout tried, and `atmos_info` still reports auto trims |
+
+Dialogue normalisation comes from the encoder's own measurement unless it is
+given on the command line: `dee_dthd_encoder --loudness-management
+skip:custom_dialnorm=-20` writes -20 for the 6- and 8-channel presentations and -26 for
+the 2-channel one. `--start 0` is not needed for a set whose offset is zero.
+
+**A `.atmos.dbmd` beside the set changes the warp mode.** Any file at that path,
+even an empty one, turns a set with no `warpMode` into Lo/Ro: the encode is
+bit-identical to `warpMode: LoRo`. `warp_mode` and the trim fields inside it are
+refused with "Not user-modifiable DBMD values detected", so it is no route to
+either, and `warpMode` in the header overrides it. oadec writes no such file.
+
+## The warp mode
+
+| `warpMode` in `.atmos` | Stream `warp_mode` | `dbmd` segment 9, byte 152 | Conversion Tool `--set_warp_mode` |
+|---|---:|---:|---|
+| `normal` | 0 | `0x80` | `normal` |
+| `warping` | 1 | `0x81` | `warping` |
+| `ProLogicIIx` | 2 | `0x82` | `downmix_pliix` |
+| `LoRo` | 3 | `0x83` | `downmix_loro` |
+| *(none)* | **1** | `0x84`, "not indicated" | |
+
+TS 103 420 clause 5.6.5.1 defines 0 as no position adjustment and 1 as the Y
+position multiplied by two, and reserves 2 and 3; the encoder writes them anyway and
+24 tracks carry 3. An output that says nothing is encoded as warping, while the
+library's E-AC-3 streams declare normal 78 times, warping 28 and Lo/Ro 24, so the
+default trip changes the mode of 102 of 130. `oadec decode --warp-mode stream` keeps it, through
+either output: on five titles the mode survives with the flag, becomes warping
+without it, and the DAMF and ADM routes encode to the same bytes.
+
+It matters unevenly. Rendered by the player's own renderer, on the same objects
+(`04-warp-render.json`):
+
+- normal against warping changes the render: on two film heads at 5.1, the surround
+  pair 1 to 3 dB down and the front pair up to 1 dB up, with the difference 10 to
+  16 dB below the signal in the front pair; at 2.0 about the same.
+- Lo/Ro against warping is below any level that matters: −58 dB and lower, on every
+  channel of two heads.
+- warping against warping is bit-identical, the control.
+
+A TrueHD stream carries no trim element, so it has no mode to keep. The mode still
+shapes what its encoder derives: `warpMode: normal` changes the 8-, 6- and 2-channel
+presentations and the measured dialogue normalisation. For a title that also has an
+E-AC-3 Atmos track, that track says which mode the mix was delivered with:
+`oadec oamd --json` reports it as `warp_modes`.
+
+## The DRC profile is the other thing a second encode changes
+
+`oadec emdf` reads the programme information payload (TS 102 366 clause H.3.2), which
+is the only place a stream says which DRC profile its gain words were made with. The
+encoders default to `film_light`, and the library's 133 E-AC-3 Atmos tracks carry
+`film_light` 71 times, `none` 36, `music_light` 25 and `film_standard` once, so the
+default trip changes 62 of them. It is not in a DAMF set; it goes on the command line:
+
+```text
+oadec emdf source.ec3            # Programme: ... DRC profile line {"none": ...}, RF {"none": ...}
+dee_ddpjoc_encoder ... -e drc_profile_line=none:drc_profile_rf=none
+```
+
+`dynrngprof` is the line mode profile and `comprprof` the RF one: six pairs asked of
+the encoder come back as asked. It matters less than the warp mode and it does matter.
+An hour into 1917, whose profile is `none`, the default encode plays in line mode
+0.45 dB quieter over a minute and up to 1.47 dB in a 100 ms window; a title already at
+`film_light`, the control, differs by nothing (`12-programme-payloads.json`).
+
+The payloads hold up. Over 691 956 loudness and 261 647 programme information payloads
+none is unreadable and none is the wrong size. Where the correction was dialogue gated,
+the speech-gated loudness equals the dialogue normalisation on 106 of 107 tracks, as
+clause H.3.1.3.10 says it shall, and the other is below what the field can say (-33.5
+LUFS against -31). `ph90filt` is clear on exactly the three tracks at downmix
+configuration 0. 229 channel-based tracks carry a loudness practice the table reserves.
+
+## `--order stream` is the order the encoders read
+
+Eight tones, one per channel, written in the order `oadec decode --order stream`
+produces, encoded with `dee_dthd_encoder` 5.7.2 as an 8-channel presentation and
+decoded again with `--order stream`, come back in the slots they went in, with the
+channel mask 0x63F and with 0 alike. The default `--order interchange` swaps the
+side and back pairs against what the encoder reads. So a WAVE written for one of
+these encoders takes `--order stream`, and no conversion
+(`05-channel-order.json`).
+
+## `--encoder bluray` writes downmix configuration 4
+
+`dee_ddpjoc_encoder --encoder bluray --data-rate 1152..1664` writes an AC-3 core
+and an E-AC-3 dependent substream, 5.1.2 and fifteen objects, with `dmx_config` 4.
+That configuration had only been seen in three films; it can now be authored.
+On the controlled scene every one of eight objects is recognised and all seven
+static positions come back exact, the same as the online mode at configuration 3,
+and against the Dolby object decoder the worst object is 52.34 dB and the median
+94.08 dB, against 51.80 and 95.47 (`07-config-4-authored.json`). It gave no two
+data points and no EMDF in the auxiliary data. Configurations 1 and 2 remain unseen.
+
+## What the object refusals are not
+
+**The TrueHD refusal is a validity check, not a stream defect.** At
+`GST_DEBUG=dlbtruehddec:7` the decoder plays the presentation, then its Evolution
+validity check fails and it reports "presentation is not available". Everything
+measured since fits a check over protected metadata: no field of 84 separates the
+two sets, any in-place edit is refused whatever it changes, and the same objects
+encoded again open. `truehdd` and FFmpeg decode these streams and agree with oadec.
+Why an untouched disc fails is not known, and looking for a separating field is
+not the way to find out.
+
+**The E-AC-3 refusal is still open, and it is not the trim element.** Three of 133
+tracks carry no trim element, all at configuration 0. Two drop to six channels and
+"Dolby Atmos : No" (Snatch and one other, dialogue normalisation 31), and one opens
+with sixteen (dialogue normalisation 26), so the element's absence is not the
+cause (`08-dolby-no-trim.json`). A stream edited in place shows the same symptom
+(`remediation/payload-rewrite-rejected.json`), which is a resemblance and not a
+measurement of these two.

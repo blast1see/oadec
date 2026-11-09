@@ -326,10 +326,14 @@ pub struct Timeline {
     /// Events whose sample position was earlier than the previous event of the
     /// same element (a timeline that runs backwards is a bug or a branch).
     pub out_of_order: u64,
-    /// What the programme model itself cannot carry: distance, divergence,
-    /// warp mode and trim configurations have no field in DAMF or in the ADM
-    /// profile, so they are counted here, where they are dropped.
+    /// What the programme model itself does not carry: distance, divergence
+    /// and trim configurations reach neither DAMF nor the ADM profile, and a
+    /// warp mode other than the one the output reads as is lost. They are
+    /// counted here, where they are dropped.
     pub losses: LossLedger,
+    /// The warp mode the output signals. `None` is an output that says nothing,
+    /// which Dolby's encoders read as [`WarpMode::Warping`].
+    pub signalled_warp: Option<WarpMode>,
     last_pos: BTreeMap<u32, u64>,
     last_warp: Option<u8>,
     last_trim: Option<Vec<TrimConfig>>,
@@ -338,6 +342,68 @@ pub struct Timeline {
     /// event, and these are how such an update is still counted, once.
     last_distance: BTreeMap<u32, Distance>,
     last_divergence: BTreeMap<u32, f32>,
+}
+
+/// How a programme asks to be rendered to speakers without the height it was
+/// mixed for: the `warp_mode` of the trim element.
+///
+/// The names are what DAMF calls them and the codes what the stream carries,
+/// both read from Dolby's encoder by giving it each name and reading the code
+/// back. An output that names no mode is encoded as [`Self::Warping`], which is
+/// not what most streams declare; see `docs/dolby-tools.md`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WarpMode {
+    /// Direct render.
+    Normal,
+    /// Direct render with room balance.
+    Warping,
+    /// Dolby Pro Logic IIx.
+    ProLogicIIx,
+    /// Standard Lo/Ro.
+    LoRo,
+}
+
+impl WarpMode {
+    /// The mode of a stream's `warp_mode` code.
+    #[must_use]
+    pub const fn from_code(code: u8) -> Option<Self> {
+        match code {
+            0 => Some(Self::Normal),
+            1 => Some(Self::Warping),
+            2 => Some(Self::ProLogicIIx),
+            3 => Some(Self::LoRo),
+            _ => None,
+        }
+    }
+
+    /// The stream's `warp_mode` code.
+    #[must_use]
+    pub const fn code(self) -> u8 {
+        match self {
+            Self::Normal => 0,
+            Self::Warping => 1,
+            Self::ProLogicIIx => 2,
+            Self::LoRo => 3,
+        }
+    }
+
+    /// The value of `warpMode` in a DAMF `.atmos` header.
+    #[must_use]
+    pub const fn damf_name(self) -> &'static str {
+        match self {
+            Self::Normal => "normal",
+            Self::Warping => "warping",
+            Self::ProLogicIIx => "ProLogicIIx",
+            Self::LoRo => "LoRo",
+        }
+    }
+}
+
+/// The warp mode a payload declares; `None` when it has no trim element.
+#[must_use]
+pub fn declared_warp(oamd: &Oamd) -> Option<WarpMode> {
+    oamd.trim_element()
+        .and_then(|t| WarpMode::from_code(t.warp_mode))
 }
 
 impl Timeline {
@@ -393,7 +459,8 @@ impl Timeline {
         // note per change, not one per payload.
         if let Some(t) = trim {
             let at = base + container_offset + u64::from(timing.sample_offset);
-            if t.warp_mode != 0 && self.last_warp != Some(t.warp_mode) {
+            let reads_as = self.signalled_warp.unwrap_or(WarpMode::Warping).code();
+            if t.warp_mode != reads_as && self.last_warp != Some(t.warp_mode) {
                 self.losses.note(LossKind::WarpModeDropped, 0, at);
             }
             self.last_warp = Some(t.warp_mode);
@@ -648,8 +715,93 @@ mod tests {
         }
     }
 
-    /// Distance, divergence, warp mode and trim configurations reach neither
-    /// DAMF nor the ADM profile; the timeline counts them where it drops them.
+    /// A payload whose trim element declares this warp mode.
+    fn with_warp(code: u8) -> Oamd {
+        use oadec_emdf::oamd::TrimElement;
+        let mut oamd = one_update(0, 0);
+        oamd.elements.push(element_md(
+            8,
+            Element::Trim(TrimElement {
+                warp_mode: code,
+                global_trim_mode: 0,
+                configs: Vec::new(),
+                disable_per_object: None,
+            }),
+        ));
+        oamd
+    }
+
+    /// The names and codes were measured: Dolby's encoder was given each name
+    /// and the code was read back from what it wrote.
+    #[test]
+    fn warp_modes_have_the_names_and_codes_the_encoder_uses() {
+        for (code, mode, name) in [
+            (0, WarpMode::Normal, "normal"),
+            (1, WarpMode::Warping, "warping"),
+            (2, WarpMode::ProLogicIIx, "ProLogicIIx"),
+            (3, WarpMode::LoRo, "LoRo"),
+        ] {
+            assert_eq!(WarpMode::from_code(code), Some(mode));
+            assert_eq!(mode.code(), code);
+            assert_eq!(mode.damf_name(), name);
+        }
+        assert_eq!(WarpMode::from_code(4), None);
+    }
+
+    /// With no warp mode in the output Dolby's encoder writes warping, so a
+    /// stream declaring warping loses nothing and any other one does. With one
+    /// in the output, the comparison is against that one.
+    #[test]
+    fn a_warp_mode_is_lost_when_the_output_reads_as_a_different_one() {
+        use crate::loss::LossKind;
+        let lost = |signalled: Option<WarpMode>, code: u8| {
+            let mut t = Timeline::new(true);
+            t.signalled_warp = signalled;
+            t.push(&with_warp(code), 0, 0, |_| {}).expect("well formed");
+            t.losses.count(LossKind::WarpModeDropped)
+        };
+        assert_eq!(lost(None, 0), 1, "normal, read back as warping");
+        assert_eq!(lost(None, 1), 0, "warping, read back as warping");
+        assert_eq!(lost(None, 2), 1, "Pro Logic IIx, read back as warping");
+        assert_eq!(lost(None, 3), 1, "Lo/Ro, read back as warping");
+        assert_eq!(lost(Some(WarpMode::Normal), 0), 0);
+        assert_eq!(lost(Some(WarpMode::LoRo), 3), 0);
+        assert_eq!(lost(Some(WarpMode::Normal), 3), 1);
+        assert_eq!(lost(Some(WarpMode::Warping), 1), 0);
+    }
+
+    /// The output holds one warp mode, so a stream that changes it mid-way
+    /// loses the change, once per change and not once per payload.
+    #[test]
+    fn a_warp_mode_changing_mid_stream_is_counted_per_change() {
+        use crate::loss::LossKind;
+        let mut t = Timeline::new(true);
+        t.signalled_warp = Some(WarpMode::Normal);
+        for (at, code) in [
+            (0, 0),
+            (1536, 0),
+            (3072, 3),
+            (4608, 3),
+            (6144, 0),
+            (7680, 2),
+        ] {
+            t.push(&with_warp(code), at, 0, |_| {})
+                .expect("well formed");
+        }
+        assert_eq!(t.losses.count(LossKind::WarpModeDropped), 2);
+    }
+
+    /// What the stream itself declares, for an output that asks to keep it.
+    #[test]
+    fn the_declared_warp_mode_comes_from_the_trim_element() {
+        assert_eq!(declared_warp(&with_warp(3)), Some(WarpMode::LoRo));
+        assert_eq!(declared_warp(&with_warp(0)), Some(WarpMode::Normal));
+        assert_eq!(declared_warp(&one_update(0, 0)), None, "no trim element");
+    }
+
+    /// Distance, divergence and trim configurations reach neither DAMF nor the
+    /// ADM profile, and a warp mode only when asked for; the timeline counts
+    /// them where it drops them.
     #[test]
     fn unrepresentable_semantics_are_counted_by_the_timeline() {
         use crate::loss::LossKind;
@@ -661,7 +813,7 @@ mod tests {
         oamd.elements.push(element_md(
             8,
             Element::Trim(TrimElement {
-                warp_mode: 1,
+                warp_mode: 3,
                 global_trim_mode: 0,
                 configs: Vec::new(),
                 disable_per_object: None,

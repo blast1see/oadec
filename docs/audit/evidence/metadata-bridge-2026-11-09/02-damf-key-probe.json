@@ -1,0 +1,1332 @@
+{
+ "question": "Which keys of a DAMF set do Dolby's encoders read?",
+ "method": "tools/damf_key_probe.py on the authored fixture scene with Dolby Media Encoder 5.7.2. Two encodes of the unchanged set are the control: base1 and base2, t_base1 and t_base2.",
+ "reading": "An identical stream_sha256 to the control means the key changed nothing.",
+ "results": {
+  "online E-AC-3 JOC, 1": [
+   {
+    "variant": "base1",
+    "added": {},
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "base2",
+    "added": {},
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "warp_normal",
+    "added": {
+     "atmos": [
+      "warpMode: normal"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "bc5d004e970708dc",
+    "warp_modes": {
+     "0": 63
+    },
+    "dialnorm": [
+     27
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "warp_warping",
+    "added": {
+     "atmos": [
+      "warpMode: warping"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "warp_loro",
+    "added": {
+     "atmos": [
+      "warpMode: downmix_loro"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.015347 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "warp_pliix",
+    "added": {
+     "atmos": [
+      "warpMode: downmix_pliix"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0155436 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "warp_garbage",
+    "added": {
+     "atmos": [
+      "warpMode: nonsense"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0165358 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "ffoa_0_nostart",
+    "added": {
+     "atmos": [
+      "ffoa: 0"
+     ],
+     "start": null
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "noffoa_nostart",
+    "added": {
+     "start": null
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dialnorm_m20",
+    "added": {
+     "atmos": [
+      "dialNorm: -20"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dialnorm_m31",
+    "added": {
+     "atmos": [
+      "dialNorm: -31"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "elements_12",
+    "added": {
+     "atmos": [
+      "scNumberOfElements: 12"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "beddist_garbage",
+    "added": {
+     "atmos": [
+      "bedDistribution: nonsense"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0159374 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "possmooth_garbage",
+    "added": {
+     "atmos": [
+      "positionSmoothed: nonsense"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0156515 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "trimmode_garbage",
+    "added": {
+     "atmos": [
+      "trimMode: nonsense"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dmx52_garbage",
+    "added": {
+     "atmos": [
+      "downmixType_5to2: nonsense"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0153843 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "dmx75_garbage",
+    "added": {
+     "atmos": [
+      "downmixType_7to5: nonsense"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0169707 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "phase_garbage",
+    "added": {
+     "atmos": [
+      "51-to-20_LsRs90degPhaseShift: nonsense"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0156796 seconds",
+     "Exit code: 1"
+    ]
+   }
+  ],
+  "online E-AC-3 JOC, 2": [
+   {
+    "variant": "warp_LoRo",
+    "added": {
+     "atmos": [
+      "warpMode: LoRo"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "3178f0e0607e9233",
+    "warp_modes": {
+     "3": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "warp_PLIIx",
+    "added": {
+     "atmos": [
+      "warpMode: ProLogicIIx"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "ce8312d4d3d97df5",
+    "warp_modes": {
+     "2": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "trim_flat_manual",
+    "added": {
+     "atmos": [
+      "NoSurroundsNoHeights:",
+      "  trimMode: manual",
+      "  centerTrim: -3",
+      "  surroundTrim: -6",
+      "  heightTrim: -9",
+      "  frontBackBalanceOverheadFloor: 0.5",
+      "  frontBackBalanceListener: -0.25"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "trim_flat_noMode",
+    "added": {
+     "atmos": [
+      "NoSurroundsNoHeights:",
+      "  centerTrim: -3",
+      "  surroundTrim: -6",
+      "  heightTrim: -9"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "trim_nested_trims",
+    "added": {
+     "atmos": [
+      "trims:",
+      "  NoSurroundsNoHeights:",
+      "    trimMode: manual",
+      "    centerTrim: -3",
+      "    surroundTrim: -6",
+      "    heightTrim: -9"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "trim_nested_trim",
+    "added": {
+     "atmos": [
+      "trim:",
+      "  NoSurroundsNoHeights:",
+      "    trimMode: manual",
+      "    centerTrim: -3",
+      "    surroundTrim: -6",
+      "    heightTrim: -9"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "trim_auto_false",
+    "added": {
+     "atmos": [
+      "NoSurroundsNoHeights:",
+      "  trimMode: auto",
+      "  centerTrim: -3"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "trim_top_seq",
+    "added": {
+     "atmos": [
+      "trimMode: manual",
+      "centerTrim: -3",
+      "surroundTrim: -6",
+      "heightTrim: -9"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "beddist_on",
+    "added": {
+     "atmos": [
+      "bedDistribution: on"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.01608 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "beddist_off",
+    "added": {
+     "atmos": [
+      "bedDistribution: off"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0162243 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "beddist_true",
+    "added": {
+     "atmos": [
+      "bedDistribution: true"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "beddist_1",
+    "added": {
+     "atmos": [
+      "bedDistribution: 1"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.016214 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "possmooth_on",
+    "added": {
+     "atmos": [
+      "positionSmoothed: on"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0157973 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "possmooth_true",
+    "added": {
+     "atmos": [
+      "positionSmoothed: true"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "phase_on",
+    "added": {
+     "atmos": [
+      "51-to-20_LsRs90degPhaseShift: on"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0155218 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "phase_true",
+    "added": {
+     "atmos": [
+      "51-to-20_LsRs90degPhaseShift: true"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dmx52_LoRo",
+    "added": {
+     "atmos": [
+      "downmixType_5to2: LoRo"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0157897 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "dmx52_ProLogicIIx",
+    "added": {
+     "atmos": [
+      "downmixType_5to2: ProLogicIIx"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0160544 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "dmx52_LtRt",
+    "added": {
+     "atmos": [
+      "downmixType_5to2: LtRt"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0156674 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "dmx75_direct",
+    "added": {
+     "atmos": [
+      "downmixType_7to5: direct"
+     ]
+    },
+    "atmos_info_exit": 1,
+    "encoder_exit": 1,
+    "stream_sha256": null,
+    "warp_modes": null,
+    "dialnorm": null,
+    "presentation_dialnorm": null,
+    "error": [
+     "ERROR: Unsupported or corrupted input file.",
+     "----------------------------------------",
+     "Execution time: 0.0170416 seconds",
+     "Exit code: 1"
+    ]
+   },
+   {
+    "variant": "surtrim71",
+    "added": {
+     "atmos": [
+      "surroundTrim_7_1: -3"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "surtrim51",
+    "added": {
+     "atmos": [
+      "surroundTrim_5_1: -3"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   }
+  ],
+  "online E-AC-3 JOC, 3": [
+   {
+    "variant": "dmx52_LoRo_Stereo",
+    "added": {
+     "atmos": [
+      "downmixType_5to2: LoRo_Stereo"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dmx52_LtRt_ProLogic",
+    "added": {
+     "atmos": [
+      "downmixType_5to2: LtRt_ProLogic"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dmx52_LtRt_PLII",
+    "added": {
+     "atmos": [
+      "downmixType_5to2: LtRt_PLII"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dmx75_LoRoStandard",
+    "added": {
+     "atmos": [
+      "downmixType_7to5: LoRoStandard"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dmx75_ProLogicIIx",
+    "added": {
+     "atmos": [
+      "downmixType_7to5: ProLogicIIx"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dmx75_directRender",
+    "added": {
+     "atmos": [
+      "downmixType_7to5: directRender"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "beddist_false",
+    "added": {
+     "atmos": [
+      "bedDistribution: false"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "possmooth_false",
+    "added": {
+     "atmos": [
+      "positionSmoothed: false"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "phase_false",
+    "added": {
+     "atmos": [
+      "51-to-20_LsRs90degPhaseShift: false"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dbmd_empty",
+    "added": {
+     "dbmd": ""
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "3178f0e0607e9233",
+    "warp_modes": {
+     "3": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dbmd_garbage_yaml",
+    "added": {
+     "dbmd": "::: not yaml [\n"
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "3178f0e0607e9233",
+    "warp_modes": {
+     "3": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dbmd_warp_top",
+    "added": {
+     "dbmd": "warp_mode: normal\ndialog_normalization: -20\n"
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "3178f0e0607e9233",
+    "warp_modes": {
+     "3": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dbmd_warp_supp",
+    "added": {
+     "dbmd": "atmos_supplemental:\n  warp_mode: normal\n  dialog_normalization: -20\n"
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "3178f0e0607e9233",
+    "warp_modes": {
+     "3": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dbmd_warp_atmos",
+    "added": {
+     "dbmd": "atmos:\n  warp_mode: normal\n  dialog_normalization: -20\n"
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "4d86370933b50d6e",
+    "warp_modes": {
+     "1": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dbmd_warp_seq",
+    "added": {
+     "dbmd": "- type: atmos_supplemental\n  warp_mode: normal\n  dialog_normalization: -20\n"
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "3178f0e0607e9233",
+    "warp_modes": {
+     "3": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dbmd_ddplus",
+    "added": {
+     "dbmd": "ddplus:\n  - program_id: 0\n    dialnorm: 20\n    dmixmod: 2\n"
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "3178f0e0607e9233",
+    "warp_modes": {
+     "3": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "dbmd_invalid_value",
+    "added": {
+     "dbmd": "atmos_supplemental:\n  warp_mode: nonsense\n  dialog_normalization: -99\n"
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "3178f0e0607e9233",
+    "warp_modes": {
+     "3": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   }
+  ],
+  "online E-AC-3 JOC, 4": [
+   {
+    "variant": "d_trim_supp",
+    "added": {
+     "dbmd": "atmos_supplemental:\n  trim_metadata:\n    trim_config_data:\n      NoSurroundsNoHeights:\n        center_trim: -3\n        surround_trim: -6\n        height_trim: -9\n"
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "3178f0e0607e9233",
+    "warp_modes": {
+     "3": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "d_trim_top",
+    "added": {
+     "dbmd": "trim_metadata:\n  trim_config_data:\n    NoSurroundsNoHeights:\n      center_trim: -3\n      surround_trim: -6\n      height_trim: -9\n"
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "3178f0e0607e9233",
+    "warp_modes": {
+     "3": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "d_trim_cfg",
+    "added": {
+     "dbmd": "trim_config_data:\n  NoSurroundsNoHeights:\n    center_trim: -3\n    surround_trim: -6\n    height_trim: -9\n"
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "3178f0e0607e9233",
+    "warp_modes": {
+     "3": 63
+    },
+    "dialnorm": [
+     26
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   },
+   {
+    "variant": "d_trim_cfg_warp",
+    "added": {
+     "atmos": [
+      "warpMode: normal"
+     ],
+     "dbmd": "trim_config_data:\n  NoSurroundsNoHeights:\n    center_trim: -3\n"
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "bc5d004e970708dc",
+    "warp_modes": {
+     "0": 63
+    },
+    "dialnorm": [
+     27
+    ],
+    "presentation_dialnorm": null,
+    "error": null
+   }
+  ],
+  "TrueHD Atmos": [
+   {
+    "variant": "t_base1",
+    "added": {},
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "aa4252cd402ef320",
+    "warp_modes": {},
+    "dialnorm": null,
+    "presentation_dialnorm": {
+     "twoch_dialogue_norm": 32,
+     "sixch_dialogue_norm": 26,
+     "eightch_dialogue_norm": 26
+    },
+    "error": null
+   },
+   {
+    "variant": "t_base2",
+    "added": {},
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "aa4252cd402ef320",
+    "warp_modes": {},
+    "dialnorm": null,
+    "presentation_dialnorm": {
+     "twoch_dialogue_norm": 32,
+     "sixch_dialogue_norm": 26,
+     "eightch_dialogue_norm": 26
+    },
+    "error": null
+   },
+   {
+    "variant": "t_warp_normal",
+    "added": {
+     "atmos": [
+      "warpMode: normal"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "1e3af0548e83426e",
+    "warp_modes": {},
+    "dialnorm": null,
+    "presentation_dialnorm": {
+     "twoch_dialogue_norm": 33,
+     "sixch_dialogue_norm": 27,
+     "eightch_dialogue_norm": 27
+    },
+    "error": null
+   },
+   {
+    "variant": "t_warp_LoRo",
+    "added": {
+     "atmos": [
+      "warpMode: LoRo"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "aa4252cd402ef320",
+    "warp_modes": {},
+    "dialnorm": null,
+    "presentation_dialnorm": {
+     "twoch_dialogue_norm": 32,
+     "sixch_dialogue_norm": 26,
+     "eightch_dialogue_norm": 26
+    },
+    "error": null
+   },
+   {
+    "variant": "t_dialnorm_m20",
+    "added": {
+     "atmos": [
+      "dialNorm: -20"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "aa4252cd402ef320",
+    "warp_modes": {},
+    "dialnorm": null,
+    "presentation_dialnorm": {
+     "twoch_dialogue_norm": 32,
+     "sixch_dialogue_norm": 26,
+     "eightch_dialogue_norm": 26
+    },
+    "error": null
+   },
+   {
+    "variant": "t_elements_12",
+    "added": {
+     "atmos": [
+      "scNumberOfElements: 12"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "aa4252cd402ef320",
+    "warp_modes": {},
+    "dialnorm": null,
+    "presentation_dialnorm": {
+     "twoch_dialogue_norm": 32,
+     "sixch_dialogue_norm": 26,
+     "eightch_dialogue_norm": 26
+    },
+    "error": null
+   },
+   {
+    "variant": "t_elements_14",
+    "added": {
+     "atmos": [
+      "scNumberOfElements: 14"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "aa4252cd402ef320",
+    "warp_modes": {},
+    "dialnorm": null,
+    "presentation_dialnorm": {
+     "twoch_dialogue_norm": 32,
+     "sixch_dialogue_norm": 26,
+     "eightch_dialogue_norm": 26
+    },
+    "error": null
+   },
+   {
+    "variant": "t_skip_dialnorm",
+    "added": {
+     "args": [
+      "--loudness-management",
+      "skip:custom_dialnorm=-20"
+     ]
+    },
+    "atmos_info_exit": 0,
+    "encoder_exit": 0,
+    "stream_sha256": "ce80998100f962f5",
+    "warp_modes": {},
+    "dialnorm": null,
+    "presentation_dialnorm": {
+     "twoch_dialogue_norm": 26,
+     "sixch_dialogue_norm": 20,
+     "eightch_dialogue_norm": 20
+    },
+    "error": null
+   }
+  ]
+ }
+}

@@ -1,0 +1,637 @@
+{
+ "question": "What does the warp mode change in what Dolby's renderer plays?",
+ "method": "The same head encoded with the source's mode (kept) and without one (plain, which becomes warping), each rendered by dlbaudiodecbin of Dolby Reference Player 3.2.0. level_db is as played; render_residual_db is what is left after matching each channel's level. The title with source_warp 1 is the control.",
+ "film_heads": [
+  {
+   "title": "1917 (2019)",
+   "source_warp": "0",
+   "layout": "5.1",
+   "dialnorm_kept": [
+    31
+   ],
+   "dialnorm_plain": [
+    31
+   ],
+   "level_db_kept_vs_plain": [
+    1.04,
+    0.54,
+    -0.15,
+    -0.14,
+    -2.91,
+    -2.89
+   ],
+   "render_residual_db": [
+    -9.6,
+    -10.2,
+    -34.2,
+    -35.7,
+    -27.8,
+    -26.6
+   ]
+  },
+  {
+   "title": "1917 (2019)",
+   "source_warp": "0",
+   "layout": "7.1",
+   "dialnorm_kept": [
+    31
+   ],
+   "dialnorm_plain": [
+    31
+   ],
+   "level_db_kept_vs_plain": [
+    -0.11,
+    -0.17,
+    -0.15,
+    -0.14,
+    -0.14,
+    -0.15,
+    0.41,
+    0.12
+   ],
+   "render_residual_db": [
+    -26.2,
+    -26.7,
+    -34.2,
+    -35.6,
+    -28.1,
+    -26.4,
+    -11.2,
+    -11.3
+   ]
+  },
+  {
+   "title": "1917 (2019)",
+   "source_warp": "0",
+   "layout": "2.0",
+   "dialnorm_kept": [
+    31
+   ],
+   "dialnorm_plain": [
+    31
+   ],
+   "level_db_kept_vs_plain": [
+    1.41,
+    0.84
+   ],
+   "render_residual_db": [
+    -9.0,
+    -9.3
+   ]
+  },
+  {
+   "title": "A Beautiful Mind (2001)",
+   "source_warp": "3",
+   "layout": "5.1",
+   "dialnorm_kept": [
+    25
+   ],
+   "dialnorm_plain": [
+    25
+   ],
+   "level_db_kept_vs_plain": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    -0.0,
+    -0.0
+   ],
+   "render_residual_db": [
+    -104.0,
+    -105.0,
+    -110.1,
+    -198.1,
+    -90.0,
+    -91.3
+   ]
+  },
+  {
+   "title": "A Beautiful Mind (2001)",
+   "source_warp": "3",
+   "layout": "7.1",
+   "dialnorm_kept": [
+    25
+   ],
+   "dialnorm_plain": [
+    25
+   ],
+   "level_db_kept_vs_plain": [
+    0.0,
+    -0.0,
+    0.0,
+    0.0,
+    -0.0,
+    -0.0,
+    -0.0,
+    -0.0
+   ],
+   "render_residual_db": [
+    -101.5,
+    -101.8,
+    -110.1,
+    -198.1,
+    -88.5,
+    -91.4,
+    -91.0,
+    -91.9
+   ]
+  },
+  {
+   "title": "A Beautiful Mind (2001)",
+   "source_warp": "3",
+   "layout": "2.0",
+   "dialnorm_kept": [
+    25
+   ],
+   "dialnorm_plain": [
+    25
+   ],
+   "level_db_kept_vs_plain": [
+    0.0,
+    -0.0
+   ],
+   "render_residual_db": [
+    -96.9,
+    -97.1
+   ]
+  },
+  {
+   "title": "Alien Covenant (2017)",
+   "source_warp": "0",
+   "layout": "5.1",
+   "dialnorm_kept": [
+    26
+   ],
+   "dialnorm_plain": [
+    26
+   ],
+   "level_db_kept_vs_plain": [
+    0.08,
+    0.13,
+    0.0,
+    0.0,
+    -1.06,
+    -1.08
+   ],
+   "render_residual_db": [
+    -15.7,
+    -14.4,
+    -29.2,
+    -37.5,
+    -15.7,
+    -16.2
+   ]
+  },
+  {
+   "title": "Alien Covenant (2017)",
+   "source_warp": "0",
+   "layout": "7.1",
+   "dialnorm_kept": [
+    26
+   ],
+   "dialnorm_plain": [
+    26
+   ],
+   "level_db_kept_vs_plain": [
+    0.01,
+    0.01,
+    0.0,
+    0.0,
+    0.51,
+    0.49,
+    -0.14,
+    -0.16
+   ],
+   "render_residual_db": [
+    -18.4,
+    -17.9,
+    -29.2,
+    -37.6,
+    -15.8,
+    -16.3,
+    -15.7,
+    -16.2
+   ]
+  },
+  {
+   "title": "Alien Covenant (2017)",
+   "source_warp": "0",
+   "layout": "2.0",
+   "dialnorm_kept": [
+    26
+   ],
+   "dialnorm_plain": [
+    26
+   ],
+   "level_db_kept_vs_plain": [
+    -0.03,
+    0.06
+   ],
+   "render_residual_db": [
+    -17.8,
+    -16.8
+   ]
+  },
+  {
+   "title": "Awakenings (1990)",
+   "source_warp": "1",
+   "layout": "5.1",
+   "dialnorm_kept": [
+    31
+   ],
+   "dialnorm_plain": [
+    31
+   ],
+   "level_db_kept_vs_plain": [
+    0.0,
+    0.0,
+    0.0,
+    null,
+    0.0,
+    0.0
+   ],
+   "render_residual_db": [
+    -191.7,
+    -194.6,
+    -195.3,
+    null,
+    -190.0,
+    -193.0
+   ]
+  },
+  {
+   "title": "Awakenings (1990)",
+   "source_warp": "1",
+   "layout": "7.1",
+   "dialnorm_kept": [
+    31
+   ],
+   "dialnorm_plain": [
+    31
+   ],
+   "level_db_kept_vs_plain": [
+    0.0,
+    0.0,
+    0.0,
+    null,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "render_residual_db": [
+    -191.7,
+    -194.6,
+    -195.3,
+    null,
+    -189.4,
+    -192.7,
+    -184.1,
+    -184.5
+   ]
+  },
+  {
+   "title": "Awakenings (1990)",
+   "source_warp": "1",
+   "layout": "2.0",
+   "dialnorm_kept": [
+    31
+   ],
+   "dialnorm_plain": [
+    31
+   ],
+   "level_db_kept_vs_plain": [
+    0.0,
+    0.0
+   ],
+   "render_residual_db": [
+    -195.6,
+    -196.6
+   ]
+  },
+  {
+   "title": "Blade Runner 2049 (2017)",
+   "source_warp": "3",
+   "layout": "5.1",
+   "dialnorm_kept": [
+    15
+   ],
+   "dialnorm_plain": [
+    15
+   ],
+   "level_db_kept_vs_plain": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    -0.0,
+    -0.0
+   ],
+   "render_residual_db": [
+    -67.6,
+    -62.3,
+    -82.1,
+    -62.9,
+    -58.6,
+    -59.1
+   ]
+  },
+  {
+   "title": "Blade Runner 2049 (2017)",
+   "source_warp": "3",
+   "layout": "7.1",
+   "dialnorm_kept": [
+    15
+   ],
+   "dialnorm_plain": [
+    15
+   ],
+   "level_db_kept_vs_plain": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    -0.0,
+    -0.0,
+    -0.0,
+    -0.0
+   ],
+   "render_residual_db": [
+    -67.8,
+    -62.8,
+    -82.3,
+    -63.2,
+    -66.4,
+    -66.7,
+    -58.7,
+    -58.5
+   ]
+  },
+  {
+   "title": "Blade Runner 2049 (2017)",
+   "source_warp": "3",
+   "layout": "2.0",
+   "dialnorm_kept": [
+    15
+   ],
+   "dialnorm_plain": [
+    15
+   ],
+   "level_db_kept_vs_plain": [
+    -0.0,
+    0.0
+   ],
+   "render_residual_db": [
+    -64.5,
+    -62.3
+   ]
+  }
+ ],
+ "authored_scene_against_warping": {
+  "7.1": {
+   "warping": [
+    [
+     0.0,
+     -141.9
+    ],
+    [
+     0.0,
+     -141.9
+    ],
+    [
+     0.0,
+     -108.9
+    ],
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     -141.1
+    ],
+    [
+     0.0,
+     -139.9
+    ],
+    [
+     0.0,
+     -137.4
+    ],
+    [
+     0.0,
+     -137.4
+    ]
+   ],
+   "normal": [
+    [
+     1.0,
+     -18.2
+    ],
+    [
+     1.0,
+     -18.2
+    ],
+    [
+     0.98,
+     -12.1
+    ],
+    [
+     0.0,
+     0.0
+    ],
+    [
+     1.05,
+     -17.5
+    ],
+    [
+     0.98,
+     -18.2
+    ],
+    [
+     1.0,
+     -18.2
+    ],
+    [
+     1.0,
+     -18.2
+    ]
+   ],
+   "ProLogicIIx": [
+    [
+     0.0,
+     -81.2
+    ],
+    [
+     -0.0,
+     -53.4
+    ],
+    [
+     -0.0,
+     -54.8
+    ],
+    [
+     0.0,
+     0.0
+    ],
+    [
+     -0.0,
+     -31.6
+    ],
+    [
+     -0.0,
+     -32.1
+    ],
+    [
+     0.2,
+     -32.3
+    ],
+    [
+     0.2,
+     -32.3
+    ]
+   ],
+   "LoRo": [
+    [
+     -0.0,
+     -93.5
+    ],
+    [
+     -0.0,
+     -98.5
+    ],
+    [
+     0.0,
+     -103.0
+    ],
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     -45.5
+    ],
+    [
+     0.0,
+     -45.6
+    ],
+    [
+     -0.0,
+     -88.5
+    ],
+    [
+     -0.0,
+     -88.5
+    ]
+   ]
+  },
+  "5.1": {
+   "warping": [
+    [
+     0.0,
+     -141.9
+    ],
+    [
+     0.0,
+     -141.9
+    ],
+    [
+     0.0,
+     -108.9
+    ],
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     -141.2
+    ],
+    [
+     0.0,
+     -140.4
+    ]
+   ],
+   "normal": [
+    [
+     1.45,
+     -8.2
+    ],
+    [
+     1.14,
+     -12.5
+    ],
+    [
+     29.89,
+     29.9
+    ],
+    [
+     0.0,
+     0.0
+    ],
+    [
+     -0.89,
+     -14.6
+    ],
+    [
+     -0.69,
+     -14.8
+    ]
+   ],
+   "ProLogicIIx": [
+    [
+     0.0,
+     -80.5
+    ],
+    [
+     0.0,
+     -83.4
+    ],
+    [
+     -0.0,
+     -54.8
+    ],
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.98,
+     -14.1
+    ],
+    [
+     1.16,
+     -13.2
+    ]
+   ],
+   "LoRo": [
+    [
+     -0.0,
+     -91.2
+    ],
+    [
+     -0.0,
+     -97.5
+    ],
+    [
+     -0.0,
+     -99.4
+    ],
+    [
+     0.0,
+     0.0
+    ],
+    [
+     -0.0,
+     -92.4
+    ],
+    [
+     -0.0,
+     -90.7
+    ]
+   ]
+  }
+ }
+}

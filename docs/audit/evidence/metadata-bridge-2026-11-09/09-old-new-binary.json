@@ -1,0 +1,107 @@
+{
+ "question": "Against main at 7aa9abd, what changed without --warp-mode?",
+ "method": "20-second heads of all 277 object tracks: decode --format damf, verify and, for TrueHD, decode -p 2 --format pcm, by both binaries under one output name.",
+ "tracks": 277,
+ "unchanged": 270,
+ "changed": [
+  {
+   "codec": "truehd",
+   "track": 1,
+   "changed": [
+    "rc",
+    ".atmos.metadata",
+    "verify",
+    "pcm_rc"
+   ],
+   "old_rc": 7,
+   "new_rc": 0,
+   "extended": 0,
+   "title": "Avengers Infinity War (2018)"
+  },
+  {
+   "codec": "truehd",
+   "track": 1,
+   "changed": [
+    "rc",
+    ".atmos.metadata",
+    "verify",
+    "pcm_rc"
+   ],
+   "old_rc": 7,
+   "new_rc": 0,
+   "extended": 0,
+   "title": "Coco (2017)"
+  },
+  {
+   "codec": "truehd",
+   "track": 1,
+   "changed": [
+    "rc",
+    ".atmos.metadata",
+    "verify",
+    "pcm_rc"
+   ],
+   "old_rc": 7,
+   "new_rc": 0,
+   "extended": 0,
+   "title": "Green Book (2018)"
+  },
+  {
+   "codec": "truehd",
+   "track": 1,
+   "changed": [
+    "rc",
+    ".atmos.metadata",
+    "verify",
+    "pcm_rc"
+   ],
+   "old_rc": 7,
+   "new_rc": 0,
+   "extended": 1818,
+   "title": "Pirates of the Caribbean Dead Men Tell No Tales (2017)"
+  },
+  {
+   "codec": "truehd",
+   "track": 1,
+   "changed": [
+    "rc",
+    ".atmos.metadata",
+    "verify",
+    "pcm_rc"
+   ],
+   "old_rc": 7,
+   "new_rc": 0,
+   "extended": 0,
+   "title": "The Avengers (2012)"
+  },
+  {
+   "codec": "truehd",
+   "track": 1,
+   "changed": [
+    "rc",
+    ".atmos.metadata",
+    "verify",
+    "pcm_rc"
+   ],
+   "old_rc": 7,
+   "new_rc": 0,
+   "extended": 0,
+   "title": "The Incredibles (2004)"
+  },
+  {
+   "codec": "truehd",
+   "track": 1,
+   "changed": [
+    "rc",
+    ".atmos.metadata",
+    "verify",
+    "pcm_rc"
+   ],
+   "old_rc": 7,
+   "new_rc": 0,
+   "extended": 0,
+   "title": "The Matrix (1999)"
+  }
+ ],
+ "reading": "Audio and PCM bytes never change. The seven are the titles of the stale first payload: exit 7 to 0, and their first events reach the metadata."
+}

@@ -11,7 +11,7 @@ use oadec_emdf::container::{self, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::{BedChannel, ISF_OBJECTS, Oamd};
 use oadec_spatial::{
     AdmError, AdmOptions, AdmWriter, DamfError, DamfOptions, DamfWriter, Event, Interpolation,
-    IsfPolicy, LossLedger, Program, Timeline,
+    IsfPolicy, LossLedger, Program, Timeline, WarpMode,
 };
 use oadec_truehd::channel::ExtraChannelMeaning;
 use oadec_truehd::{AccessUnit, ChannelLabel, ExtraKind, MajorSync, StreamConfig};
@@ -96,6 +96,58 @@ pub(crate) fn note_non_profile(opts: &Options) {
     }
 }
 
+/// The warp mode an object output names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum WarpArg {
+    /// The one the stream declares; a TrueHD stream declares none.
+    Stream,
+    /// Direct render.
+    Normal,
+    /// Direct render with room balance, which is what an encoder assumes when
+    /// the output names none.
+    Warping,
+    /// Dolby Pro Logic IIx.
+    ProLogicIix,
+    /// Standard Lo/Ro.
+    LoRo,
+}
+
+impl WarpArg {
+    /// The mode to write, given what the stream declares.
+    fn resolve(self, declared: Option<WarpMode>) -> Option<WarpMode> {
+        match self {
+            Self::Stream => declared,
+            Self::Normal => Some(WarpMode::Normal),
+            Self::Warping => Some(WarpMode::Warping),
+            Self::ProLogicIix => Some(WarpMode::ProLogicIIx),
+            Self::LoRo => Some(WarpMode::LoRo),
+        }
+    }
+}
+
+/// What `--warp-mode stream` does when it has no mode to keep.
+pub(crate) fn note_no_warp_mode(why: &str) {
+    eprintln!(
+        "note: {why}, so the output names none and an encoder will assume warping; give --warp-mode a mode to choose"
+    );
+}
+
+/// Opens the output for a stream that declares `declared`, with the warp mode
+/// the options ask for, and tells the timeline what the output will read as.
+pub(crate) fn open_sink(
+    dir: &Path,
+    name: &str,
+    program: &Program,
+    rate: u32,
+    opts: &Options,
+    declared: Option<WarpMode>,
+    timeline: &mut Timeline,
+) -> Result<Sink> {
+    let warp = opts.warp.and_then(|w| w.resolve(declared));
+    timeline.signalled_warp = warp;
+    Sink::create(dir, name, program, rate, opts, warp)
+}
+
 /// Options of the object output.
 #[derive(Debug, Clone)]
 pub struct Options {
@@ -138,6 +190,8 @@ pub struct Options {
     pub fps: String,
     /// ADM: how interpolation lengths are written.
     pub interpolation: Interpolation,
+    /// The warp mode the output names, if it is asked to name one.
+    pub warp: Option<WarpArg>,
 }
 
 /// The message of a refused ISF programme, with the way out.
@@ -298,6 +352,7 @@ impl Sink {
         program: &Program,
         rate: u32,
         opts: &Options,
+        warp: Option<WarpMode>,
     ) -> Result<Self> {
         if opts.adm {
             let mut options = AdmOptions {
@@ -305,6 +360,7 @@ impl Sink {
                 isf: opts.isf,
                 allow_non_profile_rate: opts.allow_non_profile_rate,
                 interpolation: opts.interpolation,
+                warp_mode: warp,
                 ..AdmOptions::default()
             };
             if opts.dolby_origin_tag {
@@ -326,6 +382,7 @@ impl Sink {
                 bed_conform: opts.bed_conform,
                 isf: opts.isf,
                 fps: opts.fps.clone(),
+                warp_mode: warp,
                 ..DamfOptions::default()
             };
             match DamfWriter::create(dir, name, program, rate, &options) {
@@ -452,7 +509,20 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
                 bail!("the stream does not start with a major sync");
             };
             let program = program_from_major_sync(ms)?;
-            sink = Some(Sink::create(dir, &name, &program, rate, opts)?);
+            // No TrueHD stream measured carries a trim element, so nothing is read
+            // here and the note says so; if one ever does, the timeline counts it.
+            if opts.warp == Some(WarpArg::Stream) {
+                note_no_warp_mode("no TrueHD stream measured has declared a warp mode");
+            }
+            sink = Some(open_sink(
+                dir,
+                &name,
+                &program,
+                rate,
+                opts,
+                None,
+                &mut timeline,
+            )?);
             program_from_sync = Some(program);
         }
         let w = sink.as_mut().expect("sink created above");
@@ -679,6 +749,7 @@ mod tests {
             allow_non_profile_rate: false,
             fps: "24".to_string(),
             interpolation: Interpolation::Profile,
+            warp: None,
         }
     }
 
@@ -700,7 +771,8 @@ mod tests {
         let rows = [[1i32, -1]; 5];
         let pcm_bytes = 5 * 2 * 3;
 
-        let mut sink = Sink::create(&dir, "d", &program, 48_000, &sink_options(false)).unwrap();
+        let mut sink =
+            Sink::create(&dir, "d", &program, 48_000, &sink_options(false), None).unwrap();
         sink.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
         drop(sink);
         let caf = std::fs::read(dir.join("d.atmos.audio")).unwrap();
@@ -711,7 +783,8 @@ mod tests {
             "the CAF data size covers the edit count and the samples"
         );
 
-        let mut sink = Sink::create(&dir, "a", &program, 48_000, &sink_options(true)).unwrap();
+        let mut sink =
+            Sink::create(&dir, "a", &program, 48_000, &sink_options(true), None).unwrap();
         sink.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
         drop(sink);
         let wav = std::fs::read(dir.join("a.wav")).unwrap();

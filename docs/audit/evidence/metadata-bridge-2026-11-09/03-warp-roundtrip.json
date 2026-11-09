@@ -1,0 +1,148 @@
+{
+ "question": "Does a real stream's warp mode survive E-AC-3 -> oadec -> DAMF or ADM -> encoder -> oadec?",
+ "method": "tools/warp_roundtrip.py: 30-second heads, Dolby Media Encoder 5.7.2. no_flag_identical compares the DAMF set without the flag with the one from main at 7aa9abd.",
+ "results": [
+  {
+   "title": "A Beautiful Mind (2001)",
+   "source_warp": {
+    "3": 937
+   },
+   "old_rc": 0,
+   "new_rc": 0,
+   "no_flag_identical": {
+    ".atmos": true,
+    ".atmos.metadata": true,
+    ".atmos.audio": true
+   },
+   "plain_encode": {
+    "1": 937
+   },
+   "kept_rc": 0,
+   "kept_info": "Render warp mode: LoRo",
+   "kept_encode": {
+    "3": 937
+   },
+   "adm_rc": 0,
+   "adm_encode": {
+    "3": 937
+   },
+   "damf_adm_same_stream": true
+  },
+  {
+   "title": "1917 (2019)",
+   "source_warp": {
+    "0": 938
+   },
+   "old_rc": 0,
+   "new_rc": 0,
+   "no_flag_identical": {
+    ".atmos": true,
+    ".atmos.metadata": true,
+    ".atmos.audio": true
+   },
+   "plain_encode": {
+    "1": 938
+   },
+   "kept_rc": 0,
+   "kept_info": "Render warp mode: normal",
+   "kept_encode": {
+    "0": 938
+   },
+   "adm_rc": 0,
+   "adm_encode": {
+    "0": 938
+   },
+   "damf_adm_same_stream": true
+  },
+  {
+   "title": "Alien Covenant (2017)",
+   "source_warp": {
+    "0": 938
+   },
+   "old_rc": 0,
+   "new_rc": 0,
+   "no_flag_identical": {
+    ".atmos": true,
+    ".atmos.metadata": true,
+    ".atmos.audio": true
+   },
+   "plain_encode": {
+    "1": 938
+   },
+   "kept_rc": 0,
+   "kept_info": "Render warp mode: normal",
+   "kept_encode": {
+    "0": 938
+   },
+   "adm_rc": 0,
+   "adm_encode": {
+    "0": 938
+   },
+   "damf_adm_same_stream": true
+  },
+  {
+   "title": "Awakenings (1990)",
+   "source_warp": {
+    "1": 938
+   },
+   "old_rc": 0,
+   "new_rc": 0,
+   "no_flag_identical": {
+    ".atmos": true,
+    ".atmos.metadata": true,
+    ".atmos.audio": true
+   },
+   "plain_encode": {
+    "1": 938
+   },
+   "kept_rc": 0,
+   "kept_info": "Render warp mode: warping",
+   "kept_encode": {
+    "1": 938
+   },
+   "adm_rc": 0,
+   "adm_encode": {
+    "1": 938
+   },
+   "damf_adm_same_stream": true
+  },
+  {
+   "title": "Blade Runner 2049 (2017)",
+   "source_warp": {
+    "3": 938
+   },
+   "old_rc": 0,
+   "new_rc": 0,
+   "no_flag_identical": {
+    ".atmos": true,
+    ".atmos.metadata": true,
+    ".atmos.audio": true
+   },
+   "plain_encode": {
+    "1": 938
+   },
+   "kept_rc": 0,
+   "kept_info": "Render warp mode: LoRo",
+   "kept_encode": {
+    "3": 938
+   },
+   "adm_rc": 0,
+   "adm_encode": {
+    "3": 938
+   },
+   "damf_adm_same_stream": true
+  }
+ ],
+ "whole_film": {
+  "joc_whole_film": "1917 (2019)",
+  "decode_exit": 0,
+  "warp_in_header": [
+   "normal"
+  ],
+  "atmos_info_exit": 0,
+  "atmos_info_warp": [
+   "Render warp mode: normal"
+  ],
+  "loss_lines": []
+ }
+}

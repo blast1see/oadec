@@ -1,0 +1,68 @@
+{
+ "question": "Is decode --order stream the order Dolby's encoder reads an 8-channel WAVE in?",
+ "method": "One tone per slot, written in that order with channel mask 0x63F and with mask 0, encoded with dee_dthd_encoder 5.7.2 as an 8ch presentation, decoded -p 2. The loudest frequency per output channel, in Hz.",
+ "input": [
+  400,
+  630,
+  1000,
+  55,
+  1600,
+  2500,
+  4000,
+  6300
+ ],
+ "results": {
+  "ddp mask_63F": [
+   "ERROR: Failed to parse 'encoder'. Invalid 'parent' option value: 'ddp71'.",
+   "----------------------------------------",
+   "Execution time: 0.0028544 seconds",
+   "Exit code: 1"
+  ],
+  "thd mask_63F decode -p 2 --order stream": [
+   400,
+   630,
+   1000,
+   55,
+   1600,
+   2500,
+   4000,
+   6300
+  ],
+  "thd mask_63F decode -p 2 --order interchange": [
+   400,
+   630,
+   1000,
+   55,
+   4000,
+   6300,
+   1600,
+   2500
+  ],
+  "ddp mask_0": [
+   "ERROR: Failed to parse 'encoder'. Invalid 'parent' option value: 'ddp71'.",
+   "----------------------------------------",
+   "Execution time: 0.0014886 seconds",
+   "Exit code: 1"
+  ],
+  "thd mask_0 decode -p 2 --order stream": [
+   400,
+   630,
+   1000,
+   55,
+   1600,
+   2500,
+   4000,
+   6300
+  ],
+  "thd mask_0 decode -p 2 --order interchange": [
+   400,
+   630,
+   1000,
+   55,
+   4000,
+   6300,
+   1600,
+   2500
+  ]
+ }
+}

@@ -12,7 +12,9 @@ pub mod program;
 pub use adm::{AdmError, AdmOptions, AdmSummary, AdmWriter, Interpolation};
 pub use damf::{DamfError, DamfOptions, DamfWriter};
 pub use loss::{LossClass, LossKind, LossLedger};
-pub use program::{ElementState, Event, IsfPolicy, Program, ProgramError, Timeline};
+pub use program::{
+    ElementState, Event, IsfPolicy, Program, ProgramError, Timeline, WarpMode, declared_warp,
+};
 
 /// Saturates a sample to the signed 24-bit range; the flag says whether it
 /// had to.

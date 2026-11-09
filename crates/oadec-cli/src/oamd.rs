@@ -12,7 +12,7 @@ use std::time::Instant;
 
 use anyhow::Result;
 use oadec_emdf::container::{self, Container, PAYLOAD_ID_OAMD};
-use oadec_emdf::oamd::{Distance, Element, Gain, Oamd, Status};
+use oadec_emdf::oamd::{Distance, Element, Gain, Oamd, Status, TrimConfig};
 use oadec_truehd::{AccessUnit, ExtraKind, StreamConfig};
 use serde::Serialize;
 
@@ -40,7 +40,7 @@ pub struct OamdSummary {
     pub padding_nonzero: u64,
     /// Elements padded by eight bits or more (a sign of a misread element).
     pub padding_long: u64,
-    /// Elements that overran their declared size.
+    /// Elements whose declared size is not theirs.
     pub size_mismatches: u64,
     /// Sync lost and found again inside the stream: the sync errors of the walk
     /// over AC-3 and E-AC-3 syncframes, the resynchronisations of the TrueHD
@@ -93,6 +93,17 @@ pub struct OamdSummary {
     pub first_gain_units: Vec<u64>,
     pub first_size_units: Vec<u64>,
     pub payloads_with_trim: u64,
+    /// `warp_mode` of each trim element.
+    pub warp_modes: BTreeMap<u8, u64>,
+    /// `global_trim_mode` of each trim element.
+    pub global_trim_modes: BTreeMap<u8, u64>,
+    /// Trim configurations that say something, by configuration index and
+    /// content. A configuration left at its default is not counted.
+    pub trim_configs: BTreeMap<String, u64>,
+    /// Trim elements that disable trims for chosen objects.
+    pub per_object_trim_disables: u64,
+    /// Payloads declaring alternate object data.
+    pub alternate_object_data: u64,
     pub payloads_with_extended: u64,
     pub payloads_with_unknown_elements: u64,
     pub program: Option<ProgramSummary>,
@@ -111,6 +122,38 @@ pub struct ProgramSummary {
     pub isf_index: Option<u8>,
     pub dynamic_objects: usize,
     pub objects: usize,
+    pub bed_chan_distribute: bool,
+}
+
+/// One trim configuration as a key for the tally; `None` when it is at its
+/// default and has nothing to say.
+fn trim_config_text(index: usize, c: &TrimConfig) -> Option<String> {
+    if c.default_trim {
+        return None;
+    }
+    if c.disable_trim {
+        return Some(format!("{index}: disabled"));
+    }
+    let mut text = format!("{index}:");
+    for (name, value) in [
+        ("centre", c.centre_db),
+        ("surround", c.surround_db),
+        ("height", c.height_db),
+    ] {
+        if let Some(db) = value {
+            text.push_str(&format!(" {name} {db}"));
+        }
+    }
+    for (name, value) in [
+        ("top-bottom", c.balance_top_bottom),
+        ("listener", c.balance_listener),
+    ] {
+        if let Some(b) = value {
+            let amount = f32::from(b.sign) * b.amount;
+            text.push_str(&format!(" {name} {amount:+}"));
+        }
+    }
+    Some(text)
 }
 
 fn status_name(s: Status) -> &'static str {
@@ -173,7 +216,11 @@ impl OamdSummary {
             isf_index: oamd.program.isf_index,
             dynamic_objects: oamd.program.dynamic_objects,
             objects: oamd.program.objects(),
+            bed_chan_distribute: oamd.program.bed_chan_distribute,
         };
+        if oamd.alternate_object_data_present {
+            self.alternate_object_data += 1;
+        }
         match &self.program {
             None => self.program = Some(program),
             Some(p) if *p != program => self.program_changes += 1,
@@ -201,7 +248,7 @@ impl OamdSummary {
                 self.size_mismatches += 1;
                 if self.first_error.is_none() {
                     self.first_error = Some(format!(
-                        "{} {unit_index}: element {} overran its {} bytes",
+                        "{} {unit_index}: element {} declares {} bytes, which is not its size",
                         self.unit_word, e.id, e.size_bytes
                     ));
                 }
@@ -273,7 +320,22 @@ impl OamdSummary {
                         }
                     }
                 }
-                Element::Trim(_) => self.payloads_with_trim += 1,
+                Element::Trim(t) => {
+                    self.payloads_with_trim += 1;
+                    *self.warp_modes.entry(t.warp_mode).or_default() += 1;
+                    *self
+                        .global_trim_modes
+                        .entry(t.global_trim_mode)
+                        .or_default() += 1;
+                    for (i, c) in t.configs.iter().enumerate() {
+                        if let Some(text) = trim_config_text(i, c) {
+                            *self.trim_configs.entry(text).or_default() += 1;
+                        }
+                    }
+                    if t.disable_per_object.is_some() {
+                        self.per_object_trim_disables += 1;
+                    }
+                }
                 Element::ExtendedObject(_) => self.payloads_with_extended += 1,
                 Element::Unknown(_) => unknown = true,
             }
@@ -702,6 +764,15 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             summary.payloads_with_extended,
             summary.payloads_with_unknown_elements
         );
+        if summary.payloads_with_trim > 0 {
+            println!(
+                "Trim:              warp modes {:?}, global modes {:?}, configurations {:?}, per-object disables {}",
+                summary.warp_modes,
+                summary.global_trim_modes,
+                summary.trim_configs,
+                summary.per_object_trim_disables
+            );
+        }
         if let Some(e) = &summary.first_error {
             println!("First problem:     {e}");
         }
@@ -712,4 +783,98 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         );
     }
     Ok(clean)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use oadec_emdf::oamd::{
+        Balance, ELEMENT_TRIM, ElementMd, ProgramAssignment, TrimConfig, TrimElement,
+    };
+
+    fn payload(trim: TrimElement, alternate: bool, distribute: bool) -> Oamd {
+        Oamd {
+            version: 0,
+            object_count: 2,
+            program: ProgramAssignment {
+                bed_chan_distribute: distribute,
+                ..ProgramAssignment::default()
+            },
+            alternate_object_data_present: alternate,
+            elements: vec![ElementMd {
+                id: ELEMENT_TRIM,
+                size_bytes: 1,
+                alternate_id: None,
+                discard_unknown: false,
+                element: Element::Trim(trim),
+                size_ok: true,
+                padding_bits: 0,
+                padding_zero: true,
+            }],
+            padding_bits: 0,
+            padding_zero: true,
+        }
+    }
+
+    #[test]
+    fn a_trim_element_is_counted_by_what_it_says_and_not_only_by_being_there() {
+        let mut configs = vec![
+            TrimConfig {
+                default_trim: true,
+                ..TrimConfig::default()
+            };
+            9
+        ];
+        configs[3] = TrimConfig {
+            centre_db: Some(-3.0),
+            surround_db: Some(-6.0),
+            height_db: Some(-9.0),
+            balance_top_bottom: Some(Balance {
+                sign: 1,
+                amount: 0.5,
+            }),
+            balance_listener: Some(Balance {
+                sign: -1,
+                amount: 0.25,
+            }),
+            ..TrimConfig::default()
+        };
+        configs[5] = TrimConfig {
+            disable_trim: true,
+            ..TrimConfig::default()
+        };
+        let custom = TrimElement {
+            warp_mode: 1,
+            global_trim_mode: 2,
+            configs,
+            disable_per_object: Some(vec![true, false]),
+        };
+        let plain = TrimElement {
+            warp_mode: 1,
+            global_trim_mode: 0,
+            configs: Vec::new(),
+            disable_per_object: None,
+        };
+
+        let mut s = OamdSummary::default();
+        s.take(0, None, &payload(custom, false, true));
+        s.take(1, None, &payload(plain, true, true));
+
+        assert_eq!(s.payloads_with_trim, 2);
+        assert_eq!(s.warp_modes, BTreeMap::from([(1, 2)]));
+        assert_eq!(s.global_trim_modes, BTreeMap::from([(0, 1), (2, 1)]));
+        assert_eq!(
+            s.trim_configs,
+            BTreeMap::from([
+                (
+                    "3: centre -3 surround -6 height -9 top-bottom +0.5 listener -0.25".to_string(),
+                    1
+                ),
+                ("5: disabled".to_string(), 1),
+            ])
+        );
+        assert_eq!(s.per_object_trim_disables, 1);
+        assert_eq!(s.alternate_object_data, 1);
+        assert!(s.program.unwrap().bed_chan_distribute);
+    }
 }

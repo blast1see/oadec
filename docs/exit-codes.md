@@ -87,11 +87,12 @@ printed once per run, one line per class:
   importance, a bed event, a screen reference and a trim bypass are not
   written. Dolby's own converters drop them the same way. Printed, exit 0.
 - **not representable in DAMF or the ADM profile** -- distance, divergence,
-  warp mode, trim configurations. Printed, exit 0.
+  trim configurations. Printed, exit 0.
 - **approximations** -- oadec's own choice where the formats leave room:
-  differing size axes written with the width, a first event held from sample
-  0, an event superseded at the same sample, an event beyond the programme
-  end. Printed, exit 0.
+  a warp mode other than the one the output reads as (`--warp-mode` names one;
+  with none an encoder reads warping), differing size axes written with the
+  width, a first event held from sample 0, an event superseded at the same
+  sample, an event beyond the programme end. Printed, exit 0.
 - **written with loss** -- something is missing or outside the profile at the
   user's request or because the input was anomalous: ISF elements dropped
   (`--isf drop`; the default refuses such a programme with exit 2), an

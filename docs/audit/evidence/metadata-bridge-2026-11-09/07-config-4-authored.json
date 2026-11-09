@@ -1,0 +1,108 @@
+{
+ "question": "Can downmix configuration 4 be authored, and does it decode as well as configuration 3?",
+ "method": "Two authored scenes, dee_ddpjoc_encoder online 768 kbps and --encoder bluray 1536 kbps. Ground truth by tools/ground_truth.py, objects against dlbac3dec out-ch-config=21 by tools/objcmp.py.",
+ "note": "The onset scene's worst object is an element at -108 dBFS, 94.8 percent silent, in both modes; the others are 61 to 86 dB. Two silences do not make a measurement.",
+ "other_rates": "1152 and 1664 kbps also give configuration 4, clean, 15 objects, on the fixture scene.",
+ "results": [
+  {
+   "scene": "controlled-atmos-scene",
+   "mode": "online768",
+   "syntax": "E-AC-3",
+   "dmx": [
+    3
+   ],
+   "program": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 5 downmix channels (config 3), ",
+   "verify_clean": true,
+   "truth": {
+    "authored_objects": 8,
+    "identified_by_signal": 8,
+    "objects_with_every_position_recovered": 8,
+    "static_objects": 7,
+    "static_positions_exact": 7,
+    "worst_position_error": 0.033333
+   },
+   "against_dolby": {
+    "lag_samples": 0,
+    "objects_worst_sdr_db": 51.8,
+    "objects_median_sdr_db": 95.47,
+    "lfe_sdr_db": null,
+    "compared_samples": 279295
+   }
+  },
+  {
+   "scene": "controlled-atmos-scene",
+   "mode": "bluray1536",
+   "syntax": "AC-3",
+   "dmx": [
+    4
+   ],
+   "program": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 7 downmix channels (config 4), ",
+   "verify_clean": true,
+   "truth": {
+    "authored_objects": 8,
+    "identified_by_signal": 8,
+    "objects_with_every_position_recovered": 8,
+    "static_objects": 7,
+    "static_positions_exact": 7,
+    "worst_position_error": 0.033333
+   },
+   "against_dolby": {
+    "lag_samples": 0,
+    "objects_worst_sdr_db": 52.34,
+    "objects_median_sdr_db": 94.08,
+    "lfe_sdr_db": null,
+    "compared_samples": 279295
+   }
+  },
+  {
+   "scene": "controlled-atmos-onset-scene",
+   "mode": "online768",
+   "syntax": "E-AC-3",
+   "dmx": [
+    3
+   ],
+   "program": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 5 downmix channels (config 3), ",
+   "verify_clean": true,
+   "truth": {
+    "authored_objects": 8,
+    "identified_by_signal": 5,
+    "objects_with_every_position_recovered": 5,
+    "static_objects": 0,
+    "static_positions_exact": 0,
+    "worst_position_error": 0.0
+   },
+   "against_dolby": {
+    "lag_samples": 0,
+    "objects_worst_sdr_db": 15.98,
+    "objects_median_sdr_db": 64.58,
+    "lfe_sdr_db": null,
+    "compared_samples": 279295
+   }
+  },
+  {
+   "scene": "controlled-atmos-onset-scene",
+   "mode": "bluray1536",
+   "syntax": "AC-3",
+   "dmx": [
+    4
+   ],
+   "program": "program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 7 downmix channels (config 4), ",
+   "verify_clean": true,
+   "truth": {
+    "authored_objects": 8,
+    "identified_by_signal": 5,
+    "objects_with_every_position_recovered": 5,
+    "static_objects": 0,
+    "static_positions_exact": 0,
+    "worst_position_error": 0.0
+   },
+   "against_dolby": {
+    "lag_samples": 0,
+    "objects_worst_sdr_db": 15.97,
+    "objects_median_sdr_db": 64.59,
+    "lfe_sdr_db": null,
+    "compared_samples": 279295
+   }
+  }
+ ]
+}

@@ -17,7 +17,7 @@ use crate::caf::CafWriter;
 use crate::loss::{LossKind, LossLedger};
 use crate::program::{
     BedState, ElementState, Event, FIRST_OBJECT_ID, IsfPolicy, ObjectState, Program, STANDARD_BED,
-    bed_channel_id, damf_channel_name, zones_name,
+    WarpMode, bed_channel_id, damf_channel_name, zones_name,
 };
 
 /// DAMF version written.
@@ -42,6 +42,9 @@ pub struct DamfOptions {
     /// What to do with intermediate-spatial-format elements, which DAMF
     /// cannot represent: refuse (the default) or drop and count.
     pub isf: IsfPolicy,
+    /// The warp mode to write. `None` writes no `warpMode`, which Dolby's
+    /// encoders read as warping.
+    pub warp_mode: Option<WarpMode>,
 }
 
 impl Default for DamfOptions {
@@ -52,6 +55,7 @@ impl Default for DamfOptions {
             creation_tool: "oadec".to_string(),
             creation_tool_version: env!("CARGO_PKG_VERSION").to_string(),
             isf: IsfPolicy::Error,
+            warp_mode: None,
         }
     }
 }
@@ -206,6 +210,9 @@ impl DamfWriter {
             "    creationToolVersion: {}\n",
             options.creation_tool_version
         ));
+        if let Some(w) = options.warp_mode {
+            atmos.push_str(&format!("    warpMode: {}\n", w.damf_name()));
+        }
         atmos.push_str("    bedInstances:\n");
         atmos.push_str("      - channels:\n");
         for (id, ch) in &bed_layout {
@@ -463,6 +470,47 @@ mod tests {
             screen_factor: 0.0,
             depth_factor: 0.25,
         }
+    }
+
+    /// The warp mode goes where the Conversion Tool writes it, and a set not
+    /// asked to carry one stays what it was, byte for byte.
+    #[test]
+    fn the_warp_mode_is_written_only_when_asked_for() {
+        let dir = std::env::temp_dir().join(format!("oadec-damf-warp-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let program = Program {
+            beds: vec![vec![BedChannel::LFE]],
+            isf_index: None,
+            isf_objects: 0,
+            dynamic_objects: 1,
+        };
+        let header = |warp| {
+            let options = DamfOptions {
+                warp_mode: warp,
+                ..DamfOptions::default()
+            };
+            let w = DamfWriter::create(&dir, "w", &program, 48_000, &options).unwrap();
+            let text = std::fs::read_to_string(dir.join("w.atmos")).unwrap();
+            w.finish().unwrap();
+            text
+        };
+        let plain = header(None);
+        assert!(!plain.contains("warpMode"), "{plain}");
+        let normal = header(Some(WarpMode::Normal));
+        assert!(
+            normal.contains(&format!(
+                "creationToolVersion: {}\n    warpMode: normal\n    bedInstances:",
+                env!("CARGO_PKG_VERSION")
+            )),
+            "{normal}"
+        );
+        assert_eq!(
+            normal.replace("    warpMode: normal\n", ""),
+            plain,
+            "nothing else moves"
+        );
+        assert!(header(Some(WarpMode::LoRo)).contains("    warpMode: LoRo\n"));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// DAMF has one `size`: the width is written, axes that differ are

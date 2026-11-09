@@ -909,14 +909,16 @@ impl ExtendedObjectElement {
                 for update in updates.iter().take(blocks) {
                     let mut steps = [0i8; 3];
                     if !update.not_active && obj >= bed_or_isf && reader.read_bool()? {
+                        // The syntax asks element 2 for x, and element 2 of
+                        // three is bit 0; see docs/oamd.md for the measure.
                         let presence = reader.read(3)?;
-                        if presence & 4 != 0 {
+                        if presence & 1 != 0 {
                             steps[0] = EXT_PRECISION[reader.read(2)? as usize];
                         }
                         if presence & 2 != 0 {
                             steps[1] = EXT_PRECISION[reader.read(2)? as usize];
                         }
-                        if presence & 1 != 0 {
+                        if presence & 4 != 0 {
                             steps[2] = EXT_PRECISION[reader.read(2)? as usize];
                         }
                     }
@@ -963,6 +965,40 @@ pub struct ElementMd {
     pub padding_bits: usize,
     /// Whether the padding bits were all zero.
     pub padding_zero: bool,
+}
+
+/// The body of one element, ending at bit `end` when its id is unknown.
+fn read_element(
+    r: &mut BitReader<'_>,
+    id: u8,
+    end: usize,
+    object_count: usize,
+    bed_or_isf: usize,
+    objects: Option<&ObjectElement>,
+) -> Result<Element> {
+    Ok(match id {
+        ELEMENT_OBJECT => Element::Object(ObjectElement::parse(r, object_count, bed_or_isf)?),
+        ELEMENT_TRIM => Element::Trim(TrimElement::parse(r, object_count)?),
+        ELEMENT_EXTENDED_OBJECT => {
+            let Some(objects) = objects else {
+                return malformed("extended object element before the object element");
+            };
+            Element::ExtendedObject(ExtendedObjectElement::parse(r, objects, bed_or_isf)?)
+        }
+        _ => {
+            let bits = end - r.position();
+            let mut raw = Vec::with_capacity(bits.div_ceil(8));
+            let mut left = bits;
+            while left >= 8 {
+                raw.push(r.read(8)? as u8);
+                left -= 8;
+            }
+            if left > 0 {
+                raw.push((r.read(left as u32)? << (8 - left)) as u8);
+            }
+            Element::Unknown(raw)
+        }
+    })
 }
 
 /// A parsed `object_audio_metadata_payload()`.
@@ -1012,15 +1048,21 @@ impl Oamd {
         }
         let mut elements: Vec<ElementMd> = Vec::with_capacity(elements_count as usize);
         let mut object_element: Option<usize> = None;
-        for _ in 0..elements_count {
+        for index in 0..elements_count {
             let id = r.read(4)? as u8;
             let size_bytes = r.read_variable_bits_max(4, 4)? as usize + 1;
-            let end = r.position() + size_bytes * 8;
-            if end > r.len_bits() {
+            let declared_end = r.position() + size_bytes * 8;
+            let fits = declared_end <= r.len_bits();
+            // The last element may overrun: encoders write the first payload of
+            // a segment with another payload's size, and the element is all there
+            // with less than a byte of fill left. One with another after it may
+            // not, because the next one starts where it ends.
+            if !fits && index + 1 != elements_count {
                 return malformed(format!(
                     "element {id} of {size_bytes} bytes runs past the payload"
                 ));
             }
+            let end = declared_end.min(r.len_bits());
             let alternate_id = if alternate_object_data_present {
                 Some(r.read(4)? as u8)
             } else {
@@ -1028,39 +1070,32 @@ impl Oamd {
             };
             let discard_unknown = r.read_bool()?;
             let bed_or_isf = program.bed_or_isf_objects();
-            let element = match id {
-                ELEMENT_OBJECT => {
-                    let e = ObjectElement::parse(r, object_count, bed_or_isf)?;
-                    object_element = Some(elements.len());
-                    Element::Object(e)
-                }
-                ELEMENT_TRIM => Element::Trim(TrimElement::parse(r, object_count)?),
-                ELEMENT_EXTENDED_OBJECT => {
-                    let Some(index) = object_element else {
-                        return malformed("extended object element before the object element");
-                    };
-                    let Element::Object(objects) = &elements[index].element else {
-                        return malformed("object element index out of sync");
-                    };
-                    Element::ExtendedObject(ExtendedObjectElement::parse(r, objects, bed_or_isf)?)
-                }
-                _ => {
-                    let bits = end - r.position();
-                    let mut raw = Vec::with_capacity(bits.div_ceil(8));
-                    let mut left = bits;
-                    while left >= 8 {
-                        raw.push(r.read(8)? as u8);
-                        left -= 8;
-                    }
-                    if left > 0 {
-                        raw.push((r.read(left as u32)? << (8 - left)) as u8);
-                    }
-                    Element::Unknown(raw)
-                }
+            let objects = object_element.and_then(|i: usize| match &elements[i].element {
+                Element::Object(o) => Some(o),
+                _ => None,
+            });
+            let past_the_payload =
+                || format!("element {id} of {size_bytes} bytes runs past the payload");
+            let element = match read_element(r, id, end, object_count, bed_or_isf, objects) {
+                Ok(e) => e,
+                // Out of bits past the payload: this one really is cut short.
+                Err(OamdError::Bits(_)) if !fits => return malformed(past_the_payload()),
+                Err(e) => return Err(e),
             };
-            let size_ok = r.position() <= end;
+            if id == ELEMENT_OBJECT {
+                object_element = Some(elements.len());
+            }
+            let size_ok = fits && r.position() <= end;
             let padding_bits = end.saturating_sub(r.position());
             let padding_zero = padding_is_zero(r, padding_bits)?;
+            // What shows that an element past the payload is all there and only its
+            // size is wrong: its syntax ran out at the end of the payload, less than
+            // a byte of zero fill before it. An unknown element has no syntax to ask.
+            if !fits
+                && (matches!(element, Element::Unknown(_)) || padding_bits >= 8 || !padding_zero)
+            {
+                return malformed(past_the_payload());
+            }
             elements.push(ElementMd {
                 id,
                 size_bytes,
@@ -1531,6 +1566,46 @@ mod tests {
         assert!((pos[2] - (1.0 - 2.0 / 75.0)).abs() < 1e-6);
     }
 
+    /// `ext_prec_pos_presence[2]` is x, which makes x bit 0. The other way round
+    /// puts 1 762 of 4 052 positions of a real stream outside the room and adds
+    /// eight times the jitter on z; this way round none, and it agrees with
+    /// `truehdd`. A symmetric pattern such as 0b101 cannot tell them apart, which
+    /// is how the wrong reading passed the test above.
+    #[test]
+    fn the_extended_precision_presence_bits_name_x_first_from_the_bottom() {
+        for (presence, values, expected) in [
+            (0b001u64, &[1u64][..], [2i8, 0, 0]),
+            (0b010, &[1][..], [0, 2, 0]),
+            (0b100, &[1][..], [0, 0, 2]),
+            (0b011, &[1, 3][..], [2, -2, 0]),
+            (0b110, &[1, 3][..], [0, 2, -2]),
+        ] {
+            let mut ext = Bits::default();
+            ext.push(1, 0); // no divergence block
+            ext.push(1, 1); // ext precision block
+            ext.push(1, 1); // object 1 has some; 0 is a bed and 2 inactive
+            ext.push(3, presence);
+            for &v in values {
+                ext.push(2, v);
+            }
+            let bytes = payload(
+                3,
+                false,
+                &[
+                    (ELEMENT_OBJECT, object_element_body()),
+                    (ELEMENT_EXTENDED_OBJECT, ext),
+                ],
+            );
+            let oamd = Oamd::parse(&bytes).unwrap();
+            let x = oamd.extended_object_element().unwrap();
+            assert_eq!(
+                x.ext_precision.as_ref().unwrap()[1][0],
+                expected,
+                "presence {presence:03b}"
+            );
+        }
+    }
+
     #[test]
     fn bed_and_isf_programs_are_counted() {
         let mut w = Bits::default();
@@ -1628,7 +1703,7 @@ mod tests {
             Oamd::parse(&w.finish()),
             Err(OamdError::Malformed(_))
         ));
-        // an element whose declared size runs past the payload
+        // past the payload and not all there, which is what cut short looks like
         let mut w = Bits::default();
         w.push(2, 0);
         w.push(5, 0);
@@ -1645,6 +1720,116 @@ mod tests {
         ));
         // truncated payload
         assert!(matches!(Oamd::parse(&[0x80]), Err(OamdError::Bits(_))));
+    }
+
+    /// The start of a one-object payload with `elements` elements, up to the
+    /// first element's size field, which declares 16 bytes.
+    fn declaring_sixteen_bytes(elements: u64) -> Bits {
+        let mut w = Bits::default();
+        w.push(2, 0);
+        w.push(5, 0);
+        w.push(1, 1);
+        w.push(1, 0);
+        w.push(1, 0);
+        w.push(4, elements);
+        w.push(4, ELEMENT_TRIM as u64);
+        w.push(4, 15);
+        w.push(1, 0);
+        w
+    }
+
+    /// A trim element for one object, without its padding.
+    fn push_trim_body(w: &mut Bits) {
+        w.push(1, 0); // b_discard_unknown_element
+        w.push(2, 1); // warp_mode
+        w.push(2, 0);
+        w.push(2, 0); // global_trim_mode
+        w.push(1, 0); // b_disable_trim_per_obj
+    }
+
+    /// Encoders write the first payload of a segment with the size of some other
+    /// payload's element. Seven of 144 TrueHD Atmos titles declare more than the
+    /// payload holds, and Shaun of the Dead less. The element is complete and is
+    /// read; only the size is wrong, and it is flagged.
+    #[test]
+    fn a_last_element_declaring_more_than_the_payload_holds_is_read_and_flagged() {
+        let mut w = declaring_sixteen_bytes(1);
+        push_trim_body(&mut w);
+        let oamd = Oamd::parse(&w.finish()).expect("the element is all there");
+        let e = &oamd.elements[0];
+        assert_eq!(e.size_bytes, 16);
+        assert!(!e.size_ok, "the declared size is wrong and must say so");
+        assert_eq!(oamd.trim_element().map(|t| t.warp_mode), Some(1));
+    }
+
+    /// The size is only forgiven where the element shows it is all there: its syntax
+    /// reaches the end of the payload, with less than a byte of zero fill left. A
+    /// payload that goes on past the element, or an element with no syntax to ask, is
+    /// what a payload with a damaged size or a missing end looks like.
+    #[test]
+    fn an_overrunning_last_element_has_to_end_at_the_end_of_the_payload() {
+        let runs_past = |w: Bits| match Oamd::parse(&w.finish()) {
+            Err(OamdError::Malformed(m)) => assert!(m.contains("runs past the payload"), "{m}"),
+            other => panic!("not refused: {other:?}"),
+        };
+        let mut w = declaring_sixteen_bytes(1);
+        push_trim_body(&mut w);
+        w.push(8, 0); // a whole byte past the element
+        runs_past(w);
+
+        let mut w = declaring_sixteen_bytes(1);
+        push_trim_body(&mut w);
+        w.push(1, 1); // less than a byte, and not zero
+        runs_past(w);
+
+        // an element of an id nobody reads
+        let mut w = Bits::default();
+        w.push(2, 0);
+        w.push(5, 0);
+        w.push(1, 1);
+        w.push(1, 0);
+        w.push(1, 0);
+        w.push(4, 1);
+        w.push(4, 9);
+        w.push(4, 15);
+        w.push(1, 0);
+        w.push(1, 0);
+        w.push(7, 0);
+        runs_past(w);
+    }
+
+    /// A failure with a reason of its own keeps it, whatever the size says.
+    #[test]
+    fn an_overrunning_element_keeps_the_reason_it_was_refused() {
+        let mut w = Bits::default();
+        w.push(2, 0);
+        w.push(5, 0);
+        w.push(1, 1);
+        w.push(1, 0);
+        w.push(1, 0);
+        w.push(4, 1);
+        w.push(4, ELEMENT_EXTENDED_OBJECT as u64);
+        w.push(4, 15);
+        w.push(1, 0);
+        w.push(1, 0);
+        match Oamd::parse(&w.finish()) {
+            Err(OamdError::Malformed(m)) => {
+                assert!(m.contains("before the object element"), "{m}");
+            }
+            other => panic!("not refused: {other:?}"),
+        }
+    }
+
+    /// An element with another after it has to be right about its size, because
+    /// the next one starts where it ends. There is no reading past that.
+    #[test]
+    fn an_element_with_another_after_it_may_not_declare_more_than_the_payload_holds() {
+        let mut w = declaring_sixteen_bytes(2);
+        push_trim_body(&mut w);
+        assert!(matches!(
+            Oamd::parse(&w.finish()),
+            Err(OamdError::Malformed(_))
+        ));
     }
 
     #[test]

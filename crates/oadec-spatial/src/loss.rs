@@ -2,8 +2,10 @@
 //!
 //! The writers approximate or drop several things. The Dolby Atmos master ADM
 //! profile fixes the interpolation length and forbids gain and importance on
-//! active objects; DAMF has one size and no distance; neither has a field for
-//! divergence, warp mode or trim configurations. None of that used to be
+//! active objects; oadec writes one size and no distance to DAMF; neither output
+//! carries divergence or trim configurations. A warp mode has a place in both
+//! (`--warp-mode`) and without one an encoder reads warping, so a stream declaring
+//! any other is changed by the trip. None of that used to be
 //! said: the run printed a frame count and exited 0. Every such mapping is
 //! now counted where it happens, the command prints the ledger, and a loss the
 //! user asked for or one that leaves the profile sets a distinct exit code
@@ -17,7 +19,8 @@ pub enum LossClass {
     /// The Dolby Atmos master ADM profile cannot carry it, and Dolby's own
     /// converters drop it the same way.
     ProfileReduction,
-    /// Neither DAMF nor the profile has a field for it.
+    /// Neither output carries it: the profile has no field, and no key of a DAMF
+    /// set that was tried reaches an encoder.
     Unrepresentable,
     /// oadec's own choice where the formats leave room; Dolby chooses
     /// differently or has no equivalent.
@@ -84,10 +87,11 @@ pub enum LossKind {
     DistanceDropped,
     /// An object update with divergence.
     DivergenceDropped,
-    /// A warp mode other than the default.
-    WarpModeDropped,
     /// Explicit trim configurations.
     TrimConfigDropped,
+    /// A warp mode other than the one the output reads as: the one written, or
+    /// warping, which is what Dolby's encoders read when none is.
+    WarpModeDropped,
     /// Width, depth and height differ; the width is written.
     SizeAxesCollapsed,
     /// An object's first event arrives after sample 0; its state is held from 0.
@@ -115,11 +119,11 @@ impl LossKind {
             | Self::BedGainDropped
             | Self::ScreenReferenceDropped
             | Self::TrimBypassDropped => LossClass::ProfileReduction,
-            Self::DistanceDropped
-            | Self::DivergenceDropped
-            | Self::WarpModeDropped
-            | Self::TrimConfigDropped => LossClass::Unrepresentable,
-            Self::SizeAxesCollapsed
+            Self::DistanceDropped | Self::DivergenceDropped | Self::TrimConfigDropped => {
+                LossClass::Unrepresentable
+            }
+            Self::WarpModeDropped
+            | Self::SizeAxesCollapsed
             | Self::LateFirstEventHeld
             | Self::SamePositionSuperseded
             | Self::EventBeyondEndDropped => LossClass::Approximation,

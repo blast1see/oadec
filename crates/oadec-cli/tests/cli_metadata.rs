@@ -412,3 +412,37 @@ fn a_bit_changed_in_a_truehd_substream_fails_oamd_as_it_fails_verify() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// The two small payloads beside the objects are read and reported. The E-AC-3
+/// fixture's job file (`fixture-joc.xml`) asks for DRC profile `none` in both modes,
+/// which is what comes back, and they enter no verdict: TrueHD carries neither and
+/// stays clean.
+#[test]
+fn emdf_reports_the_loudness_and_programme_information_of_a_stream() {
+    let o = oadec(&["emdf", &fixture("authored-scene.ec3"), "--json"]);
+    assert!(o.status.success(), "{}", stderr(&o));
+    let v = json(&o);
+    let p = &v["programme_information"];
+    assert_eq!(p["payloads"], v["payload_ids"]["2"]);
+    assert_eq!(p["unreadable"], 0);
+    assert_eq!(p["size_mismatches"], 0);
+    assert_eq!(p["drc_line"]["none"], p["payloads"]);
+    assert_eq!(p["drc_rf"]["none"], p["payloads"]);
+    assert_eq!(p["phase_shift_90"]["yes"], p["payloads"]);
+    let l = &v["loudness"];
+    assert_eq!(l["payloads"], v["payload_ids"]["1"]);
+    assert_eq!(l["unreadable"], 0);
+    assert_eq!(l["size_mismatches"], 0);
+    assert!(l["payloads"].as_u64().unwrap() > 0);
+
+    let text = oadec(&["emdf", &fixture("authored-scene.ec3")]);
+    let out = stdout(&text);
+    assert!(out.contains("DRC profile line"), "{out}");
+    assert!(out.contains(r#"line {"none": 63}"#), "{out}");
+
+    let o = oadec(&["emdf", &fixture("authored-scene.mlp"), "--json"]);
+    assert!(o.status.success(), "{}", stderr(&o));
+    let v = json(&o);
+    assert_eq!(v["programme_information"]["payloads"], 0);
+    assert_eq!(v["loudness"]["payloads"], 0);
+}

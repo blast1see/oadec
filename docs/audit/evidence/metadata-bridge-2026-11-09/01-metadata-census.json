@@ -1,0 +1,136 @@
+{
+ "question": "Which programme metadata do the Dolby tracks of a library carry?",
+ "method": "tools/metadata_census.py: the first 60 seconds of every track of 374 files, read by oamd, emdf and info. A head is a sample. A title is named only where a rare property has three carriers or fewer.",
+ "result": {
+  "files": 374,
+  "loudness_payloads": {
+   "payloads": 691956,
+   "unreadable": 0,
+   "size_mismatches": 0,
+   "tracks": 372
+  },
+  "programme_information_payloads": {
+   "payloads": 261647,
+   "unreadable": 0,
+   "size_mismatches": 0,
+   "tracks": 140
+  },
+  "drc_line_all_tracks": {
+   "absent": 1142,
+   "film_light": 72,
+   "film_standard": 7,
+   "music_light": 25,
+   "none": 36
+  },
+  "drc_rf_all_tracks": {
+   "absent": 1142,
+   "film_light": 71,
+   "film_standard": 7,
+   "music_light": 26,
+   "none": 36
+  },
+  "drc_line_object_tracks": {
+   "film_light": 71,
+   "film_standard": 1,
+   "music_light": 25,
+   "none": 36
+  },
+  "drc_rf_object_tracks": {
+   "film_light": 70,
+   "film_standard": 1,
+   "music_light": 26,
+   "none": 36
+  },
+  "phase_shift_90_object_tracks": {
+   "no": 3,
+   "yes": 130
+  },
+  "surround_attenuation_object_tracks": {
+   "no": 133
+  },
+  "lfe_filter_object_tracks": {
+   "yes": 133
+  },
+  "loudness_against_dialnorm": {
+   "dialogue gated, relative gated: apart": 63,
+   "dialogue gated, relative gated: match": 44,
+   "dialogue gated, speech gated: apart": 1,
+   "dialogue gated, speech gated: match": 106,
+   "not dialogue gated, relative gated: apart": 213,
+   "not dialogue gated, relative gated: match": 52,
+   "not dialogue gated, speech gated: apart": 71,
+   "not dialogue gated, speech gated: match": 194
+  },
+  "dialogue_gated_speech_apart_from_dialnorm": [
+   [
+    "Hamnet (2025)",
+    31,
+    -33.5
+   ]
+  ],
+  "loudness_practices_tracks": {
+   "eac3 channels: ATSC A/85": 1,
+   "eac3 channels: manual": 9,
+   "eac3 channels: reserved 5": 229,
+   "eac3 objects: ATSC A/85": 133
+  },
+  "dolby_tracks": 1446,
+  "tracks_by_codec": {
+   "ac3": 767,
+   "eac3": 515,
+   "truehd": 164
+  },
+  "tracks_with_oamd": 277,
+  "tracks_with_oamd_by_codec": {
+   "eac3": 133,
+   "truehd": 144
+  },
+  "emdf_payload_ids_tracks": {
+   "eac3 id 1": 372,
+   "eac3 id 2": 140,
+   "eac3 id 11": 133,
+   "eac3 id 14": 133,
+   "truehd id 11": 144
+  },
+  "dialnorm_object_tracks": {
+   "(19,)": 1,
+   "(21,)": 3,
+   "(22,)": 2,
+   "(23,)": 6,
+   "(24,)": 12,
+   "(25,)": 6,
+   "(26,)": 15,
+   "(27,)": 54,
+   "(28,)": 8,
+   "(29,)": 5,
+   "(30,)": 5,
+   "(31,)": 160
+  },
+  "with_trim_element": 110,
+  "with_extended_element": [
+   "Pirates of the Caribbean Dead Men Tell No Tales (2017)"
+  ],
+  "with_unknown_elements": [],
+  "with_additional_table_data": [],
+  "with_screen_reference": [],
+  "with_snap": [],
+  "with_object_gain": [],
+  "with_size": [],
+  "with_alternate_object_data": [],
+  "bed_chan_distribute": [],
+  "warp_modes_tracks": {
+   "('0',)": 78,
+   "('1',)": 28,
+   "('3',)": 24
+  },
+  "global_trim_modes_tracks": {
+   "('0',)": 128,
+   "('2',)": 2
+  },
+  "trim_configs_tracks": {
+   "{\"1: disabled\": 1875, \"2: disabled\": 1875, \"4: disabled\": 1875}": 1,
+   "{\"1: surround -1.5 height -1.5\": 1855, \"2: surround -1.5 height -1.5\": 1855, \"4: surround -1.5 height -1.5\": 1855}": 1
+  },
+  "object_only_programs": 277
+ }
+}

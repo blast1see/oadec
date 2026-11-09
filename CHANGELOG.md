@@ -6,6 +6,45 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **`decode --warp-mode` names a warp mode in a DAMF set or ADM file**: `stream`
+  takes what the stream declares, or a mode can be given, which a TrueHD stream
+  needs because it declares none. An output that names none is encoded as warping
+  by Dolby's encoders, and 78 of 130 E-AC-3 Atmos streams in the library declare
+  normal. Without the flag the output is what it was, byte for byte.
+- `oamd --json` reports the warp modes, the global trim modes, every trim
+  configuration not at its default, per-object trim disables, alternate object
+  data and `bed_chan_distribute`.
+- **`emdf` reads the programme loudness and programme information payloads**
+  (TS 102 366 clauses H.3.1 and H.3.2), which every E-AC-3 Atmos stream carries and
+  no output of oadec does. The second is the only place a stream names its DRC
+  profile, which a second encode otherwise changes to `film_light`. They enter no
+  verdict.
+- `tools/metadata_census.py` counts which programme metadata the streams of a
+  library carry; `tools/damf_key_probe.py` asks Dolby's encoders which keys of a
+  DAMF set they read; `tools/warp_roundtrip.py` takes real streams through the
+  chain and renders the result. `tools/mutants.py --only` selects mutations.
+
+### Fixed
+
+- **Extended position precision went to the wrong axes.** `ext_prec_pos_presence`
+  was read with x at the top bit; x is bit 0. On the one stream in 144 that carries
+  it, 1 762 of 4 052 positions landed outside the room and z moved with eight times
+  the jitter. It now agrees with `truehdd` on all 4 097 events of that head.
+- **Discs that decode perfectly exited 7.** Seven of 144 TrueHD Atmos titles open
+  with an OAMD payload whose last element declares more bytes than the payload
+  holds. Since 0.4.0 this was reported as a payload cut short, and that reading was
+  wrong: the element ends less than a byte of zero fill before the end of the payload,
+  so it is the size that is stale. It is now read and reported, and `verify`, `oamd` and
+  `decode` exit 0, with the first events of the programme where they were missing. A
+  last element past the payload whose bits run out, that more than fill follows, or
+  whose id has no syntax is refused as before.
+- **The loss ledger had the default warp mode backwards.** It took normal for the
+  default, so it reported warping, which survives the trip, and said nothing about
+  normal, which does not. It now compares a stream's mode with what the output
+  reads as, and files the loss under approximations.
+
 ### Changed
 
 - **The published tree describes the measurements, not the machine or the copies

@@ -6,6 +6,7 @@ pub mod container;
 pub mod joc;
 pub mod joc_tables;
 pub mod oamd;
+pub mod programme;
 
 pub use container::{
     Container, ContainerError, Flavor, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD, Payload, PayloadConfig,
