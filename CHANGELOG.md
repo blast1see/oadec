@@ -32,6 +32,30 @@ Semantic Versioning.
   rule options are refused on E-AC-3, which has no catalog yet.
 - `oadec au FILE --index N` prints one access unit field by field, with where
   each part sits: the place a finding points to, opened up.
+- **New TrueHD rules from Dolby's public description**, each counted over 52 real
+  streams first (27.8 million access units, six of them heads of encoder-written
+  deliveries) and found nowhere: major syncs more than 128 units apart, or fewer
+  than eight apart other than where a bitstream opens (section 2.5; the clip a
+  branch joins opens with two in a row, which a first reading took for a fault
+  30 times); a minor sync whose directory begins with `0xF872` (4.5); more blocks
+  in a segment than its restart sync word allows (4.6); a termination word that
+  claims a whole unit of added samples (4.6); restart headers of one unit that
+  disagree on `output_timing` (2.7); object metadata that describes another
+  programme than the major sync. These warn. Two describe bytes nothing accounts
+  for and fail the stream: an Evolution frame longer than its container's syntax
+  (the rule E-AC-3 EMDF containers are already held to) and bytes after the extra
+  data inside a unit.
+
+### Changed
+
+- `verify --decode` counts what `decode` counts against its verdict and it did
+  not: samples that need more bits than `max_bits` allows, and samples beyond 24
+  bits. Over the encoder-written heads, the clips and the fixture neither occurs.
+- The verdict `decode`, `compare`, `emdf` and `oamd` take from the checks of
+  `verify` now includes the rules without a counter that fail a stream by
+  default, so the two new errors fail every delivery as they fail `verify`.
+- Findings of an `info` rule are counted in the text summary and listed only
+  under `--fail-on info`.
 
 ### Fixed
 

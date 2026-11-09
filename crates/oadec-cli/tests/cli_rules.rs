@@ -439,3 +439,155 @@ fn a_fault_in_a_restart_segment_lasts_until_the_next_restart() {
     assert_eq!(r["entry_unit"].as_u64(), Some(next as u64), "{r}");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// Where an Evolution extra-data block of a unit sits: the block's first byte,
+/// its body length in bytes, the frame length and the padding after the frame.
+struct EvoBlock {
+    block: usize,
+    body_len: usize,
+    frame_len: usize,
+    padding: usize,
+    reserved: u8,
+}
+
+fn evolution_blocks(bytes: &[u8]) -> Vec<EvoBlock> {
+    units(bytes)
+        .iter()
+        .filter_map(|(u, au)| {
+            let extra = au.extra.as_ref()?;
+            let ExtraKind::Evolution { frame, reserved } = &extra.kind else {
+                return None;
+            };
+            let body_len = usize::from(extra.length_words) * 2;
+            Some(EvoBlock {
+                block: u.offset as usize + au.segments_end(),
+                body_len,
+                frame_len: frame.len(),
+                padding: body_len - 2 - frame.len() - 1,
+                reserved: *reserved,
+            })
+        })
+        .collect()
+}
+
+/// Writes the parity byte of the Evolution body that starts at `body` and is
+/// `len` bytes long, as `extra.rs` checks it.
+fn fix_evolution_parity(bytes: &mut [u8], body: usize, len: usize, reserved: u8) {
+    let xor = bytes[body..body + len - 1].iter().fold(0u8, |a, b| a ^ b);
+    bytes[body + len - 1] = xor ^ 0xA9 ^ (reserved << 4) ^ reserved;
+}
+
+/// A new rule that fails a stream fails it for every command that delivers
+/// from it, not for `verify` alone.
+fn assert_fails_verify_and_decode(dir: &Path, path: &str, rule: &str) {
+    let (code, report) = verify_json(path, &[]);
+    let fired: Vec<&str> = report["diagnostics"]["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["id"].as_str().unwrap())
+        .collect();
+    assert!(fired.contains(&rule), "{rule} did not fire: {fired:?}");
+    assert_eq!(code, Some(7), "verify: {fired:?}");
+    let pcm = dir.join("out.pcm");
+    let decode = oadec(&[
+        "decode",
+        path,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "-o",
+        pcm.to_str().unwrap(),
+    ]);
+    assert_eq!(
+        decode.status.code(),
+        Some(7),
+        "decode passes a stream verify fails for {rule}: {}",
+        String::from_utf8_lossy(&decode.stderr)
+    );
+}
+
+/// An Evolution frame whose declared length is longer than its container's
+/// syntax: the length and the parity are rewritten consistently, so only the
+/// new rule can see it.
+#[test]
+fn an_evolution_frame_longer_than_its_container_fails_the_stream() {
+    let dir = temp("evo-length");
+    let mut bytes = std::fs::read(fixture("authored-scene.mlp")).unwrap();
+    let blocks = evolution_blocks(&bytes);
+    let b = blocks
+        .iter()
+        .find(|b| b.padding >= 1 && b.frame_len > 0)
+        .expect("an Evolution block with padding after its frame");
+    let body = b.block + 2;
+    let header = (u16::from(b.reserved) << 12) | (b.frame_len as u16 + 1);
+    bytes[body..body + 2].copy_from_slice(&header.to_be_bytes());
+    fix_evolution_parity(&mut bytes, body, b.body_len, b.reserved);
+    let path = write(&dir, "evo-length.mlp", &bytes);
+    assert_fails_verify_and_decode(&dir, &path, "evo.length_mismatch");
+    let (_, report) = verify_json(&path, &[]);
+    let failures = report["failures"].as_object().unwrap();
+    assert!(
+        failures.values().all(|v| v == 0),
+        "only the new rule sees it: {failures:?}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// Bytes inside an access unit after its extra-data block, which nothing
+/// accounts for: two bytes inserted at the end of a minor-sync unit that
+/// carries an Evolution block, its length and its check nibble rewritten so
+/// the unit still frames.
+#[test]
+fn bytes_after_the_extra_data_fail_the_stream() {
+    let dir = temp("extra-trailing");
+    let original = std::fs::read(fixture("authored-scene.mlp")).unwrap();
+    let all = units(&original);
+    let (unit, au) = all
+        .iter()
+        .find(|(u, au)| {
+            !u.has_major_sync
+                && au
+                    .extra
+                    .as_ref()
+                    .is_some_and(|x| matches!(x.kind, ExtraKind::Evolution { .. }))
+        })
+        .expect("a minor-sync unit with an Evolution block");
+    let start = unit.offset as usize;
+    let end = start + unit.bytes.len();
+    let mut bytes = original[..end].to_vec();
+    bytes.extend_from_slice(&[0, 0]);
+    bytes.extend_from_slice(&original[end..]);
+    let words = (unit.bytes.len() / 2 + 1) as u16;
+    bytes[start] = (words >> 8) as u8 & 0x0F;
+    bytes[start + 1] = (words & 0xFF) as u8;
+    let dir_bytes = &bytes[start + 4..start + au.segments_start];
+    let parity = bytes[start..start + 4]
+        .iter()
+        .chain(dir_bytes)
+        .fold(0u8, |a, b| a ^ b);
+    let folded = (parity >> 4) ^ (parity & 0x0F);
+    bytes[start] |= (0x0F ^ folded) << 4;
+    let path = write(&dir, "extra-trailing.mlp", &bytes);
+    assert_fails_verify_and_decode(&dir, &path, "extra.trailing_bytes");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A minor-sync unit whose directory begins with 0xF872 is reported: an
+/// encoder must avoid it (Dolby, section 4.5).
+#[test]
+fn a_minor_sync_that_emulates_a_major_one_is_reported() {
+    let dir = temp("emulation");
+    let path = write(&dir, "foreign.mlp", &corrupt_with_a_foreign_pattern());
+    let (_, report) = verify_json(&path, &["--max-per-rule", "0"]);
+    let rules = report["diagnostics"]["rules"].as_array().unwrap();
+    // the unit fails its parity and is passed over, so the rule is seen at the
+    // bytes skipped; spelled with a valid parity it is seen at the unit itself
+    // (crates/oadec-truehd/src/extract.rs tests)
+    assert!(
+        rules.iter().any(|r| r["id"] == "sync.foreign_pattern"),
+        "{rules:?}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}

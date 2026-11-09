@@ -316,6 +316,23 @@ MUTANTS = [
      'crates/oadec-cli/src/scan.rs',
      'if seg.has_restart && clean_segment {',
      'if seg.has_restart {'),
+    # --- verification upgrade: integrity rules ------------------------------
+    ('an Evolution frame longer than its container passes unseen',
+     'crates/oadec-cli/src/scan.rs',
+     'if c.len_bits.div_ceil(8) != frame.len() {',
+     'if false {'),
+    ('bytes after the extra data pass unseen',
+     'crates/oadec-cli/src/scan.rs',
+     'if extra.trailing_bytes > 0 {',
+     'if false {'),
+    ('the delivering commands read only the counters, not the rules',
+     'crates/oadec-cli/src/verify.rs',
+     'clean: scan.first_major_sync.is_some() && scan.diag.tally.passes(Severity::Error),',
+     'clean: scan.first_major_sync.is_some() && scan.failures.is_clean(),'),
+    ('the clip a branch joins may not open with two major syncs',
+     'crates/oadec-cli/src/scan.rs',
+     'index <= 1 || branch_units.any(|b| b == index || b + 1 == index)',
+     'index <= 1 || branch_units.any(|b| b == index)'),
 ]
 
 

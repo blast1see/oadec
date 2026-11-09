@@ -1,0 +1,26 @@
+{
+ "question": "Which of the new integrity rules fire on real TrueHD streams, so that a rule's default severity rests on what it finds in material nobody doubts rather than on its unit test?",
+ "method": "tools/rule_census.py with the branch binary: verify --json over 52 streams -- 40 raw TrueHD heads of library titles, two TrueHD clips, the committed fixture, six 300-second heads of tracks Dolby's TrueHD encoder (DME 5.7.2) wrote for delivered remuxes and one disc track for comparison, and the full tracks of Coco (2017), The Incredibles (2004) and Up (2009); then verify --decode over the six encoder heads, the two clips and the fixture.",
+ "result": {
+  "scope": {"streams": 52, "access_units": 27823168, "major_syncs": 217673, "segments": 109931752, "evolution_frames": 696736, "oamd_payloads": 696736},
+  "exit_codes": {"0": 50, "7": 2},
+  "new_rules_findings": {
+   "sync.major_sync_interval": 0,
+   "sync.major_sync_spacing": 0,
+   "au.sync_emulation": 0,
+   "segment.block_count": 0,
+   "segment.zero_samples": 0,
+   "timing.output_timing_disagree": 0,
+   "extra.trailing_bytes": 0,
+   "evo.length_mismatch": 0,
+   "evo.program_mismatch": 0
+  },
+  "decode_rules_findings": {"streams": 9, "decode.max_bits": 0, "decode.clipped": 0, "decode.lossless_check": 0, "exit_codes": {"0": 9}},
+  "findings_that_did_fire": "the known damage of Coco (2017) and The Incredibles (2004): segment.syntax, parity, CRC, end pointer, unexpected tail and one invalid branch, the same as before the rules existed",
+  "first_reading_corrected": [
+   {"rule": "sync.major_sync_spacing", "first_reading": "fired 30 times in the three full titles", "cause": "every one sat on the unit after a branch: the clip a branch joins opens with two major syncs in a row, which Dolby's description permits at the start of a bitstream", "change": "the unit after a branch is excused like the start of the stream; 0 findings after"},
+   {"rule": "reserved.non_zero (withdrawn)", "first_reading": "the reserved bit of a directory entry is set in all 52 streams, 13 070 270 times", "cause": "Dolby's description says reserved bitfields should be ignored by parsers (section 3.2), and the encoders set this one", "change": "the rule was withdrawn rather than shipped as noise"}
+  ]
+ },
+ "reading": "None of the new rules fires on any stream nobody doubts, encoder-written deliveries included, over 27.8 million access units and 0.7 million Evolution frames. The two that describe bytes nothing accounts for -- an Evolution frame longer than its container's syntax, and bytes after the extra data inside a unit -- are errors, as the same length rule already is for E-AC-3 EMDF containers; the rest describe what an encoder must do rather than damage, and warn. Two first readings were wrong and are recorded with their correction: a short major sync interval is the normal opening of a joined clip, and a 'reserved' bit is one parsers are told to ignore."
+}

@@ -305,7 +305,7 @@ fn program_from_extra(extra: &ExtraChannelMeaning) -> Result<Program> {
 }
 
 /// The program the major sync declares for the object presentation.
-fn program_from_major_sync(ms: &MajorSync) -> Result<Program> {
+pub(crate) fn program_from_major_sync(ms: &MajorSync) -> Result<Program> {
     let Some(extra) = &ms.channel_meaning.extra else {
         bail!("the stream has no 16-channel presentation (no extra channel meaning)");
     };

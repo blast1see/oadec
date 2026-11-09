@@ -26,6 +26,8 @@ const BRANCHES: &str = "docs/audit/evidence/verification-2026-09-14/27-branch-ad
 const RATES: &str = "docs/audit/evidence/remediation/sampling-rates.json";
 const FOREIGN: &str =
     "docs/audit/evidence/verification-upgrade-2026-11/02-foreign-sync-old-new.json";
+const CENSUS: &str =
+    "docs/audit/evidence/verification-upgrade-2026-11/04-integrity-rule-census.json";
 
 /// Where a rule comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -343,6 +345,78 @@ catalog! {
         summary: "a timing jump that is not a valid seamless branch; the stream restarts there",
         provenance: [spec(DOLBY_HL, "2.7"), measured(BRANCHES)],
     },
+    /// Major syncs too far apart.
+    SyncMajorSyncInterval {
+        id: "sync.major_sync_interval",
+        severity: Warning,
+        legacy: None,
+        summary: "more than 128 access units since the last major sync",
+        provenance: [spec(DOLBY_HL, "2.5"), measured(CENSUS)],
+    },
+    /// Major syncs too close together.
+    SyncMajorSyncSpacing {
+        id: "sync.major_sync_spacing",
+        severity: Warning,
+        legacy: None,
+        summary: "fewer than eight access units since the last major sync, other than at the start of the stream or at a branch",
+        provenance: [spec(DOLBY_HL, "2.5"), measured(CENSUS)],
+    },
+    /// A minor sync that could be taken for a major one.
+    AuSyncEmulation {
+        id: "au.sync_emulation",
+        severity: Warning,
+        legacy: None,
+        summary: "the directory of a minor-sync unit begins with 0xF872, which an encoder must avoid",
+        provenance: [spec(DOLBY_HL, "4.5"), measured(CENSUS)],
+    },
+    /// Blocks per segment.
+    SegmentBlockCount {
+        id: "segment.block_count",
+        severity: Warning,
+        legacy: None,
+        summary: "more blocks in a segment than its restart sync word allows: 4 for 0x31EA, 2 for 0x31EB and 0x31EC",
+        provenance: [spec(DOLBY_HL, "4.6"), measured(CENSUS)],
+    },
+    /// Added samples of a termination word.
+    SegmentZeroSamples {
+        id: "segment.zero_samples",
+        severity: Warning,
+        legacy: None,
+        summary: "a termination word claims a whole access unit or more of added samples",
+        provenance: [spec(DOLBY_HL, "4.6"), measured(CENSUS)],
+    },
+    /// Output timing across the substreams of a unit.
+    TimingOutputTimingDisagree {
+        id: "timing.output_timing_disagree",
+        severity: Warning,
+        legacy: None,
+        summary: "the restart headers of one access unit disagree on output_timing",
+        provenance: [spec(DOLBY_HL, "2.7"), measured(CENSUS)],
+    },
+    /// Bytes after the extra data.
+    ExtraTrailingBytes {
+        id: "extra.trailing_bytes",
+        severity: Error,
+        legacy: None,
+        summary: "bytes after the extra-data block that its length does not cover, inside the access unit",
+        provenance: [spec(DOLBY_HL, "4.8"), measured(CENSUS)],
+    },
+    /// The length of an Evolution frame against its syntax.
+    EvoLengthMismatch {
+        id: "evo.length_mismatch",
+        severity: Error,
+        legacy: None,
+        summary: "an Evolution frame's declared length is not the length its container's syntax takes",
+        provenance: [measured(CENSUS)],
+    },
+    /// The object programme of the metadata against the major sync.
+    EvoProgramMismatch {
+        id: "evo.program_mismatch",
+        severity: Warning,
+        legacy: None,
+        summary: "the object metadata describes another bed or object count than the major sync declares",
+        provenance: [spec(DOLBY_HL, "4.3"), spec(TS_103_420, "clause 5"), measured(CENSUS)],
+    },
     /// `verify --decode`: the lossless check word.
     DecodeLosslessCheck {
         id: "decode.lossless_check",
@@ -357,6 +431,22 @@ catalog! {
         severity: Fatal,
         legacy: None,
         summary: "verify --decode: a presentation's decode stopped before the end of the stream",
+        provenance: [measured(MATRIX)],
+    },
+    /// `verify --decode`: `max_bits`.
+    DecodeMaxBits {
+        id: "decode.max_bits",
+        severity: Error,
+        legacy: None,
+        summary: "verify --decode: decoded samples need more bits than their restart header's max_bits allows",
+        provenance: [measured(MATRIX)],
+    },
+    /// `verify --decode`: samples beyond 24 bits.
+    DecodeClipped {
+        id: "decode.clipped",
+        severity: Error,
+        legacy: None,
+        summary: "verify --decode: decoded samples beyond 24 bits, which every writer can only clamp",
         provenance: [measured(MATRIX)],
     },
 }

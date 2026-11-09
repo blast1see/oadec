@@ -27,6 +27,12 @@ pub struct PresentationChecks {
     pub first_problem: Option<String>,
     /// Why the decode stopped before the end of the stream, if it did.
     pub error: Option<String>,
+    /// Access units whose samples needed more bits than `max_bits` allows,
+    /// which `decode` counts against its verdict.
+    pub max_bits_violations: u64,
+    /// Samples beyond 24 bits, which every writer can only clamp and `decode`
+    /// counts against its verdict.
+    pub clipped: u64,
 }
 
 /// What `verify --decode` adds to the integrity pass.
@@ -42,7 +48,11 @@ impl LosslessChecks {
     /// Whether every check held and every presentation decoded to the end.
     #[must_use]
     pub fn is_clean(&self) -> bool {
-        self.failed == 0 && self.per_presentation.iter().all(|p| p.error.is_none())
+        self.failed == 0
+            && self
+                .per_presentation
+                .iter()
+                .all(|p| p.error.is_none() && p.max_bits_violations == 0 && p.clipped == 0)
     }
 }
 
@@ -57,22 +67,33 @@ impl LosslessChecks {
 /// and so its checks, are the other one's.
 fn lossless_checks(path: &Path, ms: &MajorSync) -> Result<LosslessChecks> {
     let config = StreamConfig::from_major_sync(ms)?;
-    let mut sessions: Vec<(usize, Session, Option<String>)> = (0..MAX_PRESENTATIONS)
+    let mut sessions: Vec<(usize, Session, Option<String>, u64)> = (0..MAX_PRESENTATIONS)
         .filter(|&p| config.presentations.is_carried(p))
-        .map(|p| (p, Session::new(p, false, Order::Stream), None))
+        .map(|p| (p, Session::new(p, false, Order::Stream), None, 0))
         .collect();
     input::for_each_unit(path, |unit| {
-        for (_, session, error) in &mut sessions {
-            if error.is_none()
-                && let Err(e) = session.decode(&unit)
-            {
-                *error = Some(format!("{e:#}"));
+        for (_, session, error, clipped) in &mut sessions {
+            if error.is_some() {
+                continue;
+            }
+            match session.decode(&unit) {
+                // counted with the rule every writer clamps by, so the count
+                // is the one `decode` reports for the same presentation
+                Ok(Some(frame)) => {
+                    for row in frame.pcm {
+                        for &ch in frame.order {
+                            *clipped += u64::from(oadec_spatial::clamp_i24(row[ch]).1);
+                        }
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => *error = Some(format!("{e:#}")),
             }
         }
         Ok(())
     })?;
     let mut checks = LosslessChecks::default();
-    for (presentation, session, error) in sessions {
+    for (presentation, session, error, clipped) in sessions {
         let p = match session.stats() {
             Some(s) => PresentationChecks {
                 presentation,
@@ -81,6 +102,8 @@ fn lossless_checks(path: &Path, ms: &MajorSync) -> Result<LosslessChecks> {
                 skipped: s.lossless_checks_skipped,
                 first_problem: s.first_problem.clone(),
                 error,
+                max_bits_violations: s.max_bits_violations,
+                clipped,
             },
             None => PresentationChecks {
                 presentation,
@@ -89,6 +112,8 @@ fn lossless_checks(path: &Path, ms: &MajorSync) -> Result<LosslessChecks> {
                 skipped: 0,
                 first_problem: None,
                 error,
+                max_bits_violations: 0,
+                clipped,
             },
         };
         checks.evaluated += p.evaluated;
@@ -122,9 +147,17 @@ pub fn stream_check(path: &Path) -> Result<StreamCheck> {
         return crate::eac3::stream_check(path);
     }
     let scan = scan::scan(path)?;
+    // the default verdict of `verify`: every counter it has always read, and
+    // the rules without a counter that fail a stream by default
     Ok(StreamCheck {
-        clean: scan.failures.is_clean() && scan.first_major_sync.is_some(),
-        first_problem: scan.first_error,
+        clean: scan.first_major_sync.is_some() && scan.diag.tally.passes(Severity::Error),
+        first_problem: scan.first_error.or_else(|| {
+            scan.diag
+                .tally
+                .iter()
+                .find(|(r, _)| r.info().severity >= Severity::Error)
+                .map(|(r, t)| format!("{}: {}", r.info().id, t.first.message))
+        }),
     })
 }
 
@@ -192,6 +225,32 @@ fn record_lossless(diag: &mut Tally, checks: &LosslessChecks) {
             diag.add(RuleId::DecodeStopped, Location::default(), 1, || {
                 format!("presentation {}: {e}", p.presentation)
             });
+        }
+        if p.max_bits_violations > 0 {
+            diag.add(
+                RuleId::DecodeMaxBits,
+                Location::default(),
+                p.max_bits_violations,
+                || {
+                    format!(
+                        "presentation {}: {} access units need more bits than max_bits",
+                        p.presentation, p.max_bits_violations
+                    )
+                },
+            );
+        }
+        if p.clipped > 0 {
+            diag.add(
+                RuleId::DecodeClipped,
+                Location::default(),
+                p.clipped,
+                || {
+                    format!(
+                        "presentation {}: {} samples beyond 24 bits",
+                        p.presentation, p.clipped
+                    )
+                },
+            );
         }
     }
 }
@@ -380,7 +439,12 @@ fn print_diagnostics(scan: &scan::Scan, fail_on: Severity) {
         return;
     }
     let mut first = true;
-    for (rule, t) in d.iter() {
+    // findings of an info rule are counted below and listed only when the
+    // threshold asks for them: a clean stream's report stays short
+    for (rule, t) in d
+        .iter()
+        .filter(|(r, _)| fail_on == Severity::Info || r.info().severity > Severity::Info)
+    {
         for f in &t.listed {
             println!(
                 "{}{:<8} {:<26} {}  {}",
@@ -492,7 +556,18 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             || clean
                 == (scan.failures.is_clean()
                     && scan.first_major_sync.is_some()
-                    && checks.as_ref().is_none_or(LosslessChecks::is_clean)),
+                    && checks.as_ref().is_none_or(LosslessChecks::is_clean)
+                    && !scan.diag.tally.iter().any(|(r, _)| {
+                        r.info().legacy_counter.is_none()
+                            && r.info().severity >= Severity::Error
+                            && !matches!(
+                                r,
+                                RuleId::DecodeLosslessCheck
+                                    | RuleId::DecodeStopped
+                                    | RuleId::DecodeMaxBits
+                                    | RuleId::DecodeClipped
+                            )
+                    })),
         "the rule verdict and the counter verdict disagree"
     );
     let speed = scan.duration_seconds().map(|d| d / elapsed.max(1e-9));
