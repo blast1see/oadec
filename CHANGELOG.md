@@ -6,6 +6,8 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-09
+
 ### Added
 
 - **`decode --warp-mode` names a warp mode in a DAMF set or ADM file**: `stream`
