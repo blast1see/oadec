@@ -250,6 +250,8 @@ struct EmdfStats {
     payload_ids: BTreeMap<u32, u64>,
     oamd_ok: u64,
     oamd_errors: u64,
+    /// Elements whose declared size is not theirs, as `scan` counts them for TrueHD.
+    oamd_stale_sizes: u64,
     /// Object gains other than unity, by decibel value, over updates that
     /// signalled one; the mutes counted apart, because table 28's default for
     /// an inactive object *is* a mute; and updates carrying a non-zero
@@ -515,6 +517,8 @@ impl EmdfStats {
                             match Oamd::parse(&p.data) {
                                 Ok(oamd) => {
                                     self.oamd_ok += 1;
+                                    self.oamd_stale_sizes +=
+                                        oamd.elements.iter().filter(|e| !e.size_ok).count() as u64;
                                     let program = &oamd.program;
                                     self.oamd_total.get_or_insert(
                                         program.bed_objects()
@@ -1139,6 +1143,7 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
                 "crc_failures": p.crc_failures,
                 "tail_overruns": p.tail_overruns,
                 "oamd_errors": e.oamd_errors,
+                "oamd_stale_sizes": e.oamd_stale_sizes,
                 "joc_errors": e.joc_errors,
                 "joc_reserved_ext_config": e.joc_reserved_ext,
                 "joc_size_mismatches": e.joc_size_mismatch,
@@ -1482,6 +1487,7 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             p.emdf.oamd_gain_size.muted,
             p.emdf.oamd_gain_size.sized
         );
+        crate::scan::print_stale_sizes(p.emdf.oamd_stale_sizes);
     }
     println!(
         "Integrity:         {} decode errors, {} CRC failures, {} frames ending inside the frame tail",

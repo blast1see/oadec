@@ -91,6 +91,15 @@ impl Failures {
     }
 }
 
+/// The line `verify` and `info` print for elements whose declared size is not theirs.
+pub(crate) fn print_stale_sizes(count: u64) {
+    if count > 0 {
+        println!(
+            "                   {count} elements declare a size that is not theirs; their content is complete and was read (docs/oamd.md)"
+        );
+    }
+}
+
 /// Timing model statistics.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct TimingStats {
@@ -141,6 +150,9 @@ pub struct ExtraStats {
     /// by decibel value, mutes counted apart because an inactive object's
     /// default *is* a mute, and updates with a non-zero size.
     pub oamd_ok: u64,
+    /// Elements whose declared size is not theirs: read all the same, because the
+    /// content is complete, and said here because it is not what the size claims.
+    pub oamd_stale_sizes: u64,
     pub oamd_gains_db: BTreeMap<String, u64>,
     pub oamd_muted_updates: u64,
     pub oamd_sized_updates: u64,
@@ -347,6 +359,12 @@ impl Scan {
                                         match oadec_emdf::oamd::Oamd::parse(&p.data) {
                                             Ok(oamd) => {
                                                 self.extra.oamd_ok += 1;
+                                                self.extra.oamd_stale_sizes += oamd
+                                                    .elements
+                                                    .iter()
+                                                    .filter(|e| !e.size_ok)
+                                                    .count()
+                                                    as u64;
                                                 let c = oamd.gain_and_size_counts();
                                                 for (db, n) in &c.gains_db {
                                                     *self

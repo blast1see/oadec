@@ -206,6 +206,7 @@ fn print_text(scan: &Scan) {
             scan.extra.oamd_muted_updates,
             scan.extra.oamd_sized_updates
         );
+        crate::scan::print_stale_sizes(scan.extra.oamd_stale_sizes);
     }
     if let Some(err) = &scan.first_error {
         println!("First error:      {err}");

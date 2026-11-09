@@ -202,6 +202,7 @@ pub fn run(path: &Path, json: bool, decode: bool) -> Result<bool> {
                 scan.extra.oamd_muted_updates,
                 scan.extra.oamd_sized_updates
             );
+            crate::scan::print_stale_sizes(scan.extra.oamd_stale_sizes);
         }
         println!(
             "Sync:              {} resyncs, {} skipped bytes, {} trailing bytes",

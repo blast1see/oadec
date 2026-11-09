@@ -1532,22 +1532,21 @@ fn ninety_six_kilohertz_decodes_byte_for_byte_like_forty_eight() {
 
 /// The two commands must not disagree about the same file.
 ///
-/// `decode --format damf` ends by telling the reader that "`oadec verify`
-/// reports the same faults". On a title whose first access unit carries a
-/// truncated object-metadata element that sentence was false: the object path
-/// parsed the payload, counted the error and exited 7, while `verify` counted
-/// payload ids without ever reading one and said CLEAN at exit 0. Thirteen of
-/// 198 library titles are in that state and `truehdd` warns about the same
-/// element, so the payload really is truncated and it was `verify` that could
-/// not see it.
+/// Seven of 144 TrueHD Atmos titles open with an object element that declares more
+/// bytes than its payload holds. This test used to hold that as a fault, exit 7 from
+/// every command, on the reading that the payload was cut short: `truehdd` warns about
+/// the same element. Its warning is the same size check, though, and the content is all
+/// there: less than a byte of zero fill follows the element, which `oamd` counts, and
+/// `truehdd` reads the same events from it. It is the size that is stale. So the stream
+/// is clean, the first events reach the output, and `verify` says what it saw.
 ///
-/// The fixture is two seconds off the head of one of the thirteen, which is
-/// enough because the fault is in access unit 0.
+/// The fixture is two seconds off the head of one such title, which is enough because
+/// the element is in access unit 0.
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
-fn verify_and_decode_agree_about_a_truncated_object_metadata_element() {
+fn a_first_payload_with_a_stale_size_is_read_and_reported() {
     let media = media_dir();
-    let file = media.join("clips/thd-truncated-oamd.thd");
+    let file = media.join("clips/thd-stale-element-size.thd");
     require(&file);
 
     let verify = Command::new(env!("CARGO_BIN_EXE_oadec"))
@@ -1556,39 +1555,59 @@ fn verify_and_decode_agree_about_a_truncated_object_metadata_element() {
         .output()
         .expect("run oadec verify");
     let verify_text = String::from_utf8_lossy(&verify.stdout).to_string();
-    assert_eq!(
-        verify.status.code(),
-        Some(7),
-        "verify called a stream with a truncated element clean:\n{verify_text}"
+    assert_eq!(verify.status.code(), Some(0), "{verify_text}");
+    assert!(
+        verify_text.contains("declare a size that is not theirs"),
+        "verify did not say what it saw:\n{verify_text}"
     );
     assert!(
-        verify_text.contains("runs past the payload"),
-        "verify exited 7 without naming the fault:\n{verify_text}"
+        verify_text.contains("Object metadata:"),
+        "verify stopped reporting the object-metadata tally"
     );
 
-    let base = std::env::temp_dir().join("oadec-truncated-oamd");
+    let oamd = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["oamd", "--json"])
+        .arg(&file)
+        .output()
+        .expect("run oadec oamd");
+    assert_eq!(oamd.status.code(), Some(0));
+    let report: Value = serde_json::from_slice(&oamd.stdout).expect("oamd --json");
+    assert_eq!(report["parse_errors"], 0);
+    assert_eq!(
+        report["padding_long"], 0,
+        "more than fill after the element"
+    );
+    assert_eq!(report["padding_nonzero"], 0, "fill that is not fill");
+    assert!(report["size_mismatches"].as_u64().unwrap() >= 1, "{report}");
+
+    let base = std::env::temp_dir().join(format!("oadec-stale-size-{}", std::process::id()));
     let decode = Command::new(env!("CARGO_BIN_EXE_oadec"))
         .args(["decode", "-p", "3", "--format", "damf", "-o"])
         .arg(&base)
         .arg(&file)
         .output()
         .expect("run oadec decode");
-    for ext in [".atmos", ".atmos.metadata", ".atmos.audio"] {
-        let _ =
-            std::fs::remove_file(std::env::temp_dir().join(format!("oadec-truncated-oamd{ext}")));
-    }
     assert_eq!(
         decode.status.code(),
-        Some(7),
-        "the object path did not report the truncated element: {}",
+        Some(0),
+        "{}",
         String::from_utf8_lossy(&decode.stderr)
     );
+    let metadata = std::fs::read_to_string(format!("{}.atmos.metadata", base.display()))
+        .expect("the metadata was written");
+    for ext in [".atmos", ".atmos.metadata", ".atmos.audio"] {
+        let _ = std::fs::remove_file(format!("{}{ext}", base.display()));
+    }
+    // the state of the first payload is in the output, from within its first block
+    let first = metadata
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("samplePos: "))
+        .and_then(|v| v.parse::<u64>().ok())
+        .expect("an event");
+    assert!(first < 64, "the first event is at sample {first}");
 
-    // the PCM and WAVE decodes of presentation 2 and `compare` do not read the
-    // object metadata, and they exited 0, `compare` calling the stream bit-exact
-    // and clean; they take the verdict of `verify` now
-    let pcm = std::env::temp_dir().join(format!("oadec-truncated-oamd-{}.pcm", std::process::id()));
-    let wav = std::env::temp_dir().join(format!("oadec-truncated-oamd-{}.wav", std::process::id()));
+    let pcm = std::env::temp_dir().join(format!("oadec-stale-size-{}.pcm", std::process::id()));
+    let wav = std::env::temp_dir().join(format!("oadec-stale-size-{}.wav", std::process::id()));
     for (format, target) in [("pcm", &pcm), ("wav", &wav)] {
         let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
             .args(["decode", "-p", "2", "--format", format, "-o"])
@@ -1598,8 +1617,8 @@ fn verify_and_decode_agree_about_a_truncated_object_metadata_element() {
             .expect("run oadec decode");
         assert_eq!(
             out.status.code(),
-            Some(7),
-            "decode --format {format} called the truncated element clean: {}",
+            Some(0),
+            "decode --format {format}: {}",
             String::from_utf8_lossy(&out.stderr)
         );
     }
@@ -1620,31 +1639,7 @@ fn verify_and_decode_agree_about_a_truncated_object_metadata_element() {
     let _ = std::fs::remove_file(&pcm);
     let _ = std::fs::remove_file(&wav);
     assert!(text.contains("result: BIT-EXACT"), "{text}");
-    assert_eq!(
-        out.status.code(),
-        Some(7),
-        "compare called the truncated element clean:\n{text}"
-    );
-
-    // and a clean stream still passes both, so the rule is not "always 7"
-    let clean = media.join("thd/pi.thd");
-    if clean.exists() {
-        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
-            .arg("verify")
-            .arg(&clean)
-            .output()
-            .expect("run oadec verify");
-        assert_eq!(
-            out.status.code(),
-            Some(0),
-            "a clean stream stopped being clean:\n{}",
-            String::from_utf8_lossy(&out.stdout)
-        );
-        assert!(
-            String::from_utf8_lossy(&out.stdout).contains("Object metadata:"),
-            "verify stopped reporting the object-metadata tally"
-        );
-    }
+    assert_eq!(out.status.code(), Some(0), "{text}");
 }
 
 /// The matrix alignment, asked of a clip it was never fitted on.
