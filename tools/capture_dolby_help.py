@@ -1,6 +1,7 @@
 """Capture the --help output of the Dolby command-line tools into docs/dolby-tools.md."""
 from __future__ import annotations
 
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -31,9 +32,13 @@ KEEP = "<!-- hand-written below -->"
 
 def scrub(text: str) -> str:
     """Leave out what describes this installation rather than the tool: the
-    licence banner DEE prints at start-up, and the home directory a default
-    path was resolved against (`--temp-dir` defaults to the working directory)."""
-    lines = [line for line in text.split("\n") if "Features enabled by the license:" not in line]
+    licence banner DEE prints at start-up, the load and memory it reports, the
+    libraries it loads, the machine's audio devices, and the home directory a
+    default path was resolved against (`--temp-dir` defaults to the working
+    directory)."""
+    device = re.compile(r"^\s+\d+\s+.*\(\d+ channels\)\s*$")
+    noise = ("Features enabled by the license:", "INFO: CPU:", "INFO: Average", "INFO: Max MEM", "INTERNAL_INFO:")
+    lines = [line for line in text.split("\n") if not any(n in line for n in noise) and not device.match(line)]
     return "\n".join(lines).replace(str(Path.home()), "%USERPROFILE%")
 
 
