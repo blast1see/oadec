@@ -470,6 +470,32 @@ mod tests {
         assert_eq!(ex.take_gap(), None);
     }
 
+    /// A stream locked on TrueHD that loses sync stays TrueHD: a DVD-Audio
+    /// major sync met while hunting for sync again is passed over, even one
+    /// whose CRC holds, and the stream is found again at its own next major
+    /// sync.
+    #[test]
+    fn a_stream_that_loses_sync_keeps_its_format() {
+        let (stream, units) = stream();
+        let mut data = stream.clone();
+        data.extend_from_slice(&[0u8; 4]);
+        data.extend_from_slice(&fbb_major_sync());
+        data.extend_from_slice(&stream);
+        let mut ex = Extractor::new();
+        ex.push(&data);
+        let mut got = Vec::new();
+        while let Some(u) = ex.next_unit().unwrap() {
+            got.push(u);
+        }
+        got.extend(ex.finish().unwrap().0);
+        assert_eq!(ex.format_sync, Some(crate::sync::SYNC_FBA));
+        assert_eq!(got.len(), 2 * units.len());
+        assert_eq!(got[units.len()].bytes, units[0]);
+        assert!(got[units.len()].has_major_sync);
+        assert!(ex.stats.foreign_syncs >= 1);
+        assert_eq!(ex.stats.resyncs, 1);
+    }
+
     /// A DVD-Audio stream is locked onto by its own pattern, and from then on
     /// the TrueHD one is the foreign pattern.
     #[test]
