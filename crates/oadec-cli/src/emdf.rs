@@ -18,6 +18,9 @@ use oadec_eac3::StreamType;
 use oadec_eac3::frame::{Frame, Noise, Options as FrameOptions};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::Oamd;
+use oadec_emdf::programme::{
+    LoudnessData, PAYLOAD_ID_LOUDNESS, PAYLOAD_ID_PROGRAMME_INFORMATION, ProgrammeInformation,
+};
 use serde::Serialize;
 
 /// Options of the command.
@@ -60,10 +63,219 @@ pub struct EmdfSummary {
     /// 32 * block_offset_factor) modulo 1536, with counts.
     pub event_times_mod_frame: BTreeMap<u64, u64>,
     pub first_error: Option<String>,
+    /// What the programme loudness payloads say.
+    pub loudness: LoudnessSummary,
+    /// What the programme information payloads say.
+    pub programme_information: ProgrammeInformationSummary,
     /// Sample position of the frame start of every OAMD-carrying frame that
     /// changes at least one value, in order (first 64 only in text mode).
     #[serde(skip)]
     pub event_times: Vec<u64>,
+}
+
+/// The smallest and largest of a value that changes all the time, and how many.
+#[derive(Debug, Clone, Copy, Default, Serialize, PartialEq)]
+pub struct ValueRange {
+    pub count: u64,
+    pub min: Option<f32>,
+    pub max: Option<f32>,
+}
+
+impl ValueRange {
+    fn take(&mut self, value: Option<f32>) {
+        if let Some(v) = value {
+            self.count += 1;
+            self.min = Some(self.min.map_or(v, |m| m.min(v)));
+            self.max = Some(self.max.map_or(v, |m| m.max(v)));
+        }
+    }
+}
+
+/// `dBFS`-like values as map keys: one decimal, which every scale fits.
+fn tenths(value: f32) -> String {
+    format!("{value:.1}")
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value { "yes" } else { "no" }
+}
+
+/// The programme loudness payloads (TS 102 366 clause H.3.1) over the stream.
+/// They describe the programme and steer nothing, so none of this enters a verdict.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct LoudnessSummary {
+    pub payloads: u64,
+    pub unreadable: u64,
+    pub size_mismatches: u64,
+    pub versions: BTreeMap<u8, u64>,
+    /// `loudpractyp`, table H.3.2.
+    pub practices: BTreeMap<String, u64>,
+    pub dialogue_gated_correction: BTreeMap<String, u64>,
+    pub relative_gated_lufs: BTreeMap<String, u64>,
+    pub speech_gated_lufs: BTreeMap<String, u64>,
+    pub downmix_offset_lu: BTreeMap<String, u64>,
+    pub true_peak_dbtp: ValueRange,
+    pub short_term_lufs: ValueRange,
+    pub boundaries: u64,
+}
+
+/// `loudpractyp` by name, and by number where table H.3.2 has no name: 229 tracks
+/// of a library carry a code the table reserves.
+fn practice_name(code: u8) -> String {
+    match code {
+        0 => "not indicated".to_string(),
+        1 => "ATSC A/85".to_string(),
+        2 => "EBU R128".to_string(),
+        3 => "ARIB TR-B32".to_string(),
+        4 => "FreeTV OP-59".to_string(),
+        14 => "manual".to_string(),
+        15 => "consumer leveller".to_string(),
+        other => format!("reserved {other}"),
+    }
+}
+
+impl LoudnessSummary {
+    fn take(&mut self, data: &[u8]) {
+        self.payloads += 1;
+        let Ok(p) = LoudnessData::parse(data) else {
+            self.unreadable += 1;
+            return;
+        };
+        if !p.size_ok {
+            self.size_mismatches += 1;
+        }
+        *self.versions.entry(p.version).or_default() += 1;
+        *self.practices.entry(practice_name(p.practice)).or_default() += 1;
+        if let Some(c) = p.correction {
+            *self
+                .dialogue_gated_correction
+                .entry(yes_no(c.dialogue_gated).to_string())
+                .or_default() += 1;
+        }
+        for (map, value) in [
+            (&mut self.relative_gated_lufs, p.relative_gated_lufs),
+            (&mut self.speech_gated_lufs, p.speech_gated_lufs),
+            (&mut self.downmix_offset_lu, p.downmix_offset_lu),
+        ] {
+            if let Some(v) = value {
+                *map.entry(tenths(v)).or_default() += 1;
+            }
+        }
+        self.true_peak_dbtp.take(p.true_peak_dbtp);
+        self.short_term_lufs.take(p.short_term_lufs);
+        if p.boundary.is_some() {
+            self.boundaries += 1;
+        }
+    }
+}
+
+/// The programme information payloads (TS 102 366 clause H.3.2) over the stream:
+/// among other things the DRC profiles, which are written nowhere else.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ProgrammeInformationSummary {
+    pub payloads: u64,
+    pub unreadable: u64,
+    pub size_mismatches: u64,
+    /// The profile of `dynrng`, by the name Dolby's encoders take in `drc_profile_line`.
+    pub drc_line: BTreeMap<String, u64>,
+    /// The profile of `compr`, by the name they take in `drc_profile_rf`.
+    pub drc_rf: BTreeMap<String, u64>,
+    pub surround_attenuation: BTreeMap<String, u64>,
+    pub phase_shift_90: BTreeMap<String, u64>,
+    pub lfe_filter: BTreeMap<String, u64>,
+    pub lfe_monitor_level: BTreeMap<u8, u64>,
+    pub active_channels: BTreeMap<String, u64>,
+    pub downmix: BTreeMap<u8, u64>,
+    pub upmix: BTreeMap<u8, u64>,
+}
+
+impl ProgrammeInformationSummary {
+    fn take(&mut self, data: &[u8]) {
+        self.payloads += 1;
+        let Ok(p) = ProgrammeInformation::parse(data) else {
+            self.unreadable += 1;
+            return;
+        };
+        if !p.size_ok {
+            self.size_mismatches += 1;
+        }
+        if let Some(d) = p.drc {
+            *self
+                .drc_line
+                .entry(d.line.encoder_name().to_string())
+                .or_default() += 1;
+            *self
+                .drc_rf
+                .entry(d.rf.encoder_name().to_string())
+                .or_default() += 1;
+        }
+        if let Some(x) = p.preprocessing {
+            for (map, value) in [
+                (&mut self.surround_attenuation, x.surround_attenuation),
+                (&mut self.phase_shift_90, x.phase_shift_90),
+                (&mut self.lfe_filter, x.lfe_filter),
+            ] {
+                *map.entry(yes_no(value).to_string()).or_default() += 1;
+            }
+            *self
+                .lfe_monitor_level
+                .entry(x.lfe_monitor_level)
+                .or_default() += 1;
+        }
+        if let Some(mask) = p.active_channels {
+            *self
+                .active_channels
+                .entry(format!("{mask:016b}"))
+                .or_default() += 1;
+        }
+        if let Some(v) = p.downmix {
+            *self.downmix.entry(v).or_default() += 1;
+        }
+        if let Some(v) = p.upmix {
+            *self.upmix.entry(v).or_default() += 1;
+        }
+    }
+}
+
+/// Files a payload of one of the two descriptive ids; the others pass through.
+fn take_programme_payload(s: &mut EmdfSummary, id: u32, data: &[u8]) {
+    match id {
+        PAYLOAD_ID_LOUDNESS => s.loudness.take(data),
+        PAYLOAD_ID_PROGRAMME_INFORMATION => s.programme_information.take(data),
+        _ => {}
+    }
+}
+
+/// The lines the text report adds, once there is something to say.
+fn print_programme_payloads(s: &EmdfSummary) {
+    let l = &s.loudness;
+    if l.payloads > 0 {
+        println!(
+            "Loudness:          {} payloads ({} unreadable, {} of the wrong size), measured by {:?}, relative gated {:?} LUFS, speech gated {:?} LUFS, true peak {:?}..{:?} dBTP",
+            l.payloads,
+            l.unreadable,
+            l.size_mismatches,
+            l.practices,
+            l.relative_gated_lufs,
+            l.speech_gated_lufs,
+            l.true_peak_dbtp.min,
+            l.true_peak_dbtp.max
+        );
+    }
+    let p = &s.programme_information;
+    if p.payloads > 0 {
+        println!(
+            "Programme:         {} payloads ({} unreadable, {} of the wrong size), DRC profile line {:?}, RF {:?}, 90 degree phase shift {:?}, surround attenuation {:?}, LFE filter {:?}",
+            p.payloads,
+            p.unreadable,
+            p.size_mismatches,
+            p.drc_line,
+            p.drc_rf,
+            p.phase_shift_90,
+            p.surround_attenuation,
+            p.lfe_filter
+        );
+    }
 }
 
 /// A container as the walk found it in a skip field: opened, or the error
@@ -482,6 +694,7 @@ fn run_truehd(path: &Path, opts: &Options) -> Result<bool> {
         }
         for p in &container.payloads {
             *s.payload_ids.entry(p.id).or_default() += 1;
+            take_programme_payload(&mut s, p.id, &p.data);
             if p.id == PAYLOAD_ID_JOC {
                 s.joc_payloads += 1;
             }
@@ -550,6 +763,7 @@ fn run_truehd(path: &Path, opts: &Options) -> Result<bool> {
             "EMDF:              {} access units with containers, {} containers, {} container errors, payload ids {:?}",
             s.frames_with_emdf, s.containers, s.container_errors, s.payload_ids
         );
+        print_programme_payloads(&s);
         println!(
             "OAMD:              {} payloads ({} errors), {} JOC payloads",
             s.oamd_payloads, s.oamd_errors, s.joc_payloads
@@ -647,6 +861,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
                 }
                 for p in &c.payloads {
                     *s.payload_ids.entry(p.id).or_default() += 1;
+                    take_programme_payload(&mut s, p.id, &p.data);
                     if p.id == PAYLOAD_ID_JOC {
                         s.joc_payloads += 1;
                     }
@@ -762,6 +977,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             "EMDF:              {} frames with containers, {} containers, {} container errors, payload ids {:?}",
             s.frames_with_emdf, s.containers, s.container_errors, s.payload_ids
         );
+        print_programme_payloads(&s);
         println!(
             "OAMD:              {} payloads ({} errors), {} JOC payloads",
             s.oamd_payloads, s.oamd_errors, s.joc_payloads
