@@ -83,6 +83,11 @@ enum Command {
         /// and when, as CSV.
         #[arg(long, value_name = "FILE")]
         trace_fifo: Option<PathBuf>,
+        /// TrueHD: fail the run (exit 7) unless the stream fits these disc
+        /// formats as it is -- bd, hddvd, dvda, comma-separated. Every run
+        /// reports the fit (Disc:); this makes it part of the verdict.
+        #[arg(long, value_name = "DISC", value_delimiter = ',', value_parser = ["bd", "hddvd", "dvda"])]
+        require_disc: Vec<String>,
     },
     /// Print one access unit of a TrueHD stream field by field, with where each
     /// part sits in the file: the place a finding of verify points to, opened up.
@@ -417,16 +422,22 @@ fn main() -> ExitCode {
                 fail_on,
                 max_per_rule,
                 trace_fifo,
+                require_disc,
             } => eac3::is_eac3(&file)
                 .and_then(|is| {
                     if is {
-                        if fail_on.is_some() || max_per_rule.is_some() || trace_fifo.is_some() {
+                        if fail_on.is_some()
+                            || max_per_rule.is_some()
+                            || trace_fifo.is_some()
+                            || !require_disc.is_empty()
+                        {
                             // An option that reads as applied while changing
                             // nothing is the defect named below: E-AC-3 checks
                             // have no rule catalog yet.
                             return Err(anyhow::anyhow!(
-                                "--fail-on and --max-per-rule apply to a TrueHD stream; the \
-                                 E-AC-3 checks have no rule catalog yet"
+                                "--fail-on, --max-per-rule, --trace-fifo and --require-disc \
+                                 apply to a TrueHD stream; the E-AC-3 checks have no rule \
+                                 catalog yet"
                             ));
                         }
                         eac3::verify(&file, json)
@@ -442,6 +453,10 @@ fn main() -> ExitCode {
                                     .unwrap_or(Severity::Error),
                                 max_per_rule: max_per_rule.unwrap_or(Tally::DEFAULT_MAX_PER_RULE),
                                 trace_fifo,
+                                require_disc: require_disc
+                                    .iter()
+                                    .filter_map(|d| oadec_truehd::disc::Disc::from_id(d))
+                                    .collect(),
                             },
                         )
                     }

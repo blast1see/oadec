@@ -257,3 +257,47 @@ FILE` writes what every unit puts into the buffer and when, as CSV.
 Not checked: a delay held constant when `flags` bit 15 says so (Dolby, Table
 12). No stream in the corpus sets the bit -- 63 streams, encoder deliveries
 included -- so there is nothing to measure the rule against at a branch.
+
+## Disc formats
+
+`verify` says whether the stream could go on a disc as it is (`Disc:`; `disc`
+in `--json`): one row a format, and for a row that says no, the reason and the
+source of the bound.
+
+| Row | What it holds the stream to | Source |
+|---|---|---|
+| BD | the FBA syntax; 48, 96 or 192 kHz; at 192 kHz no presentation over six channels | Dolby's description, section 1, names FBA the Blu-ray syntax; BDA white paper, version 2.5, Figure 3-4 |
+| HD DVD | at 176.4 and 192 kHz no presentation over two channels | the verifier messages of Dolby's TrueHD encoder (secondary) |
+| DVD-A | the FBB syntax | Dolby's description, section 1 |
+
+The BD and HD DVD rows also hold the stream to its delivery: a finding of the
+buffer or rate rules above is a reason for both, since a stream Dolby's own
+verifier would refuse goes on neither disc.
+
+What the rows leave out, and why:
+
+* Figure 3-4 gives eight channels at 48 and 96 kHz. The 8-channel presentation
+  cannot have more, and the 16-channel object presentation came after the
+  figure; Dolby's encoder marks its object streams valid for Blu-ray, and so
+  does the row.
+* Figure 3-4 caps a Dolby Lossless stream at 18.64 Mbit/s. On a disc that
+  stream carries an AC-3 stream along with the TrueHD data, and the white paper
+  does not say what the figure counts. Every TrueHD unit is held to 18 Mbit/s
+  anyway (`rate.over_ceiling`, Dolby section 2.7), which is lower.
+* The word length (16 to 24 bits on Blu-ray): an FBA stream does not declare
+  it.
+* The rates HD DVD takes are in no public source. At 44.1, 88.2 and 176.4 kHz
+  its row says `unjudged`; at 48 and 96 kHz Dolby's encoder marks its streams
+  valid for HD DVD, and its two-channel bound at 192 kHz says the rate itself
+  is taken.
+* `oadec` refuses an FBB stream before it gets this far, so the DVD-A row says
+  no to every stream it sees; what DVD-Audio asks of an FBB stream comes with
+  FBB decoding.
+
+`verify --require-disc bd` (or `hddvd`, `dvda`, comma-separated) makes a row
+part of the verdict: a required row that says no, or cannot judge, is one
+finding under `disc.required`, an error, and the run exits 7.
+
+The rows were held to Dolby's encoder, which prints a stream validity table for
+every stream it writes, and to streams it will not write
+(`docs/audit/evidence/verification-upgrade-2026-11/07-disc-formats.json`).

@@ -133,7 +133,10 @@ default is the verdict `verify` has always given, and the counters of
 `verify --json` are unchanged. `--fail-on warning` also fails on rules no
 public specification or measurement confirms; `--fail-on fatal` passes a stream
 whose only faults left it readable. `--max-per-rule` changes what is listed and
-never a count or a verdict. The other commands keep the default.
+never a count or a verdict. `--require-disc` adds a finding under
+`disc.required`, an error, for each disc format it names that the stream does
+not fit, so such a stream exits 7; without it the fit is reported and judges
+nothing. The other commands keep the default.
 
 `compare` folds the two questions together on purpose: a comparison against a
 reference is only worth reporting if the decode under it was sound, and the

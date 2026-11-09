@@ -13,6 +13,11 @@ use crate::diag::Severity;
 /// Dolby's public high-level description of the FBA bitstream.
 pub const DOLBY_HL: &str = "Dolby TrueHD (MLP) High-Level Bitstream Description (2018)";
 
+/// The Blu-ray Disc Association's public white paper on the BD-ROM audio
+/// visual format.
+pub const BDA: &str =
+    "BDA, White Paper BD-ROM Audio Visual Application Format Specifications, version 2.5 (2011)";
+
 /// ETSI TS 102 366 V1.4.1 (AC-3 and E-AC-3, Annex H: EMDF).
 pub const TS_102_366: &str = "ETSI TS 102 366 V1.4.1";
 
@@ -31,6 +36,7 @@ const CENSUS: &str =
 const PROTECTION: &str =
     "docs/audit/evidence/verification-upgrade-2026-11/05-protection-census.json";
 const FIFO: &str = "docs/audit/evidence/verification-upgrade-2026-11/06-fifo-model.json";
+const DISC: &str = "docs/audit/evidence/verification-upgrade-2026-11/07-disc-formats.json";
 
 /// Where a rule comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -475,6 +481,14 @@ catalog! {
         legacy: None,
         summary: "an access unit is delivered faster than 18 Mbit/s",
         provenance: [spec(DOLBY_HL, "2.7"), measured(FIFO)],
+    },
+    /// `verify --require-disc`: a disc format the stream does not fit.
+    DiscRequired {
+        id: "disc.required",
+        severity: Error,
+        legacy: None,
+        summary: "verify --require-disc: the stream does not fit a disc format the run requires, or its fit cannot be judged",
+        provenance: [spec(BDA, "3.4.1, Figure 3-4"), spec(DOLBY_HL, "1, 2.7"), measured(DISC), secondary("the verifier messages of Dolby's TrueHD encoder, for HD DVD-Video at 176.4 and 192 kHz")],
     },
     /// `verify --decode`: the lossless check word.
     DecodeLosslessCheck {

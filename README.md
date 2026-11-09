@@ -47,6 +47,7 @@ cargo build --release
 oadec info    film.thd                            # what the stream declares
 oadec verify  film.thd                            # every integrity rule; exit 7 on failure (docs/exit-codes.md)
 oadec verify  film.thd --json                     # the same, with each finding, its place and the damage regions
+oadec verify  film.thd --require-disc bd          # and fail unless the stream could go on a Blu-ray as it is
 oadec rules   segment.parity                      # what a rule checks, its default severity and its source
 oadec au      film.thd --index 1500               # one access unit, field by field, where a finding points
 oadec decode  film.thd -p 2 -o film-7.1.wav       # a channel presentation as WAVE

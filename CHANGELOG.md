@@ -72,6 +72,16 @@ Semantic Versioning.
   declared peak or over 18 Mbit/s. On real material they fire only where the
   stream is already damaged. `verify --trace-fifo FILE` writes, per unit, what it
   puts into the buffer and when. `tools/fifo_oracle.py` repeats the comparison.
+- **Whether a stream fits a disc.** `verify` says, for Blu-ray, HD DVD and
+  DVD-Audio, whether the TrueHD stream could go on the disc as it is, and for a
+  no the reason and the source of the bound: the BDA white paper's figure for
+  Blu-ray (48, 96 or 192 kHz, six channels at 192 kHz), Dolby's description for
+  which syntax goes on which disc, Dolby's encoder for HD DVD's two channels at
+  176.4 and 192 kHz, and the delivery bounds for both film discs. What no
+  public source gives, HD DVD's rates, is `unjudged`. On twelve encodes the
+  rows match the stream validity table of Dolby's encoder; every undamaged
+  Blu-ray stream of the corpus fits. `verify --require-disc bd` makes the fit
+  part of the verdict (`disc.required`, exit 7).
 
 ### Changed
 

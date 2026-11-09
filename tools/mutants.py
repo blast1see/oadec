@@ -358,6 +358,22 @@ MUTANTS = [
      'crates/oadec-truehd/src/buffer.rs',
      'if self.declared_peak_bps > 0 && bits_fs > self.declared_peak_bps * interval {',
      'if self.declared_peak_bps > 0 && bps > self.declared_peak_bps + 1 {'),
+    ('Blu-ray taking eight channels at 192 kHz',
+     'crates/oadec-truehd/src/disc.rs',
+     'if fs == 192_000\n                && let Some((p, c)) = widest_over(f, 6)',
+     'if fs == 192_000\n                && let Some((p, c)) = widest_over(f, 8)'),
+    ("HD DVD's two-channel bound held at 96 kHz too",
+     'crates/oadec-truehd/src/disc.rs',
+     'if matches!(fs, 176_400 | 192_000)\n                && let Some((p, c)) = widest_over(f, 2)',
+     'if fs > 48_000\n                && let Some((p, c)) = widest_over(f, 2)'),
+    ('Blu-ray taking 44.1 kHz',
+     'crates/oadec-truehd/src/disc.rs',
+     'if !matches!(fs, 48_000 | 96_000 | 192_000) {',
+     'if !matches!(fs, 44_100 | 48_000 | 96_000 | 192_000) {'),
+    ('a single delivery finding let through',
+     'crates/oadec-truehd/src/disc.rs',
+     'if fba && disc != Disc::DvdAudio && !f.delivery.is_empty() {',
+     'if fba && disc != Disc::DvdAudio && f.delivery.len() > 1 {'),
 ]
 
 

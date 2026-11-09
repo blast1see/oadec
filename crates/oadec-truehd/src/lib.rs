@@ -15,6 +15,7 @@ pub mod channel;
 pub mod damage;
 pub mod decoder;
 pub mod diag;
+pub mod disc;
 pub mod dither;
 pub mod error;
 pub mod extra;

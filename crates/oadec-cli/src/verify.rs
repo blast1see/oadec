@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use anyhow::Result;
 use oadec_truehd::damage::{Region, RegionKind};
+use oadec_truehd::disc::{self, Disc, Row};
 use oadec_truehd::{
     Location, MAX_PRESENTATIONS, MajorSync, Provenance, RuleId, Severity, StreamConfig, Tally,
 };
@@ -191,6 +192,8 @@ pub struct Options {
     pub max_per_rule: usize,
     /// Where to write the decoder-buffer trace, one row per access unit.
     pub trace_fifo: Option<std::path::PathBuf>,
+    /// Disc formats the stream must fit for the run to pass.
+    pub require_disc: Vec<Disc>,
 }
 
 impl Default for Options {
@@ -201,6 +204,7 @@ impl Default for Options {
             fail_on: Severity::Error,
             max_per_rule: Tally::DEFAULT_MAX_PER_RULE,
             trace_fifo: None,
+            require_disc: Vec::new(),
         }
     }
 }
@@ -414,6 +418,110 @@ fn print_buffer(scan: &scan::Scan) {
         m.depth[8].value,
         oadec_truehd::buffer::MIN_FIFO_BYTES
     );
+}
+
+/// The rules whose findings say a stream is delivered outside the bounds of
+/// any TrueHD stream, which keep it off a film disc.
+const DELIVERY_RULES: [RuleId; 6] = [
+    RuleId::BufferSubstreamDepth,
+    RuleId::BufferStreamDepth,
+    RuleId::BufferLatencyOver75ms,
+    RuleId::BufferLatencyUnderFrame,
+    RuleId::RateOverDeclaredPeak,
+    RuleId::RateOverCeiling,
+];
+
+/// How the stream fits each disc format, from its first major sync and the
+/// delivery findings of the scan.
+fn disc_rows(scan: &scan::Scan) -> Option<[Row; 3]> {
+    let ms = scan.first_major_sync.as_ref()?;
+    let mut facts = disc::Facts::from_major_sync(ms);
+    facts.delivery = DELIVERY_RULES
+        .iter()
+        .filter_map(|r| scan.diag.tally.get(*r).map(|t| (r.info().id, t.count)))
+        .collect();
+    Some(disc::judge(&facts))
+}
+
+/// The `disc` object of `verify --json`.
+fn disc_json(rows: Option<&[Row; 3]>, required: &[Disc]) -> Value {
+    let Some(rows) = rows else {
+        return Value::Null;
+    };
+    json!({
+        "model": "docs/truehd.md, Disc formats",
+        "required": required.iter().map(|d| d.id()).collect::<Vec<_>>(),
+        "rows": rows.iter().map(|r| json!({
+            "disc": r.disc.id(),
+            "name": r.disc.name(),
+            "verdict": r.verdict.word(),
+            "reasons": r.verdict.reasons().iter().map(|x| json!({
+                "text": x.text,
+                "source": x.source,
+            })).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+    })
+}
+
+/// The `Disc:` lines of the text report: the verdicts, then each reason once.
+fn print_disc(rows: Option<&[Row; 3]>, required: &[Disc]) {
+    let Some(rows) = rows else {
+        return;
+    };
+    let verdicts = rows
+        .iter()
+        .map(|r| format!("{} {}", r.disc.name(), r.verdict.word()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let required = if required.is_empty() {
+        String::new()
+    } else {
+        format!(
+            " (required: {})",
+            required
+                .iter()
+                .map(|d| d.name())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    };
+    println!("Disc:              {verdicts}{required}");
+    let mut said = Vec::new();
+    for reason in rows.iter().flat_map(|r| r.verdict.reasons()) {
+        if !said.contains(&reason.text) {
+            println!("                   {}", reason.text);
+            said.push(reason.text.clone());
+        }
+    }
+}
+
+/// Records a finding for each disc format the run requires and the stream
+/// does not fit.
+fn record_required_discs(diag: &mut Tally, rows: Option<&[Row; 3]>, required: &[Disc]) {
+    for disc in required {
+        let row = rows.and_then(|rows| rows.iter().find(|r| r.disc == *disc));
+        if row.is_some_and(|r| r.verdict.is_yes()) {
+            continue;
+        }
+        diag.add(RuleId::DiscRequired, Location::default(), 1, || {
+            let reasons = row.map_or_else(
+                || "the stream declares nothing to judge".to_string(),
+                |r| {
+                    r.verdict
+                        .reasons()
+                        .iter()
+                        .map(|x| x.text.as_str())
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                },
+            );
+            format!(
+                "{} {}: {reasons}",
+                disc.name(),
+                row.map_or("no", |r| r.verdict.word())
+            )
+        });
+    }
 }
 
 /// The `diagnostics` object of `verify --json`.
@@ -656,6 +764,8 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
     if let Some(c) = &checks {
         record_lossless(&mut scan.diag.tally, c);
     }
+    let discs = disc_rows(&scan);
+    record_required_discs(&mut scan.diag.tally, discs.as_ref(), &opts.require_disc);
     let elapsed = started.elapsed().as_secs_f64();
     // The verdict is the worst finding against the threshold. Every counter
     // the verdict used to read is a rule at `error` or above, so at the
@@ -686,6 +796,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         value["lossless_checks"] = serde_json::to_value(&checks)?;
         value["diagnostics"] = diagnostics_json(&scan, opts.fail_on);
         value["buffer"] = buffer_json(&scan);
+        value["disc"] = disc_json(discs.as_ref(), &opts.require_disc);
         value["clean"] = serde_json::json!(clean);
         value["seconds"] = serde_json::json!(elapsed);
         value["realtime_factor"] = serde_json::json!(speed);
@@ -830,6 +941,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             );
         }
         print_buffer(&scan);
+        print_disc(discs.as_ref(), &opts.require_disc);
         print_diagnostics(&scan, opts.fail_on);
         if let Some(err) = &scan.first_error {
             println!("First error:       {err}");

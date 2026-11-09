@@ -294,10 +294,94 @@ fn the_rule_options_are_refused_on_eac3() {
     let ec3 = fixture("authored-scene.ec3");
     let ec3 = ec3.to_str().unwrap();
     assert_eq!(oadec(&["verify", ec3]).status.code(), Some(0));
-    for flag in [["--fail-on", "error"], ["--max-per-rule", "3"]] {
+    for flag in [
+        ["--fail-on", "error"],
+        ["--max-per-rule", "3"],
+        ["--require-disc", "bd"],
+    ] {
         let out = oadec(&["verify", flag[0], flag[1], ec3]);
         assert_eq!(out.status.code(), Some(2), "{flag:?}");
     }
+}
+
+/// Every run says how the stream fits each disc format; `--require-disc`
+/// makes a format's fit part of the verdict, as one finding that names it.
+#[test]
+fn a_required_disc_format_is_part_of_the_verdict() {
+    let path = fixture("authored-scene.mlp");
+    let path = path.to_str().unwrap();
+    let verdicts = |v: &Value| -> Vec<(String, String)> {
+        v["disc"]["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| {
+                (
+                    r["disc"].as_str().unwrap().to_string(),
+                    r["verdict"].as_str().unwrap().to_string(),
+                )
+            })
+            .collect()
+    };
+    let (code, v) = verify_json(path, &[]);
+    assert_eq!(code, Some(0));
+    let pairs = |a: [(&str, &str); 3]| {
+        a.iter()
+            .map(|(d, w)| ((*d).to_string(), (*w).to_string()))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        verdicts(&v),
+        pairs([("bd", "yes"), ("hddvd", "yes"), ("dvda", "no")]),
+        "a 48 kHz object stream within its delivery bounds"
+    );
+    assert!(
+        v["disc"]["rows"][2]["reasons"][0]["source"]
+            .as_str()
+            .unwrap()
+            .contains("section 1")
+    );
+
+    // required and fitting: the verdict stands
+    let (code, v) = verify_json(path, &["--require-disc", "bd,hddvd"]);
+    assert_eq!(code, Some(0));
+    assert_eq!(v["disc"]["required"], serde_json::json!(["bd", "hddvd"]));
+
+    // required and not fitting: exit 7, one finding under disc.required
+    let (code, v) = verify_json(path, &["--require-disc", "dvda"]);
+    assert_eq!(code, Some(7));
+    let rule = v["diagnostics"]["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["id"] == "disc.required")
+        .expect("a disc.required finding");
+    assert_eq!(rule["count"], 1);
+    assert!(
+        rule["first_message"]
+            .as_str()
+            .unwrap()
+            .starts_with("DVD-A no: DVD-Audio carries the FBB syntax")
+    );
+
+    // the text report: the verdicts, each reason once, the verdict last
+    let out = oadec(&["verify", "--require-disc", "dvda", path]);
+    assert_eq!(out.status.code(), Some(7));
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        text.contains("Disc:              BD yes, HD DVD yes, DVD-A no (required: DVD-A)\n"),
+        "{text}"
+    );
+    assert!(
+        text.contains("                   DVD-Audio carries the FBB syntax; this stream is FBA\n")
+    );
+    assert!(text.lines().last().unwrap().starts_with("Result:"));
+    assert!(
+        oadec(&["verify", "--require-disc", "cd", path])
+            .status
+            .code()
+            == Some(2)
+    );
 }
 
 /// Decodes `path` at presentation `p` in stream order and returns the samples
