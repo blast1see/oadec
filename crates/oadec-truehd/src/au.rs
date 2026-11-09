@@ -11,7 +11,7 @@ use oadec_bits::{BitReader, fold_nibble, xor_bytes};
 use crate::error::{Error, Result};
 use crate::extra::ExtraData;
 use crate::presentation::PresentationMap;
-use crate::sync::MajorSync;
+use crate::sync::{FbbFormat, MajorSync};
 
 /// Stream-level parameters in force for an access unit, taken from the last major sync.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,6 +49,23 @@ impl StreamConfig {
                 "invalid substream count {}",
                 ms.substreams
             )));
+        }
+        if let Some(fbb) = &ms.fbb {
+            // FFmpeg's MLP decoder takes at most two substreams, and the
+            // DVD-Audio streams measured carry one or two
+            if ms.substreams > 2 {
+                return Err(Error::malformed(format!(
+                    "an FBB stream carries at most two substreams, not {}",
+                    ms.substreams
+                )));
+            }
+            if fbb.has_group2() && fbb.group2_rate_code != fbb.group1_rate_code {
+                return Err(Error::Unsupported(format!(
+                    "an FBB stream whose second channel group runs at another rate ({} against {} Hz) is not supported",
+                    FbbFormat::rate(fbb.group2_rate_code).unwrap_or(0),
+                    sampling_frequency
+                )));
+            }
         }
         Ok(Self {
             format_sync: ms.format_sync,
@@ -402,10 +419,44 @@ mod tests {
         assert!(unit.directory[0].extra_word);
         assert_eq!(unit.directory[0].end_ptr_words, 0x872);
         assert_eq!(unit.segments_start, 14);
-        // with nothing configured the pattern can only open a major sync
+        // with nothing configured the pattern can only open a major sync,
+        // and this one is not one
+        assert!(
+            AccessUnit::parse(&au, None).is_err() || {
+                let (unit, _) = AccessUnit::parse(&au, None).unwrap();
+                unit.major_sync.as_ref().is_some_and(|m| !m.crc_ok)
+            }
+        );
+    }
+
+    /// An FBB stream whose second channel group runs at another rate is
+    /// refused by name, and one with more than two substreams is malformed.
+    #[test]
+    fn an_fbb_stream_with_two_rates_or_three_substreams_is_refused() {
+        use oadec_bits::CRC16_MAJOR_SYNC;
+        let fix = |mut ms: Vec<u8>| {
+            let crc = CRC16_MAJOR_SYNC.update_bytes(0, &ms[..26]);
+            ms[26..28].copy_from_slice(&crc.to_be_bytes());
+            crate::sync::MajorSync::parse(&ms).unwrap()
+        };
+        let base = crate::testutil::fbb_major_sync();
+        assert!(StreamConfig::from_major_sync(&fix(base.clone())).is_ok());
+        let mut two_rates = base.clone();
+        two_rates[4] = 0x01; // group 1 16 bits, group 2 20 bits
+        two_rates[5] = 0x80; // group 1 at 44.1 kHz, group 2 at 48 kHz
         assert!(matches!(
-            AccessUnit::parse(&au, None),
-            Err(Error::UnsupportedFbb)
+            StreamConfig::from_major_sync(&fix(two_rates)),
+            Err(Error::Unsupported(_))
+        ));
+        let mut same_rate = base.clone();
+        same_rate[4] = 0x01;
+        same_rate[5] = 0x88; // both groups at 44.1 kHz
+        assert!(StreamConfig::from_major_sync(&fix(same_rate)).is_ok());
+        let mut three = base;
+        three[16] = (three[16] & 0x0F) | 0x30; // three substreams
+        assert!(matches!(
+            StreamConfig::from_major_sync(&fix(three)),
+            Err(Error::Malformed(_))
         ));
     }
 

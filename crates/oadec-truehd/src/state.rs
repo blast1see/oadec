@@ -186,6 +186,8 @@ pub struct ParserState {
     pub sampling_frequency: u32,
     /// Number of substreams.
     pub substreams: usize,
+    /// The stream is FBB (DVD-Audio): every restart header is 0x31EA.
+    pub fbb: bool,
     /// Per-substream state.
     pub substream: [SubstreamState; MAX_PRESENTATIONS],
 }
@@ -200,6 +202,7 @@ impl ParserState {
             substream_info: config.substream_info,
             sampling_frequency: config.sampling_frequency,
             substreams: usize::from(config.substreams),
+            fbb: config.format_sync == crate::sync::SYNC_FBB,
             substream: core::array::from_fn(|_| SubstreamState::default()),
         }
     }
@@ -215,6 +218,7 @@ impl ParserState {
         self.substream_info = config.substream_info;
         self.sampling_frequency = config.sampling_frequency;
         self.substreams = usize::from(config.substreams);
+        self.fbb = config.format_sync == crate::sync::SYNC_FBB;
         if changed {
             for ss in &mut self.substream {
                 ss.restart_seen = false;

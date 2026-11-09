@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use anyhow::Result;
+use oadec_truehd::sync::FbbFormat;
 use oadec_truehd::{ChannelLabel, MajorSync, PresentationKind};
 
 use crate::scan::{self, Scan};
@@ -34,6 +35,22 @@ fn format_duration(seconds: f64) -> String {
 
 fn print_presentations(ms: &MajorSync) {
     let map = ms.presentation_map();
+    if ms.is_fbb() {
+        println!("Presentations:");
+        for index in 0..2 {
+            let kind = map.kind(index);
+            if kind == PresentationKind::Invalid {
+                continue;
+            }
+            println!(
+                "  {index}: substreams {:04b}  {}  [{}]",
+                map.mask(index),
+                labels(&ChannelLabel::presentation(ms, index)),
+                kind_text(kind)
+            );
+        }
+        return;
+    }
     let fi = &ms.format_info;
     let restricted = ms.flags & oadec_truehd::sync::FLAG_RESTRICTED_8CH != 0;
     let rows: [(usize, String); 4] = [
@@ -95,15 +112,41 @@ fn print_text(scan: &Scan) {
         return;
     };
     let fs = ms.sampling_frequency().unwrap_or(0);
-    println!(
-        "Format:           Dolby TrueHD (FBA), {fs} Hz, {} samples per access unit{}",
-        ms.samples_per_au().unwrap_or(0),
-        if ms.has_16ch_presentation() {
-            ", 16-channel object presentation"
+    if let Some(fbb) = &ms.fbb {
+        let all = ChannelLabel::mlp_assignment(fbb.channel_assignment);
+        let split = ChannelLabel::mlp_group1_channels(fbb.channel_assignment).min(all.len());
+        let groups = if split < all.len() {
+            format!("{} | {}", labels(&all[..split]), labels(&all[split..]))
         } else {
-            ""
-        }
-    );
+            labels(&all)
+        };
+        let bits = |code| FbbFormat::bits(code).map(|b| format!("{b}-bit"));
+        let words = match (
+            bits(fbb.group1_bits_code),
+            fbb.has_group2()
+                .then(|| bits(fbb.group2_bits_code))
+                .flatten(),
+        ) {
+            (Some(g1), Some(g2)) if g1 != g2 => format!("group 1 {g1}, group 2 {g2}"),
+            (Some(g1), _) => g1,
+            (None, _) => "word length not declared".to_string(),
+        };
+        println!(
+            "Format:           Meridian MLP (FBB, DVD-Audio), {fs} Hz, {} samples per access unit; channel assignment {} ({groups}), {words}",
+            ms.samples_per_au().unwrap_or(0),
+            fbb.channel_assignment,
+        );
+    } else {
+        println!(
+            "Format:           Dolby TrueHD (FBA), {fs} Hz, {} samples per access unit{}",
+            ms.samples_per_au().unwrap_or(0),
+            if ms.has_16ch_presentation() {
+                ", 16-channel object presentation"
+            } else {
+                ""
+            }
+        );
+    }
     if let Some(secs) = scan.duration_seconds() {
         println!(
             "Duration:         {} ({} access units)",
@@ -135,23 +178,27 @@ fn print_text(scan: &Scan) {
         scan.major_syncs, scan.max_major_sync_interval
     );
     print_presentations(ms);
-    let cm = &ms.channel_meaning;
-    print!(
-        "Dialogue norm:    2ch -{} dB, 6ch -{} dB, 8ch -{} dB",
-        cm.twoch_dialogue_norm, cm.sixch_dialogue_norm, cm.eightch_dialogue_norm
-    );
-    if let Some(extra) = &cm.extra {
-        print!(", 16ch -{} dB", extra.sixteench_dialogue_norm);
+    // the dialogue level and the control fields are FBA's channel meaning;
+    // an FBB one is laid out otherwise and is not read
+    if !ms.is_fbb() {
+        let cm = &ms.channel_meaning;
+        print!(
+            "Dialogue norm:    2ch -{} dB, 6ch -{} dB, 8ch -{} dB",
+            cm.twoch_dialogue_norm, cm.sixch_dialogue_norm, cm.eightch_dialogue_norm
+        );
+        if let Some(extra) = &cm.extra {
+            print!(", 16ch -{} dB", extra.sixteench_dialogue_norm);
+        }
+        println!();
+        println!(
+            "Control:          2ch {}, 6ch {}, 8ch {}; DRC start-up gain {}, heavy DRC start-up gain {}",
+            cm.twoch_control_enabled,
+            cm.sixch_control_enabled,
+            cm.eightch_control_enabled,
+            cm.drc_start_up_gain,
+            cm.heavy_drc_start_up_gain
+        );
     }
-    println!();
-    println!(
-        "Control:          2ch {}, 6ch {}, 8ch {}; DRC start-up gain {}, heavy DRC start-up gain {}",
-        cm.twoch_control_enabled,
-        cm.sixch_control_enabled,
-        cm.eightch_control_enabled,
-        cm.drc_start_up_gain,
-        cm.heavy_drc_start_up_gain
-    );
     println!(
         "Error protection: substream CRC present in {:?} access units; DRC updates {:?}",
         scan.crc_present_units, scan.drc_updates
@@ -244,8 +291,6 @@ pub fn run(path: &Path, json: bool) -> Result<()> {
         value["substream_stats"] = value["substreams"].clone();
         if let Some(ms) = &scan.first_major_sync {
             let map = ms.presentation_map();
-            let restricted = ms.flags & oadec_truehd::sync::FLAG_RESTRICTED_8CH != 0;
-            let fi = &ms.format_info;
             let extra = ms.channel_meaning.extra.as_ref();
             value["sampling_frequency"] = serde_json::json!(ms.sampling_frequency());
             value["samples_per_au"] = serde_json::json!(ms.samples_per_au());
@@ -261,12 +306,7 @@ pub fn run(path: &Path, json: bool) -> Result<()> {
             value["presentations"] =
                 serde_json::json!((0..4)
                 .map(|i| {
-                    let chans = match i {
-                        0 => ChannelLabel::two_channel(false),
-                        1 => ChannelLabel::six_channel(fi.sixch_channel_assignment),
-                        2 => ChannelLabel::eight_channel(fi.eightch_channel_assignment, restricted),
-                        _ => extra.map(ChannelLabel::sixteen_channel).unwrap_or_default(),
-                    };
+                    let chans = ChannelLabel::presentation(ms, i);
                     serde_json::json!({
                         "index": i,
                         "substream_mask": map.mask(i),

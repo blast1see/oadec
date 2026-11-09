@@ -144,8 +144,9 @@ enum Command {
         #[arg(short, long)]
         output: PathBuf,
         /// Presentation to decode (0 = 2ch, 1 = 6ch, 2 = 8ch, 3 = 16ch objects);
-        /// 2 when absent. The object formats (damf, adm) always decode 3 and
-        /// refuse any other value.
+        /// 2 when absent, or for a DVD-Audio (FBB) stream the widest it
+        /// carries. The object formats (damf, adm) always decode 3 and refuse
+        /// any other value.
         #[arg(short, long)]
         presentation: Option<usize>,
         /// Output container.
@@ -661,7 +662,7 @@ fn main() -> ExitCode {
                     &file,
                     &output,
                     &decode::Options {
-                        presentation: presentation.unwrap_or(2),
+                        presentation,
                         format,
                         order,
                         keep_duplicates,

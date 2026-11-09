@@ -19,10 +19,11 @@ the real streams decide.
   DVD-Audio streams verify this way at that offset and no other, one written by
   Meridian's own encoder (evidence
   `docs/audit/evidence/verification-upgrade-2026-11/01-fbb-major-sync-crc.json`).
-  Once the extractor has locked onto a stream, only that stream's pattern opens
-  a major sync; the other pattern is data like any other byte, so damage that
-  leaves it at the start of a unit is judged by the unit's parity and recovered
-  from by a resync.
+  The first major sync that verifies, of either form, decides which the stream
+  is (see *FBB (DVD-Audio)* below). Once the extractor has locked onto a
+  stream, only that stream's pattern opens a major sync; the other pattern is
+  data like any other byte, so damage that leaves it at the start of a unit is
+  judged by the unit's parity and recovered from by a resync.
 * One directory entry per substream: `extra_word:1, restart_nonexistent:1,
   crc_present:1, reserved:1, end_ptr:12` (words from the start of the segments),
   plus `drc_gain_update s9, drc_time_update:3, reserved:4` when `extra_word`.
@@ -267,8 +268,8 @@ source of the bound.
 | Row | What it holds the stream to | Source |
 |---|---|---|
 | BD | the FBA syntax; 48, 96 or 192 kHz; at 192 kHz no presentation over six channels | Dolby's description, section 1, names FBA the Blu-ray syntax; BDA white paper, version 2.5, Figure 3-4 |
-| HD DVD | at 176.4 and 192 kHz no presentation over two channels | the verifier messages of Dolby's TrueHD encoder (secondary) |
-| DVD-A | the FBB syntax | Dolby's description, section 1 |
+| HD DVD | at 176.4 and 192 kHz no presentation over two channels; an FBB stream with both its two- and its six-channel presentations | the verifier messages of Dolby's TrueHD encoder (secondary) |
+| DVD-A | the FBB syntax; `flags` bit 14; at 176.4 and 192 kHz no presentation over two channels; delivery within 9.6 Mbit/s | Dolby's description, section 1; the verifier messages of Dolby's TrueHD encoder (secondary); 9.6 Mbit/s is the peak Meridian's own encoder declares for a 96 kHz six-channel stream (secondary) |
 
 The BD and HD DVD rows also hold the stream to its delivery: a finding of the
 buffer or rate rules above is a reason for both, since a stream Dolby's own
@@ -290,9 +291,9 @@ What the rows leave out, and why:
   its row says `unjudged`; at 48 and 96 kHz Dolby's encoder marks its streams
   valid for HD DVD, and its two-channel bound at 192 kHz says the rate itself
   is taken.
-* `oadec` refuses an FBB stream before it gets this far, so the DVD-A row says
-  no to every stream it sees; what DVD-Audio asks of an FBB stream comes with
-  FBB decoding.
+* DVD-Audio's own buffer -- the FIFO sizes of the DVD-Audio decoder -- is not
+  modelled: the buffer model is the FBA one Dolby's encoder reports, and on an
+  FBB stream only its delivery rate is read.
 
 `verify --require-disc bd` (or `hddvd`, `dvda`, comma-separated) makes a row
 part of the verdict: a required row that says no, or cannot judge, is one
@@ -341,3 +342,60 @@ out one unit early, and its `plc` property changed nothing on TrueHD
 (`docs/audit/evidence/verification-upgrade-2026-11/08-concealment.json`).
 Repeating a 40-sample unit is a buzz at 1.2 kHz; silence is a gap the ear
 reads as one.
+
+## FBB (DVD-Audio)
+
+DVD-Audio carries MLP in the FBB syntax, the one TrueHD's FBA grew out of.
+Dolby's description leaves it out (section 1), so what oadec reads of it rests
+on these, and on measurement:
+
+* **The major sync** is 28 bytes, the CRC-16 of the FBA one over the first 26
+  (measured, `01-fbb-major-sync-crc.json`). After the sync word come the word
+  length codes of channel groups 1 and 2 (0, 1, 2 = 16, 20, 24 bits), their
+  sampling-frequency codes (the FBA codes; 0xF: no group 2), 11 bits, and a
+  5-bit channel assignment; then the signature, `flags`, 16 reserved bits,
+  the variable-rate bit and the peak data rate, the substream count, four bits,
+  and `substream_info`, where FBA has them. The layout is the one FFmpeg's MLP
+  parser reads (`ff_mlp_read_major_sync`). The eight bytes before the CRC are
+  a channel meaning laid out otherwise than FBA's; they are kept and not read.
+  A Meridian-encoded stream sets `flags` bit 14, as Dolby's encoder demands of
+  an FBB stream for DVD-Audio.
+* **Substreams.** At most two, both restarting on 0x31EA (FFmpeg's MLP
+  decoder). With two, substream 0 carries a two-channel downmix and both
+  together the whole programme, presentations 0 and 1; with one, substream 0
+  carries all of it. `substream_info` says which, as in FBA. The access unit,
+  the block and the decoding are those of a TrueHD 0x31EA substream.
+* **Channel assignments** 0 to 20 name the channels in two groups, in this
+  order in the stream (the surrounds are labelled back channels, a single one
+  `Cb`, as FFmpeg's layouts have them):
+
+  | Assignment | Group 1 | Group 2 |
+  |---|---|---|
+  | 0 | C (mono) | |
+  | 1 | L R | |
+  | 2 to 6 | L R | Cb; Lb Rb; LFE; LFE Cb; LFE Lb Rb |
+  | 7 to 12 | L R | C; C Cb; C Lb Rb; C LFE; C LFE Cb; C LFE Lb Rb |
+  | 13 to 17 | L R C | Cb; Lb Rb; LFE; LFE Cb; LFE Lb Rb |
+  | 18 to 20 | L R Lb Rb | LFE; C; C LFE |
+
+  The sets and their sizes are FFmpeg's (`mlp_channels`, `mlp_layout`); the
+  order is the group order, which FFmpeg's decoder confirms by moving the
+  surround pair of 18 to 20 behind the centre and the LFE, and which
+  Meridian's encoder prints for assignment 20.
+
+`decode` takes the widest presentation an FBB stream carries when none is
+named; the object outputs refuse one, which has no object presentation. A
+stream whose second channel group runs at another rate than the first is
+refused by name (exit 2): the decoder has one output rate.
+
+Measured (`docs/audit/evidence/verification-upgrade-2026-11/09-fbb.json`): the
+96 kHz, 24-bit, six-channel stream Meridian's encoder wrote (assignment 20, two
+substreams) decodes identical to FFmpeg on every channel and every sample, and
+every one of its 4 499 lossless check words holds in both presentations. Five
+channels are identical to their source files over all 30 seconds; the sixth
+is one sample apart from its file, which FFmpeg's decode and the check words
+place in the file, not the decode. The downmix matches the coefficients the
+encoder printed to within -82 dB. FFmpeg's FATE sample, a 16-bit stereo
+sample (identical to its source but for the very last sample, where FFmpeg
+agrees with oadec), and the four fixtures FFmpeg's encoder wrote for the tests
+decode identical to FFmpeg.

@@ -123,7 +123,7 @@ what the format is.
 | `verify` | clean | non-conformant; with `--decode`, also a failed lossless check word or a presentation whose decode stopped | could not be read, or holds no stream |
 | `info` | the stream was read | — | could not be read, or holds no stream |
 | `emdf`, `oamd` | clean | non-conformant: a fault `verify` finds in the stream, or one in the metadata they read | could not be read, or holds no stream |
-| `decode` (PCM, WAV, CAF, DAMF, ADM, objects) | clean | a fault above, a TrueHD access unit concealed among them | fatal decode failure (a TrueHD one only with `--on-error stop`, or before the first output sample), no access unit or whole syncframe in the file, a configuration change before any output, or a JOC measurement override on a decode with no JOC reconstruction to apply it to |
+| `decode` (PCM, WAV, CAF, DAMF, ADM, objects) | clean | a fault above, a TrueHD access unit concealed among them | fatal decode failure (a TrueHD one only with `--on-error stop`, or before the first output sample), no access unit or whole syncframe in the file, a configuration change before any output, a DVD-Audio (FBB) stream whose second channel group runs at another rate, an object output asked of an FBB stream, or a JOC measurement override on a decode with no JOC reconstruction to apply it to |
 | `decode --format damf\|adm` with a declared loss | -- | 4 (above) | -- |
 | `compare` | matches and clean | differs, or a fault above | could not be read, or holds no stream |
 | `thd-demux`, `eac3-joc-config`, `eac3-ecpl-inject` | always | — | could not be written |

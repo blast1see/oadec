@@ -1,0 +1,181 @@
+{
+ "question": "Does oadec decode DVD-Audio (FBB) streams to the samples their encoder was given, every channel under its own label?",
+ "method": "Three published FBB streams (the ones of 01-fbb-major-sync-crc.json) and four written for the repository by FFmpeg's MLP encoder, decoded by oadec and by FFmpeg (ffmpeg version 2026-10-12-git-615b07170e). The Meridian-encoded stream is published with its encoder's log and a WavPack file for each of its six input channels; each channel of the decode is compared with its own file, decoded by FFmpeg. The fixture tones are written to named channels by an explicit join map. Sources: FFmpeg's mlp_parse.c and mlpdec.c for the field layout, the channel counts and the reordering of assignments 18 to 20, read as facts; no code was taken.",
+ "result": {
+  "meridian": {
+   "stream": "God Save The Queen.mlp",
+   "declared": {
+    "rate": 96000,
+    "bits": 24,
+    "channel_assignment": 20,
+    "substreams": 2,
+    "flags": "0x4000",
+    "peak_data_rate_bps": 9600000,
+    "units": 36000,
+    "seconds": 30.0
+   },
+   "labels_in_stream_order": [
+    "L",
+    "R",
+    "Lb",
+    "Rb",
+    "C",
+    "LFE"
+   ],
+   "encoder_log_groups": "Group 1 Lf, Rf, Ls, Rs / Group 2 C, LFE",
+   "presentation_1": {
+    "samples": 2880000,
+    "identical_to_ffmpeg": "all six channels, every sample",
+    "against_the_source_files": {
+     "L": "identical",
+     "Lb": "identical",
+     "Rb": "identical",
+     "C": "identical",
+     "LFE": "identical",
+     "R": "identical one sample apart: the file is offset, since FFmpeg decodes the stream as oadec does and every lossless check word holds"
+    },
+    "lossless_checks": "4499 performed, 0 failed"
+   },
+   "presentation_0": {
+    "lossless_checks": "4499 performed, 0 failed",
+    "against_the_printed_downmix": "left: rms 33.9 LSB (max 280.5) under a signal of rms 422 662; right: rms 31.2 LSB (max 266.0) under 386 990 -- the printed coefficients are rounded, the coded ones exact"
+   },
+   "verify": {
+    "result": "CLEAN",
+    "delivery_up_to_bps": 9600000,
+    "delay_up_to_samples": 95,
+    "disc": {
+     "bd": "no",
+     "hddvd": "yes",
+     "dvda": "yes"
+    }
+   }
+  },
+  "ffmpeg_samples": {
+   "440hz.mlp": {
+    "rate": 44100,
+    "bits": 16,
+    "channel_assignment": 1,
+    "samples": 441000,
+    "identical_to_ffmpeg": true,
+    "against_its_source_file": "identical but for the last sample of the right channel (-3 in the file, 0 in both decodes)",
+    "lossless_checks": "1370 performed, 0 failed"
+   },
+   "luckynight-partial.mlp": {
+    "rate": 44100,
+    "bits": 16,
+    "channel_assignment": 1,
+    "samples": 358680,
+    "identical_to_ffmpeg": true,
+    "lossless_checks": "1114 performed, 0 failed",
+    "exit": "7: the file is cut part way through a unit"
+   }
+  },
+  "fixtures": {
+   "mlp-stereo-44k": {
+    "bytes": 10472,
+    "sha256": "d843bdf1bef8d4ded7501eb02a4ae50d6f87733c4febd06f9fc7b555c66c5092",
+    "samples": 8840,
+    "labels": [
+     "L",
+     "R"
+    ],
+    "tones": [
+     439,
+     659
+    ],
+    "expected_tones": [
+     440,
+     660
+    ],
+    "identical_to_ffmpeg": true,
+    "pcm_fnv1a64": "0x800e01e817c7134d"
+   },
+   "mlp-51-96k": {
+    "bytes": 21916,
+    "sha256": "cfb5af1ddcc23afe2997e75d9f13e69f693df75984197e9f90a1fae14a918ade",
+    "samples": 9600,
+    "labels": [
+     "L",
+     "R",
+     "C",
+     "LFE",
+     "Lb",
+     "Rb"
+    ],
+    "tones": [
+     300,
+     500,
+     700,
+     60,
+     900,
+     1100
+    ],
+    "expected_tones": [
+     300,
+     500,
+     700,
+     60,
+     900,
+     1100
+    ],
+    "identical_to_ffmpeg": true,
+    "pcm_fnv1a64": "0x158f143f61501695"
+   },
+   "mlp-quad-48k": {
+    "bytes": 9314,
+    "sha256": "d44b476ac7da848ae700af4070471946f62d2558809f3a2b1623d570e4ccb196",
+    "samples": 4800,
+    "labels": [
+     "L",
+     "R",
+     "Lb",
+     "Rb"
+    ],
+    "tones": [
+     300,
+     500,
+     900,
+     1100
+    ],
+    "expected_tones": [
+     300,
+     500,
+     900,
+     1100
+    ],
+    "identical_to_ffmpeg": true,
+    "pcm_fnv1a64": "0x139ee67d2f836675"
+   },
+   "mlp-41-48k": {
+    "bytes": 11304,
+    "sha256": "12fe9226032f17149a6a8826d0466ce3ddf8e9fc9b94253b7046276451281325",
+    "samples": 4800,
+    "labels": [
+     "L",
+     "R",
+     "C",
+     "LFE",
+     "Cb"
+    ],
+    "tones": [
+     300,
+     500,
+     700,
+     60,
+     1300
+    ],
+    "expected_tones": [
+     300,
+     500,
+     700,
+     60,
+     1300
+    ],
+    "identical_to_ffmpeg": true,
+    "pcm_fnv1a64": "0xabbc713773af9409"
+   }
+  }
+ },
+ "reading": "oadec decodes FBB as FFmpeg does, sample for sample, on all seven streams. The one stream with its sources published comes out as its encoder was given it on five channels and one sample apart on the sixth, an offset the check words and FFmpeg both place in the source file. The labels follow the channels: the fixtures' tones land under the labels they were written to, and the Meridian stream's six files under assignment 20's labels in group order."
+}

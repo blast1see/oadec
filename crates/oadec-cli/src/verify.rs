@@ -436,6 +436,7 @@ const DELIVERY_RULES: [RuleId; 6] = [
 fn disc_rows(scan: &scan::Scan) -> Option<[Row; 3]> {
     let ms = scan.first_major_sync.as_ref()?;
     let mut facts = disc::Facts::from_major_sync(ms);
+    facts.peak_delivery_bps = scan.fifo.as_ref().map_or(0, |m| m.max_rate.value);
     facts.delivery = DELIVERY_RULES
         .iter()
         .filter_map(|r| scan.diag.tally.get(*r).map(|t| (r.info().id, t.count)))

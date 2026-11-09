@@ -8,6 +8,18 @@ Semantic Versioning.
 
 ### Added
 
+- **DVD-Audio (MLP, the FBB syntax).** A stream oadec used to refuse by name
+  (exit 2) is read, verified and decoded: the 28-byte major sync, two channel
+  groups with their word lengths and rates, the 21 channel assignments in
+  stream order, at most two substreams on 0x31EA. `info` names the format and
+  the assignment, `verify` and the disc rows hold it to DVD-Audio's bounds,
+  and `decode` takes its widest presentation when none is named. The 96 kHz
+  six-channel stream Meridian's own encoder wrote decodes identical to FFmpeg
+  on every channel, five of them identical to their source files over 30
+  seconds; FFmpeg's FATE sample and four FFmpeg-written fixtures in the
+  repository are identical too. A stream whose second group runs at another
+  rate is still refused, by name.
+
 - **A damaged TrueHD access unit is silence in its place.** A decode used to
   stop at a unit it could not read (exit 2), and a stretch of the file the
   extractor passed over left the output shorter, everything after it early.

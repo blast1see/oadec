@@ -470,11 +470,69 @@ impl ChannelLabel {
         (index <= 17).then_some(index)
     }
 
+    /// Channels of DVD-Audio channel assignment `code` (0 to 20), in stream
+    /// order: the channels of group 1, then those of group 2. Empty for a
+    /// reserved code.
+    ///
+    /// The sets and their sizes are the ones FFmpeg's MLP parser gives each
+    /// assignment (`mlp_channels`, `mlp_layout`), surrounds as back channels;
+    /// the order is the group order, which FFmpeg's decoder confirms by
+    /// moving the surround pair of assignments 18 to 20 behind the centre and
+    /// the LFE, and which Meridian's encoder states for assignment 20
+    /// ("Group 1 Lf, Rf, Ls, Rs / Group 2 C, LFE"). `docs/truehd.md`, FBB.
+    #[must_use]
+    pub fn mlp_assignment(code: u8) -> Vec<Self> {
+        use ChannelLabel::{C, Cb, L, LFE, Lb, R, Rb};
+        match code {
+            0 => vec![C],
+            1 => vec![L, R],
+            2 => vec![L, R, Cb],
+            3 => vec![L, R, Lb, Rb],
+            4 => vec![L, R, LFE],
+            5 => vec![L, R, LFE, Cb],
+            6 => vec![L, R, LFE, Lb, Rb],
+            7 => vec![L, R, C],
+            8 | 13 => vec![L, R, C, Cb],
+            9 | 14 => vec![L, R, C, Lb, Rb],
+            10 | 15 => vec![L, R, C, LFE],
+            11 | 16 => vec![L, R, C, LFE, Cb],
+            12 | 17 => vec![L, R, C, LFE, Lb, Rb],
+            18 => vec![L, R, Lb, Rb, LFE],
+            19 => vec![L, R, Lb, Rb, C],
+            20 => vec![L, R, Lb, Rb, C, LFE],
+            _ => Vec::new(),
+        }
+    }
+
+    /// How many of the channels of DVD-Audio channel assignment `code` are in
+    /// group 1 (the rest are group 2).
+    #[must_use]
+    pub const fn mlp_group1_channels(code: u8) -> usize {
+        match code {
+            0 => 1,
+            1..=12 => 2,
+            13..=17 => 3,
+            18..=20 => 4,
+            _ => 0,
+        }
+    }
+
     /// Labels of the channels a presentation outputs, in stream order. For the
     /// object presentation only the bed channels are labelled; the remaining
     /// output channels are the dynamic objects, in order.
+    ///
+    /// An FBB (DVD-Audio) stream has two presentations at most: with two
+    /// substreams, a two-channel downmix in substream 0 and the whole
+    /// programme over both; with one, the whole programme in it.
     #[must_use]
     pub fn presentation(ms: &crate::sync::MajorSync, presentation: usize) -> Vec<Self> {
+        if let Some(fbb) = &ms.fbb {
+            return match presentation {
+                0 if ms.substreams > 1 => Self::two_channel(false),
+                0 | 1 => Self::mlp_assignment(fbb.channel_assignment),
+                _ => Vec::new(),
+            };
+        }
         let fi = &ms.format_info;
         match presentation {
             0 => Self::two_channel(false),
@@ -507,6 +565,38 @@ impl ChannelLabel {
 #[cfg(test)]
 mod order_tests {
     use super::ChannelLabel as L;
+
+    /// Every DVD-Audio assignment has the channel count FFmpeg's MLP parser
+    /// gives it (`mlp_channels`), its groups split where the assignment table
+    /// splits them, and the interchange order of FFmpeg's layouts after
+    /// FFmpeg's reordering of 18 to 20.
+    #[test]
+    fn the_dvd_audio_assignments_hold_their_channels_in_group_order() {
+        let counts = [
+            1, 2, 3, 4, 3, 4, 5, 3, 4, 5, 4, 5, 6, 4, 5, 4, 5, 6, 5, 5, 6,
+        ];
+        for (code, n) in counts.into_iter().enumerate() {
+            let labels = L::mlp_assignment(code as u8);
+            assert_eq!(labels.len(), n, "assignment {code}");
+            assert!(L::mlp_group1_channels(code as u8) <= n, "assignment {code}");
+        }
+        assert!(L::mlp_assignment(21).is_empty());
+        assert_eq!(
+            L::mlp_assignment(20),
+            vec![L::L, L::R, L::Lb, L::Rb, L::C, L::LFE],
+            "group 1 Lf Rf Ls Rs, group 2 C LFE, as Meridian's encoder says"
+        );
+        assert_eq!(
+            L::interchange_order(&L::mlp_assignment(20), 6),
+            vec![0, 1, 4, 5, 2, 3]
+        );
+        assert_eq!(L::mlp_group1_channels(20), 4);
+        assert_eq!(L::mlp_assignment(19), vec![L::L, L::R, L::Lb, L::Rb, L::C]);
+        assert_eq!(
+            L::mlp_assignment(12),
+            vec![L::L, L::R, L::C, L::LFE, L::Lb, L::Rb]
+        );
+    }
 
     #[test]
     fn seven_one_maps_back_pair_before_side_pair() {

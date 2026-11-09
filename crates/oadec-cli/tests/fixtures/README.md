@@ -12,6 +12,25 @@ copied from a commercial title.
 | `authored-scene.mlp` | 546 456 | `d782d604093578e8c73a190e37ef7a6f7a4b5b7421cfaa274f9bfd406b026061` | Dolby Encoding Engine 5.2.1, job `fixture-thd.xml` (TrueHD Atmos, 12 spatial clusters) |
 | `fixture-joc.xml`, `fixture-thd.xml` | | `093e98de811a516936d87a9165a85434636bdebcdffef11cda6d8e6219960388`, `cd81ee244a5500565fd34d95197c50d5a0f4e772df27c41e931b0b0499143343` | the DEE jobs, verbatim but for the work directory's name (their paths name where they ran) |
 
+## DVD-Audio (FBB) streams
+
+Four short MLP streams in the DVD-Audio (FBB) syntax, written by FFmpeg's MLP
+encoder (`ffmpeg version 2026-10-12-git-615b07170e`, `-c:a mlp -strict -2`)
+from sine tones, one frequency per channel, placed by an explicit `join` map so
+that each tone names the channel it was written to. `tests/cli_fbb.rs` decodes
+them and holds each tone to its label and the decoded bytes to FFmpeg's own
+decode of the same stream (24-bit, interchange order, FNV-1a 64).
+
+| File | Bytes | SHA-256 | Channels and tones | FFmpeg's decode, FNV-1a 64 |
+|---|---:|---|---|---|
+| `mlp-stereo-44k.mlp` | 10 472 | `d843bdf1bef8d4ded7501eb02a4ae50d6f87733c4febd06f9fc7b555c66c5092` | L 440 Hz R 660 Hz | `0x800e01e817c7134d` |
+| `mlp-51-96k.mlp` | 21 916 | `cfb5af1ddcc23afe2997e75d9f13e69f693df75984197e9f90a1fae14a918ade` | L 300 Hz R 500 Hz C 700 Hz LFE 60 Hz Lb 900 Hz Rb 1100 Hz | `0x158f143f61501695` |
+| `mlp-quad-48k.mlp` | 9 314 | `d44b476ac7da848ae700af4070471946f62d2558809f3a2b1623d570e4ccb196` | L 300 Hz R 500 Hz Lb 900 Hz Rb 1100 Hz | `0x139ee67d2f836675` |
+| `mlp-41-48k.mlp` | 11 304 | `12fe9226032f17149a6a8826d0466ce3ddf8e9fc9b94253b7046276451281325` | L 300 Hz R 500 Hz C 700 Hz LFE 60 Hz Cb 1300 Hz | `0xabbc713773af9409` |
+
+FFmpeg's encoder writes every channel into one substream, whatever the
+layout: these streams carry one presentation, assignments 1, 12, 3 and 11.
+
 ## The scene
 
 Two seconds at 48 kHz, a silent LFE bed and six objects, each a sine at
