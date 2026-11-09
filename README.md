@@ -50,7 +50,7 @@ oadec verify  film.thd --json                     # the same, with each finding,
 oadec verify  film.thd --require-disc bd          # and fail unless the stream could go on a Blu-ray as it is
 oadec rules   segment.parity                      # what a rule checks, its default severity and its source
 oadec au      film.thd --index 1500               # one access unit, field by field, where a finding points
-oadec decode  film.thd -p 2 -o film-7.1.wav       # a channel presentation as WAVE
+oadec decode  film.thd -p 2 -o film-7.1.wav       # a channel presentation as WAVE; damage becomes silence in place
 oadec decode  film.thd -p 2 --start 90 -o cut.wav # from 90 s, at the next major sync
 oadec decode  film.thd --format damf -o out/film  # objects + metadata as a DAMF set
 oadec decode  film.thd --format adm  -o out/film  # objects + metadata as ADM BWF

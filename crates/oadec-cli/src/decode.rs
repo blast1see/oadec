@@ -28,6 +28,63 @@ pub enum Format {
     Adm,
 }
 
+/// What a TrueHD decode does with an access unit it cannot read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum OnError {
+    /// Write a unit of silence in its place and go on: the substreams it
+    /// damaged stay silent until their next restart header, and a stretch
+    /// the extractor passed over is filled with the silence it lost, so
+    /// everything after it stays where it belongs in time.
+    Conceal,
+    /// End the decode there (exit 2), and pass over a gap, which leaves the
+    /// output that much shorter.
+    Stop,
+}
+
+/// What concealment did over a decode.
+#[derive(Debug, Clone, Default)]
+pub struct Concealment {
+    /// Access units of silence that stood in for damage.
+    pub units: u64,
+    /// Samples of that silence.
+    pub samples: u64,
+    /// Runs of consecutive concealed access units.
+    pub regions: u64,
+    /// The first: its access unit, the output sample it begins at, and the
+    /// fault that started it.
+    pub first: Option<(u64, u64, String)>,
+    /// Gaps filled with the silence they lost, and its samples.
+    pub gaps_filled: u64,
+    /// Samples of that silence.
+    pub gap_samples: u64,
+    /// Gaps left as they were: byte offset, bytes, and why.
+    pub gaps_unfilled: Vec<(u64, u64, &'static str)>,
+    in_region: bool,
+}
+
+/// The samples a gap of `bytes` took, from the output clock's jump at the
+/// restart header after it (`delta`). The clock counts modulo 65 536 samples,
+/// so its answer is taken only where the bytes the gap skipped, at the
+/// stream's average unit size, put the loss well inside one wrap -- under
+/// half of one even if they underestimate it twice over -- and agree with the
+/// clock within that factor (or two units). A longer gap's length is not
+/// known, and `None` says so.
+#[must_use]
+pub fn gap_samples(
+    delta: u16,
+    bytes: u64,
+    average_unit_bytes: f64,
+    samples_per_unit: u32,
+) -> Option<u64> {
+    if average_unit_bytes.is_nan() || average_unit_bytes <= 0.0 {
+        return None;
+    }
+    let estimate = bytes as f64 / average_unit_bytes * f64::from(samples_per_unit);
+    let slack = estimate.max(2.0 * f64::from(samples_per_unit));
+    let clock = f64::from(delta);
+    (2.0 * estimate < 65_536.0 && (clock - estimate).abs() <= slack).then_some(u64::from(delta))
+}
+
 /// Channel order of the output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Order {
@@ -53,6 +110,9 @@ pub struct Frame<'a> {
     pub channel_mask: u32,
     /// Why the mask is zero, when it is; printed by the paths that write one.
     pub mask_warning: Option<&'a str>,
+    /// Samples of silence to write before `pcm`: what a gap before this
+    /// access unit took ([`OnError::Conceal`]).
+    pub lead_silence: usize,
 }
 
 /// A decoder plus the bookkeeping the commands share.
@@ -94,6 +154,17 @@ pub struct Session {
     /// Samples a 24-bit writer had to saturate (counted by the PCM and WAVE
     /// path, which is the one that writes the decoder's samples as they are).
     pub clipped: u64,
+    /// What to do with an access unit that cannot be read.
+    on_error: OnError,
+    /// What concealment did.
+    pub concealment: Concealment,
+    /// Samples handed out so far, silence included: where the next unit
+    /// begins in the output.
+    position: u64,
+    /// Bytes and access units decoded, for the average unit size a gap is
+    /// measured with.
+    bytes_seen: u64,
+    units_seen: u64,
 }
 
 impl Session {
@@ -119,7 +190,18 @@ impl Session {
             sampling_frequency: 0,
             duplicates_dropped: 0,
             clipped: 0,
+            on_error: OnError::Stop,
+            concealment: Concealment::default(),
+            position: 0,
+            bytes_seen: 0,
+            units_seen: 0,
         }
+    }
+
+    /// Sets what to do with an access unit that cannot be read; a session
+    /// stops at one unless told to conceal it.
+    pub fn on_error(&mut self, mode: OnError) {
+        self.on_error = mode;
     }
 
     /// Asks the decode to begin `seconds` into the stream, at the first access
@@ -205,13 +287,89 @@ impl Session {
         }
         let sampling_frequency = self.sampling_frequency;
         let decoder = self.decoder.as_mut().expect("decoder created above");
-        let decoded = decoder
-            .decode(&unit.bytes)
-            .with_context(|| format!("decoding access unit at byte {}", unit.offset))?;
+        let index = decoder.stats().units;
+        let samples_per_unit = u32::from(decoder.config().samples_per_au);
+        let average = if self.units_seen > 0 {
+            self.bytes_seen as f64 / self.units_seen as f64
+        } else {
+            0.0
+        };
+        let (decoded, fault) = match self.on_error {
+            OnError::Stop => (
+                decoder
+                    .decode(&unit.bytes)
+                    .with_context(|| format!("decoding access unit at byte {}", unit.offset))?,
+                None,
+            ),
+            OnError::Conceal => decoder
+                .decode_concealing(&unit.bytes)
+                .with_context(|| format!("decoding access unit at byte {}", unit.offset))?,
+        };
+        // a stretch the extractor passed over: the silence it took goes
+        // before this unit, when the clocks say how much that was. Before the
+        // first unit of the decode nothing was lost from the output.
+        let mut lead_silence = 0usize;
+        if self.on_error == OnError::Conceal
+            && index > 0
+            && let Some(gap) = unit.gap_before
+        {
+            let c = &mut self.concealment;
+            match decoded
+                .output_delta
+                .map(|d| gap_samples(d, gap.bytes, average, samples_per_unit))
+            {
+                Some(Some(0)) => {}
+                Some(Some(n)) => {
+                    lead_silence = n as usize;
+                    c.gaps_filled += 1;
+                    c.gap_samples += n;
+                }
+                Some(None) => c.gaps_unfilled.push((
+                    gap.offset,
+                    gap.bytes,
+                    "the clock gives its length only modulo 65 536 samples, and the bytes it skipped do not settle which",
+                )),
+                None => c.gaps_unfilled.push((
+                    gap.offset,
+                    gap.bytes,
+                    "the access unit after it does not restart the presentation",
+                )),
+            }
+        }
+        if fault.is_none() && !decoded.concealed {
+            self.bytes_seen += unit.bytes.len() as u64;
+            self.units_seen += 1;
+        }
+        let c = &mut self.concealment;
+        if decoded.concealed {
+            c.units += 1;
+            c.samples += decoded.pcm.len() as u64;
+            if !c.in_region {
+                c.in_region = true;
+                c.regions += 1;
+                if c.first.is_none() {
+                    let why = fault.as_ref().map_or_else(
+                        || "a substream waiting for its restart header".to_string(),
+                        ToString::to_string,
+                    );
+                    c.first = Some((index, self.position + lead_silence as u64, why));
+                }
+            }
+        } else {
+            c.in_region = false;
+        }
         if decoded.duplicate {
             self.duplicates_dropped += 1;
-            return Ok(None);
+            if lead_silence == 0 {
+                return Ok(None);
+            }
         }
+        let pcm = if decoded.duplicate {
+            &decoded.pcm[..0]
+        } else {
+            decoded.pcm
+        };
+        self.position += (lead_silence + pcm.len()) as u64;
         if self.order.len() != decoded.channels {
             self.order = match self.order_kind {
                 Order::Interchange => {
@@ -222,12 +380,13 @@ impl Session {
             (self.mask, self.mask_warning) = wave_channel_mask(&self.labels, &self.order);
         }
         Ok(Some(Frame {
-            pcm: decoded.pcm,
+            pcm,
             channels: decoded.channels,
             order: &self.order,
             sampling_frequency,
             channel_mask: self.mask,
             mask_warning: self.mask_warning.as_deref(),
+            lead_silence,
         }))
     }
 
@@ -358,6 +517,46 @@ pub fn truehd_findings(
     f
 }
 
+/// Says what concealment did, on stderr.
+pub fn print_concealment(c: &Concealment, sampling_frequency: u32) {
+    let ms = |samples: u64| samples as f64 * 1000.0 / f64::from(sampling_frequency.max(1));
+    if c.units > 0 {
+        let (unit, at, why) = c.first.clone().unwrap_or_default();
+        eprintln!(
+            "concealed {} access unit{} with silence ({:.1} ms) in {} region{}; the first at {} (access unit {unit}): {why}",
+            c.units,
+            if c.units == 1 { "" } else { "s" },
+            ms(c.samples),
+            c.regions,
+            if c.regions == 1 { "" } else { "s" },
+            format_duration(at as f64 / f64::from(sampling_frequency.max(1)))
+        );
+    }
+    if c.gaps_filled > 0 {
+        eprintln!(
+            "filled {} gap{} with the {} samples of silence ({:.1} ms) they took",
+            c.gaps_filled,
+            if c.gaps_filled == 1 { "" } else { "s" },
+            c.gap_samples,
+            ms(c.gap_samples)
+        );
+    }
+    for (offset, bytes, why) in &c.gaps_unfilled {
+        eprintln!(
+            "left a gap of {bytes} byte{} at byte {offset} unfilled: {why}",
+            if *bytes == 1 { "" } else { "s" }
+        );
+    }
+}
+
+/// Notes what concealment did in a verdict: a decode that stood silence in
+/// for damage, or filled a gap, did not deliver the stream as it was.
+pub fn note_concealment(c: &Concealment, f: &mut Findings) {
+    f.note(c.units, "access units concealed with silence");
+    f.note(c.gaps_filled, "gaps filled with silence");
+    f.note(c.gaps_unfilled.len() as u64, "gaps left unfilled");
+}
+
 /// Prints the decoder summary to stderr.
 pub fn print_summary(session: &Session, elapsed: f64) {
     let Some(stats) = session.stats() else {
@@ -383,6 +582,7 @@ pub fn print_summary(session: &Session, elapsed: f64) {
     if session.clipped > 0 {
         eprintln!("{} samples clipped to 24 bits", session.clipped);
     }
+    print_concealment(&session.concealment, session.sampling_frequency);
     if let Some(p) = &stats.first_problem {
         eprintln!("first problem: {p}");
     }
@@ -402,6 +602,8 @@ pub struct Options {
     pub keep_duplicates: bool,
     /// Begin the output this many seconds into the stream (TrueHD only).
     pub start: Option<f64>,
+    /// What to do with an access unit that cannot be read.
+    pub on_error: OnError,
 }
 
 /// Bytes of the WAVE header `decode` writes: `RIFF`/`WAVE`, the `JUNK` chunk
@@ -617,6 +819,7 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
     let file = File::create(output).with_context(|| format!("creating {}", output.display()))?;
     let mut out = Some(Output::Raw(BufWriter::with_capacity(4 << 20, file)));
     let mut session = Session::new(opts.presentation, opts.keep_duplicates, opts.order);
+    session.on_error(opts.on_error);
     if let Some(seconds) = opts.start {
         if seconds < 0.0 {
             bail!("--start takes a time in seconds, not {seconds}");
@@ -664,8 +867,9 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
             }
         }
         buf.clear();
+        buf.resize(frame.lead_silence * frame.order.len() * 3, 0);
         let clipped = pack_24le(frame.pcm, frame.order, &mut buf);
-        samples += frame.pcm.len() as u64;
+        samples += (frame.lead_silence + frame.pcm.len()) as u64;
         session.clipped += clipped;
         match out.as_mut() {
             Some(Output::Wav(w)) => w.write(&buf)?,
@@ -700,6 +904,7 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
     let stream = crate::verify::join_stream_check(check)?;
     let mut f = truehd_findings(&pass, session.stats(), &stream);
     f.note(session.clipped, "samples clipped to 24 bits");
+    note_concealment(&session.concealment, &mut f);
     if let Some(stop) = &stopped {
         stop.note(&mut f);
     }
@@ -709,6 +914,22 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The clock's answer is taken where the bytes the gap skipped put the
+    /// loss well inside one wrap and agree with it.
+    #[test]
+    fn a_gap_is_measured_by_the_clock_where_the_bytes_agree() {
+        // 155 units of 40 samples in 400-byte units: bytes and clock agree
+        assert_eq!(gap_samples(6200, 155 * 400, 400.0, 40), Some(6200));
+        // a few stray bytes between units: nothing was lost
+        assert_eq!(gap_samples(0, 100, 400.0, 40), Some(0));
+        // the bytes say far less than the clock: a cut they cannot measure
+        assert_eq!(gap_samples(5000, 400, 400.0, 40), None);
+        // the bytes put the loss past half a wrap of the clock
+        assert_eq!(gap_samples(1000, 900 * 400, 400.0, 40), None);
+        // nothing decoded yet to take an average from
+        assert_eq!(gap_samples(6200, 155 * 400, 0.0, 40), None);
+    }
 
     fn clean_stream() -> crate::verify::StreamCheck {
         crate::verify::StreamCheck {

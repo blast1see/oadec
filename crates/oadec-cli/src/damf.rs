@@ -192,6 +192,8 @@ pub struct Options {
     pub interpolation: Interpolation,
     /// The warp mode the output names, if it is asked to name one.
     pub warp: Option<WarpArg>,
+    /// TrueHD: what to do with an access unit that cannot be read.
+    pub on_error: crate::decode::OnError,
 }
 
 /// The message of a refused ISF programme, with the way out.
@@ -481,6 +483,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
     std::fs::create_dir_all(dir)?;
 
     let mut session = Session::new(3, opts.keep_duplicates, Order::Stream);
+    session.on_error(opts.on_error);
     let mut timeline = Timeline::new(opts.all_events);
     let mut sink: Option<Sink> = None;
     let mut config: Option<StreamConfig> = None;
@@ -501,11 +504,19 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         }
         let unit_index = index;
         index += 1;
-        let (au, cfg) = AccessUnit::parse(&unit.bytes, config.as_ref())?;
-        let rate = cfg.sampling_frequency;
-        config = Some(cfg);
+        // A unit that will not parse is concealed by the decode below once
+        // the output has begun; its metadata, if it had any, is lost with it.
+        let au = match AccessUnit::parse(&unit.bytes, config.as_ref()) {
+            Ok((au, cfg)) => {
+                config = Some(cfg);
+                Some(au)
+            }
+            Err(_) if sink.is_some() && opts.on_error == crate::decode::OnError::Conceal => None,
+            Err(e) => return Err(e.into()),
+        };
+        let rate = config.as_ref().map_or(0, |c| c.sampling_frequency);
         if sink.is_none() {
-            let Some(ms) = &au.major_sync else {
+            let Some(ms) = au.as_ref().and_then(|au| au.major_sync.as_ref()) else {
                 bail!("the stream does not start with a major sync");
             };
             let program = program_from_major_sync(ms)?;
@@ -541,11 +552,22 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
             }
         };
 
+        // A gap before this unit is filled with the silence it took, so the
+        // unit's metadata lands where its audio does.
+        if frame.lead_silence > 0 {
+            let zeros = [0i32; 16];
+            w.write_frames(
+                std::iter::repeat_n(&zeros[..frame.channels], frame.lead_silence),
+                frame.channels,
+            )?;
+            emitted += frame.lead_silence as u64;
+        }
+
         // Metadata of this access unit applies from its first emitted sample.
         // A frame whose container does not parse carries none; the decoder
         // counts it with the extra-data checks `verify` uses, and the verdict
         // below notes it.
-        if let Some(extra) = &au.extra
+        if let Some(extra) = au.as_ref().and_then(|au| au.extra.as_ref())
             && let ExtraKind::Evolution { frame: evo, .. } = &extra.kind
             && !evo.is_empty()
             && let Ok(c) = container::parse_evolution(evo)
@@ -662,6 +684,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
     let stream = crate::verify::join_stream_check(check)?;
     let mut f = crate::decode::truehd_findings(&pass, session.stats(), &stream);
     f.note(payload_errors, "metadata payload errors");
+    crate::decode::note_concealment(&session.concealment, &mut f);
     if let Some(stop) = &stopped {
         stop.note(&mut f);
     }
@@ -750,6 +773,7 @@ mod tests {
             fps: "24".to_string(),
             interpolation: Interpolation::Profile,
             warp: None,
+            on_error: crate::decode::OnError::Stop,
         }
     }
 

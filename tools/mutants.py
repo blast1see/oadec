@@ -374,6 +374,24 @@ MUTANTS = [
      'crates/oadec-truehd/src/disc.rs',
      'if fba && disc != Disc::DvdAudio && !f.delivery.is_empty() {',
      'if fba && disc != Disc::DvdAudio && f.delivery.len() > 1 {'),
+    ('a gap filled whatever the bytes it skipped say',
+     'crates/oadec-cli/src/decode.rs',
+     '(2.0 * estimate < 65_536.0 && (clock - estimate).abs() <= slack).then_some(u64::from(delta))',
+     '(2.0 * estimate < 65_536.0 || slack >= 0.0).then_some(u64::from(delta))'),
+    ('a damaged substream read again before its restart header',
+     'crates/oadec-truehd/src/decoder.rs',
+     '                if entry.restart_nonexistent {',
+     '                if entry.restart_nonexistent && false {'),
+    ('the check word of a section that took silence held against its header',
+     'crates/oadec-truehd/src/decoder.rs',
+     'if rt.branch.is_some_and(|b| b.is_valid()) || sd.spoiled {',
+     'if rt.branch.is_some_and(|b| b.is_valid()) {'),
+    ("a gap's silence written after the unit instead of before it",
+     'crates/oadec-cli/src/decode.rs',
+     '''        buf.resize(frame.lead_silence * frame.order.len() * 3, 0);
+        let clipped = pack_24le(frame.pcm, frame.order, &mut buf);''',
+     '''        let clipped = pack_24le(frame.pcm, frame.order, &mut buf);
+        buf.resize(buf.len() + frame.lead_silence * frame.order.len() * 3, 0);'''),
 ]
 
 

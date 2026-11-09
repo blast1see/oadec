@@ -1,0 +1,170 @@
+{
+ "question": "When a TrueHD decode meets an access unit it cannot read, does oadec's concealment keep everything else exactly what and where it was, and what does Dolby's own decoder do there?",
+ "method": "Two clips of real damage, cut from three major syncs before to three after a damage region verify reports: oadec decode -p 2 with --on-error stop (the behaviour before) and with the default, conceal; oadec decode of the clip from the restart header that ends the damage, as the clean reference for what follows; and Dolby's TrueHD decoder, the dlbtruehddec GStreamer element of the Dolby Reference Player (dlbtruehdparse align-major-sync=false, presentation=8, out-ch-config=21, max-errors=-1), with plc off and on. Dolby's channel output is oadec's scaled by a constant gain, so its alignment is found by least relative error against the clean reference. Then the stored bit-flip campaign of tools/replay_fuzz.py (seed 7, 100 sites) on the repository fixture with the previous build and this one, and tools/old_new.py --decode over the corpus. The clips and outputs are not committed.",
+ "result": {
+  "clips": {
+   "Coco (2017)": {
+    "clip_units": 767,
+    "region": [
+     364,
+     382
+    ],
+    "restart_after": 383,
+    "oadec_stop": {
+     "exit": 2,
+     "units_written": 364
+    },
+    "oadec_conceal": {
+     "exit": 7,
+     "units_written": 767,
+     "said": "concealed 19 access units with silence (15.8 ms) in 1 region; the first at 0:00:00.303 (access unit 364): bit read out of bounds: 7 bits requested at bit 1919 with 1 available",
+     "silent_units": [
+      364,
+      382,
+      19
+     ],
+     "before_the_fault_identical_to_stop": true,
+     "from_the_restart_identical_and_in_place": true
+    },
+    "dolby_plc_false": {
+     "exit": 0,
+     "units_written": 766,
+     "gain": 181.235,
+     "after_the_region_at_unit": 382.0,
+     "relative_error_there": 0.0485,
+     "units_repeating_the_last_good_one": 18,
+     "units_between": 18.0
+    },
+    "dolby_plc_true": {
+     "exit": 0,
+     "units_written": 766,
+     "gain": 181.235,
+     "after_the_region_at_unit": 382.0,
+     "relative_error_there": 0.0485,
+     "units_repeating_the_last_good_one": 18,
+     "units_between": 18.0
+    },
+    "dolby_plc_changes_nothing": true
+   },
+   "The Incredibles (2004)": {
+    "clip_units": 767,
+    "region": [
+     352,
+     382
+    ],
+    "restart_after": 383,
+    "oadec_stop": {
+     "exit": 2,
+     "units_written": 352
+    },
+    "oadec_conceal": {
+     "exit": 7,
+     "units_written": 767,
+     "said": "concealed 31 access units with silence (25.8 ms) in 1 region; the first at 0:00:00.293 (access unit 352): Huffman code without a terminating bit",
+     "silent_units": [
+      352,
+      382,
+      31
+     ],
+     "before_the_fault_identical_to_stop": true,
+     "from_the_restart_identical_and_in_place": true
+    },
+    "dolby_plc_false": {
+     "exit": 0,
+     "units_written": 766,
+     "gain": 228.134,
+     "after_the_region_at_unit": 382.0,
+     "relative_error_there": 0.0293,
+     "units_repeating_the_last_good_one": 30,
+     "units_between": 30.0
+    },
+    "dolby_plc_true": {
+     "exit": 0,
+     "units_written": 766,
+     "gain": 228.134,
+     "after_the_region_at_unit": 382.0,
+     "relative_error_there": 0.0293,
+     "units_repeating_the_last_good_one": 30,
+     "units_between": 30.0
+    },
+    "dolby_plc_changes_nothing": true
+   }
+  },
+  "bit_flip_campaign": {
+   "stream": "crates/oadec-cli/tests/fixtures/authored-scene.mlp",
+   "seed": 7,
+   "sites": 100,
+   "previous_build_decode_exits": {
+    "7": 88,
+    "2": 12
+   },
+   "this_build_decode_exits": {
+    "7": 100
+   },
+   "exit_changes": {
+    "decode_pcm: 2 -> 7": 12
+   },
+   "verdicts": [
+    "PASS",
+    "PASS"
+   ]
+  },
+  "full_title": {
+   "title": "Coco (2017)",
+   "command": "oadec decode coco.thd -p 2 --format pcm",
+   "units": 7562407,
+   "duration": "1:45:02.006",
+   "previous_build": "stopped at access unit 394396 (exit 2)",
+   "concealed_units": 360,
+   "concealed_regions": 7,
+   "verify_regions_touching_presentation_2": 7,
+   "units_in_those_regions": 360,
+   "lossless_checks": "59083 performed, 0 failed",
+   "exit": 7
+  },
+  "old_new": {
+   "streams": 52,
+   "streams_changed": 2,
+   "changed": [
+    {
+     "stream": "Coco (2017), the whole title",
+     "changes": [
+      {
+       "command": "decode -p 2",
+       "what": "exit code",
+       "old": 2,
+       "new": 7
+      },
+      {
+       "command": "decode -p 2",
+       "what": "output bytes",
+       "old": "8964ff8887052a44f871b9aab76afe6b5a1d06045fa118121b58c39741d0919e",
+       "new": "5b7fa9204f31810b2e7be327223737aa80d9bc18b4098483cf0732cfe5f8407f"
+      }
+     ],
+     "added_fields": []
+    },
+    {
+     "stream": "The Incredibles (2004), the whole title",
+     "changes": [
+      {
+       "command": "decode -p 2",
+       "what": "exit code",
+       "old": 2,
+       "new": 7
+      },
+      {
+       "command": "decode -p 2",
+       "what": "output bytes",
+       "old": "fa3f659ddbf6079ed8ba923e33fbbf65293487305f2fdef5ad4a8a3349c76a88",
+       "new": "a30100bc2690482a14e068cca380b0a84941462ce37036470acc376bdff421c0"
+      }
+     ],
+     "added_fields": []
+    }
+   ],
+   "fields_added": []
+  }
+ },
+ "reading": "On both clips the decode used to stop at the first damaged unit (exit 2). Concealed, it writes every unit: silence over exactly the damage region verify reports (19 and 31 units), the units before it as they were, and from the restart header on the same samples as a clean decode, in the same place. Dolby's decoder repeats the last good unit instead -- 18 and 30 times -- and drops one unit, so what follows comes out 40 samples early; its plc property changes nothing on TrueHD. The whole of Coco, which used to stop five minutes in, decodes to its end with 360 units of silence in 7 regions, the 7 regions verify reports for that presentation, unit for unit, and all 59 083 check words hold. In the bit-flip campaign the 12 decodes that stopped now finish with exit 7, verify is unchanged, and the campaign still passes."
+}

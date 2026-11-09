@@ -301,3 +301,43 @@ finding under `disc.required`, an error, and the run exits 7.
 The rows were held to Dolby's encoder, which prints a stream validity table for
 every stream it writes, and to streams it will not write
 (`docs/audit/evidence/verification-upgrade-2026-11/07-disc-formats.json`).
+
+## Damaged access units
+
+A decode writes every access unit, damaged or not, so the programme keeps its
+length and what follows a fault stays where it belongs in time (`decode
+--on-error conceal`, the default):
+
+* An access unit that cannot be read, or whose segment fails its parity, CRC,
+  end-pointer or sample-count check, is one access unit of silence. The
+  substream it damaged is read again from its next restart header, and the
+  presentation is silent until every one of its substreams has been -- the
+  damage region `verify` reports, unit for unit. Nothing before the fault and
+  nothing after the restart changes: a restart header re-initialises
+  everything its substream's decoding carries. The lossless check word of a
+  section that took silence is skipped, not failed.
+* A stretch of the file the extractor passed over is filled with the silence
+  it took. The output clock -- the `output_timing` of the restart header the
+  stream resumes at, against the units before it -- gives its length modulo
+  65 536 samples. The bytes passed over, at the stream's average unit size,
+  have to put it well inside one wrap of that clock (under half, even if they
+  underestimate it twice over) and agree with it within a factor of two. Bytes
+  damaged where they lie do; bytes missing from the file do not, and such a
+  gap is left as it is, the output that much shorter, and said.
+* A change of configuration still ends the output where it happens (exit 7),
+  and a fault before the first sample of output is still an error (exit 2).
+
+The run says what it did -- `concealed N access units with silence (X ms) in
+K regions; the first at ...`, `filled N gaps ...`, `left a gap ... unfilled:
+why` -- and exits 7. `decode --on-error stop` is the behaviour before: the
+decode ends at the first access unit it cannot read (exit 2), and a gap leaves
+the output shorter. `compare` and `verify --decode` always stop, because both
+are about the stream as it is.
+
+Dolby's own decoder -- the `dlbtruehddec` GStreamer element of the Dolby
+Reference Player -- conceals differently. On a real stretch of 19 damaged
+units it repeated the last good access unit 18 times, so what follows came
+out one unit early, and its `plc` property changed nothing on TrueHD
+(`docs/audit/evidence/verification-upgrade-2026-11/08-concealment.json`).
+Repeating a 40-sample unit is a buzz at 1.2 kHz; silence is a gap the ear
+reads as one.

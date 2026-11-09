@@ -12,7 +12,7 @@
 //! prescribes (checked bit-exactly against the other public decoders on real
 //! streams, see `docs/evidence`).
 
-use crate::au::{AccessUnit, DirectoryEntry, StreamConfig};
+use crate::au::{AccessUnit, StreamConfig};
 use crate::block::{Block, SampleBuffer};
 use crate::dither::{fill_table_bc, noise_pair_a};
 use crate::error::{Error, Result};
@@ -72,6 +72,11 @@ pub struct DecodeStats {
     pub lossless_checks_skipped: u64,
     /// Access units dropped as duplicates.
     pub duplicates: u64,
+    /// Access units whose output is silence standing in for damage
+    /// ([`Decoder::decode_concealing`]).
+    pub concealed_units: u64,
+    /// Samples of that silence.
+    pub concealed_samples: u64,
     /// Description of the first problem seen.
     pub first_problem: Option<String>,
 }
@@ -131,6 +136,20 @@ pub struct Decoded<'a> {
     pub channels: usize,
     /// Whether the unit was flagged as a duplicate to be dropped (see [`Decoder::keep_duplicates`]).
     pub duplicate: bool,
+    /// The output is silence standing in for damage
+    /// ([`Decoder::decode_concealing`]).
+    pub concealed: bool,
+    /// See [`Decoder::output_delta`].
+    pub output_delta: Option<u16>,
+}
+
+/// What [`Decoder::decode`] made of one access unit, before it is lent out.
+#[derive(Debug, Clone, Copy)]
+struct UnitOut {
+    len: usize,
+    channels: usize,
+    duplicate: bool,
+    concealed: bool,
 }
 
 /// Decoder state of one substream.
@@ -171,6 +190,9 @@ struct SubstreamDecoder {
     decoded: usize,
     /// Trailing silent samples declared by the termination word.
     zero_samples: usize,
+    /// Part of the section since the restart header was concealed, so its
+    /// lossless check word cannot hold.
+    spoiled: bool,
 }
 
 impl Default for SubstreamDecoder {
@@ -198,6 +220,7 @@ impl Default for SubstreamDecoder {
             output_bits: 0,
             decoded: 0,
             zero_samples: 0,
+            spoiled: false,
         }
     }
 }
@@ -223,6 +246,7 @@ impl SubstreamDecoder {
         self.lossless_au = 0;
         self.lossless_accum = 0;
         self.output_bits = 0;
+        self.spoiled = false;
         // `recorrelated`, `decoded`, `zero_samples` and `lossless_prev` describe
         // the access unit in progress and the previous one; they stay.
     }
@@ -368,6 +392,11 @@ struct Core {
     duplicate_samples: bool,
     /// Input/output timing, branches and duplicates.
     timing: TimingModel,
+    /// The current access unit has begun in the timing model and not ended.
+    unit_open: bool,
+    /// The output timing jump of the restart header of `top` in the current
+    /// access unit, if it carries one (see [`Decoder::output_delta`]).
+    output_delta: Option<u16>,
 }
 
 impl Core {
@@ -382,9 +411,13 @@ impl Core {
         if let Some(rh) = &block.restart {
             let rt = self.timing.restart_header(i, rh.output_timing);
             let sd = &mut self.sub[i];
+            if i == self.top {
+                self.output_delta = rt.output_delta;
+            }
             if sd.active && i == self.top {
-                if rt.branch.is_some_and(|b| b.is_valid()) {
-                    // The check word spans the splice; the header belongs to the new section.
+                if rt.branch.is_some_and(|b| b.is_valid()) || sd.spoiled {
+                    // The check word spans the splice, or silence that stood in
+                    // for damage; the header belongs to the new section.
                     self.stats.lossless_checks_skipped += 1;
                 } else {
                     self.stats.lossless_checks += 1;
@@ -593,6 +626,10 @@ pub struct Decoder {
     buffers: [Box<SampleBuffer>; 4],
     core: Core,
     keep_duplicates: bool,
+    /// Substreams a fault left untrustworthy: each is read again from its
+    /// next restart header, and the presentation is silent until every one
+    /// of its substreams has been.
+    damaged: [bool; 4],
 }
 
 impl Decoder {
@@ -629,6 +666,8 @@ impl Decoder {
             duplicate_timing: false,
             duplicate_samples: false,
             timing: TimingModel::new(StreamTiming::new(major_sync, &config)),
+            unit_open: false,
+            output_delta: None,
         };
         Ok(Self {
             config,
@@ -637,6 +676,7 @@ impl Decoder {
             buffers: core::array::from_fn(|_| Box::default()),
             core,
             keep_duplicates: false,
+            damaged: [false; 4],
         })
     }
 
@@ -684,7 +724,129 @@ impl Decoder {
 
     /// Decodes one access unit.
     pub fn decode(&mut self, unit: &[u8]) -> Result<Decoded<'_>> {
-        let (au, config) = AccessUnit::parse(unit, Some(&self.config))?;
+        match self.decode_unit(unit, false)? {
+            (out, None) => Ok(self.lend(out)),
+            (_, Some(e)) => Err(e),
+        }
+    }
+
+    /// Decodes one access unit, or stands silence in for it.
+    ///
+    /// An access unit [`Decoder::decode`] cannot read becomes one unit of
+    /// silence, and the substream that failed is read again from its next
+    /// restart header -- with every substream after it, which missed this
+    /// unit -- the presentation staying silent until all of them have
+    /// restarted. Nothing before the fault and nothing after the restart
+    /// changes: a restart header re-initialises everything its substream's
+    /// decoding carries. The lossless check word of a section that took
+    /// silence is skipped, not failed. Returns the fault that was concealed,
+    /// if any; a change of configuration is not concealed but returned.
+    pub fn decode_concealing(&mut self, unit: &[u8]) -> Result<(Decoded<'_>, Option<Error>)> {
+        match self.decode_unit(unit, true) {
+            Ok((out, fault)) => Ok((self.lend(out), fault)),
+            Err(e @ Error::ConfigChanged { .. }) => {
+                self.core.unit_open = false;
+                Err(e)
+            }
+            Err(e) => {
+                let out = self.conceal_unit(unit);
+                Ok((self.lend(out), Some(e)))
+            }
+        }
+    }
+
+    /// The output timing jump at the restart header of the presentation's top
+    /// substream in the last access unit, modulo 65 536 samples: zero when the
+    /// header says what the units before it implied, the samples lost when a
+    /// gap took whole units. `None` when that unit did not restart the
+    /// substream, or it is the first restart.
+    #[must_use]
+    pub fn output_delta(&self) -> Option<u16> {
+        self.core.output_delta
+    }
+
+    fn lend(&self, out: UnitOut) -> Decoded<'_> {
+        Decoded {
+            pcm: &self.core.output[..out.len],
+            channels: out.channels,
+            duplicate: out.duplicate,
+            concealed: out.concealed,
+            output_delta: self.core.output_delta,
+        }
+    }
+
+    /// Marks substream `from` and every substream of the presentation after
+    /// it as damaged: they did not read this access unit.
+    fn damage_from(&mut self, from: usize) {
+        for i in from..4 {
+            if (self.core.substream_mask >> i) & 1 == 1 {
+                self.damaged[i] = true;
+            }
+        }
+    }
+
+    /// One access unit of silence for a unit whose framing
+    /// [`Decoder::decode_unit`] could not read; the clocks move on as if it
+    /// had been.
+    fn conceal_unit(&mut self, unit: &[u8]) -> UnitOut {
+        if !self.damaged.iter().any(|d| *d) {
+            self.damage_from(0);
+        }
+        if !self.core.unit_open && unit.len() >= 4 {
+            // The extractor framed the unit, so its header is sound: the
+            // length and the input timing keep the input clock in step.
+            let length_words = u32::from(u16::from_be_bytes([unit[0], unit[1]]) & 0x0FFF);
+            let input_timing = u16::from_be_bytes([unit[2], unit[3]]);
+            self.core.timing.begin_unit(input_timing, length_words);
+            self.core.unit_open = true;
+        }
+        if self.core.unit_open {
+            self.core.timing.end_unit();
+            self.core.unit_open = false;
+        }
+        let spa = self.core.samples_per_au;
+        self.silence(spa)
+    }
+
+    /// Writes `len` rows of silence for the current unit and counts them.
+    fn silence(&mut self, len: usize) -> UnitOut {
+        let channels = self.channels();
+        for row in &mut self.core.output[..len] {
+            row.fill(0);
+        }
+        let top = self.core.top;
+        self.core.sub[top].spoiled = true;
+        self.core.output_delta = None;
+        self.core.stats.units += 1;
+        self.core.stats.samples += len as u64;
+        self.core.stats.concealed_units += 1;
+        self.core.stats.concealed_samples += len as u64;
+        self.core.unit_index += 1;
+        UnitOut {
+            len,
+            channels,
+            duplicate: false,
+            concealed: true,
+        }
+    }
+
+    /// Decodes one access unit. A fault in a substream's segment damages that
+    /// substream and leaves the others to be read, the unit taking silence and
+    /// the fault coming back beside it; a fault in the unit's framing comes
+    /// back as the error, with the unit not read. With `conceal`, a segment
+    /// that parses but fails its parity, CRC, end-pointer or sample-count
+    /// check is a fault too: its samples are not to be trusted, nor the
+    /// substream's state after it. Without, it is counted and decoded as it
+    /// stands, as it always was.
+    fn decode_unit(&mut self, unit: &[u8], conceal: bool) -> Result<(UnitOut, Option<Error>)> {
+        self.core.output_delta = None;
+        let (au, config) = match AccessUnit::parse(unit, Some(&self.config)) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                self.damage_from(0);
+                return Err(e);
+            }
+        };
         if let Some(ms) = &au.major_sync {
             if let Some(what) = self.config.incompatible_with(&config) {
                 return Err(Error::ConfigChanged { what });
@@ -707,35 +869,63 @@ impl Decoder {
         {
             self.core.stats.input_jumps += 1;
         }
+        self.core.unit_open = true;
         let top = self.core.top;
+        let mut silent = false;
+        let mut fault = None;
         for i in 0..=top {
             if (self.core.substream_mask >> i) & 1 == 0 {
                 continue;
             }
-            let entry: &DirectoryEntry = au.directory.get(i).ok_or_else(|| {
-                Error::malformed(format!(
-                    "access unit without a directory entry for substream {i}"
-                ))
-            })?;
-            let bytes = unit.get(au.segment_range(i)).ok_or_else(|| {
-                Error::malformed(format!("substream {i} range outside the access unit"))
-            })?;
-            if !self.parser.substream[i].restart_seen && entry.restart_nonexistent {
-                return Err(Error::malformed(format!(
-                    "substream {i}: no restart header seen yet"
-                )));
-            }
             self.core.sub[i].decoded = 0;
             self.core.sub[i].zero_samples = 0;
+            let Some(entry) = au.directory.get(i) else {
+                self.damage_from(i);
+                return Err(Error::malformed(format!(
+                    "access unit without a directory entry for substream {i}"
+                )));
+            };
+            let Some(bytes) = unit.get(au.segment_range(i)) else {
+                self.damage_from(i);
+                return Err(Error::malformed(format!(
+                    "substream {i} range outside the access unit"
+                )));
+            };
+            if self.damaged[i] {
+                if entry.restart_nonexistent {
+                    // still waiting for the restart header that makes it sound
+                    silent = true;
+                    continue;
+                }
+                self.damaged[i] = false;
+            }
+            if !self.parser.substream[i].restart_seen && entry.restart_nonexistent {
+                self.damaged[i] = true;
+                silent = true;
+                fault.get_or_insert_with(|| {
+                    Error::malformed(format!("substream {i}: no restart header seen yet"))
+                });
+                continue;
+            }
             let core = &mut self.core;
-            let seg = Segment::parse_with(
+            let seg = match Segment::parse_with(
                 bytes,
                 &mut self.parser,
                 i,
                 entry.crc_present,
                 &mut self.buffers[i],
                 |block, state, buf| core.on_block(i, block, state, buf),
-            )?;
+            ) {
+                Ok(seg) => seg,
+                Err(e) => {
+                    // this substream is unsound until its next restart
+                    // header; the others read on, each from its own segment
+                    self.damaged[i] = true;
+                    silent = true;
+                    fault.get_or_insert(e);
+                    continue;
+                }
+            };
             if let Some(t) = seg.terminator
                 && t.zero_samples_indicated
             {
@@ -747,12 +937,41 @@ impl Decoder {
                 self.core.stats.note(|| {
                     format!("access unit {unit_index}: substream {i}: segment integrity problem")
                 });
+                if conceal {
+                    self.damaged[i] = true;
+                    silent = true;
+                    let failed = [
+                        (!seg.parity_ok, "parity"),
+                        (!seg.crc_ok, "CRC"),
+                        (!seg.end_ok, "end pointer"),
+                        (!seg.sample_count_ok, "sample count"),
+                    ]
+                    .iter()
+                    .filter(|(f, _)| *f)
+                    .map(|(_, n)| *n)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                    fault.get_or_insert_with(|| {
+                        Error::malformed(format!(
+                            "substream {i}: the segment fails its {failed} check"
+                        ))
+                    });
+                }
             }
         }
         self.core.timing.end_unit();
+        self.core.unit_open = false;
         self.core.stats.valid_branches = self.core.timing.valid_branches() as u64;
         self.core.stats.invalid_branches = self.core.timing.invalid_branches() as u64;
         let spa = self.core.samples_per_au;
+        if silent {
+            // A substream of the presentation is damaged: what the others
+            // decoded cannot be rematrixed without it.
+            let delta = self.core.output_delta;
+            let out = self.silence(spa);
+            self.core.output_delta = delta;
+            return Ok((out, fault));
+        }
         let len = spa.saturating_sub(self.core.sub[top].zero_samples);
         let duplicate =
             self.core.duplicate_timing && self.core.duplicate_samples && !self.keep_duplicates;
@@ -763,11 +982,15 @@ impl Decoder {
             self.core.stats.samples += len as u64;
         }
         self.core.unit_index += 1;
-        Ok(Decoded {
-            pcm: &self.core.output[..len],
-            channels: self.core.sub[top].max_matrix_chan + 1,
-            duplicate,
-        })
+        Ok((
+            UnitOut {
+                len,
+                channels: self.core.sub[top].max_matrix_chan + 1,
+                duplicate,
+                concealed: false,
+            },
+            None,
+        ))
     }
 }
 

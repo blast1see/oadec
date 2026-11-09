@@ -117,6 +117,10 @@ pub struct RestartTiming {
     /// The output timing differed from the one implied by the previous restart
     /// header of the substream.
     pub output_jump: bool,
+    /// How far the header's output timing is from the one the access units
+    /// since the last restart header imply, modulo 65 536 samples (none at
+    /// the first header of a substream): the samples a gap lost, when one did.
+    pub output_delta: Option<u16>,
     /// The output timing equals the previous restart header's (a duplicate
     /// access unit candidate; the decoder confirms by comparing samples).
     pub duplicate_timing: bool,
@@ -282,6 +286,7 @@ impl TimingModel {
         let spa = self.config.samples_per_au;
         let mut r = RestartTiming {
             duplicate_timing: self.last_output_timing[substream] == Some(output_timing),
+            output_delta: self.implied[substream].map(|e| output_timing.wrapping_sub(e)),
             ..RestartTiming::default()
         };
         if let Some(expected) = self.implied[substream]

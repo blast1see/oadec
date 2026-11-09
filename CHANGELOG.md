@@ -8,6 +8,18 @@ Semantic Versioning.
 
 ### Added
 
+- **A damaged TrueHD access unit is silence in its place.** A decode used to
+  stop at a unit it could not read (exit 2), and a stretch of the file the
+  extractor passed over left the output shorter, everything after it early.
+  Now an unreadable unit, or one whose segment fails its own check, is a unit
+  of silence; the substream it damaged is silent until its next restart
+  header, exactly the damage region `verify` reports; and a damaged stretch is
+  filled with the silence it took, measured on the output clock where the
+  bytes skipped agree with it. Everything else decodes as before, sample for
+  sample and in place. The run says what it concealed and exits 7;
+  `--on-error stop` keeps the old behaviour. On a real damaged stretch Dolby's
+  own decoder repeats the last good unit and comes out one unit early.
+
 - **Every check `verify` makes on TrueHD is a named rule** (`sync.crc`,
   `segment.parity`, `timing.invalid_branch` ...) with a default severity and the
   source it rests on: a clause of a public specification, a measurement in the
