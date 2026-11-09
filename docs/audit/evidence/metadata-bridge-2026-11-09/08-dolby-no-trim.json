@@ -1,0 +1,288 @@
+{
+ "question": "Is the absence of a trim element why Dolby's decoder gives some E-AC-3 tracks six channels?",
+ "method": "20-second heads through dlbac3dec out-ch-config=21 and drp --print-info. channels_per_second_ratio is output bytes over 4 x 48000 x 20.",
+ "answer": "No. The second of these has none and opens with sixteen.",
+ "results": [
+  {
+   "kind": "no-trim",
+   "title": "Snatch (2000)",
+   "track": 2,
+   "channels_per_second_ratio": 5.99,
+   "player": [
+    "Dolby Atmos : No"
+   ],
+   "dmx": [
+    0
+   ],
+   "dialnorm": [
+    31
+   ],
+   "trim_payloads": 0,
+   "payloads": 1875
+  },
+  {
+   "kind": "no-trim",
+   "title": "no trim 2",
+   "track": 2,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    0
+   ],
+   "dialnorm": [
+    26
+   ],
+   "trim_payloads": 0,
+   "payloads": 1875
+  },
+  {
+   "kind": "no-trim",
+   "title": "no trim 3",
+   "track": 4,
+   "channels_per_second_ratio": 5.99,
+   "player": [
+    "Dolby Atmos : No"
+   ],
+   "dmx": [
+    0
+   ],
+   "dialnorm": [
+    31
+   ],
+   "trim_payloads": 0,
+   "payloads": 1875
+  },
+  {
+   "kind": "control",
+   "title": "control 1",
+   "track": 2,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    3
+   ],
+   "dialnorm": [
+    31
+   ],
+   "trim_payloads": 1875,
+   "payloads": 1875
+  },
+  {
+   "kind": "control",
+   "title": "control 2",
+   "track": 2,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    3
+   ],
+   "dialnorm": [
+    31
+   ],
+   "trim_payloads": 1875,
+   "payloads": 1875
+  },
+  {
+   "kind": "control",
+   "title": "control 3",
+   "track": 3,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    4
+   ],
+   "dialnorm": [
+    31
+   ],
+   "trim_payloads": 1875,
+   "payloads": 1875
+  },
+  {
+   "kind": "control",
+   "title": "control 4",
+   "track": 2,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    3
+   ],
+   "dialnorm": [
+    30
+   ],
+   "trim_payloads": 1875,
+   "payloads": 1875
+  },
+  {
+   "kind": "control",
+   "title": "control 5",
+   "track": 2,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    3
+   ],
+   "dialnorm": [
+    31
+   ],
+   "trim_payloads": 1875,
+   "payloads": 1875
+  },
+  {
+   "kind": "control",
+   "title": "control 6",
+   "track": 2,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    3
+   ],
+   "dialnorm": [
+    31
+   ],
+   "trim_payloads": 1875,
+   "payloads": 1875
+  },
+  {
+   "kind": "control",
+   "title": "control 7",
+   "track": 2,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    3
+   ],
+   "dialnorm": [
+    25
+   ],
+   "trim_payloads": 1875,
+   "payloads": 1875
+  },
+  {
+   "kind": "control",
+   "title": "control 8",
+   "track": 2,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    3
+   ],
+   "dialnorm": [
+    31
+   ],
+   "trim_payloads": 1875,
+   "payloads": 1875
+  },
+  {
+   "kind": "control",
+   "title": "control 9",
+   "track": 2,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    3
+   ],
+   "dialnorm": [
+    27
+   ],
+   "trim_payloads": 1875,
+   "payloads": 1875
+  },
+  {
+   "kind": "control",
+   "title": "control 10",
+   "track": 2,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    3
+   ],
+   "dialnorm": [
+    31
+   ],
+   "trim_payloads": 1875,
+   "payloads": 1875
+  },
+  {
+   "kind": "control",
+   "title": "control 11",
+   "track": 2,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    3
+   ],
+   "dialnorm": [
+    31
+   ],
+   "trim_payloads": 1875,
+   "payloads": 1875
+  },
+  {
+   "kind": "control",
+   "title": "control 12",
+   "track": 2,
+   "channels_per_second_ratio": 15.98,
+   "player": [
+    "Dolby Atmos : Yes",
+    "Dolby Atmos metadata",
+    "Number of dynamic objects : 15"
+   ],
+   "dmx": [
+    3
+   ],
+   "dialnorm": [
+    19
+   ],
+   "trim_payloads": 1875,
+   "payloads": 1875
+  }
+ ]
+}

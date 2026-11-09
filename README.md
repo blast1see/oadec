@@ -70,6 +70,12 @@ is (`encode_to_atmos_ddp` takes it as `damf`, `encode_to_dthd` as
 `--dolby-origin-tag`, which writes the creator string they insist on; the
 flag is off by default and the DAMF output needs no such marker.
 
+An output that names no warp mode is encoded as warping, which most E-AC-3 Atmos
+streams do not declare. `--warp-mode stream` keeps what the stream declares; a TrueHD
+stream needs a mode given, such as the one an E-AC-3 track of the same title reports in
+`oadec oamd --json`. The stream's DRC profile, which `oadec emdf` reports, goes on the
+encoder's own command line. See [`docs/dolby-tools.md`](docs/dolby-tools.md).
+
 Neither object format can carry everything the stream says. Each run prints
 what it reduced, dropped or approximated, one line per class, and
 `--loss-report FILE` writes the same ledger as JSON. The run exits 4 when

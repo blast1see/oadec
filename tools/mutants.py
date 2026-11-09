@@ -19,6 +19,7 @@ factor, a channel mapped to the wrong input.
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -27,6 +28,113 @@ os.chdir(Path(__file__).resolve().parent.parent)
 
 MUTANTS = [
     # (a name, the file, the text to find, what to put instead)
+    ('an overrunning last element with a byte of payload after it',
+     'crates/oadec-emdf/src/oamd.rs',
+     '|| padding_bits >= 8 ||',
+     '||'),
+    ('an overrunning last element with fill that is not fill',
+     'crates/oadec-emdf/src/oamd.rs',
+     '|| !padding_zero)',
+     ')'),
+    ('an overrunning unknown element accepted',
+     'crates/oadec-emdf/src/oamd.rs',
+     '(matches!(element, Element::Unknown(_)) || padding_bits',
+     '(padding_bits'),
+    ('an overrunning element losing the reason it was refused',
+     'crates/oadec-emdf/src/oamd.rs',
+     'Err(OamdError::Bits(_)) if !fits',
+     'Err(_) if !fits'),
+    ('the DRC profile of dynrng read as the one of compr',
+     'crates/oadec-emdf/src/programme.rs',
+     '''                line: DrcProfile::from_code(r.read(3)? as u8),
+                rf: DrcProfile::from_code(r.read(3)? as u8),''',
+     '''                rf: DrcProfile::from_code(r.read(3)? as u8),
+                line: DrcProfile::from_code(r.read(3)? as u8),'''),
+    ('the DRC table, Film Standard and Film Light swapped',
+     'crates/oadec-emdf/src/programme.rs',
+     '1 => Self::FilmStandard,',
+     '1 => Self::FilmLight,'),
+    ('the loudness scale floor, -58 for the 8-bit fields',
+     'crates/oadec-emdf/src/programme.rs',
+     'true_peak.map(|v| half(v, -116.0))',
+     'true_peak.map(|v| half(v, -58.0))'),
+    ('the programme boundary shifted after the read',
+     'crates/oadec-emdf/src/programme.rs',
+     '''                frames = frames.saturating_mul(2);
+                if r.read_bool()? {
+                    break;
+                }''',
+     '''                if r.read_bool()? {
+                    break;
+                }
+                frames = frames.saturating_mul(2);'''),
+    ('version 0 going on past its first fill',
+     'crates/oadec-emdf/src/programme.rs',
+     'if version == 0 {',
+     'if version == 9 {'),
+    ('the descriptive payloads not filed by the E-AC-3 walk',
+     'crates/oadec-cli/src/emdf.rs',
+     '''                    *s.payload_ids.entry(p.id).or_default() += 1;
+                    take_programme_payload(&mut s, p.id, &p.data);''',
+     '''                    *s.payload_ids.entry(p.id).or_default() += 1;'''),
+    ('the extended precision presence, x read from the top bit',
+     'crates/oadec-emdf/src/oamd.rs',
+     '''                        if presence & 1 != 0 {
+                            steps[0] =''',
+     '''                        if presence & 4 != 0 {
+                            steps[0] ='''),
+    ('an overrunning element tolerated when another follows it',
+     'crates/oadec-emdf/src/oamd.rs',
+     'if !fits && index + 1 != elements_count {',
+     'if false && !fits && index + 1 != elements_count {'),
+    ('an overrunning last element not flagged',
+     'crates/oadec-emdf/src/oamd.rs',
+     'let size_ok = fits && r.position() <= end;',
+     'let size_ok = r.position() <= end;'),
+    ('the warp mode an output without one reads as, normal instead of warping',
+     'crates/oadec-spatial/src/program.rs',
+     'self.signalled_warp.unwrap_or(WarpMode::Warping)',
+     'self.signalled_warp.unwrap_or(WarpMode::Normal)'),
+    ('a warp mode loss counted per payload, not per change',
+     'crates/oadec-spatial/src/program.rs',
+     'if t.warp_mode != reads_as && self.last_warp != Some(t.warp_mode) {',
+     'if t.warp_mode != reads_as {'),
+    ('the warp codes, Pro Logic IIx and Lo/Ro swapped',
+     'crates/oadec-spatial/src/program.rs',
+     'Self::ProLogicIIx => 2,',
+     'Self::ProLogicIIx => 3,'),
+    ('the warp name of Lo/Ro, the Conversion Tool option instead of the DAMF value',
+     'crates/oadec-spatial/src/program.rs',
+     'Self::LoRo => "LoRo",',
+     'Self::LoRo => "downmix_loro",'),
+    ('the dbmd warp byte, the not-indicated bit left set',
+     'crates/oadec-spatial/src/dbmd.rs',
+     's9[152] = 0x80 | w.code();',
+     's9[152] = 0x84 | w.code();'),
+    ('the dbmd warp byte, written outside the checksum',
+     'crates/oadec-spatial/src/dbmd.rs',
+     's9[152] = 0x80 | w.code();',
+     's9[151] = 0x80 | w.code();'),
+    ('the warp mode written to every DAMF header',
+     'crates/oadec-spatial/src/damf.rs',
+     'if let Some(w) = options.warp_mode {',
+     'if let Some(w) = options.warp_mode.or(Some(WarpMode::Warping)) {'),
+    ('--warp-mode stream not reading the stream',
+     'crates/oadec-cli/src/damf.rs',
+     'Self::Stream => declared,',
+     'Self::Stream => None,'),
+    ('the timeline not told the warp mode the output reads as',
+     'crates/oadec-cli/src/damf.rs',
+     '    timeline.signalled_warp = warp;\n',
+     ''),
+    ('--warp-mode accepted on a sample output',
+     'crates/oadec-cli/src/main.rs',
+     'warp_mode.is_some() && !matches!(format, Format::Damf | Format::Adm)',
+     'false && !matches!(format, Format::Damf | Format::Adm)'),
+    ('a trim configuration tallied whatever it says',
+     'crates/oadec-cli/src/oamd.rs',
+     '    if c.default_trim {\n        return None;\n    }\n',
+     ''),
     ('the branch trigger, without the peak data rate change',
      'crates/oadec-truehd/src/timing.rs',
      'if (r.output_jump || self.input_jump || self.rate_changed_this_unit)',
@@ -192,7 +300,14 @@ if base.returncode != 0:
 print('baseline green\n')
 
 rows = []
+_ap = argparse.ArgumentParser()
+_ap.add_argument('--out')
+_ap.add_argument('--only', help='run the mutations whose name matches this regular expression')
+_args = _ap.parse_args()
+
 for name, path, old, new in MUTANTS:
+    if _args.only and not re.search(_args.only, name):
+        continue
     src = open(path, encoding='utf-8').read()
     if old not in src:
         print(f'  SKIP  {name}: the text is not in {path}')
@@ -211,9 +326,6 @@ for name, path, old, new in MUTANTS:
           f'{"  by " + ", ".join(failing[:3]) if failing else ""}'
           f'{f" (+{len(failing) - 3} more)" if len(failing) > 3 else ""}', flush=True)
 
-_ap = argparse.ArgumentParser()
-_ap.add_argument('--out')
-_args = _ap.parse_args()
 if _args.out:
     json.dump(rows, open(_args.out, 'w'), indent=1)
 survived = [r for r in rows if r.get('applied') and not r['caught']]

@@ -1,0 +1,183 @@
+{
+ "question": "Does forgiving a stale size let a damaged payload through unnoticed?",
+ "method": "Every bit of two Evolution frames of a clean Atmos title flipped, with the frame's parity repaired so the flip reaches the parser; verify, oamd and decode damf by the binary from before and this one. A changed value in a repaired frame is undetectable without the protection key, in both binaries; the question is what changed between them.",
+ "results": {
+  "first frame": {
+   "new": {
+    "baseline_exits": [
+     0,
+     0,
+     0
+    ],
+    "bits": 464,
+    "tally": {
+     "silent, output unchanged": 59,
+     "silent, output changed": 260,
+     "reported": 145
+    }
+   },
+   "old": {
+    "baseline_exits": [
+     0,
+     0,
+     0
+    ],
+    "bits": 464,
+    "tally": {
+     "silent, output unchanged": 55,
+     "silent, output changed": 260,
+     "reported": 149
+    }
+   },
+   "bits_where_old_and_new_differ": 4,
+   "new_silent_changed_where_old_reported": [],
+   "new_verify_and_oamd_disagree": [
+    45,
+    47,
+    48,
+    55,
+    436,
+    437,
+    438,
+    439,
+    440,
+    441
+   ],
+   "old_verify_and_oamd_disagree": [
+    45,
+    47,
+    48,
+    55,
+    436,
+    437,
+    438,
+    439,
+    440,
+    441
+   ],
+   "disagree_detail": {
+    "60": [
+     [
+      "reported",
+      7,
+      7,
+      7
+     ],
+     [
+      "silent, output unchanged",
+      0,
+      0,
+      0
+     ]
+    ],
+    "61": [
+     [
+      "reported",
+      7,
+      7,
+      7
+     ],
+     [
+      "silent, output unchanged",
+      0,
+      0,
+      0
+     ]
+    ],
+    "62": [
+     [
+      "reported",
+      7,
+      7,
+      7
+     ],
+     [
+      "silent, output unchanged",
+      0,
+      0,
+      0
+     ]
+    ],
+    "67": [
+     [
+      "reported",
+      7,
+      7,
+      7
+     ],
+     [
+      "silent, output unchanged",
+      0,
+      0,
+      0
+     ]
+    ]
+   }
+  },
+  "second frame": {
+   "new": {
+    "baseline_exits": [
+     0,
+     0,
+     0
+    ],
+    "bits": 464,
+    "tally": {
+     "silent, output unchanged": 55,
+     "silent, output changed": 260,
+     "reported": 149
+    }
+   },
+   "old": {
+    "baseline_exits": [
+     0,
+     0,
+     0
+    ],
+    "bits": 464,
+    "tally": {
+     "silent, output unchanged": 55,
+     "silent, output changed": 260,
+     "reported": 149
+    }
+   },
+   "bits_where_old_and_new_differ": 0,
+   "new_silent_changed_where_old_reported": [],
+   "new_verify_and_oamd_disagree": [
+    11,
+    45,
+    47,
+    48,
+    55,
+    433,
+    434,
+    435,
+    436,
+    437,
+    438,
+    439,
+    440,
+    441
+   ],
+   "old_verify_and_oamd_disagree": [
+    11,
+    45,
+    47,
+    48,
+    55,
+    433,
+    434,
+    435,
+    436,
+    437,
+    438,
+    439,
+    440,
+    441
+   ],
+   "disagree_detail": {}
+  }
+ },
+ "reading": "The two binaries differ on four bits of the first frame and none of the second. On those four the old one reported and the new one is silent with the output unchanged: they are the element's size field. Silent over a changed output where the old one spoke: none. verify and oamd disagree on the same few bits in both binaries, so that is not from this change.",
+ "standing_campaigns": "tools/replay_fuzz.py over a clean TrueHD head (seed 7, 100 flips) and a JOC head (seed 1, 120 flips): both passed, no silent accept, nothing reported at exit 0, no panic, no timeout."
+}

@@ -1,0 +1,173 @@
+{
+ "question": "Is the reading of EMDF payloads 1 and 2 right, and does the DRC profile matter?",
+ "standard": "ETSI TS 102 366 V1.4.1, clauses H.3.1 and H.3.2, tables H.3.2 and H.3.13.",
+ "checks": {
+  "syntax": "0 unreadable and 0 of the wrong size over 691 956 loudness and 261 647 programme information payloads (01-metadata-census.json).",
+  "against_the_encoder": "Six line and RF profile pairs given to dee_ddpjoc_encoder 5.7.2 come back as given (read_back).",
+  "against_a_job_file": "The fixture's fixture-joc.xml asks for none and none, which is what is read.",
+  "against_the_dialnorm": "Dialogue-gated correction: speech-gated loudness equals the dialnorm on 106 of 107 tracks; the other is Hamnet (2025), -33.5 LUFS against a dialnorm that stops at 31 (01-metadata-census.json).",
+  "against_the_joc_payload": "ph90filt is clear on exactly the three tracks at downmix configuration 0 and set on the other 130."
+ },
+ "read_back": [
+  {
+   "asked": [
+    "none",
+    "none"
+   ],
+   "read": [
+    [
+     "none"
+    ],
+    [
+     "none"
+    ]
+   ]
+  },
+  {
+   "asked": [
+    "film_standard",
+    "speech"
+   ],
+   "read": [
+    [
+     "film_standard"
+    ],
+    [
+     "speech"
+    ]
+   ]
+  },
+  {
+   "asked": [
+    "film_light",
+    "music_light"
+   ],
+   "read": [
+    [
+     "film_light"
+    ],
+    [
+     "music_light"
+    ]
+   ]
+  },
+  {
+   "asked": [
+    "music_standard",
+    "film_standard"
+   ],
+   "read": [
+    [
+     "music_standard"
+    ],
+    [
+     "film_standard"
+    ]
+   ]
+  },
+  {
+   "asked": [
+    "music_light",
+    "none"
+   ],
+   "read": [
+    [
+     "music_light"
+    ],
+    [
+     "none"
+    ]
+   ]
+  },
+  {
+   "asked": [
+    "speech",
+    "film_light"
+   ],
+   "read": [
+    [
+     "speech"
+    ],
+    [
+     "film_light"
+    ]
+   ]
+  }
+ ],
+ "encoder_default_writes": [
+  [
+   "film_light"
+  ],
+  [
+   "film_light"
+  ]
+ ],
+ "bluray_default_writes": [
+  [
+   "film_light"
+  ],
+  [
+   "film_light"
+  ]
+ ],
+ "effect": {
+  "method": "Sixty seconds an hour into the film, objects decoded by oadec with --warp-mode stream, encoded twice: with the source's DRC profile (kept) and with the encoder's default. The 5.1 core decoded by dlbac3dec with DRC on at full scale, in each mode. short_term_gap is over 100 ms windows. The title already at film_light is the control.",
+  "results": [
+   {
+    "title": "1917 (2019)",
+    "source_line": "none",
+    "source_rf": "none",
+    "kept_read": [
+     "none"
+    ],
+    "default_read": [
+     "film_light"
+    ],
+    "line": {
+     "rms_db_kept": -37.58,
+     "rms_db_default": -38.03,
+     "peak_db_kept": -10.64,
+     "peak_db_default": -11.13,
+     "short_term_gap_db_max": 1.47,
+     "short_term_gap_db_mean": 0.4
+    },
+    "rf": {
+     "rms_db_kept": -26.61,
+     "rms_db_default": -26.85,
+     "peak_db_kept": -0.07,
+     "peak_db_default": -0.39,
+     "short_term_gap_db_max": 1.26,
+     "short_term_gap_db_mean": 0.18
+    }
+   },
+   {
+    "title": "Avatar The Way of Water (2022)",
+    "source_line": "film_light",
+    "source_rf": "film_light",
+    "kept_read": [
+     "film_light"
+    ],
+    "default_read": [
+     "film_light"
+    ],
+    "line": {
+     "rms_db_kept": -38.43,
+     "rms_db_default": -38.43,
+     "peak_db_kept": -9.54,
+     "peak_db_default": -9.54,
+     "short_term_gap_db_max": 0.0,
+     "short_term_gap_db_mean": 0.0
+    },
+    "rf": {
+     "rms_db_kept": -27.41,
+     "rms_db_default": -27.41,
+     "peak_db_kept": -0.35,
+     "peak_db_default": -0.35,
+     "short_term_gap_db_max": 0.0,
+     "short_term_gap_db_mean": 0.0
+    }
+   }
+  ]
+ },
+ "regression": "emdf, oamd, verify and info --json by the binary from before and this one over 92 library heads, 368 runs: every exit code and every field the old output had are the same, leaving out the wall-clock fields. The new fields are additions."
+}

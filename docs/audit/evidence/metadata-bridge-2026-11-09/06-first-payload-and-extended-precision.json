@@ -1,0 +1,277 @@
+{
+ "first_payload": {
+  "question": "Seven TrueHD titles exited 7 on 'element runs past the payload'. Is the payload cut short, as the project held since 0.4.0?",
+  "method": "60-second heads. The first payload's last element declares more bytes than the payload holds; truehdd warns 'Truncated oa_element_md' and reads on. Event sequences compared per object, allowing the known +32 sample term.",
+  "declared_sizes_bytes": [
+   9,
+   34,
+   51
+  ],
+  "titles": [
+   "Avengers Infinity War (2018)",
+   "Coco (2017)",
+   "Green Book (2018)",
+   "Pirates of the Caribbean Dead Men Tell No Tales (2017)",
+   "The Avengers (2012)",
+   "The Incredibles (2004)",
+   "The Matrix (1999)"
+  ],
+  "before": {
+   "verify_exit": 7,
+   "oamd_exit": 7,
+   "decode_exit": 7,
+   "parse_errors_per_head": [
+    1,
+    3
+   ]
+  },
+  "after": {
+   "verify_exit": 0,
+   "oamd_exit": 0,
+   "decode_exit": 0,
+   "parse_errors_per_head": [
+    0,
+    0
+   ],
+   "size_mismatches_per_head": [
+    1,
+    3
+   ]
+  },
+  "against_truehdd_after": [
+   {
+    "events": [
+     93,
+     93
+    ],
+    "worst_position_difference": 0.0
+   },
+   {
+    "events": [
+     32,
+     32
+    ],
+    "worst_position_difference": 0.0
+   },
+   {
+    "events": [
+     4979,
+     4979
+    ],
+    "worst_position_difference": 0.0
+   },
+   {
+    "events": [
+     39,
+     39
+    ],
+    "worst_position_difference": 0.0
+   },
+   {
+    "events": [
+     49,
+     49
+    ],
+    "worst_position_difference": 0.0
+   },
+   {
+    "events": [
+     86,
+     86
+    ],
+    "worst_position_difference": 0.0
+   },
+   {
+    "events": [
+     4097,
+     4097
+    ],
+    "worst_position_difference": 0.0
+   }
+  ],
+  "against_the_old_binary": "Pirates head: 3624 events became 3638 before the extended precision fix, every old event unchanged and fourteen added, one per element of the first payload.",
+  "answer": "No. The content is complete and the size is stale. truehdd's warning is the same size check.",
+  "past_payload_bits": [
+   4,
+   7,
+   12,
+   20,
+   28
+  ],
+  "where": "The first access unit, and the access units at seamless branches",
+  "fill_after_the_element": {
+   "padding_long": 0,
+   "padding_nonzero": 0,
+   "reading": "On all seven heads every element, these included, ends less than a byte of zero fill before the end of its payload. A payload cut short could not do that."
+  },
+  "still_refused": "An element past the payload whose bits run out, that more than a byte or non-zero fill follows, whose id has no syntax, or with another after it.",
+  "whole_tracks": {
+   "method": "The whole track, old and new binary. A verify still at 7 has a fault of its own, named in first_error, which truehdd and FFmpeg were asked about.",
+   "results": [
+    {
+     "title": "Avengers Infinity War (2018)",
+     "verify_old": 7,
+     "verify_new": 0,
+     "first_error": null,
+     "payloads": 280062,
+     "parse_errors": 0,
+     "stale_sizes": 1,
+     "padding_long": 0,
+     "padding_nonzero": 0,
+     "extended": 0
+    },
+    {
+     "title": "Coco (2017)",
+     "verify_old": 7,
+     "verify_new": 7,
+     "first_error": "access unit 394396 at byte 267511624: substream 2: bit read out of bounds: 7 bits requested at bit 1919 with 1 available",
+     "payloads": 196996,
+     "parse_errors": 0,
+     "stale_sizes": 58,
+     "padding_long": 0,
+     "padding_nonzero": 0,
+     "extended": 0
+    },
+    {
+     "title": "Green Book (2018)",
+     "verify_old": 7,
+     "verify_new": 0,
+     "first_error": null,
+     "payloads": 243878,
+     "parse_errors": 0,
+     "stale_sizes": 2,
+     "padding_long": 0,
+     "padding_nonzero": 0,
+     "extended": 0
+    },
+    {
+     "title": "Pirates of the Caribbean Dead Men Tell No Tales (2017)",
+     "verify_old": 7,
+     "verify_new": 0,
+     "first_error": null,
+     "payloads": 242071,
+     "parse_errors": 0,
+     "stale_sizes": 1,
+     "padding_long": 0,
+     "padding_nonzero": 0,
+     "extended": 240370
+    },
+    {
+     "title": "The Avengers (2012)",
+     "verify_old": 7,
+     "verify_new": 0,
+     "first_error": null,
+     "payloads": 267991,
+     "parse_errors": 0,
+     "stale_sizes": 1,
+     "padding_long": 0,
+     "padding_nonzero": 0,
+     "extended": 0
+    },
+    {
+     "title": "The Incredibles (2004)",
+     "verify_old": 7,
+     "verify_new": 7,
+     "first_error": "access unit 102104 at byte 59019754: substream 0: bit read out of bounds: 11 bits requested at bit 858 with 6 available",
+     "payloads": 216234,
+     "parse_errors": 0,
+     "stale_sizes": 25,
+     "padding_long": 0,
+     "padding_nonzero": 0,
+     "extended": 0
+    },
+    {
+     "title": "The Matrix (1999)",
+     "verify_old": 7,
+     "verify_new": 0,
+     "first_error": null,
+     "payloads": 255585,
+     "parse_errors": 0,
+     "stale_sizes": 1,
+     "padding_long": 0,
+     "padding_nonzero": 0,
+     "extended": 0
+    }
+   ],
+   "still_at_seven": "Coco (2017) and The Incredibles (2004) have faults of their own past the head, in the audio substreams of these copies. truehdd calls both non-conformant with a fatal diagnostic. Their object metadata reads clean."
+  }
+ },
+ "extended_precision": {
+  "question": "Which reading of ext_prec_pos_presence did the encoder write?",
+  "stream": "Pirates of the Caribbean Dead Men Tell No Tales (2017), TrueHD, first 60 seconds: the one track in 144 with an extended object element",
+  "method": "Throwaway builds with the position clamp removed, one per reading, decode --all-events. A refinement of a position stays in the room, and objects move smoothly; neither test asks another decoder.",
+  "readings": {
+   "x=bit2 y=bit1 z=bit0, values x y z (the code until now)": {
+    "positions": 4052,
+    "outside_room_xyz": [
+     0,
+     0,
+     1762
+    ],
+    "mean_abs_second_difference_xyz": [
+     0.005984,
+     0.022309,
+     0.039905
+    ]
+   },
+   "x=bit0 y=bit1 z=bit2, values x y z (the fix)": {
+    "positions": 4052,
+    "outside_room_xyz": [
+     0,
+     0,
+     0
+    ],
+    "mean_abs_second_difference_xyz": [
+     0.005366,
+     0.010073,
+     0.005009
+    ]
+   },
+   "x=bit0 y=bit1 z=bit2, values z y x": {
+    "positions": 4052,
+    "outside_room_xyz": [
+     0,
+     0,
+     0
+    ],
+    "mean_abs_second_difference_xyz": [
+     0.020176,
+     0.022309,
+     0.005009
+    ]
+   }
+  },
+  "against_truehdd_after_the_fix": {
+   "events": [
+    4097,
+    4097
+   ],
+   "worst_position_difference": 0.0,
+   "sample_offsets": {
+    "0": 3298,
+    "32": 799
+   }
+  },
+  "against_truehdd_before_the_fix": {
+   "events": [
+    3638,
+    4097
+   ],
+   "worst_position_difference": 0.02667
+  },
+  "whole_film_against_truehdd": {
+   "decode_exit": 0,
+   "events": [
+    536674,
+    536674
+   ],
+   "no_counterpart": 0,
+   "positions": 536659,
+   "worst_position_difference": 0.0,
+   "offsets": {
+    "0": 429399,
+    "32": 107275
+   }
+  }
+ }
+}
