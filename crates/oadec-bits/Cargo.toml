@@ -13,3 +13,7 @@ publish = false
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+insta = "1.49.0"
+proptest = "1.12.0"
