@@ -15,9 +15,9 @@
 //! less the input time; a substream's depth counts its segments; a decoder's
 //! depth counts the segments and directory entries of the substreams it reads
 //! and every unit's header, major sync and extra data; the data rate is a
-//! unit's bits over the input interval to the next unit. Over five encodes --
-//! 48 and 96 kHz, two to four substreams, objects -- every figure of the report
-//! comes out the same.
+//! unit's bits over the input interval to the next unit. Over twelve encodes --
+//! 48 and 96 kHz, one to four substreams, objects, white noise up to
+//! 17.4 Mbit/s -- every figure of the report comes out the same.
 
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;

@@ -65,13 +65,11 @@ def oadec(exe, mlp):
     v = json.loads(r.stdout)
     b = v['buffer']
     by_presentation = {d['presentation']: d['depth'] for d in b['decoders']}
-    # the report's rows: 1 = presentation 0, 2 = presentation 1, 3 = the
-    # 8-channel decoder (presentation 2, or 1 when there is none), 4 = 16-ch
-    cumulative = {'1': by_presentation.get(0), '2': by_presentation.get(1),
-                  '3': by_presentation.get(2, by_presentation.get(1)),
-                  '5': b['whole_stream']['depth']}
-    if 3 in by_presentation:
-        cumulative['4'] = by_presentation[3]
+    # the report's rows 1 to 4 are the decoders of presentations 0 to 3 -- a
+    # copied presentation's decoder reads the substreams of the one it copies
+    # -- and row 5 the whole stream
+    cumulative = {str(p + 1): depth for p, depth in by_presentation.items()}
+    cumulative['5'] = b['whole_stream']['depth']
     return {
         'max_rate': [b['max_data_rate']['bps'], b['max_data_rate']['unit']],
         'max_au_bytes': v['max_unit_bytes'],

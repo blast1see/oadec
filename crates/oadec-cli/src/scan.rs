@@ -824,12 +824,12 @@ impl Scan {
             match &mut self.fifo {
                 Some(model) => model.set_declared_peak(peak),
                 None => {
-                    let masks = core::array::from_fn(|p| {
-                        if config.presentations.is_carried(p) {
-                            config.presentations.mask(p)
-                        } else {
-                            0
-                        }
+                    // a copied presentation has a decoder too: it reads the
+                    // substreams of the presentation it copies, as the
+                    // verification report of Dolby's encoder counts it
+                    let masks = core::array::from_fn(|p| match config.presentations.kind(p) {
+                        oadec_truehd::presentation::PresentationKind::Invalid => 0,
+                        _ => config.presentations.mask(p),
                     });
                     self.fifo = Some(oadec_truehd::buffer::BufferModel::new(
                         config.sampling_frequency,

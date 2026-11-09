@@ -1,13 +1,13 @@
 {
  "question": "Does oadec's model of the decoder buffer give the figures Dolby's own TrueHD encoder reports for the streams it writes?",
- "method": "Dolby Media Encoder 5.7.2's TrueHD encoder (dee_dthd_encoder) on synthetic programmes -- pink noise gated on and off against a tone, so the buffer fills ahead of the loud stretches -- and on an object scene written by oadec atmos-author, each encode with --extras log_format=txt, which keeps the encoder's verification report. tools/fifo_oracle.py reads the report and compares it with oadec verify --json. The encoder refuses 44.1 and 192 kHz input ('Unsupported sample-rate'), so those rates are not in the sample. The logs are not committed; the figures below are the only part of them recorded.",
+ "method": "Dolby Media Encoder 5.7.2's TrueHD encoder (dee_dthd_encoder) on synthetic programmes -- pink noise gated on and off against a tone, so the buffer fills ahead of the loud stretches, and white noise up to 17.4 Mbit/s, which leaves the buffer nothing to smooth -- and on an object scene written by oadec atmos-author, each encode with --extras log_format=txt, which keeps the encoder's verification report. tools/fifo_oracle.py reads the report and compares it with oadec verify --json. The encoder refuses 44.1 and 192 kHz input ('Unsupported sample-rate'), so those rates are not in the sample. The logs are not committed; the figures below are the only part of them recorded.",
  "model": {
   "arrival": "an access unit enters whole at its input_timing (Dolby 2.7), the 16-bit field unwrapped",
   "output": "the output_timing of the restart headers at a major sync, one frame later for every unit after it (Dolby 2.7)",
   "removal": "one frame after the output time: removal at the output time misses every reported depth",
   "delay": "output time less input time",
   "substream_depth": "the bytes of the substream's segments, without its directory entry",
-  "decoder_depth": "the segments and the directory entries of the substreams the decoder reads, and the header, major sync and extra data of every unit",
+  "decoder_depth": "the segments and the directory entries of the substreams the decoder reads, and the header, major sync and extra data of every unit; a copied presentation's decoder reads the substreams of the presentation it copies (the report's rows for the 6- and 8-channel decoders of a two-channel stream)",
   "allowed_substream_depth": "15 000 bytes per channel the restart header spans, as every report states it",
   "data_rate": "a unit's bits over the input interval to the next unit (Dolby 2.7), rounded to the bit per second like the report; the maximum is the first unit that reaches it"
  },
@@ -183,6 +183,234 @@
      }
     },
     "oadec_agrees": true
+   },
+   {
+    "encode": "7.1, 96 kHz, 8 s",
+    "dolby_report": {
+     "max_rate": [
+      6383560,
+      9344
+     ],
+     "max_au_bytes": 1230,
+     "average_au_bytes": 552.28,
+     "max_latency": 7143,
+     "substream_depth": [
+      18290,
+      16820,
+      24392
+     ],
+     "substream_allowed": [
+      30000,
+      60000,
+      30000
+     ],
+     "cumulative": {
+      "1": 18842,
+      "2": 35678,
+      "3": 60246,
+      "5": 60246
+     },
+     "validity": {
+      "DVD-A": "No",
+      "HD DVD-Video": "Yes",
+      "BluRay": "Yes"
+     }
+    },
+    "oadec_agrees": true
+   },
+   {
+    "encode": "7.1, 96 kHz, 6 s, white noise at full scale",
+    "dolby_report": {
+     "max_rate": [
+      17389037,
+      23
+     ],
+     "max_au_bytes": 2318,
+     "average_au_bytes": 1813.31,
+     "max_latency": 4450,
+     "substream_depth": [
+      24256,
+      49822,
+      29270
+     ],
+     "substream_allowed": [
+      30000,
+      60000,
+      30000
+     ],
+     "cumulative": {
+      "1": 24638,
+      "2": 74180,
+      "3": 103224,
+      "5": 103224
+     },
+     "validity": {
+      "DVD-A": "No",
+      "HD DVD-Video": "Yes",
+      "BluRay": "Yes"
+     }
+    },
+    "oadec_agrees": true
+   },
+   {
+    "encode": "7.1, 96 kHz, 6 s, white noise at 0.85 of full scale",
+    "dolby_report": {
+     "max_rate": [
+      16915443,
+      313
+     ],
+     "max_au_bytes": 2348,
+     "average_au_bytes": 1765.51,
+     "max_latency": 4527,
+     "substream_depth": [
+      24752,
+      48498,
+      29074
+     ],
+     "substream_allowed": [
+      30000,
+      60000,
+      30000
+     ],
+     "cumulative": {
+      "1": 25114,
+      "2": 72484,
+      "3": 101676,
+      "5": 101676
+     },
+     "validity": {
+      "DVD-A": "No",
+      "HD DVD-Video": "Yes",
+      "BluRay": "Yes"
+     }
+    },
+    "oadec_agrees": true
+   },
+   {
+    "encode": "7.1, 96 kHz, 6 s, white noise at 0.7 of full scale",
+    "dolby_report": {
+     "max_rate": [
+      16492800,
+      2
+     ],
+     "max_au_bytes": 2428,
+     "average_au_bytes": 1722.81,
+     "max_latency": 4235,
+     "substream_depth": [
+      21866,
+      43754,
+      27260
+     ],
+     "substream_allowed": [
+      30000,
+      60000,
+      30000
+     ],
+     "cumulative": {
+      "1": 22230,
+      "2": 66112,
+      "3": 93496,
+      "5": 93496
+     },
+     "validity": {
+      "DVD-A": "No",
+      "HD DVD-Video": "Yes",
+      "BluRay": "Yes"
+     }
+    },
+    "oadec_agrees": true
+   },
+   {
+    "encode": "5.1, 96 kHz, 6 s, white noise",
+    "dolby_report": {
+     "max_rate": [
+      13163355,
+      4736
+     ],
+     "max_au_bytes": 1612,
+     "average_au_bytes": 1374.63,
+     "max_latency": 4803,
+     "substream_depth": [
+      25472,
+      58508
+     ],
+     "substream_allowed": [
+      30000,
+      60000
+     ],
+     "cumulative": {
+      "1": 25862,
+      "2": 84492,
+      "3": 84492,
+      "5": 84492
+     },
+     "validity": {
+      "DVD-A": "No",
+      "HD DVD-Video": "Yes",
+      "BluRay": "Yes"
+     }
+    },
+    "oadec_agrees": true
+   },
+   {
+    "encode": "2.0, 96 kHz, 6 s, white noise",
+    "dolby_report": {
+     "max_rate": [
+      4589494,
+      347
+     ],
+     "max_au_bytes": 546,
+     "average_au_bytes": 478.12,
+     "max_latency": 2751,
+     "substream_depth": [
+      17014
+     ],
+     "substream_allowed": [
+      30000
+     ],
+     "cumulative": {
+      "1": 17230,
+      "2": 17230,
+      "3": 17230,
+      "5": 17230
+     },
+     "validity": {
+      "DVD-A": "No",
+      "HD DVD-Video": "Yes",
+      "BluRay": "Yes"
+     }
+    },
+    "oadec_agrees": true
+   },
+   {
+    "encode": "2.0, 48 kHz, 6 s, white noise",
+    "dolby_report": {
+     "max_rate": [
+      2400000,
+      0
+     ],
+     "max_au_bytes": 300,
+     "average_au_bytes": 250.41,
+     "max_latency": 593,
+     "substream_depth": [
+      3926
+     ],
+     "substream_allowed": [
+      30000
+     ],
+     "cumulative": {
+      "1": 4052,
+      "2": 4052,
+      "3": 4052,
+      "5": 4052
+     },
+     "validity": {
+      "DVD-A": "No",
+      "HD DVD-Video": "Yes",
+      "BluRay": "Yes"
+     }
+    },
+    "oadec_agrees": true
    }
   ],
   "all_figures_agree": true,
@@ -191,7 +419,63 @@
    "streams": 57,
    "streams_with_buffer_or_rate_findings": 2,
    "where": "Coco (2017) and The Incredibles (2004), whose real damage sits at their branch points: all 340 delay and 25 rate findings of Coco lie in its damage regions; none on the 55 streams without damage, the 18 branches of Up (2009) and six encoder-written deliveries included"
+  },
+  "white_noise_and_allowance": {
+   "what": "white noise leaves the buffer nothing to smooth, so how far the encoder fills it shows the bound it works to; each substream's peak depth against its allowance, and each decoder's against 15 000 bytes for each of its channels (2, 6, 8)",
+   "encodes": [
+    {
+     "encode": "7.1, 96 kHz, 6 s, white noise at full scale",
+     "substream_depth_percent_of_allowance": [
+      80.9,
+      83.0,
+      97.6
+     ],
+     "decoder_depth_percent_of_15000_a_channel": [
+      82.1,
+      82.4,
+      86.0
+     ]
+    },
+    {
+     "encode": "7.1, 96 kHz, 6 s, white noise at 0.85 of full scale",
+     "substream_depth_percent_of_allowance": [
+      82.5,
+      80.8,
+      96.9
+     ],
+     "decoder_depth_percent_of_15000_a_channel": [
+      83.7,
+      80.5,
+      84.7
+     ]
+    },
+    {
+     "encode": "7.1, 96 kHz, 6 s, white noise at 0.7 of full scale",
+     "substream_depth_percent_of_allowance": [
+      72.9,
+      72.9,
+      90.9
+     ],
+     "decoder_depth_percent_of_15000_a_channel": [
+      74.1,
+      73.5,
+      77.9
+     ]
+    },
+    {
+     "encode": "5.1, 96 kHz, 6 s, white noise",
+     "substream_depth_percent_of_allowance": [
+      84.9,
+      97.5
+     ],
+     "decoder_depth_percent_of_15000_a_channel": [
+      86.2,
+      93.9
+     ]
+    }
+   ],
+   "reading": "in every white-noise encode one substream comes nearer its allowance (90.9 to 97.6 per cent) than any decoder comes to 15 000 bytes a channel (73.5 to 93.9): the bound the encoder works to is the allowance of each substream, the one buffer.substream_depth holds a stream to"
   }
  },
- "reading": "The model is Dolby's: on five encodes -- two rates, two to four substreams, objects, a rate-optimised encode -- every figure the encoder's verifier prints comes out the same, 35 comparisons, down to the unit a peak is first reached at. The allowance of 15 000 bytes a channel is the encoder's own, stated in each report. Its rules warn: they describe the stream's delivery rather than its content, and on real material they fire only where the stream is already damaged."
+ "reading": "The model is Dolby's: on twelve encodes -- 48 and 96 kHz, one to four substreams, objects, a rate-optimised encode, white noise up to 17.4 Mbit/s -- every figure the encoder's verifier prints comes out the same, 84 comparisons, down to the unit a peak is first reached at. The allowance of 15 000 bytes a channel is the encoder's own, stated in each report, and the one it fills to when the content lets it. Its rules warn: they describe the stream's delivery rather than its content, and on real material they fire only where the stream is already damaged."
 }

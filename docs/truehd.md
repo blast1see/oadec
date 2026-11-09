@@ -235,16 +235,25 @@ Dolby's own TrueHD encoder prints for each stream it writes
 * the delay through the buffer is the output time less the input time;
 * a substream's depth counts its segments; a decoder's depth counts the
   segments and directory entries of the substreams it reads, plus the header,
-  major sync and extra data of every unit;
+  major sync and extra data of every unit; the decoder of a copied
+  presentation reads the substreams of the one it copies;
 * a substream may fill 15 000 bytes for each channel its restart header spans,
-  as the encoder's report states for every substream;
+  as the encoder's report states for every substream. On white noise, which
+  leaves the buffer nothing to smooth, this is the bound the encoder fills to:
+  one substream reaches 91 to 98 per cent of its allowance while no decoder
+  comes past 94 per cent of 15 000 bytes a channel;
 * a unit's delivery rate is its bits over the input interval to the next unit,
   and the peak is the first unit that reaches it.
 
-On five encodes -- 48 and 96 kHz, two to four substreams, objects, a
-rate-optimised encode -- every figure of the report comes out the same.
+On twelve encodes -- 48 and 96 kHz, one to four substreams, objects, a
+rate-optimised encode, white noise up to 17.4 Mbit/s -- every figure of the
+report comes out the same.
 `verify` prints the peaks (`Buffer:`; `buffer` in `--json`) and judges the
 bounds as warnings: delay over 75 ms or under one frame, a substream or the
 stream over its allowance, delivery over the declared peak or over 18 Mbit/s.
 On real material they fire only inside damage regions. `verify --trace-fifo
 FILE` writes what every unit puts into the buffer and when, as CSV.
+
+Not checked: a delay held constant when `flags` bit 15 says so (Dolby, Table
+12). No stream in the corpus sets the bit -- 63 streams, encoder deliveries
+included -- so there is nothing to measure the rule against at a branch.
