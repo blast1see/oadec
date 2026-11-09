@@ -1,0 +1,25 @@
+{
+ "question": "What do the metadata containers of real streams declare about their protection, and does any of it separate the TrueHD titles Dolby's object path opens from the ones it refuses?",
+ "method": "info --json (TrueHD: the Evolution frame of every access unit) over 51 TrueHD streams -- 40 library heads, two clips, six heads of encoder-written deliveries, three full titles -- and emdf --json (every EMDF container) over 52 E-AC-3 and AC-3 heads of library titles. The opened and refused TrueHD titles of the 2026-09 sweep are not on hand title by title; their best proxy, twoch_dialogue_norm (32 to 37 with opening, 63 or 31 with refusal, 187 of 194 in remediation/truehd-object-sweep.json), is recorded beside each stream.",
+ "result": {
+  "truehd": {
+   "streams_with_evolution_frames": 44,
+   "streams_without": 7,
+   "containers": 696673,
+   "combinations": {"key_id 0, primary word 1 byte, no secondary word, version 0": 44},
+   "by_twoch_dialogue_norm": {"37": 25, "36": 1, "34": 2, "33": 7, "63": 7, "31": 2},
+   "reserved_primary_length_code": 0
+  },
+  "eac3": {
+   "heads": 52,
+   "without_containers": 19,
+   "key_id_0": 13,
+   "key_id_1": 20,
+   "primary_word_bytes": 4,
+   "secondary_word_bytes": 1,
+   "version": 0,
+   "reserved_primary_length_code": 0
+  }
+ },
+ "reading": "Every TrueHD Evolution frame measured declares the same protection: key 0, an 8-bit primary word, no secondary word -- on the side of the proxy that goes with Dolby opening the object presentation and on the side that goes with refusing it alike. So the refusal does not follow which key a stream names or how long its word is; if it follows the protection at all, it follows the value of the word, which needs the key to compute, and the key is not public. E-AC-3 containers carry a 32-bit primary and an 8-bit secondary word, and name key 0 in 13 of the heads and key 1 in 20: a field no earlier differential had, kept for the next one. No container of either codec uses the primary length code the specification reserves."
+}

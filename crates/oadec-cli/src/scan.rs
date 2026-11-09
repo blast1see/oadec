@@ -196,6 +196,8 @@ pub struct ExtraStats {
     /// Payload id -> total bytes.
     pub payload_bytes: BTreeMap<u32, u64>,
     pub protected_frames: u64,
+    /// The key identifiers and protection words the Evolution frames declare.
+    pub protection: crate::protection::ProtectionStats,
 }
 
 /// What the first restart header of a substream declared.
@@ -651,6 +653,15 @@ impl Scan {
                                 }
                                 if !c.protection.primary.is_empty() {
                                     self.extra.protected_frames += 1;
+                                }
+                                self.extra.protection.take(&c);
+                                if c.protection.primary_code == 0 {
+                                    self.diag.add(
+                                        RuleId::EvoProtectionReserved,
+                                        at_extra,
+                                        1,
+                                        || "primary protection length coded 00".to_string(),
+                                    );
                                 }
                                 for p in &c.payloads {
                                     *self.extra.payload_ids.entry(p.id).or_default() += 1;

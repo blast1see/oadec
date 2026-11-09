@@ -333,6 +333,14 @@ MUTANTS = [
      'crates/oadec-cli/src/scan.rs',
      'index <= 1 || branch_units.any(|b| b == index || b + 1 == index)',
      'index <= 1 || branch_units.any(|b| b == index)'),
+    ('the reserved primary protection length passes unseen',
+     'crates/oadec-cli/src/scan.rs',
+     'if c.protection.primary_code == 0 {',
+     'if false {'),
+    ('the secondary protection length read from the primary code',
+     'crates/oadec-emdf/src/container.rs',
+     'let secondary_len = PROTECTION_SIZES[usize::from(secondary_code)];',
+     'let secondary_len = PROTECTION_SIZES[usize::from(primary_code)];'),
 ]
 
 

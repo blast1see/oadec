@@ -591,3 +591,61 @@ fn a_minor_sync_that_emulates_a_major_one_is_reported() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// What the containers declare about their protection is reported, for the
+/// TrueHD Evolution frames and for the E-AC-3 EMDF containers alike.
+#[test]
+fn the_protection_the_containers_declare_is_reported() {
+    let (_, report) = verify_json(fixture("authored-scene.mlp").to_str().unwrap(), &[]);
+    let p = &report["extra"]["protection"];
+    assert_eq!(p["containers"], 63, "{p}");
+    assert_eq!(p["key_ids"]["0"], 63, "{p}");
+    assert_eq!(p["primary_bytes"]["1"], 63, "{p}");
+    assert_eq!(p["secondary_bytes"]["0"], 63, "{p}");
+    assert_eq!(p["reserved_primary_code"], 0, "{p}");
+    let out = oadec(&[
+        "emdf",
+        "--json",
+        fixture("authored-scene.ec3").to_str().unwrap(),
+    ]);
+    let emdf: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let p = &emdf["protection"];
+    assert_eq!(p["primary_bytes"]["4"], p["containers"], "{p}");
+    assert_eq!(p["secondary_bytes"]["1"], p["containers"], "{p}");
+}
+
+/// A primary protection length coded 00, which ETSI TS 102 366 reserves, is
+/// reported.
+#[test]
+fn a_reserved_protection_length_is_reported() {
+    let dir = temp("protection");
+    let mut bytes = std::fs::read(fixture("authored-scene.mlp")).unwrap();
+    let b = evolution_blocks(&bytes)
+        .into_iter()
+        .find(|b| b.frame_len > 0)
+        .expect("an Evolution frame");
+    let frame_start = b.block + 4;
+    let frame = bytes[frame_start..frame_start + b.frame_len].to_vec();
+    let c = oadec_emdf::container::parse_evolution(&frame).unwrap();
+    assert_eq!(
+        c.protection.primary_code, 1,
+        "the fixture codes an 8-bit word"
+    );
+    // the primary length code is the two bits four before the words
+    for k in 0..2 {
+        let bit = c.protection.bits_offset - 4 + k;
+        bytes[frame_start + bit / 8] &= !(0x80 >> (bit % 8));
+    }
+    fix_evolution_parity(&mut bytes, b.block + 2, b.body_len, b.reserved);
+    let path = write(&dir, "reserved-code.mlp", &bytes);
+    let (_, report) = verify_json(&path, &[]);
+    let fired: Vec<&str> = report["diagnostics"]["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["id"].as_str().unwrap())
+        .collect();
+    assert!(fired.contains(&"evo.protection_reserved"), "{fired:?}");
+    assert_eq!(report["extra"]["protection"]["reserved_primary_code"], 1);
+    std::fs::remove_dir_all(&dir).ok();
+}

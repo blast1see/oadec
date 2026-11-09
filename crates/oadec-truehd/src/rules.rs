@@ -28,6 +28,8 @@ const FOREIGN: &str =
     "docs/audit/evidence/verification-upgrade-2026-11/02-foreign-sync-old-new.json";
 const CENSUS: &str =
     "docs/audit/evidence/verification-upgrade-2026-11/04-integrity-rule-census.json";
+const PROTECTION: &str =
+    "docs/audit/evidence/verification-upgrade-2026-11/05-protection-census.json";
 
 /// Where a rule comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -416,6 +418,14 @@ catalog! {
         legacy: None,
         summary: "the object metadata describes another bed or object count than the major sync declares",
         provenance: [spec(DOLBY_HL, "4.3"), spec(TS_103_420, "clause 5"), measured(CENSUS)],
+    },
+    /// The reserved primary protection length.
+    EvoProtectionReserved {
+        id: "evo.protection_reserved",
+        severity: Warning,
+        legacy: None,
+        summary: "an Evolution container codes its primary protection length as 00, which ETSI TS 102 366 reserves",
+        provenance: [spec(TS_102_366, "H.2.2.4.1, Table H.2.5"), measured(PROTECTION)],
     },
     /// `verify --decode`: the lossless check word.
     DecodeLosslessCheck {

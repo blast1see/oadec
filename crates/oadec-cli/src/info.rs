@@ -184,6 +184,9 @@ fn print_text(scan: &Scan) {
             .collect();
         println!("Evolution payloads: {}", list.join("; "));
     }
+    if e.protection.containers > 0 {
+        println!("Protection:       {}", e.protection.summary());
+    }
     let f = &scan.failures;
     println!(
         "Integrity:        header parity failures {}, major sync CRC failures {}, framing errors {}, configuration changes {}, extra-data parity failures {}, resyncs {}, skipped bytes {}, trailing bytes {}",

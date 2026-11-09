@@ -20,6 +20,7 @@ mod joc_config;
 mod joc_offset;
 mod oamd;
 mod progress;
+mod protection;
 mod scan;
 mod thd_demux;
 mod verify;

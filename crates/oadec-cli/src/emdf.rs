@@ -67,6 +67,8 @@ pub struct EmdfSummary {
     pub loudness: LoudnessSummary,
     /// What the programme information payloads say.
     pub programme_information: ProgrammeInformationSummary,
+    /// The key identifiers and protection words the containers declare.
+    pub protection: crate::protection::ProtectionStats,
     /// Sample position of the frame start of every OAMD-carrying frame that
     /// changes at least one value, in order (first 64 only in text mode).
     #[serde(skip)]
@@ -646,6 +648,7 @@ fn run_truehd(path: &Path, opts: &Options) -> Result<bool> {
             }
         };
         s.containers += 1;
+        s.protection.take(&container);
         s.frames_with_emdf += 1;
         let dumping = opts.dump.is_some_and(|n| dumped < n);
         if dumping {
@@ -829,6 +832,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             Err(_) => {}
             Ok(c) => {
                 s.containers += 1;
+                s.protection.take(&c);
                 if opts.dump.is_some_and(|n| dumped < n) {
                     // the container's own header, which nothing else
                     // reports and which two streams can differ in while

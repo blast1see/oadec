@@ -45,6 +45,18 @@ Semantic Versioning.
   for and fail the stream: an Evolution frame longer than its container's syntax
   (the rule E-AC-3 EMDF containers are already held to) and bytes after the extra
   data inside a unit.
+- **What the metadata containers declare about their protection**: the key
+  identifier, the container version and the lengths of the two protection words,
+  counted under `extra.protection` in `verify --json` and `info --json`, under
+  `protection` in `emdf --json` (TrueHD and E-AC-3), and on one line of `info`. A
+  primary length coded `00`, which ETSI TS 102 366 reserves, is reported
+  (`evo.protection_reserved`). The words themselves are not checked: how they are
+  computed is implementation dependent (clause H.2.2.4.3) and the key is not
+  public. Measured: all 696 673 Evolution frames of 44 TrueHD streams name key 0
+  with an 8-bit word, on both sides of the split between the titles Dolby's
+  object path opens and the ones it refuses, so the refusal does not follow the
+  key or the length of the word; E-AC-3 containers name key 0 in 13 heads and key
+  1 in 20.
 
 ### Changed
 
