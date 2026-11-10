@@ -47,3 +47,10 @@ docs/audit/adm/harness/target/
 !crates/oadec-cli/tests/fixtures/mlp-51-96k.mlp
 !crates/oadec-cli/tests/fixtures/mlp-quad-48k.mlp
 !crates/oadec-cli/tests/fixtures/mlp-41-48k.mlp
+# And the four TrueHD streams FFmpeg's TrueHD encoder wrote at the 44.1 kHz
+# family's rates and at 192 kHz, from generated tones; the README there gives
+# their hashes and the build.
+!crates/oadec-cli/tests/fixtures/truehd-20-44k.thd
+!crates/oadec-cli/tests/fixtures/truehd-51-88k.thd
+!crates/oadec-cli/tests/fixtures/truehd-20-176k.thd
+!crates/oadec-cli/tests/fixtures/truehd-20-192k.thd

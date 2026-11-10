@@ -412,6 +412,10 @@ MUTANTS = [
      'crates/oadec-truehd/src/disc.rs',
      'pub const FLAG_DVD_AUDIO: u16 = 0x4000;',
      'pub const FLAG_DVD_AUDIO: u16 = 0x8000;'),
+    ('the WAVE header naming 48 kHz whatever the stream runs at',
+     'crates/oadec-cli/src/decode.rs',
+     'rate: frame.sampling_frequency,',
+     'rate: 48_000,'),
 ]
 
 

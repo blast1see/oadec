@@ -6,6 +6,16 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **TrueHD at 44.1, 88.2, 176.4 and 192 kHz is tested.** No title in the
+  library carries these rates, so the conformance matrix had them as not
+  testable. Streams FFmpeg's TrueHD encoder wrote at all six rates it writes,
+  2.0 and 5.1, decode identical to the PCM it was given and to FFmpeg's
+  decode, every check word holding; four of them are fixtures
+  `tests/cli_rates.rs` holds to FFmpeg's samples, their channel labels and the
+  rate every output names.
+
 ## [0.8.0] - 2026-11-10
 
 ### Added
