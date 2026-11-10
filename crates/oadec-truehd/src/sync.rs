@@ -45,6 +45,65 @@ pub const MIN_LEN_BYTES: usize = 28;
 /// extension: 26 bytes of information, then the CRC-16 over them.
 pub const FBB_LEN_BYTES: usize = 28;
 
+/// What an FBB (DVD-Audio) major sync says in the place an FBA one has its
+/// `format_info`: two groups of channels, each with its word length and
+/// sampling rate, and the channel assignment that names them.
+///
+/// The layout is the one FFmpeg's `ff_mlp_read_major_sync` reads (32 bits:
+/// group 1 and group 2 word length codes, group 1 and group 2 rate codes, 11
+/// bits it skips, a 5-bit channel assignment), confirmed on three DVD-Audio
+/// streams, one written by Meridian's own encoder, whose log names the
+/// assignment and the groups the fields decode to (docs/truehd.md, FBB).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct FbbFormat {
+    /// Group 1 word length code: 0, 1, 2 = 16, 20, 24 bits.
+    pub group1_bits_code: u8,
+    /// Group 2 word length code, 0xF without a group 2.
+    pub group2_bits_code: u8,
+    /// Group 1 sampling frequency code, as `audio_sampling_frequency_1`.
+    pub group1_rate_code: u8,
+    /// Group 2 sampling frequency code, 0xF without a group 2.
+    pub group2_rate_code: u8,
+    /// The 11 bits between the rates and the assignment, as read.
+    pub between: u16,
+    /// The four bits after the substream count, which an FBA major sync
+    /// spends on `extended_substream_info`, as read.
+    pub after_substreams: u8,
+    /// `channel_assignment`, 0 to 20 defined.
+    pub channel_assignment: u8,
+    /// The eight bytes between `substream_info` and the CRC, as read.
+    pub channel_meaning: [u8; 8],
+}
+
+impl FbbFormat {
+    /// A word length code in bits, `None` for one not defined.
+    #[must_use]
+    pub const fn bits(code: u8) -> Option<u8> {
+        match code {
+            0 => Some(16),
+            1 => Some(20),
+            2 => Some(24),
+            _ => None,
+        }
+    }
+
+    /// A rate code in Hz, `None` for one not defined (0xF: no group).
+    #[must_use]
+    pub const fn rate(code: u8) -> Option<u32> {
+        match code {
+            code @ 0..=2 => Some(BASE_RATE_48K << code),
+            code @ 8..=10 => Some(BASE_RATE_44K1 << (code - 8)),
+            _ => None,
+        }
+    }
+
+    /// Whether the stream has a group 2 of channels.
+    #[must_use]
+    pub const fn has_group2(&self) -> bool {
+        self.group2_rate_code != 0xF
+    }
+}
+
 /// The 32-bit `format_info` word of an FBA major sync.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct FormatInfo {
@@ -118,6 +177,9 @@ pub struct MajorSync {
     pub crc_ok: bool,
     /// Total length in bytes, CRC included.
     pub len_bytes: usize,
+    /// The FBB fields of a DVD-Audio stream, where `format_info` carries
+    /// only the group 1 rate and `channel_meaning` nothing.
+    pub fbb: Option<FbbFormat>,
 }
 
 impl MajorSync {
@@ -158,7 +220,7 @@ impl MajorSync {
         let format_sync = reader.read(32)?;
         match format_sync {
             SYNC_FBA => {}
-            SYNC_FBB => return Err(Error::UnsupportedFbb),
+            SYNC_FBB => return Self::parse_fbb(bytes),
             other => {
                 return Err(Error::malformed(format!(
                     "bad major sync pattern {other:08X}"
@@ -218,7 +280,73 @@ impl MajorSync {
             crc,
             crc_ok: computed == crc,
             len_bytes,
+            fbb: None,
         })
+    }
+
+    /// Parses an FBB major sync: [`FBB_LEN_BYTES`] long, its fields where
+    /// [`FbbFormat`] says, the rest in the places of the FBA ones, and the
+    /// CRC-16 of the FBA major sync over the first 26 bytes.
+    fn parse_fbb(bytes: &[u8]) -> Result<Self> {
+        let Some(head) = bytes.get(..FBB_LEN_BYTES) else {
+            return Err(Error::malformed("major sync truncated"));
+        };
+        let mut reader = BitReader::new(head);
+        reader.skip(32)?;
+        let group1_bits_code = reader.read(4)? as u8;
+        let group2_bits_code = reader.read(4)? as u8;
+        let group1_rate_code = reader.read(4)? as u8;
+        let group2_rate_code = reader.read(4)? as u8;
+        let between = reader.read(11)? as u16;
+        let channel_assignment = reader.read(5)? as u8;
+        let signature = reader.read(16)? as u16;
+        let flags = reader.read(16)? as u16;
+        let reserved = reader.read(16)? as u16;
+        let variable_rate = reader.read_bool()?;
+        let peak_data_rate = reader.read(15)? as u16;
+        let substreams = reader.read(4)? as u8;
+        let after_substreams = reader.read(4)? as u8;
+        let substream_info = reader.read(8)? as u8;
+        let mut channel_meaning = [0u8; 8];
+        channel_meaning.copy_from_slice(&head[18..26]);
+        let crc = u16::from_be_bytes([head[26], head[27]]);
+        let computed = CRC16_MAJOR_SYNC.update_bytes(0, &head[..26]);
+        Ok(Self {
+            format_sync: SYNC_FBB,
+            format_info: FormatInfo {
+                sampling_frequency_code: group1_rate_code,
+                ..FormatInfo::default()
+            },
+            signature,
+            flags,
+            reserved,
+            variable_rate,
+            peak_data_rate,
+            substreams,
+            // FBB has no object presentation for these bits to describe
+            extended_substream_info: 0,
+            substream_info,
+            channel_meaning: ChannelMeaning::default(),
+            crc,
+            crc_ok: computed == crc,
+            len_bytes: FBB_LEN_BYTES,
+            fbb: Some(FbbFormat {
+                group1_bits_code,
+                group2_bits_code,
+                group1_rate_code,
+                group2_rate_code,
+                between,
+                after_substreams,
+                channel_assignment,
+                channel_meaning,
+            }),
+        })
+    }
+
+    /// Whether this is the major sync of an FBB (DVD-Audio) stream.
+    #[must_use]
+    pub const fn is_fbb(&self) -> bool {
+        self.format_sync == SYNC_FBB
     }
 
     /// Sampling frequency in Hz.
@@ -300,13 +428,29 @@ mod tests {
     }
 
     #[test]
-    fn fbb_and_garbage_are_rejected() {
+    fn an_fbb_major_sync_is_read_where_its_fields_are() {
+        let ms = MajorSync::parse(&crate::testutil::fbb_major_sync()).unwrap();
+        assert!(ms.is_fbb());
+        assert!(ms.crc_ok);
+        assert_eq!(ms.len_bytes, FBB_LEN_BYTES);
+        assert_eq!(ms.sampling_frequency(), Some(44_100));
+        assert_eq!(ms.samples_per_au(), Some(40));
+        assert_eq!(ms.signature, SIGNATURE);
+        assert_eq!(ms.flags, 0x4000);
+        assert_eq!(ms.substreams, 1);
+        assert_eq!(ms.substream_info, 0x05);
+        let f = ms.fbb.unwrap();
+        assert_eq!(FbbFormat::bits(f.group1_bits_code), Some(16));
+        assert!(!f.has_group2());
+        assert_eq!(f.channel_assignment, 1);
+        let mut bytes = crate::testutil::fbb_major_sync();
+        bytes[9] ^= 0x01;
+        assert!(!MajorSync::parse(&bytes).unwrap().crc_ok);
+    }
+
+    #[test]
+    fn garbage_is_rejected() {
         let mut bytes = atmos_major_sync();
-        bytes[3] = 0xBB;
-        assert!(matches!(
-            MajorSync::parse(&bytes),
-            Err(Error::UnsupportedFbb)
-        ));
         bytes[3] = 0x00;
         assert!(matches!(MajorSync::parse(&bytes), Err(Error::Malformed(_))));
         assert!(MajorSync::parse(&bytes[..10]).is_err());

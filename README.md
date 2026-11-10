@@ -18,6 +18,7 @@ Atmos track can become an E-AC-3 Atmos track without losing the objects.
 | TrueHD framing, major sync, `info`, `verify` | done | six films, every integrity counter zero |
 | Substream syntax (restart/block headers, matrices, filters, Huffman) | done | 24 million segments, zero parity or CRC failures |
 | Presentations 0–2 (2 / 6 / 8 channels) | done | **bit-exact** with FFmpeg over six whole films |
+| DVD-Audio (MLP, the FBB syntax) | done | the 96 kHz six-channel stream Meridian's own encoder wrote decodes identical to FFmpeg on every channel, five of them identical to their source files over 30 s; FFmpeg's FATE sample and four FFmpeg-written fixtures identical too ([docs/truehd.md](docs/truehd.md#fbb-dvd-audio)) |
 | Presentation 3 (16-channel objects, restart sync `0x31EC`) | done | **bit-exact with the Dolby decoder's own object output** on every presentation it opens at a dialogue normalisation of −31 dB (twelve titles); at any other dialogue norm Dolby applies the dialnorm gain and ±1 LSB triangular dither, and that is all that differs (five titles, gain within 3·10⁻⁵ dB). Its object mode refuses 89 of 194 library presentations; those decode byte-identical to `truehdd`, as all sixteen fresh titles do. All 47,718 lossless checks pass |
 | Object Audio Metadata (ETSI TS 103 420) | done | 1,344,146 payloads, zero parse errors |
 | Timing model, seamless branches, duplicates | done | Braveheart: 0 branches, the same as truehdd |

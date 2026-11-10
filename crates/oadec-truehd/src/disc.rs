@@ -15,6 +15,12 @@
 //!   No public source gives the rates HD DVD takes: at 44.1, 88.2 and 176.4 kHz
 //!   the row is not judged.
 //! * **DVD-Audio**: the FBB syntax (Dolby, section 1); an FBA stream is not one.
+//!   An FBB stream has `flags` bit 14 set, at 176.4 and 192 kHz no presentation
+//!   over two channels -- both bounds only Dolby's encoder states -- and is
+//!   delivered within 9.6 Mbit/s, the peak Meridian's own encoder declares for
+//!   a 96 kHz six-channel stream.
+//! * An FBB stream on HD DVD defines both its two- and its six-channel
+//!   presentations, again in the encoder's messages only.
 //!
 //! The Blu-ray and HD DVD rows also hold an FBA stream to the bounds of its
 //! delivery, the buffer and rate rules of `verify`: a stream Dolby's own
@@ -42,6 +48,20 @@ pub const ENCODER_HD_DVD: &str =
 
 /// What no public source states.
 pub const NO_SOURCE: &str = "no public source";
+
+/// The FBB bounds: flags bit 14, two channels at the highest rates, both
+/// presentations on HD DVD.
+pub const ENCODER_FBB: &str =
+    "secondary: the verifier messages of Dolby's TrueHD encoder, for FBB streams";
+
+/// The DVD-Audio delivery ceiling.
+pub const DVD_AUDIO_RATE: &str = "secondary: DVD-Audio's 9.6 Mbit/s, the peak Meridian's encoder declares for a 96 kHz six-channel stream (docs/truehd.md, FBB)";
+
+/// `flags` bit 14, which an FBB stream sets for DVD-Audio.
+pub const FLAG_DVD_AUDIO: u16 = 0x4000;
+
+/// The highest rate DVD-Audio delivers at, bits per second.
+pub const DVD_AUDIO_PEAK_RATE: u64 = 9_600_000;
 
 /// A disc format a stream is judged for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -97,6 +117,11 @@ pub struct Facts {
     pub presentation_channels: [Option<u8>; MAX_PRESENTATIONS],
     /// Findings of the delivery rules -- buffer and rate -- by rule name.
     pub delivery: Vec<(&'static str, u64)>,
+    /// Major sync `flags`.
+    pub flags: u16,
+    /// The fastest an access unit was delivered, bits per second (0 when not
+    /// measured).
+    pub peak_delivery_bps: u64,
 }
 
 impl Facts {
@@ -108,6 +133,8 @@ impl Facts {
             sampling_frequency: ms.sampling_frequency().unwrap_or(0),
             presentation_channels: presentation_channels(ms),
             delivery: Vec::new(),
+            flags: ms.flags,
+            peak_delivery_bps: 0,
         }
     }
 }
@@ -118,6 +145,12 @@ impl Facts {
 #[must_use]
 pub fn presentation_channels(ms: &MajorSync) -> [Option<u8>; MAX_PRESENTATIONS] {
     let map = ms.presentation_map();
+    if ms.is_fbb() {
+        return core::array::from_fn(|p| {
+            map.is_carried(p)
+                .then(|| ChannelLabel::presentation(ms, p).len() as u8)
+        });
+    }
     let fi = &ms.format_info;
     let restricted = ms.flags & FLAG_RESTRICTED_8CH != 0;
     core::array::from_fn(|p| {
@@ -254,7 +287,15 @@ fn judge_one(disc: Disc, f: &Facts) -> Verdict {
                         "HD DVD takes 2 channels at 176.4 and 192 kHz; presentation {p} has {c} at {}",
                         khz(fs)
                     ),
-                    source: ENCODER_HD_DVD,
+                    source: if fba { ENCODER_HD_DVD } else { ENCODER_FBB },
+                });
+            }
+            if !fba
+                && (f.presentation_channels[0].is_none() || f.presentation_channels[1].is_none())
+            {
+                no.push(Reason {
+                    text: "HD DVD takes an FBB stream with both its two- and its six-channel presentations; this one has one".to_string(),
+                    source: ENCODER_FBB,
                 });
             }
         }
@@ -264,6 +305,36 @@ fn judge_one(disc: Disc, f: &Facts) -> Verdict {
                     text: "DVD-Audio carries the FBB syntax; this stream is FBA".to_string(),
                     source: DOLBY_SCOPE,
                 });
+            } else {
+                if f.flags & FLAG_DVD_AUDIO == 0 {
+                    no.push(Reason {
+                        text: format!(
+                            "DVD-Audio marks an FBB stream with flags bit 14; this one has flags {:#06X}",
+                            f.flags
+                        ),
+                        source: ENCODER_FBB,
+                    });
+                }
+                if matches!(fs, 176_400 | 192_000)
+                    && let Some((p, c)) = widest_over(f, 2)
+                {
+                    no.push(Reason {
+                        text: format!(
+                            "DVD-Audio takes 2 channels at 176.4 and 192 kHz; presentation {p} has {c} at {}",
+                            khz(fs)
+                        ),
+                        source: ENCODER_FBB,
+                    });
+                }
+                if f.peak_delivery_bps > DVD_AUDIO_PEAK_RATE {
+                    no.push(Reason {
+                        text: format!(
+                            "DVD-Audio delivers within 9.6 Mbit/s; this stream reaches {:.3} Mbit/s",
+                            f.peak_delivery_bps as f64 / 1e6
+                        ),
+                        source: DVD_AUDIO_RATE,
+                    });
+                }
             }
         }
     }
@@ -284,22 +355,14 @@ fn judge_one(disc: Disc, f: &Facts) -> Verdict {
     if !no.is_empty() {
         return Verdict::No(no);
     }
-    if disc == Disc::HdDvd {
-        if !fba {
-            return Verdict::Unjudged(Reason {
-                text: "what HD DVD asks of an FBB stream is not judged".to_string(),
-                source: NO_SOURCE,
-            });
-        }
-        if fs.is_multiple_of(44_100) {
-            return Verdict::Unjudged(Reason {
-                text: format!(
-                    "no public source gives the rates HD DVD takes; this stream is at {}",
-                    khz(fs)
-                ),
-                source: NO_SOURCE,
-            });
-        }
+    if disc == Disc::HdDvd && fs.is_multiple_of(44_100) {
+        return Verdict::Unjudged(Reason {
+            text: format!(
+                "no public source gives the rates HD DVD takes; this stream is at {}",
+                khz(fs)
+            ),
+            source: NO_SOURCE,
+        });
     }
     Verdict::Yes
 }
@@ -323,7 +386,55 @@ mod tests {
             sampling_frequency: fs,
             presentation_channels: channels,
             delivery: Vec::new(),
+            flags: 0,
+            peak_delivery_bps: 0,
         }
+    }
+
+    fn dvd_audio(fs: u32, channels: [Option<u8>; 4]) -> Facts {
+        Facts {
+            format_sync: SYNC_FBB,
+            flags: FLAG_DVD_AUDIO,
+            peak_delivery_bps: 9_600_000,
+            ..facts(fs, channels)
+        }
+    }
+
+    /// The Meridian sample: 96 kHz, a two-channel downmix and six channels,
+    /// delivered at exactly 9.6 Mbit/s.
+    #[test]
+    fn a_dvd_audio_stream_fits_dvd_audio() {
+        let f = dvd_audio(96_000, [Some(2), Some(6), None, None]);
+        assert_eq!(verdicts(&f), ["no", "yes", "yes"]);
+        // one presentation: not for HD DVD
+        let f = dvd_audio(48_000, [Some(2), None, None, None]);
+        assert_eq!(verdicts(&f), ["no", "no", "yes"]);
+    }
+
+    #[test]
+    fn dvd_audio_holds_an_fbb_stream_to_its_flag_its_rate_and_its_channels() {
+        let mut f = dvd_audio(96_000, [Some(2), Some(6), None, None]);
+        f.flags = 0;
+        assert!(
+            judge(&f)[2].verdict.reasons()[0]
+                .text
+                .contains("flags bit 14")
+        );
+        let mut f = dvd_audio(96_000, [Some(2), Some(6), None, None]);
+        f.peak_delivery_bps = 9_600_001;
+        assert!(
+            judge(&f)[2].verdict.reasons()[0]
+                .text
+                .contains("9.6 Mbit/s")
+        );
+        let f = dvd_audio(192_000, [Some(2), Some(6), None, None]);
+        assert!(
+            judge(&f)[2].verdict.reasons()[0]
+                .text
+                .contains("2 channels at 176.4 and 192 kHz")
+        );
+        let f = dvd_audio(192_000, [Some(2), None, None, None]);
+        assert_eq!(judge(&f)[2].verdict.word(), "yes");
     }
 
     fn verdicts(f: &Facts) -> [&'static str; 3] {
@@ -380,9 +491,10 @@ mod tests {
         let rows = judge(&f);
         assert_eq!(rows[2].verdict.reasons()[0].source, DOLBY_SCOPE);
         f.format_sync = SYNC_FBB;
+        f.flags = FLAG_DVD_AUDIO;
         let rows = judge(&f);
         assert_eq!(rows[0].verdict.word(), "no");
-        assert_eq!(rows[1].verdict.word(), "unjudged");
+        assert_eq!(rows[1].verdict.word(), "yes");
         assert_eq!(rows[2].verdict.word(), "yes");
     }
 

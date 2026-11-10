@@ -13,8 +13,8 @@
 //! DVD-Audio pattern turned a recoverable fault into exit 2.
 
 use crate::au::AuHeader;
-use crate::error::{Error, Result};
-use crate::sync::{MajorSync, SYNC_FBA, SYNC_FBB};
+use crate::error::Result;
+use crate::sync::MajorSync;
 
 /// Bytes handed to the caller: one access unit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -204,12 +204,9 @@ impl Extractor {
                 self.buf[sync_at + 2],
                 self.buf[sync_at + 3],
             ]);
-            if pattern == SYNC_FBB {
-                // A DVD-Audio stream only when nothing else was locked onto and
-                // the major sync verifies; otherwise four bytes met by chance.
-                if self.format_sync.is_none() && MajorSync::fbb_crc_ok(&self.buf[sync_at..]) {
-                    return Err(Error::UnsupportedFbb);
-                }
+            if self.format_sync.is_some_and(|f| f != pattern) {
+                // the other format's pattern inside a stream locked on one:
+                // four bytes met by chance, whatever follows them
                 self.stats.foreign_syncs += 1;
                 self.note_foreign_in_gap();
                 self.skip_to(sync_at + 1);
@@ -220,7 +217,9 @@ impl Extractor {
                     self.skip_to(sync_at - 4);
                     self.locked = true;
                     self.substreams = Some(ms.substreams);
-                    self.format_sync = Some(SYNC_FBA);
+                    // the first verified major sync names the format, TrueHD
+                    // (FBA) or DVD-Audio (FBB), for the rest of the stream
+                    self.format_sync = Some(pattern);
                     return Ok(true);
                 }
                 Ok(_) => {
@@ -351,6 +350,7 @@ impl Extractor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sync::SYNC_FBB;
     use crate::testutil::{atmos_major_sync, build_au, fbb_major_sync, fbb_pattern_minor_unit};
 
     fn stream() -> (Vec<u8>, Vec<Vec<u8>>) {
@@ -470,8 +470,36 @@ mod tests {
         assert_eq!(ex.take_gap(), None);
     }
 
+    /// A stream locked on TrueHD that loses sync stays TrueHD: a DVD-Audio
+    /// major sync met while hunting for sync again is passed over, even one
+    /// whose CRC holds, and the stream is found again at its own next major
+    /// sync.
     #[test]
-    fn a_dvd_audio_stream_is_refused_by_name() {
+    fn a_stream_that_loses_sync_keeps_its_format() {
+        let (stream, units) = stream();
+        let mut data = stream.clone();
+        data.extend_from_slice(&[0u8; 4]);
+        data.extend_from_slice(&fbb_major_sync());
+        data.extend_from_slice(&stream);
+        let mut ex = Extractor::new();
+        ex.push(&data);
+        let mut got = Vec::new();
+        while let Some(u) = ex.next_unit().unwrap() {
+            got.push(u);
+        }
+        got.extend(ex.finish().unwrap().0);
+        assert_eq!(ex.format_sync, Some(crate::sync::SYNC_FBA));
+        assert_eq!(got.len(), 2 * units.len());
+        assert_eq!(got[units.len()].bytes, units[0]);
+        assert!(got[units.len()].has_major_sync);
+        assert!(ex.stats.foreign_syncs >= 1);
+        assert_eq!(ex.stats.resyncs, 1);
+    }
+
+    /// A DVD-Audio stream is locked onto by its own pattern, and from then on
+    /// the TrueHD one is the foreign pattern.
+    #[test]
+    fn a_dvd_audio_stream_is_locked_onto_by_its_own_pattern() {
         let ms = fbb_major_sync();
         let seg = [0x5Au8; 4];
         let mut bytes = build_au(Some(&ms), &[&seg], &[], 0x0100);
@@ -480,13 +508,24 @@ mod tests {
         }
         let mut ex = Extractor::new();
         ex.push(&bytes);
-        assert!(matches!(ex.next_unit(), Err(Error::UnsupportedFbb)));
+        let first = ex.next_unit().unwrap().unwrap();
+        assert!(first.has_major_sync);
+        assert_eq!(ex.format_sync, Some(SYNC_FBB));
+        let mut units = 1;
+        while ex.next_unit().unwrap().is_some() {
+            units += 1;
+        }
+        units += ex.finish().unwrap().0.len();
+        assert_eq!(units, 8);
+        assert_eq!(ex.stats.resyncs, 0);
     }
 
     #[test]
-    fn an_fbb_pattern_that_does_not_verify_is_four_bytes_like_any_other() {
+    fn an_fbb_major_sync_that_does_not_verify_is_skipped_like_any_other() {
         // the DVD-Audio pattern with a broken CRC in front of a TrueHD stream:
-        // a coincidence, skipped, and the stream behind it is locked onto
+        // before anything is locked onto it is a major sync of either format
+        // that does not verify, skipped, and the stream behind it is locked
+        // onto
         let mut fbb = fbb_major_sync();
         fbb[12] ^= 0x01;
         let (stream, units) = stream();
@@ -504,7 +543,8 @@ mod tests {
         assert_eq!(trailing, 0);
         assert_eq!(got.len(), 3);
         assert_eq!(got[0].bytes, units[0]);
-        assert_eq!(ex.stats.foreign_syncs, 1);
+        assert_eq!(ex.stats.foreign_syncs, 0);
+        assert_eq!(ex.stats.major_sync_crc_failures, 1);
         assert_eq!(ex.stats.skipped_bytes, (4 + fbb.len()) as u64);
     }
 

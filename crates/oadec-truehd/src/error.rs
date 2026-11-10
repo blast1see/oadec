@@ -8,9 +8,9 @@ pub enum Error {
     /// A field ran past the end of the data.
     #[error(transparent)]
     Bits(#[from] BitError),
-    /// Meridian MLP (major sync `F8726FBB`) uses a different syntax.
-    #[error("Meridian MLP (FBB) streams are not supported; only Dolby TrueHD (FBA) is")]
-    UnsupportedFbb,
+    /// A stream oadec recognises and does not decode, named.
+    #[error("{0}")]
+    Unsupported(String),
     /// The syntax was violated.
     #[error("{0}")]
     Malformed(String),

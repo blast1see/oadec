@@ -596,7 +596,9 @@ pub fn print_summary(session: &Session, elapsed: f64) {
 /// Options of the decode command.
 #[derive(Debug, Clone)]
 pub struct Options {
-    pub presentation: usize,
+    /// The presentation asked for; `None` for the default (see
+    /// [`default_presentation`]).
+    pub presentation: Option<usize>,
     pub format: Format,
     pub order: Order,
     pub keep_duplicates: bool,
@@ -809,6 +811,31 @@ fn pack_24le(pcm: &[[i32; 16]], order: &[usize], buf: &mut Vec<u8>) -> u64 {
     clipped
 }
 
+/// The presentation a decode takes when none is named: the 8-channel one
+/// of a TrueHD stream, as it always has been, and the widest one a DVD-Audio
+/// (FBB) stream carries, which has no 8-channel presentation.
+fn default_presentation(path: &Path) -> usize {
+    let mut head = Vec::new();
+    if let Ok(f) = File::open(path) {
+        use std::io::Read as _;
+        let _ = f.take(1 << 20).read_to_end(&mut head);
+    }
+    let mut extractor = oadec_truehd::Extractor::new();
+    extractor.push(&head);
+    let first = extractor.next_unit().ok().flatten().or_else(|| {
+        extractor
+            .finish()
+            .ok()
+            .and_then(|(units, _)| units.into_iter().next())
+    });
+    first
+        .and_then(|unit| AccessUnit::parse(&unit.bytes, None).ok())
+        .and_then(|(au, _)| au.major_sync)
+        .filter(oadec_truehd::MajorSync::is_fbb)
+        .and_then(|ms| ms.presentation_map().max_carried())
+        .unwrap_or(2)
+}
+
 /// Runs the command.
 pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
@@ -818,7 +845,10 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
     let check = crate::verify::spawn_stream_check(path);
     let file = File::create(output).with_context(|| format!("creating {}", output.display()))?;
     let mut out = Some(Output::Raw(BufWriter::with_capacity(4 << 20, file)));
-    let mut session = Session::new(opts.presentation, opts.keep_duplicates, opts.order);
+    let presentation = opts
+        .presentation
+        .unwrap_or_else(|| default_presentation(path));
+    let mut session = Session::new(presentation, opts.keep_duplicates, opts.order);
     session.on_error(opts.on_error);
     if let Some(seconds) = opts.start {
         if seconds < 0.0 {

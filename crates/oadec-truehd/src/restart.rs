@@ -69,6 +69,12 @@ impl RestartHeader {
                 )));
             }
         }
+        if state.fbb && sync_word != SYNC_A {
+            // FFmpeg's MLP decoder: "MLP must have 0x31ea sync word"
+            return Err(Error::malformed(format!(
+                "restart sync {sync_word:#06X} in an FBB stream, which restarts on 0x31EA only"
+            )));
+        }
         if sync_word == SYNC_C && substream != 3 {
             return Err(Error::malformed(format!(
                 "restart sync 0x31EC in substream {substream}"
@@ -77,7 +83,7 @@ impl RestartHeader {
         if sync_word == SYNC_B && substream == 0 {
             return Err(Error::malformed("restart sync 0x31EB in substream 0"));
         }
-        if sync_word == SYNC_A && substream == 1 && state.substream_info & 8 == 0 {
+        if sync_word == SYNC_A && substream == 1 && state.substream_info & 8 == 0 && !state.fbb {
             return Err(Error::malformed(
                 "restart sync 0x31EA in substream 1 of a stream that requires 0x31EB",
             ));
@@ -264,6 +270,21 @@ pub(crate) mod tests {
         let mut w = BitWriter::default();
         push_restart_header(&mut w, SYNC_B, 0, 1, 1, false);
         assert!(RestartHeader::parse(&mut BitReader::new(&w.bytes), &mut state, 0).is_err());
+        assert!(RestartHeader::parse(&mut BitReader::new(&w.bytes), &mut state, 1).is_ok());
+    }
+
+    /// An FBB (DVD-Audio) stream restarts on 0x31EA in every substream, the
+    /// second one included, whatever `substream_info` says.
+    #[test]
+    fn an_fbb_stream_restarts_on_0x31ea_only() {
+        let ms = crate::sync::MajorSync::parse(&crate::testutil::fbb_major_sync()).unwrap();
+        let mut state = ParserState::new(&StreamConfig::from_major_sync(&ms).unwrap());
+        assert!(state.fbb);
+        let mut w = BitWriter::default();
+        push_restart_header(&mut w, SYNC_B, 2, 5, 5, false);
+        assert!(RestartHeader::parse(&mut BitReader::new(&w.bytes), &mut state, 1).is_err());
+        let mut w = BitWriter::default();
+        push_restart_header(&mut w, SYNC_A, 2, 5, 5, false);
         assert!(RestartHeader::parse(&mut BitReader::new(&w.bytes), &mut state, 1).is_ok());
     }
 }
