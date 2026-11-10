@@ -29,7 +29,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, bail};
 use oadec_bits::BitWriter;
-use oadec_eac3::{Frame, Noise, Options, StreamType, Syntax};
+use oadec_eac3::{BlockInfo, Frame, Noise, Options, StreamType, Syntax};
 
 use crate::eac3::for_each_frame;
 
@@ -155,6 +155,31 @@ fn coord_bits(
     (w.finish(), len)
 }
 
+/// The enhanced coupling coordinates of one block, or `None` when it carries
+/// none. A block that switches coupling off sets `firstcplcos` for every
+/// channel (clause E.1.2.4), so the first coordinates after it are implied
+/// again and their flags are not written.
+fn block_coords(
+    block: usize,
+    info: &BlockInfo,
+    nbnd: usize,
+    firstcplcos: &mut [bool],
+    shape: Shape,
+) -> Option<Edit> {
+    if !info.cplinu {
+        firstcplcos.fill(true);
+        return None;
+    }
+    let (start, end) = info.cpl_coord_span?;
+    let (bits, len) = coord_bits(block, &info.chincpl, nbnd, firstcplcos, shape);
+    Some(Edit {
+        start,
+        end,
+        bits,
+        len,
+    })
+}
+
 /// One edit: replace the bits in `[start, end)` of the source with `bits`.
 struct Edit {
     start: usize,
@@ -192,18 +217,10 @@ fn rewrite(bytes: &[u8], frame: &Frame, shape: Shape) -> Result<Option<Vec<u8>>>
                 len,
             });
         }
-        if let Some((s, e)) = info.cpl_coord_span {
-            if nbnd == 0 {
-                bail!("coupling coordinates before any strategy");
-            }
-            let (bits, len) = coord_bits(i, &info.chincpl, nbnd, &mut firstcplcos, shape);
-            edits.push(Edit {
-                start: s,
-                end: e,
-                bits,
-                len,
-            });
+        if info.cpl_coord_span.is_some() && nbnd == 0 {
+            bail!("coupling coordinates before any strategy");
         }
+        edits.extend(block_coords(i, info, nbnd, &mut firstcplcos, shape));
     }
     if edits.is_empty() {
         return Ok(None);
@@ -315,4 +332,52 @@ pub fn run(path: &Path, out: &Path, shape: Shape) -> Result<()> {
         bail!("no frame used coupling, so there was nothing to convert");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn block(cplinu: bool, chincpl: [bool; 5]) -> BlockInfo {
+        BlockInfo {
+            cplinu,
+            chincpl: chincpl.to_vec(),
+            cpl_coord_span: cplinu.then_some((0, 0)),
+            ..BlockInfo::default()
+        }
+    }
+
+    /// A 384 kbit/s encode had a frame that couples all five channels, then
+    /// three, switches coupling off and couples again. After the block that
+    /// switches it off every channel's first coordinates are implied, so the
+    /// last block carries no flag; writing them shifted the rest of the frame,
+    /// and the decoder read the shift as an exponent out of range.
+    #[test]
+    fn coupling_switched_off_makes_the_next_coordinates_first_again() {
+        let shape = Shape {
+            flat_angle: false,
+            flat_amp: false,
+            interp: 0,
+            chaos: 0,
+        };
+        let nbnd = 7;
+        let mut first = vec![true; 5];
+        let lens: Vec<Option<usize>> = [
+            block(true, [true; 5]),
+            block(true, [false, true, true, false, true]),
+            block(false, [false; 5]),
+            block(true, [true, true, false, true, false]),
+        ]
+        .iter()
+        .enumerate()
+        .map(|(i, b)| block_coords(i, b, nbnd, &mut first, shape).map(|e| e.len))
+        .collect();
+        // the angle-interpolation flag; amplitudes for the first coupled
+        // channel; amplitudes, angles, chaos and the transient flag for each
+        // channel after it; and no ecplparam flags anywhere
+        let amps = nbnd * 5;
+        let after = amps + nbnd * (6 + 3) + 1;
+        assert_eq!(lens[2], None);
+        assert_eq!(lens[3], Some(1 + amps + 2 * after));
+    }
 }

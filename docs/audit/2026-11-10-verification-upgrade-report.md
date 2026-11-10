@@ -313,3 +313,34 @@ tone per channel and a quiet sweep at 24 bits.
   tone to its label, and the rate to what `info --json` and the WAVE header say.
 
 This is encoder-written material, not disc material, and the matrix row says so.
+
+## Addendum, 2026-11-10: the real-media suite rebuilt (11)
+
+23 of the 28 real-media tests in `crates/oadec-cli/tests/real.rs` failed because
+their clips and references went with the old work directory. They were rebuilt
+from the library they were first cut from, and now all 28 pass.
+
+- **Exact where the repository can tell.** Every recorded hash and size matches:
+  the Pi head behind the audited ADM file, the 1917 DD+ 7.1 head, the Up head,
+  the refused title's truehdd reference, the Jackal clip's Dolby reference, and
+  the two DEE low-rate encodes.
+- **Substitutes where a source is gone.** A Quiet Place (2018)'s web JOC track
+  stands in for Disclosure Day (2026), a dubbed AC-3 2.0 track of Pi (1998) for
+  Nightcrawler (2014), and another 96 kHz UHD disc track, 7.1 in three
+  substreams, for The Revenant (2015). Their references come from truehdd.
+- **Re-authored by the recorded recipes:** the ddp71 tone clip, the 192 and 384
+  kbit/s encodes, the 384 kbit/s JOC encode and the onset scene, all with DEE
+  5.2.1. Dolby's object decoder gave the two `.f32` references again.
+- **A fault the rebuilt suite found.** On the new 384 kbit/s clip,
+  `eac3-ecpl-inject` wrote coordinate flags after a block that switches coupling
+  off. The standard implies those flags there (clause E.1.2.4), so the frame came
+  out shifted, and the decoder refused it, as it should. The injector is fixed,
+  and a unit test now holds that frame's pattern.
+- **Three tests now test.** The branch test passed when its clip was missing,
+  the Pi test skipped its truehdd comparison, and the fuzz replay cut its clip
+  mid-frame so that every trial failed whatever the flip. Each now requires its
+  material or a clean baseline.
+
+`tools/joc_object_gate.py` and `tools/extract_corpus.py` still name the lost
+clips, and `tools/regression_gates.sh` needs a Dolby reference that was not
+rebuilt.
