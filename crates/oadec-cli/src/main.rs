@@ -32,7 +32,7 @@ use clap::{Parser, Subcommand};
 
 use crate::compare::RefFormat;
 use crate::damf::{InterpolationArg, IsfArg, WarpArg};
-use crate::decode::{Format, Order};
+use crate::decode::{Format, OnError, Order};
 use crate::eac3_objects::{JocLowBand, JocOverrides, JocPhase};
 use crate::integrity::Verdict;
 use oadec_truehd::{Severity, Tally};
@@ -157,6 +157,16 @@ enum Command {
         /// Keep access units flagged as duplicates at seamless branches.
         #[arg(long)]
         keep_duplicates: bool,
+        /// TrueHD: what to do with an access unit that cannot be read. conceal
+        /// (the default): write a unit of silence in its place, keep the
+        /// substreams it damaged silent until their next restart header, and
+        /// fill a stretch of the file that could not be read with the silence
+        /// it took, so everything after stays where it belongs in time; the run
+        /// says what it concealed and exits 7. stop: end the decode at the
+        /// unit (exit 2) and pass over a stretch that could not be read, which
+        /// leaves the output that much shorter.
+        #[arg(long, value_enum, value_name = "MODE")]
+        on_error: Option<OnError>,
         /// TrueHD: begin the output this many seconds into the stream, at the
         /// first access unit at or after it that carries a major sync. What is
         /// written is the tail of a full decode, sample for sample, because a
@@ -491,6 +501,7 @@ fn main() -> ExitCode {
                 format,
                 order,
                 keep_duplicates,
+                on_error,
                 start,
                 no_bed_conform,
                 all_events,
@@ -532,6 +543,14 @@ fn main() -> ExitCode {
                 Err(anyhow::anyhow!(
                     "--joc-lag, --joc-low-band and --joc-phase measure the JOC object \
                      decode: they apply to an E-AC-3 stream with --format damf or adm"
+                ))
+            } else if on_error.is_some() && eac3::is_eac3(&file).unwrap_or(false) {
+                // The E-AC-3 decoder has its own way with a bad frame; an
+                // option that reads as applied while changing nothing is the
+                // defect named below.
+                Err(anyhow::anyhow!(
+                    "--on-error chooses what a TrueHD decode does with an access unit it \
+                     cannot read; it does not apply to an E-AC-3 stream"
                 ))
             } else if start.is_some()
                 && (eac3::is_eac3(&file).unwrap_or(false)
@@ -591,6 +610,8 @@ fn main() -> ExitCode {
                                 tpnp: !no_tpnp,
                                 ecpl_full: ecpl_spec,
                             },
+                            // refused above for E-AC-3; never read there
+                            on_error: OnError::Stop,
                         },
                     )
                 }
@@ -632,6 +653,7 @@ fn main() -> ExitCode {
                         // TrueHD carries no E-AC-3 core.
                         core: oadec_eac3::Options::default(),
                         joc: JocOverrides::default(),
+                        on_error: on_error.unwrap_or(OnError::Conceal),
                     },
                 )
             } else {
@@ -644,6 +666,7 @@ fn main() -> ExitCode {
                         order,
                         keep_duplicates,
                         start,
+                        on_error: on_error.unwrap_or(OnError::Conceal),
                     },
                 )
                 .map(Verdict::from_clean)
