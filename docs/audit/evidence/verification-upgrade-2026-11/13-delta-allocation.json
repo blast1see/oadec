@@ -1,0 +1,165 @@
+{
+ "question": "Is delta bit allocation (A/52 clause 6.2.2.6, carried into Annex E) decoded as Dolby's decoder decodes it? The matrix had it as present in the library sweep but absent from the corpus and from the required-coverage assertion.",
+ "method": [
+  "The library: every AC-3 and E-AC-3 track of the 422 of its 448 media files that carry one, the first 60 seconds of each, by tools/sweep.py --codecs ac3,eac3 (FFmpeg stream copy, then verify --json) with the decoder at main (97408e3).",
+  "That decoder named delta bit allocation in its coverage when a block carried deltbaie. Every track it named was cut again and verified by this change's decoder, which counts a frame (dba_frames) only when a delta segment reaches the masking curve.",
+  "Dolby's own AC-3 encoder: DEE 5.2.1 pcm_to_ddp with encoder_mode dd, from its own template, on six synthetic 20-second signals (five tones; a 110 Hz sawtooth; pink noise; a 2 kHz tone in noise; a 20 Hz to 20 kHz sweep; clicks over noise), in 2.0 at 96, 192 and 384 kbit/s and in 5.1 at 384 and 640 kbit/s.",
+  "On the corpus streams that carry the fields: a decoder that leaves the segments out of the bit allocation (the first mutant below, built once) against the decoder at main, and the decoder against Dolby's decode (DEE 5.2.1 ddp_decode, DRC none, downmix off, its 256-sample start removed) and FFmpeg's (-drc_scale 0) with tools/three_way.py.",
+  "tools/old_new.py, main against this change, on the AC-3 and E-AC-3 streams of the corpus (ec3/ and the AC-3 family under clips/)."
+ ],
+ "result": {
+  "library": {
+   "media_files": 448,
+   "files_with_a_track": 422,
+   "tracks": 1345,
+   "ac3_tracks": 760,
+   "eac3_tracks": 585,
+   "verify_clean": 1344,
+   "not_clean": "one AC-3 2.0 track without delta fields: its frame 224, the first with sound, ends inside the frame tail with both CRCs good, and decodes as FFmpeg's does (55.0 and 41.2 dB)",
+   "carry_the_fields": {
+    "tracks": 221,
+    "all_ac3": true,
+    "by_channels": {
+     "2": 220,
+     "6": 1
+    },
+    "eac3_tracks": 0
+   },
+   "apply_a_segment": {
+    "tracks": 0,
+    "frames_read": 412899
+   },
+   "coding_tools_by_tracks_old_reading": {
+    "aht": 78,
+    "block-switching": 701,
+    "coupling": 641,
+    "delta-allocation": 221,
+    "dither": 1345,
+    "rematrixing": 677,
+    "skip-fields": 896,
+    "spectral-extension": 71,
+    "transient-pre-noise": 42
+   }
+  },
+  "dolby_encoder": {
+   "encodes": 30,
+   "clean": 30,
+   "carry_the_fields": 16,
+   "which_carry_them": "every 2.0 encode at 96 and 192 kbit/s and every 5.1 encode at 384 kbit/s; none at 2.0 384 or 5.1 640",
+   "apply_a_segment": 0
+  },
+  "corpus_streams_with_the_fields": [
+   {
+    "stream": "ec3/ac3004.ac3",
+    "dba_frames": 0,
+    "segments_left_out": "identical samples",
+    "snr_against_dolby": {
+     "L": {
+      "ffmpeg_to_dolby_db": 52.8,
+      "oadec_to_dolby_db": 54.5
+     },
+     "R": {
+      "ffmpeg_to_dolby_db": 52.7,
+      "oadec_to_dolby_db": 54.4
+     }
+    },
+    "verdict": "inside the envelope on every channel"
+   },
+   {
+    "stream": "ec3/ac3006.ac3",
+    "dba_frames": 0,
+    "segments_left_out": "identical samples",
+    "snr_against_dolby": {
+     "L": {
+      "ffmpeg_to_dolby_db": 34.6,
+      "oadec_to_dolby_db": 36.3
+     },
+     "R": {
+      "ffmpeg_to_dolby_db": 34.6,
+      "oadec_to_dolby_db": 36.5
+     }
+    },
+    "verdict": "inside the envelope on every channel"
+   },
+   {
+    "stream": "ec3/ac3009.ac3",
+    "dba_frames": 0,
+    "segments_left_out": "identical samples",
+    "snr_against_dolby": {
+     "L": {
+      "ffmpeg_to_dolby_db": 38.9,
+      "oadec_to_dolby_db": 40.3
+     },
+     "R": {
+      "ffmpeg_to_dolby_db": 39.2,
+      "oadec_to_dolby_db": 40.5
+     }
+    },
+    "verdict": "inside the envelope on every channel"
+   },
+   {
+    "stream": "ec3/ac3010.ac3",
+    "dba_frames": 0,
+    "segments_left_out": "identical samples",
+    "snr_against_dolby": {
+     "L": {
+      "ffmpeg_to_dolby_db": 42.0,
+      "oadec_to_dolby_db": 43.0
+     },
+     "R": {
+      "ffmpeg_to_dolby_db": 40.6,
+      "oadec_to_dolby_db": 45.6
+     }
+    },
+    "verdict": "inside the envelope on every channel"
+   },
+   {
+    "stream": "clips/pi-dd20-head.ac3",
+    "dba_frames": 0,
+    "segments_left_out": "identical samples",
+    "snr_against_dolby": {
+     "L": {
+      "ffmpeg_to_dolby_db": 44.8,
+      "oadec_to_dolby_db": 46.5
+     },
+     "R": {
+      "ffmpeg_to_dolby_db": 44.7,
+      "oadec_to_dolby_db": 46.4
+     }
+    },
+    "verdict": "inside the envelope on every channel"
+   }
+  ],
+  "unit_test": {
+   "test": "oadec-eac3 frame::tests::delta_segments_reach_the_mask_only_when_deltbae_says_so",
+   "holds": "deltbae 1 (new) and 0 (reuse) reach the mask, 2 does not; a segment of no length leaves mask and coverage alone; the coverage names the tool only where it applies",
+   "mutants_caught": [
+    "delta bit allocation segments left out of the bit allocation",
+    "a reused delta allocation (deltbae 0) treated as none",
+    "delta allocation counted where a block only carries the fields"
+   ]
+  },
+  "old_new": {
+   "streams": 69,
+   "exit_codes_changed": 0,
+   "json_fields_changed": {
+    "coverage": [
+     "ac3004.ac3",
+     "ac3006.ac3",
+     "ac3009.ac3",
+     "ac3010.ac3",
+     "pi-dd20-head.ac3"
+    ]
+   },
+   "fields_added": [
+    "dba_frames"
+   ],
+   "text_changed": "the Coding tools line of verify, which now ends with the delta bit allocation count, on all 69"
+  }
+ },
+ "not_covered": [
+  "A delta that reaches the masking curve has not been decoded against another decoder: no stream in reach applies one. The library heads are a minute long, so a track that applies a delta only later would not be seen.",
+  "E-AC-3 gates the fields on dbaflde, and no E-AC-3 track carries them, so that gate has not run on real material.",
+  "What would close it: a stream rewritten to apply a delta, its mantissas requantised to the new allocation (as eac3-ecpl-inject rewrites coupling), decoded by both Dolby decoders and FFmpeg."
+ ]
+}

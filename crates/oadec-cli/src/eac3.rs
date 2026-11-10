@@ -667,6 +667,9 @@ struct Pass {
     spx_frames: u64,
     ecpl_frames: u64,
     tpnp_frames: u64,
+    /// Frames in which a delta bit allocation segment reached the masking
+    /// curve; carrying the fields with "perform no delta" does not count.
+    dba_frames: u64,
     /// Every transient pre-noise parameter set, for the evidence tooling.
     transients: Vec<(u64, usize, usize, usize)>,
     /// Per clip gain bucket: the largest and the summed peak sample of the
@@ -810,6 +813,9 @@ fn account(
     }
     if d.coverage.enhanced_coupling {
         p.ecpl_frames += 1;
+    }
+    if d.coverage.delta_allocation {
+        p.dba_frames += 1;
     }
     if d.coverage.transient_pre_noise {
         p.tpnp_frames += 1;
@@ -1170,6 +1176,7 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             "spx_frames": p.spx_frames,
             "ecpl_frames": p.ecpl_frames,
             "tpnp_frames": p.tpnp_frames,
+            "dba_frames": p.dba_frames,
             "clipgains": p
                 .clipgains
                 .iter()
@@ -1406,12 +1413,13 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
         );
     }
     println!(
-        "Coding tools:      {} (AHT in {} frames, spectral extension in {}, enhanced coupling in {}, transient pre-noise in {})",
+        "Coding tools:      {} (AHT in {} frames, spectral extension in {}, enhanced coupling in {}, transient pre-noise in {}, delta bit allocation in {})",
         coverage_list(&p.coverage).join(", "),
         p.aht_frames,
         p.spx_frames,
         p.ecpl_frames,
-        p.tpnp_frames
+        p.tpnp_frames,
+        p.dba_frames
     );
     println!(
         "EMDF:              {} frames with skip fields ({} bytes), {} containers, {} frames without one, {} false sync words, payload ids {:?}",

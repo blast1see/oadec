@@ -420,6 +420,18 @@ MUTANTS = [
      'crates/oadec-cli/src/ecpl_inject.rs',
      '        firstcplcos.fill(true);\n        return None;',
      '        return None;'),
+    ('delta bit allocation segments left out of the bit allocation',
+     'crates/oadec-eac3/src/frame.rs',
+     '            dba,\n            he,',
+     '            None,\n            he,'),
+    ('a reused delta allocation (deltbae 0) treated as none',
+     'crates/oadec-eac3/src/frame.rs',
+     'let dba = if self.deltbae[slot] == 0 || self.deltbae[slot] == 1 {',
+     'let dba = if self.deltbae[slot] == 1 {'),
+    ('delta allocation counted where a block only carries the fields',
+     'crates/oadec-eac3/src/frame.rs',
+     'if dba.is_some_and(|d| d.lengths.iter().any(|&l| l > 0)) {',
+     'if dba.is_some() {'),
 ]
 
 

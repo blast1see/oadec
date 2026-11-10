@@ -13,6 +13,7 @@ head exercises framing, the major syncs, the channel layout, the metadata
 containers and every coding tool the encoder chose.
 
     python tools/sweep.py "films-a" "films-b" --out oadec-work/sweep
+    python tools/sweep.py "films-a" --codecs ac3,eac3 --out oadec-work/sweep-ddp
     python tools/sweep.py --report oadec-work/sweep/report.json
 
 Heads that verify clean are deleted; anything with a failure is kept next to
@@ -54,7 +55,11 @@ def probe(path: Path) -> list[dict]:
         "-of", "json", str(path),
     ]
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        # UTF-8 by name: on Windows `text=True` alone decodes with the
+        # console code page, a track title outside it kills the reader thread,
+        # and the file was skipped without a word
+        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                             errors="replace", timeout=300)
         streams = json.loads(res.stdout or "{}").get("streams", [])
     except (OSError, ValueError, subprocess.SubprocessError):
         # a file ffprobe cannot open is not a decoder problem; note and move on
@@ -80,10 +85,10 @@ def verify(oadec: str, path: Path) -> dict:
     try:
         res = subprocess.run(
             [oadec, "verify", "--json", str(path)],
-            capture_output=True, text=True, timeout=1800,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800,
         )
         return json.loads(res.stdout)
-    except (subprocess.SubprocessError, json.JSONDecodeError) as e:
+    except (subprocess.SubprocessError, json.JSONDecodeError, TypeError) as e:
         return {"clean": False, "first_error": f"verify did not answer: {e}"}
 
 
@@ -112,7 +117,13 @@ def main() -> int:
     ap.add_argument("--oadec", default="target/release/oadec")
     ap.add_argument("--report", type=Path, help="print an existing report and stop")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--codecs", default=",".join(FORMATS),
+                    help="the track codecs to sweep, comma separated; a sweep "
+                         "for an AC-3 coding tool need not cut TrueHD heads")
     args = ap.parse_args()
+    codecs = {c.strip() for c in args.codecs.split(",") if c.strip()}
+    if not codecs or not codecs <= FORMATS.keys():
+        ap.error(f"--codecs takes some of {', '.join(FORMATS)}")
 
     if args.report:
         summarise(json.loads(args.report.read_text(encoding="utf-8")))
@@ -138,6 +149,8 @@ def main() -> int:
     for n, f in enumerate(files, 1):
         for s in probe(f):
             codec = s["codec_name"]
+            if codec not in codecs:
+                continue
             _, ext = FORMATS[codec]
             name = f"{f.stem[:60]}.a{s['index']}.{ext}".replace(" ", "_")
             out = args.out / name

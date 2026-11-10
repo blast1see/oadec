@@ -37,8 +37,9 @@ notes in our own words: [`docs/truehd.md`](docs/truehd.md),
 including three nothing else decodes: enhanced coupling, transient pre-noise
 processing and the JOC clip gain. Two syntax elements are implemented but
 untested for want of material and of an oracle: the enhanced-coupling angle
-and chaos terms, and delta bit allocation (rows 69 and 73 of the
-[conformance matrix](docs/audit/conformance-matrix.md)). Design and milestones:
+and chaos terms, and delta bit allocation, which no stream in reach applies
+(their rows in the [conformance matrix](docs/audit/conformance-matrix.md)).
+Design and milestones:
 [`docs/superpowers/specs/2026-09-06-oadec-design.md`](docs/superpowers/specs/2026-09-06-oadec-design.md).
 
 ## Quick start

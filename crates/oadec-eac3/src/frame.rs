@@ -1242,23 +1242,21 @@ impl<'a> Parser<'a> {
                 self.cplsleak = self.bits(3)? as u8;
             }
         }
-        // delta bit allocation
+        // delta bit allocation; `allocate` counts the coverage, where a
+        // segment reaches the masking curve
         if (!eac3 || self.dbaflde) && self.bit()? {
-            {
-                self.coverage.delta_allocation = true;
-                if cplinu {
-                    self.deltbae[CPL] = self.bits(2)? as u8;
-                }
-                for ch in 0..nf {
-                    self.deltbae[ch] = self.bits(2)? as u8;
-                }
-                if cplinu && self.deltbae[CPL] == 1 {
-                    self.dba[CPL] = self.read_dba()?;
-                }
-                for ch in 0..nf {
-                    if self.deltbae[ch] == 1 {
-                        self.dba[ch] = self.read_dba()?;
-                    }
+            if cplinu {
+                self.deltbae[CPL] = self.bits(2)? as u8;
+            }
+            for ch in 0..nf {
+                self.deltbae[ch] = self.bits(2)? as u8;
+            }
+            if cplinu && self.deltbae[CPL] == 1 {
+                self.dba[CPL] = self.read_dba()?;
+            }
+            for ch in 0..nf {
+                if self.deltbae[ch] == 1 {
+                    self.dba[ch] = self.read_dba()?;
                 }
             }
         }
@@ -1641,6 +1639,13 @@ impl<'a> Parser<'a> {
         } else {
             None
         };
+        // Carrying the fields is not using the tool: with `deltbae` 2
+        // ("perform no delta") on every channel the mask is untouched, and a
+        // stream can say so in every block. The tool is used when a segment
+        // reaches the masking curve.
+        if dba.is_some_and(|d| d.lengths.iter().any(|&l| l > 0)) {
+            self.coverage.delta_allocation = true;
+        }
         let params = self.alloc;
         let fgain = bitalloc::fast_gain(self.fgaincod[slot]);
         let snroffset = bitalloc::snr_offset(self.csnroffst, self.fsnroffst[slot]);
@@ -2270,5 +2275,81 @@ mod tests {
         );
         let mean: f64 = vals.iter().sum::<f64>() / 1000.0;
         assert!(mean.abs() < 0.1);
+    }
+
+    /// Clause 6.2.2.6 applies the segments a channel's `deltbae` points at:
+    /// 1 (new segments) and 0 (reuse the last ones) reach the masking curve,
+    /// 2 ("perform no delta") does not. The coverage names the tool only when
+    /// a segment of some length reaches the curve, because a stream can send
+    /// the fields in every block and never a delta.
+    #[test]
+    fn delta_segments_reach_the_mask_only_when_deltbae_says_so() {
+        let h = FrameHeader {
+            syntax: Syntax::Ac3,
+            stream_type: StreamType::Independent,
+            substream_id: 0,
+            frame_bytes: 768,
+            fscod: 0,
+            fscod2: None,
+            sample_rate: 48_000,
+            blocks: 6,
+            acmod: 2,
+            lfeon: false,
+            bsid: 8,
+            frmsizecod: Some(20),
+        };
+        let frame = [0u8; 768];
+        let mut p = Parser::new(&frame, &h, Options::default());
+        p.alloc = AllocParams::from_codes(2, 1, 1, 2, 7, 0);
+        p.exps[0] = [10; N];
+        p.fgaincod[0] = 4;
+        p.csnroffst = 20;
+        p.fsnroffst[0] = 0;
+        // lower the mask by 3 x 6 dB over bands 10..=14
+        p.dba[0] = DeltaBa {
+            offsets: vec![10],
+            lengths: vec![5],
+            values: vec![1],
+        };
+        let expected = |dba: Option<&DeltaBa>| {
+            let mut bap = [0u8; N];
+            bitalloc::compute(
+                &p.alloc,
+                0,
+                253,
+                &p.exps[0],
+                bitalloc::fast_gain(4),
+                bitalloc::snr_offset(20, 0),
+                None,
+                dba,
+                false,
+                &mut bap,
+            );
+            bap
+        };
+        let with = expected(Some(&p.dba[0]));
+        let without = expected(None);
+        assert_ne!(with, without, "the segment has to move the allocation");
+
+        for (deltbae, applied) in [(1u8, true), (0, true), (2, false)] {
+            p.deltbae[0] = deltbae;
+            p.coverage = Coverage::default();
+            p.allocate(0, 0, 253, None);
+            let bap = if applied { with } else { without };
+            assert_eq!(p.bap[0], bap, "deltbae {deltbae}");
+            assert_eq!(p.coverage.delta_allocation, applied, "deltbae {deltbae}");
+        }
+
+        // a segment of no length leaves the mask and the coverage alone
+        p.dba[0] = DeltaBa {
+            offsets: vec![10],
+            lengths: vec![0],
+            values: vec![1],
+        };
+        p.deltbae[0] = 1;
+        p.coverage = Coverage::default();
+        p.allocate(0, 0, 253, None);
+        assert_eq!(p.bap[0], without);
+        assert!(!p.coverage.delta_allocation);
     }
 }
