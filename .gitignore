@@ -36,8 +36,14 @@ __pycache__/
 # the ADM harness is its own Cargo project, so it builds beside its own manifest
 docs/audit/adm/harness/target/
 
-# The two encodes of the synthetic test scene are the one exception to the
+# The two encodes of the synthetic test scene are an exception to the
 # rule above: they are generated from crates/oadec-cli/tests/fixtures/
 # authored-scene.json, not taken from any title (see the README there).
 !crates/oadec-cli/tests/fixtures/authored-scene.ec3
 !crates/oadec-cli/tests/fixtures/authored-scene.mlp
+# So are the four DVD-Audio streams FFmpeg's MLP encoder wrote from generated
+# tones, one per channel; the README there gives their hashes and the build.
+!crates/oadec-cli/tests/fixtures/mlp-stereo-44k.mlp
+!crates/oadec-cli/tests/fixtures/mlp-51-96k.mlp
+!crates/oadec-cli/tests/fixtures/mlp-quad-48k.mlp
+!crates/oadec-cli/tests/fixtures/mlp-41-48k.mlp
