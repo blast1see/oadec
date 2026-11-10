@@ -15,6 +15,11 @@ Semantic Versioning.
   decode, every check word holding; four of them are fixtures
   `tests/cli_rates.rs` holds to FFmpeg's samples, their channel labels and the
   rate every output names.
+- **`verify --json` counts the frames that apply delta bit allocation**
+  (`dba_frames`), as it counts the frames of the other coding tools, and the
+  Coding tools line of `verify` ends with that count. `tools/sweep.py
+  --codecs` sweeps only the codecs it names, so a sweep for an AC-3 coding
+  tool need not cut TrueHD heads.
 
 ### Changed
 
@@ -58,6 +63,19 @@ Semantic Versioning.
   reports anything, and the regression gives it the cuts made clean. The JOC
   campaign keeps its 120 recorded sites, and the 99 the audit found silent are
   the 99 a CRC failure now reports.
+- **Delta bit allocation was named where nothing applies it.** The coverage
+  named the tool whenever a block carried `deltbaie`. But an encoder can send
+  the fields with every channel set to "perform no delta", and every library
+  track that sends them does: 221 of 1 345 in their first minute, a segment in
+  none, and Dolby's own AC-3 encoder the same. Five corpus streams carry the
+  fields, and a decoder that left the segments out decoded them to identical
+  samples, so a check on the coverage would have passed with the tool broken.
+  The coverage now names it where a segment reaches the masking curve, and a
+  unit test holds the segments to clause 6.2.2.6 (evidence 13).
+- **`tools/sweep.py` left a file out without a word on Windows.** It decoded
+  its children's output with the console code page; a track title outside it
+  killed the reader thread, and that file's tracks never reached the report.
+  It reads UTF-8 now.
 
 ## [0.8.0] - 2026-11-10
 

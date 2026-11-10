@@ -388,3 +388,41 @@ on `main` as of the media suite's merge.
 | JOC replay, 120 flips | every flip caught, exit 7 |
 | TrueHD replay, 100 flips | every flip caught, exit 7 |
 | ADM harness | skipped: it needs its own Python environment; CI runs the same stage on every pull request |
+
+## Addendum, 2026-11-10: delta bit allocation (13)
+
+The matrix had delta bit allocation as present in the library sweep but absent
+from the corpus. No stream in reach applies it, so it is absent from everything.
+
+- **What the sweep saw was the fields.** The coverage named the tool when a block
+  carried `deltbaie`. An encoder can send the fields with every channel set to
+  "perform no delta", and that is all the library does: over the first minute
+  of 1 345 AC-3 and E-AC-3 tracks the fields are in 221, all AC-3, and a segment
+  that reaches the masking curve is in none. Dolby's own AC-3 encoder does the
+  same. It writes the fields in 16 of 30 synthetic encodes (every 2.0 encode at
+  96 and 192 kbit/s, every 5.1 encode at 384) and a segment in none.
+- **The corpus carried the fields too.** Five corpus streams carry them, and a
+  decoder that leaves the segments out of the bit allocation decodes all five
+  to identical samples. A corpus check on the coverage would have passed with
+  the tool broken. The coverage now names delta bit allocation only where a
+  segment reaches the curve, and `verify --json` counts those frames as
+  `dba_frames`.
+- **What is tested.** On the five streams, "perform no delta" decodes as Dolby's
+  decoder does, with oadec inside the FFmpeg envelope on every channel. A unit
+  test holds `allocate` to clause 6.2.2.6: new and reused segments reach the
+  curve, "perform no delta" and a segment of no length do not, and the coverage
+  follows. Three mutants that break that are caught.
+- **What is not.** An applied delta has never been decoded against another
+  decoder, and E-AC-3's `dbaflde` gate has not run on real material, since no
+  E-AC-3 track carries the fields. A stream rewritten to apply a delta, its
+  mantissas requantised to the new allocation, would close it. The row stays
+  N/T.
+
+| Check | Result |
+|---|---|
+| Library, the first minute of 1 345 tracks | fields in 221 (all AC-3), a segment in none |
+| Dolby's AC-3 encoder (DEE 5.2.1), 30 synthetic encodes | fields in 16, a segment in none |
+| Corpus streams with the fields, segments left out | 5 of 5 decode to identical samples |
+| The same five against Dolby and FFmpeg | inside the envelope on every channel |
+| Unit test, three mutants | all three caught |
+| `tools/old_new.py`, 69 corpus streams | no exit code changed; the five streams' coverage, `dba_frames` and the Coding tools line differ |
