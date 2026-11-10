@@ -294,3 +294,22 @@ python tools/mutants.py
 `fifo_oracle.py` needs each encode's text log beside it, written by Dolby's
 encoder with `--extras log_format=txt`. It reads only numbers from the log. The
 paths are examples; the streams themselves are not in the repository.
+
+## Addendum, 2026-11-10: the 44.1 kHz family and 192 kHz (10)
+
+The matrix had TrueHD at 44.1, 88.2 and 176.4 kHz, and at 192 kHz, as not
+testable: no title in the library carries them. FFmpeg's TrueHD encoder writes
+all six rates, so it wrote five-second programmes at each, 2.0 and 5.1, from a
+tone per channel and a quiet sweep at 24 bits.
+
+- On all twelve streams oadec's decode of the widest presentation is the
+  encoder's input, sample for sample, and FFmpeg's decode too. No check word
+  fails.
+- `verify` passes ten and gives 7 on the two 5.1 streams at 176.4 and 192 kHz.
+  The encoder declares a peak near 9.6 Mbit/s and delivers up to 12.45 and 12.90
+  Mbit/s, the encoder fault 3.6 records; the decode is exact there.
+- Four 0.1-second streams of the same kind, tones only, are fixtures.
+  `crates/oadec-cli/tests/cli_rates.rs` holds them to FFmpeg's samples, each
+  tone to its label, and the rate to what `info --json` and the WAVE header say.
+
+This is encoder-written material, not disc material, and the matrix row says so.
