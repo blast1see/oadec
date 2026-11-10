@@ -3,6 +3,12 @@ r"""Extract raw TrueHD / E-AC-3 / AC-3 elementary streams from the test MKVs.
 Reads each MKV once (mkvextract can pull several tracks in one pass) and writes a
 manifest with sizes.  Real media never enters the repository; this only fills the
 work directory named by OADEC_MEDIA (default oadec-work).
+
+The clips the tests and gates read are heads of these tracks; a JOC head is the
+track's first 3,000,000 bytes. Every clip's recipe, size and SHA-256 is in
+docs/audit/evidence/verification-upgrade-2026-11/ (11 and 12). Disclosure Day
+(2026) and Nightcrawler (2014) went with an earlier work directory; A Quiet
+Place's web JOC track and Pi's dubbed AC-3 2.0 track stand in for them.
 """
 from __future__ import annotations
 
@@ -19,14 +25,19 @@ MKVMERGE = r"mkvmerge.exe"
 MKVEXTRACT = r"mkvextract.exe"
 WORK = Path(os.environ.get("OADEC_MEDIA", r"oadec-work"))
 
-# (mkv path, [(codec_id, language, destination relative to WORK)])
+# (mkv path, [(codec_id, language, destination relative to WORK[, channels])])
 JOBS = [
     (r"films\Pi (1998).mkv",
-     [("A_TRUEHD", "eng", "thd/pi.thd"), ("A_AC3", "eng", "ec3/pi-dd51.ac3")]),
+     [("A_TRUEHD", "eng", "thd/pi.thd"), ("A_AC3", "eng", "ec3/pi-dd51.ac3"),
+      ("A_AC3", None, "ec3/pi-dd20.ac3", 2)]),
     (r"series\The Day Of The Jackal S01\The Day Of The Jackal S01E07.mkv",
      [("A_EAC3", "eng", "ec3/jackal-s01e07.ec3")]),
-    (r"films\Disclosure Day (2026).mkv",
-     [("A_EAC3", "eng", "ec3/disclosure-web.ec3")]),
+    (r"films\A Quiet Place (2018).mkv",
+     [("A_EAC3", "eng", "ec3/quietplace-web.ec3")]),
+    (r"films\The Fifth Element (1997).mkv",
+     [("A_EAC3", "eng", "ec3/fifthelement-joc.ec3")]),
+    (r"films\Blade Runner 2049 (2017).mkv",
+     [("A_EAC3", "eng", "ec3/br2049-joc.ec3")]),
     (r"films\Talk to Me (2023).mkv",
      [("A_TRUEHD", "eng", "thd/talktome.thd"), ("A_EAC3", "eng", "ec3/talktome-joc.ec3"), ("A_AC3", "eng", "ec3/talktome-dd51.ac3")]),
     (r"films\Shaun of the Dead (2004).mkv",
@@ -40,8 +51,6 @@ JOBS = [
 ]
 
 COPIES = [
-    (r"samples\Nightcrawler (2014)-English.ec3", "ec3/nightcrawler.ec3"),
-    (r"samples\Nightcrawler (2014)-dub.ac3", "ec3/nightcrawler-dd20.ac3"),
     (r"samples\Hannibal (2001).eac3", "ec3/hannibal-ddp20.eac3"),
 ]
 BRAVEHEART_GLOB = os.path.expandvars(r"samples\Braveheart*\*.thd")
@@ -54,8 +63,10 @@ def identify(mkv: str) -> list[dict]:
     return json.loads(out.stdout)["tracks"]
 
 
-def pick(tracks: list[dict], codec_id: str, lang: str | None) -> dict | None:
+def pick(tracks: list[dict], codec_id: str, lang: str | None, channels: int | None = None) -> dict | None:
     cands = [t for t in tracks if t["type"] == "audio" and t["properties"].get("codec_id") == codec_id]
+    if channels:
+        cands = [t for t in cands if t["properties"].get("audio_channels") == channels]
     if lang:
         pref = [t for t in cands if t["properties"].get("language") == lang]
         cands = pref or cands
@@ -69,19 +80,19 @@ def main() -> int:
     only = set(sys.argv[1:])
 
     for mkv, wanted in JOBS:
-        if only and not any(Path(dst).stem in only for _, _, dst in wanted):
+        if only and not any(Path(w[2]).stem in only for w in wanted):
             continue
         if not Path(mkv).exists():
             print(f"MISSING  {mkv}", flush=True)
             continue
         tracks = identify(mkv)
         args = []
-        for codec_id, lang, dst in wanted:
+        for codec_id, lang, dst, *channels in wanted:
             dst_path = WORK / dst
             if dst_path.exists() and dst_path.stat().st_size > 0:
                 print(f"SKIP     {dst} (exists)", flush=True)
                 continue
-            t = pick(tracks, codec_id, lang)
+            t = pick(tracks, codec_id, lang, *channels)
             if t is None:
                 print(f"NOTRACK  {codec_id}/{lang} in {Path(mkv).name}", flush=True)
                 continue

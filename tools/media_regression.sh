@@ -59,9 +59,10 @@ fi
 step truehd-gates /usr/bin/bash tools/regression_gates.sh "$MEDIA" "$LOGS/gates.json"
 step joc-object-gate python tools/joc_object_gate.py --work "$MEDIA" --binary "$BIN" --out "$LOGS/objgate.json"
 
-# The corruption replays: the same seeds, the same counts.
-step replay-joc python tools/replay_fuzz.py "$MEDIA/audit/tmp/fz-joc.ec3" joc 1 120 "$LOGS/replay-joc.json"
-step replay-truehd python tools/replay_fuzz.py "$MEDIA/audit/tmp/fz-thd.thd" truehd 7 100 "$LOGS/replay-truehd.json"
+# The corruption replays: the same seeds, the same counts, on the audit's cuts
+# made clean (tools/replay_fuzz.py says why).
+step replay-joc python tools/replay_fuzz.py "$MEDIA/audit/tmp/fz-joc-clean.ec3" joc 1 120 "$LOGS/replay-joc.json"
+step replay-truehd python tools/replay_fuzz.py "$MEDIA/audit/tmp/fz-thd-clean.thd" truehd 7 100 "$LOGS/replay-truehd.json"
 
 # The ADM stages need Dolby's tools and the Python environment of the audit.
 ADM_PY="$MEDIA/audit/adm/venv/Scripts/python.exe"

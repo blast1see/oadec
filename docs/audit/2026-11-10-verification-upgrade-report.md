@@ -344,3 +344,47 @@ from the library they were first cut from, and now all 28 pass.
 `tools/joc_object_gate.py` and `tools/extract_corpus.py` still name the lost
 clips, and `tools/regression_gates.sh` needs a Dolby reference that was not
 rebuilt.
+
+## Addendum, 2026-11-10: the media regression runs again (12)
+
+Besides the media suite, `tools/media_regression.sh` reads three TrueHD gates,
+the JOC object gate and two corruption replays, and their inputs had gone with
+the old work directory too. They are rebuilt, and the whole regression passes
+on `main` as of the media suite's merge.
+
+- **The TrueHD fuzz input found again.** The evidence names `fz-thd.thd`,
+  400,000 bytes, but not its source. The campaign's stored rows name five access
+  units by byte. All five start an access unit in the first 400,000 bytes of Pi
+  (1998), and none does in eight other Atmos titles of the library. The JOC
+  input is the first 400,000 bytes of the Talk to Me head, as recorded.
+- **Dolby's dumps made again** with the Reference Player, by the recipes in
+  `docs/dolby-tools.md`. Pi's object presentation comes out at 5,075,800
+  frames, the count the gate compared before.
+- **The JOC object gate.** Disclosure Day is gone, and with it the held-out
+  Extraction and Glass Onion. The gate now measures five of the six titles the
+  audit measured, and Blade Runner 2049. A Quiet Place, Kingsman, Knives Out and
+  The Fifth Element give the audit's figures to the last printed digit, so the
+  rebuilt clips and dumps are the audit's material. Shaun of the Dead gives the
+  higher figures measured after the steep-interpolation fix.
+- **The corruption replays could not see a silent accept.** Both recorded cuts
+  end inside a frame. Since a cut tail counts as an integrity fault, the
+  unflipped cut exits 7, and so did every trial, whatever the flip. The replay
+  now refuses to judge a stream that is not clean. The regression gives it the
+  cuts made clean: whole frames for JOC, and for TrueHD the end of the last
+  access unit with a major sync, so that every restart interval but the last
+  unit has its lossless check.
+- **The same campaigns, site for site.** Seeds and counts are the recorded ones,
+  and so, mostly, are the sites. All 120 JOC sites are the recorded ones in the
+  recorded order, and the 99 the audit found silent are the 99 a CRC failure now
+  reports. 97 of the 100 TrueHD sites are the recorded ones in order, and both
+  recorded silent accepts are among them and caught.
+
+| Step | Result |
+|---|---|
+| Media suite | 28 of 28 pass |
+| The same suite without the corpus | fails, as it must |
+| TrueHD presentation 2 against FFmpeg; presentation 3 against truehdd and against Dolby | bit-exact, all three |
+| JOC object gate | 6 measured, none regressed |
+| JOC replay, 120 flips | every flip caught, exit 7 |
+| TrueHD replay, 100 flips | every flip caught, exit 7 |
+| ADM harness | skipped: it needs its own Python environment; CI runs the same stage on every pull request |

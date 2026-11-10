@@ -31,13 +31,23 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parent))
 from oadec_bin import find as find_oadec  # noqa: E402
 
-# clip -> Dolby object dump, and the name the audit filed its result under
+# clip -> Dolby object dump, and the name the audit filed its result under.
+#
+# Five of the six titles the audit measured; the sixth, Disclosure Day, went
+# with its source, as did the held-out Extraction and Glass Onion. A clip is the
+# first 3,000,000 bytes of the title's E-AC-3 JOC track and a dump is Dolby's
+# `dlbac3dec out-ch-config=21` of it (docs/dolby-tools.md). Rebuilt that way,
+# four titles give the audit's figures to the hundredth of a dB. Shaun of the
+# Dead gives the higher figures the steep-interpolation fix measured after the
+# audit (evidence/remediation/steep-offset-differential.json), so for it the
+# gate holds the audit's level, not today's. Blade Runner 2049 has no stored
+# figure and is measured only.
 TITLES = [
-    ("clips/disclosure-web-head.ec3", "ref-oar/disclosure-web-obj.f32", "disclosure-web-head"),
+    ("clips/quietplace-web-head.ec3", "ref-oar/quietplace-web-obj.f32", "quietplace"),
     ("clips/kingsman-joc-head.ec3", "ref-oar/kingsman-joc-head-obj.f32", "kingsman-joc-head"),
     ("clips/knivesout-joc-head.ec3", "ref-oar/knivesout-joc-obj.f32", "knivesout-joc-head"),
-    ("clips/extraction-web-head.ec3", "ref-oar/extraction-web-head-obj.f32", None),
-    ("clips/glassonion-web-head.ec3", "ref-oar/glassonion-web-obj.f32", None),
+    ("clips/fifthelement-joc-head.ec3", "ref-oar/fifthelement-joc-obj.f32", "fifthelement"),
+    ("clips/shaun-joc1024-head.ec3", "ref-oar/shaun-joc1024-obj.f32", "shaun-joc1024-head"),
     ("clips/br2049-joc-head.ec3", "ref-oar/br2049-obj.f32", None),
 ]
 

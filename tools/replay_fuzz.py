@@ -17,6 +17,16 @@ or a timeout makes the run exit non-zero, so a runner that reads exit codes --
 `tools/media_regression.sh` -- cannot pass over what the campaign found. A
 non-zero exit from the decoder is not a fault: it is what catching the
 corruption looks like.
+
+That reading needs a stream the commands pass clean before any flip. The
+audit's 400,000-byte cuts end inside a frame, and once a cut tail counted as an
+integrity fault every trial on them exited 7 whatever the flip, so the
+campaigns could no longer see a silent accept. Each command now runs on the
+unflipped stream first, and the campaign exits 3 without judging when one of
+them reports anything. `tools/media_regression.sh` gives it the cuts made
+clean: whole frames for E-AC-3, and for TrueHD up to the end of the last
+access unit that carries a major sync, so that every restart interval but the
+last unit has its lossless check.
 """
 from __future__ import annotations
 import json, os, random, re, shutil, subprocess, sys, tempfile
@@ -89,6 +99,24 @@ def main() -> int:
     sites = [(random.randrange(size), random.randrange(8)) for _ in range(n)]
 
     work = tempfile.mkdtemp(prefix="replay-")
+    # A stream that is already reported makes every trial exit non-zero
+    # whatever the flip; then a silent accept cannot be told from a caught one.
+    baseline = {}
+    for name, cmd in commands(kind, src, work):
+        rc, out = run(cmd)
+        said, first = judge(out)
+        baseline[name] = {"exit": rc, "reported": said, "first": first}
+    for leftover in os.listdir(work):
+        if leftover.startswith("out"):
+            os.remove(os.path.join(work, leftover))
+    unclean = {c: b for c, b in baseline.items() if b["exit"] != 0 or b["reported"]}
+    if unclean:
+        for c, b in unclean.items():
+            print(f"{c} on the unflipped stream: exit {b['exit']}, {b['first'] or 'nothing said'}",
+                  file=sys.stderr)
+        print("the stream is not clean, so the campaign cannot judge a flip", file=sys.stderr)
+        shutil.rmtree(work, ignore_errors=True)
+        return 3
     mutated = os.path.join(work, "in" + os.path.splitext(src)[1])
     trials = []
     for i, (off, bit) in enumerate(sites):
@@ -131,7 +159,7 @@ def main() -> int:
               for c, s in summary.items()}
     faults = {c: f for c, f in faults.items() if f}
     doc = {"source": src, "kind": kind, "seed": seed, "trials": n, "binary": BIN,
-           "verdict": "FAIL" if faults else "PASS", "faults": faults,
+           "baseline": baseline, "verdict": "FAIL" if faults else "PASS", "faults": faults,
            "summary": summary, "detail": trials}
     with open(out_path, "w") as f:
         json.dump(doc, f, indent=1)
