@@ -2,7 +2,7 @@
 
 use oadec_bits::{CRC16_MAJOR_SYNC, fold_nibble, xor_bytes};
 
-use crate::sync::{SIGNATURE, SYNC_FBA};
+use crate::sync::{SIGNATURE, SYNC_FBA, SYNC_FBB};
 
 /// Minimal MSB-first bit writer.
 #[derive(Debug, Default)]
@@ -94,6 +94,58 @@ pub(crate) fn atmos_major_sync() -> Vec<u8> {
     let crc = CRC16_MAJOR_SYNC.update_bytes(0, &w.bytes);
     w.push(16, u64::from(crc));
     w.bytes
+}
+
+/// Builds a DVD-Audio (FBB) major sync: 44.1 kHz, 16-bit, one two-channel
+/// substream, 28 bytes with a valid CRC-16 over the first 26.
+pub(crate) fn fbb_major_sync() -> Vec<u8> {
+    let mut w = BitWriter::default();
+    w.push(32, u64::from(SYNC_FBB));
+    // format_info
+    w.push(4, 0); // group 1 word length: 16 bits
+    w.push(4, 0xF); // group 2 word length: no group 2
+    w.push(4, 8); // group 1 rate: 44.1 kHz
+    w.push(4, 0xF); // group 2 rate: no group 2
+    w.push(4, 0); // reserved
+    w.push(4, 0); // multi_channel_type
+    w.push(3, 0); // reserved
+    w.push(5, 1); // channel assignment 1: L R
+    w.push(16, u64::from(SIGNATURE));
+    w.push(16, 0x4000); // flags: bit 14 marks the FBB syntax
+    w.push(16, 0);
+    w.push(1, 1); // variable rate
+    w.push(15, 0x0D9A);
+    w.push(4, 1); // substreams
+    w.push(4, 0); // reserved
+    w.push(8, 0x05); // substream_info
+    w.push(64, 0); // FBB channel_meaning
+    let crc = CRC16_MAJOR_SYNC.update_bytes(0, &w.bytes);
+    w.push(16, u64::from(crc));
+    assert_eq!(w.bytes.len(), crate::sync::FBB_LEN_BYTES);
+    w.bytes
+}
+
+/// A minor-sync access unit for the four-substream stream of
+/// [`atmos_major_sync`] whose first directory entry, with its extra word,
+/// spells the DVD-Audio sync pattern `F8 72 6F BB` (end pointer `0x872`), and
+/// whose header parity holds: valid framing that happens to look like a major
+/// sync of the other format.
+pub(crate) fn fbb_pattern_minor_unit(input_timing: u16) -> Vec<u8> {
+    let first_end = 0x872usize; // the end pointer the pattern spells, in words
+    let mut au = vec![0u8; 4];
+    au.extend_from_slice(&SYNC_FBB.to_be_bytes());
+    for _ in 1..4 {
+        // restart_nonexistent, and the same end pointer: empty segments
+        au.extend_from_slice(&(0x4000u16 | first_end as u16).to_be_bytes());
+    }
+    au.resize(au.len() + first_end * 2, 0x5A);
+    let words = (au.len() / 2) as u16;
+    au[0] = (words >> 8) as u8;
+    au[1] = (words & 0xFF) as u8;
+    au[2..4].copy_from_slice(&input_timing.to_be_bytes());
+    let parity = xor_bytes(&au[..4]) ^ xor_bytes(&au[4..14]);
+    au[0] |= (0xF ^ fold_nibble(parity)) << 4;
+    au
 }
 
 /// Builds an access unit around `major_sync` (optional) with the given segment

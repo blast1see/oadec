@@ -1,0 +1,381 @@
+{
+ "question": "Do the disc rows of oadec verify agree with the stream validity table Dolby's TrueHD encoder prints, pass the Blu-ray streams of the corpus, and say no where their sources do?",
+ "sources": {
+  "blu_ray": "BDA, White Paper BD-ROM Audio Visual Application Format Specifications, version 2.5 (2011), Figure 3-4: Dolby Lossless at 48, 96 and 192 kHz, eight channels at 48 and 96 kHz and six at 192 kHz, 18.64 Mbit/s, 16 to 24 bits",
+  "syntax": "Dolby TrueHD (MLP) High-Level Bitstream Description (2018), section 1: the FBA syntax is the one Blu-ray uses, the FBB syntax the one DVD-Audio uses",
+  "hd_dvd": "the verifier messages of Dolby's TrueHD encoder (dee_dthd_encoder, Dolby Encoding Engine 5.7.2), read as strings of the program and not decompiled: at high-resolution rates an FBA presentation may have at most two channels for HD DVD-Video and at most six for Blu-ray; no message bounds the rates HD DVD takes, while one refuses a sampling frequency for a stream made for Blu-ray"
+ },
+ "method": "tools: oadec verify --json on (1) every encode of Dolby's TrueHD encoder kept from the buffer work, against the stream validity table of its verification report; (2) streams FFmpeg's TrueHD encoder wrote at the rates Dolby's encoder refuses (44.1 and 192 kHz input, 'Unsupported sample-rate'), 2.0 and 5.1, since FFmpeg writes at most six channels; (3) the real corpus of the earlier evidence: Blu-ray TrueHD streams, the encoder-written deliveries and three full damaged titles. The logs and streams are not committed.",
+ "result": {
+  "dolby_encodes": {
+   "encodes": 12,
+   "rows_agree": "36 of 36",
+   "table": [
+    {
+     "encode": "7.1, 48 kHz",
+     "dolby": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "oadec": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "agree": true
+    },
+    {
+     "encode": "5.1, 96 kHz",
+     "dolby": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "oadec": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "agree": true
+    },
+    {
+     "encode": "7.1, 48 kHz",
+     "dolby": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "oadec": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "agree": true
+    },
+    {
+     "encode": "7.1, 48 kHz, --optimize-data-rate 1",
+     "dolby": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "oadec": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "agree": true
+    },
+    {
+     "encode": "7.1, 96 kHz",
+     "dolby": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "oadec": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "agree": true
+    },
+    {
+     "encode": "objects, 48 kHz",
+     "dolby": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "oadec": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "agree": true
+    },
+    {
+     "encode": "2.0, 48 kHz, white noise",
+     "dolby": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "oadec": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "agree": true
+    },
+    {
+     "encode": "2.0, 96 kHz, white noise",
+     "dolby": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "oadec": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "agree": true
+    },
+    {
+     "encode": "5.1, 96 kHz, white noise",
+     "dolby": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "oadec": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "agree": true
+    },
+    {
+     "encode": "7.1, 96 kHz, white noise, 16.5 Mbit/s",
+     "dolby": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "oadec": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "agree": true
+    },
+    {
+     "encode": "7.1, 96 kHz, white noise, 16.9 Mbit/s",
+     "dolby": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "oadec": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "agree": true
+    },
+    {
+     "encode": "7.1, 96 kHz, white noise, 17.4 Mbit/s",
+     "dolby": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "oadec": {
+      "bd": "yes",
+      "hddvd": "yes",
+      "dvda": "no"
+     },
+     "agree": true
+    }
+   ],
+   "note": "every encode is 48 or 96 kHz FBA, so the table says yes, yes, no for each; the rows that say no for other reasons are judged on the streams below"
+  },
+  "ffmpeg_streams": {
+   "what": "FFmpeg's TrueHD encoder declares a peak data rate near 9.6 Mbit/s whatever it writes; at 96 and 192 kHz with six channels it delivers above it, and at 192 kHz above 18 Mbit/s, so its pink-noise 5.1 streams carry delivery findings and fail verify on the timing (exit 7). The tone at 192 kHz stays within its bounds.",
+   "streams": [
+    {
+     "stream": "2.0, 176.4 kHz",
+     "verify_exit": 0,
+     "rows": {
+      "bd": {
+       "verdict": "no",
+       "reasons": [
+        "Blu-ray takes TrueHD at 48, 96 and 192 kHz; this stream is at 176.4 kHz"
+       ]
+      },
+      "hddvd": {
+       "verdict": "unjudged",
+       "reasons": [
+        "no public source gives the rates HD DVD takes; this stream is at 176.4 kHz"
+       ]
+      },
+      "dvda": {
+       "verdict": "no",
+       "reasons": [
+        "DVD-Audio carries the FBB syntax; this stream is FBA"
+       ]
+      }
+     }
+    },
+    {
+     "stream": "2.0, 192 kHz",
+     "verify_exit": 0,
+     "rows": {
+      "bd": {
+       "verdict": "yes",
+       "reasons": []
+      },
+      "hddvd": {
+       "verdict": "yes",
+       "reasons": []
+      },
+      "dvda": {
+       "verdict": "no",
+       "reasons": [
+        "DVD-Audio carries the FBB syntax; this stream is FBA"
+       ]
+      }
+     }
+    },
+    {
+     "stream": "5.1, 192 kHz, pink noise",
+     "verify_exit": 7,
+     "rows": {
+      "bd": {
+       "verdict": "no",
+       "reasons": [
+        "a film disc takes a stream within its delivery bounds; this one breaks rate.over_declared_peak x4799, rate.over_ceiling x4799"
+       ]
+      },
+      "hddvd": {
+       "verdict": "no",
+       "reasons": [
+        "HD DVD takes 2 channels at 176.4 and 192 kHz; presentation 1 has 6 at 192 kHz",
+        "a film disc takes a stream within its delivery bounds; this one breaks rate.over_declared_peak x4799, rate.over_ceiling x4799"
+       ]
+      },
+      "dvda": {
+       "verdict": "no",
+       "reasons": [
+        "DVD-Audio carries the FBB syntax; this stream is FBA"
+       ]
+      }
+     }
+    },
+    {
+     "stream": "5.1, 192 kHz, a tone",
+     "verify_exit": 0,
+     "rows": {
+      "bd": {
+       "verdict": "yes",
+       "reasons": []
+      },
+      "hddvd": {
+       "verdict": "no",
+       "reasons": [
+        "HD DVD takes 2 channels at 176.4 and 192 kHz; presentation 1 has 6 at 192 kHz"
+       ]
+      },
+      "dvda": {
+       "verdict": "no",
+       "reasons": [
+        "DVD-Audio carries the FBB syntax; this stream is FBA"
+       ]
+      }
+     }
+    },
+    {
+     "stream": "5.1, 44.1 kHz",
+     "verify_exit": 0,
+     "rows": {
+      "bd": {
+       "verdict": "no",
+       "reasons": [
+        "Blu-ray takes TrueHD at 48, 96 and 192 kHz; this stream is at 44.1 kHz"
+       ]
+      },
+      "hddvd": {
+       "verdict": "unjudged",
+       "reasons": [
+        "no public source gives the rates HD DVD takes; this stream is at 44.1 kHz"
+       ]
+      },
+      "dvda": {
+       "verdict": "no",
+       "reasons": [
+        "DVD-Audio carries the FBB syntax; this stream is FBA"
+       ]
+      }
+     }
+    },
+    {
+     "stream": "5.1, 48 kHz",
+     "verify_exit": 0,
+     "rows": {
+      "bd": {
+       "verdict": "yes",
+       "reasons": []
+      },
+      "hddvd": {
+       "verdict": "yes",
+       "reasons": []
+      },
+      "dvda": {
+       "verdict": "no",
+       "reasons": [
+        "DVD-Audio carries the FBB syntax; this stream is FBA"
+       ]
+      }
+     }
+    },
+    {
+     "stream": "5.1, 96 kHz, pink noise",
+     "verify_exit": 7,
+     "rows": {
+      "bd": {
+       "verdict": "no",
+       "reasons": [
+        "a film disc takes a stream within its delivery bounds; this one breaks rate.over_declared_peak x4799"
+       ]
+      },
+      "hddvd": {
+       "verdict": "no",
+       "reasons": [
+        "a film disc takes a stream within its delivery bounds; this one breaks rate.over_declared_peak x4799"
+       ]
+      },
+      "dvda": {
+       "verdict": "no",
+       "reasons": [
+        "DVD-Audio carries the FBB syntax; this stream is FBA"
+       ]
+      }
+     }
+    }
+   ]
+  },
+  "corpus": {
+   "streams": 51,
+   "bd_yes": 49,
+   "bd_no": [
+    {
+     "title": "Coco (2017)",
+     "verify_exit": 7,
+     "reasons": [
+      "a film disc takes a stream within its delivery bounds; this one breaks buffer.latency_under_frame x340, rate.over_declared_peak x25"
+     ],
+     "delivery_findings": 365,
+     "damage_regions": 7,
+     "delivery_findings_outside_damage_regions": 0
+    },
+    {
+     "title": "The Incredibles (2004)",
+     "verify_exit": 7,
+     "reasons": [
+      "a film disc takes a stream within its delivery bounds; this one breaks buffer.latency_under_frame x118, rate.over_declared_peak x3"
+     ],
+     "delivery_findings": 121,
+     "damage_regions": 2,
+     "delivery_findings_outside_damage_regions": 0
+    }
+   ],
+   "hd_dvd": {
+    "yes": 49,
+    "no": 2
+   }
+  }
+ },
+ "reading": "On 12 encodes of Dolby's encoder the rows match its validity table, 36 of 36. Where its encoder will not go, the rows follow their sources: a 5.1 stream at 192 kHz within its delivery bounds fits Blu-ray and not HD DVD; 44.1 and 176.4 kHz keep a stream off Blu-ray and leave HD DVD unjudged. 49 of the 51 corpus streams fit Blu-ray; the 2 that do not are the damaged titles, kept off by delivery findings that lie in their damage regions (365 and 121 findings, none outside a damage region); both checks are ones Dolby's encoder names in its verifier messages."
+}

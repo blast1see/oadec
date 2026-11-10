@@ -5,9 +5,11 @@ use std::path::Path;
 
 use anyhow::Result;
 use oadec_emdf::container;
+use oadec_truehd::damage::{DamageTracker, Region, Scope, scope_of};
+use oadec_truehd::sync::SYNC_FBB;
 use oadec_truehd::{
-    AccessUnit, ExtraKind, MajorSync, ParserState, SampleBuffer, Segment, StreamConfig,
-    StreamTiming, TimingModel, Unit,
+    AccessUnit, ExtraKind, Gap, Location, MajorSync, ParserState, RuleId, SampleBuffer, Segment,
+    StreamConfig, StreamTiming, Tally, TimingModel, Unit,
 };
 use serde::Serialize;
 
@@ -61,6 +63,39 @@ pub struct Failures {
 }
 
 impl Failures {
+    /// Adds `magnitude` to the counter of `rule`, if the rule had one before
+    /// rules had names (`RuleInfo::legacy_counter`).
+    pub fn bump(&mut self, rule: RuleId, magnitude: u64) {
+        let slot = match rule {
+            RuleId::AuHeaderParity => &mut self.header_parity,
+            RuleId::SyncCrc => &mut self.major_sync_crc,
+            RuleId::SyncSignature => &mut self.major_sync_signature,
+            RuleId::AuFraming => &mut self.framing_errors,
+            RuleId::ExtraHeaderParity => &mut self.extra_header_parity,
+            RuleId::ExtraTruncated => &mut self.extra_truncated,
+            RuleId::ExtraParity => &mut self.extra_evolution_parity,
+            RuleId::ExtraPadding => &mut self.extra_padding_nonzero,
+            RuleId::EvoContainer => &mut self.evolution_container_errors,
+            RuleId::EvoOamd => &mut self.oamd_errors,
+            RuleId::SyncResync => &mut self.resyncs,
+            RuleId::SyncSkippedBytes => &mut self.skipped_bytes,
+            RuleId::SyncTrailingBytes => &mut self.trailing_bytes,
+            RuleId::ConfigChanged => &mut self.config_changes,
+            RuleId::TimingInvalidBranch => &mut self.invalid_branches,
+            RuleId::SegmentSyntax => &mut self.substream_errors,
+            RuleId::BlockDataBits => &mut self.block_data_bits,
+            RuleId::SegmentParity => &mut self.segment_parity,
+            RuleId::SegmentCrc => &mut self.segment_crc,
+            RuleId::SegmentEndPointer => &mut self.segment_end,
+            RuleId::SegmentSampleCount => &mut self.sample_count,
+            RuleId::AuRestartFlag => &mut self.restart_flag,
+            RuleId::SegmentTerminator => &mut self.terminator_tail,
+            RuleId::SegmentUnexpectedTail => &mut self.unexpected_tail,
+            _ => return,
+        };
+        *slot += magnitude;
+    }
+
     /// Whether every counter is zero.
     #[must_use]
     pub fn is_clean(&self) -> bool {
@@ -161,6 +196,8 @@ pub struct ExtraStats {
     /// Payload id -> total bytes.
     pub payload_bytes: BTreeMap<u32, u64>,
     pub protected_frames: u64,
+    /// The key identifiers and protection words the Evolution frames declare.
+    pub protection: crate::protection::ProtectionStats,
 }
 
 /// What the first restart header of a substream declared.
@@ -225,6 +262,152 @@ pub struct Scan {
     pub extra: ExtraStats,
     pub failures: Failures,
     pub first_error: Option<String>,
+    /// DVD-Audio (FBB) sync patterns met inside this TrueHD stream and passed
+    /// over. Not a fault by itself: the damage that exposed one is counted
+    /// where it was found.
+    pub foreign_syncs: u64,
+    /// Every finding of the pass, by rule, with where each rule fired, and
+    /// the damage regions they add up to.
+    #[serde(skip)]
+    pub diag: Diagnostics,
+    /// Branches of the timing model already turned into findings.
+    #[serde(skip)]
+    branches_judged: usize,
+    /// The object programme the first major sync declares, for the metadata
+    /// to be held to.
+    #[serde(skip)]
+    program_from_sync: Option<oadec_spatial::Program>,
+    /// What each unit puts into the decoder buffer, kept when asked for.
+    #[serde(skip)]
+    pub layouts: Option<Vec<oadec_truehd::buffer::UnitLayout>>,
+    /// The decoder buffer, unit by unit.
+    #[serde(skip)]
+    pub fifo: Option<oadec_truehd::buffer::BufferModel>,
+}
+
+/// The findings of a pass and the damage they describe.
+#[derive(Debug, Clone, Default)]
+pub struct Diagnostics {
+    /// Every finding, by rule.
+    pub tally: Tally,
+    /// The stretches the findings made untrustworthy (after the pass).
+    pub regions: Vec<Region>,
+    /// Regions beyond the ones kept, counted only.
+    pub regions_overflow: u64,
+    damage: DamageTracker,
+    /// Substreams of the stream, for faults that damage all of them.
+    substreams: u8,
+}
+
+impl Diagnostics {
+    fn new(max_per_rule: usize) -> Self {
+        Self {
+            tally: Tally::new(max_per_rule),
+            ..Self::default()
+        }
+    }
+
+    /// Records a finding, and the damage it does if it does any.
+    fn add(
+        &mut self,
+        rule: RuleId,
+        at: Location,
+        magnitude: u64,
+        message: impl FnOnce() -> String,
+    ) {
+        if let Some(unit) = at.unit {
+            self.damage
+                .fault(unit, scope_of(rule, &at, self.substreams), rule);
+        }
+        self.tally.add(rule, at, magnitude, message);
+    }
+}
+
+/// Counts a fault under the counter its rule had before rules had names, and
+/// records it as a finding: one call, so the two cannot drift apart.
+fn fault(
+    failures: &mut Failures,
+    diag: &mut Diagnostics,
+    rule: RuleId,
+    at: Location,
+    message: impl FnOnce() -> String,
+) {
+    failures.bump(rule, 1);
+    diag.add(rule, at, 1, message);
+}
+
+/// The rule a finding of the buffer model falls under.
+fn excess_rule(excess: &oadec_truehd::buffer::Excess) -> RuleId {
+    use oadec_truehd::buffer::Excess;
+    match excess {
+        Excess::SubstreamDepth { .. } => RuleId::BufferSubstreamDepth,
+        Excess::StreamDepth { .. } => RuleId::BufferStreamDepth,
+        Excess::LatencyOver75ms { .. } => RuleId::BufferLatencyOver75ms,
+        Excess::LatencyUnderFrame { .. } => RuleId::BufferLatencyUnderFrame,
+        Excess::RateOverDeclared { .. } => RuleId::RateOverDeclaredPeak,
+        Excess::RateOverCeiling { .. } => RuleId::RateOverCeiling,
+    }
+}
+
+/// A finding of the buffer model, in words.
+fn excess_text(excess: &oadec_truehd::buffer::Excess, fs: u32) -> String {
+    use oadec_truehd::buffer::Excess;
+    let ms = |samples: u64| samples as f64 * 1000.0 / f64::from(fs);
+    match *excess {
+        Excess::SubstreamDepth {
+            substream,
+            depth,
+            allowed,
+        } => format!("substream {substream} holds {depth} bytes, {allowed} allowed"),
+        Excess::StreamDepth { depth } => {
+            format!("the stream holds {depth} bytes, the buffer every decoder has is 120000")
+        }
+        Excess::LatencyOver75ms { samples } => {
+            format!("{samples} samples ({:.1} ms) in the buffer", ms(samples))
+        }
+        Excess::LatencyUnderFrame { samples } => {
+            format!("{samples} samples in the buffer, less than one frame")
+        }
+        Excess::RateOverDeclared { bps, declared } => {
+            format!("delivered at {bps} bit/s, {declared} declared")
+        }
+        Excess::RateOverCeiling { bps } => format!("delivered at {bps} bit/s"),
+    }
+}
+
+/// Whether a major sync at access unit `index` is one of the two a bitstream
+/// may open with (Dolby, section 2.5): the first two units of the stream, or
+/// the unit a branch joins a clip at and the one after it.
+fn opens_a_bitstream(index: u64, mut branch_units: impl Iterator<Item = u64>) -> bool {
+    index <= 1 || branch_units.any(|b| b == index || b + 1 == index)
+}
+
+/// What a later major sync changes of the first one, if anything `verify`
+/// counts as a configuration change.
+fn config_change(first: &MajorSync, ms: &MajorSync) -> Option<String> {
+    if first.substreams != ms.substreams {
+        Some(format!(
+            "substreams {} -> {}",
+            first.substreams, ms.substreams
+        ))
+    } else if first.substream_info != ms.substream_info {
+        Some(format!(
+            "substream_info {:#04X} -> {:#04X}",
+            first.substream_info, ms.substream_info
+        ))
+    } else if first.extended_substream_info != ms.extended_substream_info {
+        Some(format!(
+            "extended_substream_info {} -> {}",
+            first.extended_substream_info, ms.extended_substream_info
+        ))
+    } else if first.format_info != ms.format_info {
+        Some(format!(
+            "format_info changed (rate code {} -> {})",
+            first.format_info.sampling_frequency_code, ms.format_info.sampling_frequency_code
+        ))
+    } else {
+        None
+    }
 }
 
 fn note_first(slot: &mut Option<String>, message: impl FnOnce() -> String) {
@@ -234,7 +417,7 @@ fn note_first(slot: &mut Option<String>, message: impl FnOnce() -> String) {
 }
 
 impl Scan {
-    fn new(path: &Path) -> Self {
+    fn new(path: &Path, max_per_rule: usize) -> Self {
         Self {
             file: path.display().to_string(),
             file_bytes: 0,
@@ -259,26 +442,123 @@ impl Scan {
             extra: ExtraStats::default(),
             failures: Failures::default(),
             first_error: None,
+            foreign_syncs: 0,
+            diag: Diagnostics::new(max_per_rule),
+            branches_judged: 0,
+            program_from_sync: None,
+            layouts: None,
+            fifo: None,
         }
     }
 
     fn note_error(&mut self, unit_index: u64, offset: u64, what: &str) {
-        self.failures.framing_errors += 1;
+        fault(
+            &mut self.failures,
+            &mut self.diag,
+            RuleId::AuFraming,
+            Location::unit(unit_index, offset),
+            || what.to_string(),
+        );
         note_first(&mut self.first_error, || {
             format!("access unit {unit_index} at byte {offset}: {what}")
         });
     }
 
+    /// What the extractor passed over before a unit, or at the end of the
+    /// stream: counted by `finish` from the extractor's totals, so recorded
+    /// here without a counter.
+    fn take_gap(&mut self, gap: Gap, before_unit: Option<u64>) {
+        // the unit sync was found again at, so a report can say when
+        let at = Location {
+            unit: before_unit,
+            ..Location::byte(gap.offset)
+        };
+        let before = before_unit.map_or_else(
+            || "at the end of the stream".to_string(),
+            |u| format!("before access unit {u}"),
+        );
+        if let Some(unit) = before_unit {
+            self.diag
+                .damage
+                .fault(unit, Scope::Lost(gap.bytes), RuleId::SyncSkippedBytes);
+        }
+        let tally = &mut self.diag.tally;
+        if gap.bytes > 0 {
+            tally.add(RuleId::SyncSkippedBytes, at, gap.bytes, || {
+                format!("{} bytes skipped {before}", gap.bytes)
+            });
+        }
+        if gap.major_sync_crc_failures > 0 {
+            tally.add(RuleId::SyncCrc, at, gap.major_sync_crc_failures, || {
+                format!(
+                    "{} major syncs with a failed CRC-16 among the bytes skipped {before}",
+                    gap.major_sync_crc_failures
+                )
+            });
+        }
+        if gap.resyncs > 0 {
+            tally.add(RuleId::SyncResync, at, gap.resyncs, || {
+                format!("sync lost here and found again {before}")
+            });
+        }
+        if gap.foreign_syncs > 0 {
+            tally.add(RuleId::SyncForeignPattern, at, gap.foreign_syncs, || {
+                format!(
+                    "{} DVD-Audio sync patterns among the bytes skipped {before}",
+                    gap.foreign_syncs
+                )
+            });
+        }
+    }
+
     fn take_unit(&mut self, unit: &Unit, since_major_sync: &mut u64) {
         let index = self.units;
         self.units += 1;
+        let at_unit = Location::unit(index, unit.offset);
+        if let Some(gap) = unit.gap_before {
+            self.take_gap(gap, Some(index));
+        }
+        if !unit.has_major_sync && unit.bytes.get(4..8) == Some(&SYNC_FBB.to_be_bytes()[..]) {
+            self.diag
+                .tally
+                .add(RuleId::SyncForeignPattern, at_unit, 1, || {
+                    "the directory of this minor-sync unit spells the DVD-Audio sync pattern"
+                        .to_string()
+                });
+        }
         self.min_unit_bytes = self.min_unit_bytes.min(unit.bytes.len());
         self.max_unit_bytes = self.max_unit_bytes.max(unit.bytes.len());
         self.total_unit_bytes += unit.bytes.len() as u64;
         if self.first_unit_offset.is_none() {
             self.first_unit_offset = Some(unit.offset);
         }
+        if !unit.has_major_sync && unit.bytes.get(4..6) == Some(&[0xF8, 0x72][..]) {
+            self.diag
+                .tally
+                .add(RuleId::AuSyncEmulation, at_unit, 1, || {
+                    "the directory of this minor-sync unit begins with 0xF872".to_string()
+                });
+        }
+        // A major sync interval is judged where both ends were delivered: after
+        // a gap the units between are not all here to count.
+        let mut spacing = None;
         if unit.has_major_sync {
+            let interval = *since_major_sync;
+            if self.major_syncs > 0 && unit.gap_before.is_none() {
+                if interval > 128 {
+                    self.diag
+                        .tally
+                        .add(RuleId::SyncMajorSyncInterval, at_unit, 1, || {
+                            format!(
+                                "{interval} access unit{} since the last major sync",
+                                if interval == 1 { "" } else { "s" }
+                            )
+                        });
+                }
+                if interval < 8 {
+                    spacing = Some(interval);
+                }
+            }
             self.major_syncs += 1;
             self.max_major_sync_interval = self.max_major_sync_interval.max(*since_major_sync);
             *since_major_sync = 0;
@@ -292,29 +572,57 @@ impl Scan {
                 return;
             }
         };
+        self.diag.substreams = config.substreams;
         if self.first_input_timing.is_none() {
             self.first_input_timing = Some(au.header.input_timing);
         }
         self.last_input_timing = Some(au.header.input_timing);
         if !au.header_parity_ok {
-            self.failures.header_parity += 1;
+            fault(
+                &mut self.failures,
+                &mut self.diag,
+                RuleId::AuHeaderParity,
+                at_unit,
+                || "the check nibble does not fold the header and directory to 0xF".to_string(),
+            );
         }
         if let Some(ms) = &au.major_sync {
             if !ms.crc_ok {
-                self.failures.major_sync_crc += 1;
+                fault(
+                    &mut self.failures,
+                    &mut self.diag,
+                    RuleId::SyncCrc,
+                    at_unit,
+                    || "major sync CRC-16 mismatch".to_string(),
+                );
             }
             if ms.signature != oadec_truehd::sync::SIGNATURE {
-                self.failures.major_sync_signature += 1;
+                let signature = ms.signature;
+                fault(
+                    &mut self.failures,
+                    &mut self.diag,
+                    RuleId::SyncSignature,
+                    at_unit,
+                    || format!("signature {signature:#06X}, not 0xB752"),
+                );
+            }
+            if ms.has_16ch_presentation()
+                && self.program_from_sync.is_none()
+                && let Ok(program) = crate::damf::program_from_major_sync(ms)
+            {
+                self.program_from_sync = Some(program);
             }
             match &self.first_major_sync {
                 None => self.first_major_sync = Some(ms.clone()),
                 Some(first) => {
-                    if first.substream_info != ms.substream_info
-                        || first.extended_substream_info != ms.extended_substream_info
-                        || first.substreams != ms.substreams
-                        || first.format_info != ms.format_info
-                    {
-                        self.failures.config_changes += 1;
+                    if let Some(what) = config_change(first, ms) {
+                        fault(
+                            &mut self.failures,
+                            &mut self.diag,
+                            RuleId::ConfigChanged,
+                            at_unit,
+                            || what,
+                        );
                     }
                 }
             }
@@ -329,27 +637,78 @@ impl Scan {
         }
         if let Some(extra) = &au.extra {
             self.extra.units_with_extra += 1;
+            let at_extra = Location::unit(index, unit.offset + au.segments_end() as u64);
             if !extra.header_parity_ok {
-                self.failures.extra_header_parity += 1;
+                fault(
+                    &mut self.failures,
+                    &mut self.diag,
+                    RuleId::ExtraHeaderParity,
+                    at_extra,
+                    || "the length check nibble does not fold to 0xF".to_string(),
+                );
             }
             if !extra.padding_zero {
-                self.failures.extra_padding_nonzero += 1;
+                fault(
+                    &mut self.failures,
+                    &mut self.diag,
+                    RuleId::ExtraPadding,
+                    at_extra,
+                    || "padding that is not zero".to_string(),
+                );
+            }
+            if extra.trailing_bytes > 0 {
+                let n = extra.trailing_bytes;
+                self.diag.add(RuleId::ExtraTrailingBytes, at_extra, 1, || {
+                    format!("{n} bytes after the block, before the end of the unit")
+                });
             }
             match &extra.kind {
                 ExtraKind::Padding => self.extra.padding_blocks += 1,
                 ExtraKind::Opaque(_) => self.extra.opaque_blocks += 1,
-                ExtraKind::Truncated => self.failures.extra_truncated += 1,
+                ExtraKind::Truncated => {
+                    let words = extra.length_words;
+                    fault(
+                        &mut self.failures,
+                        &mut self.diag,
+                        RuleId::ExtraTruncated,
+                        at_extra,
+                        || format!("{words} words declared; the access unit ends first"),
+                    );
+                }
                 ExtraKind::Evolution { frame, .. } => {
                     self.extra.evolution_blocks += 1;
                     if extra.parity_ok == Some(false) {
-                        self.failures.extra_evolution_parity += 1;
+                        fault(
+                            &mut self.failures,
+                            &mut self.diag,
+                            RuleId::ExtraParity,
+                            at_extra,
+                            || "parity byte mismatch".to_string(),
+                        );
                     }
                     if !frame.is_empty() {
                         self.extra.evolution_frames += 1;
                         match container::parse_evolution(frame) {
                             Ok(c) => {
+                                if c.len_bits.div_ceil(8) != frame.len() {
+                                    let (syntax, declared) = (c.len_bits.div_ceil(8), frame.len());
+                                    self.diag.add(RuleId::EvoLengthMismatch, at_extra, 1, || {
+                                        format!(
+                                            "the frame declares {declared} bytes, its container takes {syntax}"
+                                        )
+                                    });
+                                }
                                 if !c.protection.primary.is_empty() {
                                     self.extra.protected_frames += 1;
+                                }
+                                self.extra.protection.take(&c);
+                                if c.protection.primary_code == 0 {
+                                    self.diag.add(
+                                        RuleId::EvoProtectionReserved,
+                                        at_extra,
+                                        1,
+                                        || "primary protection length coded 00".to_string(),
+                                    );
                                 }
                                 for p in &c.payloads {
                                     *self.extra.payload_ids.entry(p.id).or_default() += 1;
@@ -359,6 +718,25 @@ impl Scan {
                                         match oadec_emdf::oamd::Oamd::parse(&p.data) {
                                             Ok(oamd) => {
                                                 self.extra.oamd_ok += 1;
+                                                if let Some(ps) = &self.program_from_sync {
+                                                    let from_oamd =
+                                                        oadec_spatial::Program::from_oamd(&oamd);
+                                                    if from_oamd != *ps {
+                                                        let said = format!(
+                                                            "{} bed channels and {} objects in the metadata, {} and {} in the major sync",
+                                                            from_oamd.bed_channels().len(),
+                                                            oamd.program.dynamic_objects,
+                                                            ps.bed_channels().len(),
+                                                            ps.dynamic_objects
+                                                        );
+                                                        self.diag.add(
+                                                            RuleId::EvoProgramMismatch,
+                                                            at_extra,
+                                                            1,
+                                                            || said,
+                                                        );
+                                                    }
+                                                }
                                                 self.extra.oamd_stale_sizes += oamd
                                                     .elements
                                                     .iter()
@@ -377,7 +755,13 @@ impl Scan {
                                                 self.extra.oamd_sized_updates += c.sized;
                                             }
                                             Err(e) => {
-                                                self.failures.oamd_errors += 1;
+                                                fault(
+                                                    &mut self.failures,
+                                                    &mut self.diag,
+                                                    RuleId::EvoOamd,
+                                                    at_extra,
+                                                    || e.to_string(),
+                                                );
                                                 note_first(&mut self.first_error, || {
                                                     format!("access unit {index}: OAMD: {e}")
                                                 });
@@ -387,7 +771,13 @@ impl Scan {
                                 }
                             }
                             Err(e) => {
-                                self.failures.evolution_container_errors += 1;
+                                fault(
+                                    &mut self.failures,
+                                    &mut self.diag,
+                                    RuleId::EvoContainer,
+                                    at_extra,
+                                    || e.to_string(),
+                                );
                                 note_first(&mut self.first_error, || {
                                     format!("access unit {index}: evolution frame: {e}")
                                 });
@@ -414,7 +804,52 @@ impl Scan {
         if let Some(model) = &mut self.timing {
             model.begin_unit(au.header.input_timing, u32::from(au.header.length_words));
         }
-        self.take_segments(&au, unit, index);
+        let mut layout = oadec_truehd::buffer::UnitLayout {
+            index,
+            offset: unit.offset,
+            len_bytes: unit.bytes.len() as u32,
+            input_timing: au.header.input_timing,
+            major_sync_bytes: au.major_sync.as_ref().map_or(0, |m| m.len_bytes as u32),
+            extra_bytes: (unit.bytes.len() - au.segments_end()) as u32,
+            substreams: config.substreams,
+            ..Default::default()
+        };
+        for (i, e) in au.directory.iter().enumerate().take(4) {
+            layout.directory_bytes[i] = if e.extra_word { 4 } else { 2 };
+            layout.substream_bytes[i] = au.segment_range(i).len() as u32;
+        }
+        self.take_segments(&au, unit, index, &mut layout);
+        if let Some(ms) = &au.major_sync {
+            let peak = ms.peak_bit_rate().unwrap_or(0);
+            match &mut self.fifo {
+                Some(model) => model.set_declared_peak(peak),
+                None => {
+                    // a copied presentation has a decoder too: it reads the
+                    // substreams of the presentation it copies, as the
+                    // verification report of Dolby's encoder counts it
+                    let masks = core::array::from_fn(|p| match config.presentations.kind(p) {
+                        oadec_truehd::presentation::PresentationKind::Invalid => 0,
+                        _ => config.presentations.mask(p),
+                    });
+                    self.fifo = Some(oadec_truehd::buffer::BufferModel::new(
+                        config.sampling_frequency,
+                        config.samples_per_au,
+                        peak,
+                        masks,
+                    ));
+                }
+            }
+        }
+        if let Some(model) = &mut self.fifo {
+            for excess in model.take(&layout) {
+                self.diag.tally.add(excess_rule(&excess), at_unit, 1, || {
+                    excess_text(&excess, config.sampling_frequency)
+                });
+            }
+        }
+        if let Some(layouts) = &mut self.layouts {
+            layouts.push(layout);
+        }
         if let Some(model) = &mut self.timing {
             model.end_unit();
             let stats = &mut self.timing_stats;
@@ -424,6 +859,53 @@ impl Scan {
             stats.valid_branches = model.valid_branches() as u64;
             stats.invalid_branches = model.invalid_branches() as u64;
             self.failures.invalid_branches = stats.invalid_branches;
+            for b in &model.branches[self.branches_judged..] {
+                if !b.is_valid() {
+                    let c = b.conditions;
+                    let failed = [
+                        (!c.advance_step, "advance step"),
+                        (!c.fifo_duration, "FIFO duration"),
+                        (!c.within_75ms, "75 ms"),
+                        (!c.data_rate, "data rate"),
+                    ]
+                    .iter()
+                    .filter(|(f, _)| *f)
+                    .map(|(_, n)| *n)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                    let at = if b.unit == index {
+                        at_unit
+                    } else {
+                        Location {
+                            unit: Some(b.unit),
+                            ..Location::default()
+                        }
+                    };
+                    // counted above from the model, as before rules had names
+                    self.diag.tally.add(RuleId::TimingInvalidBranch, at, 1, || {
+                        format!(
+                            "advance {} -> {}; failed: {}",
+                            b.prev_advance,
+                            b.advance,
+                            if failed.is_empty() { "none" } else { &failed }
+                        )
+                    });
+                }
+            }
+            self.branches_judged = model.branches.len();
+            if let Some(interval) = spacing {
+                let branch_units = model.branches.iter().rev().take(2).map(|b| b.unit);
+                if !opens_a_bitstream(index, branch_units) {
+                    self.diag
+                        .tally
+                        .add(RuleId::SyncMajorSyncSpacing, at_unit, 1, || {
+                            format!(
+                                "{interval} access unit{} since the last major sync",
+                                if interval == 1 { "" } else { "s" }
+                            )
+                        });
+                }
+            }
             while stats.branches.len() < model.branches.len() && stats.branches.len() < 64 {
                 let b = model.branches[stats.branches.len()];
                 stats.branches.push(BranchReport {
@@ -453,15 +935,31 @@ impl Scan {
     }
 
     /// Parses every substream segment of one access unit and tallies the results.
-    fn take_segments(&mut self, au: &AccessUnit, unit: &Unit, index: u64) {
+    fn take_segments(
+        &mut self,
+        au: &AccessUnit,
+        unit: &Unit,
+        index: u64,
+        layout: &mut oadec_truehd::buffer::UnitLayout,
+    ) {
         let Some(parser) = self.parser.as_mut() else {
             return;
         };
         let count = parser.substreams.min(au.directory.len()).min(4);
+        let mut unit_output_timing: Option<u16> = None;
+        let mut timing_disagrees = false;
         for i in 0..count {
             let entry = &au.directory[i];
-            let Some(bytes) = unit.bytes.get(au.segment_range(i)) else {
-                self.failures.framing_errors += 1;
+            let range = au.segment_range(i);
+            let at_seg = Location::unit(index, unit.offset + range.start as u64).in_substream(i);
+            let Some(bytes) = unit.bytes.get(range.clone()) else {
+                fault(
+                    &mut self.failures,
+                    &mut self.diag,
+                    RuleId::AuFraming,
+                    at_seg,
+                    || "the substream's range lies outside the unit".to_string(),
+                );
                 note_first(&mut self.first_error, || {
                     format!("access unit {index}: substream {i} range outside the unit")
                 });
@@ -471,20 +969,28 @@ impl Scan {
                 self.substreams[i].skipped += 1;
                 continue;
             }
-            let seg = match Segment::parse(bytes, parser, i, entry.crc_present, &mut self.buffer) {
-                Ok(seg) => seg,
-                Err(e) => {
-                    self.failures.substream_errors += 1;
-                    note_first(&mut self.first_error, || {
-                        format!(
-                            "access unit {index} at byte {}: substream {i}: {e}",
-                            unit.offset
-                        )
-                    });
-                    parser.substream[i].restart_seen = false;
-                    continue;
-                }
-            };
+            let seg =
+                match Segment::parse_located(bytes, parser, i, entry.crc_present, &mut self.buffer)
+                {
+                    Ok(seg) => seg,
+                    Err((e, bit)) => {
+                        fault(
+                            &mut self.failures,
+                            &mut self.diag,
+                            RuleId::SegmentSyntax,
+                            at_seg.at_bit(unit.offset + range.start as u64, bit),
+                            || e.to_string(),
+                        );
+                        note_first(&mut self.first_error, || {
+                            format!(
+                                "access unit {index} at byte {}: substream {i}: {e}",
+                                unit.offset
+                            )
+                        });
+                        parser.substream[i].restart_seen = false;
+                        continue;
+                    }
+                };
             if let (Some(model), Some(rh)) = (
                 self.timing.as_mut(),
                 seg.blocks.first().and_then(|b| b.restart.as_ref()),
@@ -497,6 +1003,29 @@ impl Scan {
             let ss = &parser.substream[i];
             let st = &mut self.substreams[i];
             let f = &mut self.failures;
+            let d = &mut self.diag;
+            if let Some(rh) = seg.blocks.first().and_then(|b| b.restart.as_ref()) {
+                layout.output_timing[i] = Some(rh.output_timing);
+                layout.restart_channels[i] = Some(rh.max_chan.saturating_sub(rh.min_chan) + 1);
+                match unit_output_timing {
+                    Some(first) if first != rh.output_timing && !timing_disagrees => {
+                        timing_disagrees = true;
+                        let other = rh.output_timing;
+                        d.add(RuleId::TimingOutputTimingDisagree, at_seg, 1, || {
+                            format!("output_timing {other} here, {first} in an earlier substream")
+                        });
+                    }
+                    None => unit_output_timing = Some(rh.output_timing),
+                    _ => {}
+                }
+            }
+            let block_limit = if ss.sync_word == 0x31EA { 4 } else { 2 };
+            if seg.blocks.len() > block_limit {
+                let (n, word) = (seg.blocks.len(), ss.sync_word);
+                d.add(RuleId::SegmentBlockCount, at_seg, 1, || {
+                    format!("{n} blocks; a {word:#06X} segment carries at most {block_limit}")
+                });
+            }
             st.segments += 1;
             st.blocks += seg.blocks.len() as u64;
             st.max_blocks_per_segment = st.max_blocks_per_segment.max(seg.blocks.len() as u64);
@@ -520,7 +1049,14 @@ impl Scan {
                 }
             }
             if entry.restart_nonexistent == seg.has_restart {
-                f.restart_flag += 1;
+                let has = seg.has_restart;
+                fault(f, d, RuleId::AuRestartFlag, at_seg, || {
+                    format!(
+                        "restart_nonexistent says {}, the segment {} a restart header",
+                        if has { "none" } else { "one" },
+                        if has { "has" } else { "has no" }
+                    )
+                });
                 note_first(&mut self.first_error, || {
                     format!(
                         "access unit {index}: substream {i}: restart_nonexistent flag contradicts the segment"
@@ -532,7 +1068,9 @@ impl Scan {
                     st.protected_blocks += 1;
                 }
                 if !b.block_data_bits_ok {
-                    f.block_data_bits += 1;
+                    fault(f, d, RuleId::BlockDataBits, at_seg, || {
+                        "block data bit count mismatch".to_string()
+                    });
                     note_first(&mut self.first_error, || {
                         format!("access unit {index}: substream {i}: block data bit count mismatch")
                     });
@@ -545,7 +1083,10 @@ impl Scan {
                 }
             }
             if !seg.sample_count_ok {
-                f.sample_count += 1;
+                let samples = seg.samples;
+                fault(f, d, RuleId::SegmentSampleCount, at_seg, || {
+                    format!("{samples} samples in the segment")
+                });
                 note_first(&mut self.first_error, || {
                     format!(
                         "access unit {index}: substream {i}: {} samples in the segment",
@@ -557,13 +1098,25 @@ impl Scan {
                 st.terminated_segments += 1;
                 if t.zero_samples_indicated {
                     st.zero_sample_segments += 1;
+                    let spa = parser.samples_per_au;
+                    if usize::from(t.zero_samples) >= spa {
+                        let n = t.zero_samples;
+                        d.add(RuleId::SegmentZeroSamples, at_seg, 1, || {
+                            format!("{n} added samples in a unit of {spa}")
+                        });
+                    }
                 }
                 if !t.tail_ok {
-                    f.terminator_tail += 1;
+                    fault(f, d, RuleId::SegmentTerminator, at_seg, || {
+                        "the termination word ends in neither 0x1234 nor a zero-sample count"
+                            .to_string()
+                    });
                 }
             }
             if seg.unexpected_tail {
-                f.unexpected_tail += 1;
+                fault(f, d, RuleId::SegmentUnexpectedTail, at_seg, || {
+                    "data where a termination word would fit".to_string()
+                });
                 note_first(&mut self.first_error, || {
                     format!(
                         "access unit {index}: substream {i}: unexpected data before the end pointer"
@@ -571,19 +1124,26 @@ impl Scan {
                 });
             }
             if !seg.parity_ok {
-                f.segment_parity += 1;
+                fault(f, d, RuleId::SegmentParity, at_seg, || {
+                    "parity mismatch".to_string()
+                });
                 note_first(&mut self.first_error, || {
                     format!("access unit {index}: substream {i}: parity mismatch")
                 });
             }
             if !seg.crc_ok {
-                f.segment_crc += 1;
+                fault(f, d, RuleId::SegmentCrc, at_seg, || {
+                    "CRC mismatch".to_string()
+                });
                 note_first(&mut self.first_error, || {
                     format!("access unit {index}: substream {i}: CRC mismatch")
                 });
             }
             if !seg.end_ok {
-                f.segment_end += 1;
+                let (len, total) = (seg.len_bits, bytes.len() * 8);
+                fault(f, d, RuleId::SegmentEndPointer, at_seg, || {
+                    format!("segment ended at bit {len} of {total}")
+                });
                 note_first(&mut self.first_error, || {
                     format!(
                         "access unit {index}: substream {i}: segment ended at bit {} of {}",
@@ -592,15 +1152,43 @@ impl Scan {
                     )
                 });
             }
+            let clean_segment = seg.parity_ok
+                && seg.crc_ok
+                && seg.end_ok
+                && seg.sample_count_ok
+                && !seg.unexpected_tail
+                && seg.terminator.is_none_or(|t| t.tail_ok)
+                && seg.blocks.iter().all(|b| b.block_data_bits_ok)
+                && entry.restart_nonexistent != seg.has_restart;
+            if seg.has_restart && clean_segment {
+                self.diag.damage.restart(index, i);
+            }
         }
     }
 
     fn finish(&mut self, summary: PassSummary) {
+        if let Some(gap) = summary.final_gap {
+            self.take_gap(gap, None);
+        }
+        if summary.trailing_bytes > 0 {
+            let n = summary.trailing_bytes;
+            self.diag.tally.add(
+                RuleId::SyncTrailingBytes,
+                Location::byte(summary.file_bytes.saturating_sub(n)),
+                n,
+                || format!("{n} bytes after the last access unit do not make one"),
+            );
+        }
+        let damage = std::mem::take(&mut self.diag.damage);
+        let (regions, overflow) = damage.finish(self.units.saturating_sub(1));
+        self.diag.regions = regions;
+        self.diag.regions_overflow = overflow;
         self.file_bytes = summary.file_bytes;
         self.failures.resyncs = summary.stats.resyncs;
         self.failures.skipped_bytes = summary.stats.skipped_bytes;
         self.failures.trailing_bytes = summary.trailing_bytes;
         self.failures.major_sync_crc += summary.stats.major_sync_crc_failures;
+        self.foreign_syncs = summary.stats.foreign_syncs;
         if self.min_unit_bytes == usize::MAX {
             self.min_unit_bytes = 0;
         }
@@ -621,9 +1209,25 @@ impl Scan {
     }
 }
 
-/// Scans a whole file.
+/// Scans a whole file, listing up to [`Tally::DEFAULT_MAX_PER_RULE`] findings
+/// of each rule in full.
 pub fn scan(path: &Path) -> Result<Scan> {
-    let mut scan = Scan::new(path);
+    scan_with(path, Tally::DEFAULT_MAX_PER_RULE)
+}
+
+/// Scans a whole file, listing up to `max_per_rule` findings of each rule in
+/// full (0 lists all). The limit never changes a count or a verdict.
+pub fn scan_with(path: &Path, max_per_rule: usize) -> Result<Scan> {
+    scan_keeping(path, max_per_rule, false)
+}
+
+/// Like [`scan_with`], also keeping what every unit puts into the decoder
+/// buffer when `keep_layouts` is set.
+pub fn scan_keeping(path: &Path, max_per_rule: usize, keep_layouts: bool) -> Result<Scan> {
+    let mut scan = Scan::new(path, max_per_rule);
+    if keep_layouts {
+        scan.layouts = Some(Vec::new());
+    }
     let mut since_major_sync = 0u64;
     let summary = input::for_each_unit(path, |unit| {
         scan.take_unit(&unit, &mut since_major_sync);
@@ -636,6 +1240,41 @@ pub fn scan(path: &Path) -> Result<Scan> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A bitstream may open with two major syncs in a row: at the start of the
+    /// stream and at every clip a branch joins, as every branch of a full
+    /// title on disc does; nowhere else.
+    #[test]
+    fn two_major_syncs_in_a_row_open_a_bitstream_and_nothing_else() {
+        let none = || std::iter::empty();
+        assert!(opens_a_bitstream(0, none()));
+        assert!(opens_a_bitstream(1, none()));
+        assert!(!opens_a_bitstream(2, none()));
+        assert!(opens_a_bitstream(54_205, [54_205].into_iter()));
+        assert!(opens_a_bitstream(54_206, [54_205].into_iter()));
+        assert!(!opens_a_bitstream(54_207, [54_205].into_iter()));
+        assert!(!opens_a_bitstream(54_204, [54_205].into_iter()));
+    }
+
+    /// A rule bumps the counter its catalog entry names, by the magnitude, and
+    /// no other; a rule without a counter bumps none.
+    #[test]
+    fn every_rule_bumps_the_counter_the_catalog_names() {
+        for rule in RuleId::ALL {
+            let mut f = Failures::default();
+            f.bump(*rule, 3);
+            let value = serde_json::to_value(f).unwrap();
+            let fields = value.as_object().unwrap();
+            let total: u64 = fields.values().map(|v| v.as_u64().unwrap()).sum();
+            match rule.info().legacy_counter {
+                Some(name) => {
+                    assert_eq!(fields[name], 3, "{} -> {name}", rule.info().id);
+                    assert_eq!(total, 3, "{} bumped more than its counter", rule.info().id);
+                }
+                None => assert_eq!(total, 0, "{} has no counter", rule.info().id),
+            }
+        }
+    }
 
     /// Every counter the TrueHD verdict reads, one at a time.
     ///
@@ -686,11 +1325,22 @@ mod tests {
         }
 
         // and every `u64` of the struct is in that list, so a counter added
-        // later cannot sit outside the verdict unnoticed
+        // later cannot sit outside the verdict unnoticed: the serialized
+        // struct has exactly the listed keys, each of them set by its entry
         let mut all = Failures::default();
         for (_, set) in counters {
             set(&mut all);
         }
         assert!(!all.is_clean());
+        let value = serde_json::to_value(all).unwrap();
+        let keys = value.as_object().unwrap();
+        assert_eq!(
+            keys.len(),
+            counters.len(),
+            "a counter is missing from the list"
+        );
+        for (name, _) in counters {
+            assert_eq!(keys[name], 1, "{name} is not the field its entry sets");
+        }
     }
 }

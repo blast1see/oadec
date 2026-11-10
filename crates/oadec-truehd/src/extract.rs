@@ -4,10 +4,17 @@
 //! stream by the length field of every access-unit header. Whenever a header looks
 //! wrong (zero length, failed nibble parity, a major sync whose CRC fails) it drops
 //! bytes until the next verified major sync and reports how many were skipped.
+//!
+//! Once locked, only the sync pattern of the stream's own format is a major sync.
+//! The pattern of the other format is four bytes like any other: met at the
+//! start of a unit it leaves the unit a minor-sync one for the parity to judge,
+//! and met while hunting for sync it is skipped and counted. It used to end the
+//! whole run, so a damaged region of a TrueHD stream that happened to hold the
+//! DVD-Audio pattern turned a recoverable fault into exit 2.
 
 use crate::au::AuHeader;
 use crate::error::{Error, Result};
-use crate::sync::{MajorSync, SYNC_FBB};
+use crate::sync::{MajorSync, SYNC_FBA, SYNC_FBB};
 
 /// Bytes handed to the caller: one access unit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,6 +27,29 @@ pub struct Unit {
     pub has_major_sync: bool,
     /// Sync was (re)acquired at this access unit.
     pub resynced: bool,
+    /// What the extractor passed over between the previous unit and this one.
+    pub gap_before: Option<Gap>,
+}
+
+/// Bytes the extractor passed over between two access units: where the
+/// damage it recovered from is.
+///
+/// The extractor counts what it skips over the whole stream; a gap says where
+/// each run of it was, so a report can point at the place rather than give a
+/// total. Summed over every unit and [`Extractor::take_gap`], the fields equal
+/// the matching [`ExtractStats`] counters.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Gap {
+    /// Stream offset of the first byte passed over.
+    pub offset: u64,
+    /// Bytes skipped.
+    pub bytes: u64,
+    /// Major syncs among them whose CRC-16 failed.
+    pub major_sync_crc_failures: u64,
+    /// Sync patterns of the other format among them.
+    pub foreign_syncs: u64,
+    /// Times sync was found again after it was lost here.
+    pub resyncs: u64,
 }
 
 /// Extraction statistics.
@@ -35,6 +65,10 @@ pub struct ExtractStats {
     pub skipped_bytes: u64,
     /// Major syncs whose CRC-16 failed.
     pub major_sync_crc_failures: u64,
+    /// Sync patterns of the other format (DVD-Audio FBB inside a TrueHD stream)
+    /// met and passed over: never a fault by itself, the damage that exposed
+    /// them is counted where it is found.
+    pub foreign_syncs: u64,
 }
 
 /// Streaming access-unit extractor.
@@ -48,6 +82,10 @@ pub struct Extractor {
     locked: bool,
     substreams: Option<u8>,
     ever_locked: bool,
+    /// The sync pattern of the stream, from the first major sync locked onto.
+    format_sync: Option<u32>,
+    /// What has been passed over since the last unit handed out.
+    gap: Option<Gap>,
     /// Statistics so far.
     pub stats: ExtractStats,
 }
@@ -73,8 +111,35 @@ impl Extractor {
             locked: false,
             substreams: None,
             ever_locked: false,
+            format_sync: None,
+            gap: None,
             stats: ExtractStats::default(),
         }
+    }
+
+    /// What has been passed over since the last unit handed out, if anything:
+    /// after [`Extractor::finish`], the damage at the end of the stream that
+    /// no unit followed.
+    pub fn take_gap(&mut self) -> Option<Gap> {
+        self.gap.take()
+    }
+
+    /// The gap being built, opened at the current position if there is none.
+    fn gap_here(&mut self) -> &mut Gap {
+        let offset = self.base + self.pos as u64;
+        self.gap.get_or_insert(Gap {
+            offset,
+            ..Gap::default()
+        })
+    }
+
+    fn note_crc_failure(&mut self) {
+        self.stats.major_sync_crc_failures += 1;
+        self.gap_here().major_sync_crc_failures += 1;
+    }
+
+    fn note_foreign_in_gap(&mut self) {
+        self.gap_here().foreign_syncs += 1;
     }
 
     /// Appends stream bytes.
@@ -108,7 +173,9 @@ impl Extractor {
 
     fn skip_to(&mut self, new_pos: usize) {
         if new_pos > self.pos {
-            self.stats.skipped_bytes += (new_pos - self.pos) as u64;
+            let n = (new_pos - self.pos) as u64;
+            self.stats.skipped_bytes += n;
+            self.gap_here().bytes += n;
             self.pos = new_pos;
         }
     }
@@ -138,20 +205,28 @@ impl Extractor {
                 self.buf[sync_at + 3],
             ]);
             if pattern == SYNC_FBB {
-                return Err(Error::UnsupportedFbb);
+                // A DVD-Audio stream only when nothing else was locked onto and
+                // the major sync verifies; otherwise four bytes met by chance.
+                if self.format_sync.is_none() && MajorSync::fbb_crc_ok(&self.buf[sync_at..]) {
+                    return Err(Error::UnsupportedFbb);
+                }
+                self.stats.foreign_syncs += 1;
+                self.note_foreign_in_gap();
+                self.skip_to(sync_at + 1);
+                continue;
             }
             match MajorSync::parse(&self.buf[sync_at..]) {
                 Ok(ms) if ms.crc_ok => {
                     self.skip_to(sync_at - 4);
                     self.locked = true;
                     self.substreams = Some(ms.substreams);
+                    self.format_sync = Some(SYNC_FBA);
                     return Ok(true);
                 }
                 Ok(_) => {
-                    self.stats.major_sync_crc_failures += 1;
+                    self.note_crc_failure();
                     self.skip_to(sync_at + 1);
                 }
-                Err(Error::UnsupportedFbb) => return Err(Error::UnsupportedFbb),
                 Err(_) => self.skip_to(sync_at + 1),
             }
         }
@@ -193,6 +268,7 @@ impl Extractor {
                 resynced = self.ever_locked;
                 if self.ever_locked {
                     self.stats.resyncs += 1;
+                    self.gap_here().resyncs += 1;
                 }
                 self.ever_locked = true;
             }
@@ -211,7 +287,12 @@ impl Extractor {
             }
             let start = self.pos;
             let mut major_sync_len = 0;
-            let has_major_sync = MajorSync::pattern_at(&self.buf[start + 4..]).is_some();
+            let pattern = MajorSync::pattern_at(&self.buf[start + 4..]);
+            let has_major_sync = pattern.is_some() && pattern == self.format_sync;
+            let foreign = pattern.is_some() && !has_major_sync;
+            if foreign {
+                self.stats.foreign_syncs += 1;
+            }
             if has_major_sync {
                 match MajorSync::parse(&self.buf[start + 4..start + len]) {
                     Ok(ms) if ms.crc_ok => {
@@ -219,12 +300,11 @@ impl Extractor {
                         self.substreams = Some(ms.substreams);
                     }
                     Ok(_) => {
-                        self.stats.major_sync_crc_failures += 1;
+                        self.note_crc_failure();
                         self.locked = false;
                         self.skip_to(start + 1);
                         continue;
                     }
-                    Err(Error::UnsupportedFbb) => return Err(Error::UnsupportedFbb),
                     Err(_) => {
                         self.locked = false;
                         self.skip_to(start + 1);
@@ -233,6 +313,9 @@ impl Extractor {
                 }
             }
             if !self.header_parity_ok(start, len, major_sync_len) {
+                if foreign {
+                    self.note_foreign_in_gap();
+                }
                 self.locked = false;
                 self.skip_to(start + 1);
                 continue;
@@ -248,6 +331,7 @@ impl Extractor {
                 bytes,
                 has_major_sync,
                 resynced,
+                gap_before: self.gap.take(),
             }));
         }
     }
@@ -267,7 +351,7 @@ impl Extractor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testutil::{atmos_major_sync, build_au};
+    use crate::testutil::{atmos_major_sync, build_au, fbb_major_sync, fbb_pattern_minor_unit};
 
     fn stream() -> (Vec<u8>, Vec<Vec<u8>>) {
         let ms = atmos_major_sync();
@@ -340,12 +424,143 @@ mod tests {
     }
 
     #[test]
-    fn fbb_is_refused() {
-        let (mut bytes, _) = stream();
-        bytes[7] = 0xBB;
+    fn a_gap_says_where_the_skipped_bytes_were_and_adds_up_to_the_totals() {
+        let (bytes, units) = stream();
+        let mut data = vec![0x11u8; 3]; // leading garbage
+        data.extend_from_slice(&bytes);
+        let second = 3 + units[0].len();
+        data[second + 3] ^= 0x01; // the second unit fails its parity
+        data.extend_from_slice(&units[0]);
+        let mut ex = Extractor::new();
+        ex.push(&data);
+        let mut got = Vec::new();
+        while let Some(u) = ex.next_unit().unwrap() {
+            got.push(u);
+        }
+        let (rest, trailing) = ex.finish().unwrap();
+        got.extend(rest);
+        assert_eq!(trailing, 0);
+        assert_eq!(got.len(), 2);
+        assert_eq!(
+            got[0].gap_before,
+            Some(Gap {
+                offset: 0,
+                bytes: 3,
+                ..Gap::default()
+            })
+        );
+        assert_eq!(
+            got[1].gap_before,
+            Some(Gap {
+                offset: second as u64,
+                bytes: (units[1].len() + units[2].len()) as u64,
+                resyncs: 1,
+                ..Gap::default()
+            })
+        );
+        let gaps: Vec<Gap> = got.iter().filter_map(|u| u.gap_before).collect();
+        assert_eq!(
+            gaps.iter().map(|g| g.bytes).sum::<u64>(),
+            ex.stats.skipped_bytes
+        );
+        assert_eq!(
+            gaps.iter().map(|g| g.resyncs).sum::<u64>(),
+            ex.stats.resyncs
+        );
+        assert_eq!(ex.take_gap(), None);
+    }
+
+    #[test]
+    fn a_dvd_audio_stream_is_refused_by_name() {
+        let ms = fbb_major_sync();
+        let seg = [0x5Au8; 4];
+        let mut bytes = build_au(Some(&ms), &[&seg], &[], 0x0100);
+        for k in 1..8 {
+            bytes.extend_from_slice(&build_au(None, &[&seg], &[], 0x0100 + 0x28 * k));
+        }
         let mut ex = Extractor::new();
         ex.push(&bytes);
         assert!(matches!(ex.next_unit(), Err(Error::UnsupportedFbb)));
+    }
+
+    #[test]
+    fn an_fbb_pattern_that_does_not_verify_is_four_bytes_like_any_other() {
+        // the DVD-Audio pattern with a broken CRC in front of a TrueHD stream:
+        // a coincidence, skipped, and the stream behind it is locked onto
+        let mut fbb = fbb_major_sync();
+        fbb[12] ^= 0x01;
+        let (stream, units) = stream();
+        let mut data = vec![0u8; 4];
+        data.extend_from_slice(&fbb);
+        data.extend_from_slice(&stream);
+        let mut ex = Extractor::new();
+        ex.push(&data);
+        let mut got = Vec::new();
+        while let Some(u) = ex.next_unit().unwrap() {
+            got.push(u);
+        }
+        let (rest, trailing) = ex.finish().unwrap();
+        got.extend(rest);
+        assert_eq!(trailing, 0);
+        assert_eq!(got.len(), 3);
+        assert_eq!(got[0].bytes, units[0]);
+        assert_eq!(ex.stats.foreign_syncs, 1);
+        assert_eq!(ex.stats.skipped_bytes, (4 + fbb.len()) as u64);
+    }
+
+    #[test]
+    fn a_unit_that_spells_the_other_pattern_is_delivered_like_any_other() {
+        // valid framing that happens to spell the DVD-Audio pattern where a
+        // major sync would sit: a minor-sync unit, delivered, with no resync
+        let ms = atmos_major_sync();
+        let seg = [0x5Au8; 4];
+        let au1 = build_au(Some(&ms), &[&seg, &seg, &seg, &seg], &[], 0x0100);
+        let odd = fbb_pattern_minor_unit(0x0128);
+        let au3 = build_au(None, &[&seg, &seg, &seg, &seg], &[], 0x0150);
+        let mut data = au1;
+        data.extend_from_slice(&odd);
+        data.extend_from_slice(&au3);
+        let mut ex = Extractor::new();
+        ex.push(&data);
+        let mut got = Vec::new();
+        while let Some(u) = ex.next_unit().unwrap() {
+            got.push(u);
+        }
+        let (rest, trailing) = ex.finish().unwrap();
+        got.extend(rest);
+        assert_eq!(trailing, 0);
+        assert_eq!(got.len(), 3);
+        assert_eq!(got[1].bytes, odd);
+        assert!(!got[1].has_major_sync);
+        assert_eq!(ex.stats.resyncs, 0);
+        assert_eq!(ex.stats.foreign_syncs, 1);
+    }
+
+    #[test]
+    fn an_fbb_pattern_inside_a_locked_stream_does_not_end_the_run() {
+        // damage that leaves the DVD-Audio pattern where a major sync would sit
+        // in a minor-sync unit: the unit fails its parity and the stream resyncs
+        // at the next major sync, as for any other damage -- it used to end the
+        // whole run with `UnsupportedFbb`
+        let (bytes, units) = stream();
+        let mut data = bytes.clone();
+        let off = units[0].len();
+        data[off + 4..off + 8].copy_from_slice(&SYNC_FBB.to_be_bytes());
+        data.extend_from_slice(&units[0]);
+        let mut ex = Extractor::new();
+        ex.push(&data);
+        let mut got = Vec::new();
+        while let Some(u) = ex.next_unit().unwrap() {
+            got.push(u);
+        }
+        let (rest, trailing) = ex.finish().unwrap();
+        got.extend(rest);
+        assert_eq!(trailing, 0);
+        assert_eq!(got.len(), 2);
+        assert!(got[1].resynced);
+        assert_eq!(got[1].offset, bytes.len() as u64);
+        assert_eq!(ex.stats.resyncs, 1);
+        assert!(ex.stats.foreign_syncs >= 1);
     }
 
     #[test]

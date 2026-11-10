@@ -1,0 +1,13 @@
+{
+ "question": "Where is the CRC-16 of a DVD-Audio (FBB) major sync, and is it the FBA one?",
+ "method": "For each stream, take the 64 bytes after the first access-unit header and test every offset k in 16..40: does CRC16_MAJOR_SYNC (oadec-bits; generator 0x002D, register 0) over bytes[0..k] equal the big-endian word at k? The same test on an FBA stream is the control.",
+ "result": {
+  "streams": [
+   {"name": "440hz.mlp", "source": "https://samples.ffmpeg.org/A-codecs/lossless/mlp/440hz.mlp", "sha256": "c46b722bbf56c8316a8088cbf1bc7a3f9eeac529699e7fe4600d449f4d0760d9", "format_sync": "F8726FBB", "matching_offsets": [26]},
+   {"name": "God Save The Queen.mlp", "source": "https://samples.ffmpeg.org/A-codecs/lossless/mlp/God%20Save%20The%20Queen.mlp", "sha256": "5ed2b0c7ec7fa7a355264fd5be9ef083d527ef54d34b01b8e5a380c0616c5592", "encoder": "Meridian MLP encoder 1.23 (its log is published beside the file)", "format_sync": "F8726FBB", "matching_offsets": [26]},
+   {"name": "luckynight-partial.mlp", "source": "https://fate-suite.ffmpeg.org/lossless-audio/luckynight-partial.mlp", "sha256": "977d51f8526dc14bd9465a6b72b5d2336c6aa8fbc9e7e867870def4ba49520b5", "format_sync": "F8726FBB", "matching_offsets": [26]},
+   {"name": "a 48 kHz Atmos head (control)", "format_sync": "F8726FBA", "matching_offsets": [26]}
+  ]
+ },
+ "reading": "An FBB major sync is 28 bytes: 26 bytes of information and the CRC-16 of the FBA major sync over them, stored big-endian. No other offset matches, so the length is not a coincidence of one file. MajorSync::fbb_crc_ok tests exactly this, which is what lets the extractor tell a DVD-Audio stream from the four sync bytes met by chance in damaged data."
+}

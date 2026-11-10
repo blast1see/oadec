@@ -1,0 +1,34 @@
+{
+ "question": "Do the named rules, located findings and damage regions leave every verdict, counter and text line of verify where it was, on clean and on damaged streams, and at what cost in speed?",
+ "method": "tools/old_new.py with the main binary (6fda2e2) and the branch binary over 40 raw TrueHD heads of library titles, two TrueHD clips, the committed fixture, the full TrueHD tracks of Coco (2017), The Incredibles (2004) and Up (2009) (ffmpeg -c copy -f truehd), and two damaged copies of the fixture (the DVD-Audio pattern over a minor-sync unit; one byte of substream 1 of unit 1500 inverted). Commands: verify, verify --json, info --json, and on the heads decode -p 2. Speed: verify --json realtime_factor, each binary twice, alone on the machine.",
+ "result": {
+  "streams": 48,
+  "streams_changed": 1,
+  "changed": "the copy with the DVD-Audio pattern: 2 -> 7, the change of 02-foreign-sync-old-new.json",
+  "fields_added": ["diagnostics", "foreign_syncs", "substream_stats"],
+  "full_titles": {
+   "Coco (2017)": {"verdict": "non-conformant, both binaries", "findings": {"fatal": 21, "error": 17}, "regions": 7},
+   "The Incredibles (2004)": {"verdict": "non-conformant, both binaries", "findings": {"fatal": 6}, "regions": 2},
+   "Up (2009)": {"verdict": "clean, both binaries", "findings": {}}
+  },
+  "speed_seconds": {
+   "Up (2009)": {"main": [29.64, 29.65], "branch": [30.02, 30.05], "slower_percent": 1.3},
+   "Coco (2017)": {"main": [32.02, 32.09], "branch": [32.60, 32.71], "slower_percent": 1.9}
+  },
+  "coco_regions_against_branches": [
+   {"units": "394396-394414", "entry": 394415, "branch_at_entry": "valid", "presentations": [0, 1, 2, 3]},
+   {"units": "1953954-1953966", "entry": 1953967, "branch_at_entry": "valid", "presentations": [0, 1, 2, 3]},
+   {"units": "2302703-2302766", "entry": 2302767, "branch_at_entry": "valid", "presentations": [0, 1, 2, 3]},
+   {"units": "2627227-2627246", "entry": 2627247, "branch_at_entry": "invalid", "presentations": [0, 1, 2, 3]},
+   {"units": "4788186-4788270", "entry": 4788271, "branch_at_entry": "valid", "presentations": [2, 3]},
+   {"units": "6383179-6383278", "entry": 6383279, "branch_at_entry": "valid", "presentations": [2, 3]},
+   {"units": "6832628-6832686", "entry": 6832687, "branch_at_entry": "valid", "presentations": [1, 2, 3]}
+  ],
+  "region_against_decode": {
+   "copy": "the fixture with one byte of substream 1 of unit 1500 inverted",
+   "region": "audio, units 1500-1537, presentations 1 2 3, clean again at unit 1538",
+   "decode_damaged_vs_undamaged": {"presentation 0": "identical", "presentations 1, 2, 3": "samples 60002..61519 differ, units 1500..1537"}
+  }
+ },
+ "reading": "Nothing an earlier binary reported moved: exit codes, every old JSON field and every old text line are the same on all 48 streams, damaged full titles included, apart from the deliberate change already recorded. Reading the faults as regions says something the counters did not: every region of Coco ends one access unit before one of its branch points, so its damage sits at the joins of its clips, and the stream is clean again at each join. The region is the decoder's own behaviour, not only the rule's: decoding a damaged and an undamaged copy differs exactly inside the region and nowhere in a presentation that reads no damaged substream. The cost is under 2 per cent on full titles, inside the 3 per cent the plan allowed."
+}

@@ -6,6 +6,111 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **Every check `verify` makes on TrueHD is a named rule** (`sync.crc`,
+  `segment.parity`, `timing.invalid_branch` ...) with a default severity and the
+  source it rests on: a clause of a public specification, a measurement in the
+  repository, or another implementation. `oadec rules` lists them and explains
+  one; `docs/conformance-rules.md` is the catalog rendered, and tests hold the
+  catalog to its own policy (a rule only another implementation states cannot
+  fail a stream by default) and the document to the catalog.
+- **A finding says where it is**: access unit, byte offset and, for a segment that
+  does not parse, the bit the reader stopped at; the substream; and the time.
+  `verify` lists the findings of each rule (`--max-per-rule`, default 20) and a
+  per-rule summary before the verdict; `verify --json` carries them under
+  `diagnostics`. Every counter `verify --json` has always reported is a rule
+  whose findings add up to it, which a test checks on five kinds of damage.
+- **Damage regions**: which stretch of the programme each fault leaves
+  untrustworthy, which presentations it reaches, and the first access unit where
+  the stream is clean again. A substream is untrustworthy until its own next
+  restart header; a test decodes a damaged and an undamaged copy and finds the
+  differences exactly inside the region, and none in a presentation outside it.
+  On a full title with real damage the regions end at its seamless branches.
+- `verify --fail-on <info|warning|error|fatal>` sets the threshold of the
+  verdict. The default, `error`, is the verdict `verify` has always given. The
+  rule options are refused on E-AC-3, which has no catalog yet.
+- `oadec au FILE --index N` prints one access unit field by field, with where
+  each part sits: the place a finding points to, opened up.
+- **New TrueHD rules from Dolby's public description**, each counted over 52 real
+  streams first (27.8 million access units, six of them heads of encoder-written
+  deliveries) and found nowhere: major syncs more than 128 units apart, or fewer
+  than eight apart other than where a bitstream opens (section 2.5; the clip a
+  branch joins opens with two in a row, which a first reading took for a fault
+  30 times); a minor sync whose directory begins with `0xF872` (4.5); more blocks
+  in a segment than its restart sync word allows (4.6); a termination word that
+  claims a whole unit of added samples (4.6); restart headers of one unit that
+  disagree on `output_timing` (2.7); object metadata that describes another
+  programme than the major sync. These warn. Two describe bytes nothing accounts
+  for and fail the stream: an Evolution frame longer than its container's syntax
+  (the rule E-AC-3 EMDF containers are already held to) and bytes after the extra
+  data inside a unit.
+- **What the metadata containers declare about their protection**: the key
+  identifier, the container version and the lengths of the two protection words,
+  counted under `extra.protection` in `verify --json` and `info --json`, under
+  `protection` in `emdf --json` (TrueHD and E-AC-3), and on one line of `info`. A
+  primary length coded `00`, which ETSI TS 102 366 reserves, is reported
+  (`evo.protection_reserved`). The words themselves are not checked: how they are
+  computed is implementation dependent (clause H.2.2.4.3) and the key is not
+  public. Measured: all 696 673 Evolution frames of 44 TrueHD streams name key 0
+  with an 8-bit word, on both sides of the split between the titles Dolby's
+  object path opens and the ones it refuses, so the refusal does not follow the
+  key or the length of the word; E-AC-3 containers name key 0 in 13 heads and key
+  1 in 20.
+
+- **The decoder buffer, modelled and checked against Dolby's encoder.** `verify`
+  models the TrueHD decoder buffer of Dolby's high-level description (section
+  2.7) and reports its peaks: the longest delay through it, the deepest each
+  substream and each decoder fills it against what they may, the fastest
+  delivery and where. What the description leaves open was measured against the
+  verification report Dolby's own TrueHD encoder prints: on twelve encodes (48
+  and 96 kHz, one to four substreams, objects, white noise up to 17.4 Mbit/s)
+  every figure of the report comes out the same, the unit each peak is first
+  reached at included. The bounds are
+  warnings: delay over 75 ms or under one frame, a substream over 15 000 bytes a
+  channel, the stream over the 120 000 bytes every decoder has, delivery over the
+  declared peak or over 18 Mbit/s. On real material they fire only where the
+  stream is already damaged. `verify --trace-fifo FILE` writes, per unit, what it
+  puts into the buffer and when. `tools/fifo_oracle.py` repeats the comparison.
+- **Whether a stream fits a disc.** `verify` says, for Blu-ray, HD DVD and
+  DVD-Audio, whether the TrueHD stream could go on the disc as it is, and for a
+  no the reason and the source of the bound: the BDA white paper's figure for
+  Blu-ray (48, 96 or 192 kHz, six channels at 192 kHz), Dolby's description for
+  which syntax goes on which disc, Dolby's encoder for HD DVD's two channels at
+  176.4 and 192 kHz, and the delivery bounds for both film discs. What no
+  public source gives, HD DVD's rates, is `unjudged`. On twelve encodes the
+  rows match the stream validity table of Dolby's encoder; every undamaged
+  Blu-ray stream of the corpus fits. `verify --require-disc bd` makes the fit
+  part of the verdict (`disc.required`, exit 7).
+
+### Changed
+
+- `verify --decode` counts what `decode` counts against its verdict and it did
+  not: samples that need more bits than `max_bits` allows, and samples beyond 24
+  bits. Over the encoder-written heads, the clips and the fixture neither occurs.
+- The verdict `decode`, `compare`, `emdf` and `oamd` take from the checks of
+  `verify` now includes the rules without a counter that fail a stream by
+  default, so the two new errors fail every delivery as they fail `verify`.
+- Findings of an `info` rule are counted in the text summary and listed only
+  under `--fail-on info`.
+
+### Fixed
+
+- **The DVD-Audio sync pattern inside a damaged TrueHD stream no longer ends the
+  run.** The extractor and the framing took either sync pattern for a major sync
+  and refused the DVD-Audio (FBB) one outright, so four bytes in the wrong place
+  of a damaged unit made every command exit 2 with no report. Once a stream is
+  locked only its own pattern opens a major sync; the unit fails its parity, the
+  stream resyncs, and the run reports the damage and exits 7. A DVD-Audio stream
+  is still refused by name, now only when its major sync verifies (an FBB major
+  sync is 28 bytes with the FBA CRC-16 over the first 26, measured on three
+  DVD-Audio streams). On 43 real TrueHD streams every exit code, JSON field, text
+  line and decoded byte is unchanged.
+- `info --json` wrote the declared substream count under `substreams`, the key of
+  the pass's per-substream statistics, so they were missing from every report; they
+  are kept under `substream_stats`. `verify --json` and `info --json` also report
+  `foreign_syncs`, the DVD-Audio patterns passed over.
+
 ## [0.7.0] - 2026-11-09
 
 ### Added

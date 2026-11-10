@@ -1,0 +1,18 @@
+{
+ "question": "Does accepting only the stream's own sync pattern change the verdict on any real stream, and does it turn the DVD-Audio pattern in a damaged unit from an abort into a report?",
+ "method": "tools/old_new.py --decode with the main binary (6fda2e2) and the branch binary over 40 raw TrueHD heads of library titles (thd/), two TrueHD clips (clips/), the committed fixture, and one copy of the fixture with F8 72 6F BB written over bytes 4..7 of a minor-sync unit past the middle (unit at byte 257760 of 2400 units). Commands: verify, verify --json, info --json, decode -p 2 --format pcm.",
+ "result": {
+  "streams": 44,
+  "streams_changed": 1,
+  "unchanged_real_streams": 43,
+  "fields_added": ["foreign_syncs", "substream_stats"],
+  "injected_copy": {
+   "verify": {"old": 2, "new": 7},
+   "info --json": {"old": 2, "new": 0},
+   "decode -p 2 --format pcm": {"old": 2, "new": 7},
+   "old_message": "Meridian MLP (FBB) streams are not supported; only Dolby TrueHD (FBA) is"
+  },
+  "real_dvd_audio_streams": "still refused by name, exit 2 (440hz.mlp, God Save The Queen.mlp)"
+ },
+ "reading": "On real material nothing moves: exit codes, every field of the old JSON, every line of the old text and the decoded bytes of presentation 2 are identical on all 43 streams. The one change is the deliberate one: four bytes of the DVD-Audio pattern in a damaged unit end the run no more; the unit fails its parity, the stream resyncs, and verify and decode report the damage with exit 7 like any other."
+}

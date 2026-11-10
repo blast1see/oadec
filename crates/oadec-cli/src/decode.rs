@@ -734,6 +734,7 @@ mod tests {
         input::PassSummary {
             stats: oadec_truehd::ExtractStats::default(),
             trailing_bytes: 0,
+            final_gap: None,
             file_bytes: 0,
         }
     }

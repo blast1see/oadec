@@ -3,7 +3,9 @@
 // the `verify --json` report is one big `json!` literal
 #![recursion_limit = "256"]
 
+mod au_dump;
 mod author;
+mod catalog;
 mod compare;
 mod damf;
 mod decode;
@@ -18,6 +20,7 @@ mod joc_config;
 mod joc_offset;
 mod oamd;
 mod progress;
+mod protection;
 mod scan;
 mod thd_demux;
 mod verify;
@@ -32,6 +35,7 @@ use crate::damf::{InterpolationArg, IsfArg, WarpArg};
 use crate::decode::{Format, Order};
 use crate::eac3_objects::{JocLowBand, JocOverrides, JocPhase};
 use crate::integrity::Verdict;
+use oadec_truehd::{Severity, Tally};
 
 /// Object-audio decoder engine for Dolby TrueHD Atmos and E-AC-3 JOC streams.
 #[derive(Debug, Parser)]
@@ -64,6 +68,50 @@ enum Command {
         /// verification decodes every frame already.)
         #[arg(long)]
         decode: bool,
+        /// TrueHD: the lightest severity that fails the run (exit 7). The
+        /// default, error, is the verdict verify has always given; warning
+        /// also fails on rules no independent source confirms. `oadec rules`
+        /// lists every rule with its severity and source.
+        #[arg(long, value_name = "SEVERITY", value_parser = ["info", "warning", "error", "fatal"])]
+        fail_on: Option<String>,
+        /// TrueHD: list at most N findings of each rule in full (default 20,
+        /// 0 for all). Every finding is counted whatever the limit, so the
+        /// counts and the verdict never change with it.
+        #[arg(long, value_name = "N")]
+        max_per_rule: Option<usize>,
+        /// TrueHD: write what every access unit puts into the decoder buffer,
+        /// and when, as CSV.
+        #[arg(long, value_name = "FILE")]
+        trace_fifo: Option<PathBuf>,
+        /// TrueHD: fail the run (exit 7) unless the stream fits these disc
+        /// formats as it is -- bd, hddvd, dvda, comma-separated. Every run
+        /// reports the fit (Disc:); this makes it part of the verdict.
+        #[arg(long, value_name = "DISC", value_delimiter = ',', value_parser = ["bd", "hddvd", "dvda"])]
+        require_disc: Vec<String>,
+    },
+    /// Print one access unit of a TrueHD stream field by field, with where each
+    /// part sits in the file: the place a finding of verify points to, opened up.
+    Au {
+        /// Raw TrueHD (.thd/.mlp) elementary stream.
+        file: PathBuf,
+        /// Index of the access unit, counted from 0 as verify counts them.
+        #[arg(long)]
+        index: u64,
+        /// Machine-readable JSON instead of text.
+        #[arg(long)]
+        json: bool,
+    },
+    /// List the checks verify makes on a TrueHD stream, with the severity each
+    /// carries by default and the source each rests on, or explain one.
+    Rules {
+        /// The rule to explain, such as segment.parity.
+        id: Option<String>,
+        /// Machine-readable JSON instead of text.
+        #[arg(long)]
+        json: bool,
+        /// The catalog as the Markdown of docs/conformance-rules.md.
+        #[arg(long)]
+        markdown: bool,
     },
     /// Walk an AC-3, E-AC-3 or TrueHD stream, find the EMDF containers and report the metadata timing.
     Emdf {
@@ -367,12 +415,50 @@ fn main() -> ExitCode {
                     }
                 })
                 .map(|()| ExitCode::SUCCESS),
-            Command::Verify { file, json, decode } => eac3::is_eac3(&file)
+            Command::Verify {
+                file,
+                json,
+                decode,
+                fail_on,
+                max_per_rule,
+                trace_fifo,
+                require_disc,
+            } => eac3::is_eac3(&file)
                 .and_then(|is| {
                     if is {
+                        if fail_on.is_some()
+                            || max_per_rule.is_some()
+                            || trace_fifo.is_some()
+                            || !require_disc.is_empty()
+                        {
+                            // An option that reads as applied while changing
+                            // nothing is the defect named below: E-AC-3 checks
+                            // have no rule catalog yet.
+                            return Err(anyhow::anyhow!(
+                                "--fail-on, --max-per-rule, --trace-fifo and --require-disc \
+                                 apply to a TrueHD stream; the E-AC-3 checks have no rule \
+                                 catalog yet"
+                            ));
+                        }
                         eac3::verify(&file, json)
                     } else {
-                        verify::run(&file, json, decode)
+                        verify::run(
+                            &file,
+                            &verify::Options {
+                                json,
+                                decode,
+                                fail_on: fail_on
+                                    .as_deref()
+                                    .and_then(Severity::from_name)
+                                    .unwrap_or(Severity::Error),
+                                max_per_rule: max_per_rule.unwrap_or(Tally::DEFAULT_MAX_PER_RULE),
+                                trace_fifo,
+                                require_disc: require_disc
+                                    .iter()
+                                    .filter_map(|d| oadec_truehd::disc::Disc::from_id(d))
+                                    .collect(),
+                            },
+                        )
                     }
                 })
                 .map(|clean| {
@@ -623,6 +709,12 @@ fn main() -> ExitCode {
                     ExitCode::from(EXIT_NONCONFORMANT)
                 }
             }),
+            Command::Au { file, index, json } => {
+                au_dump::run(&file, index, json).map(|()| ExitCode::SUCCESS)
+            }
+            Command::Rules { id, json, markdown } => {
+                catalog::run(id.as_deref(), json, markdown).map(|()| ExitCode::SUCCESS)
+            }
             Command::Eac3Blocks {
                 file,
                 frame,

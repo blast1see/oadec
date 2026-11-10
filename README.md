@@ -46,6 +46,10 @@ and chaos terms, and delta bit allocation (rows 69 and 73 of the
 cargo build --release
 oadec info    film.thd                            # what the stream declares
 oadec verify  film.thd                            # every integrity rule; exit 7 on failure (docs/exit-codes.md)
+oadec verify  film.thd --json                     # the same, with each finding, its place and the damage regions
+oadec verify  film.thd --require-disc bd          # and fail unless the stream could go on a Blu-ray as it is
+oadec rules   segment.parity                      # what a rule checks, its default severity and its source
+oadec au      film.thd --index 1500               # one access unit, field by field, where a finding points
 oadec decode  film.thd -p 2 -o film-7.1.wav       # a channel presentation as WAVE
 oadec decode  film.thd -p 2 --start 90 -o cut.wav # from 90 s, at the next major sync
 oadec decode  film.thd --format damf -o out/film  # objects + metadata as a DAMF set
@@ -61,7 +65,13 @@ oadec compare film.ec3 -r ref.f32                 # against a 32-bit float refer
 ```
 
 `film.thd` is a raw TrueHD elementary stream, for example extracted with
-mkvextract. A command that reads a whole file draws a bar with the
+mkvextract. Every check `verify` makes on TrueHD is a named rule with a default
+severity and a source (a public specification, a measurement, or another
+implementation), listed in [`docs/conformance-rules.md`](docs/conformance-rules.md);
+a finding says where it is (access unit, byte and bit, substream, time), and the
+report says which stretch of the programme each fault leaves untrustworthy and
+where it is clean again. `--fail-on` moves the threshold of the verdict and
+`--max-per-rule` how much is listed; neither changes a count. A command that reads a whole file draws a bar with the
 share read, the rate and what is left, and says `done` when it finishes, on
 a terminal; piped or redirected it prints neither, so a log or a script sees
 exactly what it always did. The DAMF set can be handed to the Dolby Encoding Engine as it

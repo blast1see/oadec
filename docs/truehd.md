@@ -14,6 +14,15 @@ the real streams decide.
   of the header and directory bytes, folded to four bits, equal `0xF`.
 * A major sync (`0xF8726FBA`) may follow; it ends with a CRC-16 (polynomial
   `0x002D`, shift-then-XOR register from 0) over everything before it.
+* The DVD-Audio form (`0xF8726FBB`, FBB) has no extension: its major sync is
+  always 28 bytes, the same CRC-16 over the first 26 at bytes 26-27. Three
+  DVD-Audio streams verify this way at that offset and no other, one written by
+  Meridian's own encoder (evidence
+  `docs/audit/evidence/verification-upgrade-2026-11/01-fbb-major-sync-crc.json`).
+  Once the extractor has locked onto a stream, only that stream's pattern opens
+  a major sync; the other pattern is data like any other byte, so damage that
+  leaves it at the start of a unit is judged by the unit's parity and recovered
+  from by a resync.
 * One directory entry per substream: `extra_word:1, restart_nonexistent:1,
   crc_present:1, reserved:1, end_ptr:12` (words from the start of the segments),
   plus `drc_gain_update s9, drc_time_update:3, reserved:4` when `extra_word`.
@@ -177,3 +186,118 @@ engine agree on **all 40 606 400 samples**, zero lag, no sample different at
   zero. TrueHD invents nothing at decode time, so two correct decoders have
   nothing to differ about. `docs/dolby-tools.md` has the pipeline and
   `docs/evidence/2026-09-10.md` the numbers.
+
+## Diagnostics
+
+Every check `verify` makes is a rule in [`conformance-rules.md`](conformance-rules.md):
+a stable name, a default severity, and the source the rule rests on. The
+severity follows the source. A clause of Dolby's high-level description, a
+measurement recorded under `docs/audit/evidence/`, or a clause of the ETSI
+specifications for the metadata may fail a stream; a rule that only another
+implementation states warns at most.
+
+A finding carries its place: the access unit (counted as `verify` counts them),
+the byte offset, the substream, and for a segment that does not parse the bit
+the reader stood at when it gave up -- the end of the last field it read. Time
+is the unit index times the samples per unit, so it is nominal: a gap or a
+branch earlier in the stream is not accounted for.
+
+A damage region follows from how the format restarts. A substream is decoded
+from its restart headers on, and a restart header re-initialises everything its
+decoding carries, so a fault in a substream leaves it untrustworthy until that
+substream's next restart header, and a presentation is damaged where any
+substream it reads is. A fault in the access unit as a whole damages every
+substream. Bytes the extractor passed over are lost, and the unit it found sync
+again at carries a major sync and so is a clean entry point by itself. A fault
+in the extra data damages the object metadata of that unit and none of the
+audio. `crates/oadec-cli/tests/cli_rules.rs` checks the reading against the
+decoder: a damaged and an undamaged copy decode identically outside the region,
+and a presentation that reads no damaged substream decodes identically
+everywhere.
+
+## Decoder buffer
+
+Dolby's high-level description (section 2.7) gives the model: an access unit
+enters the decoder's buffer whole at its `input_timing`, and the data of a
+frame leaves when the frame's output comes -- the `output_timing` of the
+restart headers at a major sync, one frame later for each unit after it. The
+encoder keeps the buffer from running over or under, holds the delay through
+it, and keeps the delivery within the peak data rate; every decoder has at
+least 120 000 bytes of buffer, and no unit is delivered faster than
+18 Mbit/s.
+
+What the description leaves open was measured against the verification report
+Dolby's own TrueHD encoder prints for each stream it writes
+(`docs/audit/evidence/verification-upgrade-2026-11/06-fifo-model.json`,
+`tools/fifo_oracle.py`):
+
+* a unit leaves one frame after its output time;
+* the delay through the buffer is the output time less the input time;
+* a substream's depth counts its segments; a decoder's depth counts the
+  segments and directory entries of the substreams it reads, plus the header,
+  major sync and extra data of every unit; the decoder of a copied
+  presentation reads the substreams of the one it copies;
+* a substream may fill 15 000 bytes for each channel its restart header spans,
+  as the encoder's report states for every substream. On white noise, which
+  leaves the buffer nothing to smooth, this is the bound the encoder fills to:
+  one substream reaches 91 to 98 per cent of its allowance while no decoder
+  comes past 94 per cent of 15 000 bytes a channel;
+* a unit's delivery rate is its bits over the input interval to the next unit,
+  and the peak is the first unit that reaches it.
+
+On twelve encodes -- 48 and 96 kHz, one to four substreams, objects, a
+rate-optimised encode, white noise up to 17.4 Mbit/s -- every figure of the
+report comes out the same.
+`verify` prints the peaks (`Buffer:`; `buffer` in `--json`) and judges the
+bounds as warnings: delay over 75 ms or under one frame, a substream or the
+stream over its allowance, delivery over the declared peak or over 18 Mbit/s.
+On real material they fire only inside damage regions. `verify --trace-fifo
+FILE` writes what every unit puts into the buffer and when, as CSV.
+
+Not checked: a delay held constant when `flags` bit 15 says so (Dolby, Table
+12). No stream in the corpus sets the bit -- 63 streams, encoder deliveries
+included -- so there is nothing to measure the rule against at a branch.
+
+## Disc formats
+
+`verify` says whether the stream could go on a disc as it is (`Disc:`; `disc`
+in `--json`): one row a format, and for a row that says no, the reason and the
+source of the bound.
+
+| Row | What it holds the stream to | Source |
+|---|---|---|
+| BD | the FBA syntax; 48, 96 or 192 kHz; at 192 kHz no presentation over six channels | Dolby's description, section 1, names FBA the Blu-ray syntax; BDA white paper, version 2.5, Figure 3-4 |
+| HD DVD | at 176.4 and 192 kHz no presentation over two channels | the verifier messages of Dolby's TrueHD encoder (secondary) |
+| DVD-A | the FBB syntax | Dolby's description, section 1 |
+
+The BD and HD DVD rows also hold the stream to its delivery: a finding of the
+buffer or rate rules above is a reason for both, since a stream Dolby's own
+verifier would refuse goes on neither disc.
+
+What the rows leave out, and why:
+
+* Figure 3-4 gives eight channels at 48 and 96 kHz. The 8-channel presentation
+  cannot have more, and the 16-channel object presentation came after the
+  figure; Dolby's encoder marks its object streams valid for Blu-ray, and so
+  does the row.
+* Figure 3-4 caps a Dolby Lossless stream at 18.64 Mbit/s. On a disc that
+  stream carries an AC-3 stream along with the TrueHD data, and the white paper
+  does not say what the figure counts. Every TrueHD unit is held to 18 Mbit/s
+  anyway (`rate.over_ceiling`, Dolby section 2.7), which is lower.
+* The word length (16 to 24 bits on Blu-ray): an FBA stream does not declare
+  it.
+* The rates HD DVD takes are in no public source. At 44.1, 88.2 and 176.4 kHz
+  its row says `unjudged`; at 48 and 96 kHz Dolby's encoder marks its streams
+  valid for HD DVD, and its two-channel bound at 192 kHz says the rate itself
+  is taken.
+* `oadec` refuses an FBB stream before it gets this far, so the DVD-A row says
+  no to every stream it sees; what DVD-Audio asks of an FBB stream comes with
+  FBB decoding.
+
+`verify --require-disc bd` (or `hddvd`, `dvda`, comma-separated) makes a row
+part of the verdict: a required row that says no, or cannot judge, is one
+finding under `disc.required`, an error, and the run exits 7.
+
+The rows were held to Dolby's encoder, which prints a stream validity table for
+every stream it writes, and to streams it will not write
+(`docs/audit/evidence/verification-upgrade-2026-11/07-disc-formats.json`).

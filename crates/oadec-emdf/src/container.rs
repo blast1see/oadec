@@ -108,6 +108,13 @@ pub struct Protection {
     pub secondary: Vec<u8>,
     /// Bit offset of the primary word relative to the start of the container.
     pub bits_offset: usize,
+    /// `protection_length_primary` as coded: 1, 2 and 3 are 8, 32 and 128 bits;
+    /// 0 is reserved (ETSI TS 102 366 V1.4.1, clause H.2.2.4.1, Table H.2.5)
+    /// and read as no word.
+    pub primary_code: u8,
+    /// `protection_length_secondary` as coded: 0 is no word, 1, 2 and 3 are 8,
+    /// 32 and 128 bits (Table H.2.6).
+    pub secondary_code: u8,
 }
 
 /// A parsed container.
@@ -228,8 +235,10 @@ pub fn parse(reader: &mut BitReader<'_>, flavor: Flavor) -> Result<Container, Co
         });
     }
 
-    let primary_len = PROTECTION_SIZES[reader.read(2)? as usize];
-    let secondary_len = PROTECTION_SIZES[reader.read(2)? as usize];
+    let primary_code = reader.read(2)? as u8;
+    let secondary_code = reader.read(2)? as u8;
+    let primary_len = PROTECTION_SIZES[usize::from(primary_code)];
+    let secondary_len = PROTECTION_SIZES[usize::from(secondary_code)];
     let bits_offset = reader.position() - start;
     let mut primary = Vec::with_capacity(primary_len);
     for _ in 0..primary_len {
@@ -248,6 +257,8 @@ pub fn parse(reader: &mut BitReader<'_>, flavor: Flavor) -> Result<Container, Co
             primary,
             secondary,
             bits_offset,
+            primary_code,
+            secondary_code,
         },
         len_bits: reader.position() - start,
     })

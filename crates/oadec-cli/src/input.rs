@@ -5,7 +5,7 @@ use std::io::Read;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use oadec_truehd::{ExtractStats, Extractor, Unit};
+use oadec_truehd::{ExtractStats, Extractor, Gap, Unit};
 
 /// Size of the read buffer.
 const CHUNK: usize = 4 << 20;
@@ -17,6 +17,8 @@ pub struct PassSummary {
     pub stats: ExtractStats,
     /// Bytes at the end of the file that did not form an access unit.
     pub trailing_bytes: u64,
+    /// What the extractor passed over after the last access unit it handed out.
+    pub final_gap: Option<Gap>,
     /// File size.
     pub file_bytes: u64,
 }
@@ -54,6 +56,7 @@ pub fn for_each_unit(
     Ok(PassSummary {
         stats: extractor.stats,
         trailing_bytes,
+        final_gap: extractor.take_gap(),
         file_bytes,
     })
 }
