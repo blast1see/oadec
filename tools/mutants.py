@@ -416,6 +416,10 @@ MUTANTS = [
      'crates/oadec-cli/src/decode.rs',
      'rate: frame.sampling_frequency,',
      'rate: 48_000,'),
+    ('switching coupling off leaving the first-coordinate flags as they were',
+     'crates/oadec-cli/src/ecpl_inject.rs',
+     '        firstcplcos.fill(true);\n        return None;',
+     '        return None;'),
 ]
 
 

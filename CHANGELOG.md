@@ -16,6 +16,30 @@ Semantic Versioning.
   `tests/cli_rates.rs` holds to FFmpeg's samples, their channel labels and the
   rate every output names.
 
+### Changed
+
+- **The real-media suite runs again: 28 of 28 tests pass.** Its clips went with
+  the old work directory, so 23 tests failed on missing files. The clips were
+  rebuilt from the library they were first cut from, and every hash and size
+  the repository records matches. Three sources are gone, so three tests use
+  substitutes, and the Dolby-encoded clips were re-authored by their recorded
+  recipes (evidence 11).
+
+### Fixed
+
+- **`eac3-ecpl-inject` wrote coordinate flags the standard implies.** After a
+  block that switches coupling off, every channel's next coupling coordinates
+  are first again (clause E.1.2.4) and carry no flags. The injector kept its
+  own record of the earlier blocks and wrote the flags anyway, so a frame that
+  turns coupling off and on again came out shifted. The decoder rightly
+  refused that frame. Found on a rebuilt test clip; a unit test now holds the
+  frame's pattern.
+- **Three media tests could pass without testing anything.** A missing clip
+  made the branch test return early. A missing reference made the Pi test skip
+  its comparison with truehdd. The fuzz replay cut its clip mid-frame, so every
+  trial exited 7 whatever the flip. They now require their material, and the
+  replay first checks that its whole-frame prefix decodes clean.
+
 ## [0.8.0] - 2026-11-10
 
 ### Added

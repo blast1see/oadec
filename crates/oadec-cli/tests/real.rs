@@ -94,37 +94,34 @@ fn pi_is_clean_and_matches_the_reference_layout() {
     );
 
     let reference = media.join("ref-truehdd").join("pi.verify.json");
-    if let Ok(text) = std::fs::read_to_string(&reference) {
-        let other: Value = serde_json::from_str(&text).expect("reference JSON");
-        assert_eq!(other["access_units"], report["units"]);
-        let ours = report["substreams"].as_array().expect("substreams");
-        for prop in other["substream_properties"]
-            .as_array()
-            .expect("properties")
-        {
-            let i = prop["index"].as_u64().expect("index") as usize;
-            let first = &ours[i]["first_restart"];
-            assert_eq!(
-                first["min_chan"], prop["min_chan"],
-                "substream {i} min_chan"
-            );
-            assert_eq!(
-                first["max_chan"], prop["max_chan"],
-                "substream {i} max_chan"
-            );
-            assert_eq!(
-                first["max_matrix_chan"], prop["max_matrix_chan"],
-                "substream {i} max_matrix_chan"
-            );
-            let word = format!("0x{}", prop["restart_sync_word"].as_str().unwrap_or(""));
-            assert_eq!(
-                first["sync_word"].as_str(),
-                Some(word.as_str()),
-                "substream {i} sync word"
-            );
-        }
-    } else {
-        eprintln!("no {} — layout comparison skipped", reference.display());
+    let text = std::fs::read_to_string(require(&reference)).expect("read the truehdd reference");
+    let other: Value = serde_json::from_str(&text).expect("reference JSON");
+    assert_eq!(other["access_units"], report["units"]);
+    let ours = report["substreams"].as_array().expect("substreams");
+    for prop in other["substream_properties"]
+        .as_array()
+        .expect("properties")
+    {
+        let i = prop["index"].as_u64().expect("index") as usize;
+        let first = &ours[i]["first_restart"];
+        assert_eq!(
+            first["min_chan"], prop["min_chan"],
+            "substream {i} min_chan"
+        );
+        assert_eq!(
+            first["max_chan"], prop["max_chan"],
+            "substream {i} max_chan"
+        );
+        assert_eq!(
+            first["max_matrix_chan"], prop["max_matrix_chan"],
+            "substream {i} max_matrix_chan"
+        );
+        let word = format!("0x{}", prop["restart_sync_word"].as_str().unwrap_or(""));
+        assert_eq!(
+            first["sync_word"].as_str(),
+            Some(word.as_str()),
+            "substream {i} sync word"
+        );
     }
 }
 
@@ -455,7 +452,7 @@ fn downmix_configuration_four_decodes_to_objects() {
 #[ignore = "needs OADEC_MEDIA"]
 fn the_core_options_reach_the_object_path() {
     let media = media_dir();
-    let file = media.join("clips/disclosure-web-head.ec3");
+    let file = media.join("clips/quietplace-web-head.ec3");
     require(&file);
     let dir = std::env::temp_dir();
     let mut payloads = Vec::new();
@@ -498,7 +495,7 @@ fn the_core_options_reach_the_object_path() {
 #[ignore = "needs OADEC_MEDIA"]
 fn core_only_is_refused_with_an_object_output() {
     let media = media_dir();
-    let file = media.join("clips/disclosure-web-head.ec3");
+    let file = media.join("clips/quietplace-web-head.ec3");
     require(&file);
     let base = std::env::temp_dir().join("oadec-core-only-objects");
     let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
@@ -667,7 +664,7 @@ fn the_metadata_scanner_and_the_verifier_count_the_same_containers() {
     for name in [
         "clips/talktome-joc-head.ec3",
         "clips/kingsman-joc-head.ec3",
-        "clips/disclosure-web-head.ec3",
+        "clips/quietplace-web-head.ec3",
         "clips/greenbook-cfg4-head.ec3",
         "ec3/pi-head-joc384.ec3",
     ] {
@@ -840,16 +837,36 @@ fn corrupted_joc_never_decodes_to_a_silent_success() {
     let sites = sites["flip_sites"].as_array().expect("flip sites");
     assert_eq!(sites.len(), 99, "the 99 silently accepted corruptions");
 
-    // the campaign ran on the first 400 000 bytes of the clip
+    // The campaign ran on the first 400 000 bytes of the clip, which end 640
+    // bytes into frame 131 of 3 072 bytes, so every trial exited 7 whatever the
+    // flip. The replay takes the 130 whole frames before that, which hold every
+    // recorded site, and first checks that they decode clean: otherwise no flip
+    // could be told from the cut.
     let mut base = std::fs::read(&source).expect("read the clip");
-    base.truncate(400_000);
+    base.truncate(130 * 3072);
     let dir = std::env::temp_dir();
     let mutated = dir.join("oadec-fuzz-gate.ec3");
     let out = dir.join("oadec-fuzz-gate");
+    std::fs::write(&mutated, &base).expect("write the clean prefix");
+    let clean = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", "--format", "damf", "-o"])
+        .arg(&out)
+        .arg(&mutated)
+        .output()
+        .expect("run oadec decode");
+    assert!(
+        clean.status.success(),
+        "the unflipped prefix does not decode clean: {}",
+        String::from_utf8_lossy(&clean.stderr)
+    );
     let mut silent = Vec::new();
     for site in sites {
         let offset = site["offset"].as_u64().expect("offset") as usize;
         let bit = site["bit"].as_u64().expect("bit");
+        assert!(
+            offset < base.len(),
+            "site {offset} lies past the clean prefix"
+        );
         let mut data = base.clone();
         data[offset] ^= 1 << bit;
         std::fs::write(&mutated, &data).expect("write the mutated clip");
@@ -1455,13 +1472,14 @@ fn a_title_dolby_will_not_open_still_has_a_reference() {
     );
 }
 
-/// The only stream in the library that is not 48 kHz.
+/// A 96 kHz TrueHD disc track decodes byte for byte like one at 48 kHz.
 ///
 /// Every TrueHD file this project had measured was 48 kHz, so
 /// `FormatInfo::samples_per_au` had only ever returned 40 and the doubled-rate
-/// branch had never run on real material. One lossless Dolby track in 221,
-/// across 525 library files, is 96 kHz. Losing it would take the whole branch
-/// back to untested, so the clip and an independent decoder's output are kept.
+/// branch had never run on real material. The first 96 kHz clip went with the
+/// old work directory; since 2026-11-10 it is the first 30 s of another UHD
+/// disc track at 96 kHz, 7.1 in three substreams as the first one was, and an
+/// independent decoder's output is kept beside it.
 ///
 /// The reference is `truehdd`'s, in the stream's own channel order, which is why
 /// the decode asks for `--order stream`: the two orders differ for 7.1, side and
@@ -1470,7 +1488,7 @@ fn a_title_dolby_will_not_open_still_has_a_reference() {
 #[ignore = "needs OADEC_MEDIA"]
 fn ninety_six_kilohertz_decodes_byte_for_byte_like_forty_eight() {
     let media = media_dir();
-    let file = media.join("clips/thd-96k-revenant.thd");
+    let file = media.join("clips/thd-96k-disc.thd");
     require(&file);
 
     // 30 s at 96 kHz, and the access unit holds twice what it holds at 48
@@ -1488,7 +1506,7 @@ fn ninety_six_kilohertz_decodes_byte_for_byte_like_forty_eight() {
 
     for (presentation, channels) in [(0, 2usize), (1, 6), (2, 8)] {
         let reference = media.join(format!(
-            "ref-truehdd/hires/thd-96k-revenant-p{presentation}.pcm"
+            "ref-truehdd/hires/thd-96k-disc-p{presentation}.pcm"
         ));
         assert!(
             reference.exists(),
@@ -1966,10 +1984,7 @@ fn pi_head_adm_is_byte_identical_to_the_audited_file() {
 #[ignore = "needs OADEC_MEDIA"]
 fn emdf_frames_ac3_streams_as_info_and_verify_do() {
     let media = media_dir();
-    for name in [
-        "clips/talktome-dd51-head.ac3",
-        "clips/nightcrawler-dd20-head.ac3",
-    ] {
+    for name in ["clips/talktome-dd51-head.ac3", "clips/pi-dd20-head.ac3"] {
         let file = media.join(name);
         require(&file);
         let report = |command: &str| -> Value {
@@ -2283,10 +2298,7 @@ fn verify_decode_reports_a_corrupted_segment_in_every_presentation_that_reads_it
 #[ignore = "needs OADEC_MEDIA"]
 fn a_branch_reaches_every_presentation() {
     let clip = media_dir().join("verify-2026-09-14/clips/up-2009.thd");
-    if !clip.exists() {
-        eprintln!("{} is not here; skipping", clip.display());
-        return;
-    }
+    require(&clip);
     let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
         .args(["verify", "--decode", "--json"])
         .arg(&clip)

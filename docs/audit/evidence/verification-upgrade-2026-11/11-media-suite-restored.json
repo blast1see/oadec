@@ -1,0 +1,177 @@
+{
+  "question": "Can the real-media suite run again? 23 of its 28 tests failed because their clips and references went with the old work directory. Rebuild them from the library they were first cut from, and where a source is gone, from another film or by the recorded authoring recipe, without making any test check oadec against itself.",
+  "method": [
+    "Sources: the library MKVs the census (tools/metadata_census.py) lists by title. Heads by FFmpeg stream copy (raw output, so only the head of a 60-90 GB file is read), cut by bytes or by frame groups with tools/ec3_cut.py; the whole Pi (1998) track by mkvextract.",
+    "Where the repository records a hash or a size, the rebuilt file is held to it.",
+    "Three sources are gone (Disclosure Day (2026), The Revenant (2015), Nightcrawler (2014)): each test gets another clip with the property it needs, and a reference from an independent decoder.",
+    "Dolby-encoded clips: DEE 5.2.1 by the recorded recipes (the stored ddp71 tone job; pcm_to_ddp at 192 and 384 kbit/s; encode_to_atmos_ddp at 384 kbit/s from oadec's DAMF of the Pi head; encode_to_atmos_ddp at 768 kbit/s, DRC off, from oadec atmos-author of controlled-atmos-onset-scene.json).",
+    "References: truehdd 0.6.1 and the Dolby Reference Player, by the commands the tests and tools record."
+  ],
+  "result": {
+    "files": [
+      {
+        "path": "clips/ddp71-tones.ec3",
+        "how": "DEE 5.2.1 pcm_to_ddp, the stored job docs/audit/evidence/remediation/ddp71-tones.xml (ddp71, 1024 kbit/s), 12 s of eight -20 dBFS sines",
+        "bytes": 1536000,
+        "sha256": "0ac3bbad919f63e16e2c615efb4be4379c6ad0f6aebc1d02acaf1326d40eeec8"
+      },
+      {
+        "path": "clips/greenbook-cfg4-head.ec3",
+        "how": "Green Book (2018) track 3 (DD+ JOC 7.1), groups 0..1874 by tools/ec3_cut.py",
+        "bytes": 11520000,
+        "sha256": "dfee43688c913d5b2de00b15e87b0aeaf91f9be57acb7217a30ec393bf9f0aae"
+      },
+      {
+        "path": "clips/joc-onset-steep.ec3",
+        "how": "oadec atmos-author of docs/audit/evidence/remediation/controlled-atmos-onset-scene.json, then DEE 5.2.1 encode_to_atmos_ddp (768 kbit/s, DRC none)",
+        "bytes": 961536,
+        "sha256": "dda548f81fdc6bfe38d00f120614872473fa7c4dbb3d62018e62fe89e6efdb75"
+      },
+      {
+        "path": "clips/joc-steep-jackal.ec3",
+        "how": "The Day of the Jackal S01E07 track 1 (E-AC-3 JOC), groups 0..899 by tools/ec3_cut.py",
+        "bytes": 2304000,
+        "sha256": "1dc278551fd75c40eac85ea262214d12ab53f82302e51df933880453c9f2fb7c"
+      },
+      {
+        "path": "clips/kingsman-joc-head.ec3",
+        "how": "The King's Man (2021) track 2 (E-AC-3 JOC), first 3,000,000 bytes",
+        "bytes": 3000000,
+        "sha256": "cc5c5dc9d30772e8079249b749ed66990ec23be1fd520a4d4b42af470e399294"
+      },
+      {
+        "path": "clips/pi-dd20-head.ac3",
+        "how": "Pi (1998) track 4 (AC-3 2.0, a dub), first 3,000,000 bytes; replaces clips/nightcrawler-dd20-head.ac3",
+        "bytes": 3000000,
+        "sha256": "5377d7a1db09c624627461679c7977d0d6c359e93992651683b35eda019277ca"
+      },
+      {
+        "path": "clips/pi-head50m.thd",
+        "how": "first 50,000,000 bytes of thd/pi.thd",
+        "bytes": 50000000,
+        "sha256": "15df7a22a7c6f1840e1abff58033a4627c50032fcb06559013c5b921a5ec1c92",
+        "matches_recorded_sha256": true
+      },
+      {
+        "path": "clips/quietplace-web-head.ec3",
+        "how": "A Quiet Place (2018) track 2 (E-AC-3 JOC, web), first 3,000,000 bytes; replaces clips/disclosure-web-head.ec3",
+        "bytes": 3000000,
+        "sha256": "f0de56cd936b2e5e2ab31a8d210574e75cb513f1248be8d059db9144921bbdba"
+      },
+      {
+        "path": "clips/talktome-dd51-head.ac3",
+        "how": "Talk to Me (2023) track 3 (AC-3 5.1), first 3,000,000 bytes",
+        "bytes": 3000000,
+        "sha256": "f219038ac1873f690b5f0a3dc4644a2c08b8d8ca6c07ec5ab75fb543b65e4824"
+      },
+      {
+        "path": "clips/talktome-joc-head.ec3",
+        "how": "Talk to Me (2023) track 2 (E-AC-3 JOC), first 3,000,000 bytes",
+        "bytes": 3000000,
+        "sha256": "f7a968cf8386a135ad41a00cb82a3d50d4db0877b157b62b584c796159ec2d05"
+      },
+      {
+        "path": "clips/thd-96k-disc.thd",
+        "how": "a 96 kHz UHD Blu-ray TrueHD 7.1 track in three substreams from the same library, its first 30 s (ffmpeg -t 30 -c copy); replaces clips/thd-96k-revenant.thd",
+        "bytes": 24837264,
+        "sha256": "8e23a4f23b56de661953c4e834d67c9096adea61410be0c1c22c92a96cf41056"
+      },
+      {
+        "path": "clips/thd-refused-aqp.thd",
+        "how": "A Quiet Place (2018) track 1 (TrueHD Atmos), ffmpeg -ss 0 -t 20 -c copy",
+        "bytes": 5479064,
+        "sha256": "ab2e586ba0ebbd9986d35ece07dd8a960412bd4edb8536c30ee429d8127bc735"
+      },
+      {
+        "path": "ec3/ddp71-1917-head.ec3",
+        "how": "1917 (2019) track 3 (DD+ 7.1), groups 0..1874 by tools/ec3_cut.py",
+        "bytes": 11520000,
+        "sha256": "b8c436b61baa242fcbb73bf7ac02924205374767c076723ba7a2147200cd8e4e",
+        "matches_recorded_sha256": true
+      },
+      {
+        "path": "ec3/pi-head-aht384.ec3",
+        "how": "DEE 5.2.1 pcm_to_ddp (ddp, 384 kbit/s) of the 5.1 of clips/pi-head50m.thd",
+        "bytes": 5076480,
+        "sha256": "f70ad6baf1b4533972d3c3e7e0319f52c2a9161978999e14dfee1a6e509c17d4"
+      },
+      {
+        "path": "ec3/pi-head-joc384.ec3",
+        "how": "DEE 5.2.1 encode_to_atmos_ddp (384 kbit/s, DRC none) of the DAMF oadec writes for clips/pi-head50m.thd",
+        "bytes": 5076480,
+        "sha256": "e69630393fdeb34e321cdf22c746089e754e208b366deb5e161c03a8ff3c74be"
+      },
+      {
+        "path": "ec3/pi-head-spx192.ec3",
+        "how": "DEE 5.2.1 pcm_to_ddp (ddp, 192 kbit/s) of the 5.1 of clips/pi-head50m.thd",
+        "bytes": 2538240,
+        "sha256": "e9d9c85edc9a18b15a1da40e27faa628026734f1ed37e2a1f461c9ab2c5e12b3"
+      },
+      {
+        "path": "ref-truehdd/hires/thd-96k-disc-p0.pcm",
+        "how": "truehdd 0.6.1 decode --presentation 0 --format pcm (stream order) of clips/thd-96k-disc.thd",
+        "bytes": 17280000,
+        "sha256": "803558b0ef8b7395d678658315591574db03b32d743ead902cf339c994a3afe8"
+      },
+      {
+        "path": "ref-truehdd/hires/thd-96k-disc-p1.pcm",
+        "how": "truehdd 0.6.1 decode --presentation 1 --format pcm (stream order) of clips/thd-96k-disc.thd",
+        "bytes": 51840000,
+        "sha256": "c4990fd1edf0f306bcf6e6b574be34d7137744bc25743b3e3ac1fb1c0db779fb"
+      },
+      {
+        "path": "ref-truehdd/hires/thd-96k-disc-p2.pcm",
+        "how": "truehdd 0.6.1 decode --presentation 2 --format pcm (stream order) of clips/thd-96k-disc.thd",
+        "bytes": 69120000,
+        "sha256": "76962c94358d5d93e7ad6c506c3bed0bf221302ba0878f24e57835d93c2bdd84"
+      },
+      {
+        "path": "thd/pi.thd",
+        "how": "mkvextract, Pi (1998) track 2 (TrueHD Atmos)",
+        "bytes": 2608566196,
+        "sha256": "e72e963e43c1d26a93177dd47981808c2d34a03ba2fab12fe34190db87b540db",
+        "matches_recorded_size": true
+      },
+      {
+        "path": "verify-2026-09-14/clips/up-2009.thd",
+        "how": "Up (2009) track 1 (TrueHD Atmos), ffmpeg -t 90 -c copy",
+        "bytes": 70502586,
+        "sha256": "97b9e4fbd5f9f49299e4b66320d1ae6fc2f2fbf149db778d00343e6f25dc9343",
+        "matches_recorded_size": true
+      },
+      {
+        "path": "ref-truehdd/pi.verify.json",
+        "how": "truehdd 0.6.1 verify --json of thd/pi.thd",
+        "note": "access_units 6 058 052, the count the test holds oadec to"
+      },
+      {
+        "path": "ref-truehdd/refused/thd-refused-aqp.atmos.audio",
+        "how": "truehdd 0.6.1 decode --presentation 3 of clips/thd-refused-aqp.thd",
+        "bytes": 34558628,
+        "matches_recorded_size": true
+      },
+      {
+        "path": "ref-drp/joc/joc-steep-jackal.f32",
+        "how": "Dolby Reference Player: dlbac3parse enable-metadata=true ! dlbac3dec out-ch-config=21 drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true (tools/dolby_object_sweep.py)",
+        "bytes": 88379328,
+        "matches_recorded_size": true
+      },
+      {
+        "path": "ref-drp/joc/joc-onset-steep.f32",
+        "how": "the same Dolby pipeline on clips/joc-onset-steep.ec3",
+        "bytes": 30674880
+      }
+    ],
+    "exact_where_recorded": "pi.thd (size), pi-head50m.thd (SHA-256), ddp71-1917-head.ec3 (SHA-256), up-2009.thd (size), the refused title's truehdd object audio (size), the Jackal clip's Dolby reference (size), and the two DEE low-rate encodes (sizes 2 538 240 and 5 076 480, docs/evidence/2026-09-09.md): every one matches.",
+    "authored_differences": "The low-rate encodes now take their input from oadec's 5.1 decode of the Pi head, not from Dolby's decode of a DEE encode of it: AHT is in 3 282 and 3 269 frames where the originals had 3 289 and 3 276. The tests ask for more than none. The JOC encode has 1 199 steep objects and the onset scene 1 410 of 4 695 updates, the recorded counts.",
+    "suite_before": "5 passed, 23 failed on missing files",
+    "suite_after": "28 passed",
+    "found": "enhanced_coupling_decodes_a_converted_stream failed on the rebuilt 384 kbit/s clip: frame 1721 couples five channels, then three, switches coupling off and couples again. A block that switches coupling off sets firstcplcos for every channel (clause E.1.2.4), so the next coordinates carry no flags; eac3-ecpl-inject kept its own record of the earlier blocks and wrote them, the frame shifted by those bits, and the decoder rejected an exponent out of range, as it should. Fixed in the injector, with a unit test of that frame's pattern and a mutation that removes the reset; the decoder was right.",
+    "tests_made_to_test": [
+      "a_branch_reaches_every_presentation returned early and passed when its clip was missing; it now requires it.",
+      "pi_is_clean_and_matches_the_reference_layout skipped its comparison with truehdd when the reference was missing; it now requires it.",
+      "corrupted_joc_never_decodes_to_a_silent_success replayed its flips on a prefix that ends 640 bytes into a frame, so every trial exited 7 whatever the flip; it now replays them on the 130 whole frames before that and first checks they decode clean."
+    ]
+  },
+  "not_covered": "tools/joc_object_gate.py and tools/extract_corpus.py still name the clips whose sources are gone; tools/regression_gates.sh needs ref-oar/pi-thd-obj.s32, which was not rebuilt. The rebuilt files stay outside the repository like the originals."
+}
