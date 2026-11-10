@@ -1,0 +1,442 @@
+{
+ "question": "Does tools/media_regression.sh run again, every step? Besides the media suite it reads the inputs of three TrueHD gates, the JOC object gate and two corruption replays, and those went with the old work directory too.",
+ "method": [
+  "The TrueHD fuzz input (audit/tmp/fz-thd.thd, 400,000 bytes) has no recorded source. The stored rows of its campaign (remediation/decode-exit-codes.json) name five access units by byte: 47504, 151776, 191674, 265968, 306874. All five start an access unit in the first 400,000 bytes of Pi (1998)'s TrueHD track; in the same span of eight other Atmos titles of the library (Talk to Me, Shaun of the Dead, Knives Out, The King's Man, Braveheart, The Fifth Element, A Quiet Place, Blade Runner 2049) none does. So the input is Pi's head again.",
+  "The JOC fuzz input: the first 400,000 bytes of clips/talktome-joc-head.ec3, as 09-01-fuzz-joc.json records.",
+  "Both recorded cuts end inside a frame, and since a cut tail became an integrity fault the unflipped cut itself exits 7, so neither campaign could see a silent accept. tools/replay_fuzz.py now runs every command on the unflipped stream first and exits 3 without judging when one reports anything; tools/media_regression.sh gives it the cuts made clean: the JOC cut back to whole frames (130 frames, 399,360 bytes) and the TrueHD cut back to the end of its 18th access unit with a major sync (383,188 bytes), so that every restart interval but the last unit has its lossless check. Seeds and counts are the recorded ones; random.randrange draws 19 bits for every one of these sizes, so the site lists stay the recorded ones unless a draw falls between the new size and 400,000.",
+  "JOC object gate clips: the first 3,000,000 bytes of each title's E-AC-3 JOC track, the recipe of the clips evidence 11 restored. Disclosure Day (2026), Extraction and Glass Onion are gone; the gate now measures five of the six titles the audit measured (06-11-joc-objects-vs-dolby.json) and Blade Runner 2049.",
+  "Dolby's object dumps: the Reference Player's GStreamer elements by the recipes in docs/dolby-tools.md, dlbac3dec out-ch-config=21 (drc-suppress, custom-0, drop-delay) for E-AC-3 JOC and dlbtruehddec presentation=16 out-ch-config=21 behind an MP4 wrapper for Pi's 50 MB TrueHD head.",
+  "Then tools/media_regression.sh on main as of the media suite's merge (2573819) with this change's tools, and its own release build."
+ ],
+ "result": {
+  "files": [
+   {
+    "path": "audit/tmp/fz-thd.thd",
+    "how": "first 400,000 bytes of thd/pi.thd (identified by the access units the stored TrueHD fuzz rows name)",
+    "bytes": 400000,
+    "sha256": "e216f703ff2141cb6070d5093e58347390240c3814280e172dda40fd84794f92"
+   },
+   {
+    "path": "audit/tmp/fz-joc.ec3",
+    "how": "first 400,000 bytes of clips/talktome-joc-head.ec3 (09-01-fuzz-joc.json)",
+    "bytes": 400000,
+    "sha256": "d4fe4efa8421e970cab12dbe94ca43432b89b2d1255eec0fe24592f7349654f2"
+   },
+   {
+    "path": "audit/tmp/fz-thd-clean.thd",
+    "how": "thd/pi.thd up to the end of the 18th access unit that carries a major sync (383,188 bytes): the stored TrueHD campaign's cut back to a restart boundary",
+    "bytes": 383188,
+    "sha256": "10489e42c2c7fb0dd805f238b45d6966b13a5ce8516669496d2d1b0d3ddd78f6"
+   },
+   {
+    "path": "audit/tmp/fz-joc-clean.ec3",
+    "how": "first 130 frames (399,360 bytes) of clips/talktome-joc-head.ec3: the stored JOC campaign's 400,000-byte cut back to whole frames",
+    "bytes": 399360,
+    "sha256": "22d49150f2611802510c3a0a2ce01af0410be73823efe0169f4c7d2407030e5e"
+   },
+   {
+    "path": "clips/knivesout-joc-head.ec3",
+    "how": "Knives Out (2019) stream 2 (E-AC-3 JOC, 6 ch, 768000 bit/s), first 3,000,000 bytes",
+    "bytes": 3000000,
+    "sha256": "0b33a4bb9b38d904d75ce0060ca1fc863dde4c902611735c43258602ecb4901d"
+   },
+   {
+    "path": "clips/fifthelement-joc-head.ec3",
+    "how": "The Fifth Element (1997) stream 2 (E-AC-3 JOC, 6 ch, 768000 bit/s), first 3,000,000 bytes",
+    "bytes": 3000000,
+    "sha256": "dac14f85a9e14e882a06b986718924cfac6164ab140eafcb9b6f11de3e0601b1"
+   },
+   {
+    "path": "clips/shaun-joc1024-head.ec3",
+    "how": "Shaun of the Dead (2004) stream 2 (E-AC-3 JOC, 6 ch, 1024000 bit/s), first 3,000,000 bytes",
+    "bytes": 3000000,
+    "sha256": "f59753c32f005c11f8f52be7d3fe8507e49a6c00f34559a6f13b0e71771a1027"
+   },
+   {
+    "path": "clips/br2049-joc-head.ec3",
+    "how": "Blade Runner 2049 (2017) stream 2 (E-AC-3 JOC, 6 ch, 768000 bit/s), first 3,000,000 bytes",
+    "bytes": 3000000,
+    "sha256": "e3fd543f3a59265416ba38893e228e9f6d32835058ecb5d921a87d4e8ba8a0df"
+   },
+   {
+    "path": "ref-oar/quietplace-web-obj.f32",
+    "how": "Dolby Reference Player dlbac3dec out-ch-config=21 drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true, F32LE, of clips/quietplace-web-head.ec3",
+    "bytes": 95850432,
+    "sha256": "118db05149f586e37391a1d710b4a882995d22d8b8abe21ea331e4d821988133"
+   },
+   {
+    "path": "ref-oar/kingsman-joc-head-obj.f32",
+    "how": "Dolby Reference Player dlbac3dec out-ch-config=21 drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true, F32LE, of clips/kingsman-joc-head.ec3",
+    "bytes": 95850432,
+    "sha256": "ce499cc019b964cd8941f41701a9d22b365aba51096a5011f12a14a9091ea4e6"
+   },
+   {
+    "path": "ref-oar/knivesout-joc-obj.f32",
+    "how": "Dolby Reference Player dlbac3dec out-ch-config=21 drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true, F32LE, of clips/knivesout-joc-head.ec3",
+    "bytes": 95850432,
+    "sha256": "e041ef9e304aa106df4f324542c2b5dfe731cfd01e7eca5fb20527efa72f6cef"
+   },
+   {
+    "path": "ref-oar/fifthelement-joc-obj.f32",
+    "how": "Dolby Reference Player dlbac3dec out-ch-config=21 drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true, F32LE, of clips/fifthelement-joc-head.ec3",
+    "bytes": 95850432,
+    "sha256": "69a33717a72cd981a52c69b17bc338299680c0a406521fd42a256627c372882d"
+   },
+   {
+    "path": "ref-oar/shaun-joc1024-obj.f32",
+    "how": "Dolby Reference Player dlbac3dec out-ch-config=21 drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true, F32LE, of clips/shaun-joc1024-head.ec3",
+    "bytes": 71864256,
+    "sha256": "2a84a8bb4a6b1f626e365a2e3f03a2689e650291f8ad6350a5af04aeefe0061a"
+   },
+   {
+    "path": "ref-oar/br2049-obj.f32",
+    "how": "Dolby Reference Player dlbac3dec out-ch-config=21 drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true, F32LE, of clips/br2049-joc-head.ec3",
+    "bytes": 95850432,
+    "sha256": "fb5d43495e80fefb908e480598d3f9b6295a212df73ab6f00bceb216a13d8a9c"
+   },
+   {
+    "path": "ref-oar/pi-thd-obj.s32",
+    "how": "Dolby Reference Player dlbtruehddec out-ch-config=21 presentation=16, S32LE, of clips/pi-head50m.thd wrapped in MP4 (ffmpeg -c:a copy -strict -2)",
+    "bytes": 324851200,
+    "sha256": "4f15e287e5fd67bbe3f53d4f5f6b8cbd145ef9a5492fb0065b0235577fb771d9"
+   }
+  ],
+  "regression_steps": [
+   {
+    "step": "media-suite",
+    "exit": "0",
+    "seconds": 30
+   },
+   {
+    "step": "media-negative",
+    "exit": "ok",
+    "seconds": null
+   },
+   {
+    "step": "truehd-gates",
+    "exit": "0",
+    "seconds": 9
+   },
+   {
+    "step": "joc-object-gate",
+    "exit": "0",
+    "seconds": 125
+   },
+   {
+    "step": "replay-joc",
+    "exit": "0",
+    "seconds": 23
+   },
+   {
+    "step": "replay-truehd",
+    "exit": "0",
+    "seconds": 5
+   },
+   {
+    "line": "adm-harness            skipped      (no ADM Python environment)"
+   },
+   {
+    "line": "all media checks passed"
+   },
+   {
+    "line": "media_regression exit 0"
+   }
+  ],
+  "truehd_gates": [
+   {
+    "gate": "truehd-presentation-2-vs-ffmpeg",
+    "verdict": "PASS",
+    "detail": "decoded 126895 access units, 5075800 samples x 8 channels (0:01:45.746), 0 dropped duplicates\nlossless checks: 1000 performed, 0 failed; max_bits violations: 0; segment problems: 0\nchannels: L R C LFE Lb Rb Ls Rs\nspeed: 0.83 s (128x realtime)\ncompared 5075800 samples x 8 channels (0:01:45.746) with the reference\nmismatching samples: 0 (max difference 0)\nlengths agree\nresult: BIT-EXACT\nintegrity: 84 trailing bytes that formed no access unit, 1 stream `oadec verify` calls non-conformant\nfirst problem: sync.trailing_bytes: 84 bytes after the last access unit do not make one\nthe output was written and is not trustworthy; `oadec verify` reports the same faults"
+   },
+   {
+    "gate": "truehd-presentation-3-vs-truehdd",
+    "verdict": "PASS",
+    "detail": "reference 182728800 bytes, ours 182728800 bytes, common 182728800\ndiffering 4 KiB blocks: 0\nresult: BIT-EXACT"
+   },
+   {
+    "gate": "truehd-presentation-3-vs-dolby",
+    "verdict": "PASS",
+    "detail": "12 channels: 5075800 frames, 0 differing samples, max |diff| 0\nresult: BIT-EXACT"
+   }
+  ],
+  "joc_object_gate": {
+   "summary": {
+    "titles": 6,
+    "measured": 6,
+    "regressed": 0,
+    "held_out": 1,
+    "worst_sdr_db": 8.16,
+    "worst_correlation_structure_delta": 0.0017,
+    "lags": [
+     0
+    ]
+   },
+   "titles": [
+    {
+     "name": "quietplace-web-head",
+     "verdict": "PASS",
+     "decode_exit": 7,
+     "now": {
+      "lag_samples": 0,
+      "compared_samples": 1200000,
+      "objects_worst_sdr_db": 35.85,
+      "objects_median_sdr_db": 39.88,
+      "corr_structure_max_abs_delta": 0.0012
+     },
+     "audit_06_11": {
+      "lag_samples": 0,
+      "objects_worst_sdr_db": 35.85,
+      "objects_median_sdr_db": 39.88,
+      "corr_structure_max_abs_delta": 0.0012
+     },
+     "worst_sdr_change_db": -0.0,
+     "median_sdr_change_db": -0.0
+    },
+    {
+     "name": "kingsman-joc-head",
+     "verdict": "PASS",
+     "decode_exit": 7,
+     "now": {
+      "lag_samples": 0,
+      "compared_samples": 1200000,
+      "objects_worst_sdr_db": 35.54,
+      "objects_median_sdr_db": 39.59,
+      "corr_structure_max_abs_delta": 0.0001
+     },
+     "audit_06_11": {
+      "lag_samples": 0,
+      "objects_worst_sdr_db": 35.54,
+      "objects_median_sdr_db": 39.59,
+      "corr_structure_max_abs_delta": 0.0001
+     },
+     "worst_sdr_change_db": -0.0,
+     "median_sdr_change_db": -0.0,
+     "after_the_steep_fix": {
+      "lag_samples": 0,
+      "objects_worst_sdr_db": 35.54,
+      "objects_median_sdr_db": 39.59,
+      "corr_structure_max_abs_delta": 0.0001
+     }
+    },
+    {
+     "name": "knivesout-joc-head",
+     "verdict": "PASS",
+     "decode_exit": 7,
+     "now": {
+      "lag_samples": 0,
+      "compared_samples": 1200000,
+      "objects_worst_sdr_db": 35.72,
+      "objects_median_sdr_db": 41.23,
+      "corr_structure_max_abs_delta": 0.0007
+     },
+     "audit_06_11": {
+      "lag_samples": 0,
+      "objects_worst_sdr_db": 35.72,
+      "objects_median_sdr_db": 41.23,
+      "corr_structure_max_abs_delta": 0.0007
+     },
+     "worst_sdr_change_db": -0.0,
+     "median_sdr_change_db": -0.0,
+     "after_the_steep_fix": {
+      "lag_samples": 0,
+      "objects_worst_sdr_db": 35.72,
+      "objects_median_sdr_db": 41.23,
+      "corr_structure_max_abs_delta": 0.0007
+     }
+    },
+    {
+     "name": "fifthelement-joc-head",
+     "verdict": "PASS",
+     "decode_exit": 7,
+     "now": {
+      "lag_samples": 0,
+      "compared_samples": 1200000,
+      "objects_worst_sdr_db": 8.16,
+      "objects_median_sdr_db": 46.24,
+      "corr_structure_max_abs_delta": 0.0017
+     },
+     "audit_06_11": {
+      "lag_samples": 0,
+      "objects_worst_sdr_db": 8.16,
+      "objects_median_sdr_db": 46.24,
+      "corr_structure_max_abs_delta": 0.0017
+     },
+     "worst_sdr_change_db": -0.0,
+     "median_sdr_change_db": -0.0
+    },
+    {
+     "name": "shaun-joc1024-head",
+     "verdict": "PASS",
+     "decode_exit": 7,
+     "now": {
+      "lag_samples": 0,
+      "compared_samples": 922879,
+      "objects_worst_sdr_db": 43.62,
+      "objects_median_sdr_db": 53.79,
+      "corr_structure_max_abs_delta": 0.0002
+     },
+     "audit_06_11": {
+      "lag_samples": 0,
+      "objects_worst_sdr_db": 40.75,
+      "objects_median_sdr_db": 46.79,
+      "corr_structure_max_abs_delta": 0.0002
+     },
+     "worst_sdr_change_db": 2.87,
+     "median_sdr_change_db": 7.0,
+     "after_the_steep_fix": {
+      "lag_samples": 0,
+      "objects_worst_sdr_db": 43.62,
+      "objects_median_sdr_db": 53.79,
+      "corr_structure_max_abs_delta": 0.0002
+     }
+    },
+    {
+     "name": "br2049-joc-head",
+     "verdict": "HELD OUT",
+     "decode_exit": 7,
+     "now": {
+      "lag_samples": 0,
+      "compared_samples": 1200000,
+      "objects_worst_sdr_db": 37.63,
+      "objects_median_sdr_db": 42.08,
+      "corr_structure_max_abs_delta": 0.0009
+     },
+     "after_the_steep_fix": {
+      "lag_samples": 0,
+      "objects_worst_sdr_db": 37.63,
+      "objects_median_sdr_db": 42.08,
+      "corr_structure_max_abs_delta": 0.0009
+     }
+    }
+   ]
+  },
+  "corruption_replays": {
+   "joc": {
+    "seed": 1,
+    "trials": 120,
+    "baseline": {
+     "verify": {
+      "exit": 0,
+      "reported": false,
+      "first": ""
+     },
+     "decode_pcm": {
+      "exit": 0,
+      "reported": false,
+      "first": ""
+     },
+     "decode_damf": {
+      "exit": 0,
+      "reported": false,
+      "first": ""
+     }
+    },
+    "verdict": "PASS",
+    "faults": {},
+    "summary": {
+     "verify": {
+      "silent": 0,
+      "nonzero_exit": 120,
+      "reported_but_exit_0": 0,
+      "panics": 0,
+      "timeouts": 0
+     },
+     "decode_pcm": {
+      "silent": 0,
+      "nonzero_exit": 120,
+      "reported_but_exit_0": 0,
+      "panics": 0,
+      "timeouts": 0
+     },
+     "decode_damf": {
+      "silent": 0,
+      "nonzero_exit": 120,
+      "reported_but_exit_0": 0,
+      "panics": 0,
+      "timeouts": 0
+     }
+    },
+    "first_lines": {
+     "verify": {
+      "1 CRC failures": 99,
+      "1 decode errors": 21
+     },
+     "decode_pcm": {
+      "1 CRC failures": 99,
+      "1 decode errors": 21
+     },
+     "decode_damf": {
+      "1 CRC failures": 99,
+      "1 decode errors": 21
+     }
+    },
+    "sites_against_the_record": {
+     "same_sites_in_the_same_order": 120,
+     "in_common": 120,
+     "recorded": 120,
+     "the_99_recorded_silent_sites_are_the_99_caught_by_crc_now": true
+    }
+   },
+   "truehd": {
+    "seed": 7,
+    "trials": 100,
+    "baseline": {
+     "verify": {
+      "exit": 0,
+      "reported": false,
+      "first": ""
+     },
+     "decode_pcm": {
+      "exit": 0,
+      "reported": false,
+      "first": ""
+     }
+    },
+    "verdict": "PASS",
+    "faults": {},
+    "summary": {
+     "verify": {
+      "silent": 0,
+      "nonzero_exit": 100,
+      "reported_but_exit_0": 0,
+      "panics": 0,
+      "timeouts": 0
+     },
+     "decode_pcm": {
+      "silent": 0,
+      "nonzero_exit": 100,
+      "reported_but_exit_0": 0,
+      "panics": 0,
+      "timeouts": 0
+     }
+    },
+    "first_lines": {
+     "verify": {
+      "1 CRC failures": 81,
+      "1 parse errors": 13,
+      "Result": 6
+     },
+     "decode_pcm": {
+      "segment problems": 81,
+      "first problem": 19
+     }
+    },
+    "sites_against_the_record": {
+     "same_sites_in_the_same_order": 97,
+     "in_common": 98,
+     "recorded": 100,
+     "both_recorded_silent_accepts_are_in_the_list_and_caught": true
+    }
+   },
+   "the_recorded_400000_byte_cuts": {
+    "unflipped": {
+     "joc": "verify, decode_pcm and decode_damf exit 7: 130 frames and 640 bytes of a 131st",
+     "truehd": "verify and decode exit 7: 84 trailing bytes after the last access unit"
+    },
+    "consequence": "every trial exits 7 whatever the flip, so a silent accept cannot occur; given the JOC cut, the replay now exits 3 without judging"
+   }
+  },
+  "reading": "Every step that can run here passes. The three TrueHD gates are bit-exact on Pi's 50 MB head: presentation 2 against FFmpeg (5,075,800 samples x 8 channels), presentation 3 against truehdd (182,728,800 bytes) and against Dolby (12 channels x 5,075,800 frames, the count the earlier gate compared). Of the JOC object gate's six titles none regressed: A Quiet Place, Kingsman, Knives Out and The Fifth Element give the audit's worst and median object SDR and correlation-structure difference to the last printed digit, which says the rebuilt clips and dumps are the audit's material; Shaun of the Dead gives the figures measured after the steep-interpolation fix, 2.87 dB worst and 7.0 dB median above the audit's. On clean streams the corruption replays catch every flip with exit 7: the 120 JOC sites are the recorded ones in the recorded order, and the 99 the audit found silent are the 99 a CRC failure now reports; 97 of the 100 TrueHD sites are the recorded ones in order, and both recorded silent accepts are among them and caught."
+ },
+ "not_covered": "The ADM harness step was skipped: it needs its own Python environment (numpy, lxml, scipy, ear, setuptools<80 from PyPI), which was not rebuilt; CI's ADM job runs the same --stage harness on every pull request. The JOC gate holds Shaun of the Dead to the audit's level, below today's, and Blade Runner 2049 has no stored figure. Extraction and Glass Onion, the gate's other held-out titles, went with their sources. A flip in the last access unit of the TrueHD cut has no lossless check after it."
+}

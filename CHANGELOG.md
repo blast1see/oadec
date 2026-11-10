@@ -24,6 +24,17 @@ Semantic Versioning.
   the repository records matches. Three sources are gone, so three tests use
   substitutes, and the Dolby-encoded clips were re-authored by their recorded
   recipes (evidence 11).
+- **The media regression runs every step again.** `tools/media_regression.sh`
+  also reads three TrueHD gates, the JOC object gate and two corruption
+  replays, and their inputs had gone with the old work directory too. Dolby's
+  object dumps were made again with the Reference Player. The TrueHD fuzz
+  input was found again: the five access units its recorded rows name all
+  start in Pi's first 400,000 bytes and in no other title's. The JOC object
+  gate now measures five of the six titles the audit measured, Disclosure
+  Day's source being gone, and four of them give the audit's figures to the
+  last printed digit. Every step passes. The ADM step is skipped without its
+  Python environment; CI runs the same stage on every pull request
+  (evidence 12).
 
 ### Fixed
 
@@ -39,6 +50,14 @@ Semantic Versioning.
   its comparison with truehdd. The fuzz replay cut its clip mid-frame, so every
   trial exited 7 whatever the flip. They now require their material, and the
   replay first checks that its whole-frame prefix decodes clean.
+- **The corruption replays could not see a silent accept.** The regression's
+  two campaigns had the same fault as that test: their recorded cuts end
+  inside a frame, and since a cut tail counts as an integrity fault, every
+  trial exited 7 whatever the flip. `tools/replay_fuzz.py` now runs each
+  command on the unflipped stream first and exits 3 without judging when one
+  reports anything, and the regression gives it the cuts made clean. The JOC
+  campaign keeps its 120 recorded sites, and the 99 the audit found silent are
+  the 99 a CRC failure now reports.
 
 ## [0.8.0] - 2026-11-10
 
