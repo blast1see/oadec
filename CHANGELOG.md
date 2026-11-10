@@ -6,6 +6,8 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-10
+
 ### Added
 
 - **DVD-Audio (MLP, the FBB syntax).** A stream oadec used to refuse by name
