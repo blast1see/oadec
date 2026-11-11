@@ -4,6 +4,7 @@
     python tools/bench.py --out bench.json  WORK/thd WORK/ec3 WORK/clips
     python tools/bench.py --refs --out bench.json  WORK/thd WORK/ec3
     python tools/bench.py --compare OLD NEW --out compare.json  WORK/thd WORK/ec3
+    python tools/bench.py --report bench.json
 
 Every command runs as a process of its own and is measured from outside it:
 the time between its start and its end, the processor time it used in user and
@@ -27,8 +28,9 @@ second thread while it decodes (`docs/exit-codes.md`), so its processor time
 is that of both.
 
 The streams are found under the paths given, sorted into kinds by what
-`info --json` says of them, and the heaviest `--per-kind` of each kind are
-measured. Each is read once before it is measured, so the first run does not
+`info --json` says of them (a TrueHD stream also by the channels of its
+widest presentation, so that a 16-channel programme is measured where there
+is one), and the longest and heaviest `--per-kind` of each kind are measured. Each is read once before it is measured, so the first run does not
 pay for the disk. A report names a stream by its kind, its length and its
 size, never by its file name, unless `--names` asks for the names.
 
@@ -175,7 +177,11 @@ def facts(exe, path):
             # the object presentation's channels are counted by the major sync
             shown = [(i, n) for i, n in shown if i != 3]
             shown.append((3, (info.get('sixteen_channel') or {}).get('channels', 16)))
-        return {'kind': 'truehd-objects' if objects else 'truehd', 'path': path,
+        # a kind per width of the widest presentation, so that a run measures
+        # every width the streams have and not only that of the heaviest ones
+        widest = max((n for _, n in shown), default=0)
+        return {'kind': f'truehd-objects-{widest}ch' if objects else f'truehd-{widest}ch',
+                'path': path,
                 'seconds': info.get('duration_seconds') or 0.0,
                 'bytes': path.stat().st_size, 'sample_rate': info.get('sampling_frequency'),
                 'presentations': shown, 'objects': objects}
@@ -289,8 +295,46 @@ def describe(stream, names):
     return out
 
 
+def print_report(path):
+    """Prints a saved run as a Markdown table: a row a command, the reference
+    decoders in brackets. An evidence file that holds a run under `result`
+    is read as that run."""
+    try:
+        data = json.loads(Path(path).read_text(encoding='utf-8'))
+    except (OSError, ValueError) as e:
+        print(f'{path}: {e}', file=sys.stderr)
+        return 2
+    if isinstance(data, dict) and 'workloads' not in data:
+        data = data.get('result', {})
+    if not isinstance(data, dict) or 'workloads' not in data:
+        print(f'{path} holds no run of this tool', file=sys.stderr)
+        return 2
+    m = data['machine']
+    print(f'{m["processor"]}, {m["logical_processors"]} logical processors, {m["system"]}; '
+          f'{data["runs"]} runs a command, the median of each.')
+    for b in data['binaries']:
+        print(f'{b["version"]}, SHA-256 {b["sha256"]}')
+    print()
+    print('| stream | command | x real time | processor s per minute | peak MiB | spread |')
+    print('|---|---|---:|---:|---:|---:|')
+    for work in data['workloads']:
+        minutes = work['seconds'] / 60
+        rows = [(r, False) for r in work['results']]
+        rows += [(r, True) for r in work.get('references', [])]
+        for row, reference in rows:
+            if 'wall_s' not in row:
+                continue
+            name = f'[{row["command"]}]' if reference else row['command']
+            print(f'| {work["alias"]}, {work["seconds"]:.0f} s | {name} | {row.get("realtime", 0)} '
+                  f'| {row["cpu_s"]["median"] / minutes:.2f} | {row["peak_mib"]} '
+                  f'| {100 * row["wall_s"]["mad_share"]:.1f} % |')
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=(__doc__ or '').split('\n\n')[0])
+    ap.add_argument('--report', metavar='JSON',
+                    help='print the table of a saved run and measure nothing')
     ap.add_argument('--bin', help='the binary to measure (default: as tools/oadec_bin.py finds it)')
     ap.add_argument('--compare', nargs=2, metavar=('OLD', 'NEW'))
     ap.add_argument('--refs', action='store_true', help='also time FFmpeg and truehdd')
@@ -302,8 +346,12 @@ def main():
     ap.add_argument('--tmp', help='where the object formats are written')
     ap.add_argument('--names', action='store_true', help='record the file names')
     ap.add_argument('--out')
-    ap.add_argument('paths', nargs='+')
+    ap.add_argument('paths', nargs='*')
     args = ap.parse_args()
+    if args.report:
+        return print_report(args.report)
+    if not args.paths:
+        ap.error('give the streams or the directories to measure')
     if args.runs < 1 or args.per_kind < 1:
         ap.error('--runs and --per-kind are at least 1')
 
