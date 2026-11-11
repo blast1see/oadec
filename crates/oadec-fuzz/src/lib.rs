@@ -25,10 +25,12 @@ pub mod targets;
 pub type Target = (&'static str, fn(&[u8]));
 
 /// Every target, by the name its libFuzzer wrapper and its seeds go by.
-pub const TARGETS: [Target; 8] = [
+pub const TARGETS: [Target; 10] = [
     ("truehd_extract", targets::truehd_extract),
     ("truehd_unit", targets::truehd_unit),
+    ("truehd_unit_repaired", targets::truehd_unit_repaired),
     ("truehd_decode", targets::truehd_decode),
+    ("truehd_decode_repaired", targets::truehd_decode_repaired),
     ("emdf_container", targets::emdf_container),
     ("oamd_parse", targets::oamd_parse),
     ("joc_params", targets::joc_params),

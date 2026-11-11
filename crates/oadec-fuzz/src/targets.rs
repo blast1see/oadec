@@ -132,6 +132,23 @@ pub fn truehd_unit(data: &[u8]) {
     }
 }
 
+/// [`truehd_unit`] on the input with its checksums put right first. A parser
+/// stops at the CRC of a restart header that does not hold, and a changed
+/// field under it is never read; with the CRC recomputed it is, and the block
+/// and matrix syntax behind it with it. A repair that has been made leaves
+/// nothing for a second one to do.
+pub fn truehd_unit_repaired(data: &[u8]) {
+    let mut stream = data.to_vec();
+    oadec_truehd::repair_stream(&mut stream);
+    let once = stream.clone();
+    let (again, _) = oadec_truehd::repair_stream(&mut stream);
+    assert!(
+        !again.any() && stream == once,
+        "a second repair changed something: {again:?}"
+    );
+    truehd_unit(&stream);
+}
+
 fn units_of(stream: &[u8]) -> Vec<Unit> {
     let mut extractor = Extractor::new();
     extractor.push(stream);
@@ -197,6 +214,18 @@ pub fn truehd_decode(data: &[u8]) {
         decode_units(&units, presentation),
         "two decodes of the same bytes differ"
     );
+}
+
+/// [`truehd_decode`] on the input with its checksums put right first. The
+/// decoder writes silence for a segment that fails its parity or its CRC, so
+/// a changed sample or coefficient reaches the arithmetic only once those
+/// hold again.
+pub fn truehd_decode_repaired(data: &[u8]) {
+    let mut input = data.to_vec();
+    if let Some((_, stream)) = input.split_first_mut() {
+        oadec_truehd::repair_stream(stream);
+    }
+    truehd_decode(&input);
 }
 
 fn check_container(container: &Container, bytes: &[u8]) {

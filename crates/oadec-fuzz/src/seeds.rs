@@ -108,13 +108,16 @@ impl Seeds {
             run.extend_from_slice(&unit.bytes);
         }
         self.push("truehd_unit", run.clone());
+        self.push("truehd_unit_repaired", run.clone());
         self.push("truehd_extract", [&[READ][..], &run].concat());
         if let Ok((first, _)) = AccessUnit::parse(&units[start].bytes, None)
             && let Some(sync) = &first.major_sync
         {
             for presentation in 0..4u8 {
                 if Decoder::new(sync, usize::from(presentation)).is_ok() {
-                    self.push("truehd_decode", [&[presentation][..], &run].concat());
+                    let seed = [&[presentation][..], &run].concat();
+                    self.push("truehd_decode", seed.clone());
+                    self.push("truehd_decode_repaired", seed);
                 }
             }
         }
