@@ -41,7 +41,22 @@
     "oadec-eac3": {"program.rs": 23, "header.rs": 22, "bsi.rs": 14, "frame.rs": 13}
    }
   },
-  "libfuzzer": "PENDING"
+  "libfuzzer": {
+   "where": "the `fuzz` workflow on this pull request: Linux, nightly-2026-10-14 (rustc 1.101.0-nightly 822182db4), cargo-fuzz 0.13.2, AddressSanitizer and debug assertions on, the corpus seeded from the fixtures, 90 seconds a target. It has not run on the development machine: with the MSVC toolchain its runtime links only where the toolset's x64 AddressSanitizer component is installed, and there it is not",
+   "crashes": 0,
+   "executions": 3695389,
+   "by_target": {
+    "truehd_extract": {"executions": 637636, "per_second": 7006, "edges_on_the_seeds": 311, "edges_at_the_end": 436, "inputs_kept": 2802},
+    "truehd_unit": {"executions": 89600, "per_second": 984, "edges_on_the_seeds": 887, "edges_at_the_end": 1258, "inputs_kept": 1218},
+    "truehd_decode": {"executions": 181075, "per_second": 1989, "edges_on_the_seeds": 1260, "edges_at_the_end": 2006, "inputs_kept": 2487},
+    "emdf_container": {"executions": 1235508, "per_second": 13577, "edges_on_the_seeds": 402, "edges_at_the_end": 1343, "inputs_kept": 4095},
+    "oamd_parse": {"executions": 1313940, "per_second": 14438, "edges_on_the_seeds": 413, "edges_at_the_end": 1240, "inputs_kept": 3701},
+    "joc_params": {"executions": 17108, "per_second": 188, "edges_on_the_seeds": 542, "edges_at_the_end": 842, "inputs_kept": 516},
+    "eac3_frame": {"executions": 85621, "per_second": 940, "edges_on_the_seeds": 1021, "edges_at_the_end": 2212, "inputs_kept": 885},
+    "eac3_program": {"executions": 134901, "per_second": 1482, "edges_on_the_seeds": 1180, "edges_at_the_end": 2863, "inputs_kept": 2813}
+   },
+   "note": "an edge is libFuzzer's unit of coverage and is counted over everything linked into the target, so the figures compare a target with itself, not with the line counts above"
+  }
  },
- "reading": "The targets hold on what the fixtures give and on 6.4 million changed copies of it, and the one thing the run found before that was real: three faults of the extractor, two of them in what `verify` reports. That is the case for asserting more than `no panic`; none of the three panics. What the seeded run adds to the suite in lines is small and of one kind, 198 lines at 20,000 rounds that nothing else runs, nearly all of them in the TrueHD block, restart-header and filter parsers and in the decoder: the branches taken when a field holds a value no fixture has. It does not replace the rest: two thirds of the TrueHD crate and three quarters of the AC-3 one is what it reaches, and the JOC reconstruction less than half, because a blind change to a payload seldom survives its parser. Its material is thin on the AC-3 side, one E-AC-3 stream and no AC-3 one, so a frame of a syntax the fixture does not use is reached only by damage that happens to spell it. And it is blind: it finds what a changed byte finds. What needs a search, a field that has to agree with another before the code behind both runs, is libFuzzer's part."
+ "reading": "The targets hold on what the fixtures give and on 6.4 million changed copies of it, and the one thing the run found before that was real: three faults of the extractor, two of them in what `verify` reports. That is the case for asserting more than `no panic`; none of the three panics. What the seeded run adds to the suite in lines is small and of one kind, 198 lines at 20,000 rounds that nothing else runs, nearly all of them in the TrueHD block, restart-header and filter parsers and in the decoder: the branches taken when a field holds a value no fixture has. It does not replace the rest: two thirds of the TrueHD crate and three quarters of the AC-3 one is what it reaches, and the JOC reconstruction less than half, because a blind change to a payload seldom survives its parser. Its material is thin on the AC-3 side, one E-AC-3 stream and no AC-3 one, so a frame of a syntax the fixture does not use is reached only by damage that happens to spell it. And it is blind: it finds what a changed byte finds. What needs a search, a field that has to agree with another before the code behind both runs, is libFuzzer's part, and its first ninety seconds show the difference: from the same seeds it reaches between two and three and a third times the edges on the container, OAMD and AC-3 targets and about half as many again on the TrueHD and JOC ones, in 3.7 million executions without a crash. Ninety seconds is a first look and not a campaign; the weekly run gives each target ten minutes."
 }
