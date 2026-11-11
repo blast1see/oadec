@@ -8,6 +8,36 @@ Semantic Versioning.
 
 ### Added
 
+- **TrueHD and MLP streams written from recipes.** An encoder chooses, and
+  what no encoder chooses no stream carries. `crates/oadec-synth` writes the
+  streams: a recipe is a layout, a plan that says what codes each block, and
+  the samples, which are known before any decoder has read a byte. The writer
+  shares no code with the decoder; it holds the block syntax and the
+  arithmetic a second time, from the encoding side, and `docs/truehd.md` now
+  states that syntax field by field. The 26 recipes cover one substream
+  without a matrix in both syntaxes: the three code books, the offset at both
+  ends of its range, both filters at every order, coded filter states,
+  coefficient shifts, quantiser steps, one to four blocks to a unit, the six
+  sampling rates, major syncs 8 and 128 units apart, silence and full scale.
+  `oadec-synth list`, `write`, `all` and `digests` give them as files.
+- **A written stream is a reference only on the word of other decoders.**
+  `tools/synth_accept.py` puts every recipe in front of FFmpeg, `truehdd` and
+  Dolby's own decoder and compares what each writes with the samples of the
+  recipe. Two of them have to give the samples before the digests of the
+  stream go into `crates/oadec-synth/specs/digests.tsv`, which the tests hold
+  the writer to. All 26 are confirmed, 23 by every decoder asked; `oadec`
+  decodes all 26 to their samples and `verify` has nothing to say of any
+  (`docs/audit/evidence/engine-round-2026-11/10-synthetic-truehd.json`).
+- **What a filter is predicted from after a restart header.** No real stream
+  can say: of 282,022 restart headers in 46 streams every one sits in a block
+  of eight samples with no filter on any channel, and after those eight a
+  decoder that kept its filter histories and one that cleared them are in the
+  same state. The recipe `filter-at-restart` has filters in force in the
+  block of the restart header. `truehdd` and Dolby's decoder give the samples
+  an empty history predicts, as `oadec` does; FFmpeg's decoder keeps the
+  histories, gives other samples from the first one after each restart header
+  and reports the lossless check as failed. A mutation of `oadec` that keeps
+  the histories passed every test there was before this recipe.
 - **Checksums can be put right, for tests and for fuzzers.** A stream changed
   on purpose stops every parser at the first checksum over the change, so a
   rule behind a checksum could not be tested and a fuzzer could not reach the

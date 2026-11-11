@@ -93,11 +93,64 @@ shaun-head20m at unit 18. Evidence:
 
 ## Block header, matrices, filters, samples
 
-The guard bits, block size, matrix syntax for the three sync words (two extra
-noise columns for `0x31EA`; `cf_mask`, `cf_shift_code`, `lsb_bypass_bit_count`
-and delta coefficients for `0x31EC`), FIR/IIR coefficient sets, `huff_offset`,
-`huff_type`, `huff_lsbs` and the sample coding are documented inline in
-`crates/oadec-truehd/src/{block,matrix,filter,huffman}.rs`.
+A segment is a run of blocks. A block opens with `block_header_exists:1`.
+When it is set, `restart_header_exists:1` follows, then the restart header if
+that is set, then the block header: a run of fields, each behind a flag, and
+the flag itself only in the stream while its guard bit is set.
+
+| Guard bit | Flag, then the field |
+|---|---|
+| 0 | `guards:8`, the guard bits from here on |
+| 7 | `block_size:9`, 8 to the samples of an access unit |
+| 6 | the matrices (below) |
+| 5 | `output_shift` s4 for each matrix channel |
+| 4 | `quant_step_size:4` for each channel up to the last coded one |
+| | for each coded channel, a flag and then its parameters: |
+| 3 | the coefficients of filter A |
+| 2 | the coefficients of filter B |
+| 1 | `huff_offset` s15 |
+| | `huff_type:2`, `huff_lsbs:5` (no flag: they close the parameters) |
+
+A restart header leaves every guard bit set, a block size of 8, no matrix, no
+output shift and no quantiser step, and for every channel no filter, an offset
+of 0, no code book and `huff_lsbs` 24. A block says only what changes.
+
+**A coefficient set** is `order:4`, at most 8 for filter A and 4 for filter B,
+and 8 for the two of a channel together. A set of order 0 ends there. Otherwise
+`coeff_q:4` (8 to 15, the fractional bits; the two filters of a channel carry
+the same), `coeff_bits:5` (1 to 16), `coeff_shift:3` (bits and shift together
+at most 16), and each coefficient in `coeff_bits` bits of two's complement, to
+be shifted left by `coeff_shift`; -32768 is not a coefficient. Then
+`new_states:1`, which only filter B may set, followed by `state_bits:4`,
+`state_shift:4` and a state for each tap in `state_bits` bits, shifted left
+by `state_shift` -- or nothing at all for a width of 0, which is a state of
+noughts. The first state is the most recent.
+
+**The block data** is, for each sample, the bypassed LSBs of each matrix that
+sends them and then, for each coded channel, the code of its book and
+`huff_lsbs - quant_step_size` further bits. The three books have one shape
+(`crates/oadec-truehd/src/huffman.rs`): a leading `1` and two, one or no
+bits for the values from 0 up; `00`, `n` noughts and a `1` for `-(n + 1)`;
+`01`, `n` noughts and a `1` for `base + n`, the base 4, 2 or 1. No code is
+longer than nine bits, so the books reach -7 to 10, 8 and 7. Without a book
+there is no code and it counts as 0. The sample is
+
+    ((code << lsb_bits) + lsbs + huff_offset - sign) << quant_step_size
+
+where `sign` centres the range: `1 << (lsb_bits - 1)` without a book, and
+with one `1 << (lsb_bits + 2 - huff_type)`; a shift that would be negative
+makes it 0. With `error_protect` the data is preceded by `block_data_bits:16`
+and followed by `block_header_crc:8`. `last_block_in_segment:1` closes the
+block.
+
+The matrix syntax for the three sync words (two extra noise columns for
+`0x31EA`; `cf_mask`, `cf_shift_code`, `lsb_bypass_bit_count` and delta
+coefficients for `0x31EC`) is documented inline in
+`crates/oadec-truehd/src/matrix.rs`.
+
+A segment of a `0x31EA` substream holds four blocks at most, one of the other
+two kinds two (Dolby's description, 4.6); major syncs come eight access units
+apart at least and 128 at most (2.5). `verify` warns on either.
 
 The Huffman books are decoded through a 512-entry table per book. The
 structural decoder (leading `1` → centre group, `00`/`01` → zero-run chains)
@@ -110,7 +163,9 @@ excerpt, which is how badly the branch predictor fares on Huffman codes.
 * Recorrelation: `pred = (Σ fir·hist + Σ iir·hist) >> coeff_q`, `out = residual
   + (pred & ~((1 << qss) − 1))`, IIR history takes `out − pred`. Histories
   reset at a restart header; IIR states are loaded from the coefficient set
-  when it carries them.
+  when it carries them. That the histories are empty after a restart header
+  is something no real stream shows and a written one does: see *Streams
+  written from a recipe* below.
 * Rematrixing (18 fractional bits, `i64` accumulators): `0x31EA` feeds two noise
   samples per position from the 23-bit register; `0x31EB` and `0x31EC` add a
   dither value from a 256-entry table indexed by
@@ -251,6 +306,76 @@ set it first, give the rule a severity after.
 syntax. It sorts every line of the decoder by what reaches it: the unit tests
 (a bitstream built by hand to reach it), the corpus (what an encoder writes),
 both, or neither.
+
+## Streams written from a recipe
+
+An encoder chooses, and what no encoder chooses no stream carries. For that
+part of the syntax `crates/oadec-synth` writes the streams: a recipe is a
+layout, a plan that says what codes each block, and the samples, and
+`oadec-synth write <recipe> <stream> [<pcm>]` gives the stream and the samples
+a decoder has to give back for it. The samples are known before any decoder
+has read a byte, the signals are integer arithmetic, and a recipe is the same
+bytes on every machine.
+
+The writer shares no code with the decoder: it holds the syntax and the
+arithmetic of this page a second time, from the encoding side, and takes only
+the CRC and parity primitives from `oadec-bits`. It still shares an author
+and a reading of the format, so that the decoder gives back the samples of a
+stream the writer wrote says little. What a recipe is worth is decided
+outside the repository. `tools/synth_accept.py` puts every stream in front of
+FFmpeg, `truehdd` and Dolby's own decoder (the `dlbtruehddec` element of the
+Dolby Reference Player, on the stream wrapped in MP4), each run as a program
+and judged by the bytes it writes, and records in
+`crates/oadec-synth/specs/digests.tsv` the digest of each stream, the digest
+of its samples, and which of the three gave those samples. A recipe is
+recorded when two of them did. The tests of the crate hold the writer to the
+record, so a change that alters a stream fails until the stream has been in
+front of the decoders again; and they hold the decoder to the samples, `verify`
+to finding nothing, and the census of each stream to the tools its recipe
+says it carries.
+
+What the 26 recipes cover so far is one substream of one or two channels
+without a matrix, in the TrueHD and the DVD-Audio syntax: no filter and no
+book, the three books, the offset at both ends of its range, `huff_lsbs` wider
+than the samples need, filter A at every order and precision, filter B at
+every order with and without a state, both filters on a channel in every
+split of eight taps, coefficient shifts, quantiser steps with and without a
+filter over them, one to four blocks to a unit with the coding changing
+inside it, the six sampling rates, major syncs 8 and 128 units apart, digital
+silence, full scale, and segments without their check bytes. Matrices,
+several substreams, output shifts and error protection are not written yet.
+
+Measured (`docs/audit/evidence/engine-round-2026-11/10-synthetic-truehd.json`):
+every recipe is confirmed by two decoders at least, 23 of the 26 by every
+decoder asked. Dolby's decoder is not asked for the three in the DVD-Audio
+syntax. It gives the samples of 22 of the other 23; of digital silence, whose
+access units are ten bytes long, the parser element in front of it hands on
+7 of 16, and the decoder then has no frame to decode. `truehdd` gives 25 and
+refuses the recipe with four blocks to a unit, which it limits to three.
+FFmpeg gives 25 and differs on one, and that one is the finding below.
+
+### The filter histories after a restart header
+
+A restart header is an entry point: a decoder that starts there has nothing
+before it. Whether a decoder that was already running keeps its filter
+histories across one is not something a real stream can say. Of 282,022
+restart headers in 46 real streams, every one sits in a block of eight samples
+in which no channel has a filter, and those eight samples fill both
+histories: a decoder that clears them at the header and one that keeps them
+go on from the same state.
+
+The recipe `filter-at-restart` has filters in force in the very block of the
+restart header, after noise. `truehdd` and Dolby's decoder give its samples,
+which are the ones a cleared history predicts. FFmpeg's decoder gives others
+from the first sample after each restart header and reports the lossless
+check of the section as failed: it keeps the histories. `oadec` clears them
+(`SubstreamDecoder::restart`), which is now a measured reading and not only
+the plausible one, and a mutation that keeps them is caught by this recipe
+and by nothing that was in the suite before it.
+
+Every other recipe codes the eight samples at a restart header as encoders
+do, without a filter (`AtRestart::Unfiltered`), so that all three decoders
+can judge what it is about.
 
 ## Decoder buffer
 

@@ -145,6 +145,12 @@ comes from a measurement that can be repeated:
   the memory of every command from outside the process, with FFmpeg and
   truehdd on the same streams for scale. The baseline and what it says are in
   [`docs/performance.md`](docs/performance.md).
+- **Syntax no material carries.** `crates/oadec-synth` writes TrueHD and MLP
+  streams from recipes, with samples that are known before any decoder reads
+  them, and `tools/synth_accept.py` takes a stream as a reference only when
+  two decoders from outside this repository give those samples back. One
+  recipe shows what no real stream can: what a filter is predicted from right
+  after a restart header ([`docs/truehd.md`](docs/truehd.md)).
 
 The real-media suite is opt-in. Point `OADEC_MEDIA` at a work directory
 that holds the streams and references and run:
