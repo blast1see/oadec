@@ -593,6 +593,55 @@ MUTANTS = [
      'crates/oadec-truehd/src/block.rs',
      '            bias: i64::from(ss.huff_offset[ch]) - sign,',
      '            bias: -i64::from(ss.huff_offset[ch]) - sign,'),
+    # What lies over the channels: the matrices of a 0x31EA substream with
+    # their noise channels and bypassed bits, the output shift and the
+    # channel assignment. No real stream gives a noise channel a coefficient,
+    # so the first four pass on anything but a written one.
+    ('the two noise channels of a matrix swapped',
+     'crates/oadec-truehd/src/decoder.rs',
+     '''                    row[mmc + 1] = a;
+                    row[mmc + 2] = b;''',
+     '''                    row[mmc + 1] = b;
+                    row[mmc + 2] = a;'''),
+    ('the shift of the noise channels dropped',
+     'crates/oadec-truehd/src/dither.rs',
+     '''    let first = i32::from((s >> 15) as i8) << shift;
+    let second = i32::from(shr7 as i8) << shift;''',
+     '''    let first = i32::from((s >> 15) as i8);
+    let second = i32::from(shr7 as i8);
+    let _ = shift;'''),
+    ('the noise register moved on by another rule',
+     'crates/oadec-truehd/src/dither.rs',
+     '    *seed = (shr7 ^ (shr7 << 5) ^ (s << 16)) & SEED_MASK;',
+     '    *seed = (shr7 ^ (shr7 << 4) ^ (s << 16)) & SEED_MASK;'),
+    ('the noise register left running through a restart header',
+     'crates/oadec-truehd/src/decoder.rs',
+     '        self.dither_seed = ss.dither_seed;',
+     '        self.dither_seed = if self.dither_seed == 0 { ss.dither_seed } else { self.dither_seed };'),
+    ('a bypassed bit added before the sum is cut to the quantiser step',
+     'crates/oadec-truehd/src/decoder.rs',
+     '    (((acc >> MATRIX_FRAC) as i32) & !((1i32 << qss) - 1)).wrapping_add(bypassed_lsb)',
+     '    ((acc >> MATRIX_FRAC) as i32).wrapping_add(bypassed_lsb) & !((1i32 << qss) - 1)'),
+    ('the bypassed bit of a matrix left out',
+     'crates/oadec-truehd/src/decoder.rs',
+     '    (((acc >> MATRIX_FRAC) as i32) & !((1i32 << qss) - 1)).wrapping_add(bypassed_lsb)',
+     '    (((acc >> MATRIX_FRAC) as i32) & !((1i32 << qss) - 1)).wrapping_add(bypassed_lsb & 0)'),
+    ('the sum of a matrix not cut to the quantiser step',
+     'crates/oadec-truehd/src/decoder.rs',
+     '    (((acc >> MATRIX_FRAC) as i32) & !((1i32 << qss) - 1)).wrapping_add(bypassed_lsb)',
+     '    ((acc >> MATRIX_FRAC) as i32).wrapping_add(bypassed_lsb | (qss as i32 & 0))'),
+    ('an output shifted the other way',
+     'crates/oadec-truehd/src/decoder.rs',
+     '                let v = shift_left(row[chi], i32::from(shift));',
+     '                let v = shift_left(row[chi], -i32::from(shift));'),
+    ('the outputs left in the order of the coded channels',
+     'crates/oadec-truehd/src/decoder.rs',
+     '                out[usize::from(sd.ch_assign[chi])] = v;',
+     '                out[chi] = v;'),
+    ('the check word taken in the order of the outputs',
+     'crates/oadec-truehd/src/decoder.rs',
+     '                check ^= (v as u32 & 0xFF_FFFF) << (chi & 7);',
+     '                check ^= (v as u32 & 0xFF_FFFF) << (usize::from(sd.ch_assign[chi]) & 7);'),
 ]
 
 
