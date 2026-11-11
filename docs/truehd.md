@@ -140,8 +140,9 @@ there is no code and it counts as 0. The sample is
 where `sign` centres the range: `1 << (lsb_bits - 1)` without a book, and
 with one `1 << (lsb_bits + 2 - huff_type)`; a shift that would be negative
 makes it 0. With `error_protect` the data is preceded by `block_data_bits:16`
-and followed by `block_header_crc:8`. `last_block_in_segment:1` closes the
-block.
+and followed by `block_header_crc:8`; what the first counts and how the second
+is computed no public source says (*Probes*, below). `last_block_in_segment:1`
+closes the block.
 
 **The matrices** of a `0x31EA` substream are `primitive_matrices:4` and then,
 for each, `matrix_ch:4` (the channel it writes), `frac_bits:4` (0 to 14),
@@ -348,7 +349,7 @@ front of the decoders again; and they hold the decoder to the samples, `verify`
 to finding nothing, and the census of each stream to the tools its recipe
 says it carries.
 
-What the 38 recipes cover so far is one substream of one or two channels in
+What the 41 recipes cover so far is one substream of one or two channels in
 the TrueHD and the DVD-Audio syntax. Under the channels: no filter and no
 book, the three books, the offset at both ends of its range, `huff_lsbs` wider
 than the samples need, filter A at every order and precision, filter B at
@@ -360,15 +361,18 @@ silence, full scale, and segments without their check bytes. Over the
 channels: one to eight matrices at 0 to 14 fractional bits, a channel kept or
 turned over, coefficients on the two noise channels with the register running
 on or set anew at every restart header, the noise shifted, a bypassed bit, a
-quantiser step under a matrix, output shifts of 1 to 7 bits, and the two
-channels sent to each other's output. Several substreams, the matrices of the
-other two sync words and error protection are not written yet.
+quantiser step under a matrix, output shifts of 1 to 7 bits up and 1 to 8
+down, and the two channels sent to each other's output. In the headers: guard
+bits sent again, cleared and given up, and the update of the heavy dynamic
+range control. Several substreams and the matrices of the other two sync
+words are not written yet.
 
 Measured (`docs/audit/evidence/engine-round-2026-11/10-synthetic-truehd.json`
-for the first 26, `11-synthetic-matrices.json` for the 12 over the channels):
-every recipe is confirmed by two decoders at least, 33 of the 38 by every
-decoder asked. Dolby's decoder is not asked for the four in the DVD-Audio
-syntax. Each of the other five is a fact about one decoder:
+for the first 26, `11-synthetic-matrices.json` for the 12 over the channels,
+`12-probes.json` for the last three and the probes): every recipe is
+confirmed by two decoders at least, 34 of the 41 by every decoder asked.
+Dolby's decoder is not asked for the four in the DVD-Audio syntax. Each of
+the other seven is a fact about one decoder:
 
 | Recipe | The decoder that reads it otherwise | What it does |
 |---|---|---|
@@ -377,6 +381,8 @@ syntax. Each of the other five is a fact about one decoder:
 | `filter-at-restart` | FFmpeg | keeps the filter histories across a restart header (below) |
 | `matrix-noise-shifted` | `truehdd` | decodes to samples that fail its own lossless check: it reads the noise channels right at a shift of 0 and not at any other |
 | `bypass-over-step` | Dolby's | does not cut the sum to the quantiser step (below) |
+| `output-shift-down` | FFmpeg | takes an output shift below nought for none, and says it has not implemented it |
+| `heavy-drc` | `truehdd` | refuses bit 13 of the major sync's `flags` as reserved |
 
 ### The filter histories after a restart header
 
@@ -425,6 +431,45 @@ two. It stays there for now, and the recipe is recorded with Dolby's decoder
 among those that gave other samples: no stream that exists is decoded
 differently either way, and which reading is the format's is not for a count
 of decoders to settle. `11-synthetic-matrices.json` has the measurements.
+
+### Probes
+
+A recipe keeps within what the format and its encoders do, and is a reference
+because outside decoders gave its samples back. A probe is the other kind of
+written stream (`oadec_synth::PROBES`, names beginning `probe-`): it steps
+past a bound of the format, or into a field whose meaning is not public, to
+see what a decoder does there. Nobody's agreement makes a probe right. What
+the three outside decoders did with each is recorded in
+`crates/oadec-synth/specs/probes.tsv`; what this decoder does is held by the
+tests as what it does today.
+
+| Probe | `verify` | FFmpeg | `truehdd` | Dolby's decoder |
+|---|---|---|---|---|
+| `probe-five-blocks`: five blocks to a unit, the bound being four | warns, `segment.block_count` | the samples | refuses (it takes three) | the samples |
+| `probe-sync-every-four`, `probe-sync-every-unit`: major syncs closer than eight units | warns, `sync.major_sync_spacing` | the samples | refuses | the samples |
+| `probe-nine-matrices` | nothing | refuses | the samples | refuses |
+| `probe-protected`: `error_protect`, the size counting the block data alone, the check byte 0 | nothing: the byte is kept and cannot be checked | the samples, and a complaint about the size | the samples | refuses |
+| `probe-protected-counting-itself`: the size counting its own 16 bits too | fails, `block.data_bits` | the samples, no complaint | refuses | refuses |
+
+`oadec decode` writes the samples each probe was written from, with the exit
+code of `verify`. Three things follow.
+
+*Dolby's decoder is not strict where the description is.* It reads five
+blocks to a segment and major syncs in every unit; the two rules stay
+warnings, which is what they were set to before anything could show it.
+
+*Nine matrices pass `verify` and Dolby's decoder refuses them.* FFmpeg's
+decoder stops at eight too. A stream that the format owner's decoder will not
+read should not come out of `verify` without a word, and there is no rule
+for it yet: the bound has first to be counted on real streams, for each kind
+of substream.
+
+*What `block_data_bits` counts is still open.* FFmpeg's decoder takes it to
+count its own 16 bits; `truehdd` and this decoder take it to count the block
+data alone, and `block.data_bits` fails a stream on that reading. Dolby's
+decoder refuses a protected block either way, most likely over the check
+byte, whose definition is not public, so it cannot say which. No real stream
+sets `error_protect`: 0 of the restart headers of 157 library tracks.
 
 ## Decoder buffer
 
