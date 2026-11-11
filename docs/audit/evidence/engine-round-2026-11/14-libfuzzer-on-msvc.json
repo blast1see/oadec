@@ -1,0 +1,32 @@
+{
+ "question": "Do the libFuzzer targets link and run with the MSVC toolchain once the toolset's AddressSanitizer component is installed, and is there anything else they need?",
+ "method": "On the development machine: cargo-fuzz 0.13.2, rustc 1.101.0-nightly (822182db4 2026-10-13), which is the compiler of the dated nightly the `fuzz` workflow names, and the MSVC toolset 14.44 with the component `Microsoft.VisualStudio.Component.VC.ASAN` added by the Visual Studio installer. The corpus was seeded from the fixtures (`cargo run --locked -p oadec-fuzz --example corpus -- crates/oadec-cli/tests/fixtures fuzz/corpus`), and each of the ten targets was run once, on main after the change of evidence 13: `cargo +nightly fuzz run <target> -- -max_total_time=30 -max_len=65536 -timeout=25 -rss_limit_mb=2048 -print_final_stats=1`, with the directory of the sanitizer's runtime DLL on PATH. One target was then run again without that directory on PATH.",
+ "result": {
+  "before_the_component": "measured earlier in this round, and why evidence 07 says libFuzzer had not run on this machine: with `-s none` the link ends on the unresolved symbol `__stop___sancov_pcs`, with `-s address` on a missing `clang_rt.asan_dynamic_runtime_thunk-x86_64.lib`",
+  "with_the_component": {
+   "what_it_brings": "into the x64 library directory of the toolset, the AddressSanitizer libraries, `stl_asan.lib`, the coverage libraries and the libFuzzer libraries; into its x64 binary directory, the runtime DLL `clang_rt.asan_dynamic-x86_64.dll`",
+   "targets_that_link_and_run": 10,
+   "crashes": 0,
+   "executions": 745318,
+   "by_target": {
+    "truehd_extract": {"executions": 125705, "per_second": 4055, "edges_on_the_seeds": 313, "edges_at_the_end": 436, "inputs_kept": 1326},
+    "truehd_unit": {"executions": 20845, "per_second": 672, "edges_on_the_seeds": 900, "edges_at_the_end": 1229, "inputs_kept": 635},
+    "truehd_unit_repaired": {"executions": 17255, "per_second": 556, "edges_on_the_seeds": 1069, "edges_at_the_end": 1447, "inputs_kept": 652},
+    "truehd_decode": {"executions": 40251, "per_second": 1298, "edges_on_the_seeds": 1280, "edges_at_the_end": 1939, "inputs_kept": 1114},
+    "truehd_decode_repaired": {"executions": 34242, "per_second": 1104, "edges_on_the_seeds": 1469, "edges_at_the_end": 2235, "inputs_kept": 1296},
+    "emdf_container": {"executions": 177737, "per_second": 5733, "edges_on_the_seeds": 400, "edges_at_the_end": 1131, "inputs_kept": 1656},
+    "oamd_parse": {"executions": 299204, "per_second": 9651, "edges_on_the_seeds": 411, "edges_at_the_end": 1165, "inputs_kept": 2158},
+    "joc_params": {"executions": 2817, "per_second": 90, "edges_on_the_seeds": 541, "edges_at_the_end": 813, "inputs_kept": 207},
+    "eac3_frame": {"executions": 19692, "per_second": 635, "edges_on_the_seeds": 1012, "edges_at_the_end": 1866, "inputs_kept": 380},
+    "eac3_program": {"executions": 7570, "per_second": 244, "edges_on_the_seeds": 1176, "edges_at_the_end": 1934, "inputs_kept": 415}
+   },
+   "note": "31 seconds a target, one run of each. The edges on the seeds are within ten of the ones the Linux runs of evidence 09 start from, target by target: the same seeds reach the same code on both platforms"
+  },
+  "without_the_runtime_on_the_path": {
+   "target": "truehd_extract",
+   "what_happens": "the target is built and ends before it reads an input: exit code 0xc0000135, STATUS_DLL_NOT_FOUND",
+   "what_it_needs": "the directory `VC\\Tools\\MSVC\\<version>\\bin\\Hostx64\\x64` of the Visual Studio installation on PATH, which a developer prompt of Visual Studio has"
+  }
+ },
+ "reading": "The component is what was missing, and with it the ten targets build and run on Windows as they do on Linux: the same compiler, the same seeds, no crash in three quarters of a million executions, the decoder of evidence 13 among what they ran. One thing the installer does not do is put the sanitizer's runtime where a program finds it. A target started from an ordinary shell ends with a status that looks like a crash of the target and is the loader not finding a DLL; the directory has to be on PATH. Thirty seconds a target is a check that the tool works, not a fuzzing campaign: the weekly workflow on Linux is still where the hours are spent, and what this adds is that a finding can now be reproduced and narrowed under the sanitizer on the machine the decoder is written on."
+}
