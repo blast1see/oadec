@@ -87,11 +87,10 @@ fn pi_is_clean_and_matches_the_reference_layout() {
     assert_eq!(report["clean"], Value::Bool(true));
     assert_eq!(report["units"].as_u64(), Some(6_058_052));
     assert_eq!(report["major_syncs"].as_u64(), Some(47_719));
-    assert!(
-        report["realtime_factor"].as_f64().unwrap_or(0.0) >= 100.0,
-        "parse speed {:?}x realtime",
-        report["realtime_factor"]
-    );
+    // The speed of this pass used to be asserted here. A conformance test that
+    // fails when something else is using the disk says nothing about
+    // conformance; `tools/bench.py --verify-floor` holds the speed, measured
+    // on a stream read into the cache first.
 
     let reference = media.join("ref-truehdd").join("pi.verify.json");
     let text = std::fs::read_to_string(require(&reference)).expect("read the truehdd reference");
