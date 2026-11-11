@@ -28,6 +28,10 @@ pub struct FilterCoeffs {
     pub coeff: [i32; 8],
     /// A state was coded (IIR only).
     pub new_states: bool,
+    /// Coded bits per state value, when a state was coded.
+    pub state_bits: u8,
+    /// Left shift applied to every state value, when a state was coded.
+    pub state_shift: u8,
     /// State values, already shifted.
     pub state: [i32; 8],
 }
@@ -86,6 +90,8 @@ impl FilterCoeffs {
             }
             let state_bits = reader.read(4)?;
             let state_shift = reader.read(4)?;
+            fc.state_bits = state_bits as u8;
+            fc.state_shift = state_shift as u8;
             for i in 0..usize::from(fc.order) {
                 let state = if state_bits == 0 {
                     0

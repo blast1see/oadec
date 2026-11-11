@@ -37,12 +37,20 @@ pub struct RestartHeader {
     pub lossless_check: u8,
     /// `hires_output_timing`.
     pub hires_output_timing: bool,
+    /// The two bits after `hires_output_timing`, which nothing here reads.
+    pub reserved_bits: u8,
     /// `heavy_drc_present` (only meaningful with flags bit 13).
     pub heavy_drc_present: bool,
+    /// The bit that stands where `heavy_drc_present` would, in a stream whose
+    /// flags do not announce heavy DRC.
+    pub unannounced_heavy_drc_bit: bool,
     /// `heavy_drc_gain_update` (signed 9 bits) when present.
     pub heavy_drc_gain_update: Option<i16>,
     /// `heavy_drc_time_update` (3 bits) when present.
     pub heavy_drc_time_update: Option<u8>,
+    /// The twelve bits that stand where the heavy DRC update would, when the
+    /// header carries none.
+    pub heavy_drc_unused: u16,
     /// `ch_assign` for channels 0..=max_matrix_chan.
     pub ch_assign: [u8; MAX_CHANNELS],
     /// CRC-8 read from the stream.
@@ -104,9 +112,12 @@ impl RestartHeader {
             error_protect: reader.read_bool()?,
             lossless_check: reader.read(8)? as u8,
             hires_output_timing: false,
+            reserved_bits: 0,
             heavy_drc_present: false,
+            unannounced_heavy_drc_bit: false,
             heavy_drc_gain_update: None,
             heavy_drc_time_update: None,
+            heavy_drc_unused: 0,
             ch_assign: [0; MAX_CHANNELS],
             crc: 0,
             crc_ok: false,
@@ -124,17 +135,17 @@ impl RestartHeader {
             )));
         }
         rh.hires_output_timing = reader.read_bool()?;
-        reader.skip(2)?;
+        rh.reserved_bits = reader.read(2)? as u8;
         if state.flags & FLAG_HEAVY_DRC != 0 {
             rh.heavy_drc_present = reader.read_bool()?;
         } else {
-            reader.skip(1)?;
+            rh.unannounced_heavy_drc_bit = reader.read_bool()?;
         }
         if rh.heavy_drc_present {
             rh.heavy_drc_gain_update = Some(reader.read_signed(9)? as i16);
             rh.heavy_drc_time_update = Some(reader.read(3)? as u8);
         } else {
-            reader.skip(12)?;
+            rh.heavy_drc_unused = reader.read(12)? as u16;
         }
         let mut seen = 0u16;
         for i in 0..=usize::from(rh.max_matrix_chan) {
