@@ -187,7 +187,9 @@ excerpt, which is how badly the branch predictor fares on Huffman codes.
   `((P − pmi)(2n + 1) + n) mod 2^k`, shifted by `11 + dither_scale`; `0x31EC`
   adds `(Σ in·D >> 18) · n · ((65536 / spa) << 2)` and does `M += D` at the end
   of the access unit. Output: `((acc >> 18) & ~((1 << qss) − 1)) +
-  bypassed_lsb`.
+  bypassed_lsb`, except that a matrix of a `0x31EA` substream which sends a
+  bypassed LSB is not cut to the step: `(acc >> 18) + bypassed_lsb` (*A
+  bypassed bit over a quantiser step*, below).
 * The 256-entry noise table is part of the format; it appears identically in
   FFmpeg (`noise_table`) and truehdd (`DITHER_LUT`); `oadec` carries it in
   `crates/oadec-truehd/src/dither.rs`.
@@ -349,7 +351,7 @@ front of the decoders again; and they hold the decoder to the samples, `verify`
 to finding nothing, and the census of each stream to the tools its recipe
 says it carries.
 
-What the 41 recipes cover so far is one substream of one or two channels in
+What the 40 recipes cover so far is one substream of one or two channels in
 the TrueHD and the DVD-Audio syntax. Under the channels: no filter and no
 book, the three books, the offset at both ends of its range, `huff_lsbs` wider
 than the samples need, filter A at every order and precision, filter B at
@@ -370,9 +372,9 @@ words are not written yet.
 Measured (`docs/audit/evidence/engine-round-2026-11/10-synthetic-truehd.json`
 for the first 26, `11-synthetic-matrices.json` for the 12 over the channels,
 `12-probes.json` for the last three and the probes): every recipe is
-confirmed by two decoders at least, 34 of the 41 by every decoder asked.
+confirmed by two decoders at least, 34 of the 40 by every decoder asked.
 Dolby's decoder is not asked for the four in the DVD-Audio syntax. Each of
-the other seven is a fact about one decoder:
+the other six is a fact about one decoder:
 
 | Recipe | The decoder that reads it otherwise | What it does |
 |---|---|---|
@@ -380,7 +382,6 @@ the other seven is a fact about one decoder:
 | `blocks-four` | `truehdd` | refuses four blocks to a unit; it takes three |
 | `filter-at-restart` | FFmpeg | keeps the filter histories across a restart header (below) |
 | `matrix-noise-shifted` | `truehdd` | decodes to samples that fail its own lossless check: it reads the noise channels right at a shift of 0 and not at any other |
-| `bypass-over-step` | Dolby's | does not cut the sum to the quantiser step (below) |
 | `output-shift-down` | FFmpeg | takes an output shift below nought for none, and says it has not implemented it |
 | `heavy-drc` | `truehdd` | refuses bit 13 of the major sync's `flags` as reserved |
 
@@ -416,21 +417,30 @@ something no real stream says: of 242.8 million matrices in force in the
 blocks of 55 streams, 1.8 million send a bypassed bit and 65 million write a
 channel with a step, and none does both.
 
-The recipe `bypass-over-step` does both. FFmpeg and `truehdd` cut the sum and
-add the bit, `(sum & mask) + bit`, as this decoder does, and give the samples
-of the recipe. Dolby's decoder gives the sum as it is with the bit added,
-`sum + bit`: on four streams written for the purpose, with the bit clear and
+Streams were written that do both, and the decoders part over them. FFmpeg's
+decoder and `truehdd` cut the sum and add the bit, `(sum & mask) + bit`.
+Dolby's decoder gives the sum as it is with the bit added, `sum + bit`: on
+four streams written to separate the two readings, with the bit clear and
 with it set, with the step on one channel and on both, that reading gives
 every one of its samples, 640 of 640 each time, and the other gives 33 to 39.
-With a step and no bypassed bit, and with a bypassed bit and no step, the
-four decoders agree (`matrix-steps`, `matrix-bypass`).
+A second front end of Dolby's decoder, the engine Plex ships, gives the same
+samples. With a step and no bypassed bit, and with a bypassed bit and no
+step, all the decoders agree (`matrix-steps`, `matrix-bypass`).
 
-So on this one point the decoder of the format's owner stands against the two
-public decoders this one was derived from, and `oadec` is on the side of the
-two. It stays there for now, and the recipe is recorded with Dolby's decoder
-among those that gave other samples: no stream that exists is decoded
-differently either way, and which reading is the format's is not for a count
-of decoders to settle. `11-synthetic-matrices.json` has the measurements.
+`oadec` read it as the two public decoders do, which is where its reading
+came from, and follows Dolby's decoder now: a matrix of a `0x31EA` substream
+that sends a bypassed bit is not cut. Over the corpus the change moves
+nothing, as it must with no stream that has both; on the streams written
+under the old reading the decoder gives what Dolby's gives, sample for
+sample, where it gave about half before
+(`docs/audit/evidence/engine-round-2026-11/13-bypass-uncut.json`).
+
+Two things stay as they were. A `0x31EB` substream has the same flag and a
+`0x31EC` substream a count of bypassed bits; neither could be put to Dolby's
+decoder yet, and both are still cut and then added to. And a stream that
+does both is a probe, `probe-bypass-over-step`, not a recipe: one decoder
+from outside gives its samples, and that the one is Dolby's own does not
+make two.
 
 ### Probes
 
@@ -450,6 +460,7 @@ tests as what it does today.
 | `probe-nine-matrices` | nothing | refuses | the samples | refuses |
 | `probe-protected`: `error_protect`, the size counting the block data alone, the check byte 0 | nothing: the byte is kept and cannot be checked | the samples, and a complaint about the size | the samples | refuses |
 | `probe-protected-counting-itself`: the size counting its own 16 bits too | fails, `block.data_bits` | the samples, no complaint | refuses | refuses |
+| `probe-bypass-over-step`: a matrix with a bypassed bit over a quantiser step, written to Dolby's reading | nothing | other samples | refuses: its own lossless check fails | the samples |
 
 `oadec decode` writes the samples each probe was written from, with the exit
 code of `verify`. Three things follow.

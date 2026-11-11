@@ -27,7 +27,8 @@ Semantic Versioning.
   none. Guard bits sent again, cleared and given up are read alike by all
   four decoders. The update of the heavy dynamic range control in a restart
   header changes no sample in FFmpeg's or Dolby's decoder; `truehdd` refuses
-  the bit of the major sync that announces it. 41 recipes in all.
+  the bit of the major sync that announces it. 40 recipes and seven probes
+  in all.
 - **The written streams reach over the channels: matrices, noise, output
   shifts, channel assignments.** `oadec-synth` undoes what it is told to
   write: the output shift is taken off the samples and each matrix is
@@ -49,10 +50,10 @@ Semantic Versioning.
   matrix that does both: none of 242.8 million matrices in force in the
   blocks of 55 streams. On a stream that does, FFmpeg and `truehdd` give
   `(sum & mask) + bit`, as `oadec` does, and Dolby's decoder gives
-  `sum + bit`, measured on four streams, every sample of each. `oadec` is
-  left as it is and the difference is recorded with the recipe
-  (`bypass-over-step`). The same streams found that `truehdd` reads the two
-  noise channels right only at a shift of 0.
+  `sum + bit`, measured on four streams, every sample of each. `oadec`
+  follows Dolby's decoder now (under *Changed*), and the stream that asks
+  the question is a probe, `probe-bypass-over-step`. The same streams found
+  that `truehdd` reads the two noise channels right only at a shift of 0.
 - **TrueHD and MLP streams written from recipes.** An encoder chooses, and
   what no encoder chooses no stream carries. `crates/oadec-synth` writes the
   streams: a recipe is a layout, a plan that says what codes each block, and
@@ -200,6 +201,16 @@ Semantic Versioning.
 
 ### Changed
 
+- **A matrix that sends a bypassed bit is no longer cut to the quantiser
+  step.** For a `0x31EA` substream, `(sum & mask) + bit` becomes `sum + bit`
+  when the matrix has `lsb_bypass_used`: that is what Dolby's decoder gives,
+  every sample of the streams written to ask it, from two of its front ends,
+  where FFmpeg's decoder and `truehdd` cut. No real stream has a matrix with
+  both a bypassed bit and a step on its channel, none of 242.8 million in
+  force in the blocks of 55 streams, and over the corpus the old and the new
+  binary write the same bytes. `0x31EB` and `0x31EC` substreams, which could
+  not be put to Dolby's decoder, are read as before
+  (`docs/audit/evidence/engine-round-2026-11/13-bypass-uncut.json`).
 - **One piece of code closes a rewritten frame with its CRC.** The three
   commands that rewrite an E-AC-3 frame (`eac3-ecpl-inject` and the two that
   relabel a JOC field) each carried a copy of the CRC; they call
