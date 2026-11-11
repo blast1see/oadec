@@ -903,3 +903,78 @@ fn info_json_keeps_the_per_substream_statistics() {
         assert!(st["segments"].as_u64().unwrap() > 0, "substream {i}: {st}");
     }
 }
+
+/// One bit in the four bytes in front of a major sync is one loss of sync:
+/// the units up to the next major sync are passed over, and every unit from
+/// there on is delivered.
+///
+/// The extractor used to find the unit it had refused again, by that unit's
+/// own major sync and a byte late. `verify` then said five losses of sync
+/// for one, and a header read from the wrong place took whatever length its
+/// bytes claimed: on this stream, for some of these bits, more than the
+/// stream had left, so that the 78 good units behind the damage were
+/// reported as trailing bytes.
+#[test]
+fn one_bit_in_front_of_a_major_sync_is_one_loss_of_sync() {
+    let dir = temp("front");
+    let source = fixture("truehd-20-44k.thd");
+    let clean = std::fs::read(&source).unwrap();
+    let all = units(&source);
+    let with_sync: Vec<usize> = (0..all.len())
+        .filter(|&i| all[i].0.has_major_sync)
+        .collect();
+    // the second unit with a major sync, and the one sync is found again at
+    let (damaged, next) = (with_sync[1], with_sync[2]);
+    let at = all[damaged].0.offset as usize;
+    let lost = all[next].0.offset - all[damaged].0.offset;
+    let path = dir.join("front.thd");
+    for bit in 0..32 {
+        let mut copy = clean.clone();
+        copy[at + bit / 8] ^= 0x80 >> (bit % 8);
+        std::fs::write(&path, &copy).unwrap();
+        let out = oadec(&["verify", "--json", path.to_str().unwrap()]);
+        assert_eq!(out.status.code(), Some(7), "bit {bit}: {}", stderr(&out));
+        let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        let failures = &report["failures"];
+        assert_eq!(failures["resyncs"], 1, "bit {bit}: {failures}");
+        assert_eq!(failures["skipped_bytes"], lost, "bit {bit}: {failures}");
+        assert_eq!(failures["trailing_bytes"], 0, "bit {bit}: {failures}");
+        assert_eq!(failures["framing_errors"], 0, "bit {bit}: {failures}");
+        assert_eq!(
+            report["units"],
+            all.len() - (next - damaged),
+            "bit {bit}: {report}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A major sync whose CRC fails is one failure in the report. It used to be
+/// two: counted where its unit was refused, and again by the search for sync
+/// that met the same major sync three bytes on.
+#[test]
+fn a_major_sync_whose_crc_fails_is_reported_once() {
+    let dir = temp("crc");
+    let source = fixture("truehd-20-44k.thd");
+    let mut copy = std::fs::read(&source).unwrap();
+    let all = units(&source);
+    let second = all.iter().filter(|(unit, _)| unit.has_major_sync).nth(1);
+    let at = second.unwrap().0.offset as usize;
+    // ten bytes into the major sync, under its CRC
+    copy[at + 4 + 10] ^= 0x04;
+    let path = dir.join("crc.thd");
+    std::fs::write(&path, &copy).unwrap();
+    let out = oadec(&["verify", "--json", path.to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(7), "{}", stderr(&out));
+    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(report["failures"]["major_sync_crc"], 1, "{report}");
+    assert_eq!(report["failures"]["resyncs"], 1, "{report}");
+    let finding = report["diagnostics"]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["rule"] == "sync.crc")
+        .expect("the failed CRC is a finding");
+    assert_eq!(finding["magnitude"], 1, "{finding}");
+    std::fs::remove_dir_all(&dir).ok();
+}

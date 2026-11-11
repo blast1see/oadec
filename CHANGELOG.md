@@ -79,6 +79,37 @@ Semantic Versioning.
 
 ### Fixed
 
+- **The search for sync locked onto the unit it had just refused.** A major
+  sync sits four bytes into its access unit. When the TrueHD extractor refused
+  a unit that carries one, for a header or a directory that fails its parity,
+  it searched for sync from the next byte and met that unit's own major sync
+  three bytes on. The major sync verifies, so the extractor locked onto it
+  there, a byte late, read a header out of the middle of the real one, lost
+  sync and did the same for each of the four bytes. `verify` reported one loss
+  of sync as five. Worse, a header read from the wrong place sometimes passes
+  its parity: the extractor then handed out a unit of whatever length those
+  bytes claim, or waited for more bytes than the stream had left and called
+  the rest of the stream trailing bytes. Of 1,536 copies of four fixtures with
+  one bit flipped in the header or the directory of a major-sync unit, the
+  old binary reports four or five losses of sync in 1,330, hands out a unit
+  its own report counts as broken in 205 and gives up units the new one
+  delivers in 125. The search now locks only onto a major sync whose unit
+  starts where the search does or later
+  (`docs/audit/evidence/engine-round-2026-11/04-extractor-search-for-sync.json`).
+- **A major sync that fails its CRC was counted twice.** For the same reason:
+  the unit was refused where the stream was locked, which counted the
+  failure, and the search for sync met the same major sync again and counted
+  it again. `verify` said "2 major syncs with a failed CRC-16" of one flipped
+  bit, in all 4,800 copies that flip a bit under the CRC of a major sync. The
+  other format's sync pattern in a refused unit was counted twice the same
+  way. The search is now the one place that counts what it passes.
+- **Whether a unit says sync was found again at it depended on how the stream
+  was read.** `Unit::resynced` was set by the call that found sync, so a unit
+  that had not all arrived by then was handed out a call later without it:
+  the same stream gave other units read from a pipe than read at once. No
+  command reads the flag, so no report changed. The seeded fuzz run that
+  holds a stream read whole against the same stream read in pieces found it,
+  and found the two above with it.
 - **`eac3-ecpl-inject` wrote coordinate flags the standard implies.** After a
   block that switches coupling off, every channel's next coupling coordinates
   are first again (clause E.1.2.4) and carry no flags. The injector kept its

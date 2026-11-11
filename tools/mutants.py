@@ -305,6 +305,42 @@ MUTANTS = [
      'crates/oadec-truehd/src/extract.rs',
      'let has_major_sync = pattern.is_some() && pattern == self.format_sync;',
      'let has_major_sync = pattern.is_some();'),
+    # --- engine round: the search for sync and the unit it just refused -----
+    ('the search for sync locks onto the major sync of the unit just refused',
+     'crates/oadec-truehd/src/extract.rs',
+     'let unit_at = sync_at.checked_sub(4).filter(|&at| at >= self.pos);',
+     'let unit_at = sync_at.checked_sub(4);'),
+    ('a major sync that fails its CRC counted where its unit is refused as well',
+     'crates/oadec-truehd/src/extract.rs',
+     '''                    _ => {
+                        self.locked = false;
+                        self.skip_to(start + 1);''',
+     '''                    _ => {
+                        self.note_crc_failure();
+                        self.locked = false;
+                        self.skip_to(start + 1);'''),
+    ('the other pattern counted in a unit that is refused as well as by the search',
+     'crates/oadec-truehd/src/extract.rs',
+     '''            if !self.header_parity_ok(start, len, major_sync_len) {
+                self.locked = false;''',
+     '''            if !self.header_parity_ok(start, len, major_sync_len) {
+                self.stats.foreign_syncs += u64::from(foreign);
+                self.locked = false;'''),
+    ('sync found again forgotten when its unit has not all arrived',
+     'crates/oadec-truehd/src/extract.rs',
+     '''            if self.pending() < len {
+                return Ok(None);
+            }
+            let start = self.pos;''',
+     '''            if self.pending() < len {
+                self.resync_pending = false;
+                return Ok(None);
+            }
+            let start = self.pos;'''),
+    ('sync found again said of every unit after it',
+     'crates/oadec-truehd/src/extract.rs',
+     'resynced: std::mem::take(&mut self.resync_pending),',
+     'resynced: self.resync_pending,'),
     # --- verification upgrade: rules, findings, regions --------------------
     ('the default threshold of verify raised to fatal',
      'crates/oadec-cli/src/lib.rs',
