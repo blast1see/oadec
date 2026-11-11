@@ -186,9 +186,16 @@ a recipe*).
 ```sh
 cargo run -p oadec-synth -- list                              # the recipes, and what each carries
 cargo run -p oadec-synth -- write fir-orders a.thd a.pcm      # one stream, and its samples as 24-bit PCM
+cargo run -p oadec-synth -- write eight-channels.p1 a.thd a.pcm  # the same of a presentation under the widest
 cargo run -p oadec-synth -- all <directory>                   # every recipe
 cargo test -p oadec-synth                                     # the writer, the recipes, the record
 ```
+
+A stream of several substreams has a presentation for each. The name of the
+recipe is the widest, whose samples the stream was written from;
+`<name>.p<index>` is the presentation of the substream at that index under
+it, whose samples are what the writer worked out its matrices come to. `all`
+writes a `.pcm` for each, and `digests` a line.
 
 The writer shares no code with the decoder, and that is not enough to make a
 stream a reference: both were written by one hand from one reading of the
@@ -208,6 +215,13 @@ stream and of its samples with the decoders that gave them, the ones that gave
 others and the ones that refused; it writes nothing while a recipe lacks its
 two. `cargo test` holds the writer to that file, so a stream cannot change
 without having been in front of the decoders again.
+
+Every presentation is asked of every decoder and has its own line: FFmpeg by
+`-downmix` where it is not the widest, `truehdd` by `--presentation`, Dolby's
+decoder by the `presentation` and `out-ch-config` of its element. A recipe is
+confirmed when each of its presentations is. Eight channels are compared in
+the order of the stream; FFmpeg and Dolby's decoder write them with the back
+pair in front of the side pair, and the tool puts theirs back first.
 
 A new recipe goes into `src/recipe.rs` with the tools a census of it has to
 name, and into the record by a run with `--record`; the two are committed

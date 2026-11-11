@@ -7,7 +7,7 @@
 //! has been put in front of them again.
 
 use oadec_synth::recipe::{AtRestart, RECIPES, Recipe};
-use oadec_synth::sha256;
+use oadec_synth::{pcm_bytes, sha256};
 use oadec_truehd::{
     AccessUnit, Census, DecodeStats, Decoder, Extractor, ParserState, SampleBuffer, Segment,
     StreamConfig, Unit,
@@ -54,6 +54,17 @@ fn record() -> Vec<Line<'static>> {
         .collect()
 }
 
+/// The presentations of a recipe as the record has them: the substream whose
+/// presentation each is, and the name of its line. The widest goes under the
+/// name of the recipe and comes first; under it one for each substream below
+/// the top, `<name>.p<index>`.
+fn presentations_of(recipe: &Recipe) -> Vec<(usize, String)> {
+    let top = recipe.make().layout.above.len();
+    std::iter::once((top, recipe.name.to_string()))
+        .chain((0..top).map(|p| (p, format!("{}.p{p}", recipe.name))))
+        .collect()
+}
+
 fn units(stream: &[u8]) -> Vec<Unit> {
     let mut extractor = Extractor::new();
     extractor.push(stream);
@@ -68,15 +79,15 @@ fn units(stream: &[u8]) -> Vec<Unit> {
     units
 }
 
-/// Decodes `stream` at presentation 0, strictly: a fault of the stream is a
+/// Decodes `stream` at `presentation`, strictly: a fault of the stream is a
 /// failure here. The samples of each channel, and the counters.
-fn decode(stream: &[u8]) -> (Vec<Vec<i32>>, DecodeStats) {
+fn decode(stream: &[u8], presentation: usize) -> (Vec<Vec<i32>>, DecodeStats) {
     let units = units(stream);
     let (first, _) = AccessUnit::parse(&units[0].bytes, None).expect("the first unit parses");
     let sync = first
         .major_sync
         .expect("the first unit carries a major sync");
-    let mut decoder = Decoder::new(&sync, 0).expect("presentation 0");
+    let mut decoder = Decoder::new(&sync, presentation).expect("the presentation");
     let mut pcm: Vec<Vec<i32>> = Vec::new();
     for (k, unit) in units.iter().enumerate() {
         let decoded = decoder
@@ -95,17 +106,23 @@ fn decode(stream: &[u8]) -> (Vec<Vec<i32>>, DecodeStats) {
 /// What a walk over the blocks of a stream counts.
 struct Walk {
     census: Census,
+    /// Substreams.
+    substreams: usize,
     /// Blocks that carry a restart header.
     restart_blocks: usize,
     /// Of those, the ones with a filter in force on some channel.
     restart_blocks_filtered: usize,
     /// The sizes of the blocks that carry a restart header.
     restart_block_sizes: Vec<usize>,
-    /// The most blocks any segment holds.
+    /// The most blocks any segment holds of a substream with noise channels
+    /// (`0x31EA`).
     most_blocks: usize,
+    /// The most blocks any segment holds of a substream with a table of
+    /// dither (`0x31EB`).
+    most_blocks_dither: usize,
     /// The most matrices in force in any block.
     most_matrices: usize,
-    /// The most times one unit sends its matrices, or one filter of one
+    /// The most times one segment sends its matrices, or one filter of one
     /// channel.
     most_sends_in_a_unit: usize,
     /// Segments the directory says end without parity and CRC.
@@ -118,10 +135,12 @@ struct Walk {
 fn walk(stream: &[u8]) -> Walk {
     let mut out = Walk {
         census: Census::default(),
+        substreams: 0,
         restart_blocks: 0,
         restart_blocks_filtered: 0,
         restart_block_sizes: Vec::new(),
         most_blocks: 0,
+        most_blocks_dither: 0,
         most_matrices: 0,
         most_sends_in_a_unit: 0,
         without_check_bytes: 0,
@@ -142,50 +161,57 @@ fn walk(stream: &[u8]) -> Walk {
             }
         }
         let state = parser.as_mut().expect("a major sync came first");
-        assert_eq!(au.directory.len(), 1, "one substream");
-        let entry = &au.directory[0];
-        out.without_check_bytes += usize::from(!entry.crc_present);
-        buf.clear();
-        let mut blocks = 0;
-        // matrices, then filter A and filter B of each of two channels
-        let mut sends = [0usize; 5];
-        let segment = Segment::parse_located_with(
-            &unit.bytes[au.segment_range(0)],
-            state,
-            0,
-            entry.crc_present,
-            &mut buf,
-            |block, state, _| {
-                let ss = &state.substream[0];
-                out.census.take_block(0, block, ss);
-                blocks += 1;
-                out.most_matrices = out.most_matrices.max(ss.primitive_matrices);
-                if let Some(header) = &block.header {
-                    sends[0] += usize::from(header.matrixing.is_some());
-                    for (ch, sent) in header.channel.iter().take(2).enumerate() {
-                        if let Some(sent) = sent {
-                            sends[1 + 2 * ch] += usize::from(sent.new_fir);
-                            sends[2 + 2 * ch] += usize::from(sent.new_iir);
+        out.substreams = au.directory.len();
+        for (i, entry) in au.directory.iter().enumerate() {
+            out.without_check_bytes += usize::from(!entry.crc_present);
+            buf.clear();
+            let mut blocks = 0;
+            // the matrices, then filter A and filter B of each channel
+            let mut sends = [0usize; 33];
+            let mut dither = false;
+            let segment = Segment::parse_located_with(
+                &unit.bytes[au.segment_range(i)],
+                state,
+                i,
+                entry.crc_present,
+                &mut buf,
+                |block, state, _| {
+                    let ss = &state.substream[i];
+                    out.census.take_block(i, block, ss);
+                    blocks += 1;
+                    dither = ss.sync_word == 0x31EB;
+                    out.most_matrices = out.most_matrices.max(ss.primitive_matrices);
+                    if let Some(header) = &block.header {
+                        sends[0] += usize::from(header.matrixing.is_some());
+                        for (ch, sent) in header.channel.iter().enumerate() {
+                            if let Some(sent) = sent {
+                                sends[1 + 2 * ch] += usize::from(sent.new_fir);
+                                sends[2 + 2 * ch] += usize::from(sent.new_iir);
+                            }
                         }
                     }
-                }
-                if block.restart.is_some() {
-                    out.restart_blocks += 1;
-                    out.restart_block_sizes.push(block.block_size);
-                    let filtered = (ss.min_chan..=ss.max_chan)
-                        .any(|ch| ss.fir[ch].order > 0 || ss.iir[ch].order > 0);
-                    out.restart_blocks_filtered += usize::from(filtered);
-                }
-                Ok(())
-            },
-        );
-        if let Err((e, bit)) = segment {
-            panic!("access unit {k}: {e} at bit {bit}");
+                    if block.restart.is_some() {
+                        out.restart_blocks += 1;
+                        out.restart_block_sizes.push(block.block_size);
+                        let filtered = (ss.min_chan..=ss.max_chan)
+                            .any(|ch| ss.fir[ch].order > 0 || ss.iir[ch].order > 0);
+                        out.restart_blocks_filtered += usize::from(filtered);
+                    }
+                    Ok(())
+                },
+            );
+            if let Err((e, bit)) = segment {
+                panic!("access unit {k}, substream {i}: {e} at bit {bit}");
+            }
+            if dither {
+                out.most_blocks_dither = out.most_blocks_dither.max(blocks);
+            } else {
+                out.most_blocks = out.most_blocks.max(blocks);
+            }
+            out.most_sends_in_a_unit = out
+                .most_sends_in_a_unit
+                .max(sends.into_iter().max().unwrap_or(0));
         }
-        out.most_blocks = out.most_blocks.max(blocks);
-        out.most_sends_in_a_unit = out
-            .most_sends_in_a_unit
-            .max(sends.into_iter().max().unwrap_or(0));
         config = Some(next);
     }
     out
@@ -203,8 +229,15 @@ fn written(recipe: &Recipe) -> (oadec_synth::Made, oadec_synth::Stream) {
 fn the_record_names_every_recipe_and_two_outside_decoders_for_each() {
     let record = record();
     let recorded: Vec<&str> = record.iter().map(|line| line.name).collect();
-    let recipes: Vec<&str> = RECIPES.iter().map(|recipe| recipe.name).collect();
-    assert_eq!(recorded, recipes, "the record and the recipes, in order");
+    let recipes: Vec<String> = RECIPES
+        .iter()
+        .flat_map(presentations_of)
+        .map(|(_, name)| name)
+        .collect();
+    assert_eq!(
+        recorded, recipes,
+        "the record and the presentations of the recipes, in order"
+    );
     for line in &record {
         let all = [&line.gave_the_samples, &line.gave_others, &line.refused];
         for decoder in all.iter().flat_map(|list| list.iter()) {
@@ -226,21 +259,27 @@ fn the_record_names_every_recipe_and_two_outside_decoders_for_each() {
 
 #[test]
 fn every_recipe_is_the_stream_and_the_samples_on_record() {
-    for (recipe, line) in RECIPES.iter().zip(record()) {
+    let record = record();
+    for recipe in RECIPES {
         let (made, stream) = written(recipe);
-        assert_eq!(
-            sha256::hex(&stream.bytes),
-            line.stream,
-            "{}: the stream is not the one the decoders were given; \
-             run tools/synth_accept.py --record once they have seen the new one",
-            recipe.name
-        );
-        assert_eq!(
-            sha256::hex(&made.pcm_bytes()),
-            line.pcm,
-            "{}: the samples",
-            recipe.name
-        );
+        let samples = made.presentations(&stream);
+        for (presentation, name) in presentations_of(recipe) {
+            let line = record
+                .iter()
+                .find(|line| line.name == name)
+                .unwrap_or_else(|| panic!("{name} is not on record"));
+            assert_eq!(
+                sha256::hex(&stream.bytes),
+                line.stream,
+                "{name}: the stream is not the one the decoders were given; \
+                 run tools/synth_accept.py --record once they have seen the new one"
+            );
+            assert_eq!(
+                sha256::hex(&pcm_bytes(&samples[presentation])),
+                line.pcm,
+                "{name}: the samples"
+            );
+        }
     }
 }
 
@@ -248,16 +287,43 @@ fn every_recipe_is_the_stream_and_the_samples_on_record() {
 fn the_decoder_gives_back_the_samples_of_every_recipe() {
     for recipe in RECIPES {
         let (made, stream) = written(recipe);
-        let (pcm, stats) = decode(&stream.bytes);
-        assert!(pcm == made.pcm, "{}: other samples", recipe.name);
-        assert_eq!(stats.units, made.plans.len() as u64, "{}", recipe.name);
-        // every restart header but the first checks the samples before it
-        let restarts = made.plans.len().div_ceil(made.layout.sync_interval) as u64;
-        assert_eq!(stats.lossless_checks, restarts - 1, "{}", recipe.name);
-        assert_eq!(stats.lossless_mismatches, 0, "{}", recipe.name);
-        assert_eq!(stats.max_bits_violations, 0, "{}", recipe.name);
-        assert_eq!(stats.segment_problems, 0, "{}", recipe.name);
-        assert_eq!(stats.first_problem, None, "{}", recipe.name);
+        let samples = made.presentations(&stream);
+        for (presentation, name) in presentations_of(recipe) {
+            let (pcm, stats) = decode(&stream.bytes, presentation);
+            assert!(pcm == samples[presentation], "{name}: other samples");
+            assert_eq!(stats.units, made.plans.len() as u64, "{name}");
+            // every restart header but the first checks the samples before it
+            let restarts = made.plans.len().div_ceil(made.layout.sync_interval) as u64;
+            assert_eq!(stats.lossless_checks, restarts - 1, "{name}");
+            assert_eq!(stats.lossless_mismatches, 0, "{name}");
+            assert_eq!(stats.max_bits_violations, 0, "{name}");
+            assert_eq!(stats.segment_problems, 0, "{name}");
+            assert_eq!(stats.first_problem, None, "{name}");
+        }
+    }
+}
+
+/// A presentation the stream has no substream of its own for is the one
+/// under it: the six- and the eight-channel one of a stream of one
+/// substream are its two channels, and the eight-channel one of a stream of
+/// two its six.
+#[test]
+fn a_presentation_without_a_substream_is_the_one_under_it() {
+    for recipe in RECIPES {
+        let (made, stream) = written(recipe);
+        if made.layout.family != oadec_synth::Family::TrueHd {
+            continue;
+        }
+        let top = made.layout.above.len();
+        for presentation in top + 1..3 {
+            let (pcm, stats) = decode(&stream.bytes, presentation);
+            assert!(
+                pcm == made.pcm,
+                "{}: presentation {presentation}",
+                recipe.name
+            );
+            assert_eq!(stats.lossless_mismatches, 0, "{}", recipe.name);
+        }
     }
 }
 
@@ -283,10 +349,18 @@ fn a_recipe_keeps_within_what_the_format_and_its_encoders_do() {
         let walk = walk(&stream.bytes);
         let name = recipe.name;
         let restarts = made.plans.len().div_ceil(made.layout.sync_interval);
+        assert_eq!(walk.substreams, 1 + made.layout.above.len(), "{name}");
         assert_eq!(walk.major_syncs, restarts, "{name}");
-        assert_eq!(walk.restart_blocks, restarts, "{name}");
-        // a segment of this kind holds four blocks at most
+        // every substream restarts in the units that carry a major sync
+        assert_eq!(walk.restart_blocks, restarts * walk.substreams, "{name}");
+        // a segment of a substream with noise channels holds four blocks at
+        // most, one of a substream with a table of dither two
         assert!(walk.most_blocks <= 4, "{name}: {} blocks", walk.most_blocks);
+        assert!(
+            walk.most_blocks_dither <= 2,
+            "{name}: {} blocks in a segment with dither",
+            walk.most_blocks_dither
+        );
         // FFmpeg's decoder takes eight matrices of a TrueHD stream and six
         // of a DVD-Audio one, and a filter or the matrices once in a unit
         let most_matrices = match made.layout.family {
@@ -305,7 +379,8 @@ fn a_recipe_keeps_within_what_the_format_and_its_encoders_do() {
             AtRestart::Unfiltered => {
                 assert_eq!(walk.restart_blocks_filtered, 0, "{name}");
                 // where a filter follows, the samples at the restart header
-                // are eight in a block of their own
+                // are eight in a block of their own; a stream of several
+                // substreams has a filter in each
                 if recipe.tools.contains(&"fir") || recipe.tools.contains(&"iir") {
                     assert!(
                         walk.restart_block_sizes.iter().all(|&size| size == 8),
@@ -321,7 +396,7 @@ fn a_recipe_keeps_within_what_the_format_and_its_encoders_do() {
         let without = if made.layout.trailer {
             0
         } else {
-            made.plans.len()
+            made.plans.len() * walk.substreams
         };
         assert_eq!(walk.without_check_bytes, without, "{name}");
     }

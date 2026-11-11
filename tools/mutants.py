@@ -668,6 +668,142 @@ MUTANTS = [
      'crates/oadec-truehd/src/block.rs',
      '            block.block_header_crc = Some(reader.read(8)? as u8);',
      '            block.block_header_crc = Some(0);'),
+    # What a second and a third substream add: the channels a presentation
+    # takes from the substreams under its own, the table of dither of a
+    # 0x31EB substream, and the steps and shifts a substream states for
+    # channels it does not code. Real streams have all of it, and the tests
+    # that read them need media; the streams of several substreams of
+    # crates/oadec-synth are in the repository.
+    ('a presentation given the channels under its own substream as that substream last held them',
+     'crates/oadec-truehd/src/decoder.rs',
+     '                let src = &self.sub[j].recorrelated[n];',
+     '                let src = &self.sub[i].recorrelated[n];'),
+    ('a presentation without a substream of its own decoded from one the stream does not have',
+     'crates/oadec-truehd/src/decoder.rs',
+     '            PresentationKind::CopyOf(i) => i,',
+     '            PresentationKind::CopyOf(_) => presentation,'),
+    ('the eight-channel presentation read without its third substream',
+     'crates/oadec-truehd/src/presentation.rs',
+     '                (substream_info >> 4) & 7,',
+     '                (substream_info >> 4) & 3,'),
+    ('the dither of a matrix taken at the place of another matrix',
+     'crates/oadec-truehd/src/decoder.rs',
+     '''                        let scale = ss.dither_scale[pmi];
+                        if scale != 0 {
+                            let index = (matrices - pmi) * (2 * n + 1) + n;
+                            acc += i64::from(sd.dither_table[index & table_mask]) << (11 + scale);
+                        }
+                        row[out_ch] = matrix_output(''',
+     '''                        let scale = ss.dither_scale[pmi];
+                        if scale != 0 {
+                            let index = (pmi + 1) * (2 * n + 1) + n;
+                            acc += i64::from(sd.dither_table[index & table_mask]) << (11 + scale);
+                        }
+                        row[out_ch] = matrix_output('''),
+    ('the dither stepping through its table without the sample added',
+     'crates/oadec-truehd/src/decoder.rs',
+     '''                        let scale = ss.dither_scale[pmi];
+                        if scale != 0 {
+                            let index = (matrices - pmi) * (2 * n + 1) + n;
+                            acc += i64::from(sd.dither_table[index & table_mask]) << (11 + scale);
+                        }
+                        row[out_ch] = matrix_output(''',
+     '''                        let scale = ss.dither_scale[pmi];
+                        if scale != 0 {
+                            let index = (matrices - pmi) * (2 * n + 1);
+                            acc += i64::from(sd.dither_table[index & table_mask]) << (11 + scale);
+                        }
+                        row[out_ch] = matrix_output('''),
+    ('the dither one bit lower than its scale says',
+     'crates/oadec-truehd/src/decoder.rs',
+     '''                        let scale = ss.dither_scale[pmi];
+                        if scale != 0 {
+                            let index = (matrices - pmi) * (2 * n + 1) + n;
+                            acc += i64::from(sd.dither_table[index & table_mask]) << (11 + scale);
+                        }
+                        row[out_ch] = matrix_output(''',
+     '''                        let scale = ss.dither_scale[pmi];
+                        if scale != 0 {
+                            let index = (matrices - pmi) * (2 * n + 1) + n;
+                            acc += i64::from(sd.dither_table[index & table_mask]) << (10 + scale);
+                        }
+                        row[out_ch] = matrix_output('''),
+    ('a dither scale of 1 taken for none',
+     'crates/oadec-truehd/src/decoder.rs',
+     '''                        let scale = ss.dither_scale[pmi];
+                        if scale != 0 {
+                            let index = (matrices - pmi) * (2 * n + 1) + n;
+                            acc += i64::from(sd.dither_table[index & table_mask]) << (11 + scale);
+                        }
+                        row[out_ch] = matrix_output(''',
+     '''                        let scale = ss.dither_scale[pmi];
+                        if scale > 1 {
+                            let index = (matrices - pmi) * (2 * n + 1) + n;
+                            acc += i64::from(sd.dither_table[index & table_mask]) << (11 + scale);
+                        }
+                        row[out_ch] = matrix_output('''),
+    ('the dither of a unit 64 values at every rate',
+     'crates/oadec-truehd/src/decoder.rs',
+     '        let table_len = spa.next_power_of_two();',
+     '        let table_len = 64;'),
+    ('the dither register not moved on from one unit to the next',
+     'crates/oadec-truehd/src/decoder.rs',
+     '                fill_table_bc(&mut sd.dither_seed, &mut sd.dither_table[..table_len]);',
+     '                fill_table_bc(&mut sd.dither_seed.clone(), &mut sd.dither_table[..table_len]);'),
+    ('the dither register moved on by another rule',
+     'crates/oadec-truehd/src/dither.rs',
+     '        *seed = ((*seed << 8) ^ shr15 ^ (shr15 << 5)) & SEED_MASK;',
+     '        *seed = ((*seed << 8) ^ shr15 ^ (shr15 << 4)) & SEED_MASK;'),
+    ('the dither table read one entry off',
+     'crates/oadec-truehd/src/dither.rs',
+     '        *entry = i32::from(NOISE_TABLE[shr15 as usize]);',
+     '        *entry = i32::from(NOISE_TABLE[(shr15 as usize) ^ 1]);'),
+    ('the dither scale of a matrix read and dropped',
+     'crates/oadec-truehd/src/matrix.rs',
+     '''                    if ss.sync_word == SYNC_B {
+                        ss.dither_scale[pmi] = reader.read(4)? as u8;''',
+     '''                    if ss.sync_word == SYNC_B {
+                        ss.dither_scale[pmi] = (reader.read(4)? as u8) & 0;'''),
+    ('a matrix of a dither substream that sends a bypassed bit cut to the quantiser step all the same',
+     'crates/oadec-truehd/src/decoder.rs',
+     '''                            lsb[pmi],
+                            ss.lsb_bypass_used[pmi],
+                        );
+                    }
+                }
+                _ => {''',
+     '''                            lsb[pmi],
+                            false,
+                        );
+                    }
+                }
+                _ => {'''),
+    ('a matrix of a dither substream cut to no quantiser step',
+     'crates/oadec-truehd/src/decoder.rs',
+     '''                        row[out_ch] = matrix_output(
+                            acc,
+                            ss.quant_step_size[out_ch],
+                            lsb[pmi],
+                            ss.lsb_bypass_used[pmi],
+                        );
+                    }
+                }
+                _ => {''',
+     '''                        row[out_ch] = matrix_output(
+                            acc,
+                            0,
+                            lsb[pmi],
+                            ss.lsb_bypass_used[pmi],
+                        );
+                    }
+                }
+                _ => {'''),
+    ('the quantiser steps of a block read for the channels its substream codes alone',
+     'crates/oadec-truehd/src/block.rs',
+     '''            for ch in 0..=ss.max_chan {
+                ss.quant_step_size[ch] = reader.read(4)?;''',
+     '''            for ch in ss.min_chan..=ss.max_chan {
+                ss.quant_step_size[ch] = reader.read(4)?;'''),
 ]
 
 

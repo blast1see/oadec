@@ -2,12 +2,17 @@
 //! workspace, and the plans it refuses.
 
 use oadec_synth::signal::noise;
-use oadec_synth::{BlockPlan, Coding, Family, Filter, Layout, Matrix, UnitPlan, write};
+use oadec_synth::{Above, BlockPlan, Coding, Family, Filter, Layout, Matrix, UnitPlan, write};
 use oadec_truehd::{AccessUnit, DecodeStats, Decoder, Extractor};
 
-/// Decodes `stream` at presentation 0, strictly: any fault of the stream is
-/// a failure here. Returns the samples of each channel and the counters.
+/// Decodes `stream` at presentation 0, as [`decode_at`] does.
 fn decode(stream: &[u8]) -> (Vec<Vec<i32>>, DecodeStats) {
+    decode_at(stream, 0)
+}
+
+/// Decodes `stream` at `presentation`, strictly: any fault of the stream is
+/// a failure here. Returns the samples of each channel and the counters.
+fn decode_at(stream: &[u8], presentation: usize) -> (Vec<Vec<i32>>, DecodeStats) {
     let mut extractor = Extractor::new();
     extractor.push(stream);
     let mut units = Vec::new();
@@ -23,7 +28,7 @@ fn decode(stream: &[u8]) -> (Vec<Vec<i32>>, DecodeStats) {
     let sync = first
         .major_sync
         .expect("the first unit carries a major sync");
-    let mut decoder = Decoder::new(&sync, 0).expect("presentation 0");
+    let mut decoder = Decoder::new(&sync, presentation).expect("the presentation");
     let mut pcm: Vec<Vec<i32>> = Vec::new();
     for (k, unit) in units.iter().enumerate() {
         let decoded = decoder
@@ -199,7 +204,9 @@ fn blocks_that_are_not_a_unit_are_refused() {
             matrices: Vec::new(),
             shifts: Vec::new(),
             guards: None,
+            steps_below: Vec::new(),
         }],
+        above: Vec::new(),
     };
     refused(&layout, &[short], &pcm, "a coding for each channel");
 }
@@ -554,4 +561,466 @@ fn a_restart_header_states_the_noise_register_it_starts_from() {
     }
     assert_eq!(run, expected);
     assert_ne!(run[1], run[0]);
+}
+
+// Several substreams.
+
+/// Six channels: a second substream of four with a table of dither.
+fn six(rate: u32) -> Layout {
+    let mut layout = stereo(rate);
+    layout.above = vec![Above::new(4)];
+    layout
+}
+
+/// Eight: a third substream of two over those.
+fn eight(rate: u32) -> Layout {
+    let mut layout = six(rate);
+    layout.above.push(Above::new(2));
+    layout
+}
+
+fn uncoded(count: usize) -> Vec<Coding> {
+    vec![Coding::default(); count]
+}
+
+/// A matrix with these coefficients as they are, and dither at `scale`.
+fn matrix(out: usize, frac_bits: u8, coefficients: &[i32], scale: u8) -> Matrix {
+    Matrix {
+        out,
+        frac_bits,
+        coefficients: coefficients.to_vec(),
+        bypass: false,
+        dither: scale,
+    }
+}
+
+/// `channels` channels of noise of `bits` bits.
+fn channels_of(channels: usize, n: usize, bits: u32, seed: u64) -> Vec<Vec<i32>> {
+    (0..channels)
+        .map(|ch| noise(n, bits, seed + ch as u64))
+        .collect()
+}
+
+#[test]
+fn eight_channels_come_back_at_every_presentation() {
+    let mut layout = eight(48_000);
+    layout.above[0].noise_seeds = vec![0x12_3456];
+    layout.above[1].noise_seeds = vec![0x65_4321, 0x00_0001];
+    let units = 24;
+    let n = units * layout.samples_per_unit();
+    let pcm = channels_of(8, n, 16, 60);
+    // filters and books in every substream, in force in the very block of a
+    // restart header
+    let first = vec![
+        Coding {
+            fir: Filter::new(10, &[512, -256]),
+            book: 1,
+            ..Coding::default()
+        },
+        Coding {
+            iir: Filter::new(8, &[64]),
+            book: 3,
+            ..Coding::default()
+        },
+    ];
+    let second = vec![
+        Coding {
+            book: 2,
+            offset: 7,
+            ..Coding::default()
+        },
+        Coding::default(),
+        Coding {
+            fir: Filter::new(9, &[100]),
+            ..Coding::default()
+        },
+        Coding {
+            book: 1,
+            ..Coding::default()
+        },
+    ];
+    let third = vec![
+        Coding {
+            iir: Filter::new(11, &[600, -100]),
+            book: 2,
+            ..Coding::default()
+        },
+        Coding::default(),
+    ];
+    // the top substream undoes its own; the two under it make what they make
+    let top = [
+        matrix(4, 14, &[0, 0, 0, 0, 16384, 0, -9000, 0], 2),
+        matrix(0, 13, &[8192, 0, -5000, 0, -4000, 0, 2000, 0], 4),
+        matrix(7, 10, &[0, 100, 0, 0, 0, 0, 0, -1024], 0),
+    ];
+    let middle = [
+        matrix(4, 14, &[0, 0, 0, 0, 12000, 3000], 2),
+        matrix(0, 14, &[16384, 0, -3000, 0, 2000, 0], 5),
+    ];
+    let lowest = [
+        matrix(0, 14, &[14000, 2000, 0, 0], 0),
+        matrix(1, 14, &[-3000, 15000, 0, 0], 0),
+    ];
+    let plan = UnitPlan::uniform(&[16, 24], &first)
+        .matrixed(&lowest)
+        .over(UnitPlan::uniform(&[40], &second).matrixed(&middle))
+        .over(UnitPlan::uniform(&[24, 16], &third).matrixed(&top));
+    let stream = write(&layout, &vec![plan; units], &pcm).expect("the stream is written");
+    assert_eq!(stream.below.len(), 2);
+    assert_eq!(stream.below[0].len(), 2);
+    assert_eq!(stream.below[1].len(), 6);
+    for (presentation, want) in [&stream.below[0], &stream.below[1], &pcm]
+        .into_iter()
+        .enumerate()
+    {
+        let (decoded, stats) = decode_at(&stream.bytes, presentation);
+        assert!(
+            &decoded == want,
+            "presentation {presentation}: other samples"
+        );
+        assert_eq!(stats.lossless_checks, 2, "presentation {presentation}");
+        assert_eq!(stats.lossless_mismatches, 0, "presentation {presentation}");
+        assert_eq!(stats.first_problem, None, "presentation {presentation}");
+    }
+    // what the lower two come to is not what the stream was written from
+    assert!(stream.below[0][..] != pcm[..2]);
+    assert!(stream.below[1][..] != pcm[..6]);
+}
+
+/// A substream under the top one applies its matrices to the channels the
+/// stream codes, and nothing undoes them: the presentation is whatever they
+/// make. Worked out here by hand from the samples.
+#[test]
+fn a_presentation_under_the_top_is_what_its_own_matrices_make() {
+    let layout = six(48_000);
+    let units = 9;
+    let n = units * layout.samples_per_unit();
+    let pcm = channels_of(6, n, 14, 70);
+    // The second substream gives the left output as the first coded channel
+    // less half the centre, so the first coded channel is the left output
+    // with that taken back off.
+    let top = matrix(0, 14, &[16384, 0, -8192, 0, 0, 0], 0);
+    // The first substream makes of the two channels it codes: three quarters
+    // of the first and a quarter of the second, and then half of what that
+    // gave less half the second.
+    let lowest = [
+        matrix(0, 2, &[3, 1, 0, 0], 0),
+        matrix(1, 1, &[1, -1, 0, 0], 0),
+    ];
+    let plan = UnitPlan::uniform(&[40], &plain())
+        .matrixed(&lowest)
+        .over(UnitPlan::uniform(&[40], &uncoded(4)).matrixed(&[top]));
+    let stream = write(&layout, &vec![plan; units], &pcm).expect("the stream is written");
+    let mut want = vec![Vec::with_capacity(n), Vec::with_capacity(n)];
+    for ((&left_out, &coded_right), &centre) in pcm[0].iter().zip(&pcm[1]).zip(&pcm[2]) {
+        let coded_left = left_out - ((-8192 * centre) >> 14);
+        let left = (3 * coded_left + coded_right) >> 2;
+        let right = (left - coded_right) >> 1;
+        want[0].push(left);
+        want[1].push(right);
+    }
+    assert!(stream.below[0] == want, "the writer's two channels");
+    let (decoded, stats) = decode_at(&stream.bytes, 0);
+    assert!(decoded == want, "the decoder's two channels");
+    assert_eq!(stats.lossless_mismatches, 0);
+    let (decoded, stats) = decode_at(&stream.bytes, 1);
+    assert!(decoded == pcm, "the six channels");
+    assert_eq!(stats.lossless_mismatches, 0);
+}
+
+/// The dither of a `0x31EB` substream, written out a second time. For each
+/// access unit a table is drawn from the register, as many values as the
+/// power of two that holds the samples of a unit, each the entry of the
+/// format's 256 that the top eight bits of the register name. Matrix `m` of
+/// `M` takes at sample `n` of the unit the value at `(M - m)(2n + 1) + n`,
+/// counted round the table, shifted up by 11 bits and its scale into a sum
+/// of 18 fractional bits. Here two matrices add nothing but that to the
+/// first two channels, which the first substream then hands on as they are:
+/// its presentation is the samples less the dither.
+#[test]
+fn the_dither_of_a_unit_is_drawn_from_the_register_as_the_document_says() {
+    for rate in [48_000, 96_000, 192_000] {
+        let mut layout = six(rate);
+        let seed = 0x2A_BCDE;
+        layout.above[0].noise_seeds = vec![seed];
+        let per = layout.samples_per_unit();
+        let units = 17;
+        let n = units * per;
+        let pcm = channels_of(6, n, 16, 80);
+        // at a scale of 15 the dither comes into the sum 8 bits up, at 12
+        // five
+        let matrices = [
+            matrix(0, 14, &[16384, 0, 0, 0, 0, 0], 15),
+            matrix(1, 14, &[0, 16384, 0, 0, 0, 0], 12),
+        ];
+        let plan = UnitPlan::uniform(&[per], &plain())
+            .over(UnitPlan::uniform(&[per], &uncoded(4)).matrixed(&matrices));
+        let stream = write(&layout, &vec![plan; units], &pcm).expect("the stream is written");
+
+        // the register is stated once and runs on through the restart headers
+        let mut register: u32 = seed;
+        let mut want = vec![Vec::with_capacity(n), Vec::with_capacity(n)];
+        let length = per.next_power_of_two();
+        assert_eq!(length, [64, 128, 256][(rate / 96_000) as usize]);
+        for k in 0..units {
+            let table: Vec<i32> = (0..length)
+                .map(|_| {
+                    let top = register >> 15;
+                    register = ((register << 8) ^ top ^ (top << 5)) & 0x7F_FFFF;
+                    i32::from(oadec_truehd::dither::NOISE_TABLE[top as usize])
+                })
+                .collect();
+            for i in 0..per {
+                let at = k * per + i;
+                want[0].push(pcm[0][at] - (table[(5 * i + 2) % length] << 8));
+                want[1].push(pcm[1][at] - (table[(3 * i + 1) % length] << 5));
+            }
+        }
+        assert!(stream.below[0] == want, "{rate} Hz: the writer");
+        let (decoded, stats) = decode_at(&stream.bytes, 0);
+        assert!(decoded == want, "{rate} Hz: the decoder under the dither");
+        assert_eq!(stats.lossless_mismatches, 0, "{rate} Hz");
+        let (decoded, stats) = decode_at(&stream.bytes, 1);
+        assert!(decoded == pcm, "{rate} Hz: the decoder over the dither");
+        assert_eq!(stats.lossless_mismatches, 0, "{rate} Hz");
+    }
+}
+
+/// The 256 values are part of the format. The writer carries them a second
+/// time, and the two copies are the same numbers.
+#[test]
+fn the_dither_table_of_the_writer_is_the_one_the_decoder_has() {
+    assert_eq!(
+        oadec_synth::write::DITHER,
+        oadec_truehd::dither::NOISE_TABLE
+    );
+}
+
+/// A block of a substream over the first states the quantiser step of every
+/// channel up to its own. With nothing said of the ones under it, the writer
+/// states what the substream that codes each has there.
+#[test]
+fn a_substream_states_the_steps_of_the_channels_under_it_as_their_coder_has_them() {
+    let layout = six(48_000);
+    let units = 9;
+    let n = units * layout.samples_per_unit();
+    let mut pcm = channels_of(6, n, 12, 90);
+    for v in &mut pcm[0] {
+        *v <<= 2;
+    }
+    let stepped = vec![
+        Coding {
+            step: 2,
+            ..Coding::default()
+        },
+        Coding::default(),
+    ];
+    let with = |stated: &[u8]| {
+        let mut second = UnitPlan::uniform(&[40], &uncoded(4));
+        second.blocks[0].steps_below = stated.to_vec();
+        let plan = UnitPlan::uniform(&[40], &stepped).over(second);
+        write(&layout, &vec![plan; units], &pcm).expect("the stream is written")
+    };
+    let silent = with(&[]);
+    assert!(silent == with(&[2, 0]), "said or not, the same stream");
+    // another step there is another stream, and with no matrix to be cut
+    // to it the same samples
+    let apart = with(&[0, 3]);
+    assert!(apart.bytes != silent.bytes);
+    for stream in [&silent, &apart] {
+        let (decoded, stats) = decode_at(&stream.bytes, 1);
+        assert!(decoded == pcm);
+        assert_eq!(stats.lossless_mismatches, 0);
+    }
+}
+
+#[test]
+fn substreams_the_writer_cannot_lay_out_are_refused() {
+    let pcm = channels_of(8, 40, 8, 100);
+    let unit = |above: &[usize]| -> Vec<UnitPlan> {
+        let mut plan = UnitPlan::uniform(&[40], &plain());
+        for &channels in above {
+            plan = plan.over(UnitPlan::uniform(&[40], &uncoded(channels)));
+        }
+        vec![plan]
+    };
+    let with = |change: fn(&mut Layout)| {
+        let mut layout = six(48_000);
+        change(&mut layout);
+        layout
+    };
+    // six channels and eight are what the major sync of the writer names
+    let why = "a second substream of four channels and a third of two";
+    refused(
+        &with(|l| l.above[0].channels = 3),
+        &unit(&[3]),
+        &pcm[..5],
+        why,
+    );
+    refused(
+        &with(|l| l.above.push(Above::new(4))),
+        &unit(&[4, 4]),
+        &pcm,
+        why,
+    );
+    refused(
+        &with(|l| l.above = vec![Above::new(4), Above::new(2), Above::new(2)]),
+        &unit(&[4, 2, 2]),
+        &pcm,
+        why,
+    );
+    // and of a TrueHD stream
+    let mut dvd_audio = Layout::new(Family::Mlp, 48_000, 2);
+    dvd_audio.above = vec![Above::new(4)];
+    refused(&dvd_audio, &unit(&[4]), &pcm[..6], "TrueHD's");
+    // samples for every channel of the widest presentation
+    refused(
+        &six(48_000),
+        &unit(&[4]),
+        &pcm[..2],
+        "each of the 6 channels",
+    );
+    refused(
+        &eight(48_000),
+        &unit(&[4, 2]),
+        &pcm[..6],
+        "each of the 8 channels",
+    );
+    // blocks for every substream, with a coding for each channel it codes
+    refused(
+        &six(48_000),
+        &unit(&[]),
+        &pcm[..6],
+        "blocks for each of the 2 substreams",
+    );
+    refused(
+        &six(48_000),
+        &unit(&[3]),
+        &pcm[..6],
+        "access unit 0, substream 1: a coding for each channel",
+    );
+    let mut short = unit(&[4]);
+    short[0].above[0][0].size = 32;
+    refused(
+        &six(48_000),
+        &short,
+        &pcm[..6],
+        "substream 1: a coding for each channel and blocks of 40 samples in all",
+    );
+    // what a restart header of it states
+    refused(
+        &with(|l| l.above[0].noise_shift = 16),
+        &unit(&[4]),
+        &pcm[..6],
+        "noise shift",
+    );
+    refused(
+        &with(|l| l.above[0].noise_seeds = vec![1 << 23]),
+        &unit(&[4]),
+        &pcm[..6],
+        "23 bits",
+    );
+    refused(
+        &with(|l| l.above[0].assignment = vec![0, 1, 2, 3, 4, 4]),
+        &unit(&[4]),
+        &pcm[..6],
+        "an assignment",
+    );
+    refused(
+        &with(|l| l.above[0].assignment = vec![1, 0]),
+        &unit(&[4]),
+        &pcm[..6],
+        "an assignment",
+    );
+}
+
+#[test]
+fn a_matrix_a_substream_cannot_have_is_refused() {
+    let pcm = channels_of(6, 40, 8, 110);
+    let try_with = |layout: &Layout, lowest: &[Matrix], top: &[Matrix]| {
+        let plan = UnitPlan::uniform(&[40], &plain())
+            .matrixed(lowest)
+            .over(UnitPlan::uniform(&[40], &uncoded(4)).matrixed(top));
+        write(layout, &[plan], &pcm)
+    };
+    let refused_for = |layout: &Layout, lowest: &[Matrix], top: &[Matrix], why: &str| match try_with(
+        layout, lowest, top,
+    ) {
+        Ok(_) => panic!("written, though: {why}"),
+        Err(message) => assert!(message.contains(why), "{message:?} does not say {why:?}"),
+    };
+    let layout = six(48_000);
+    let kept = [1 << 10, 0, 0, 0, 0, 0];
+    // a coefficient for each of the six channels and no noise channel
+    refused_for(
+        &layout,
+        &[],
+        &[matrix(0, 10, &[1 << 10, 0, 0, 0, 0, 0, 0, 0], 0)],
+        "substream 1: matrix 0: a matrix has a coefficient for each channel",
+    );
+    // with noise channels in the second substream, two more
+    let mut noisy = six(48_000);
+    noisy.above[0].dither = false;
+    refused_for(&noisy, &[], &[matrix(0, 10, &kept, 0)], "two for the noise");
+    assert!(
+        try_with(
+            &noisy,
+            &[],
+            &[matrix(0, 10, &[1 << 10, 0, 0, 0, 0, 0, 5, -7], 0)]
+        )
+        .is_ok()
+    );
+    // a dither scale is four bits, and only a substream with a table has it
+    refused_for(
+        &layout,
+        &[],
+        &[matrix(0, 10, &kept, 16)],
+        "a dither scale of 16",
+    );
+    refused_for(
+        &noisy,
+        &[],
+        &[matrix(0, 10, &[1 << 10, 0, 0, 0, 0, 0, 0, 0], 3)],
+        "a dither scale of 3",
+    );
+    refused_for(
+        &layout,
+        &[matrix(0, 10, &[1 << 10, 0, 0, 0], 3)],
+        &[],
+        "substream 0: matrix 0: a dither scale of 3",
+    );
+    // the top substream undoes its matrices, and can undo only one that
+    // keeps its channel; under the top anything goes
+    let halved = [1 << 9, 0, 0, 0, 0, 0];
+    refused_for(
+        &layout,
+        &[],
+        &[matrix(0, 10, &halved, 0)],
+        "cannot be undone",
+    );
+    assert!(try_with(&layout, &[matrix(0, 10, &[1 << 9, 300, 0, 0], 0)], &[]).is_ok());
+    // but not out of 24 bits
+    let full = vec![vec![(1 << 23) - 1; 40]; 6];
+    let doubled = UnitPlan::uniform(&[40], &plain())
+        .matrixed(&[matrix(0, 10, &[1 << 10, 1 << 10, 0, 0], 0)])
+        .over(UnitPlan::uniform(&[40], &uncoded(4)));
+    refused(&layout, &[doubled], &full, "leaves 24 bits");
+    // a step for each channel under the substream's own, where it says any
+    let mut second = UnitPlan::uniform(&[40], &uncoded(4));
+    second.blocks[0].steps_below = vec![1];
+    let plan = UnitPlan::uniform(&[40], &plain()).over(second);
+    refused(
+        &layout,
+        &[plan],
+        &pcm,
+        "a quantiser step for each of the 2 channels under",
+    );
+    let mut first = UnitPlan::uniform(&[40], &plain());
+    first.blocks[0].steps_below = vec![1];
+    refused(
+        &stereo(48_000),
+        &[first],
+        &pcm[..2],
+        "each of the 0 channels under",
+    );
 }

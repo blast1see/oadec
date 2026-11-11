@@ -56,9 +56,10 @@ byte. The segment ends exactly at the directory's end pointer.
 
 ## Restart header
 
-`sync:14` (`0x31EA` for the two lower substreams with MLP-style noise channels,
-`0x31EB` with the dither table, `0x31EC` for the object presentation in
-substream 3), `output_timing:16, min_chan:4, max_chan:4, max_matrix_chan:4,
+`sync:14` (`0x31EA` with two MLP-style noise channels, `0x31EB` with the
+dither table, `0x31EC` for the object presentation in substream 3; which
+substream carries which is under *Substreams and presentations*),
+`output_timing:16, min_chan:4, max_chan:4, max_matrix_chan:4,
 dither_shift:4, dither_seed:23, max_shift:4, max_lsbs:5, max_bits:5, max_bits
 (repeat):5, error_protect:1, lossless_check:8, hires_output_timing:1,
 reserved:2, heavy_drc_present:1` (only meaningful with major-sync flag bit 13;
@@ -169,6 +170,55 @@ is kept as the `const fn` that builds the tables; replacing its data-dependent
 branches by one lookup took the parser from 173× to 286× real time on a cached
 excerpt, which is how badly the branch predictor fares on Huffman codes.
 
+## Substreams and presentations
+
+A stream has one to four substreams, and a presentation for each: two
+channels, six, eight, and the objects. A substream codes a run of channels,
+`min_chan` to `max_chan` of its restart header, and has matrices, output
+shifts and a channel assignment of its own over every channel from 0 to its
+`max_matrix_chan`. `substream_info` says which substreams a presentation
+reads: two bits for the six-channel one from bit 2, three for the
+eight-channel one from bit 4, and bit 7 with `extended_substream_info` for
+the objects. A decoder of a presentation recorrelates the channels of every
+substream the presentation reads and applies to them the matrices of the
+presentation's own substream, and no others. The matrices of the substreams
+under it play no part: they make the presentations of those substreams, out
+of the same coded channels.
+
+So a stream of two, four and two channels in three substreams codes eight
+channels once. Its eight-channel presentation is the matrices of the third
+substream over all eight, its six-channel one those of the second over the
+first six, its two-channel one those of the first over the first two. An
+encoder chooses the coded channels so that each set of matrices gives what
+its presentation is to be.
+
+A presentation without a substream of its own is the one under it: the
+eight-channel presentation of a stream of two substreams reads those two and
+is its six channels.
+
+A block of a substream states `quant_step_size` for every channel from 0 to
+its `max_chan`, the ones under its own included, and its matrices are cut to
+what it states for the channel they write, whatever the substream that codes
+the channel states for it (*The step a substream states for a channel it
+does not code*, below).
+
+How encoders lay this out, counted over every block of 55 streams, 47 of
+them from discs and Dolby's encoders and eight written by FFmpeg's
+(`docs/audit/evidence/engine-round-2026-11/15-synthetic-substreams.json`):
+
+| Substream | Restart sync | Channels it codes | Most matrices in force | Most blocks to a segment |
+|---|---|---|---|---|
+| 0 | `0x31EA` in all 55 | 0 to 1 in every TrueHD stream; up to 0 to 5 in the three DVD-Audio streams of more than two channels | 2 | 2 |
+| 1 | `0x31EB` in 47 of 48; `0x31EA` in the one FFmpeg's TrueHD encoder wrote | 2 to 5 in 47; 0 to 5 in one, whose six-channel presentation reads it alone | 6 | 2 |
+| 2 | `0x31EB` in all 43 | 6 to 7 in 33; 0 to 7 in ten, whose eight-channel presentation reads it alone | 8 | 2 |
+| 3 | `0x31EC` in all 41 | 8 to 11, to 13 or to 15 | 16 | 2 |
+
+In every one of them `max_chan` is `max_matrix_chan`, which is all FFmpeg's
+decoder takes. The substreams of a unit restart together, never one without
+the others. And where a substream states a step for a channel under its own
+it states the one the substream that codes the channel has: no difference in
+138 million blocks and channels.
+
 ## Decoding
 
 * Recorrelation: `pred = (Σ fir·hist + Σ iir·hist) >> coeff_q`, `out = residual
@@ -182,14 +232,22 @@ excerpt, which is how badly the branch predictor fares on Huffman codes.
   and the byte from bit 7 up, each a signed number shifted left by
   `dither_shift`, after which `r` becomes `((r >> 7) ^ ((r >> 7) << 5) ^
   (r << 16)) & 0x7FFFFF`. A restart header states the register, and the first
-  sample after it is drawn from what it states. `0x31EB` and `0x31EC` add a
-  dither value from a 256-entry table indexed by
-  `((P − pmi)(2n + 1) + n) mod 2^k`, shifted by `11 + dither_scale`; `0x31EC`
+  sample after it is drawn from what it states. `0x31EB` and `0x31EC` have no
+  noise channels. At the start of each access unit they draw `2^k` dither
+  values from the same register, `2^k` being the power of two that holds the
+  samples of a unit, 64, 128 or 256: each is the entry of a 256-entry table
+  that `r >> 15` names, after which `r` becomes `((r << 8) ^ (r >> 15) ^
+  ((r >> 15) << 5)) & 0x7FFFFF`. A matrix whose `dither_scale` is not 0 adds
+  to its sum, at sample `n` of the unit, the value at
+  `((P − pmi)(2n + 1) + n) mod 2^k`, `P` being the matrices in force, shifted
+  up by `11 + dither_scale`; a unit with a restart header draws from the
+  register the header states. `0x31EC`
   adds `(Σ in·D >> 18) · n · ((65536 / spa) << 2)` and does `M += D` at the end
   of the access unit. Output: `((acc >> 18) & ~((1 << qss) − 1)) +
-  bypassed_lsb`, except that a matrix of a `0x31EA` substream which sends a
-  bypassed LSB is not cut to the step: `(acc >> 18) + bypassed_lsb` (*A
-  bypassed bit over a quantiser step*, below).
+  bypassed_lsb`, `qss` being the step the substream of the matrix states for
+  the channel, except that a matrix of a `0x31EA` or a `0x31EB` substream
+  which sends a bypassed LSB is not cut to the step: `(acc >> 18) +
+  bypassed_lsb` (*A bypassed bit over a quantiser step*, below).
 * The 256-entry noise table is part of the format; it appears identically in
   FFmpeg (`noise_table`) and truehdd (`DITHER_LUT`); `oadec` carries it in
   `crates/oadec-truehd/src/dither.rs`.
@@ -211,7 +269,9 @@ pair, back pair, …). FFmpeg and WAVE files use the interchange order (back pai
 before side pair); `ChannelLabel::interchange_order` gives the permutation, and
 `oadec decode` writes it by default. FFmpeg's 5.1 output for a 7.1 stream needs
 `-downmix "5.1(side)"`, because its 5.1 default uses back channels that are not
-a subset of the stream's side layout.
+a subset of the stream's side layout. Dolby's decoder writes eight channels
+in the interchange order as well, though its element lists the side pair
+first; `oadec decode --order stream` writes the order of the stream.
 
 ## Blu-ray dumps that keep the AC-3 core in the same file
 
@@ -351,8 +411,8 @@ front of the decoders again; and they hold the decoder to the samples, `verify`
 to finding nothing, and the census of each stream to the tools its recipe
 says it carries.
 
-What the 40 recipes cover so far is one substream of one or two channels in
-the TrueHD and the DVD-Audio syntax. Under the channels: no filter and no
+What the 51 recipes cover is one to three substreams in the TrueHD syntax
+and one in the DVD-Audio syntax. Under the channels: no filter and no
 book, the three books, the offset at both ends of its range, `huff_lsbs` wider
 than the samples need, filter A at every order and precision, filter B at
 every order with and without a state, both filters on a channel in every
@@ -366,15 +426,42 @@ on or set anew at every restart header, the noise shifted, a bypassed bit, a
 quantiser step under a matrix, output shifts of 1 to 7 bits up and 1 to 8
 down, and the two channels sent to each other's output. In the headers: guard
 bits sent again, cleared and given up, and the update of the heavy dynamic
-range control. Several substreams and the matrices of the other two sync
-words are not written yet.
+range control. Over the first substream: a second that brings the channels
+to six and a third that brings them to eight, laid out as encoders lay them
+out, with two, six and eight matrices; the table of dither at every scale and
+at the three lengths the sampling rates give it; the register of each
+substream set by its own restart headers; a bypassed bit, quantiser steps,
+output shifts and channel assignments in the upper substreams; blocks that do
+not line up between the substreams; a second substream with noise channels
+in place of the dither; and a second substream that states for a channel of
+the first a step the first does not code it with. The object substream and
+its matrices are not written.
+
+A stream of several substreams has a presentation for each, and only the
+widest is free. Its samples are what the stream is written from, by undoing
+the matrices of the top substream. The presentations under it are what their
+own matrices make of the channels that leaves, and the writer works those out
+forwards. That is the decoder's arithmetic written a second time by the same
+hand, so it is worth what any expected value of the crate is worth before
+other decoders have seen it: each presentation is put to the outside decoders
+by itself and has a line of its own in the record. A matrix under the top is
+never undone and may weigh the channel it writes by anything, as the matrices
+of real downmixes do; in the top substream it has to keep its channel at 1 or
+-1.
 
 Measured (`docs/audit/evidence/engine-round-2026-11/10-synthetic-truehd.json`
 for the first 26, `11-synthetic-matrices.json` for the 12 over the channels,
-`12-probes.json` for the last three and the probes): every recipe is
-confirmed by two decoders at least, 34 of the 40 by every decoder asked.
-Dolby's decoder is not asked for the four in the DVD-Audio syntax. Each of
-the other six is a fact about one decoder:
+`12-probes.json` for the next three and the first probes,
+`15-synthetic-substreams.json` for the 11 of several substreams): every one
+of the 65 presentations of the 51 recipes is confirmed by two decoders at
+least, and 45 recipes by every decoder asked. The 11 of several substreams
+are among those: FFmpeg, `truehdd` and Dolby's decoder each give all 25 of
+their presentations. Until they were written nothing in the repository held
+the dither of a `0x31EB` matrix to anything, only real streams in tests that
+need media: of fifteen mutations of what a second and a third substream add
+to the decoder, eight passed the suite, and the tests over the written
+streams catch all fifteen. Dolby's decoder is not asked for the four recipes
+in the DVD-Audio syntax. Each of the other six is a fact about one decoder:
 
 | Recipe | The decoder that reads it otherwise | What it does |
 |---|---|---|
@@ -428,19 +515,49 @@ samples. With a step and no bypassed bit, and with a bypassed bit and no
 step, all the decoders agree (`matrix-steps`, `matrix-bypass`).
 
 `oadec` read it as the two public decoders do, which is where its reading
-came from, and follows Dolby's decoder now: a matrix of a `0x31EA` substream
-that sends a bypassed bit is not cut. Over the corpus the change moves
-nothing, as it must with no stream that has both; on the streams written
-under the old reading the decoder gives what Dolby's gives, sample for
-sample, where it gave about half before
-(`docs/audit/evidence/engine-round-2026-11/13-bypass-uncut.json`).
+came from, and follows Dolby's decoder now: a matrix that sends a bypassed
+bit is not cut. Over the corpus the change moves nothing, as it must with no
+stream that has both; on the streams written under the old reading the
+decoder gives what Dolby's gives, sample for sample, where it gave about half
+before (`docs/audit/evidence/engine-round-2026-11/13-bypass-uncut.json`).
 
-Two things stay as they were. A `0x31EB` substream has the same flag and a
-`0x31EC` substream a count of bypassed bits; neither could be put to Dolby's
-decoder yet, and both are still cut and then added to. And a stream that
-does both is a probe, `probe-bypass-over-step`, not a recipe: one decoder
-from outside gives its samples, and that the one is Dolby's own does not
-make two.
+That was measured in a `0x31EA` substream first, the only kind the writer
+wrote then. A `0x31EB` substream has the same flag, and once streams of two
+substreams could be written it was asked the same: a matrix of the second
+substream with a bypassed bit, over a channel with a step of 2, with dither
+in its sum and without. Dolby's decoder gives `sum + bit` on all 960 samples
+of both streams, and the cut sum only on the 240 and the 265 of them where
+the two readings meet; its second front end gives the same samples; FFmpeg's
+decoder and `truehdd` cut. Real streams are silent here too: 63,138 matrices
+with a bypassed bit are in force in the blocks of the second substreams of
+48 streams and none in the third, and not one writes a channel with a step.
+So `oadec` leaves such a matrix uncut in both kinds
+(`docs/audit/evidence/engine-round-2026-11/15-synthetic-substreams.json`).
+
+Two things stay as they were. A `0x31EC` substream sends a count of bypassed
+bits, and the writer writes no such substream to ask Dolby's decoder with:
+there the sum is still cut and the bits added. And a stream that has both is
+a probe in either kind, `probe-bypass-over-step` and
+`probe-dither-bypass-over-step`, not a recipe: one decoder from outside gives
+its samples, and that the one is Dolby's own does not make two.
+
+### The step a substream states for a channel it does not code
+
+A block of a substream states `quant_step_size` for every channel from 0 to
+the last it codes, and a matrix is cut to the step of the channel it writes.
+For a channel under the substream's own, two substreams state a step: the one
+that codes the channel and the one whose matrix writes it. Every encoder
+states the same in both, so no real stream says which of the two a decoder
+cuts to.
+
+The recipe `six-steps-apart` makes them differ. In half its units the first
+substream codes the left channel with a step of 3 and the second states none
+for it; in the other half the first codes it with none and the second states
+3. A matrix of the second substream writes that channel. All three outside
+decoders give the samples the stream was written from, which are cut to what
+the second substream states and to nothing else. So does `oadec`, which
+keeps its steps by substream and had read it that way without anything to
+hold it to.
 
 ### Probes
 
@@ -461,19 +578,28 @@ tests as what it does today.
 | `probe-protected`: `error_protect`, the size counting the block data alone, the check byte 0 | nothing: the byte is kept and cannot be checked | the samples, and a complaint about the size | the samples | refuses |
 | `probe-protected-counting-itself`: the size counting its own 16 bits too | fails, `block.data_bits` | the samples, no complaint | refuses | refuses |
 | `probe-bypass-over-step`: a matrix with a bypassed bit over a quantiser step, written to Dolby's reading | nothing | other samples | refuses: its own lossless check fails | the samples |
+| `probe-dither-bypass-over-step`: the same in a second substream, whose matrices have a table of dither | nothing | other samples of the six channels | refuses the six channels: its own lossless check fails | the samples |
+| `probe-dither-three-blocks`: three blocks to a unit in a `0x31EB` substream, the bound being two | warns, `segment.block_count` | the samples | the samples | the samples |
+| `probe-nine-matrices-over-eight`: nine matrices in a third substream | nothing | says it takes eight, and writes other samples of the eight channels | the samples | refuses the eight channels |
 
-`oadec decode` writes the samples each probe was written from, with the exit
-code of `verify`. Three things follow.
+`oadec decode` writes the samples each probe was written from, at every
+presentation, with the exit code of `verify`. The last three are streams of
+several substreams, and what the table says of them is said of their widest
+presentation; the ones under it have nothing of what the probe is about, and
+all three outside decoders give their samples. Three things follow.
 
 *Dolby's decoder is not strict where the description is.* It reads five
-blocks to a segment and major syncs in every unit; the two rules stay
-warnings, which is what they were set to before anything could show it.
+blocks to a segment of a `0x31EA` substream, three to one of a `0x31EB`
+substream, and major syncs in every unit; the two rules stay warnings, which
+is what they were set to before anything could show it.
 
-*Nine matrices pass `verify` and Dolby's decoder refuses them.* FFmpeg's
-decoder stops at eight too. A stream that the format owner's decoder will not
-read should not come out of `verify` without a word, and there is no rule
-for it yet: the bound has first to be counted on real streams, for each kind
-of substream.
+*Nine matrices pass `verify` and Dolby's decoder refuses them*, in a first
+substream and in a third alike. FFmpeg's decoder stops at eight too. A stream
+that the format owner's decoder will not read should not come out of `verify`
+without a word, and there is no rule for it yet. What the bound is on real
+streams is counted now (*Substreams and presentations*): no first substream
+has more than two matrices in force, no second more than six, no third more
+than eight, and the object substream has up to sixteen.
 
 *What `block_data_bits` counts is still open.* FFmpeg's decoder takes it to
 count its own 16 bits; `truehdd` and this decoder take it to count the block

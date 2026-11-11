@@ -8,6 +8,47 @@ Semantic Versioning.
 
 ### Added
 
+- **Streams of two and three substreams, and a reference for every
+  presentation.** `oadec-synth` writes a second substream that brings the
+  channels to six and a third that brings them to eight, each with matrices
+  of its own over every channel so far and the table of dither of a `0x31EB`
+  substream. The widest presentation is what the stream is written from. The
+  ones under it are whatever their own matrices make of the channels that
+  leaves: the writer works them out forwards and hands them back with the
+  stream, and a matrix there may weigh its own channel by anything, as a real
+  downmix does. Eleven more recipes, 51 in all: six and eight channels as
+  encoders lay them out, with two, six and eight matrices, at 48, 96 and
+  192 kHz; every dither scale; a bypassed bit, quantiser steps, output shifts
+  and channel assignments in the upper substreams; blocks that do not line up
+  between substreams; and a second substream with noise channels.
+  `tools/synth_accept.py` asks every decoder for each presentation and
+  records a line for each, and FFmpeg, `truehdd` and Dolby's decoder each
+  give all 25 presentations of the eleven
+  (`docs/audit/evidence/engine-round-2026-11/15-synthetic-substreams.json`).
+  `oadec-synth write <name>.p<index>` gives the samples of a presentation
+  under the widest. Until these streams nothing in the repository held the
+  dither of a `0x31EB` matrix to anything: of fifteen mutations of what a
+  second and a third substream add to the decoder, eight passed the suite,
+  and the tests over the written streams catch all fifteen.
+- **The step a substream states for a channel it does not code.** A block of
+  an upper substream states a quantiser step for the channels under its own
+  as well, and its matrices are cut to it. Encoders repeat there what the
+  substream that codes the channel has, with no difference in 138 million
+  blocks and channels of 48 streams, so no real stream says which of the two
+  a decoder cuts to. The recipe `six-steps-apart` makes them differ, and all
+  three outside decoders cut to what the matrix's own substream states, as
+  `oadec` does.
+- **How encoders lay substreams out, counted.** Over every block of 55
+  streams: the restart sync word of each substream, the channels it codes,
+  the most matrices in force (2, 6, 8 and 16 from the first substream to the
+  fourth) and the most blocks to a segment (2 in every kind); and the
+  substreams of a unit restart together, always (`docs/truehd.md`,
+  *Substreams and presentations*).
+- **Three more probes, ten in all.** A bypassed bit over a quantiser step in
+  a second substream (under *Changed*); three blocks to a segment of a
+  `0x31EB` substream, one more than the description allows, which all three
+  outside decoders read; and nine matrices in a third substream, which
+  Dolby's decoder refuses as it does in a first.
 - **Probes: streams written past the bounds, to see what a decoder does.**
   A recipe is a reference because outside decoders gave its samples back. A
   probe (`oadec_synth::PROBES`) steps past a bound of the format or into a
@@ -204,6 +245,18 @@ Semantic Versioning.
 
 ### Changed
 
+- **A matrix of a `0x31EB` substream that sends a bypassed bit is not cut to
+  the quantiser step either.** The entry under this one changed a `0x31EA`
+  substream and left the other two kinds, which could not be put to Dolby's
+  decoder. A `0x31EB` substream now has been, by streams of two substreams
+  written to ask: Dolby's decoder gives `sum + bit` on every one of 960
+  samples of each of two streams, with dither in the matrix and without, from
+  two of its front ends, where FFmpeg's decoder and `truehdd` cut. No real
+  stream has such a matrix, none of 63,138 with a bypassed bit in force in
+  the second substreams of 48 streams, and over the corpus the old and the
+  new binary write the same bytes. A `0x31EC` substream is still cut: the
+  writer writes none to ask with
+  (`docs/audit/evidence/engine-round-2026-11/15-synthetic-substreams.json`).
 - **A matrix that sends a bypassed bit is no longer cut to the quantiser
   step.** For a `0x31EA` substream, `(sum & mask) + bit` becomes `sum + bit`
   when the matrix has `lsb_bypass_used`: that is what Dolby's decoder gives,

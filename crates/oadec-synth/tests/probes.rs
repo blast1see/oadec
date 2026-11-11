@@ -7,8 +7,8 @@
 //! What the decoder of this workspace does with each is in the tests of the
 //! command-line crate, as what it does and not as what it should.
 
-use oadec_synth::recipe::{PROBES, RECIPES};
-use oadec_synth::sha256;
+use oadec_synth::recipe::{PROBES, Probe, RECIPES};
+use oadec_synth::{pcm_bytes, sha256};
 use oadec_truehd::{AccessUnit, Decoder, Extractor};
 
 const RECORD: &str = include_str!("../specs/probes.tsv");
@@ -49,12 +49,31 @@ fn record() -> Vec<Line<'static>> {
         .collect()
 }
 
+/// The presentations of a probe as the record has them: the substream whose
+/// presentation each is, and the name of its line. The widest goes under the
+/// name of the probe and comes first; under it one for each substream below
+/// the top, `<name>.p<index>`.
+fn presentations_of(probe: &Probe) -> Vec<(usize, String)> {
+    let name = probe.recipe.name;
+    let top = probe.recipe.make().layout.above.len();
+    std::iter::once((top, name.to_string()))
+        .chain((0..top).map(|p| (p, format!("{name}.p{p}"))))
+        .collect()
+}
+
 #[test]
 fn the_record_names_every_probe_and_what_each_decoder_did() {
     let record = record();
     let recorded: Vec<&str> = record.iter().map(|line| line.name).collect();
-    let probes: Vec<&str> = PROBES.iter().map(|probe| probe.recipe.name).collect();
-    assert_eq!(recorded, probes, "the record and the probes, in order");
+    let probes: Vec<String> = PROBES
+        .iter()
+        .flat_map(presentations_of)
+        .map(|(_, name)| name)
+        .collect();
+    assert_eq!(
+        recorded, probes,
+        "the record and the presentations of the probes, in order"
+    );
     for line in &record {
         let mut named: Vec<&str> = [&line.gave_the_samples, &line.gave_others, &line.refused]
             .iter()
@@ -81,24 +100,30 @@ fn the_record_names_every_probe_and_what_each_decoder_did() {
 
 #[test]
 fn every_probe_is_the_stream_on_record() {
-    for (probe, line) in PROBES.iter().zip(record()) {
+    let record = record();
+    for probe in PROBES {
         let made = probe.recipe.make();
         let stream = made
             .stream()
             .unwrap_or_else(|e| panic!("{}: {e}", probe.recipe.name));
-        assert_eq!(
-            sha256::hex(&stream.bytes),
-            line.stream,
-            "{}: the stream is not the one the decoders were given; \
-             run tools/synth_accept.py --record once they have seen the new one",
-            probe.recipe.name
-        );
-        assert_eq!(
-            sha256::hex(&made.pcm_bytes()),
-            line.pcm,
-            "{}",
-            probe.recipe.name
-        );
+        let samples = made.presentations(&stream);
+        for (presentation, name) in presentations_of(probe) {
+            let line = record
+                .iter()
+                .find(|line| line.name == name)
+                .unwrap_or_else(|| panic!("{name} is not on record"));
+            assert_eq!(
+                sha256::hex(&stream.bytes),
+                line.stream,
+                "{name}: the stream is not the one the decoders were given; \
+                 run tools/synth_accept.py --record once they have seen the new one"
+            );
+            assert_eq!(
+                sha256::hex(&pcm_bytes(&samples[presentation])),
+                line.pcm,
+                "{name}"
+            );
+        }
     }
 }
 
@@ -160,17 +185,55 @@ fn what_the_decoders_did_with_each_probe() {
             "probe-bypass-over-step",
             r#"gave ["dolby"], others ["ffmpeg"], refused ["truehdd"]"#,
         ),
+        // the same in a second substream, with its table of dither: Dolby's
+        // decoder does not cut there either, and the other two do. The
+        // presentation of the first substream has no such matrix and all
+        // three agree on it.
+        (
+            "probe-dither-bypass-over-step",
+            r#"gave ["dolby"], others ["ffmpeg"], refused ["truehdd"]"#,
+        ),
+        (
+            "probe-dither-bypass-over-step.p0",
+            r#"gave ["ffmpeg", "truehdd", "dolby"], others [], refused []"#,
+        ),
+        // two blocks is the bound of the description for a segment of this
+        // kind; all three read three
+        (
+            "probe-dither-three-blocks",
+            r#"gave ["ffmpeg", "truehdd", "dolby"], others [], refused []"#,
+        ),
+        (
+            "probe-dither-three-blocks.p0",
+            r#"gave ["ffmpeg", "truehdd", "dolby"], others [], refused []"#,
+        ),
+        // nine matrices in the third substream: Dolby's decoder gives no
+        // sample of the eight channels; FFmpeg's says it takes eight, goes
+        // on without them and writes other samples; both read the two
+        // presentations under it, which have none
+        (
+            "probe-nine-matrices-over-eight",
+            r#"gave ["truehdd"], others ["ffmpeg"], refused ["dolby"]"#,
+        ),
+        (
+            "probe-nine-matrices-over-eight.p0",
+            r#"gave ["ffmpeg", "truehdd", "dolby"], others [], refused []"#,
+        ),
+        (
+            "probe-nine-matrices-over-eight.p1",
+            r#"gave ["ffmpeg", "truehdd", "dolby"], others [], refused []"#,
+        ),
     ];
     let said: Vec<(&str, &str)> = said.iter().map(|(name, s)| (*name, s.as_str())).collect();
     assert_eq!(said, expected);
 }
 
 /// The decoder of this workspace reads every probe to its end and gives the
-/// samples the writer made it from: none of the bounds a probe steps past is
-/// one it stops at. Whether it should is another matter, and `verify` says
-/// of four of them that something is wrong. For the bypassed bit over a
-/// quantiser step it means that writer and decoder have the same reading,
-/// which is Dolby's.
+/// samples the writer made it from, at every presentation: none of the
+/// bounds a probe steps past is one it stops at. Whether it should is
+/// another matter, and `verify` says of five of them that something is
+/// wrong. For the bypassed bit over a quantiser step it means that writer
+/// and decoder have the same reading, which is Dolby's.
 #[test]
 fn the_decoder_reads_every_probe_to_the_samples_it_was_written_from() {
     for probe in PROBES {
@@ -184,24 +247,24 @@ fn the_decoder_reads_every_probe_to_the_samples_it_was_written_from() {
         }
         units.extend(extractor.finish().expect("the stream ends on a unit").0);
         let (first, _) = AccessUnit::parse(&units[0].bytes, None).expect("the first unit parses");
-        let mut decoder = Decoder::new(&first.major_sync.expect("a major sync"), 0).expect("2ch");
-        let mut pcm: Vec<Vec<i32>> = vec![Vec::new(); 2];
-        for (k, unit) in units.iter().enumerate() {
-            let decoded = decoder
-                .decode(&unit.bytes)
-                .unwrap_or_else(|e| panic!("{}: access unit {k}: {e}", probe.recipe.name));
-            for row in decoded.pcm {
-                for (ch, out) in pcm.iter_mut().enumerate() {
-                    out.push(row[ch]);
+        let sync = first.major_sync.expect("a major sync");
+        let samples = made.presentations(&stream);
+        for (presentation, name) in presentations_of(probe) {
+            let mut decoder = Decoder::new(&sync, presentation).expect("the presentation");
+            let mut pcm: Vec<Vec<i32>> = Vec::new();
+            for (k, unit) in units.iter().enumerate() {
+                let decoded = decoder
+                    .decode(&unit.bytes)
+                    .unwrap_or_else(|e| panic!("{name}: access unit {k}: {e}"));
+                pcm.resize(decoded.channels, Vec::new());
+                for row in decoded.pcm {
+                    for (ch, out) in pcm.iter_mut().enumerate() {
+                        out.push(row[ch]);
+                    }
                 }
             }
+            assert!(pcm == samples[presentation], "{name}: other samples");
+            assert_eq!(decoder.stats().lossless_mismatches, 0, "{name}");
         }
-        assert!(pcm == made.pcm, "{}: other samples", probe.recipe.name);
-        assert_eq!(
-            decoder.stats().lossless_mismatches,
-            0,
-            "{}",
-            probe.recipe.name
-        );
     }
 }
