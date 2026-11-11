@@ -2,6 +2,7 @@
 name = "adm_harness"
 version = "0.1.0"
 edition = "2024"
+license = "GPL-3.0-only"
 publish = false
 description = "Audit harness: drives oadec's ADM and DAMF writers with controlled events and OAMD structs"
 

@@ -2,9 +2,14 @@
 
 ## Ground rules
 
-- Rust stable, edition 2024, `#![forbid(unsafe_code)]` in every crate.
-  Before a commit: `cargo fmt --check`, `cargo clippy --all-targets --
-  -D warnings`, `cargo test --workspace`, `cargo deny check`.
+- Rust edition 2024 on the toolchain `rust-toolchain.toml` pins,
+  `#![forbid(unsafe_code)]` in every crate. Before a commit: `cargo fmt
+  --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test
+  --workspace`, `cargo deny check`.
+- The toolchain is raised by a pull request of its own, and `rust-version`
+  in `Cargo.toml` with it. That pull request runs the old and the new binary
+  over the corpus (`tools/old_new.py`) and records what changed, so a new
+  lint or a change in generated code never arrives with an unrelated commit.
 - Parsers return typed errors and never panic on malformed input. A stream
   that breaks a rule is reported by `verify`; decoding continues at the
   next point of synchronisation when that is possible.

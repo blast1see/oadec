@@ -1,0 +1,69 @@
+{
+ "question": "Does raising the toolchain from Rust 1.98.1 to 1.99.1, and updating the locked dependencies with it, change anything the tool reports or delivers?",
+ "method": "Three release binaries of oadec-cli (`cargo build --release --locked -p oadec-cli`): main at 0.8.0 with rustc 1.98.1 (48a229cea 2026-09-01); the same sources with rustc 1.99.1 (58cf8f9c3 2026-10-13); and those sources with the updated locks. The streams are the 125 of the work directory and the repository: 41 raw TrueHD streams (one whole film and forty 60-second heads of library titles), 56 AC-3 and E-AC-3 heads, 18 clips and the 10 committed fixtures. The toolchain step alone was compared with tools/old_new.py --decode: exit codes, every field of `verify --json` and `info --json`, every line of `verify`, and the PCM of presentation 2 of every TrueHD and MLP stream. The first binary and the last were then compared with the --decode-all mode tools/old_new.py gains in the pull request after this one, which runs every delivery with both binaries into a directory of its own and hashes every file found there: `decode -p 0..3 --format pcm` for TrueHD and MLP, `decode --format pcm` with and without `--core-only` for AC-3 and E-AC-3, and `--format damf` and `--format adm` for all.",
+ "binaries": {
+  "main, rustc 1.98.1": "067e2be14c6cab841b6291ec54631ae0181b8ec50f707197321034ad33ca3bb9",
+  "rustc 1.99.1": "37943ef1ccb672b2bb18773350e69841424fc2f603292adabde9feb63c7f1491",
+  "rustc 1.99.1, updated locks": "3864763a9374e3a61521a09ef54e0b0abbf674cdfb17f550d6fbcc79cdc90068"
+ },
+ "result": {
+  "toolchain_step": {
+   "streams": 125,
+   "streams_changed": 0,
+   "fields_added": []
+  },
+  "both_steps": {
+   "streams": 125,
+   "streams_changed": 0,
+   "fields_added": [],
+   "deliveries": {
+    "pcm -p N (TrueHD and MLP, presentations 0 to 3)": {
+     "runs": 220,
+     "wrote_output": 202,
+     "bytes_compared": 30402893100,
+     "exit_codes": {"0": 198, "2": 18, "7": 4}
+    },
+    "pcm (AC-3 and E-AC-3, the programme)": {
+     "runs": 70,
+     "wrote_output": 70,
+     "bytes_compared": 4058892288,
+     "exit_codes": {"0": 61, "7": 9}
+    },
+    "pcm --core-only (AC-3 and E-AC-3)": {
+     "runs": 70,
+     "wrote_output": 70,
+     "bytes_compared": 3823884288,
+     "exit_codes": {"0": 61, "7": 9}
+    },
+    "damf": {
+     "runs": 125,
+     "wrote_output": 64,
+     "bytes_compared": 26139214573,
+     "exit_codes": {"0": 56, "2": 61, "7": 8}
+    },
+    "adm": {
+     "runs": 125,
+     "wrote_output": 64,
+     "bytes_compared": 26155503004,
+     "exit_codes": {"0": 56, "2": 61, "7": 8}
+    }
+   },
+   "bytes_compared_in_all": 90580387253
+  },
+  "locks": {
+   "workspace": "17 packages, patch releases all: bit-vec 0.10.2, clap 4.6.7 with clap_builder, clap_derive and clap_lex, itoa 1.0.19, libc 0.2.191, log 0.4.35, rustix 1.1.6, serde_json 1.0.154, syn 3.0.10, thiserror 2.0.21 with thiserror-impl, toml_datetime 1.1.3, toml_edit 0.25.19, unicode-ident 1.0.27, winnow 1.0.5",
+   "adm_audit_harness": "6 packages: itoa, serde_json, syn, thiserror, thiserror-impl, unicode-ident, to the same versions"
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean; the new toolchain raises no lint the old one did not",
+   "cargo test --workspace --locked": "exit 0",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "cargo deny check on the harness manifest": "failed on the harness itself, which named no licence, before and after the update; ok once it does",
+   "cargo audit": "exit 0 over 83 crates",
+   "ADM toolkit self-tests": "136 of 136",
+   "ADM harness stage, --no-dolby --no-ear": "all expectations met"
+  }
+ },
+ "reading": "Nothing moved. The compiler and the seventeen patch releases leave every exit code, every reported field, every line of `verify` and every delivered byte where they were, on 90.6 GB of output: integer PCM, the floating point of the AC-3 family, and both object formats. That the floating-point outputs are identical across two compiler releases on one machine says nothing about another platform's mathematics library. An exit code of 2 in a delivery row is a refusal, the same from both binaries: a presentation the stream does not carry, or an object format asked of a stream with no object programme."
+}

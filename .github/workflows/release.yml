@@ -36,7 +36,8 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
 
-      - uses: dtolnay/rust-toolchain@stable
+      # rust-toolchain.toml names the toolchain
+      - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
 
       - run: cargo build --release -p oadec-cli --locked

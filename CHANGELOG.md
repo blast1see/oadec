@@ -40,6 +40,16 @@ Semantic Versioning.
   last printed digit. Every step passes. The ADM step is skipped without its
   Python environment; CI runs the same stage on every pull request
   (evidence 12).
+- **The toolchain is pinned, at Rust 1.99.1.** CI and the release workflow
+  took whatever `stable` was on the day, so a new lint or a change in
+  generated code could arrive with an unrelated commit, and `rust-version`
+  named a compiler no job ran. `rust-toolchain.toml` names the toolchain now,
+  the workflows install what it names, and `rust-version` follows it; raising
+  it is a pull request of its own. The locked dependencies are updated with
+  it, seventeen patch releases, and the lock of the ADM audit harness. Over
+  125 streams the binary before and the binary after give the same exit
+  codes, the same reports and the same 90.6 GB of delivered bytes
+  (`docs/audit/evidence/engine-round-2026-11/01-toolchain-and-lock-old-new.json`).
 
 ### Fixed
 
