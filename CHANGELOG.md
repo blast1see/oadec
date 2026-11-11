@@ -66,6 +66,16 @@ Semantic Versioning.
   125 streams the binary before and the binary after give the same exit
   codes, the same reports and the same 90.6 GB of delivered bytes
   (`docs/audit/evidence/engine-round-2026-11/01-toolchain-and-lock-old-new.json`).
+- **The command line is a library with a binary in front of it.** The crate
+  was `main.rs` and its modules, so nothing outside a child process could
+  reach a pipeline, a verdict or the format detection: not a fuzz target, not
+  a benchmark, not a test of two commands against each other. The modules
+  move under `src/lib.rs` and `main.rs` hands its arguments to
+  `oadec_cli::run`, which is all the library offers for now. No code moved
+  between modules. The transcripts hold, and over 125 streams the binary
+  before and the binary after give the same exit codes, the same reports and
+  the same 90.6 GB of delivered bytes
+  (`docs/audit/evidence/engine-round-2026-11/03-lib-and-bin-old-new.json`).
 
 ### Fixed
 
