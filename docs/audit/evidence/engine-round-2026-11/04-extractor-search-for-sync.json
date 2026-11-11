@@ -1,0 +1,70 @@
+{
+ "question": "What did the TrueHD extractor do after it refused an access unit that carries a major sync, what does it do now, and does the difference show on any stream there is?",
+ "how_it_was_found": "The seeded fuzz run of the pull request that follows holds a stream read whole against the same stream read in pieces. On round 9,693 of its first seed the two gave different units: the same bytes at the same offsets, but the unit sync was found again at said so only when the stream came in one read. Reading the extractor for the cause showed two more faults in the same place, neither of which depends on the reads.",
+ "the_three_faults": {
+  "locking_onto_the_unit_just_refused": "A major sync sits four bytes into its unit. After refusing a unit at offset S the extractor searched for sync from S+1 and met the major sync at S+4, the refused unit's own. When it verified, because the damage was in the header or the directory and not under its CRC, the extractor locked there with its position still at S+1, parsed a header from S+1, failed, moved a byte and did the same from S+2, S+3 and S+4. Each lock was counted as sync found again. A header read from the wrong place that passes its parity became a unit of the length those bytes claim; one that claims more bytes than the stream has left ended the extraction, and the rest of the stream was reported as trailing bytes.",
+  "counting_twice": "A unit whose major sync fails its CRC was refused where the stream was locked, which counted the failure; the search for sync then parsed the same major sync at S+4 and counted it again. The other format's sync pattern in a unit that fails its parity was counted twice the same way.",
+  "the_flag_and_the_reads": "`Unit::resynced` was a local variable of the call that found sync. When the unit at that place had not all arrived, the call returned for more data and the next call handed the unit out with the flag clear. Nothing in the workspace reads the flag, so no report or delivery depended on it."
+ },
+ "what_changed": "The search for sync locks only onto a major sync whose unit starts at or after the place the search does. A major sync nearer than that is still parsed and counted for what it is, and passed. The path that refuses a unit no longer counts the pattern in it: the search, which meets that pattern next, is the one place that does; a unit that is delivered with the other format's pattern in it is counted on delivery, as before. That sync was found again is kept in the extractor until a unit is handed out.",
+ "method": "Two release binaries: main (the third binary of evidence 01) and the fix on top of it, built before the pull request that split the command line, which evidence 03 shows changes nothing. (1) One-bit census: for four committed fixtures, six major-sync units each (the second to the seventh; the first is where a stream is locked onto, not where sync is lost), every bit of the unit's four header bytes, of its major sync and of its directory was flipped, one bit per copy, and `verify --json` of both binaries read for each of the 7,104 copies. Where each region ends was taken from `oadec au --index N --json` on the clean stream. (2) `python tools/old_new.py --decode-all` between the two binaries over the 125 streams of evidence 01. (3) The seeded fuzz run on the fixed extractor: four seeds, 200,000 rounds for each of eight targets. (4) Five mutations that write the faults back, run with `python tools/mutants.py --only`. (5) `tools/media_regression.sh` on the fix.",
+ "binaries": {
+  "main, rustc 1.99.1, updated locks": "3864763a9374e3a61521a09ef54e0b0abbf674cdfb17f550d6fbcc79cdc90068",
+  "the fix": "fc76f28026075072ec128f56a5b563de0cbab1b76cd216601eaf3251ff8db2b5"
+ },
+ "result": {
+  "one_bit_census": {
+   "fixtures": {
+    "truehd-20-44k.thd": {"header": 192, "major_sync": 1344, "directory": 96},
+    "truehd-51-88k.thd": {"header": 192, "major_sync": 1344, "directory": 192},
+    "mlp-51-96k.mlp": {"header": 192, "major_sync": 1344, "directory": 96},
+    "authored-scene.mlp": {"header": 192, "major_sync": 1536, "directory": 384}
+   },
+   "copies": 7104,
+   "a_bit_in_the_header_or_the_directory": {
+    "copies": 1536,
+    "copies_on_which_the_binaries_differ": 1530,
+    "losses_of_sync_reported_by_main": {"0": 6, "1": 51, "2": 128, "3": 21, "4": 240, "5": 1090},
+    "losses_of_sync_reported_by_the_fix": {"0": 116, "1": 1420},
+    "main_hands_out_more_units_than_the_fix": 205,
+    "of_those_every_extra_unit_is_one_main_itself_counts_as_a_framing_or_substream_error": 205,
+    "main_hands_out_fewer_units_than_the_fix": 125,
+    "main_reports_more_trailing_bytes_than_the_fix": 152,
+    "an_example_of_the_last": "truehd-20-44k.thd, one bit of the header of its second major-sync unit: main hands out 17 units and reports 5,387 trailing bytes; the fix hands out 95 units, skips 1,858 bytes to the next major sync and reports none trailing"
+   },
+   "a_bit_in_the_major_sync": {
+    "copies": 5568,
+    "copies_on_which_the_binaries_differ": 4824,
+    "under_the_crc": {"copies": 4800, "failures_counted_by_main": 2, "failures_counted_by_the_fix": 1},
+    "in_the_sync_pattern": {"copies": 768, "note": "the unit no longer shows a major sync of the stream's format; in the 24 copies where the flipped bit spells the other format's pattern main counts 2 foreign syncs and the fix 1"}
+   },
+   "the_fix_reports_damage_in_every_copy": true
+  },
+  "the_125_streams": {
+   "streams": 125,
+   "streams_changed": 0,
+   "fields_added": [],
+   "bytes_of_deliveries_compared": 90580387253,
+   "exit_codes_of_the_presentation_decodes": {"0": 198, "2": 18, "7": 4},
+   "exit_codes_of_the_object_deliveries": {"0": 56, "2": 61, "7": 8}
+  },
+  "seeded_fuzz_run": {
+   "before_the_fix": "seed 0 fails on round 9,693 of truehd_extract",
+   "after_the_fix": "seeds 0 to 3, 200,000 rounds for each of 8 targets: no failure"
+  },
+  "mutations": {
+   "added": 5,
+   "caught": 5,
+   "names": [
+    "the search for sync locks onto the major sync of the unit just refused",
+    "a major sync that fails its CRC counted where its unit is refused as well",
+    "the other pattern counted in a unit that is refused as well as by the search",
+    "sync found again forgotten when its unit has not all arrived",
+    "sync found again said of every unit after it"
+   ]
+  },
+  "media_regression": "every step passes on the fix: the media suite 28 of 28 and its refusal to pass without media, the three TrueHD gates, the JOC object gate, both corruption replays (120 and 100 sites) and the ADM harness stage. The script does not build the ADM writer harness it runs; in a fresh checkout that step fails on the missing binary until `cargo build --release --locked --manifest-path docs/audit/adm/harness/Cargo.toml` has been run with CARGO_TARGET_DIR=target/harness",
+  "end_to_end_tests": "`one_bit_in_front_of_a_major_sync_is_one_loss_of_sync` flips each of the 32 header bits of the second major-sync unit of a committed fixture and holds `verify --json` to one loss of sync, the bytes up to the next major sync skipped, none trailing, no framing error and every later unit delivered; `a_major_sync_whose_crc_fails_is_reported_once` holds the count and the finding's magnitude to 1"
+ },
+ "reading": "One bit in the four bytes in front of a major sync, or in the directory behind it, used to cost more than the unit it is in. The count of five losses of sync for one is the visible part and the harmless one. The part that matters is the 330 copies of 1,536 where main's units differ from the fix's: in 205 it hands out a unit read from the wrong place, which its own report then counts as broken, and in 125 it gives up units the fix delivers, up to the whole rest of the stream. The fix reports damage in every one of the 7,104 copies, so nothing became quieter. On the 125 streams there are, damaged ones among them (four presentation decodes and eight object deliveries end with exit code 7, from either binary), nothing changes, in reports or in 90.6 GB of deliveries: none of them has its damage in the header, the major sync or the directory of a major-sync unit. So this was wrong for a kind of damage the corpus does not hold, which is why it took a fuzzer to find. What the census does not cover: damage of more than one bit, units without a major sync (their path is unchanged and the comparison over the corpus agrees), and FBB streams with more than one substream."
+}
