@@ -913,6 +913,24 @@
      }
     }
    }
+  },
+  "what_the_census_costs": {
+   "method": "the census is taken on every `verify`, asked for or not; `python tools/bench.py --compare` between main and this branch, seven runs turn and turn about, over the two heaviest streams of each kind under 700 seconds, and `verify --json` of one whole film (2,608,566,196 bytes, 6,058,052 access units) five times with each binary",
+   "streams_of_the_comparison": "ratio of the median wall times of `verify`, this branch over main: 1.000 to 1.002 on the four TrueHD streams, each within the spread of its runs; the processor time reads 1.14 on one of them, a run of about a tenth of a second measured with a clock that steps by 15.6 ms",
+   "the_whole_film": {
+    "main_median_seconds": 25.52,
+    "this_branch_median_seconds": 25.34,
+    "ratio": 0.993
+   }
+  },
+  "old_and_new_over_the_125_streams": {
+   "method": "`python tools/old_new.py --decode-all`, main against this branch before it was moved onto the extractor fix",
+   "streams": 125,
+   "streams_changed": 0,
+   "fields_added": [
+    "coverage"
+   ],
+   "bytes_of_deliveries_compared": 90580387253
   }
  },
  "reading": "Real material exercises nearly all of what the sample path of the decoder does. Every one of the 157 library tracks uses FIR prediction, the three code books, Huffman offsets and matrixing; 149 use IIR prediction with coded states, 146 output shifts, 137 the shift code of the object syntax, 108 interpolated matrices and 99 bypassed LSBs. What no stream carries is narrow and can be named: error protection (error_protect, and with it block_data_bits and block_header_crc), a coefficient on a noise channel of a 0x31EA matrix, heavy DRC, a new guard byte, a negative output shift, and every bit of flags but 12. Those are what a generated stream has to supply. Two fields the description reserves or leaves unexplained are in ordinary use: the fourth bit of a directory entry is set in 12 per cent of 42 million entries and in every track, and hires_output_timing in 40 per cent of the restart headers and in every track. A rule that failed a stream for either would fail the library, which is why the count comes before the rule. More than four matrices in ten have a coefficient on their own channel that is not a power of two, so a matrix is in general a mix and not a lifting step. The library set is heads of sixty seconds: it does not exclude an element an encoder uses once an hour. Only the whole film of the second set does that, for one title."
