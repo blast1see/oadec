@@ -19,7 +19,7 @@ pub mod sha256;
 pub mod signal;
 pub mod write;
 
-pub use recipe::{Made, PROBES, Probe, RECIPES, Recipe};
+pub use recipe::{Made, PROBES, Probe, RECIPES, Recipe, pcm_bytes};
 pub use write::{
-    BlockPlan, Coding, Family, Filter, Layout, Matrix, Protection, Stream, UnitPlan, write,
+    Above, BlockPlan, Coding, Family, Filter, Layout, Matrix, Protection, Stream, UnitPlan, write,
 };

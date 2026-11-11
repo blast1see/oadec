@@ -7,6 +7,10 @@
 # the stream (`-` for none). A probe is past a bound of the format or in a
 # field whose meaning is not public: the lists say what each decoder does
 # there and not what is right.
+#
+# A probe of several substreams has a line for each presentation, named as
+# the recipes' are: `<name>.p<index>` is the presentation of the substream at
+# that index, under the widest.
 probe-five-blocks	707eaa69159803ee30ca63fb3eda6f91e098ccd7829800969438881a29cd29aa	948c93dfa307cb15084e71842be76a1d4eb1a942bad32be7c8c811cc239d3448	ffmpeg,dolby	-	truehdd
 probe-sync-every-four	03e38c3bc93606cb8e5b759de751c82599171b6b59612a99e4490bc4b9e3d854	948c93dfa307cb15084e71842be76a1d4eb1a942bad32be7c8c811cc239d3448	ffmpeg,dolby	-	truehdd
 probe-sync-every-unit	e268f8b621a3fe9e92110771648ce1e8bb8455cdf3a07fe8618b645673b40db3	948c93dfa307cb15084e71842be76a1d4eb1a942bad32be7c8c811cc239d3448	ffmpeg,dolby	-	truehdd
@@ -14,3 +18,10 @@ probe-nine-matrices	e6a24bcada502dd88ed37af2a46bc1dd97aee7ecd35f14b7ce3292da35f8
 probe-protected	ae50bfacbe87b6bb299650ee6eb3e9e4048aa1ca6cf73ec81e83a0faec600ad5	7b0fabe6913113ea2e81b1c8cf4fa37e5e2dd211e4d892305acd0ea2fcc635da	ffmpeg,truehdd	-	dolby
 probe-protected-counting-itself	bb8ad01c9ff8bcec8b91f63b1ae279478c5e22de6d7556ef7795c8fc1376789a	7b0fabe6913113ea2e81b1c8cf4fa37e5e2dd211e4d892305acd0ea2fcc635da	ffmpeg	-	truehdd,dolby
 probe-bypass-over-step	6a0b0f65299c83ba26dc9cd474d1589d06b91bfde07841c9b7560be63135d4d7	fc9c9ca634dfa8d208679877cf448e9f654b47cbfe99e73f3fa07ad4b15b88ce	dolby	ffmpeg	truehdd
+probe-dither-bypass-over-step	2f4d54bb252a4d08e9b766e30afb709b2ad80642a8660505548a886674006d1e	55a60e5526c19da1c6f3b16d1b7d57b5cce6504b816d3ddf05b7e2d327a031de	dolby	ffmpeg	truehdd
+probe-dither-bypass-over-step.p0	2f4d54bb252a4d08e9b766e30afb709b2ad80642a8660505548a886674006d1e	add85dbc8930e33c255287241906edb459ff57e79d9da4746e4341c51292fd09	ffmpeg,truehdd,dolby	-	-
+probe-dither-three-blocks	24beed6d79116eaca1ae3966af58109bcbfe379cc31a43828fbe06696dfc0120	059579818301ff4874e302dab32e4b7b231021447ce43797184435eb1481995a	ffmpeg,truehdd,dolby	-	-
+probe-dither-three-blocks.p0	24beed6d79116eaca1ae3966af58109bcbfe379cc31a43828fbe06696dfc0120	87d9588b9a39567793fa26da5355974e58d7349fdef110b26bc5ebaa12ff605e	ffmpeg,truehdd,dolby	-	-
+probe-nine-matrices-over-eight	20d0a9d73f18fea7ec459844554bf890c3e3e67415c5cbe580479ecc8dc23510	2f82e99fb93d379cfe6edb4766156077607112402938072362f77057fb88245d	truehdd	ffmpeg	dolby
+probe-nine-matrices-over-eight.p0	20d0a9d73f18fea7ec459844554bf890c3e3e67415c5cbe580479ecc8dc23510	a7eecb77cbe0009821e18fc9bbbbaf507d155526cb343871ff590e8fd4fdee68	ffmpeg,truehdd,dolby	-	-
+probe-nine-matrices-over-eight.p1	20d0a9d73f18fea7ec459844554bf890c3e3e67415c5cbe580479ecc8dc23510	a03aabb069a5ad21530d8a034a54c4ed07236e5472645f27175cdd0c69321f7f	ffmpeg,truehdd,dolby	-	-

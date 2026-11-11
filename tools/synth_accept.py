@@ -9,7 +9,7 @@ author. So a recipe is taken as a reference here, and nowhere else, and only
 on the word of decoders that share nothing with either:
 
 * FFmpeg (`-f truehd` or `-f mlp`, to 24-bit PCM),
-* `truehdd` (`decode --strict --presentation 0 --format pcm`),
+* `truehdd` (`decode --strict --presentation <index> --format pcm`),
 * Dolby's own decoder, the `dlbtruehddec` element that ships with the Dolby
   Reference Player, on the stream wrapped in MP4 (it takes no raw stream).
   Only where the player is installed (`$DOLBY_REFERENCE_PLAYER` says where,
@@ -21,6 +21,14 @@ is confirmed when at least two of them give the samples of the recipe, every
 one of them. What each said goes into the record, the ones that differed
 included: a stream on which the decoders disagree is a finding, not a failure
 of the tool.
+
+A stream of several substreams has a presentation for each: two channels, six
+and eight. Each is asked of every decoder and has a line of its own in the
+record, and the recipe is confirmed when all of them are. The samples of a
+presentation are compared in the order of the stream, which is front pair,
+centre, LFE, side pair, back pair: FFmpeg and Dolby's decoder write eight
+channels with the back pair in front of the side pair, and theirs are put
+back first.
 
     cargo build --release -p oadec-synth -p oadec-cli
     python tools/synth_accept.py --out oadec-work/synth
@@ -70,8 +78,20 @@ PROBES_HEADER = """\
 # the stream (`-` for none). A probe is past a bound of the format or in a
 # field whose meaning is not public: the lists say what each decoder does
 # there and not what is right.
+#
+# A probe of several substreams has a line for each presentation, named as
+# the recipes' are: `<name>.p<index>` is the presentation of the substream at
+# that index, under the widest.
 """
 INDEPENDENT = ("ffmpeg", "truehdd", "dolby")
+# Where FFmpeg and Dolby's decoder put the channels of the stream's order when
+# there are eight: back pair before side pair, as a WAVE file has them.
+INTERCHANGE = {8: (0, 1, 2, 3, 6, 7, 4, 5)}
+# What FFmpeg is asked for when the presentation is not the widest of the
+# stream, by its channels; and what Dolby's decoder is to write, in the
+# numbers of its element.
+FFMPEG_LAYOUT = {2: "stereo", 6: "5.1(side)"}
+DOLBY_CONFIG = {2: 0, 6: 7, 8: 11}
 HEADER = """\
 # What `oadec-synth digests` has to print, and which decoders said so.
 #
@@ -81,6 +101,12 @@ HEADER = """\
 # ones that gave others, and the ones that would not read the stream (`-` for
 # none). A recipe is here because two decoders that share nothing with this
 # repository agree on it.
+#
+# A stream of several substreams has a line for each presentation: the name
+# alone is the widest, the samples the stream was written from, and
+# `<name>.p<index>` the presentation of the substream at that index under it,
+# whose samples are what the writer worked out its matrices come to. Every
+# line of a recipe has its two decoders.
 """
 
 
@@ -125,31 +151,48 @@ def judged(got: bytes | None, want: bytes, channels: int, said: str, code: int) 
     }
 
 
-def by_ffmpeg(stream: Path, want: bytes, channels: int, work: Path) -> dict:
-    out = work / (stream.stem + ".ffmpeg.pcm")
+def stream_order(pcm: bytes | None, channels: int) -> bytes | None:
+    """24-bit samples a decoder wrote in the interchange order, in the stream's."""
+    order = INTERCHANGE.get(channels)
+    if pcm is None or order is None:
+        return pcm
+    frame = 3 * channels
+    out = bytearray(len(pcm))
+    for start in range(0, len(pcm) - frame + 1, frame):
+        for ch, source in enumerate(order):
+            out[start + 3 * ch:start + 3 * ch + 3] = pcm[start + 3 * source:start + 3 * source + 3]
+    return bytes(out)
+
+
+def by_ffmpeg(stream: Path, r: dict, want: bytes, work: Path) -> dict:
+    channels = r["channels"]
+    out = work / (r["name"] + ".ffmpeg.pcm")
     out.unlink(missing_ok=True)
     fmt = "mlp" if stream.suffix == ".mlp" else "truehd"
-    code, said = run(["ffmpeg", "-v", "warning", "-nostdin", "-f", fmt, "-i", stream,
+    # the widest presentation is what it decodes when asked for nothing
+    ask = [] if r["widest"] else ["-downmix", FFMPEG_LAYOUT[channels]]
+    code, said = run(["ffmpeg", "-v", "warning", "-nostdin", *ask, "-f", fmt, "-i", stream,
                       "-f", "s24le", "-c:a", "pcm_s24le", "-y", out])
     got = out.read_bytes() if code == 0 and out.is_file() else None
-    return judged(got, want, channels, said, code)
+    return judged(stream_order(got, channels), want, channels, said, code)
 
 
-def by_truehdd(stream: Path, want: bytes, channels: int, work: Path) -> dict:
-    base = work / (stream.stem + ".truehdd")
+def by_truehdd(stream: Path, r: dict, want: bytes, work: Path) -> dict:
+    base = work / (r["name"] + ".truehdd")
     out = Path(str(base) + ".pcm")
     out.unlink(missing_ok=True)
-    code, said = run(["truehdd", "--loglevel", "warn", "decode", "--strict", "--presentation", "0",
-                      "--format", "pcm", "--output-path", base, stream])
+    code, said = run(["truehdd", "--loglevel", "warn", "decode", "--strict", "--presentation",
+                      r["presentation"], "--format", "pcm", "--output-path", base, stream])
     got = out.read_bytes() if code == 0 and out.is_file() else None
-    return judged(got, want, channels, said, code)
+    return judged(got, want, r["channels"], said, code)
 
 
-def by_dolby(stream: Path, want: bytes, channels: int, work: Path) -> dict:
+def by_dolby(stream: Path, r: dict, want: bytes, work: Path) -> dict:
     if stream.suffix != ".thd":
         return {"verdict": "not asked", "said": "the element is given the TrueHD syntax only"}
+    channels = r["channels"]
     mp4 = work / (stream.stem + ".mp4")
-    out = work / (stream.stem + ".dolby.s32")
+    out = work / (r["name"] + ".dolby.s32")
     out.unlink(missing_ok=True)
     code, said = run(["ffmpeg", "-v", "error", "-nostdin", "-f", "truehd", "-i", stream, "-c:a", "copy",
                       "-strict", "-2", "-f", "mp4", "-y", mp4])
@@ -161,7 +204,8 @@ def by_dolby(stream: Path, want: bytes, channels: int, work: Path) -> dict:
     # forward slashes: the property parser of gst-launch takes a backslash for an escape
     code, said = run([GST, "-q", "filesrc", f"location={mp4.as_posix()}", "!", "qtdemux", "!",
                       "capssetter", "caps=audio/x-true-hd", "replace=true", "join=false", "!",
-                      "dlbtruehdparse", "!", "dlbtruehddec", "presentation=2", "out-ch-config=0", "!",
+                      "dlbtruehdparse", "!", "dlbtruehddec", f"presentation={channels}",
+                      f"out-ch-config={DOLBY_CONFIG[channels]}", "!",
                       "audio/x-raw,format=S32LE", "!", "filesink", f"location={out.as_posix()}"], env=env)
     if code != 0 or not out.is_file():
         return {"verdict": "refused", "exit": code, "said": said[-600:]}
@@ -170,15 +214,16 @@ def by_dolby(stream: Path, want: bytes, channels: int, work: Path) -> dict:
     if any(words[i] for i in range(0, len(words), 4)):
         return {"verdict": "differs", "exit": code, "said": "bits under the 24 the stream codes"}
     got = b"".join(words[i + 1:i + 4] for i in range(0, len(words), 4))
-    return judged(got, want, channels, said, code)
+    return judged(stream_order(got, channels), want, channels, said, code)
 
 
-def by_oadec(oadec: str, stream: Path, want: bytes, channels: int, work: Path) -> dict:
-    out = work / (stream.stem + ".oadec.pcm")
+def by_oadec(oadec: str, stream: Path, r: dict, want: bytes, work: Path) -> dict:
+    out = work / (r["name"] + ".oadec.pcm")
     out.unlink(missing_ok=True)
-    code, said = run([oadec, "decode", "-p", "0", "--format", "pcm", "-o", out, stream])
+    code, said = run([oadec, "decode", "-p", r["presentation"], "--order", "stream", "--format", "pcm",
+                      "-o", out, stream])
     got = out.read_bytes() if out.is_file() else None
-    result = judged(got, want, channels, "" if code == 0 else said, code)
+    result = judged(got, want, r["channels"], "" if code == 0 else said, code)
     vcode, vsaid = run([oadec, "verify", "--json", stream])
     result["verify_exit"] = vcode
     try:
@@ -227,14 +272,18 @@ def main() -> int:
     code, said = run([args.synth, "digests"])
     if code != 0:
         raise SystemExit(f"oadec-synth digests: {said}")
+    # A line is a presentation. The name of a recipe alone is its widest, and
+    # `<recipe>.p<index>` the one of the substream at that index under it.
     recipes = []
     for line in said.splitlines():
-        name, stream_sha, pcm_sha, rate, channels, units, kind = line.split("\t")
-        recipes.append({"name": name, "stream_sha256": stream_sha, "pcm_sha256": pcm_sha,
+        name, stream_sha, pcm_sha, rate, channels, units, kind, presentation = line.split("\t")
+        recipes.append({"name": name, "recipe": name.split(".p")[0], "presentation": presentation,
+                        "widest": ".p" not in name,
+                        "stream_sha256": stream_sha, "pcm_sha256": pcm_sha,
                         "rate": int(rate), "channels": int(channels), "units": int(units),
                         "probe": kind == "probe"})
     if args.only:
-        recipes = [r for r in recipes if re.search(args.only, r["name"])]
+        recipes = [r for r in recipes if re.search(args.only, r["recipe"])]
         if not recipes:
             raise SystemExit(f"no recipe matches {args.only!r}")
         if args.record:
@@ -242,19 +291,19 @@ def main() -> int:
 
     unconfirmed = []
     for r in recipes:
-        stream = next(streams.glob(r["name"] + ".thd"), None) or streams / (r["name"] + ".mlp")
+        stream = next(streams.glob(r["recipe"] + ".thd"), None) or streams / (r["recipe"] + ".mlp")
         pcm = streams / (r["name"] + ".pcm")
         if sha256(stream) != r["stream_sha256"] or sha256(pcm) != r["pcm_sha256"]:
             raise SystemExit(f"{r['name']}: the files are not what `digests` names")
         want = pcm.read_bytes()
         r["bytes"] = stream.stat().st_size
         r["decoders"] = {
-            "ffmpeg": by_ffmpeg(stream, want, r["channels"], work),
-            "truehdd": by_truehdd(stream, want, r["channels"], work),
-            "dolby": by_dolby(stream, want, r["channels"], work) if dolby
+            "ffmpeg": by_ffmpeg(stream, r, want, work),
+            "truehdd": by_truehdd(stream, r, want, work),
+            "dolby": by_dolby(stream, r, want, work) if dolby
             else {"verdict": "absent", "said": "the Dolby Reference Player is not installed"},
         }
-        r["oadec"] = by_oadec(oadec, stream, want, r["channels"], work)
+        r["oadec"] = by_oadec(oadec, stream, r, want, work)
         r["gave_the_samples"] = [d for d in INDEPENDENT if r["decoders"][d]["verdict"] == "target"]
         r["gave_others"] = [d for d in INDEPENDENT if r["decoders"][d]["verdict"] == "differs"]
         r["refused"] = [d for d in INDEPENDENT if r["decoders"][d]["verdict"] == "refused"]
@@ -265,7 +314,7 @@ def main() -> int:
         own = (f"oadec:{r['oadec']['verdict']} verify:{r['oadec']['verify_exit']}"
                f" rules:{','.join(r['oadec'].get('rules', ['?'])) or 'none'}")
         mark = "?? " if r["probe"] else "ok " if r["confirmed"] else "NO "
-        print(f"{mark} {r['name']:<32} {marks}  {own}")
+        print(f"{mark} {r['name']:<36} {marks}  {own}")
 
     probes = [r for r in recipes if r["probe"]]
     recipes = [r for r in recipes if not r["probe"]]
@@ -276,7 +325,9 @@ def main() -> int:
             "dolby": "the dlbtruehddec element of the Dolby Reference Player" if dolby else "absent",
             "oadec": version([oadec, "--version"]),
         },
-        "recipes": len(recipes),
+        # a recipe is a stream; a stream of several substreams has several presentations
+        "recipes": len({r["recipe"] for r in recipes}),
+        "presentations": len(recipes),
         "confirmed": len(recipes) - len(unconfirmed),
         "unconfirmed": unconfirmed,
         "by_decoder": {d: {v: sum(1 for r in recipes if r["decoders"][d]["verdict"] == v)
@@ -285,7 +336,8 @@ def main() -> int:
         "oadec_gave_the_samples": sum(1 for r in recipes if r["oadec"]["verdict"] == "target"),
         "oadec_verify_clean": sum(1 for r in recipes if r["oadec"]["verify_exit"] == 0),
         "oadec_without_a_finding": sum(1 for r in recipes if r["oadec"].get("rules") == []),
-        "probes": len(probes),
+        "probes": len({r["recipe"] for r in probes}),
+        "presentations_of_probes": len(probes),
     }
     print(json.dumps(summary, indent=1))
     if args.json:
@@ -301,14 +353,16 @@ def main() -> int:
                                     ",".join(r["refused"]) or "-"]) + "\n")
         DIGESTS.parent.mkdir(parents=True, exist_ok=True)
         DIGESTS.write_text("".join(lines), encoding="utf-8", newline="\n")
-        print(f"recorded {len(recipes)} recipes in {DIGESTS.relative_to(ROOT).as_posix()}")
+        print(f"recorded {len(recipes)} presentations of {summary['recipes']} recipes in "
+              f"{DIGESTS.relative_to(ROOT).as_posix()}")
         lines = [PROBES_HEADER]
         for r in probes:
             lines.append("\t".join([r["name"], r["stream_sha256"], r["pcm_sha256"],
                                     ",".join(r["gave_the_samples"]) or "-", ",".join(r["gave_others"]) or "-",
                                     ",".join(r["refused"]) or "-"]) + "\n")
         PROBES.write_text("".join(lines), encoding="utf-8", newline="\n")
-        print(f"recorded {len(probes)} probes in {PROBES.relative_to(ROOT).as_posix()}")
+        print(f"recorded {len(probes)} presentations of {summary['probes']} probes in "
+              f"{PROBES.relative_to(ROOT).as_posix()}")
     return 1 if unconfirmed else 0
 
 

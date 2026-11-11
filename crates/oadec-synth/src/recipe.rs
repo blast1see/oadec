@@ -8,7 +8,7 @@
 
 use crate::signal::{Rng, noise, offset, shifted, sum, tone};
 use crate::write::{
-    BlockPlan, Coding, Family, Filter, Layout, Matrix, Protection, Stream, UnitPlan, write,
+    Above, BlockPlan, Coding, Family, Filter, Layout, Matrix, Protection, Stream, UnitPlan, write,
 };
 
 /// A recipe made: everything [`write`] takes.
@@ -18,7 +18,8 @@ pub struct Made {
     pub layout: Layout,
     /// What each access unit is coded with.
     pub plans: Vec<UnitPlan>,
-    /// The samples of each channel: what a decoder has to give back.
+    /// The samples of each channel of the widest presentation: what a
+    /// decoder has to give back for it.
     pub pcm: Vec<Vec<i32>>,
 }
 
@@ -32,19 +33,35 @@ impl Made {
         write(&self.layout, &self.plans, &self.pcm)
     }
 
-    /// The samples as a decoder is asked to write them: 24 bits, little
-    /// endian, the channels interleaved.
+    /// The samples of every presentation of `stream`, that of the first
+    /// substream first: under the top one what the writer worked out each
+    /// comes to, and at the top the samples the stream was made from.
+    #[must_use]
+    pub fn presentations(&self, stream: &Stream) -> Vec<Vec<Vec<i32>>> {
+        let mut all = stream.below.clone();
+        all.push(self.pcm.clone());
+        all
+    }
+
+    /// The samples the stream was made from, as [`pcm_bytes`] writes them.
     #[must_use]
     pub fn pcm_bytes(&self) -> Vec<u8> {
-        let samples = self.pcm.first().map_or(0, Vec::len);
-        let mut out = Vec::with_capacity(samples * self.pcm.len() * 3);
-        for n in 0..samples {
-            for channel in &self.pcm {
-                out.extend_from_slice(&channel[n].to_le_bytes()[..3]);
-            }
-        }
-        out
+        pcm_bytes(&self.pcm)
     }
+}
+
+/// Samples as a decoder is asked to write them: 24 bits, little endian, the
+/// channels interleaved.
+#[must_use]
+pub fn pcm_bytes(channels: &[Vec<i32>]) -> Vec<u8> {
+    let samples = channels.first().map_or(0, Vec::len);
+    let mut out = Vec::with_capacity(samples * channels.len() * 3);
+    for n in 0..samples {
+        for channel in channels {
+            out.extend_from_slice(&channel[n].to_le_bytes()[..3]);
+        }
+    }
+    out
 }
 
 /// What the samples at a restart header are coded with.
@@ -206,6 +223,39 @@ pub const PROBES: &[Probe] = &[
             tools: &["quantiser-step", "matrixing", "lsb-bypass"],
             at_restart: AtRestart::Unfiltered,
             make: bypass_over_step,
+        },
+        rules: &[],
+        fails: false,
+    },
+    Probe {
+        recipe: Recipe {
+            name: "probe-dither-bypass-over-step",
+            about: "the same over the six channels of a second substream, whose matrices have a table of dither: the bit added to the sum and the sum not cut, as Dolby's decoder has it there too",
+            tools: &["quantiser-step", "matrixing", "lsb-bypass"],
+            at_restart: AtRestart::Unfiltered,
+            make: dither_bypass_over_step,
+        },
+        rules: &[],
+        fails: false,
+    },
+    Probe {
+        recipe: Recipe {
+            name: "probe-dither-three-blocks",
+            about: "three blocks to a unit in a substream with a table of dither, one more than a segment of that kind may hold",
+            tools: &["huffman-1", "huffman-2", "matrixing", "dither-scale"],
+            at_restart: AtRestart::Unfiltered,
+            make: dither_three_blocks,
+        },
+        rules: &["segment.block_count"],
+        fails: false,
+    },
+    Probe {
+        recipe: Recipe {
+            name: "probe-nine-matrices-over-eight",
+            about: "nine matrices in a third substream, over eight channels: one more than two of the decoders take in any substream",
+            tools: &["matrixing", "dither-scale"],
+            at_restart: AtRestart::Unfiltered,
+            make: nine_matrices_over_eight,
         },
         rules: &[],
         fails: false,
@@ -507,47 +557,138 @@ pub const RECIPES: &[Recipe] = &[
         at_restart: AtRestart::Unfiltered,
         make: heavy_drc,
     },
+    Recipe {
+        name: "six-channels",
+        about: "six channels in two substreams as encoders lay them out: two matrices in the first, which make its presentation of the two channels it codes, and six in the second over all six with its table of dither",
+        tools: SURROUND_TOOLS,
+        at_restart: AtRestart::Unfiltered,
+        make: || six_channels(48_000),
+    },
+    Recipe {
+        name: "eight-channels",
+        about: "eight channels in three substreams, with two, six and eight matrices: the presentation of each substream under the top one is whatever its own matrices make of the channels coded up to it",
+        tools: SURROUND_TOOLS,
+        at_restart: AtRestart::Unfiltered,
+        make: || eight_channels(48_000),
+    },
+    Recipe {
+        name: "eight-rate-96000",
+        about: "eight channels at 96 kHz, where the dither of a unit is 128 values",
+        tools: SURROUND_TOOLS,
+        at_restart: AtRestart::Unfiltered,
+        make: || eight_channels(96_000),
+    },
+    Recipe {
+        name: "six-rate-192000",
+        about: "six channels at 192 kHz, where the dither of a unit is 256 values",
+        tools: SURROUND_TOOLS,
+        at_restart: AtRestart::Unfiltered,
+        make: || six_channels(192_000),
+    },
+    Recipe {
+        name: "six-dither-scales",
+        about: "the dither of a second substream at every scale from none to 15, the register it is drawn from set anew by every restart header",
+        tools: &["matrixing", "dither-scale"],
+        at_restart: AtRestart::Unfiltered,
+        make: six_dither_scales,
+    },
+    Recipe {
+        name: "six-noise-channels",
+        about: "a second substream with two noise channels as the first has them, where Dolby's encoders give it a table of dither, and matrices that draw on them",
+        tools: &["matrixing", "noise-columns"],
+        at_restart: AtRestart::Unfiltered,
+        make: six_noise_channels,
+    },
+    Recipe {
+        name: "six-bypass",
+        about: "matrices of both substreams that send one more bit a sample apart, in the second beside its dither",
+        tools: &["matrixing", "lsb-bypass", "dither-scale"],
+        at_restart: AtRestart::Unfiltered,
+        make: six_bypass,
+    },
+    Recipe {
+        name: "six-steps",
+        about: "quantiser steps on all six channels under the matrices of the second substream, which states the steps of the first two channels as the first substream has them",
+        tools: &["quantiser-step", "matrixing", "dither-scale"],
+        at_restart: AtRestart::Unfiltered,
+        make: six_steps,
+    },
+    Recipe {
+        name: "six-steps-apart",
+        about: "a second substream that states for a channel of the first a step the first does not code it with, which no encoder writes: a matrix is cut to what its own substream states",
+        tools: &["quantiser-step", "matrixing"],
+        at_restart: AtRestart::Unfiltered,
+        make: six_steps_apart,
+    },
+    Recipe {
+        name: "eight-shifts-assigned",
+        about: "output shifts in all three substreams, and the channels of each sent to other outputs than their own",
+        tools: &[
+            "output-shift",
+            "matrixing",
+            "dither-scale",
+            "channel-reassignment",
+        ],
+        at_restart: AtRestart::Unfiltered,
+        make: eight_shifts_assigned,
+    },
+    Recipe {
+        name: "six-blocks",
+        about: "the first substream in up to three blocks and the second in up to two, the two cut at different samples and the coding changing inside a unit",
+        tools: SURROUND_TOOLS,
+        at_restart: AtRestart::Unfiltered,
+        make: six_blocks,
+    },
 ];
 
-/// Splits the first eight samples off every unit that carries a restart
+/// Splits the first eight samples off every segment that carries a restart
 /// header and has a filter in force there, into a block coded alike but for
-/// the filters.
+/// the filters. Every substream restarts in the same access units.
 fn unfiltered_at_restarts(mut made: Made) -> Made {
     for plan in made.plans.iter_mut().step_by(made.layout.sync_interval) {
-        let first = &mut plan.blocks[0];
-        let bare: Vec<Coding> = first
-            .coding
-            .iter()
-            .map(|coding| Coding {
-                fir: Filter::none(),
-                iir: Filter::none(),
-                ..coding.clone()
-            })
-            .collect();
-        if bare == first.coding {
-            continue;
-        }
-        if first.size == 8 {
-            first.coding = bare;
-        } else {
-            assert!(
-                first.size >= 16,
-                "a first block of {} samples cannot give up eight",
-                first.size
-            );
-            first.size -= 8;
-            // the guards a unit sends go with its first block
-            let split = BlockPlan {
-                size: 8,
-                coding: bare,
-                matrices: first.matrices.clone(),
-                shifts: first.shifts.clone(),
-                guards: first.guards.take(),
-            };
-            plan.blocks.insert(0, split);
+        unfiltered_first_block(&mut plan.blocks);
+        for blocks in &mut plan.above {
+            unfiltered_first_block(blocks);
         }
     }
     made
+}
+
+/// The blocks of one segment with their first eight samples under no filter.
+fn unfiltered_first_block(blocks: &mut Vec<BlockPlan>) {
+    let first = &mut blocks[0];
+    let bare: Vec<Coding> = first
+        .coding
+        .iter()
+        .map(|coding| Coding {
+            fir: Filter::none(),
+            iir: Filter::none(),
+            ..coding.clone()
+        })
+        .collect();
+    if bare == first.coding {
+        return;
+    }
+    if first.size == 8 {
+        first.coding = bare;
+    } else {
+        assert!(
+            first.size >= 16,
+            "a first block of {} samples cannot give up eight",
+            first.size
+        );
+        first.size -= 8;
+        // the guards a unit sends go with its first block
+        let split = BlockPlan {
+            size: 8,
+            coding: bare,
+            matrices: first.matrices.clone(),
+            shifts: first.shifts.clone(),
+            guards: first.guards.take(),
+            steps_below: first.steps_below.clone(),
+        };
+        blocks.insert(0, split);
+    }
 }
 
 /// The tools of the recipes that are about something other than the coding
@@ -1710,6 +1851,682 @@ fn protected(counted_beyond_the_data: u16) -> Made {
     Made {
         plans: one_block_units(&layout, units, |_| coding.clone()),
         pcm: vec![noise(n, 12, 66), noise(n, 12, 67)],
+        layout,
+    }
+}
+
+/// A stream of six channels: a second substream of four over the first, with
+/// a table of dither as encoders give it.
+fn six(rate: u32) -> Layout {
+    let mut layout = layout(Family::TrueHd, rate);
+    layout.above = vec![Above::new(4)];
+    layout
+}
+
+/// A stream of eight: a third substream of two over those of [`six`].
+fn eight(rate: u32) -> Layout {
+    let mut layout = six(rate);
+    layout.above.push(Above::new(2));
+    layout
+}
+
+/// A matrix of a top substream over `columns` columns: channel `out` kept,
+/// the others added to it by `weights`, each a column and its weight in
+/// units of `2^-frac`, and dither at `scale`.
+fn over(columns: usize, out: usize, frac: u8, weights: &[(usize, i32)], scale: u8) -> Matrix {
+    let mut all = vec![0; columns];
+    all[out] = 1;
+    for &(column, weight) in weights {
+        all[column] = weight;
+    }
+    Matrix {
+        dither: scale,
+        ..Matrix::new(out, frac, &all)
+    }
+}
+
+/// The same matrix with the channel it writes turned over.
+fn turned(columns: usize, out: usize, frac: u8, weights: &[(usize, i32)], scale: u8) -> Matrix {
+    let mut matrix = over(columns, out, frac, weights, scale);
+    matrix.coefficients[out] = -matrix.coefficients[out];
+    matrix
+}
+
+/// A matrix of a substream under the top one: any coefficients, the one on
+/// the channel it writes among them, since nothing has to undo it.
+fn mix(out: usize, frac: u8, coefficients: &[i32], scale: u8) -> Matrix {
+    Matrix {
+        out,
+        frac_bits: frac,
+        coefficients: coefficients.to_vec(),
+        bypass: false,
+        dither: scale,
+    }
+}
+
+/// `count` channels with no filter and no book.
+fn uncoded(count: usize) -> Vec<Coding> {
+    vec![Coding::default(); count]
+}
+
+/// The samples of a stream of several substreams: a tone with a little noise
+/// in the first channel, a slow tone in the fourth, which is the LFE, and
+/// noise of 13 to 17 bits in the others; all of it `quieter` bits lower,
+/// for a rate at which that much noise is more than the format delivers.
+fn surround_samples(n: usize, channels: usize, seed: u64, quieter: u32) -> Vec<Vec<i32>> {
+    (0..channels)
+        .map(|ch| match ch {
+            0 => sum(&tone(n, 1 << (17 - quieter), 3000), &noise(n, 6, seed)),
+            3 => tone(n, 1 << (16 - quieter), 400),
+            _ => noise(n, 13 + ch as u32 % 5 - quieter, seed + ch as u64),
+        })
+        .collect()
+}
+
+/// What the channels of a substream over the first are coded with where a
+/// recipe is about something else: a filter or a book on each, the first
+/// `count` of four.
+fn upper_coding(count: usize) -> Vec<Coding> {
+    let all = [
+        Coding {
+            fir: Filter::new(10, &[300, -100]),
+            book: 3,
+            ..Coding::default()
+        },
+        Coding {
+            book: 1,
+            offset: -5,
+            ..Coding::default()
+        },
+        Coding {
+            iir: Filter::new(11, &[600]),
+            book: 2,
+            ..Coding::default()
+        },
+        Coding {
+            fir: Filter::new(9, &[200]),
+            ..Coding::default()
+        },
+    ];
+    all[..count].to_vec()
+}
+
+/// The tools of a stream whose substreams carry the usual coding and
+/// [`upper_coding`], under matrices with dither.
+const SURROUND_TOOLS: &[&str] = &[
+    "fir",
+    "iir",
+    "huffman-1",
+    "huffman-2",
+    "huffman-3",
+    "huffman-offset",
+    "matrixing",
+    "dither-scale",
+];
+
+/// The two matrices of the first substream where another is over it. Its
+/// presentation is made of the two channels it codes, each weighed by
+/// something other than 1, as a downmix is.
+fn downmix_matrices() -> Vec<Matrix> {
+    vec![
+        mix(0, 14, &[weight(14, 7, 8), weight(14, 1, 8), 0, 0], 0),
+        mix(1, 14, &[weight(14, -1, 8), weight(14, 3, 4), 0, 0], 0),
+    ]
+}
+
+/// The six matrices of a second substream that is the top one, in unit `k`:
+/// the centre and the surrounds taken back out of the first two channels, as
+/// an encoder that codes a downmix there has to, and four more among the
+/// rest. One turns its channel over, and in every unit other ones draw on
+/// the dither.
+fn six_matrices(k: usize) -> Vec<Matrix> {
+    let scale = |i: usize| [0u8, 2, 0, 1, 3, 0][(i + k) % 6];
+    vec![
+        over(
+            6,
+            0,
+            14,
+            &[(2, weight(14, -7, 10)), (4, weight(14, -1, 2))],
+            scale(0),
+        ),
+        over(
+            6,
+            1,
+            14,
+            &[(2, weight(14, -7, 10)), (5, weight(14, -1, 2))],
+            scale(1),
+        ),
+        over(6, 2, 12, &[(3, weight(12, 1, 8))], scale(2)),
+        turned(6, 4, 13, &[(5, weight(13, 1, 4))], scale(3)),
+        over(
+            6,
+            5,
+            10,
+            &[(0, weight(10, -1, 16)), (1, weight(10, 1, 16))],
+            scale(4),
+        ),
+        over(6, 3, 8, &[(1, weight(8, 1, 32))], scale(5)),
+    ]
+}
+
+/// The blocks of a segment with a table of dither in unit `k`: one block in
+/// a unit that restarts, where the first eight samples are split off it, and
+/// otherwise one or two.
+fn dither_sizes(k: usize, per: usize) -> Vec<usize> {
+    match (k % 8, k % 4) {
+        (0, _) | (_, 1) => vec![per],
+        (_, 2) => vec![8, per - 8],
+        (_, 3) => vec![per / 2, per / 2],
+        _ => vec![per - 8, 8],
+    }
+}
+
+/// Six channels as encoders lay them out, at `rate`: two matrices in the
+/// first substream and six in the second, every channel filtered or coded
+/// with a book.
+fn six_channels(rate: u32) -> Made {
+    let mut layout = six(rate);
+    layout.above[0].noise_seeds = vec![0x2A_BCDE];
+    let per = layout.samples_per_unit();
+    let units = 24;
+    let lower = downmix_matrices();
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                UnitPlan::uniform(&[per], &usual_coding())
+                    .matrixed(&lower)
+                    .over(
+                        UnitPlan::uniform(&dither_sizes(k, per), &upper_coding(4))
+                            .matrixed(&six_matrices(k)),
+                    )
+            })
+            .collect(),
+        // six channels of that noise at 192 kHz would be over 18 Mbit/s
+        pcm: surround_samples(units * per, 6, 70, if rate > 96_000 { 6 } else { 0 }),
+        layout,
+    }
+}
+
+/// The six matrices of a second substream with a third over it, in unit `k`:
+/// its presentation is whatever they make of the six channels the stream
+/// codes there, and three of them weigh the channel they write by other
+/// than 1.
+fn middle_matrices(k: usize) -> Vec<Matrix> {
+    let scale = |i: usize| [1u8, 0, 2, 0, 3, 0][(i + k) % 6];
+    let w = |num: i32, den: i32| weight(14, num, den);
+    vec![
+        mix(0, 14, &[w(1, 1), 0, w(-1, 2), 0, w(1, 4), 0], scale(0)),
+        mix(1, 14, &[0, w(1, 1), w(-1, 2), 0, 0, w(1, 4)], scale(1)),
+        mix(4, 14, &[0, 0, 0, 0, w(3, 4), w(1, 4)], scale(2)),
+        mix(5, 14, &[0, 0, 0, 0, w(1, 4), w(1, 2)], scale(3)),
+        mix(2, 14, &[w(1, 8), w(1, 8), w(1, 2), 0, 0, 0], scale(4)),
+        mix(3, 14, &[0, 0, 0, w(-1, 1), 0, 0], scale(5)),
+    ]
+}
+
+/// The eight matrices of a third substream in unit `k`: the back pair taken
+/// out of the surrounds and the centre and the surrounds out of the front,
+/// and four more among the rest.
+fn eight_matrices(k: usize) -> Vec<Matrix> {
+    let scale = |i: usize| [2u8, 0, 4, 1, 0, 3, 0, 1][(i + k) % 8];
+    vec![
+        over(8, 4, 14, &[(6, weight(14, -7, 10))], scale(0)),
+        over(8, 5, 14, &[(7, weight(14, -7, 10))], scale(1)),
+        over(
+            8,
+            0,
+            13,
+            &[(2, weight(13, -1, 2)), (4, weight(13, -7, 20))],
+            scale(2),
+        ),
+        over(
+            8,
+            1,
+            13,
+            &[(2, weight(13, -1, 2)), (5, weight(13, -7, 20))],
+            scale(3),
+        ),
+        over(8, 6, 11, &[(0, weight(11, 1, 8))], scale(4)),
+        turned(8, 7, 11, &[(1, weight(11, 1, 8))], scale(5)),
+        over(8, 2, 9, &[(3, weight(9, 1, 4))], scale(6)),
+        over(8, 3, 6, &[(6, weight(6, 1, 32))], scale(7)),
+    ]
+}
+
+/// Eight channels as encoders lay them out, at `rate`: two matrices in the
+/// first substream, six in the second and eight in the third, every channel
+/// filtered or coded with a book, and the register of each table of dither
+/// set by its own restart headers.
+fn eight_channels(rate: u32) -> Made {
+    let mut layout = eight(rate);
+    layout.above[0].noise_seeds = vec![0x12_3456];
+    layout.above[1].noise_seeds = vec![0x65_4321, 0x00_0001, 0x7F_FFFF];
+    let per = layout.samples_per_unit();
+    let units = 24;
+    let lower = downmix_matrices();
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                UnitPlan::uniform(&[per], &usual_coding())
+                    .matrixed(&lower)
+                    .over(
+                        UnitPlan::uniform(&dither_sizes(k + 1, per), &upper_coding(4))
+                            .matrixed(&middle_matrices(k)),
+                    )
+                    .over(
+                        UnitPlan::uniform(&dither_sizes(k, per), &upper_coding(2))
+                            .matrixed(&eight_matrices(k)),
+                    )
+            })
+            .collect(),
+        pcm: surround_samples(units * per, 8, 80, 0),
+        layout,
+    }
+}
+
+fn six_dither_scales() -> Made {
+    let mut layout = six(48_000);
+    // set anew by each of the three restart headers
+    layout.above[0].noise_seeds = vec![0x5A_5A5A, 0x00_0001, 0x7F_FFFF];
+    let per = layout.samples_per_unit();
+    let units = 24;
+    let plain = vec![Coding::default(); 2];
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                // three matrices and sixteen scales: every scale on every
+                // one of them in the course of the stream
+                let scale = |i: usize| ((k + 5 * i) % 16) as u8;
+                let matrices = [
+                    over(
+                        6,
+                        0,
+                        14,
+                        &[(2, weight(14, -7, 10)), (4, weight(14, -1, 2))],
+                        scale(0),
+                    ),
+                    over(
+                        6,
+                        1,
+                        14,
+                        &[(2, weight(14, -7, 10)), (5, weight(14, -1, 2))],
+                        scale(1),
+                    ),
+                    over(6, 3, 10, &[(2, weight(10, 1, 4))], scale(2)),
+                ];
+                UnitPlan::uniform(&[per], &plain)
+                    .over(UnitPlan::uniform(&[per], &uncoded(4)).matrixed(&matrices))
+            })
+            .collect(),
+        pcm: (0..6).map(|ch| noise(units * per, 20, 90 + ch)).collect(),
+        layout,
+    }
+}
+
+fn six_noise_channels() -> Made {
+    let mut layout = six(48_000);
+    layout.above[0].dither = false;
+    layout.above[0].noise_seeds = vec![0x2A_BCDE, 0x40_0001, 0x12_3456];
+    let per = layout.samples_per_unit();
+    let units = 24;
+    let plain = vec![Coding::default(); 2];
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                // six channels and the two noise channels behind them
+                let f = [12, 8, 14, 5][k % 4];
+                let matrices = [
+                    over(
+                        8,
+                        0,
+                        f,
+                        &[
+                            (2, weight(f, -1, 2)),
+                            (6, weight(f, [3, -1, 1, 0][k % 4], 4)),
+                            (7, weight(f, [-1, 1, 0, 5][k % 4], 8)),
+                        ],
+                        0,
+                    ),
+                    turned(
+                        8,
+                        4,
+                        f,
+                        &[
+                            (5, weight(f, 1, 4)),
+                            (7, weight(f, [1, 0, 1, -1][k % 4], 1)),
+                        ],
+                        0,
+                    ),
+                    over(8, 3, f, &[(6, weight(f, [0, 1, -3, 1][k % 4], 2))], 0),
+                ];
+                UnitPlan::uniform(&[per], &plain)
+                    .over(UnitPlan::uniform(&[per], &uncoded(4)).matrixed(&matrices))
+            })
+            .collect(),
+        pcm: (0..6).map(|ch| noise(units * per, 16, 100 + ch)).collect(),
+        layout,
+    }
+}
+
+fn six_bypass() -> Made {
+    let mut layout = six(48_000);
+    layout.above[0].noise_seeds = vec![0x40_0001];
+    let per = layout.samples_per_unit();
+    let units = 24;
+    let plain = vec![Coding::default(); 2];
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                // in the top substream the bit of a sample is whatever the
+                // writer sends; in the first, whose presentation nothing
+                // undoes, it is part of what the presentation comes to
+                let mut lower = downmix_matrices();
+                lower[1].bypass = true;
+                let mut upper = six_matrices(k);
+                upper[0].bypass = true;
+                upper[3].bypass = k.is_multiple_of(2);
+                upper[5].bypass = true;
+                UnitPlan::uniform(&[per], &plain)
+                    .matrixed(&lower)
+                    .over(UnitPlan::uniform(&[per], &uncoded(4)).matrixed(&upper))
+            })
+            .collect(),
+        pcm: (0..6).map(|ch| noise(units * per, 16, 110 + ch)).collect(),
+        layout,
+    }
+}
+
+fn six_steps() -> Made {
+    let mut layout = six(48_000);
+    layout.above[0].noise_seeds = vec![0x12_3456];
+    let per = layout.samples_per_unit();
+    let units = 24;
+    // the step of each channel in each unit; an output under a step is a
+    // multiple of it, whether a matrix writes the channel or not
+    let step = |ch: usize, k: usize| -> u8 {
+        [
+            [0u8, 2, 0, 5, 1, 0, 9, 3],
+            [1, 0, 3, 0, 0, 4, 0, 2],
+            [0, 0, 1, 2, 0, 0, 3, 0],
+            [4, 0, 0, 0, 6, 0, 0, 1],
+            [0, 3, 0, 1, 0, 2, 0, 0],
+            [2, 0, 0, 0, 0, 1, 5, 0],
+        ][ch][k % 8]
+    };
+    let pcm = (0..6)
+        .map(|ch| {
+            let coarse = noise(units * per, 12, 120 + ch as u64);
+            (0..units * per)
+                .map(|i| coarse[i] << step(ch, i / per))
+                .collect()
+        })
+        .collect();
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                let coding = |channels: std::ops::Range<usize>| -> Vec<Coding> {
+                    channels
+                        .map(|ch| Coding {
+                            step: step(ch, k),
+                            ..Coding::default()
+                        })
+                        .collect()
+                };
+                // The second substream states the steps of the first two
+                // channels as the first substream has them, and its matrices
+                // are cut to them.
+                UnitPlan::uniform(&[per], &coding(0..2))
+                    .over(UnitPlan::uniform(&[per], &coding(2..6)).matrixed(&six_matrices(k)))
+            })
+            .collect(),
+        pcm,
+        layout,
+    }
+}
+
+/// The step a substream states for a channel it does not code.
+///
+/// A block of a substream over the first states the quantiser step of every
+/// channel up to its own, the ones under them included, and the matrices of
+/// the substream are cut to what it states. Every encoder whose streams have
+/// been read here repeats there what the substream that codes the channel
+/// has: in 138 million blocks and channels of 48 streams the two never
+/// differ, so no real stream says which of the two a matrix is cut to. Here
+/// they differ. In the even units the first substream codes the left
+/// channel with a step of 3 and the second states none, so the output is
+/// the coded sample and the share of the centre with nothing cut. In the odd
+/// ones the first codes it with none and the second states 3, and the output
+/// is cut to 3.
+fn six_steps_apart() -> Made {
+    let layout = six(48_000);
+    let per = layout.samples_per_unit();
+    let units = 24;
+    let n = units * per;
+    let w = weight(14, -11, 20);
+    let mut pcm: Vec<Vec<i32>> = (0..6).map(|ch| noise(n, 16, 130 + ch)).collect();
+    let coarse = noise(n, 13, 136);
+    for i in 0..n {
+        let share = ((i64::from(w) * i64::from(pcm[2][i])) >> 14) as i32;
+        pcm[0][i] = if (i / per).is_multiple_of(2) {
+            (coarse[i] << 3) + share
+        } else {
+            coarse[i] << 3
+        };
+    }
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                let (coded, stated) = if k.is_multiple_of(2) { (3, 0) } else { (0, 3) };
+                let first = vec![
+                    Coding {
+                        step: coded,
+                        ..Coding::default()
+                    },
+                    Coding::default(),
+                ];
+                let mut second = UnitPlan::uniform(&[per], &uncoded(4)).matrixed(&[over(
+                    6,
+                    0,
+                    14,
+                    &[(2, w)],
+                    0,
+                )]);
+                second.blocks[0].steps_below = vec![stated, 0];
+                UnitPlan::uniform(&[per], &first).over(second)
+            })
+            .collect(),
+        pcm,
+        layout,
+    }
+}
+
+fn eight_shifts_assigned() -> Made {
+    let mut layout = eight(48_000);
+    layout.assignment = vec![1, 0];
+    layout.above[0].assignment = vec![2, 0, 1, 5, 3, 4];
+    layout.above[1].assignment = vec![7, 6, 5, 4, 3, 2, 1, 0];
+    layout.above[1].noise_seeds = vec![0x2A_BCDE];
+    let per = layout.samples_per_unit();
+    let units = 24;
+    // The shift of each output of the top presentation in each unit, and
+    // with it the shift of the channel of the matrices that is assigned to
+    // that output.
+    let out_shift = |output: usize, k: usize| -> i8 { ((output + k) % 4) as i8 };
+    let assigned = layout.above[1].assignment.clone();
+    let pcm = (0..8)
+        .map(|output| {
+            let base = noise(units * per, 14, 140 + output as u64);
+            (0..units * per)
+                .map(|i| base[i] << out_shift(output, i / per))
+                .collect()
+        })
+        .collect();
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                let top: Vec<i8> = (0..8).map(|ch| out_shift(assigned[ch], k)).collect();
+                let matrices = [
+                    over(8, 0, 12, &[(6, weight(12, 1, 4))], 1),
+                    turned(8, 5, 12, &[(2, weight(12, -1, 8))], 0),
+                ];
+                UnitPlan::uniform(&[per], &uncoded(2))
+                    .shifted(&[(k % 3) as i8, 1])
+                    .over(UnitPlan::uniform(&[per], &uncoded(4)).shifted(&[
+                        0,
+                        1,
+                        2,
+                        (k % 4) as i8,
+                        0,
+                        1,
+                    ]))
+                    .over(
+                        UnitPlan::uniform(&[per], &uncoded(2))
+                            .shifted(&top)
+                            .matrixed(&matrices),
+                    )
+            })
+            .collect(),
+        pcm,
+        layout,
+    }
+}
+
+fn six_blocks() -> Made {
+    let mut layout = six(48_000);
+    layout.above[0].noise_seeds = vec![0x5A_5A5A];
+    let per = layout.samples_per_unit();
+    let units = 24;
+    // The first substream in up to three blocks and the second in up to
+    // two, the two never cut at the same sample but at the ends; from its
+    // second block on a substream changes what it codes with.
+    let first: [&[usize]; 4] = [&[40], &[8, 32], &[16, 8, 16], &[8, 16, 16]];
+    let second: [&[usize]; 4] = [&[40], &[24, 16], &[40], &[12, 28]];
+    let other = |coding: Vec<Coding>| -> Vec<Coding> {
+        coding
+            .into_iter()
+            .map(|c| Coding {
+                book: [0, 2, 3, 1][usize::from(c.book)],
+                offset: c.offset + 3,
+                ..c
+            })
+            .collect()
+    };
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                let changing = |sizes: &[usize], coding: Vec<Coding>| -> UnitPlan {
+                    let mut plan = UnitPlan::uniform(sizes, &coding);
+                    for block in plan.blocks.iter_mut().skip(1) {
+                        block.coding = other(coding.clone());
+                    }
+                    plan
+                };
+                // the units that restart keep to one block in the second
+                // substream, which gives up eight samples there
+                let second = if k % 8 == 0 { &[40][..] } else { second[k % 4] };
+                changing(first[k % 4], usual_coding())
+                    .over(changing(second, upper_coding(4)).matrixed(&six_matrices(k)))
+            })
+            .collect(),
+        pcm: surround_samples(units * per, 6, 150, 0),
+        layout,
+    }
+}
+
+/// A quantiser step and a bypassed bit on one channel, in a substream with a
+/// table of dither.
+///
+/// As in the first substream no real stream has both, and Dolby's decoder
+/// adds the bit to the sum without cutting the sum to the step, where
+/// FFmpeg's and `truehdd` cut it. The stream is written to the first
+/// reading, which the decoder of this workspace follows in both kinds of
+/// substream.
+fn dither_bypass_over_step() -> Made {
+    let layout = six(48_000);
+    let per = layout.samples_per_unit();
+    let units = 24;
+    let n = units * per;
+    let step = |k: usize| [0u8, 2, 0, 5, 1, 0, 9, 3][k % 8];
+    let (centre, surround) = (weight(14, -7, 10), weight(14, 3, 10));
+    let mut pcm: Vec<Vec<i32>> = (0..6).map(|ch| noise(n, 14, 160 + ch)).collect();
+    let coarse = noise(n, 12, 166);
+    let bits = noise(n, 1, 167);
+    // With no cut the left output is not free: it is a coded sample that
+    // keeps to its step, the share of the centre and of a surround, and the
+    // bit. Where the unit has no step it is noise, and the bit whatever is
+    // sent.
+    for i in 0..n {
+        let share = (i64::from(centre) * i64::from(pcm[2][i])
+            + i64::from(surround) * i64::from(pcm[4][i]))
+            >> 14;
+        pcm[0][i] = match step(i / per) {
+            0 => coarse[i],
+            s => (coarse[i] << s) + share as i32 + (bits[i] & 1),
+        };
+    }
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                let first = vec![
+                    Coding {
+                        step: step(k),
+                        ..Coding::default()
+                    },
+                    Coding::default(),
+                ];
+                let mut on_left = over(6, 0, 14, &[(2, centre), (4, surround)], 0);
+                on_left.bypass = true;
+                UnitPlan::uniform(&[per], &first)
+                    .over(UnitPlan::uniform(&[per], &uncoded(4)).matrixed(&[on_left]))
+            })
+            .collect(),
+        pcm,
+        layout,
+    }
+}
+
+fn dither_three_blocks() -> Made {
+    let mut layout = six(48_000);
+    layout.above[0].noise_seeds = vec![0x12_3456];
+    let per = layout.samples_per_unit();
+    let units = 24;
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                UnitPlan::uniform(&[per], &two_books())
+                    .over(UnitPlan::uniform(&[8, 16, 16], &uncoded(4)).matrixed(&six_matrices(k)))
+            })
+            .collect(),
+        pcm: (0..6).map(|ch| noise(units * per, 14, 170 + ch)).collect(),
+        layout,
+    }
+}
+
+fn nine_matrices_over_eight() -> Made {
+    let layout = eight(48_000);
+    let per = layout.samples_per_unit();
+    let units = 24;
+    let matrices: Vec<Matrix> = (0..9)
+        .map(|i| {
+            let out = i % 8;
+            over(
+                8,
+                out,
+                12,
+                &[((out + 3) % 8, 97 * (i as i32 + 1))],
+                (i % 4) as u8,
+            )
+        })
+        .collect();
+    Made {
+        plans: (0..units)
+            .map(|_| {
+                UnitPlan::uniform(&[per], &uncoded(2))
+                    .over(UnitPlan::uniform(&[per], &uncoded(4)))
+                    .over(UnitPlan::uniform(&[per], &uncoded(2)).matrixed(&matrices))
+            })
+            .collect(),
+        pcm: (0..8).map(|ch| noise(units * per, 14, 180 + ch)).collect(),
         layout,
     }
 }
