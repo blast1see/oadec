@@ -1,11 +1,12 @@
 {
- "question": "Is delta bit allocation (A/52 clause 6.2.2.6, carried into Annex E) decoded as Dolby's decoder decodes it? The matrix had it as present in the library sweep but absent from the corpus and from the required-coverage assertion.",
+ "question": "Is delta bit allocation (ETSI TS 102 366 clause 6.2.2.6, carried into Annex E) decoded as Dolby's decoder decodes it? The matrix had it as present in the library sweep but absent from the corpus and from the required-coverage assertion.",
  "method": [
   "The library: every AC-3 and E-AC-3 track of the 422 of its 448 media files that carry one, the first 60 seconds of each, by tools/sweep.py --codecs ac3,eac3 (FFmpeg stream copy, then verify --json) with the decoder at main (97408e3).",
   "That decoder named delta bit allocation in its coverage when a block carried deltbaie. Every track it named was cut again and verified by this change's decoder, which counts a frame (dba_frames) only when a delta segment reaches the masking curve.",
   "Dolby's own AC-3 encoder: DEE 5.2.1 pcm_to_ddp with encoder_mode dd, from its own template, on six synthetic 20-second signals (five tones; a 110 Hz sawtooth; pink noise; a 2 kHz tone in noise; a 20 Hz to 20 kHz sweep; clicks over noise), in 2.0 at 96, 192 and 384 kbit/s and in 5.1 at 384 and 640 kbit/s.",
   "On the corpus streams that carry the fields: a decoder that leaves the segments out of the bit allocation (the first mutant below, built once) against the decoder at main, and the decoder against Dolby's decode (DEE 5.2.1 ddp_decode, DRC none, downmix off, its 256-sample start removed) and FFmpeg's (-drc_scale 0) with tools/three_way.py.",
-  "tools/old_new.py, main against this change, on the AC-3 and E-AC-3 streams of the corpus (ec3/ and the AC-3 family under clips/)."
+  "tools/old_new.py, main against this change, on the AC-3 and E-AC-3 streams of the corpus (ec3/ and the AC-3 family under clips/).",
+  "What the fields say (added 2026-11-11): a throwaway build that prints deltbae for every block carrying the fields, in every substream, on the five corpus streams, the 30 Dolby encodes, the first 60 seconds of every track the sweep flagged, and of the 37 eight-channel E-AC-3 tracks, whose dependent substreams the coverage does not read."
  ],
  "result": {
   "library": {
@@ -45,8 +46,52 @@
    "encodes": 30,
    "clean": 30,
    "carry_the_fields": 16,
-   "which_carry_them": "every 2.0 encode at 96 and 192 kbit/s and every 5.1 encode at 384 kbit/s; none at 2.0 384 or 5.1 640",
+   "which_carry_them": {
+    "2.0 at 96 kbit/s": "6 of 6",
+    "2.0 at 192 kbit/s": "6 of 6",
+    "2.0 at 384 kbit/s": "0 of 6",
+    "5.1 at 384 kbit/s": "4 of 6",
+    "5.1 at 640 kbit/s": "0 of 6"
+   },
    "apply_a_segment": 0
+  },
+  "what_the_fields_say": {
+   "corpus_streams": {
+    "tracks_or_streams": 5,
+    "with_the_fields": 5,
+    "blocks_with_the_fields": {
+     "ac3/Independent": 84
+    },
+    "deltbae_values": {
+     "ac3/Independent:2": 252
+    }
+   },
+   "dolby_encodes": {
+    "tracks_or_streams": 30,
+    "with_the_fields": 16,
+    "blocks_with_the_fields": {
+     "ac3/Independent": 2064
+    },
+    "deltbae_values": {
+     "ac3/Independent:2": 8898
+    }
+   },
+   "library_flagged_tracks": {
+    "tracks_or_streams": 221,
+    "with_the_fields": 221,
+    "blocks_with_the_fields": {
+     "ac3/Independent": 3139
+    },
+    "deltbae_values": {
+     "ac3/Independent:2": 9420
+    }
+   },
+   "library_8_channel_eac3": {
+    "tracks_or_streams": 37,
+    "with_the_fields": 0,
+    "blocks_with_the_fields": {},
+    "deltbae_values": {}
+   }
   },
   "corpus_streams_with_the_fields": [
    {
@@ -158,8 +203,14 @@
   }
  },
  "not_covered": [
-  "A delta that reaches the masking curve has not been decoded against another decoder: no stream in reach applies one. The library heads are a minute long, so a track that applies a delta only later would not be seen.",
-  "E-AC-3 gates the fields on dbaflde, and no E-AC-3 track carries them, so that gate has not run on real material.",
-  "What would close it: a stream rewritten to apply a delta, its mantissas requantised to the new allocation (as eac3-ecpl-inject rewrites coupling), decoded by both Dolby decoders and FFmpeg."
+  "A delta that reaches the masking curve has not been decoded against another decoder: no stream examined applies one. The library heads are a minute long, so a track that applies a delta only later would not be seen.",
+  "E-AC-3 gates the fields on dbaflde. No E-AC-3 frame examined carries them, in the independent substreams the sweep read or the dependent substreams of the eight-channel tracks, so that gate has not run on real material.",
+  "A reserved deltbae (3) decodes as no delta. Clause 4.4.3.48 says a decoder should not decode audio and should mute. No stream examined carries the value, and nothing tests it.",
+  "What would close the first: a stream rewritten to apply a delta, its mantissas requantised to the new allocation (as eac3-ecpl-inject rewrites coupling), decoded by both Dolby decoders and FFmpeg."
+ ],
+ "corrections": [
+  "2026-11-11: the file said every 5.1 encode at 384 kbit/s carries the fields. It is four of the six; the count of 16 was right. The sentence is now built from the measurement.",
+  "2026-11-11: the question cited A/52 for clause 6.2.2.6; that number is TS 102 366's.",
+  "2026-11-11: the claim that every channel says \"perform no delta\" was inferred from the absence of an applied segment. It is now measured (what_the_fields_say), and the dependent substreams, which the coverage does not read, are included."
  ]
 }
