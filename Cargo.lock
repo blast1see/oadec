@@ -382,6 +382,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "oadec-fuzz"
+version = "0.8.0"
+dependencies = [
+ "oadec-eac3",
+ "oadec-emdf",
+ "oadec-joc",
+ "oadec-truehd",
+]
+
+[[package]]
 name = "oadec-joc"
 version = "0.8.0"
 dependencies = [

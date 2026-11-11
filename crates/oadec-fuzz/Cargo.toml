@@ -1,0 +1,19 @@
+[package]
+name = "oadec-fuzz"
+description = "What must hold of the parsers and decoders on any input: fuzz targets, their seeds and a seeded fuzz run"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+oadec-emdf.workspace = true
+oadec-truehd.workspace = true
+oadec-eac3.workspace = true
+oadec-joc.workspace = true
+
+[lints]
+workspace = true

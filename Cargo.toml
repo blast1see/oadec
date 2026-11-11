@@ -8,6 +8,7 @@ members = [
     "crates/oadec-joc",
     "crates/oadec-spatial",
     "crates/oadec-cli",
+    "crates/oadec-fuzz",
 ]
 
 [workspace.package]
