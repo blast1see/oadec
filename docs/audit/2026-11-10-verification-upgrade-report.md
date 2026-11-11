@@ -392,15 +392,17 @@ on `main` as of the media suite's merge.
 ## Addendum, 2026-11-10: delta bit allocation (13)
 
 The matrix had delta bit allocation as present in the library sweep but absent
-from the corpus. No stream in reach applies it, so it is absent from everything.
+from the corpus. No stream examined applies it, so it is absent from the corpus
+too.
 
 - **What the sweep saw was the fields.** The coverage named the tool when a block
   carried `deltbaie`. An encoder can send the fields with every channel set to
   "perform no delta", and that is all the library does: over the first minute
-  of 1 345 AC-3 and E-AC-3 tracks the fields are in 221, all AC-3, and a segment
-  that reaches the masking curve is in none. Dolby's own AC-3 encoder does the
-  same. It writes the fields in 16 of 30 synthetic encodes (every 2.0 encode at
-  96 and 192 kbit/s, every 5.1 encode at 384) and a segment in none.
+  of 1 345 AC-3 and E-AC-3 tracks the fields are in 221, all AC-3, and every
+  `deltbae` in them says so. Dolby's own AC-3 encoder does the same. It writes
+  the fields in 16 of 30 synthetic encodes (all twelve 2.0 encodes at 96 and
+  192 kbit/s and four of the six 5.1 encodes at 384), and nothing but "perform
+  no delta" in them.
 - **The corpus carried the fields too.** Five corpus streams carry them, and a
   decoder that leaves the segments out of the bit allocation decodes all five
   to identical samples. A corpus check on the coverage would have passed with
@@ -414,9 +416,11 @@ from the corpus. No stream in reach applies it, so it is absent from everything.
   follows. Three mutants that break that are caught.
 - **What is not.** An applied delta has never been decoded against another
   decoder, and E-AC-3's `dbaflde` gate has not run on real material, since no
-  E-AC-3 track carries the fields. A stream rewritten to apply a delta, its
-  mantissas requantised to the new allocation, would close it. The row stays
-  N/T.
+  E-AC-3 frame examined carries the fields, in the dependent substreams of the
+  eight-channel tracks either. A stream rewritten to apply a delta, its
+  mantissas requantised to the new allocation, would close the first. A reserved
+  `deltbae` decodes as no delta where clause 4.4.3.48 says to mute; no stream
+  examined carries it. The row stays N/T.
 
 | Check | Result |
 |---|---|
@@ -426,3 +430,7 @@ from the corpus. No stream in reach applies it, so it is absent from everything.
 | The same five against Dolby and FFmpeg | inside the envelope on every channel |
 | Unit test, three mutants | all three caught |
 | `tools/old_new.py`, 69 corpus streams | no exit code changed; the five streams' coverage, `dba_frames` and the Coding tools line differ |
+
+Corrected on 2026-11-11. This addendum said every 5.1 encode at 384 kbit/s
+carries the fields; it is four of the six. "Perform no delta" was inferred from
+the absence of an applied segment, and is now measured, in every substream.

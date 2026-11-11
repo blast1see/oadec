@@ -72,10 +72,10 @@ Semantic Versioning.
   samples, so a check on the coverage would have passed with the tool broken.
   The coverage now names it where a segment reaches the masking curve, and a
   unit test holds the segments to clause 6.2.2.6 (evidence 13).
-- **`tools/sweep.py` left a file out without a word on Windows.** It decoded
-  its children's output with the console code page; a track title outside it
-  killed the reader thread, and that file's tracks never reached the report.
-  It reads UTF-8 now.
+- **`tools/sweep.py` stopped at a file name outside the console code page.** On
+  Windows it decoded its children's output with that code page, so such a name
+  killed the reader thread and the sweep ended in a `TypeError`. A track title
+  outside it would have left the file out without a word. It reads UTF-8 now.
 
 ## [0.8.0] - 2026-11-10
 

@@ -55,9 +55,9 @@ def probe(path: Path) -> list[dict]:
         "-of", "json", str(path),
     ]
     try:
-        # UTF-8 by name: on Windows `text=True` alone decodes with the
-        # console code page, a track title outside it kills the reader thread,
-        # and the file was skipped without a word
+        # UTF-8 by name: on Windows `text=True` alone decodes with the console
+        # code page, and a track title outside it would kill the reader thread
+        # and leave this file out without a word
         res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
                              errors="replace", timeout=300)
         streams = json.loads(res.stdout or "{}").get("streams", [])
