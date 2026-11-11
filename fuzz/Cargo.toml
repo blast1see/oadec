@@ -1,0 +1,80 @@
+[package]
+name = "oadec-libfuzzer"
+description = "libFuzzer wrappers of the targets in crates/oadec-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "GPL-3.0-only"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+# Not a member of the oadec workspace on purpose: libFuzzer needs a nightly
+# toolchain and a platform its runtime links on, and nothing the tool ships
+# depends on either. What a target asserts is in crates/oadec-fuzz, which is a
+# member and runs with every `cargo test`; a file here only hands libFuzzer's
+# input to it. From the repository root:
+#
+#     cargo run -p oadec-fuzz --example corpus -- crates/oadec-cli/tests/fixtures fuzz/corpus
+#     cargo +nightly fuzz run <target>
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+oadec-fuzz = { path = "../crates/oadec-fuzz" }
+
+[[bin]]
+name = "truehd_extract"
+path = "fuzz_targets/truehd_extract.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "truehd_unit"
+path = "fuzz_targets/truehd_unit.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "truehd_decode"
+path = "fuzz_targets/truehd_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "emdf_container"
+path = "fuzz_targets/emdf_container.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "oamd_parse"
+path = "fuzz_targets/oamd_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "joc_params"
+path = "fuzz_targets/joc_params.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "eac3_frame"
+path = "fuzz_targets/eac3_frame.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "eac3_program"
+path = "fuzz_targets/eac3_program.rs"
+test = false
+doc = false
+bench = false

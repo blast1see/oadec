@@ -1,0 +1,62 @@
+{
+ "question": "What do the fuzz targets assert, do they hold on the fixtures and on changed copies of them, what did they find, and what do they reach that the rest of the suite does not?",
+ "method": "crates/oadec-fuzz holds eight functions that take bytes and assert (src/targets.rs). Its seeded run (tests/seeded.rs) cuts seeds out of the ten committed fixtures (src/seeds.rs), changes each with between one and four of twelve kinds of change drawn from a seeded generator (src/mutate.rs) and calls the target; a round is one changed input, and the target name, OADEC_FUZZ_SEED and the round number give the same bytes on any machine. Long runs: `OADEC_FUZZ_SEED=n OADEC_FUZZ_ITERS=200000 cargo test --release -p oadec-fuzz --test seeded` for n = 0..3, and once more for n = 0 with RUSTFLAGS=\"-C debug-assertions=on -C overflow-checks=on\", because an optimised build wraps where a checked one panics. Line coverage: `cargo llvm-cov --workspace --exclude oadec-fuzz --locked --lcov` for the rest of the suite and `cargo llvm-cov --workspace --locked --test seeded --lcov` for the seeded run alone, at the default 300 rounds and at 20,000; the lines counted are those of the five parser and decoder crates as they ship, without their test modules.",
+ "result": {
+  "targets": {
+   "truehd_extract": "a stream handed over whole and in reads of 1 to 256 bytes gives the same units, flags, gaps and statistics; every byte is in a unit, passed over or left at the end",
+   "truehd_unit": "a run of access units through the unit and segment parsers with the state carried: the parse with the place of a failure and the parse without agree on the segment, on the failure and on the state they leave; nothing a unit says of itself points outside it",
+   "truehd_decode": "a stream through the decoder, damage concealed, at the presentation its first byte picks: no unit decodes to more samples or channels than the format allows, and two decodes give the same samples",
+   "emdf_container": "a container as an Evolution frame and behind its sync word: its length and every payload lie within the bytes it was read from; the payloads the pipeline reads are parsed as it would",
+   "oamd_parse": "a payload that parses answers what the writers ask of it and describes no more than its bytes can hold",
+   "joc_params": "a payload parsed under both readings of the sparse mode, then interpolated and applied under both readings of the steep slope: every number finite",
+   "eac3_frame": "a syncframe through the core decoder without dither, under both readings of enhanced coupling: finite samples, the same ones twice",
+   "eac3_program": "a run of syncframes through the programme decoder: a bounded number of groups waiting, and every group handed out has the channels of its layout, all of one length"
+  },
+  "seeds_from_the_ten_fixtures": {
+   "truehd_extract": {"seeds": 9, "bytes": 16379},
+   "truehd_unit": {"seeds": 9, "bytes": 16370},
+   "truehd_decode": {"seeds": 24, "bytes": 47508},
+   "emdf_container": {"seeds": 12, "bytes": 2055},
+   "oamd_parse": {"seeds": 11, "bytes": 636},
+   "joc_params": {"seeds": 6, "bytes": 1128},
+   "eac3_frame": {"seeds": 6, "bytes": 10752},
+   "eac3_program": {"seeds": 1, "bytes": 7168}
+  },
+  "seeded_run": {
+   "in_every_cargo_test": "300 rounds a target, 1.5 seconds in an unoptimised build",
+   "before_the_extractor_was_fixed": "seed 0, 200,000 rounds: truehd_extract fails on round 9,693, a stream read whole and in reads of 17 bytes giving different units (evidence 04); the other seven targets hold",
+   "after": "seeds 0 to 3, 200,000 rounds for each of 8 targets, 6.4 million inputs: no failure",
+   "with_overflow_checks_and_debug_assertions": "seed 0, 200,000 rounds for each target: no failure",
+   "inputs_that_still_open_as_what_they_were": "at least half of the rounds of the four targets it can be said of without the target's help (a test holds it to that); a round that hands a target its seed back unchanged is fewer than one in ten (likewise)"
+  },
+  "line_coverage": {
+   "note": "lines of each crate, without test modules; `the rest` is every other test of the workspace, unit, command-line and transcript",
+   "oadec-truehd": {"lines": 2804, "the_rest": 2569, "seeded_300": 1851, "seeded_20000": 1924, "only_the_seeded_run_300": 103, "only_the_seeded_run_20000": 120, "neither_20000": 115},
+   "oadec-eac3": {"lines": 3061, "the_rest": 2735, "seeded_300": 1766, "seeded_20000": 2246, "only_the_seeded_run_300": 18, "only_the_seeded_run_20000": 72, "neither_20000": 254},
+   "oadec-emdf": {"lines": 1086, "the_rest": 1034, "seeded_300": 704, "seeded_20000": 750, "only_the_seeded_run_300": 2, "only_the_seeded_run_20000": 2, "neither_20000": 50},
+   "oadec-joc": {"lines": 313, "the_rest": 288, "seeded_300": 137, "seeded_20000": 137, "only_the_seeded_run_300": 4, "only_the_seeded_run_20000": 4, "neither_20000": 21},
+   "oadec-bits": {"lines": 237, "the_rest": 216, "seeded_300": 157, "seeded_20000": 162, "only_the_seeded_run_300": 0, "only_the_seeded_run_20000": 0, "neither_20000": 21},
+   "where_the_lines_only_the_seeded_run_reaches_are_at_20000": {
+    "oadec-truehd": {"decoder.rs": 38, "block.rs": 36, "restart.rs": 16, "filter.rs": 13, "matrix.rs": 7, "segment.rs": 3, "extra.rs": 2, "extract.rs": 2},
+    "oadec-eac3": {"program.rs": 23, "header.rs": 22, "bsi.rs": 14, "frame.rs": 13}
+   }
+  },
+  "libfuzzer": {
+   "where": "the `fuzz` workflow on this pull request: Linux, nightly-2026-10-14 (rustc 1.101.0-nightly 822182db4), cargo-fuzz 0.13.2, AddressSanitizer and debug assertions on, the corpus seeded from the fixtures, 90 seconds a target. It has not run on the development machine: with the MSVC toolchain its runtime links only where the toolset's x64 AddressSanitizer component is installed, and there it is not",
+   "crashes": 0,
+   "executions": 3695389,
+   "by_target": {
+    "truehd_extract": {"executions": 637636, "per_second": 7006, "edges_on_the_seeds": 311, "edges_at_the_end": 436, "inputs_kept": 2802},
+    "truehd_unit": {"executions": 89600, "per_second": 984, "edges_on_the_seeds": 887, "edges_at_the_end": 1258, "inputs_kept": 1218},
+    "truehd_decode": {"executions": 181075, "per_second": 1989, "edges_on_the_seeds": 1260, "edges_at_the_end": 2006, "inputs_kept": 2487},
+    "emdf_container": {"executions": 1235508, "per_second": 13577, "edges_on_the_seeds": 402, "edges_at_the_end": 1343, "inputs_kept": 4095},
+    "oamd_parse": {"executions": 1313940, "per_second": 14438, "edges_on_the_seeds": 413, "edges_at_the_end": 1240, "inputs_kept": 3701},
+    "joc_params": {"executions": 17108, "per_second": 188, "edges_on_the_seeds": 542, "edges_at_the_end": 842, "inputs_kept": 516},
+    "eac3_frame": {"executions": 85621, "per_second": 940, "edges_on_the_seeds": 1021, "edges_at_the_end": 2212, "inputs_kept": 885},
+    "eac3_program": {"executions": 134901, "per_second": 1482, "edges_on_the_seeds": 1180, "edges_at_the_end": 2863, "inputs_kept": 2813}
+   },
+   "note": "an edge is libFuzzer's unit of coverage and is counted over everything linked into the target, so the figures compare a target with itself, not with the line counts above"
+  }
+ },
+ "reading": "The targets hold on what the fixtures give and on 6.4 million changed copies of it, and the one thing the run found before that was real: three faults of the extractor, two of them in what `verify` reports. That is the case for asserting more than `no panic`; none of the three panics. What the seeded run adds to the suite in lines is small and of one kind, 198 lines at 20,000 rounds that nothing else runs, nearly all of them in the TrueHD block, restart-header and filter parsers and in the decoder: the branches taken when a field holds a value no fixture has. It does not replace the rest: two thirds of the TrueHD crate and three quarters of the AC-3 one is what it reaches, and the JOC reconstruction less than half, because a blind change to a payload seldom survives its parser. Its material is thin on the AC-3 side, one E-AC-3 stream and no AC-3 one, so a frame of a syntax the fixture does not use is reached only by damage that happens to spell it. And it is blind: it finds what a changed byte finds. What needs a search, a field that has to agree with another before the code behind both runs, is libFuzzer's part, and its first ninety seconds show the difference: from the same seeds it reaches between two and three and a third times the edges on the container, OAMD and AC-3 targets and about half as many again on the TrueHD and JOC ones, in 3.7 million executions without a crash. Ninety seconds is a first look and not a campaign; the weekly run gives each target ten minutes."
+}

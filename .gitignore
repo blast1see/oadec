@@ -30,6 +30,13 @@ __pycache__/
 *.pyc
 .venv/
 
+# libFuzzer's working files: its build, the corpus it grows and what it finds.
+# The seeds are cut from the fixtures on every run (crates/oadec-fuzz).
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/coverage/
+
 # alternate build directories
 /target-alt
 /target-*

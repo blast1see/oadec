@@ -81,3 +81,58 @@ compared, because two commands that both wrote nothing also agree.
 python tools/old_new.py --old old/oadec --new target/release/oadec \
     --decode-all --tmp <a directory with room> --out old-new.json <streams or directories>
 ```
+
+# Fuzzing
+
+`crates/oadec-fuzz` holds what must be true of the parsers and decoders
+whatever bytes they are given, as eight plain functions (`src/targets.rs`): the
+TrueHD extractor, the access-unit and segment parsers, the TrueHD decoder, the
+EMDF container in both its carriages, the OAMD and JOC payloads, and the frame
+decoder and the programme decoder of the AC-3 family. A function takes bytes
+and asserts; one that returns has found nothing. "No panic" is the least of
+what they assert. The rest is what two routes to one answer have to agree on:
+a stream read whole and the same stream read in pieces, a segment parsed with
+and without the place of a failure, two decodes of the same bytes.
+
+The same functions run two ways.
+
+**The seeded run** (`tests/seeded.rs`) is part of `cargo test`. It cuts seeds
+out of the committed fixtures (`src/seeds.rs`: runs of access units, frames,
+containers, payloads), changes them with a generator that has a seed
+(`src/mutate.rs`: a bit, a burst, a field at the edge of its range, bytes lost,
+doubled or taken from another input), and hands each result to its target. It
+needs neither a nightly toolchain nor a fuzzing runtime, so it runs on every
+platform and in the test job of CI. It is blind: nothing tells it which input
+reached new code, so it finds what damage in storage finds and not what a
+search would.
+
+```sh
+cargo test -p oadec-fuzz                                              # 300 rounds a target
+OADEC_FUZZ_ITERS=200000 cargo test --release -p oadec-fuzz --test seeded
+OADEC_FUZZ_SEED=7 OADEC_FUZZ_ITERS=200000 cargo test --release -p oadec-fuzz --test seeded
+cargo run -p oadec-fuzz --example replay -- <target> <file>
+```
+
+A failure names the target, the seed and the round, which give the same bytes
+on any machine, and leaves the input in a file for `replay`.
+
+**libFuzzer** (`fuzz/`, a workspace of its own with its own lock) wraps each
+function in a target and mutates under coverage feedback.
+
+```sh
+cargo run -p oadec-fuzz --example corpus -- crates/oadec-cli/tests/fixtures fuzz/corpus
+cargo +nightly fuzz run truehd_unit -- -max_total_time=600 -max_len=65536
+```
+
+It needs a nightly toolchain and a platform its runtime links on. With the
+MSVC toolchain that is the toolset's x64 AddressSanitizer component, whose
+runtime carries the symbols the coverage instrumentation refers to: without
+it neither `-s address` nor `-s none` links. The `fuzz` workflow runs every
+target on Linux each week, by hand, and on a pull request that touches the
+targets, and uploads what it finds; `replay` runs that on any platform. It
+does not gate other pull requests: a fuzzer that finds something new says
+nothing about the change in front of it.
+
+What a fuzzer finds becomes a unit test of the code it was found in and, where
+it is a rule, a mutation in `tools/mutants.py`. The fuzzers find; the suite
+keeps.
