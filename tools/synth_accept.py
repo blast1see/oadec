@@ -12,7 +12,9 @@ on the word of decoders that share nothing with either:
 * `truehdd` (`decode --strict --presentation 0 --format pcm`),
 * Dolby's own decoder, the `dlbtruehddec` element that ships with the Dolby
   Reference Player, on the stream wrapped in MP4 (it takes no raw stream).
-  Only where the player is installed, and only for the TrueHD syntax.
+  Only where the player is installed (`$DOLBY_REFERENCE_PLAYER` says where,
+  if it is not where the system keeps its programs), and only for the TrueHD
+  syntax.
 
 Each is run as a program on a file and judged by the bytes it writes. A recipe
 is confirmed when at least two of them give the samples of the recipe, every
@@ -46,7 +48,10 @@ from oadec_bin import find as find_oadec  # noqa: E402
 DESCRIPTION = "Which decoders give back the samples a written stream was made from?"
 ROOT = Path(__file__).resolve().parent.parent
 EXE = ".exe" if os.name == "nt" else ""
-PLAYER = Path(r"C:\Program Files\Dolby\Dolby Reference Player")
+# where the Dolby Reference Player is: $DOLBY_REFERENCE_PLAYER, or the place the
+# system keeps its programs
+PLAYER = Path(os.environ.get("DOLBY_REFERENCE_PLAYER")
+              or Path(os.environ.get("ProgramFiles", "")) / "Dolby" / "Dolby Reference Player")
 GST = PLAYER / f"gst-launch-1.0{EXE}"
 DIGESTS = ROOT / "crates" / "oadec-synth" / "specs" / "digests.tsv"
 INDEPENDENT = ("ffmpeg", "truehdd", "dolby")
