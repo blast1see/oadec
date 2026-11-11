@@ -1,0 +1,782 @@
+{
+ "question": "Does a stream written from a recipe decode to the samples it was written from, in this decoder and in decoders that share nothing with it, and what do such streams show that real ones cannot?",
+ "method": "crates/oadec-synth writes a TrueHD or MLP stream from a layout, a plan that says what codes each block, and the samples; it shares no code with the decoder, only the CRC and parity primitives. tools/synth_accept.py writes every recipe (`oadec-synth all`), runs FFmpeg (`-f truehd` or `-f mlp`, to 24-bit PCM), `truehdd` (`decode --strict --presentation 0 --format pcm`) and Dolby's decoder (the `dlbtruehddec` element of the Dolby Reference Player, `presentation=2`, on the stream wrapped in MP4 with `ffmpeg -c:a copy`; TrueHD syntax only) on each, each as a program on a file, and compares what it writes with the samples of the recipe byte for byte. It runs this decoder the same way (`decode -p 0 --format pcm`, `verify --json`). A recipe is confirmed when two of the three outside decoders give its samples. The restart blocks of real streams were counted with the segment parser of the decoder, a callback seeing every block with the state in force after its header, over the 41 TrueHD streams and five clips of the work directory. Eleven mutations of the decoding arithmetic (tools/mutants.py) were run against the suite of the commit this branch starts from and against the suite with the recipes in it. A few streams outside the recipes were written with the same writer to find where each refusal begins.",
+ "decoders": {
+  "ffmpeg": "2026-10-12-git-615b07170e",
+  "truehdd": "b54f209 (truehd library 0.7.1)",
+  "dolby": "the dlbtruehddec element of the Dolby Reference Player, as a black box"
+ },
+ "result": {
+  "recipes": {
+   "count": 26,
+   "access_units": 968,
+   "bytes": 158462,
+   "confirmed_by_two_outside_decoders": 26,
+   "confirmed_by_every_decoder_asked": 23,
+   "ffmpeg": {
+    "gave_the_samples": 25,
+    "gave_others": 1,
+    "refused": 0
+   },
+   "truehdd": {
+    "gave_the_samples": 25,
+    "gave_others": 0,
+    "refused": 1
+   },
+   "dolby": {
+    "gave_the_samples": 22,
+    "gave_others": 0,
+    "refused": 1,
+    "not_asked": 3
+   },
+   "this_decoder": {
+    "gave_the_samples": 26,
+    "verify_exit_0": 26,
+    "verify_without_a_finding_of_any_severity": 26,
+    "coding_tools": "the `coverage` of every stream is the list its recipe declares, held by the tests"
+   },
+   "by_recipe": {
+    "plain": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 24,
+     "bytes": 4228,
+     "tools": [],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "silence": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 16,
+     "bytes": 260,
+     "tools": [],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "refused"
+    },
+    "full-scale": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 16,
+     "bytes": 4096,
+     "tools": [],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "books": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 32,
+     "bytes": 2800,
+     "tools": [
+      "huffman-1",
+      "huffman-2",
+      "huffman-3"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "offsets": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 24,
+     "bytes": 2174,
+     "tools": [
+      "huffman-1",
+      "huffman-2",
+      "huffman-3",
+      "huffman-offset"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "lsbs-wide": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 24,
+     "bytes": 5246,
+     "tools": [
+      "huffman-1",
+      "huffman-2",
+      "huffman-3"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "fir-orders": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 32,
+     "bytes": 5138,
+     "tools": [
+      "fir"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "iir-orders": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 32,
+     "bytes": 6718,
+     "tools": [
+      "iir"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "iir-states": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 32,
+     "bytes": 5898,
+     "tools": [
+      "iir",
+      "iir-states",
+      "huffman-1"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "fir-with-iir": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 32,
+     "bytes": 6432,
+     "tools": [
+      "fir",
+      "iir",
+      "fir-with-iir",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "coefficient-shift": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 28,
+     "bytes": 5490,
+     "tools": [
+      "fir",
+      "iir",
+      "coefficient-shift"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "quantiser-steps": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 32,
+     "bytes": 3756,
+     "tools": [
+      "huffman-2",
+      "quantiser-step"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "quantiser-steps-filtered": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 32,
+     "bytes": 4290,
+     "tools": [
+      "fir",
+      "iir",
+      "quantiser-step"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "blocks": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 32,
+     "bytes": 5230,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2",
+      "huffman-3",
+      "huffman-offset"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "blocks-four": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 32,
+     "bytes": 5680,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2",
+      "huffman-3",
+      "huffman-offset"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target"
+    },
+    "filter-at-restart": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 32,
+     "bytes": 6428,
+     "tools": [
+      "fir",
+      "iir"
+     ],
+     "ffmpeg": "differs",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "rate-44100": {
+     "syntax": "FBA",
+     "rate": 44100,
+     "channels": 2,
+     "access_units": 24,
+     "bytes": 3150,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "rate-88200": {
+     "syntax": "FBA",
+     "rate": 88200,
+     "channels": 2,
+     "access_units": 24,
+     "bytes": 5620,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "rate-96000": {
+     "syntax": "FBA",
+     "rate": 96000,
+     "channels": 2,
+     "access_units": 24,
+     "bytes": 5624,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "rate-176400": {
+     "syntax": "FBA",
+     "rate": 176400,
+     "channels": 2,
+     "access_units": 24,
+     "bytes": 10638,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "rate-192000": {
+     "syntax": "FBA",
+     "rate": 192000,
+     "channels": 2,
+     "access_units": 24,
+     "bytes": 10642,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "sync-far-apart": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 300,
+     "bytes": 34858,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "no-check-bytes": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "channels": 2,
+     "access_units": 24,
+     "bytes": 2994,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "mlp-plain": {
+     "syntax": "FBB",
+     "rate": 44100,
+     "channels": 2,
+     "access_units": 24,
+     "bytes": 4228,
+     "tools": [],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "not asked"
+    },
+    "mlp-coded": {
+     "syntax": "FBB",
+     "rate": 96000,
+     "channels": 2,
+     "access_units": 24,
+     "bytes": 5600,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "not asked"
+    },
+    "mlp-mono": {
+     "syntax": "FBB",
+     "rate": 44100,
+     "channels": 1,
+     "access_units": 24,
+     "bytes": 1244,
+     "tools": [
+      "fir",
+      "huffman-1"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "not asked"
+    }
+   }
+  },
+  "where_a_decoder_did_not_give_the_samples": {
+   "filter-at-restart, FFmpeg": {
+    "what": "other samples, from the first one after each restart header that follows samples",
+    "first_differing_sample": 320,
+    "that_is": "the first sample of access unit 8, the second unit with a restart header",
+    "differing_samples": 25,
+    "of": 2560,
+    "it_said": [
+     "Lossless check failed - expected 7f, calculated 0d.",
+     "Lossless check failed - expected df, calculated 2b."
+    ],
+    "truehdd_and_dolby": "the samples of the recipe, every one"
+   },
+   "blocks-four, truehdd": "refused: `Too many blocks in the substream segment`. FFmpeg and Dolby's decoder give the samples",
+   "silence, Dolby": "no output. The access units of the recipe are 10 bytes long; the demuxer hands on 16 of them and the parser element in front of the decoder 7, and the decoder reports no valid frame. FFmpeg and `truehdd` give the samples"
+  },
+  "restart_headers_of_real_streams": {
+   "streams": 46,
+   "access_units": 9119380,
+   "restart_headers": 282022,
+   "in_a_block_of_8_samples": 282022,
+   "in_a_block_with_a_filter_on_any_channel": 0,
+   "channels_times_blocks_counted": 895804,
+   "blocks_after_the_restart_block_in_its_unit": 282022,
+   "of_those_with_a_filter_on_some_channel": 276461,
+   "by_substream": {
+    "0": {
+     "restart_headers": 71827,
+     "in_a_block_with_filter_a": 0,
+     "in_a_block_with_filter_b": 0,
+     "channels_times_blocks": 143654,
+     "blocks_after_it_in_the_unit": 71827,
+     "of_those_with_a_filter": 70527
+    },
+    "1": {
+     "restart_headers": 71827,
+     "in_a_block_with_filter_a": 0,
+     "in_a_block_with_filter_b": 0,
+     "channels_times_blocks": 288448,
+     "blocks_after_it_in_the_unit": 71827,
+     "of_those_with_a_filter": 70199
+    },
+    "2": {
+     "restart_headers": 69584,
+     "in_a_block_with_filter_a": 0,
+     "in_a_block_with_filter_b": 0,
+     "channels_times_blocks": 168160,
+     "blocks_after_it_in_the_unit": 69584,
+     "of_those_with_a_filter": 67611
+    },
+    "3": {
+     "restart_headers": 68784,
+     "in_a_block_with_filter_a": 0,
+     "in_a_block_with_filter_b": 0,
+     "channels_times_blocks": 295542,
+     "blocks_after_it_in_the_unit": 68784,
+     "of_those_with_a_filter": 68124
+    }
+   }
+  },
+  "streams_outside_the_recipes": {
+   "note": "written with the same writer, 24 access units each, to find where a refusal begins; not part of the crate",
+   "blocks_to_a_unit": {
+    "blocks1": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target",
+     "bytes": 3528,
+     "rules": []
+    },
+    "blocks2": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target",
+     "bytes": 3630,
+     "rules": []
+    },
+    "blocks3": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target",
+     "bytes": 3644,
+     "rules": []
+    },
+    "blocks4": {
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target",
+     "bytes": 3648,
+     "rules": []
+    },
+    "blocks5": {
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target",
+     "bytes": 3558,
+     "rules": [
+      "segment.block_count"
+     ]
+    }
+   },
+   "access_units_between_major_syncs": {
+    "sync1": {
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target",
+     "bytes": 4558,
+     "rules": [
+      "sync.major_sync_spacing"
+     ]
+    },
+    "sync2": {
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target",
+     "bytes": 3972,
+     "rules": [
+      "sync.major_sync_spacing"
+     ]
+    },
+    "sync4": {
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target",
+     "bytes": 3676,
+     "rules": [
+      "sync.major_sync_spacing"
+     ]
+    },
+    "sync6": {
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target",
+     "bytes": 3576,
+     "rules": [
+      "sync.major_sync_spacing"
+     ]
+    },
+    "sync7": {
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target",
+     "bytes": 3578,
+     "rules": [
+      "sync.major_sync_spacing"
+     ]
+    },
+    "sync8": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target",
+     "bytes": 3528,
+     "rules": []
+    },
+    "sync16": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target",
+     "bytes": 3480,
+     "rules": []
+    }
+   },
+   "what_truehdd_said_of_them": [
+    "Invalid hires_output_timing field starting in au 0, extra 0 in the datafield",
+    "Restart gap must be 1 or >= 8. Read 2",
+    "Restart gap must be 1 or >= 8. Read 4",
+    "Restart gap must be 1 or >= 8. Read 6",
+    "Restart gap must be 1 or >= 8. Read 7",
+    "Too many blocks in the substream segment. Got 3"
+   ],
+   "small_access_units": {
+    "sil-plain": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "refused",
+     "bytes": 388,
+     "rules": []
+    },
+    "sil-book3": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "refused",
+     "bytes": 628,
+     "rules": []
+    },
+    "sil-lsbs1": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "refused",
+     "bytes": 628,
+     "rules": []
+    },
+    "noise1": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "refused",
+     "bytes": 628,
+     "rules": []
+    },
+    "sil-book2": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target",
+     "bytes": 868,
+     "rules": []
+    },
+    "sil-lsbs2": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target",
+     "bytes": 868,
+     "rules": []
+    },
+    "noise2": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target",
+     "bytes": 868,
+     "rules": []
+    }
+   },
+   "small_access_units_reading": "Dolby's element gives nothing for the four streams whose units between major syncs are 10 or 20 bytes and the samples for the three whose units are 30; the smallest access unit of the 55 real streams of evidence 05 is 26 bytes"
+  },
+  "mutations": {
+   "count": 11,
+   "passed_the_suite_before": [
+    "the filter histories kept across a restart header",
+    "the sign of a sample under book 3 with no bits under the code",
+    "huff_lsbs after a restart header, 24 -> 23"
+   ],
+   "caught_before_by_one_hand_built_unit_test_alone": [
+    "the shift of a filter state dropped",
+    "a channel with filter B alone predicted at the precision of filter A"
+   ],
+   "caught_by_the_suite_with_the_recipes": 11,
+   "caught_by_the_tests_over_the_recipes_alone": 11,
+   "not_caught_by_the_tests_over_the_recipes_alone": [],
+   "note": "the suite before is the commit this branch starts from, every test run to its end; the tests over the recipes are the three targets that decode whole written streams (the recipes and the writer in the crate, the commands in the command-line crate)",
+   "each": [
+    {
+     "mutation": "the filter histories kept across a restart header",
+     "the_suite_before": "passes",
+     "the_suite_with_the_recipes": "caught",
+     "the_tests_over_the_recipes_alone": [
+      "decode_writes_the_samples_of_every_recipe",
+      "filtered_and_coded_samples_come_back",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the state sent with filter B not loaded",
+     "the_suite_before": "caught by 18 tests",
+     "the_suite_with_the_recipes": "caught",
+     "the_tests_over_the_recipes_alone": [
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the shift of a filter state dropped",
+     "the_suite_before": "caught by 1 test, built by hand in the crate of the decoder",
+     "the_suite_with_the_recipes": "caught",
+     "the_tests_over_the_recipes_alone": [
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the shift of the filter coefficients dropped",
+     "the_suite_before": "caught by 23 tests",
+     "the_suite_with_the_recipes": "caught",
+     "the_tests_over_the_recipes_alone": [
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the prediction added without the cut to the quantiser step",
+     "the_suite_before": "caught by 6 tests",
+     "the_suite_with_the_recipes": "caught",
+     "the_tests_over_the_recipes_alone": [
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "filter B fed the output where it takes the prediction error",
+     "the_suite_before": "caught by 21 tests",
+     "the_suite_with_the_recipes": "caught",
+     "the_tests_over_the_recipes_alone": [
+      "decode_writes_the_samples_of_every_recipe",
+      "filtered_and_coded_samples_come_back",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "a channel with filter B alone predicted at the precision of filter A",
+     "the_suite_before": "caught by 1 test, built by hand in the crate of the decoder",
+     "the_suite_with_the_recipes": "caught",
+     "the_tests_over_the_recipes_alone": [
+      "decode_writes_the_samples_of_every_recipe",
+      "filtered_and_coded_samples_come_back",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the sign of a sample under book 3 with no bits under the code",
+     "the_suite_before": "passes",
+     "the_suite_with_the_recipes": "caught",
+     "the_tests_over_the_recipes_alone": [
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe"
+     ]
+    },
+    {
+     "mutation": "huff_lsbs after a restart header, 24 -> 23",
+     "the_suite_before": "passes",
+     "the_suite_with_the_recipes": "caught",
+     "the_tests_over_the_recipes_alone": [
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the block size after a restart header, 8 -> 16",
+     "the_suite_before": "caught by 36 tests",
+     "the_suite_with_the_recipes": "caught",
+     "the_tests_over_the_recipes_alone": [
+      "a_recipe_keeps_within_what_the_format_and_its_encoders_do",
+      "decode_writes_the_samples_of_every_recipe",
+      "the_census_names_the_tools_a_recipe_says_it_carries_and_no_others",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the offset of the sample coding taken off instead of added",
+     "the_suite_before": "caught by 31 tests",
+     "the_suite_with_the_recipes": "caught",
+     "the_tests_over_the_recipes_alone": [
+      "decode_writes_the_samples_of_every_recipe",
+      "filtered_and_coded_samples_come_back",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    }
+   ]
+  }
+ },
+ "reading": "The writer and the decoder agree, and that would be worth little by itself: one hand wrote both. What makes the recipes references is that FFmpeg, truehdd and Dolby's own decoder, run as programs, give the samples of 23 of the 26 wherever they are asked, and that each of the other three has two of them behind it. The three exceptions are each a fact about one decoder. truehdd holds a segment to three blocks where Dolby's description allows four and Dolby's decoder and FFmpeg read five. The parser in front of Dolby's decoder loses access units of ten and of twenty bytes, which no real stream here has: the smallest real unit is 26 bytes, in streams of four substreams. And FFmpeg keeps its filter histories across a restart header. That last one is the finding. A restart header is an entry point, so a decoder that starts there has empty histories; whether a decoder that was already running clears them is something every encoder makes moot by coding the first eight samples without a filter, 282,022 times of 282,022. The written stream asks the question, two decoders that share nothing answer it the same way, Dolby's among them, and this decoder is on their side. Until that stream existed the suite could not tell: of the 11 mutations of the arithmetic, 3 passed it, a decoder that keeps the histories among them, and 2 more were caught only by a unit test that builds the bits by the decoder's own reading. With the recipes every one is caught by the decode of a written stream to samples that were known first, with no other test needed. One of the three that used to pass shows what the check inside the format is worth by itself: the wrong sign under book 3 moves an even number of samples by one, the eight-bit check word cancels, and only the comparison with the samples sees it. What this does not cover is stated in the document: matrices, more than one substream, output shifts and error protection are not written yet, and a recipe on which only one outside decoder could be asked would not be recorded at all."
+}
