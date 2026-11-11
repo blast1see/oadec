@@ -109,6 +109,24 @@ impl Segment {
         crc_present: bool,
         buf: &mut SampleBuffer,
     ) -> core::result::Result<Self, (Error, usize)> {
+        Self::parse_located_with(bytes, state, substream, crc_present, buf, |_, _, _| Ok(()))
+    }
+
+    /// [`Segment::parse_located`] with the block callback of
+    /// [`Segment::parse_with`]: `on_block` sees every block with the state in
+    /// force after its header, which is the only moment a pass that makes no
+    /// samples can count what a block uses.
+    pub fn parse_located_with<F>(
+        bytes: &[u8],
+        state: &mut ParserState,
+        substream: usize,
+        crc_present: bool,
+        buf: &mut SampleBuffer,
+        on_block: F,
+    ) -> core::result::Result<Self, (Error, usize)>
+    where
+        F: FnMut(&Block, &ParserState, &SampleBuffer) -> Result<()>,
+    {
         let mut reader = BitReader::new(bytes);
         Self::parse_inner(
             &mut reader,
@@ -117,7 +135,7 @@ impl Segment {
             substream,
             crc_present,
             buf,
-            |_, _, _| Ok(()),
+            on_block,
         )
         .map_err(|e| (e, reader.position()))
     }
