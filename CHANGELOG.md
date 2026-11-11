@@ -169,7 +169,10 @@ Semantic Versioning.
   hand, and on a pull request that touches the targets, with the corpus
   seeded from the fixtures. It does not gate other pull requests. With the
   MSVC toolchain libFuzzer links only where the toolset's C++
-  AddressSanitizer component is installed.
+  AddressSanitizer component is installed, and a target starts only with
+  the directory of that component's runtime DLL on `PATH`; with both, the
+  ten targets run on Windows as they do on Linux
+  (`docs/audit/evidence/engine-round-2026-11/14-libfuzzer-on-msvc.json`).
 - **TrueHD at 44.1, 88.2, 176.4 and 192 kHz is tested.** No title in the
   library carries these rates, so the conformance matrix had them as not
   testable. Streams FFmpeg's TrueHD encoder wrote at all six rates it writes,

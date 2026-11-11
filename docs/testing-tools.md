@@ -128,13 +128,21 @@ cargo +nightly fuzz run truehd_unit -- -max_total_time=600 -max_len=65536
 ```
 
 It needs a nightly toolchain and a platform its runtime links on. With the
-MSVC toolchain that is the toolset's x64 AddressSanitizer component, whose
-runtime carries the symbols the coverage instrumentation refers to: without
-it neither `-s address` nor `-s none` links. The `fuzz` workflow runs every
-target on Linux each week, by hand, and on a pull request that touches the
-targets, and uploads what it finds; `replay` runs that on any platform. It
-does not gate other pull requests: a fuzzer that finds something new says
-nothing about the change in front of it.
+MSVC toolchain that is the toolset's x64 AddressSanitizer component
+(`Microsoft.VisualStudio.Component.VC.ASAN` in the Visual Studio installer),
+whose runtime carries the symbols the coverage instrumentation refers to:
+without it neither `-s address` nor `-s none` links. With it the targets link,
+and one thing more is needed to run them. The sanitizer's runtime is a DLL in
+`VC\Tools\MSVC\<version>\bin\Hostx64\x64` of the Visual Studio
+installation, and that directory has to be on `PATH`, where a developer prompt
+has it. Without it a target ends before it reads an input, with
+`STATUS_DLL_NOT_FOUND`, which reads like a crash of the target and is not one
+(`docs/audit/evidence/engine-round-2026-11/14-libfuzzer-on-msvc.json`).
+
+The `fuzz` workflow runs every target on Linux each week, by hand, and on a
+pull request that touches the targets, and uploads what it finds; `replay`
+runs that on any platform. It does not gate other pull requests: a fuzzer
+that finds something new says nothing about the change in front of it.
 
 What a fuzzer finds becomes a unit test of the code it was found in and, where
 it is a rule, a mutation in `tools/mutants.py`. The fuzzers find; the suite
