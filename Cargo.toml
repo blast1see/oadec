@@ -9,6 +9,7 @@ members = [
     "crates/oadec-spatial",
     "crates/oadec-cli",
     "crates/oadec-fuzz",
+    "crates/oadec-bench",
 ]
 
 [workspace.package]

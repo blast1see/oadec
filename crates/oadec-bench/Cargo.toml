@@ -1,0 +1,27 @@
+[package]
+name = "oadec-bench"
+description = "Micro-benchmarks of the decoder's kernels over the committed fixtures"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+oadec-truehd.workspace = true
+oadec-eac3.workspace = true
+oadec-joc.workspace = true
+
+# `cargo bench` would otherwise run the library's unit tests as a benchmark
+# too and hand them the arguments meant for `kernels`.
+[lib]
+bench = false
+
+[[bench]]
+name = "kernels"
+harness = false
+
+[lints]
+workspace = true
