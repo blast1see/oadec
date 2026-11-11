@@ -26,3 +26,58 @@ Do not automatically accept changed snapshots in CI.
 Nextest does not replace the separate documentation-test command above.
 Real-media tests remain ignored unless explicitly requested as described in
 `CONTRIBUTING.md`. Coverage of `oadec-bits` alone is not whole-project coverage.
+
+# Transcripts
+
+`crates/oadec-cli/tests/transcripts.rs` runs every reporting command (`info`,
+`verify`, `verify --decode`, `emdf`, `oamd`, `au`, `rules`) and every delivery
+over each stream under `tests/fixtures` and holds the exit code, what was
+printed and what was written to `tests/golden/<fixture>.txt`. The tests that
+assert single fields say that a field is right; the transcripts say that
+nothing else moved, which is what a change that only moves code, a new
+toolchain or a dependency update has to show.
+
+What differs from run to run is masked: the run time, the speed, the directory
+the outputs went to and the tool's own version. Audio that comes out of integer
+arithmetic (TrueHD and MLP) is recorded by length and digest. The object audio
+of an E-AC-3 stream comes out of floating point and is recorded by length
+alone.
+
+```sh
+cargo test -p oadec-cli --test transcripts --locked
+OADEC_BLESS=1 cargo test -p oadec-cli --test transcripts --locked
+```
+
+The second form rewrites the transcripts after a change that is meant to move
+a report. Read what `git diff` shows before committing it: the diff is the
+change, stated in the tool's own words. A stream added to `tests/fixtures`
+needs a line in the test's list, and a transcript no test writes any more is
+itself a failure.
+
+# The mutation run
+
+`tools/mutants.py` changes one line of the decoder at a time, runs the unit
+tests and expects one to fail. Its exit code is the verdict: 0 when every
+mutation was applied and caught, but for the ones the tool names as expected
+to survive and says why; 1 when one survived that should not have, when an
+expected survivor was caught, or when the text a mutation changes is no longer
+in its file. Each new rule or classifier gets a mutation there.
+
+```sh
+python tools/mutants.py --check     # every mutation still finds its text; CI runs this
+python tools/mutants.py --only 'delta allocation'
+python tools/mutants.py --out mutants.json
+```
+
+# The old and the new binary
+
+`tools/old_new.py` runs two binaries over the same streams and names every
+exit code, JSON field and line of `verify` that differs. With `--decode-all` it
+also compares every delivery byte for byte: the PCM of each presentation, the
+DAMF set and the ADM file. The summary counts what each kind of delivery
+compared, because two commands that both wrote nothing also agree.
+
+```sh
+python tools/old_new.py --old old/oadec --new target/release/oadec \
+    --decode-all --tmp <a directory with room> --out old-new.json <streams or directories>
+```
