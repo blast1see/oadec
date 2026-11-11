@@ -1,0 +1,1780 @@
+$ oadec info tests/fixtures/authored-scene.mlp
+exit 0
+[stdout]
+File:             tests/fixtures/authored-scene.mlp (546456 bytes)
+Format:           Dolby TrueHD (FBA), 48000 Hz, 40 samples per access unit, 16-channel object presentation
+Duration:         0:00:02.000 (2400 access units)
+Data rate:        peak 2850 kbps (variable), average 2186 kbps, access units 148..1182 bytes
+Substreams:       4 (substream_info 0xFC, extended_substream_info 3), flags 0x1000
+Major syncs:      22 (at most every 125 access units)
+Presentations:
+  0: substreams 0001  L R  [downmix of presentation 1]
+  1: substreams 0011  L R C LFE Ls Rs  [downmix of presentation 2]
+  2: substreams 0111  L R C LFE Ls Rs Lb Rb  [downmix of presentation 3]
+  3: substreams 1111  12 channels: bed LFE (1) + 11 dynamic objects  [independent]
+Dialogue norm:    2ch -32 dB, 6ch -26 dB, 8ch -26 dB, 16ch -26 dB
+Control:          2ch true, 6ch false, 8ch false; DRC start-up gain 0, heavy DRC start-up gain 0
+Error protection: substream CRC present in [2400, 2400, 2400, 2400] access units; DRC updates [20, 20, 20, 20]
+Extra data:       63 access units (0 padding, 0 opaque, 63 Evolution blocks, 63 Evolution frames, 63 protected)
+Evolution payloads: id 11 (object audio metadata): 63 payloads, 3151 bytes
+Protection:       key_id 0 x63; primary word bytes 1 x63; secondary 0 x63
+Integrity:        header parity failures 0, major sync CRC failures 0, framing errors 0, configuration changes 0, extra-data parity failures 0, resyncs 0, skipped bytes 0, trailing bytes 0
+Object metadata:  63 payloads parsed, 0 errors; 0 non-unity gains {}, 0 mutes, 0 non-zero sizes
+
+$ oadec info --json tests/fixtures/authored-scene.mlp
+exit 0
+[stdout]
+{
+  "average_bit_rate": 2185824.0,
+  "channel_meaning": {
+    "drc_start_up_gain": 0,
+    "eightch_control_enabled": false,
+    "eightch_dialogue_norm": 26,
+    "eightch_mix_level": 35,
+    "eightch_source_format": 0,
+    "extra_present": true,
+    "heavy_drc_start_up_gain": 0,
+    "reserved1": false,
+    "reserved2": false,
+    "sixch_control_enabled": false,
+    "sixch_dialogue_norm": 26,
+    "sixch_mix_level": 35,
+    "sixch_source_format": 0,
+    "twoch_control_enabled": true,
+    "twoch_dialogue_norm": 32,
+    "twoch_mix_level": 29
+  },
+  "crc_present_units": [
+    2400,
+    2400,
+    2400,
+    2400
+  ],
+  "drc_updates": [
+    20,
+    20,
+    20,
+    20
+  ],
+  "duration_seconds": 2.0,
+  "extended_substream_info": 3,
+  "extra": {
+    "evolution_blocks": 63,
+    "evolution_frames": 63,
+    "oamd_gains_db": {},
+    "oamd_muted_updates": 0,
+    "oamd_ok": 63,
+    "oamd_sized_updates": 0,
+    "oamd_stale_sizes": 0,
+    "opaque_blocks": 0,
+    "padding_blocks": 0,
+    "payload_bytes": {
+      "11": 3151
+    },
+    "payload_ids": {
+      "11": 63
+    },
+    "protected_frames": 63,
+    "protection": {
+      "containers": 63,
+      "key_ids": {
+        "0": 63
+      },
+      "primary_bytes": {
+        "1": 63
+      },
+      "reserved_primary_code": 0,
+      "secondary_bytes": {
+        "0": 63
+      },
+      "versions": {
+        "0": 63
+      }
+    },
+    "units_with_extra": 63
+  },
+  "failures": {
+    "block_data_bits": 0,
+    "config_changes": 0,
+    "evolution_container_errors": 0,
+    "extra_evolution_parity": 0,
+    "extra_header_parity": 0,
+    "extra_padding_nonzero": 0,
+    "extra_truncated": 0,
+    "framing_errors": 0,
+    "header_parity": 0,
+    "invalid_branches": 0,
+    "major_sync_crc": 0,
+    "major_sync_signature": 0,
+    "oamd_errors": 0,
+    "restart_flag": 0,
+    "resyncs": 0,
+    "sample_count": 0,
+    "segment_crc": 0,
+    "segment_end": 0,
+    "segment_parity": 0,
+    "skipped_bytes": 0,
+    "substream_errors": 0,
+    "terminator_tail": 0,
+    "trailing_bytes": 0,
+    "unexpected_tail": 0
+  },
+  "file": "tests/fixtures/authored-scene.mlp",
+  "file_bytes": 546456,
+  "first_error": null,
+  "first_input_timing": 65421,
+  "first_unit_offset": 0,
+  "flags": 4096,
+  "foreign_syncs": 0,
+  "has_16ch_presentation": true,
+  "last_input_timing": 30358,
+  "major_syncs": 22,
+  "max_major_sync_interval": 125,
+  "max_unit_bytes": 1182,
+  "min_unit_bytes": 148,
+  "peak_bit_rate": 2850000,
+  "presentations": [
+    {
+      "channels": [
+        "L",
+        "R"
+      ],
+      "index": 0,
+      "kind": "downmix of presentation 1",
+      "substream_mask": 1
+    },
+    {
+      "channels": [
+        "L",
+        "R",
+        "C",
+        "LFE",
+        "Ls",
+        "Rs"
+      ],
+      "index": 1,
+      "kind": "downmix of presentation 2",
+      "substream_mask": 3
+    },
+    {
+      "channels": [
+        "L",
+        "R",
+        "C",
+        "LFE",
+        "Ls",
+        "Rs",
+        "Lb",
+        "Rb"
+      ],
+      "index": 2,
+      "kind": "downmix of presentation 3",
+      "substream_mask": 7
+    },
+    {
+      "channels": [
+        "LFE"
+      ],
+      "index": 3,
+      "kind": "independent",
+      "substream_mask": 15
+    }
+  ],
+  "samples_per_au": 40,
+  "sampling_frequency": 48000,
+  "sixteen_channel": {
+    "bed_assignment": 0,
+    "channels": 12,
+    "content_description": 0,
+    "dialogue_norm": 26,
+    "dyn_object_only": true,
+    "dynamic_objects": 11,
+    "isf_index": 0,
+    "lfe_only": false,
+    "lfe_present": true,
+    "mix_level": 35
+  },
+  "substream_info": 252,
+  "substream_stats": [
+    {
+      "blocks": 2422,
+      "crc_segments": 2400,
+      "first_restart": {
+        "error_protect": false,
+        "max_chan": 1,
+        "max_matrix_chan": 1,
+        "min_chan": 0,
+        "sync_word": "0x31EA"
+      },
+      "interpolated_blocks": 0,
+      "matrixing_blocks": 26,
+      "max_blocks_per_segment": 2,
+      "max_primitive_matrices": 2,
+      "protected_blocks": 0,
+      "restart_headers": 22,
+      "segments": 2400,
+      "skipped": 0,
+      "sync_words": {
+        "0x31EA": 22
+      },
+      "terminated_segments": 1,
+      "zero_sample_segments": 1
+    },
+    {
+      "blocks": 2422,
+      "crc_segments": 2400,
+      "first_restart": {
+        "error_protect": false,
+        "max_chan": 5,
+        "max_matrix_chan": 5,
+        "min_chan": 2,
+        "sync_word": "0x31EB"
+      },
+      "interpolated_blocks": 0,
+      "matrixing_blocks": 30,
+      "max_blocks_per_segment": 2,
+      "max_primitive_matrices": 6,
+      "protected_blocks": 0,
+      "restart_headers": 22,
+      "segments": 2400,
+      "skipped": 0,
+      "sync_words": {
+        "0x31EB": 22
+      },
+      "terminated_segments": 1,
+      "zero_sample_segments": 1
+    },
+    {
+      "blocks": 2422,
+      "crc_segments": 2400,
+      "first_restart": {
+        "error_protect": false,
+        "max_chan": 7,
+        "max_matrix_chan": 7,
+        "min_chan": 6,
+        "sync_word": "0x31EB"
+      },
+      "interpolated_blocks": 0,
+      "matrixing_blocks": 44,
+      "max_blocks_per_segment": 2,
+      "max_primitive_matrices": 8,
+      "protected_blocks": 0,
+      "restart_headers": 22,
+      "segments": 2400,
+      "skipped": 0,
+      "sync_words": {
+        "0x31EB": 22
+      },
+      "terminated_segments": 1,
+      "zero_sample_segments": 1
+    },
+    {
+      "blocks": 2422,
+      "crc_segments": 2400,
+      "first_restart": {
+        "error_protect": false,
+        "max_chan": 11,
+        "max_matrix_chan": 11,
+        "min_chan": 8,
+        "sync_word": "0x31EC"
+      },
+      "interpolated_blocks": 124,
+      "matrixing_blocks": 143,
+      "max_blocks_per_segment": 2,
+      "max_primitive_matrices": 9,
+      "protected_blocks": 0,
+      "restart_headers": 22,
+      "segments": 2400,
+      "skipped": 0,
+      "sync_words": {
+        "0x31EC": 22
+      },
+      "terminated_segments": 1,
+      "zero_sample_segments": 1
+    }
+  ],
+  "substreams": 4,
+  "timing_stats": {
+    "branches": [],
+    "duplicate_candidates": 0,
+    "input_jumps": 0,
+    "invalid_branches": 0,
+    "output_jumps": 0,
+    "peak_rate_changes": 0,
+    "valid_branches": 0
+  },
+  "total_unit_bytes": 546456,
+  "units": 2400,
+  "variable_rate": true
+}
+
+$ oadec verify tests/fixtures/authored-scene.mlp
+exit 0
+[stdout]
+File:              tests/fixtures/authored-scene.mlp
+Access units:      2400 (22 major syncs, 546456 bytes)
+Header parity:     0 failures
+Major sync CRC:    0 failures, 0 bad signatures
+Framing:           0 errors, 0 configuration changes
+Extra data:        0 header parity failures, 0 truncated, 0 Evolution parity failures, 0 non-zero padding, 0 container errors
+Object metadata:   63 payloads parsed, 0 errors; 0 non-unity gains {}, 0 mutes, 0 non-zero sizes
+Sync:              0 resyncs, 0 skipped bytes, 0 trailing bytes
+Substream 0:       2400 segments (0 skipped), 22 restart headers [0x31EA x22], channels 0..=1 (matrix 1), error_protect false
+                   2422 blocks (max 2 per segment, 0 protected), 26 matrixing (0 interpolated), up to 2 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
+Substream 1:       2400 segments (0 skipped), 22 restart headers [0x31EB x22], channels 2..=5 (matrix 5), error_protect false
+                   2422 blocks (max 2 per segment, 0 protected), 30 matrixing (0 interpolated), up to 6 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
+Substream 2:       2400 segments (0 skipped), 22 restart headers [0x31EB x22], channels 6..=7 (matrix 7), error_protect false
+                   2422 blocks (max 2 per segment, 0 protected), 44 matrixing (0 interpolated), up to 8 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
+Substream 3:       2400 segments (0 skipped), 22 restart headers [0x31EC x22], channels 8..=11 (matrix 11), error_protect false
+                   2422 blocks (max 2 per segment, 0 protected), 143 matrixing (124 interpolated), up to 9 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
+Substream checks:  0 parse errors, 0 block bit-count mismatches, 0 parity failures, 0 CRC failures, 0 end-pointer mismatches, 0 sample-count mismatches, 0 restart flag mismatches, 0 bad terminators, 0 unexpected tails
+Timing:            0 input timing jumps, 0 output timing jumps, 0 valid seamless branches, 0 invalid branches, 0 duplicate candidates, 0 peak rate changes
+Buffer:            delay up to 3580 samples (74.6 ms, au 1128); delivery up to 2.850 Mbit/s (au 1259)
+                   substream depth 7594/30000, 9782/60000, 4334/30000, 8984/60000 bytes; decoders p0 8188, p1 18116, p2 22596, p3 27160; stream 27160/120000 bytes
+Disc:              BD yes, HD DVD yes, DVD-A no
+                   DVD-Audio carries the FBB syntax; this stream is FBA
+Speed:             <masked>
+Result:            CLEAN
+
+$ oadec verify --json tests/fixtures/authored-scene.mlp
+exit 0
+[stdout]
+{
+  "buffer": {
+    "decoders": [
+      {
+        "depth": 8188,
+        "presentation": 0,
+        "substream_mask": 1,
+        "unit": 1199
+      },
+      {
+        "depth": 18116,
+        "presentation": 1,
+        "substream_mask": 3,
+        "unit": 1199
+      },
+      {
+        "depth": 22596,
+        "presentation": 2,
+        "substream_mask": 7,
+        "unit": 1199
+      },
+      {
+        "depth": 27160,
+        "presentation": 3,
+        "substream_mask": 15,
+        "unit": 1199
+      }
+    ],
+    "max_data_rate": {
+      "bps": 2849928,
+      "unit": 1259
+    },
+    "max_latency": {
+      "ms": 74.58333333333333,
+      "samples": 3580,
+      "unit": 1128
+    },
+    "min_latency": {
+      "samples": 40,
+      "unit": 1
+    },
+    "model": "docs/truehd.md, Decoder buffer",
+    "restarts": 0,
+    "substreams": [
+      {
+        "allowed": 30000,
+        "depth": 7594,
+        "unit": 1199
+      },
+      {
+        "allowed": 60000,
+        "depth": 9782,
+        "unit": 1199
+      },
+      {
+        "allowed": 30000,
+        "depth": 4334,
+        "unit": 1199
+      },
+      {
+        "allowed": 60000,
+        "depth": 8984,
+        "unit": 1236
+      }
+    ],
+    "whole_stream": {
+      "buffer_every_decoder_has": 120000,
+      "depth": 27160,
+      "unit": 1199
+    }
+  },
+  "clean": true,
+  "crc_present_units": [
+    2400,
+    2400,
+    2400,
+    2400
+  ],
+  "diagnostics": {
+    "counts": {
+      "error": 0,
+      "fatal": 0,
+      "info": 0,
+      "warning": 0
+    },
+    "fail_on": "error",
+    "findings": [],
+    "max_per_rule": 20,
+    "regions": [],
+    "regions_overflow": 0,
+    "rules": [],
+    "schema": 1,
+    "worst": null
+  },
+  "disc": {
+    "model": "docs/truehd.md, Disc formats",
+    "required": [],
+    "rows": [
+      {
+        "disc": "bd",
+        "name": "BD",
+        "reasons": [],
+        "verdict": "yes"
+      },
+      {
+        "disc": "hddvd",
+        "name": "HD DVD",
+        "reasons": [],
+        "verdict": "yes"
+      },
+      {
+        "disc": "dvda",
+        "name": "DVD-A",
+        "reasons": [
+          {
+            "source": "Dolby TrueHD (MLP) High-Level Bitstream Description (2018), section 1",
+            "text": "DVD-Audio carries the FBB syntax; this stream is FBA"
+          }
+        ],
+        "verdict": "no"
+      }
+    ]
+  },
+  "drc_updates": [
+    20,
+    20,
+    20,
+    20
+  ],
+  "extra": {
+    "evolution_blocks": 63,
+    "evolution_frames": 63,
+    "oamd_gains_db": {},
+    "oamd_muted_updates": 0,
+    "oamd_ok": 63,
+    "oamd_sized_updates": 0,
+    "oamd_stale_sizes": 0,
+    "opaque_blocks": 0,
+    "padding_blocks": 0,
+    "payload_bytes": {
+      "11": 3151
+    },
+    "payload_ids": {
+      "11": 63
+    },
+    "protected_frames": 63,
+    "protection": {
+      "containers": 63,
+      "key_ids": {
+        "0": 63
+      },
+      "primary_bytes": {
+        "1": 63
+      },
+      "reserved_primary_code": 0,
+      "secondary_bytes": {
+        "0": 63
+      },
+      "versions": {
+        "0": 63
+      }
+    },
+    "units_with_extra": 63
+  },
+  "failures": {
+    "block_data_bits": 0,
+    "config_changes": 0,
+    "evolution_container_errors": 0,
+    "extra_evolution_parity": 0,
+    "extra_header_parity": 0,
+    "extra_padding_nonzero": 0,
+    "extra_truncated": 0,
+    "framing_errors": 0,
+    "header_parity": 0,
+    "invalid_branches": 0,
+    "major_sync_crc": 0,
+    "major_sync_signature": 0,
+    "oamd_errors": 0,
+    "restart_flag": 0,
+    "resyncs": 0,
+    "sample_count": 0,
+    "segment_crc": 0,
+    "segment_end": 0,
+    "segment_parity": 0,
+    "skipped_bytes": 0,
+    "substream_errors": 0,
+    "terminator_tail": 0,
+    "trailing_bytes": 0,
+    "unexpected_tail": 0
+  },
+  "file": "tests/fixtures/authored-scene.mlp",
+  "file_bytes": 546456,
+  "first_error": null,
+  "first_input_timing": 65421,
+  "first_unit_offset": 0,
+  "foreign_syncs": 0,
+  "last_input_timing": 30358,
+  "lossless_checks": null,
+  "major_syncs": 22,
+  "max_major_sync_interval": 125,
+  "max_unit_bytes": 1182,
+  "min_unit_bytes": 148,
+  "realtime_factor": "<masked>",
+  "seconds": "<masked>",
+  "substreams": [
+    {
+      "blocks": 2422,
+      "crc_segments": 2400,
+      "first_restart": {
+        "error_protect": false,
+        "max_chan": 1,
+        "max_matrix_chan": 1,
+        "min_chan": 0,
+        "sync_word": "0x31EA"
+      },
+      "interpolated_blocks": 0,
+      "matrixing_blocks": 26,
+      "max_blocks_per_segment": 2,
+      "max_primitive_matrices": 2,
+      "protected_blocks": 0,
+      "restart_headers": 22,
+      "segments": 2400,
+      "skipped": 0,
+      "sync_words": {
+        "0x31EA": 22
+      },
+      "terminated_segments": 1,
+      "zero_sample_segments": 1
+    },
+    {
+      "blocks": 2422,
+      "crc_segments": 2400,
+      "first_restart": {
+        "error_protect": false,
+        "max_chan": 5,
+        "max_matrix_chan": 5,
+        "min_chan": 2,
+        "sync_word": "0x31EB"
+      },
+      "interpolated_blocks": 0,
+      "matrixing_blocks": 30,
+      "max_blocks_per_segment": 2,
+      "max_primitive_matrices": 6,
+      "protected_blocks": 0,
+      "restart_headers": 22,
+      "segments": 2400,
+      "skipped": 0,
+      "sync_words": {
+        "0x31EB": 22
+      },
+      "terminated_segments": 1,
+      "zero_sample_segments": 1
+    },
+    {
+      "blocks": 2422,
+      "crc_segments": 2400,
+      "first_restart": {
+        "error_protect": false,
+        "max_chan": 7,
+        "max_matrix_chan": 7,
+        "min_chan": 6,
+        "sync_word": "0x31EB"
+      },
+      "interpolated_blocks": 0,
+      "matrixing_blocks": 44,
+      "max_blocks_per_segment": 2,
+      "max_primitive_matrices": 8,
+      "protected_blocks": 0,
+      "restart_headers": 22,
+      "segments": 2400,
+      "skipped": 0,
+      "sync_words": {
+        "0x31EB": 22
+      },
+      "terminated_segments": 1,
+      "zero_sample_segments": 1
+    },
+    {
+      "blocks": 2422,
+      "crc_segments": 2400,
+      "first_restart": {
+        "error_protect": false,
+        "max_chan": 11,
+        "max_matrix_chan": 11,
+        "min_chan": 8,
+        "sync_word": "0x31EC"
+      },
+      "interpolated_blocks": 124,
+      "matrixing_blocks": 143,
+      "max_blocks_per_segment": 2,
+      "max_primitive_matrices": 9,
+      "protected_blocks": 0,
+      "restart_headers": 22,
+      "segments": 2400,
+      "skipped": 0,
+      "sync_words": {
+        "0x31EC": 22
+      },
+      "terminated_segments": 1,
+      "zero_sample_segments": 1
+    }
+  ],
+  "timing_stats": {
+    "branches": [],
+    "duplicate_candidates": 0,
+    "input_jumps": 0,
+    "invalid_branches": 0,
+    "output_jumps": 0,
+    "peak_rate_changes": 0,
+    "valid_branches": 0
+  },
+  "total_unit_bytes": 546456,
+  "units": 2400
+}
+
+$ oadec verify --json --decode tests/fixtures/authored-scene.mlp
+exit 0
+[stdout]
+{
+  "buffer": {
+    "decoders": [
+      {
+        "depth": 8188,
+        "presentation": 0,
+        "substream_mask": 1,
+        "unit": 1199
+      },
+      {
+        "depth": 18116,
+        "presentation": 1,
+        "substream_mask": 3,
+        "unit": 1199
+      },
+      {
+        "depth": 22596,
+        "presentation": 2,
+        "substream_mask": 7,
+        "unit": 1199
+      },
+      {
+        "depth": 27160,
+        "presentation": 3,
+        "substream_mask": 15,
+        "unit": 1199
+      }
+    ],
+    "max_data_rate": {
+      "bps": 2849928,
+      "unit": 1259
+    },
+    "max_latency": {
+      "ms": 74.58333333333333,
+      "samples": 3580,
+      "unit": 1128
+    },
+    "min_latency": {
+      "samples": 40,
+      "unit": 1
+    },
+    "model": "docs/truehd.md, Decoder buffer",
+    "restarts": 0,
+    "substreams": [
+      {
+        "allowed": 30000,
+        "depth": 7594,
+        "unit": 1199
+      },
+      {
+        "allowed": 60000,
+        "depth": 9782,
+        "unit": 1199
+      },
+      {
+        "allowed": 30000,
+        "depth": 4334,
+        "unit": 1199
+      },
+      {
+        "allowed": 60000,
+        "depth": 8984,
+        "unit": 1236
+      }
+    ],
+    "whole_stream": {
+      "buffer_every_decoder_has": 120000,
+      "depth": 27160,
+      "unit": 1199
+    }
+  },
+  "clean": true,
+  "crc_present_units": [
+    2400,
+    2400,
+    2400,
+    2400
+  ],
+  "diagnostics": {
+    "counts": {
+      "error": 0,
+      "fatal": 0,
+      "info": 0,
+      "warning": 0
+    },
+    "fail_on": "error",
+    "findings": [],
+    "max_per_rule": 20,
+    "regions": [],
+    "regions_overflow": 0,
+    "rules": [],
+    "schema": 1,
+    "worst": null
+  },
+  "disc": {
+    "model": "docs/truehd.md, Disc formats",
+    "required": [],
+    "rows": [
+      {
+        "disc": "bd",
+        "name": "BD",
+        "reasons": [],
+        "verdict": "yes"
+      },
+      {
+        "disc": "hddvd",
+        "name": "HD DVD",
+        "reasons": [],
+        "verdict": "yes"
+      },
+      {
+        "disc": "dvda",
+        "name": "DVD-A",
+        "reasons": [
+          {
+            "source": "Dolby TrueHD (MLP) High-Level Bitstream Description (2018), section 1",
+            "text": "DVD-Audio carries the FBB syntax; this stream is FBA"
+          }
+        ],
+        "verdict": "no"
+      }
+    ]
+  },
+  "drc_updates": [
+    20,
+    20,
+    20,
+    20
+  ],
+  "extra": {
+    "evolution_blocks": 63,
+    "evolution_frames": 63,
+    "oamd_gains_db": {},
+    "oamd_muted_updates": 0,
+    "oamd_ok": 63,
+    "oamd_sized_updates": 0,
+    "oamd_stale_sizes": 0,
+    "opaque_blocks": 0,
+    "padding_blocks": 0,
+    "payload_bytes": {
+      "11": 3151
+    },
+    "payload_ids": {
+      "11": 63
+    },
+    "protected_frames": 63,
+    "protection": {
+      "containers": 63,
+      "key_ids": {
+        "0": 63
+      },
+      "primary_bytes": {
+        "1": 63
+      },
+      "reserved_primary_code": 0,
+      "secondary_bytes": {
+        "0": 63
+      },
+      "versions": {
+        "0": 63
+      }
+    },
+    "units_with_extra": 63
+  },
+  "failures": {
+    "block_data_bits": 0,
+    "config_changes": 0,
+    "evolution_container_errors": 0,
+    "extra_evolution_parity": 0,
+    "extra_header_parity": 0,
+    "extra_padding_nonzero": 0,
+    "extra_truncated": 0,
+    "framing_errors": 0,
+    "header_parity": 0,
+    "invalid_branches": 0,
+    "major_sync_crc": 0,
+    "major_sync_signature": 0,
+    "oamd_errors": 0,
+    "restart_flag": 0,
+    "resyncs": 0,
+    "sample_count": 0,
+    "segment_crc": 0,
+    "segment_end": 0,
+    "segment_parity": 0,
+    "skipped_bytes": 0,
+    "substream_errors": 0,
+    "terminator_tail": 0,
+    "trailing_bytes": 0,
+    "unexpected_tail": 0
+  },
+  "file": "tests/fixtures/authored-scene.mlp",
+  "file_bytes": 546456,
+  "first_error": null,
+  "first_input_timing": 65421,
+  "first_unit_offset": 0,
+  "foreign_syncs": 0,
+  "last_input_timing": 30358,
+  "lossless_checks": {
+    "evaluated": 84,
+    "failed": 0,
+    "per_presentation": [
+      {
+        "clipped": 0,
+        "error": null,
+        "evaluated": 21,
+        "failed": 0,
+        "first_problem": null,
+        "max_bits_violations": 0,
+        "presentation": 0,
+        "skipped": 0
+      },
+      {
+        "clipped": 0,
+        "error": null,
+        "evaluated": 21,
+        "failed": 0,
+        "first_problem": null,
+        "max_bits_violations": 0,
+        "presentation": 1,
+        "skipped": 0
+      },
+      {
+        "clipped": 0,
+        "error": null,
+        "evaluated": 21,
+        "failed": 0,
+        "first_problem": null,
+        "max_bits_violations": 0,
+        "presentation": 2,
+        "skipped": 0
+      },
+      {
+        "clipped": 0,
+        "error": null,
+        "evaluated": 21,
+        "failed": 0,
+        "first_problem": null,
+        "max_bits_violations": 0,
+        "presentation": 3,
+        "skipped": 0
+      }
+    ],
+    "skipped": 0
+  },
+  "major_syncs": 22,
+  "max_major_sync_interval": 125,
+  "max_unit_bytes": 1182,
+  "min_unit_bytes": 148,
+  "realtime_factor": "<masked>",
+  "seconds": "<masked>",
+  "substreams": [
+    {
+      "blocks": 2422,
+      "crc_segments": 2400,
+      "first_restart": {
+        "error_protect": false,
+        "max_chan": 1,
+        "max_matrix_chan": 1,
+        "min_chan": 0,
+        "sync_word": "0x31EA"
+      },
+      "interpolated_blocks": 0,
+      "matrixing_blocks": 26,
+      "max_blocks_per_segment": 2,
+      "max_primitive_matrices": 2,
+      "protected_blocks": 0,
+      "restart_headers": 22,
+      "segments": 2400,
+      "skipped": 0,
+      "sync_words": {
+        "0x31EA": 22
+      },
+      "terminated_segments": 1,
+      "zero_sample_segments": 1
+    },
+    {
+      "blocks": 2422,
+      "crc_segments": 2400,
+      "first_restart": {
+        "error_protect": false,
+        "max_chan": 5,
+        "max_matrix_chan": 5,
+        "min_chan": 2,
+        "sync_word": "0x31EB"
+      },
+      "interpolated_blocks": 0,
+      "matrixing_blocks": 30,
+      "max_blocks_per_segment": 2,
+      "max_primitive_matrices": 6,
+      "protected_blocks": 0,
+      "restart_headers": 22,
+      "segments": 2400,
+      "skipped": 0,
+      "sync_words": {
+        "0x31EB": 22
+      },
+      "terminated_segments": 1,
+      "zero_sample_segments": 1
+    },
+    {
+      "blocks": 2422,
+      "crc_segments": 2400,
+      "first_restart": {
+        "error_protect": false,
+        "max_chan": 7,
+        "max_matrix_chan": 7,
+        "min_chan": 6,
+        "sync_word": "0x31EB"
+      },
+      "interpolated_blocks": 0,
+      "matrixing_blocks": 44,
+      "max_blocks_per_segment": 2,
+      "max_primitive_matrices": 8,
+      "protected_blocks": 0,
+      "restart_headers": 22,
+      "segments": 2400,
+      "skipped": 0,
+      "sync_words": {
+        "0x31EB": 22
+      },
+      "terminated_segments": 1,
+      "zero_sample_segments": 1
+    },
+    {
+      "blocks": 2422,
+      "crc_segments": 2400,
+      "first_restart": {
+        "error_protect": false,
+        "max_chan": 11,
+        "max_matrix_chan": 11,
+        "min_chan": 8,
+        "sync_word": "0x31EC"
+      },
+      "interpolated_blocks": 124,
+      "matrixing_blocks": 143,
+      "max_blocks_per_segment": 2,
+      "max_primitive_matrices": 9,
+      "protected_blocks": 0,
+      "restart_headers": 22,
+      "segments": 2400,
+      "skipped": 0,
+      "sync_words": {
+        "0x31EC": 22
+      },
+      "terminated_segments": 1,
+      "zero_sample_segments": 1
+    }
+  ],
+  "timing_stats": {
+    "branches": [],
+    "duplicate_candidates": 0,
+    "input_jumps": 0,
+    "invalid_branches": 0,
+    "output_jumps": 0,
+    "peak_rate_changes": 0,
+    "valid_branches": 0
+  },
+  "total_unit_bytes": 546456,
+  "units": 2400
+}
+
+$ oadec emdf --json tests/fixtures/authored-scene.mlp
+exit 0
+[stdout]
+{
+  "bytes": 546456,
+  "clean": true,
+  "container_errors": 0,
+  "containers": 63,
+  "crc_failures": 0,
+  "dependent_frames": 0,
+  "event_times_mod_frame": {},
+  "first_error": null,
+  "frames": 2400,
+  "frames_with_emdf": 63,
+  "independent_frames": 0,
+  "joc_payloads": 0,
+  "loudness": {
+    "boundaries": 0,
+    "dialogue_gated_correction": {},
+    "downmix_offset_lu": {},
+    "payloads": 0,
+    "practices": {},
+    "relative_gated_lufs": {},
+    "short_term_lufs": {
+      "count": 0,
+      "max": null,
+      "min": null
+    },
+    "size_mismatches": 0,
+    "speech_gated_lufs": {},
+    "true_peak_dbtp": {
+      "count": 0,
+      "max": null,
+      "min": null
+    },
+    "unreadable": 0,
+    "versions": {}
+  },
+  "oamd_block_offsets": {
+    "0": 50,
+    "1": 13
+  },
+  "oamd_errors": 0,
+  "oamd_payloads": 63,
+  "oamd_ramps": {
+    "1536": 62,
+    "768": 1
+  },
+  "oamd_sample_offsets": {
+    "0": 26,
+    "16": 13,
+    "24": 12,
+    "8": 12
+  },
+  "oamd_smploffst": {
+    "0": 63
+  },
+  "payload_ids": {
+    "11": 63
+  },
+  "programme_information": {
+    "active_channels": {},
+    "downmix": {},
+    "drc_line": {},
+    "drc_rf": {},
+    "lfe_filter": {},
+    "lfe_monitor_level": {},
+    "payloads": 0,
+    "phase_shift_90": {},
+    "size_mismatches": 0,
+    "surround_attenuation": {},
+    "unreadable": 0,
+    "upmix": {}
+  },
+  "protection": {
+    "containers": 63,
+    "key_ids": {
+      "0": 63
+    },
+    "primary_bytes": {
+      "1": 63
+    },
+    "reserved_primary_code": 0,
+    "secondary_bytes": {
+      "0": 63
+    },
+    "versions": {
+      "0": 63
+    }
+  },
+  "seconds": "<masked>",
+  "skipped_bytes": 0,
+  "sync_errors": 0,
+  "unparsed_frames": 0,
+  "verify": {
+    "clean": true,
+    "first_problem": null
+  }
+}
+
+$ oadec oamd --json tests/fixtures/authored-scene.mlp
+exit 0
+[stdout]
+{
+  "additional_table_data": 0,
+  "alternate_object_data": 0,
+  "basic_status": {
+    "full": 756
+  },
+  "block_offset_factors": {
+    "0": 50,
+    "1": 13
+  },
+  "blocks_per_payload": {
+    "1": 63
+  },
+  "clean": true,
+  "container_errors": 0,
+  "container_sample_offsets": {
+    "0": 63
+  },
+  "crc_failures": 0,
+  "differential_positions": 0,
+  "distances": {
+    "unspecified": 693
+  },
+  "element_ids": {
+    "1": 63
+  },
+  "extra_data_faults": 0,
+  "first_error": null,
+  "first_gain_units": [],
+  "first_size_units": [],
+  "global_trim_modes": {},
+  "inactive_updates": 0,
+  "muted_updates": 0,
+  "object_counts": {
+    "12": 63
+  },
+  "object_gains_db": {},
+  "padding_long": 0,
+  "padding_nonzero": 0,
+  "parse_errors": 0,
+  "payloads": 63,
+  "payloads_with_extended": 0,
+  "payloads_with_trim": 0,
+  "payloads_with_unknown_elements": 0,
+  "per_object_trim_disables": 0,
+  "program": {
+    "bed_chan_distribute": false,
+    "beds": [
+      [
+        "LFE"
+      ]
+    ],
+    "dyn_object_only": true,
+    "dynamic_objects": 11,
+    "isf_index": null,
+    "objects": 12
+  },
+  "program_changes": 0,
+  "ramp_durations": {
+    "1536": 62,
+    "768": 1
+  },
+  "render_status": {
+    "default": 63,
+    "full": 693
+  },
+  "sample_offsets": {
+    "0": 26,
+    "16": 13,
+    "24": 12,
+    "8": 12
+  },
+  "screen_referenced": 0,
+  "seconds": "<masked>",
+  "size_mismatches": 0,
+  "sized_updates": 0,
+  "skipped_bytes": 0,
+  "snapped": 0,
+  "sync_errors": 0,
+  "trailing_bytes": 0,
+  "trim_configs": {},
+  "units": 2400,
+  "units_with_oamd": 63,
+  "unparsed_units": 0,
+  "verify": {
+    "clean": true,
+    "first_problem": null
+  },
+  "warp_modes": {},
+  "zone_constraints": {
+    "0": 693
+  }
+}
+
+$ oadec au --index 0 --json tests/fixtures/authored-scene.mlp
+exit 0
+[stdout]
+{
+  "bytes": 852,
+  "extra": {
+    "container": {
+      "key_id": 0,
+      "payloads": [
+        {
+          "bytes": 50,
+          "id": 11
+        }
+      ],
+      "protection_primary_bytes": 1,
+      "protection_secondary_bytes": 0,
+      "version": 0
+    },
+    "evolution_reserved": 0,
+    "frame_bytes": 58,
+    "header_parity_ok": true,
+    "kind": "evolution",
+    "length_words": 31,
+    "offset": 788,
+    "padding_zero": true,
+    "parity_ok": true,
+    "trailing_bytes": 0
+  },
+  "gap_before": null,
+  "header": {
+    "check_nibble": 12,
+    "input_timing": 65421,
+    "length_words": 426,
+    "parity_ok": true
+  },
+  "major_sync": {
+    "crc_ok": true,
+    "extended_substream_info": 3,
+    "flags": "0x1000",
+    "format_sync": "F8726FBA",
+    "length_bytes": 32,
+    "peak_data_rate": 950,
+    "sampling_frequency": 48000,
+    "substream_info": "0xFC",
+    "substreams": 4,
+    "variable_rate": true
+  },
+  "offset": 0,
+  "seconds": "<masked>",
+  "substreams": [
+    {
+      "bytes": 138,
+      "crc_present": true,
+      "drc_gain_update": -1,
+      "drc_time_update": 7,
+      "end_ptr_words": 69,
+      "extra_word": true,
+      "offset": 52,
+      "restart_nonexistent": false,
+      "segment": {
+        "blocks": 2,
+        "crc_ok": true,
+        "end_ok": true,
+        "length_bits": 1104,
+        "parity_ok": true,
+        "restart": {
+          "crc_ok": true,
+          "error_protect": false,
+          "lossless_check": 0,
+          "max_chan": 1,
+          "max_matrix_chan": 1,
+          "min_chan": 0,
+          "output_timing": 0,
+          "sync_word": "0x31EA"
+        },
+        "sample_count_ok": true,
+        "samples": 40,
+        "terminator": null,
+        "unexpected_tail": false
+      },
+      "substream": 0
+    },
+    {
+      "bytes": 238,
+      "crc_present": true,
+      "drc_gain_update": 0,
+      "drc_time_update": 7,
+      "end_ptr_words": 188,
+      "extra_word": true,
+      "offset": 190,
+      "restart_nonexistent": false,
+      "segment": {
+        "blocks": 2,
+        "crc_ok": true,
+        "end_ok": true,
+        "length_bits": 1904,
+        "parity_ok": true,
+        "restart": {
+          "crc_ok": true,
+          "error_protect": false,
+          "lossless_check": 0,
+          "max_chan": 5,
+          "max_matrix_chan": 5,
+          "min_chan": 2,
+          "output_timing": 0,
+          "sync_word": "0x31EB"
+        },
+        "sample_count_ok": true,
+        "samples": 40,
+        "terminator": null,
+        "unexpected_tail": false
+      },
+      "substream": 1
+    },
+    {
+      "bytes": 106,
+      "crc_present": true,
+      "drc_gain_update": 0,
+      "drc_time_update": 7,
+      "end_ptr_words": 241,
+      "extra_word": true,
+      "offset": 428,
+      "restart_nonexistent": false,
+      "segment": {
+        "blocks": 2,
+        "crc_ok": true,
+        "end_ok": true,
+        "length_bits": 848,
+        "parity_ok": true,
+        "restart": {
+          "crc_ok": true,
+          "error_protect": false,
+          "lossless_check": 0,
+          "max_chan": 7,
+          "max_matrix_chan": 7,
+          "min_chan": 6,
+          "output_timing": 0,
+          "sync_word": "0x31EB"
+        },
+        "sample_count_ok": true,
+        "samples": 40,
+        "terminator": null,
+        "unexpected_tail": false
+      },
+      "substream": 2
+    },
+    {
+      "bytes": 254,
+      "crc_present": true,
+      "drc_gain_update": 0,
+      "drc_time_update": 7,
+      "end_ptr_words": 368,
+      "extra_word": true,
+      "offset": 534,
+      "restart_nonexistent": false,
+      "segment": {
+        "blocks": 2,
+        "crc_ok": true,
+        "end_ok": true,
+        "length_bits": 2032,
+        "parity_ok": true,
+        "restart": {
+          "crc_ok": true,
+          "error_protect": false,
+          "lossless_check": 0,
+          "max_chan": 11,
+          "max_matrix_chan": 11,
+          "min_chan": 8,
+          "output_timing": 0,
+          "sync_word": "0x31EC"
+        },
+        "sample_count_ok": true,
+        "samples": 40,
+        "terminator": null,
+        "unexpected_tail": false
+      },
+      "substream": 3
+    }
+  ],
+  "unit": 0
+}
+
+$ oadec decode tests/fixtures/authored-scene.mlp -p 0 --format pcm -o <out>/p0.pcm
+exit 0
+[stderr]
+decoded 2400 access units, 96000 samples x 2 channels (0:00:02.000), 0 dropped duplicates
+lossless checks: 21 performed, 0 failed; max_bits violations: 0; segment problems: 0
+channels: L R
+speed: <masked>
+done
+[file] p0.pcm: 576000 bytes, FNV-1a 64 0xd6abb45496fcba65
+
+$ oadec decode tests/fixtures/authored-scene.mlp -p 1 --format pcm -o <out>/p1.pcm
+exit 0
+[stderr]
+decoded 2400 access units, 96000 samples x 6 channels (0:00:02.000), 0 dropped duplicates
+lossless checks: 21 performed, 0 failed; max_bits violations: 0; segment problems: 0
+channels: L R C LFE Ls Rs
+speed: <masked>
+done
+[file] p1.pcm: 1728000 bytes, FNV-1a 64 0x5eba7dc9d651269e
+
+$ oadec decode tests/fixtures/authored-scene.mlp -p 2 --format pcm -o <out>/p2.pcm
+exit 0
+[stderr]
+decoded 2400 access units, 96000 samples x 8 channels (0:00:02.000), 0 dropped duplicates
+lossless checks: 21 performed, 0 failed; max_bits violations: 0; segment problems: 0
+channels: L R C LFE Lb Rb Ls Rs
+speed: <masked>
+done
+[file] p2.pcm: 2304000 bytes, FNV-1a 64 0x14e790444d5a58d4
+
+$ oadec decode tests/fixtures/authored-scene.mlp -p 3 --format pcm -o <out>/p3.pcm
+exit 0
+[stderr]
+decoded 2400 access units, 96000 samples x 12 channels (0:00:02.000), 0 dropped duplicates
+lossless checks: 21 performed, 0 failed; max_bits violations: 0; segment problems: 0
+channels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11
+speed: <masked>
+done
+[file] p3.pcm: 3456000 bytes, FNV-1a 64 0xe4a2354114b48b79
+
+$ oadec decode tests/fixtures/authored-scene.mlp --format damf -o <out>/scene
+exit 0
+[stderr]
+decoded 2400 access units, 96000 samples x 12 channels (0:00:02.000), 0 dropped duplicates
+lossless checks: 21 performed, 0 failed; max_bits violations: 0; segment problems: 0
+channels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11
+speed: <masked>
+DAMF: 96000 frames x 21 channels (0:00:02.000) in <out>/scene.atmos.audio
+metadata: 63 payloads in 63 access units, 36 events (0 restating payloads, 0 out-of-order events), 0 payload errors
+done
+[file] scene.atmos
+version: 0.5.1
+presentations:
+  - type: home
+    simplified: false
+    metadata: scene.atmos.metadata
+    audio: scene.atmos.audio
+    offset: 0.0
+    fps: 24
+    scBedConfiguration: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    creationTool: oadec
+    creationToolVersion: <masked>
+    bedInstances:
+      - channels:
+          - channel: L
+            ID: 0
+          - channel: R
+            ID: 1
+          - channel: C
+            ID: 2
+          - channel: LFE
+            ID: 3
+          - channel: Lss
+            ID: 4
+          - channel: Rss
+            ID: 5
+          - channel: Lrs
+            ID: 6
+          - channel: Rrs
+            ID: 7
+          - channel: Lts
+            ID: 8
+          - channel: Rts
+            ID: 9
+    objects:
+      - ID: 10
+      - ID: 11
+      - ID: 12
+      - ID: 13
+      - ID: 14
+      - ID: 15
+      - ID: 16
+      - ID: 17
+      - ID: 18
+      - ID: 19
+      - ID: 20
+[file] scene.atmos.metadata
+sampleRate: 48000
+events:
+  - ID: 3
+    samplePos: 0
+    active: true
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    headTrackMode: undefined
+    binauralRenderMode: off
+  - ID: 10
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 11
+    samplePos: 0
+    active: true
+    pos: [-1, 0, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 12
+    samplePos: 0
+    active: true
+    pos: [1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 13
+    samplePos: 0
+    active: true
+    pos: [0, -1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 14
+    samplePos: 0
+    active: true
+    pos: [0, 0, 1]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 15
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 16
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 17
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 18
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 19
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 20
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 15
+    samplePos: 19968
+    pos: [0, 1, 0]
+  - ID: 11
+    samplePos: 23040
+    pos: [-0.70967746, 0, 0]
+  - ID: 11
+    samplePos: 24576
+    pos: [-0.5483871, 0, 0]
+  - ID: 11
+    samplePos: 26112
+    pos: [-0.516129, 0, 0]
+  - ID: 11
+    samplePos: 47616
+    pos: [-0.12903225, 0, 0]
+  - ID: 11
+    samplePos: 49152
+    pos: [-0.032258093, 0, 0]
+  - ID: 11
+    samplePos: 50688
+    pos: [0, 0, 0]
+  - ID: 11
+    samplePos: 70656
+    pos: [0.16129029, 0, 0]
+  - ID: 11
+    samplePos: 72192
+    pos: [0.4193548, 0, 0]
+  - ID: 11
+    samplePos: 73728
+    pos: [0.48387098, 0, 0]
+  - ID: 11
+    samplePos: 82944
+    pos: [0.516129, 0, 0]
+  - ID: 11
+    samplePos: 93696
+    pos: [0.6774193, 0, 0]
+  - ID: 3
+    samplePos: 95232
+    rampLength: 768
+  - ID: 10
+    samplePos: 95232
+    rampLength: 768
+  - ID: 11
+    samplePos: 95232
+    pos: [0.9032258, 0, 0]
+    rampLength: 768
+  - ID: 12
+    samplePos: 95232
+    rampLength: 768
+  - ID: 13
+    samplePos: 95232
+    rampLength: 768
+  - ID: 14
+    samplePos: 95232
+    rampLength: 768
+  - ID: 15
+    samplePos: 95232
+    rampLength: 768
+  - ID: 16
+    samplePos: 95232
+    rampLength: 768
+  - ID: 17
+    samplePos: 95232
+    rampLength: 768
+  - ID: 18
+    samplePos: 95232
+    rampLength: 768
+  - ID: 19
+    samplePos: 95232
+    rampLength: 768
+  - ID: 20
+    samplePos: 95232
+    rampLength: 768
+[file] scene.atmos.audio: 6048068 bytes, FNV-1a 64 0x4146ba35076be9d0
+
