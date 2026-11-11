@@ -367,6 +367,7 @@ dependencies = [
  "oadec-emdf",
  "oadec-joc",
  "oadec-spatial",
+ "oadec-synth",
  "oadec-truehd",
  "serde",
  "serde_json",
@@ -415,6 +416,14 @@ version = "0.8.0"
 dependencies = [
  "oadec-emdf",
  "thiserror",
+]
+
+[[package]]
+name = "oadec-synth"
+version = "0.8.0"
+dependencies = [
+ "oadec-bits",
+ "oadec-truehd",
 ]
 
 [[package]]

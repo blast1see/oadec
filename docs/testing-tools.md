@@ -166,3 +166,43 @@ the protection it had.
 On a sound stream a repair changes no byte. That is its test: the fixtures in
 `cargo test`, and every stream of the work directory by hand
 (`docs/audit/evidence/engine-round-2026-11/09-checksum-repair.json`).
+
+# Streams written from a recipe
+
+`crates/oadec-synth` writes TrueHD and MLP streams from recipes: a layout, a
+plan that says what codes each block, and the samples. It is there for the
+syntax no encoder on hand will write, and for anything that has to be decoded
+to samples that are known beforehand (`docs/truehd.md`, *Streams written from
+a recipe*).
+
+```sh
+cargo run -p oadec-synth -- list                              # the recipes, and what each carries
+cargo run -p oadec-synth -- write fir-orders a.thd a.pcm      # one stream, and its samples as 24-bit PCM
+cargo run -p oadec-synth -- all <directory>                   # every recipe
+cargo test -p oadec-synth                                     # the writer, the recipes, the record
+```
+
+The writer shares no code with the decoder, and that is not enough to make a
+stream a reference: both were written by one hand from one reading of the
+format. The reference is what outside decoders make of the stream.
+
+```sh
+cargo build --release -p oadec-synth -p oadec-cli
+python tools/synth_accept.py --out <directory>                # FFmpeg, truehdd and Dolby's decoder on every recipe
+python tools/synth_accept.py --out <directory> --record       # and rewrite crates/oadec-synth/specs/digests.tsv
+```
+
+`synth_accept.py` runs FFmpeg, `truehdd` and, where the Dolby Reference
+Player is installed, Dolby's decoder on each stream and compares what they
+write with the samples of the recipe, byte for byte. A recipe is confirmed
+when two of them give the samples. `--record` writes the digests of every
+stream and of its samples with the decoders that gave them, the ones that gave
+others and the ones that refused; it writes nothing while a recipe lacks its
+two. `cargo test` holds the writer to that file, so a stream cannot change
+without having been in front of the decoders again.
+
+A new recipe goes into `src/recipe.rs` with the tools a census of it has to
+name, and into the record by a run with `--record`; the two are committed
+together. A recipe on which the decoders disagree is still a recipe, and the
+disagreement is in the record: `filter-at-restart` is there because FFmpeg
+reads it otherwise than `truehdd` and Dolby's decoder do.

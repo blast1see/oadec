@@ -1,0 +1,23 @@
+[package]
+name = "oadec-synth"
+description = "TrueHD and MLP streams written from a recipe, to give the decoder syntax no real material carries"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+# The writer does not depend on the decoder it is there to test: the syntax
+# and the arithmetic are written here a second time, from docs/truehd.md.
+# Only the CRC and parity primitives are shared. The decoder is a dependency
+# of the tests alone.
+[dependencies]
+oadec-bits.workspace = true
+
+[dev-dependencies]
+oadec-truehd.workspace = true
+
+[lints]
+workspace = true

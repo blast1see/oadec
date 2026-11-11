@@ -25,5 +25,9 @@ clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
+# The streams the command-line tests write for themselves.
+[dev-dependencies]
+oadec-synth.workspace = true
+
 [lints]
 workspace = true
