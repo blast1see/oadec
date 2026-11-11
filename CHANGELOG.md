@@ -8,14 +8,39 @@ Semantic Versioning.
 
 ### Added
 
+- **The written streams reach over the channels: matrices, noise, output
+  shifts, channel assignments.** `oadec-synth` undoes what it is told to
+  write: the output shift is taken off the samples and each matrix is
+  inverted, the last first, so the samples of a recipe stay what a decoder
+  has to give back. Twelve more recipes, 38 in all: one to eight matrices at
+  0 to 14 fractional bits, coefficients on the two noise channels of a
+  `0x31EA` substream (which no real stream has), the noise register running
+  on or set anew by each restart header, a bypassed bit, a quantiser step
+  under a matrix, output shifts, and the two channels sent to each other's
+  output. Every one is confirmed by two outside decoders, 33 of the 38 by
+  every decoder asked, and `oadec` decodes all 38 to their samples with
+  nothing for `verify` to find
+  (`docs/audit/evidence/engine-round-2026-11/11-synthetic-matrices.json`).
+  `docs/truehd.md` states the matrix syntax of `0x31EA` and the rule of its
+  noise register.
+- **A bypassed bit over a quantiser step, where Dolby's decoder and the
+  public ones part.** A matrix cuts its sum to the quantiser step of the
+  channel it writes, and may add one bit sent apart. No real stream has a
+  matrix that does both: none of 242.8 million matrices in force in the
+  blocks of 55 streams. On a stream that does, FFmpeg and `truehdd` give
+  `(sum & mask) + bit`, as `oadec` does, and Dolby's decoder gives
+  `sum + bit`, measured on four streams, every sample of each. `oadec` is
+  left as it is and the difference is recorded with the recipe
+  (`bypass-over-step`). The same streams found that `truehdd` reads the two
+  noise channels right only at a shift of 0.
 - **TrueHD and MLP streams written from recipes.** An encoder chooses, and
   what no encoder chooses no stream carries. `crates/oadec-synth` writes the
   streams: a recipe is a layout, a plan that says what codes each block, and
   the samples, which are known before any decoder has read a byte. The writer
   shares no code with the decoder; it holds the block syntax and the
   arithmetic a second time, from the encoding side, and `docs/truehd.md` now
-  states that syntax field by field. The 26 recipes cover one substream
-  without a matrix in both syntaxes: the three code books, the offset at both
+  states that syntax field by field. The first 26 recipes cover one
+  substream without a matrix in both syntaxes: the three code books, the offset at both
   ends of its range, both filters at every order, coded filter states,
   coefficient shifts, quantiser steps, one to four blocks to a unit, the six
   sampling rates, major syncs 8 and 128 units apart, silence and full scale.

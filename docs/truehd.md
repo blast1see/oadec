@@ -143,9 +143,19 @@ makes it 0. With `error_protect` the data is preceded by `block_data_bits:16`
 and followed by `block_header_crc:8`. `last_block_in_segment:1` closes the
 block.
 
-The matrix syntax for the three sync words (two extra noise columns for
-`0x31EA`; `cf_mask`, `cf_shift_code`, `lsb_bypass_bit_count` and delta
-coefficients for `0x31EC`) is documented inline in
+**The matrices** of a `0x31EA` substream are `primitive_matrices:4` and then,
+for each, `matrix_ch:4` (the channel it writes), `frac_bits:4` (0 to 14),
+`lsb_bypass_used:1`, and a coefficient for each channel up to the last matrix
+channel and for two noise channels after them: a flag, and behind a flag that
+is set the coefficient in `frac_bits + 2` bits of two's complement, in units
+of `2^-frac_bits`. A flag of 0 is a coefficient of 0. All the matrices are
+sent again when any changes, and a restart header leaves none. A matrix with
+`lsb_bypass_used` adds one bit to every sample of the block data, in front of
+the codes of the channels: the matrices in order, a bit each.
+
+A `0x31EB` substream has no noise channels and a `dither_scale:4` behind each
+matrix. The syntax of `0x31EC` (`cf_mask`, `cf_shift_code`,
+`lsb_bypass_bit_count`, delta coefficients) is documented inline in
 `crates/oadec-truehd/src/matrix.rs`.
 
 A segment of a `0x31EA` substream holds four blocks at most, one of the other
@@ -167,7 +177,11 @@ excerpt, which is how badly the branch predictor fares on Huffman codes.
   is something no real stream shows and a written one does: see *Streams
   written from a recipe* below.
 * Rematrixing (18 fractional bits, `i64` accumulators): `0x31EA` feeds two noise
-  samples per position from the 23-bit register; `0x31EB` and `0x31EC` add a
+  samples per position from the 23-bit register `r`: the byte from bit 15 up
+  and the byte from bit 7 up, each a signed number shifted left by
+  `dither_shift`, after which `r` becomes `((r >> 7) ^ ((r >> 7) << 5) ^
+  (r << 16)) & 0x7FFFFF`. A restart header states the register, and the first
+  sample after it is drawn from what it states. `0x31EB` and `0x31EC` add a
   dither value from a 256-entry table indexed by
   `((P − pmi)(2n + 1) + n) mod 2^k`, shifted by `11 + dither_scale`; `0x31EC`
   adds `(Σ in·D >> 18) · n · ((65536 / spa) << 2)` and does `M += D` at the end
@@ -334,25 +348,35 @@ front of the decoders again; and they hold the decoder to the samples, `verify`
 to finding nothing, and the census of each stream to the tools its recipe
 says it carries.
 
-What the 26 recipes cover so far is one substream of one or two channels
-without a matrix, in the TrueHD and the DVD-Audio syntax: no filter and no
+What the 38 recipes cover so far is one substream of one or two channels in
+the TrueHD and the DVD-Audio syntax. Under the channels: no filter and no
 book, the three books, the offset at both ends of its range, `huff_lsbs` wider
 than the samples need, filter A at every order and precision, filter B at
 every order with and without a state, both filters on a channel in every
 split of eight taps, coefficient shifts, quantiser steps with and without a
 filter over them, one to four blocks to a unit with the coding changing
 inside it, the six sampling rates, major syncs 8 and 128 units apart, digital
-silence, full scale, and segments without their check bytes. Matrices,
-several substreams, output shifts and error protection are not written yet.
+silence, full scale, and segments without their check bytes. Over the
+channels: one to eight matrices at 0 to 14 fractional bits, a channel kept or
+turned over, coefficients on the two noise channels with the register running
+on or set anew at every restart header, the noise shifted, a bypassed bit, a
+quantiser step under a matrix, output shifts of 1 to 7 bits, and the two
+channels sent to each other's output. Several substreams, the matrices of the
+other two sync words and error protection are not written yet.
 
-Measured (`docs/audit/evidence/engine-round-2026-11/10-synthetic-truehd.json`):
-every recipe is confirmed by two decoders at least, 23 of the 26 by every
-decoder asked. Dolby's decoder is not asked for the three in the DVD-Audio
-syntax. It gives the samples of 22 of the other 23; of digital silence, whose
-access units are ten bytes long, the parser element in front of it hands on
-7 of 16, and the decoder then has no frame to decode. `truehdd` gives 25 and
-refuses the recipe with four blocks to a unit, which it limits to three.
-FFmpeg gives 25 and differs on one, and that one is the finding below.
+Measured (`docs/audit/evidence/engine-round-2026-11/10-synthetic-truehd.json`
+for the first 26, `11-synthetic-matrices.json` for the 12 over the channels):
+every recipe is confirmed by two decoders at least, 33 of the 38 by every
+decoder asked. Dolby's decoder is not asked for the four in the DVD-Audio
+syntax. Each of the other five is a fact about one decoder:
+
+| Recipe | The decoder that reads it otherwise | What it does |
+|---|---|---|
+| `silence` | Dolby's | no output: of 16 access units of ten bytes the parser element in front of the decoder hands on 7 |
+| `blocks-four` | `truehdd` | refuses four blocks to a unit; it takes three |
+| `filter-at-restart` | FFmpeg | keeps the filter histories across a restart header (below) |
+| `matrix-noise-shifted` | `truehdd` | decodes to samples that fail its own lossless check: it reads the noise channels right at a shift of 0 and not at any other |
+| `bypass-over-step` | Dolby's | does not cut the sum to the quantiser step (below) |
 
 ### The filter histories after a restart header
 
@@ -376,6 +400,31 @@ and by nothing that was in the suite before it.
 Every other recipe codes the eight samples at a restart header as encoders
 do, without a filter (`AtRestart::Unfiltered`), so that all three decoders
 can judge what it is about.
+
+### A bypassed bit over a quantiser step
+
+A matrix writes its channel as the sum cut to the quantiser step of that
+channel, and with `lsb_bypass_used` one bit from the stream is added. What
+happens when a matrix has both, a step to cut to and a bit to add, is again
+something no real stream says: of 242.8 million matrices in force in the
+blocks of 55 streams, 1.8 million send a bypassed bit and 65 million write a
+channel with a step, and none does both.
+
+The recipe `bypass-over-step` does both. FFmpeg and `truehdd` cut the sum and
+add the bit, `(sum & mask) + bit`, as this decoder does, and give the samples
+of the recipe. Dolby's decoder gives the sum as it is with the bit added,
+`sum + bit`: on four streams written for the purpose, with the bit clear and
+with it set, with the step on one channel and on both, that reading gives
+every one of its samples, 640 of 640 each time, and the other gives 37 to 39.
+With a step and no bypassed bit, and with a bypassed bit and no step, the
+four decoders agree (`matrix-steps`, `matrix-bypass`).
+
+So on this one point the decoder of the format's owner stands against the two
+public decoders this one was derived from, and `oadec` is on the side of the
+two. It stays there for now, and the recipe is recorded with Dolby's decoder
+among those that gave other samples: no stream that exists is decoded
+differently either way, and which reading is the format's is not for a count
+of decoders to settle. `11-synthetic-matrices.json` has the measurements.
 
 ## Decoder buffer
 
