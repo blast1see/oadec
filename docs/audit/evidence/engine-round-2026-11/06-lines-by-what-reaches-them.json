@@ -1,0 +1,42 @@
+{
+ "question": "Which lines of the decoder does nothing run, which are run only by bitstreams built by hand, and which only by what encoders write?",
+ "method": "Two line-coverage records of one tree, made with cargo-llvm-cov. The tests: `cargo llvm-cov --workspace --locked --lcov --output-path tests.lcov`, every unit, command-line and transcript test. The media: `python tools/cov_regions.py run --lcov media.lcov --tmp DIR` over the TrueHD heads, the AC-3 and E-AC-3 heads, the clips and the committed fixtures, which builds one instrumented release binary and runs every reporting command and every delivery over each stream: 124 streams, 1,456 commands, none that did not run (the one whole film of the work directory is over the tool's size limit and is not among them). `python tools/cov_regions.py diff tests.lcov media.lcov` takes the lines of the build that ships as the universe, without test modules, and sorts each by what ran it. Measured on this branch before it was moved onto the extractor fix of evidence 04, which changes lines of one file, extract.rs.",
+ "result": {
+  "lines": 16917,
+  "reached_by_both": 11002,
+  "by_the_tests_only": 3279,
+  "by_the_media_only": 321,
+  "by_neither": 2315,
+  "by_crate": {
+   "oadec-truehd": {"lines": 3388, "both": 2474, "tests_only": 619, "media_only": 7, "neither": 288},
+   "oadec-eac3": {"lines": 3061, "both": 2123, "tests_only": 612, "media_only": 86, "neither": 240},
+   "oadec-emdf": {"lines": 1086, "both": 663, "tests_only": 371, "media_only": 3, "neither": 49},
+   "oadec-joc": {"lines": 374, "both": 304, "tests_only": 30, "media_only": 0, "neither": 40},
+   "oadec-spatial": {"lines": 1473, "both": 1145, "tests_only": 178, "media_only": 5, "neither": 145},
+   "oadec-bits": {"lines": 268, "both": 100, "tests_only": 147, "media_only": 0, "neither": 21},
+   "oadec-cli": {"lines": 7267, "both": 4193, "tests_only": 1322, "media_only": 220, "neither": 1532}
+  },
+  "where_only_the_media_reaches": {
+   "oadec-cli/src/eac3.rs": 154,
+   "oadec-eac3/src/frame.rs": 61,
+   "oadec-cli/src/au_dump.rs": 41,
+   "oadec-eac3/src/vq.rs": 10,
+   "oadec-cli/src/emdf.rs": 10,
+   "oadec-cli/src/oamd.rs": 10,
+   "oadec-eac3/src/bsi.rs": 8,
+   "oadec-eac3/src/program.rs": 6
+  },
+  "files_nothing_reaches_at_all": {
+   "oadec-cli/src/author.rs": 140,
+   "oadec-cli/src/joc_config.rs": 75,
+   "oadec-cli/src/joc_offset.rs": 58
+  },
+  "what_the_unreached_lines_of_the_truehd_core_are": {
+   "block.rs, 39 lines": "the refusals of field values no stream holds (FIR plus IIR order over 8, two filters with different precisions, huff_lsbs or an output shift over its limit, block_data_bits over its limit), the read of a new guard byte, and the message for block data that ends inside a sample",
+   "decoder.rs, 82 lines": "the refusals of a recorrelated value or an IIR input out of range, a block before a restart header and a directory entry or segment outside its unit, and `conceal_unit`, the silence written for a unit whose framing cannot be read",
+   "filter.rs, 14 lines; restart.rs, 21; matrix.rs, 7": "refusals again: coefficient precision or width outside its range, max_bits that differs from its repeat, a channel range or assignment beyond max_matrix_chan or repeated, a matrix that writes beyond it or has more than 14 fractional bits",
+   "huffman.rs, 17 lines": "not untested: a const fn the compiler runs to build the tables, which no profile of a run can count"
+  }
+ },
+ "reading": "Two thirds of the decoder is run both by the tests and by real streams. The fifth that only the tests run is mostly what it should be, the handling of damage and of values an encoder does not write, which no clean stream can reach. The 321 lines only real streams run are the ones to watch, because nothing CI can run touches them: they are nearly all in the AC-3 family (the E-AC-3 coding tools the one fixture does not use, the vector quantisation table among them, and the report lines for them) and in the access-unit dump. That is the count behind the plan to write AC-3 material: the TrueHD core has 7 such lines, the AC-3 core 86. Of what nothing runs, three files are whole commands without a test (the scene author and the two commands that rewrite one JOC field for a measurement, 273 lines), and the rest of the command line's share is report and error text. In the TrueHD core the unreached lines are refusals of values that only a damaged or hostile stream holds, plus the concealment of a unit whose framing fails; the fuzz targets of evidence 07 are what runs those, and the seeded run there reaches 120 lines of that crate that no other test does. A line that was run is not a line that was checked: this sorts the code by what executes it and says nothing about whether anything asserts on the result."
+}
