@@ -8,6 +8,28 @@ Semantic Versioning.
 
 ### Added
 
+- **Fuzz targets for every parser and decoder, and a seeded fuzz run in
+  `cargo test`.** The robustness tests were bit flips driven from Python, one
+  process a trial, and asked one thing: no silent exit. A new crate,
+  `oadec-fuzz`, holds eight functions that take bytes and assert what has to
+  hold of any input: the TrueHD extractor, the access-unit and segment
+  parsers, the TrueHD decoder, the EMDF container in both its carriages, the
+  OAMD and JOC payloads, and the frame and programme decoders of the AC-3
+  family. They assert more than "no panic": a stream read whole and read in
+  pieces gives the same units, a segment parses the same with and without the
+  place of a failure, two decodes of the same bytes give the same samples.
+  The seeded run cuts seeds from the committed fixtures, changes them with a
+  generator that has a seed and runs each target on the result, 300 rounds a
+  target on every `cargo test` and as many as `OADEC_FUZZ_ITERS` asks. Its
+  first long run found the three faults of the extractor fixed below
+  (`docs/testing-tools.md`,
+  `docs/audit/evidence/engine-round-2026-11/07-fuzz-targets.json`).
+- **libFuzzer over the same targets.** `fuzz/` wraps each function for
+  `cargo fuzz`, and the `fuzz` workflow runs them on Linux each week, by
+  hand, and on a pull request that touches the targets, with the corpus
+  seeded from the fixtures. It does not gate other pull requests. With the
+  MSVC toolchain libFuzzer links only where the toolset's C++
+  AddressSanitizer component is installed.
 - **TrueHD at 44.1, 88.2, 176.4 and 192 kHz is tested.** No title in the
   library carries these rates, so the conformance matrix had them as not
   testable. Streams FFmpeg's TrueHD encoder wrote at all six rates it writes,
