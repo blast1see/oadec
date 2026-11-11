@@ -14,10 +14,16 @@ containers and every coding tool the encoder chose.
 
     python tools/sweep.py "films-a" "films-b" --out oadec-work/sweep
     python tools/sweep.py "films-a" --codecs ac3,eac3 --out oadec-work/sweep-ddp
+    python tools/sweep.py "films-a" --codecs truehd,mlp --seconds 0 --out oadec-work/sweep-whole
     python tools/sweep.py --report oadec-work/sweep/report.json
 
 Heads that verify clean are deleted; anything with a failure is kept next to
-the report so it can be looked at.
+the report so it can be looked at. `--seconds 0` reads whole tracks instead of
+heads, for the syntax an encoder uses once an hour.
+
+A TrueHD or MLP row also carries the census of the stream (`verify --census`):
+how often each element of the syntax occurs. `tools/census.py` adds the rows up
+and names what no track carries.
 """
 
 from __future__ import annotations
@@ -71,20 +77,22 @@ def head(path: Path, stream_index: int, codec: str, out: Path, seconds: int) -> 
     fmt, _ = FORMATS[codec]
     cmd = [
         FFMPEG, "-v", "error", "-y", "-i", str(path),
-        "-map", f"0:{stream_index}", "-c", "copy", "-t", str(seconds),
+        "-map", f"0:{stream_index}", "-c", "copy",
+        # 0 seconds is the whole track
+        *(["-t", str(seconds)] if seconds else []),
         "-f", fmt, str(out),
     ]
     try:
-        subprocess.run(cmd, capture_output=True, timeout=900)
+        subprocess.run(cmd, capture_output=True, timeout=900 if seconds else 7200)
     except subprocess.SubprocessError:
         return False
     return out.exists() and out.stat().st_size > 0
 
 
-def verify(oadec: str, path: Path) -> dict:
+def verify(oadec: str, path: Path, census: bool = False) -> dict:
     try:
         res = subprocess.run(
-            [oadec, "verify", "--json", str(path)],
+            [oadec, "verify", "--json", *(["--census"] if census else []), str(path)],
             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800,
         )
         return json.loads(res.stdout)
@@ -167,11 +175,12 @@ def main() -> int:
                 row |= {"clean": False, "first_error": "the head could not be written"}
                 report.append(row)
                 continue
-            v = verify(args.oadec, out)
+            v = verify(args.oadec, out, census=codec in ("truehd", "mlp"))
             row |= {
                 "clean": bool(v.get("clean")),
                 "format": v.get("format") or v.get("syntax") or codec,
                 "coverage": v.get("coverage"),
+                "census": v.get("census"),
                 "first_error": v.get("first_error"),
                 "objects": v.get("object_presentation") or v.get("joc") is not None,
                 # which JOC downmix configuration and how many objects: the
