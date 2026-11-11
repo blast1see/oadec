@@ -1,0 +1,60 @@
+{
+ "question": "Does making the command line a library, with the binary a call of its `run`, change anything the tool reports or delivers?",
+ "method": "`crates/oadec-cli/src/main.rs` was renamed to `src/lib.rs`, its `fn main` became `pub fn run`, which takes the arguments as an iterator, and a new `main.rs` passes it `std::env::args_os()`; no module was edited. Two release binaries (`cargo build --release --locked -p oadec-cli`): main after the toolchain and the locks moved, the third binary of evidence 01, and the split. They were compared with `python tools/old_new.py --decode-all` over the 125 streams of evidence 01: exit codes, every field of `verify --json` and `info --json`, every line of `verify`, and every file each delivery leaves behind. The split was then rebased onto main, which had gained two files outside `crates/` (`git diff --stat` between the commit that was measured and the commit that is merged names CHANGELOG.md and evidence 02 and nothing else), and built again; that binary was compared over the ten committed fixtures and run through the media suite. A binary names one build, not its sources: this toolchain's linker does not give the same bytes twice, so two builds of one tree have different digests.",
+ "binaries": {
+  "main, rustc 1.99.1, updated locks": "3864763a9374e3a61521a09ef54e0b0abbf674cdfb17f550d6fbcc79cdc90068",
+  "the split, as measured over the 125 streams": "e9b0fb4c91783d88d787be27a27e83e1d6ea763cce6b3e7a17cca1019765e460",
+  "the split, rebased, as measured over the fixtures and by the media suite": "7dd74396fa308b2ecf2a2108bc9db17243ef3285c93acd63be1db24dad5fa802"
+ },
+ "result": {
+  "the_125_streams": {
+   "streams": 125,
+   "streams_changed": 0,
+   "fields_added": [],
+   "deliveries": {
+    "pcm -p N (TrueHD and MLP, presentations 0 to 3)": {
+     "runs": 220,
+     "wrote_output": 202,
+     "bytes_compared": 30402893100,
+     "exit_codes": {"0": 198, "2": 18, "7": 4}
+    },
+    "pcm (AC-3 and E-AC-3, the programme)": {
+     "runs": 70,
+     "wrote_output": 70,
+     "bytes_compared": 4058892288,
+     "exit_codes": {"0": 61, "7": 9}
+    },
+    "pcm --core-only (AC-3 and E-AC-3)": {
+     "runs": 70,
+     "wrote_output": 70,
+     "bytes_compared": 3823884288,
+     "exit_codes": {"0": 61, "7": 9}
+    },
+    "damf": {
+     "runs": 125,
+     "wrote_output": 64,
+     "bytes_compared": 26139214573,
+     "exit_codes": {"0": 56, "2": 61, "7": 8}
+    },
+    "adm": {
+     "runs": 125,
+     "wrote_output": 64,
+     "bytes_compared": 26155503004,
+     "exit_codes": {"0": 56, "2": 61, "7": 8}
+    }
+   },
+   "bytes_compared_in_all": 90580387253
+  },
+  "the_rebased_build": {
+   "fixtures": "10 streams, 0 changed, no fields added; 41,212,859 bytes of deliveries compared",
+   "media_suite": "28 of 28 tests pass (`cargo test --release --locked -p oadec-cli --test real -- --ignored` with the work directory as OADEC_MEDIA)"
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; the transcripts of the pull request before this one among them, unchanged",
+   "python tools/mutants.py --check": "95 mutations, the text of every one is in its file; three of them moved with main.rs to lib.rs"
+  }
+ },
+ "reading": "Nothing moved. The split is a rename and a function signature, and the tool says and delivers what it did on every stream there is to try it on. What the library offers is `run` alone: every module is as private as it was, so this buys nothing yet but the place to put what the next pull requests need in reach of a test. The counts are those of evidence 01 to the byte, as they should be for the same streams and commands."
+}
