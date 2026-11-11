@@ -540,6 +540,59 @@ MUTANTS = [
      'crates/oadec-cli/src/scan.rs',
      '        self.coverage = self.census.tools();',
      '        self.coverage = Vec::new();'),
+    # The arithmetic of the TrueHD decoder. The first of these passed every
+    # test until a stream was written that has a filter in force at a restart
+    # header, which no encoder writes (crates/oadec-synth, `filter-at-restart`).
+    ('the filter histories kept across a restart header',
+     'crates/oadec-truehd/src/decoder.rs',
+     '''        self.fir_hist = [[0; FILTER_ORDER]; MAX_CHANNELS];
+        self.iir_hist = [[0; FILTER_ORDER]; MAX_CHANNELS];
+        self.m = ''',
+     '''        self.m = '''),
+    ('the state sent with filter B not loaded',
+     'crates/oadec-truehd/src/decoder.rs',
+     '                    sd.iir_hist[ch] = ss.iir[ch].state;',
+     '                    let _ = ss.iir[ch].state;'),
+    ('the shift of a filter state dropped',
+     'crates/oadec-truehd/src/filter.rs',
+     '                    reader.read_signed(state_bits)? << state_shift',
+     '                    reader.read_signed(state_bits)?'),
+    ('the shift of the filter coefficients dropped',
+     'crates/oadec-truehd/src/filter.rs',
+     'let coeff = reader.read_signed(u32::from(fc.coeff_bits))? << fc.coeff_shift;',
+     'let coeff = reader.read_signed(u32::from(fc.coeff_bits))?;'),
+    ('the prediction added without the cut to the quantiser step',
+     'crates/oadec-truehd/src/decoder.rs',
+     '            let out = residual + (pred & mask);',
+     '            let out = residual + pred;'),
+    ('filter B fed the output where it takes the prediction error',
+     'crates/oadec-truehd/src/decoder.rs',
+     '            let iir_in = out - pred;',
+     '            let iir_in = out;'),
+    ('a channel with filter B alone predicted at the precision of filter A',
+     'crates/oadec-truehd/src/decoder.rs',
+     '''        let shift = if fir_order != 0 {
+            fir.coeff_q
+        } else {
+            iir.coeff_q
+        };''',
+     '''        let shift = fir.coeff_q;'''),
+    ('the sign of a sample under book 3 with no bits under the code',
+     'crates/oadec-truehd/src/block.rs',
+     '            if shift < 0 { 0 } else { 1i64 << shift }',
+     '            1i64 << shift.max(0)'),
+    ('huff_lsbs after a restart header, 24 -> 23',
+     'crates/oadec-truehd/src/state.rs',
+     '            huff_lsbs: [24; MAX_CHANNELS],',
+     '            huff_lsbs: [23; MAX_CHANNELS],'),
+    ('the block size after a restart header, 8 -> 16',
+     'crates/oadec-truehd/src/state.rs',
+     '            block_size: 8,',
+     '            block_size: 16,'),
+    ('the offset of the sample coding taken off instead of added',
+     'crates/oadec-truehd/src/block.rs',
+     '            bias: i64::from(ss.huff_offset[ch]) - sign,',
+     '            bias: -i64::from(ss.huff_offset[ch]) - sign,'),
 ]
 
 
