@@ -29,11 +29,11 @@
   },
   "fuzz_targets_that_repair_first": {
    "targets": ["truehd_unit_repaired", "truehd_decode_repaired"],
-   "seeded_run": "PENDING",
+   "seeded_run": "seed 0, 200,000 rounds for each of the ten targets, and seeds 1 to 3 for the two that repair first, all with overflow checks and debug assertions on: no failure",
    "libfuzzer": "PENDING"
   },
   "frame_rewriting_commands": "`eac3-joc-config`, `eac3-joc-offset` and `eac3-ecpl-inject` on the committed E-AC-3 fixture and on a head of the work directory: the same exit code, the same messages and the same bytes from main and from this branch, six runs of six",
-  "mutations": "PENDING"
+  "mutations": "eight, all caught: the parser reading on past a restart header whose CRC is wrong (by a test of the parser and one of the repair), the CRC of a restart header written a bit late, the CRC of a major sync computed over the CRC as well, the check nibble computed over the header alone, the segment parity without its constant, the parity byte written into the frame it wraps, crc1 taken back sixteen bits too far, crc2 without the sixteen zero bits"
  },
  "reading": "The repair writes what encoders write: on 9.1 million access units and 143 thousand syncframes of real material it has nothing to change, down to the CRC of a restart header that starts two bits into a segment. That is a stronger statement than the tests of the parsers make, which only ever read a checksum; this computes each one from the bytes and lands on the stored value every time. What it buys is reach. A change behind a checksum used to end at the checksum, in the tests and in the fuzzers alike; the two fuzz targets that repair first hand the decoder changed coefficients and samples it would otherwise have replaced by silence. Its limits are stated and tested: the lossless check is left wrong on purpose, because it speaks of the samples, and the keyed protection of the metadata is not computed anywhere in this repository, so a payload changed under it is a payload a real decoder with the key would refuse. A repaired stream is consistent bytes, not restored audio, which is why the command is hidden."
 }
