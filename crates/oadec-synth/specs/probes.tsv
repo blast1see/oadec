@@ -1,0 +1,15 @@
+# What the decoders did with the probes of `oadec-synth`.
+#
+# Written by `tools/synth_accept.py --record` and by nothing else. A line is a
+# probe: its name, the SHA-256 of the stream, the SHA-256 of the samples the
+# writer made it from as 24-bit little-endian PCM, the decoders that gave
+# those samples, the ones that gave others, and the ones that would not read
+# the stream (`-` for none). A probe is past a bound of the format or in a
+# field whose meaning is not public: the lists say what each decoder does
+# there and not what is right.
+probe-five-blocks	707eaa69159803ee30ca63fb3eda6f91e098ccd7829800969438881a29cd29aa	948c93dfa307cb15084e71842be76a1d4eb1a942bad32be7c8c811cc239d3448	ffmpeg,dolby	-	truehdd
+probe-sync-every-four	03e38c3bc93606cb8e5b759de751c82599171b6b59612a99e4490bc4b9e3d854	948c93dfa307cb15084e71842be76a1d4eb1a942bad32be7c8c811cc239d3448	ffmpeg,dolby	-	truehdd
+probe-sync-every-unit	e268f8b621a3fe9e92110771648ce1e8bb8455cdf3a07fe8618b645673b40db3	948c93dfa307cb15084e71842be76a1d4eb1a942bad32be7c8c811cc239d3448	ffmpeg,dolby	-	truehdd
+probe-nine-matrices	e6a24bcada502dd88ed37af2a46bc1dd97aee7ecd35f14b7ce3292da35f8fd9c	8d9eaa7c421c41e2b1564ed02b6e237f08f70d9a0d8c15c9f33ec0e96a4a9797	truehdd	-	ffmpeg,dolby
+probe-protected	ae50bfacbe87b6bb299650ee6eb3e9e4048aa1ca6cf73ec81e83a0faec600ad5	7b0fabe6913113ea2e81b1c8cf4fa37e5e2dd211e4d892305acd0ea2fcc635da	ffmpeg,truehdd	-	dolby
+probe-protected-counting-itself	bb8ad01c9ff8bcec8b91f63b1ae279478c5e22de6d7556ef7795c8fc1376789a	7b0fabe6913113ea2e81b1c8cf4fa37e5e2dd211e4d892305acd0ea2fcc635da	ffmpeg	-	truehdd,dolby

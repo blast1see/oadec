@@ -81,6 +81,13 @@ impl BitWriter {
         }
     }
 
+    /// Writes every bit of `other` after the bits written so far.
+    pub fn append(&mut self, other: &Self) {
+        for i in 0..other.bits {
+            self.put(1, u64::from(other.bytes[i / 8] >> (7 - i % 8) & 1));
+        }
+    }
+
     /// Writes zero bits up to the next multiple of `to` bits.
     pub fn align(&mut self, to: usize) {
         while !self.bits.is_multiple_of(to) {
@@ -119,6 +126,22 @@ mod tests {
         assert_eq!(w.bytes(), [0xF0, 0x74, 0xF7, 0x80]);
         w.put_bytes(&[0xAB]);
         assert_eq!(w.into_bytes(), [0xF0, 0x74, 0xF7, 0x80, 0xAB]);
+    }
+
+    #[test]
+    fn bits_are_appended_where_the_writer_stands() {
+        let mut tail = BitWriter::new();
+        tail.put(11, 0b101_1100_0111);
+        for lead in 0..9 {
+            let mut w = BitWriter::new();
+            w.put(lead, 0);
+            w.append(&tail);
+            let mut direct = BitWriter::new();
+            direct.put(lead, 0);
+            direct.put(11, 0b101_1100_0111);
+            assert_eq!(w.len_bits(), direct.len_bits(), "{lead}");
+            assert_eq!(w.bytes(), direct.bytes(), "{lead}");
+        }
     }
 
     #[test]

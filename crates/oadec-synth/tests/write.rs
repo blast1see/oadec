@@ -198,6 +198,7 @@ fn blocks_that_are_not_a_unit_are_refused() {
             coding: vec![Coding::default()],
             matrices: Vec::new(),
             shifts: Vec::new(),
+            guards: None,
         }],
     };
     refused(&layout, &[short], &pcm, "a coding for each channel");

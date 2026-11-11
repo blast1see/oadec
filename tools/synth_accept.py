@@ -28,6 +28,11 @@ of the tool.
 
 `--record` rewrites `crates/oadec-synth/specs/digests.tsv`, which the tests of
 that crate hold the writer to. It refuses when a recipe is not confirmed.
+
+The crate also writes probes: streams that step past a bound of the format or
+into a field whose meaning is not public. They go in front of the same
+decoders, and what each did is recorded in `specs/probes.tsv` beside the
+recipes. A probe needs nobody's confirmation: it is a question.
 """
 
 from __future__ import annotations
@@ -54,6 +59,18 @@ PLAYER = Path(os.environ.get("DOLBY_REFERENCE_PLAYER")
               or Path(os.environ.get("ProgramFiles", "")) / "Dolby" / "Dolby Reference Player")
 GST = PLAYER / f"gst-launch-1.0{EXE}"
 DIGESTS = ROOT / "crates" / "oadec-synth" / "specs" / "digests.tsv"
+PROBES = ROOT / "crates" / "oadec-synth" / "specs" / "probes.tsv"
+PROBES_HEADER = """\
+# What the decoders did with the probes of `oadec-synth`.
+#
+# Written by `tools/synth_accept.py --record` and by nothing else. A line is a
+# probe: its name, the SHA-256 of the stream, the SHA-256 of the samples the
+# writer made it from as 24-bit little-endian PCM, the decoders that gave
+# those samples, the ones that gave others, and the ones that would not read
+# the stream (`-` for none). A probe is past a bound of the format or in a
+# field whose meaning is not public: the lists say what each decoder does
+# there and not what is right.
+"""
 INDEPENDENT = ("ffmpeg", "truehdd", "dolby")
 HEADER = """\
 # What `oadec-synth digests` has to print, and which decoders said so.
@@ -212,9 +229,10 @@ def main() -> int:
         raise SystemExit(f"oadec-synth digests: {said}")
     recipes = []
     for line in said.splitlines():
-        name, stream_sha, pcm_sha, rate, channels, units = line.split("\t")
+        name, stream_sha, pcm_sha, rate, channels, units, kind = line.split("\t")
         recipes.append({"name": name, "stream_sha256": stream_sha, "pcm_sha256": pcm_sha,
-                        "rate": int(rate), "channels": int(channels), "units": int(units)})
+                        "rate": int(rate), "channels": int(channels), "units": int(units),
+                        "probe": kind == "probe"})
     if args.only:
         recipes = [r for r in recipes if re.search(args.only, r["name"])]
         if not recipes:
@@ -241,13 +259,16 @@ def main() -> int:
         r["gave_others"] = [d for d in INDEPENDENT if r["decoders"][d]["verdict"] == "differs"]
         r["refused"] = [d for d in INDEPENDENT if r["decoders"][d]["verdict"] == "refused"]
         r["confirmed"] = len(r["gave_the_samples"]) >= 2
-        if not r["confirmed"]:
+        if not r["confirmed"] and not r["probe"]:
             unconfirmed.append(r["name"])
         marks = " ".join(f"{d}:{r['decoders'][d]['verdict']}" for d in INDEPENDENT)
         own = (f"oadec:{r['oadec']['verdict']} verify:{r['oadec']['verify_exit']}"
                f" rules:{','.join(r['oadec'].get('rules', ['?'])) or 'none'}")
-        print(f"{'ok ' if r['confirmed'] else 'NO '} {r['name']:<26} {marks}  {own}")
+        mark = "?? " if r["probe"] else "ok " if r["confirmed"] else "NO "
+        print(f"{mark} {r['name']:<32} {marks}  {own}")
 
+    probes = [r for r in recipes if r["probe"]]
+    recipes = [r for r in recipes if not r["probe"]]
     summary = {
         "versions": {
             "ffmpeg": version(["ffmpeg", "-version"]),
@@ -264,11 +285,12 @@ def main() -> int:
         "oadec_gave_the_samples": sum(1 for r in recipes if r["oadec"]["verdict"] == "target"),
         "oadec_verify_clean": sum(1 for r in recipes if r["oadec"]["verify_exit"] == 0),
         "oadec_without_a_finding": sum(1 for r in recipes if r["oadec"].get("rules") == []),
+        "probes": len(probes),
     }
     print(json.dumps(summary, indent=1))
     if args.json:
-        args.json.write_text(json.dumps({"summary": summary, "recipes": recipes}, indent=1) + "\n",
-                             encoding="utf-8", newline="\n")
+        args.json.write_text(json.dumps({"summary": summary, "recipes": recipes, "probes": probes}, indent=1)
+                             + "\n", encoding="utf-8", newline="\n")
     if args.record:
         if unconfirmed:
             raise SystemExit("not recorded: " + ", ".join(unconfirmed) + " lack two decoders")
@@ -280,6 +302,13 @@ def main() -> int:
         DIGESTS.parent.mkdir(parents=True, exist_ok=True)
         DIGESTS.write_text("".join(lines), encoding="utf-8", newline="\n")
         print(f"recorded {len(recipes)} recipes in {DIGESTS.relative_to(ROOT).as_posix()}")
+        lines = [PROBES_HEADER]
+        for r in probes:
+            lines.append("\t".join([r["name"], r["stream_sha256"], r["pcm_sha256"],
+                                    ",".join(r["gave_the_samples"]) or "-", ",".join(r["gave_others"]) or "-",
+                                    ",".join(r["refused"]) or "-"]) + "\n")
+        PROBES.write_text("".join(lines), encoding="utf-8", newline="\n")
+        print(f"recorded {len(probes)} probes in {PROBES.relative_to(ROOT).as_posix()}")
     return 1 if unconfirmed else 0
 
 
