@@ -146,13 +146,14 @@ comes from a measurement that can be repeated:
   truehdd on the same streams for scale. The baseline and what it says are in
   [`docs/performance.md`](docs/performance.md).
 - **Syntax no material carries.** `crates/oadec-synth` writes TrueHD and MLP
-  streams from recipes, with samples that are known before any decoder reads
-  them, and `tools/synth_accept.py` takes a stream as a reference only when
-  two decoders from outside this repository give those samples back. The
-  written streams show what no real stream can: what a filter is predicted
-  from right after a restart header, where FFmpeg's decoder stands alone, and
-  what a matrix does with a bypassed bit over a quantiser step, where Dolby's
-  decoder parts from the two public ones and this decoder follows Dolby's
+  streams from recipes, of one to three substreams, with samples that are
+  known before any decoder reads them, and `tools/synth_accept.py` takes a
+  stream as a reference only when two decoders from outside this repository
+  give those samples back, for each of its presentations. The written streams
+  show what no real stream can: what a filter is predicted from right after a
+  restart header, where FFmpeg's decoder stands alone, and what a matrix does
+  with a bypassed bit over a quantiser step, where Dolby's decoder parts from
+  the two public ones and this decoder follows Dolby's
   ([`docs/truehd.md`](docs/truehd.md)).
 
 The real-media suite is opt-in. Point `OADEC_MEDIA` at a work directory

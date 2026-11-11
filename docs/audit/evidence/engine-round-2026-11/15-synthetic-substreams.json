@@ -1,0 +1,1017 @@
+{
+ "question": "Does this decoder read a stream of two or three substreams to the samples of each of its presentations, when those samples are known beforehand and decoders from outside have given them; what do a second and a third substream leave to a decoder that no real stream settles; and is a matrix of a 0x31EB substream that sends a bypassed bit over a quantiser step read as one of a 0x31EA substream is?",
+ "method": "crates/oadec-synth was given substreams over the first: a second of four channels and a third of two, each with matrices, output shifts and a channel assignment of its own over every channel so far, and the table of dither of a 0x31EB substream (or noise channels again). The stream is written from the samples of its widest presentation, by undoing the matrices of the top substream; the presentation of each substream under it is what its own matrices make of the channels that leaves, which the writer works out forwards. tools/synth_accept.py puts each presentation of each stream to FFmpeg (`-downmix` where it is not the widest), `truehdd` (`--presentation`) and the `dlbtruehddec` element of the Dolby Reference Player (`presentation`, `out-ch-config`), each a program run on a file and judged by the bytes it writes, eight channels put back from the interchange order into the stream's; a presentation is confirmed when two give its samples. Before any recipe was settled, streams written by a scratch program with the same writer put single questions to the four decoders; they are not in the repository, and what was asked of each is stated below. How real streams lay their substreams out was counted over every block of 55 streams by a scratch program on the parser of this repository. A second front end of Dolby's decoder, the engine Plex ships (`Plex Transcoder -c:a truehd_eae`), was given the streams about the bypassed bit and seven recipes. `python tools/old_new.py --decode-all` compared the decoder of the commit this branch starts from with the branch over 125 real streams; the media suite and the media regression were run on the branch. Fifteen mutations of what a second and a third substream add to the decoder were run three ways, every test to its end: against the suite as it was with only the decoder change of this branch, against the suite of the branch, and against the tests over the written streams alone.",
+ "binaries": {
+  "before": "d853c9e68ff59c418e180c1e264ff78b82e816c77d0b495ca8ae98d73fd2bb5d",
+  "after": "ad9914151f333a21c028b6b0aba8043399e128435a8cf776bff3a7523609712e"
+ },
+ "decoders": {
+  "ffmpeg": "2026-10-12-git-615b07170e",
+  "truehdd": "b54f209 (truehd library 0.7.1)",
+  "dolby": "the dlbtruehddec element of the Dolby Reference Player, as a black box",
+  "the_second_front_end": "the Dolby engine the Plex transcoder drives for TrueHD, as a black box"
+ },
+ "result": {
+  "how_real_streams_lay_their_substreams_out": {
+   "streams": 55,
+   "of_them": "47 from discs and Dolby's encoders; eight fixtures written by FFmpeg's TrueHD and MLP encoders, one of them the only stream with 0x31EA in its second substream",
+   "by_substream": {
+    "0": {
+     "streams": 55,
+     "restart_sync_word_by_streams": {
+      "0x31EA": 55
+     },
+     "first_and_last_coded_channel_and_last_matrix_channel_by_streams": {
+      "(0, 1, 1)": 52,
+      "(0, 3, 3)": 1,
+      "(0, 4, 4)": 1,
+      "(0, 5, 5)": 1
+     },
+     "most_matrices_in_force": 2,
+     "most_blocks_to_a_segment": 2,
+     "units_in_which_it_restarts_and_substream_0_does_not_or_the_other_way": 0,
+     "restart_headers_whose_last_coded_channel_is_under_the_last_matrix_channel": 0,
+     "blocks_times_channels_under_its_own": 0,
+     "of_those_with_a_step": 0,
+     "of_those_with_another_step_than_the_substream_that_codes_the_channel_has": 0,
+     "matrices_in_force_in_blocks_with_a_bypassed_bit": 347,
+     "of_those_on_a_channel_with_a_step": 0,
+     "dither_scales_seen": null
+    },
+    "1": {
+     "streams": 48,
+     "restart_sync_word_by_streams": {
+      "0x31EA": 1,
+      "0x31EB": 47
+     },
+     "first_and_last_coded_channel_and_last_matrix_channel_by_streams": {
+      "(0, 5, 5)": 1,
+      "(2, 5, 5)": 47
+     },
+     "most_matrices_in_force": 6,
+     "most_blocks_to_a_segment": 2,
+     "units_in_which_it_restarts_and_substream_0_does_not_or_the_other_way": 0,
+     "restart_headers_whose_last_coded_channel_is_under_the_last_matrix_channel": 0,
+     "blocks_times_channels_under_its_own": 18242456,
+     "of_those_with_a_step": 5321278,
+     "of_those_with_another_step_than_the_substream_that_codes_the_channel_has": 0,
+     "matrices_in_force_in_blocks_with_a_bypassed_bit": 63138,
+     "of_those_on_a_channel_with_a_step": 0,
+     "dither_scales_seen": "0, 1, 2, 3, 4, 5, 6, 7, 8, 9"
+    },
+    "2": {
+     "streams": 43,
+     "restart_sync_word_by_streams": {
+      "0x31EB": 43
+     },
+     "first_and_last_coded_channel_and_last_matrix_channel_by_streams": {
+      "(0, 7, 7)": 10,
+      "(6, 7, 7)": 33
+     },
+     "most_matrices_in_force": 8,
+     "most_blocks_to_a_segment": 2,
+     "units_in_which_it_restarts_and_substream_0_does_not_or_the_other_way": 0,
+     "restart_headers_whose_last_coded_channel_is_under_the_last_matrix_channel": 0,
+     "blocks_times_channels_under_its_own": 49712436,
+     "of_those_with_a_step": 12140230,
+     "of_those_with_another_step_than_the_substream_that_codes_the_channel_has": 0,
+     "matrices_in_force_in_blocks_with_a_bypassed_bit": 0,
+     "of_those_on_a_channel_with_a_step": 0,
+     "dither_scales_seen": "0, 1, 2, 3, 4, 5"
+    },
+    "3": {
+     "streams": 41,
+     "restart_sync_word_by_streams": {
+      "0x31EC": 41
+     },
+     "first_and_last_coded_channel_and_last_matrix_channel_by_streams": {
+      "(8, 11, 11)": 26,
+      "(8, 13, 13)": 11,
+      "(8, 15, 15)": 4
+     },
+     "most_matrices_in_force": 16,
+     "most_blocks_to_a_segment": 2,
+     "units_in_which_it_restarts_and_substream_0_does_not_or_the_other_way": 0,
+     "restart_headers_whose_last_coded_channel_is_under_the_last_matrix_channel": 0,
+     "blocks_times_channels_under_its_own": 70413496,
+     "of_those_with_a_step": 19114374,
+     "of_those_with_another_step_than_the_substream_that_codes_the_channel_has": 0,
+     "matrices_in_force_in_blocks_with_a_bypassed_bit": 1780541,
+     "of_those_on_a_channel_with_a_step": 0,
+     "dither_scales_seen": "0, 1, 2, 3, 4, 5, 6, 7, 8, 9"
+    }
+   },
+   "blocks_times_channels_for_which_a_substream_states_a_step_it_does_not_code": 138368388
+  },
+  "the_recipes_of_several_substreams": {
+   "recipes": 11,
+   "presentations": 25,
+   "given_by_ffmpeg": 25,
+   "given_by_truehdd": 25,
+   "given_by_dolby": 25,
+   "this_decoder_gave_the_samples": 25,
+   "verify_without_a_finding_of_any_severity": 25,
+   "each": {
+    "six-channels": {
+     "presentations": {
+      "widest": {
+       "channels": 6,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 0": {
+       "channels": 2,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      }
+     },
+     "access_units": 24,
+     "bytes": 13954,
+     "rate": 48000
+    },
+    "eight-channels": {
+     "presentations": {
+      "widest": {
+       "channels": 8,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 0": {
+       "channels": 2,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 1": {
+       "channels": 6,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      }
+     },
+     "access_units": 24,
+     "bytes": 19486,
+     "rate": 48000
+    },
+    "eight-rate-96000": {
+     "presentations": {
+      "widest": {
+       "channels": 8,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 0": {
+       "channels": 2,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 1": {
+       "channels": 6,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      }
+     },
+     "access_units": 24,
+     "bytes": 35454,
+     "rate": 96000
+    },
+    "six-rate-192000": {
+     "presentations": {
+      "widest": {
+       "channels": 6,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 0": {
+       "channels": 2,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      }
+     },
+     "access_units": 24,
+     "bytes": 32802,
+     "rate": 192000
+    },
+    "six-dither-scales": {
+     "presentations": {
+      "widest": {
+       "channels": 6,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 0": {
+       "channels": 2,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      }
+     },
+     "access_units": 24,
+     "bytes": 15932,
+     "rate": 48000
+    },
+    "six-noise-channels": {
+     "presentations": {
+      "widest": {
+       "channels": 6,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 0": {
+       "channels": 2,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      }
+     },
+     "access_units": 24,
+     "bytes": 12816,
+     "rate": 48000
+    },
+    "six-bypass": {
+     "presentations": {
+      "widest": {
+       "channels": 6,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 0": {
+       "channels": 2,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      }
+     },
+     "access_units": 24,
+     "bytes": 14170,
+     "rate": 48000
+    },
+    "six-steps": {
+     "presentations": {
+      "widest": {
+       "channels": 6,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 0": {
+       "channels": 2,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      }
+     },
+     "access_units": 24,
+     "bytes": 11298,
+     "rate": 48000
+    },
+    "six-steps-apart": {
+     "presentations": {
+      "widest": {
+       "channels": 6,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 0": {
+       "channels": 2,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      }
+     },
+     "access_units": 24,
+     "bytes": 12188,
+     "rate": 48000
+    },
+    "eight-shifts-assigned": {
+     "presentations": {
+      "widest": {
+       "channels": 8,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 0": {
+       "channels": 2,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 1": {
+       "channels": 6,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      }
+     },
+     "access_units": 24,
+     "bytes": 14732,
+     "rate": 48000
+    },
+    "six-blocks": {
+     "presentations": {
+      "widest": {
+       "channels": 6,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      },
+      "substream 0": {
+       "channels": 2,
+       "gave_the_samples": [
+        "ffmpeg",
+        "truehdd",
+        "dolby"
+       ]
+      }
+     },
+     "access_units": 24,
+     "bytes": 14486,
+     "rate": 48000
+    }
+   }
+  },
+  "every_recipe": {
+   "recipes": 51,
+   "presentations": 65,
+   "confirmed_by_two_outside_decoders": 65,
+   "recipes_given_by_every_decoder_asked_at_every_presentation": 45,
+   "by_decoder": {
+    "ffmpeg": {
+     "target": 63,
+     "differs": 2,
+     "refused": 0,
+     "not asked": 0,
+     "absent": 0
+    },
+    "truehdd": {
+     "target": 62,
+     "differs": 0,
+     "refused": 3,
+     "not asked": 0,
+     "absent": 0
+    },
+    "dolby": {
+     "target": 60,
+     "differs": 0,
+     "refused": 1,
+     "not asked": 4,
+     "absent": 0
+    }
+   },
+   "this_decoder_gave_the_samples": 65,
+   "verify_without_a_finding_of_any_severity": 65,
+   "the_40_streams_and_7_probes_on_record_before": "the same bytes: the record gained lines and lost none"
+  },
+  "eight_channels": "FFmpeg, Dolby's decoder (in both the 7.1 and the raw configuration of its element) and `oadec decode` by default write channels 0 1 2 3 6 7 4 5 of the stream's order; `truehdd` and `oadec decode --order stream` write the stream's",
+  "the_questions": {
+   "q3a-both-state-the-step": {
+    "what": "the second substream states for the left channel the step of 3 the first codes it with, and a matrix of the second writes that channel",
+    "every_presentation_from_every_decoder": true
+   },
+   "q3b-second-states-no-step-where-the-first-has-one": {
+    "what": "the first substream codes the left channel with a step of 3 and the second states none for it",
+    "every_presentation_from_every_decoder": true
+   },
+   "q3c-second-states-a-step-where-the-first-has-none": {
+    "what": "the first codes it with none and the second states 3",
+    "every_presentation_from_every_decoder": true
+   },
+   "q4-every-dither-scale": {
+    "what": "three matrices of the second substream with every dither scale from 0 to 15 in turn",
+    "every_presentation_from_every_decoder": true
+   },
+   "q6-noise-shift-stated-with-dither": {
+    "what": "a 0x31EB substream whose restart header states a noise shift of 5",
+    "every_presentation_from_every_decoder": true
+   },
+   "q7-two-blocks": {
+    "what": "two blocks to a segment of the 0x31EB substream",
+    "every_presentation_from_every_decoder": true
+   },
+   "q7-three-blocks": {
+    "what": "three",
+    "every_presentation_from_every_decoder": true
+   },
+   "q7-four-blocks": {
+    "what": "four",
+    "every_presentation_from_every_decoder": false,
+    "the_widest_presentation": {
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target",
+     "oadec": "target"
+    },
+    "the_presentations_under_it_from_every_decoder": true
+   },
+   "q8-6-matrices-in-the-second": {
+    "what": "six matrices in the second substream",
+    "every_presentation_from_every_decoder": true
+   },
+   "q8-7-matrices-in-the-second": {
+    "what": "seven",
+    "every_presentation_from_every_decoder": true
+   },
+   "q8-8-matrices-in-the-third": {
+    "what": "eight matrices in the third substream",
+    "every_presentation_from_every_decoder": true
+   },
+   "q8-9-matrices-in-the-third": {
+    "what": "nine",
+    "every_presentation_from_every_decoder": false,
+    "the_widest_presentation": {
+     "ffmpeg": "refused",
+     "truehdd": "target",
+     "dolby": "refused",
+     "oadec": "target"
+    },
+    "the_presentations_under_it_from_every_decoder": true
+   },
+   "q9-shifts-and-assignments": {
+    "what": "output shifts and reordered channel assignments in all three substreams",
+    "every_presentation_from_every_decoder": true
+   },
+   "q12-blocks-out-of-line": {
+    "what": "blocks that do not line up between the substreams, the step of a channel changing inside a unit",
+    "every_presentation_from_every_decoder": true
+   },
+   "q2-noise-channels-in-the-second": {
+    "what": "a second substream with 0x31EA noise channels at a noise shift of 2, its matrices drawing on them",
+    "every_presentation_from_every_decoder": false,
+    "the_widest_presentation": {
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target",
+     "oadec": "target"
+    },
+    "the_presentations_under_it_from_every_decoder": true
+   }
+  },
+  "a_bypassed_bit_over_a_step_in_a_0x31EB_substream": {
+   "in_real_streams": {
+    "matrices_with_a_bypassed_bit_in_force_in_blocks_of_second_substreams": 63138,
+    "of_third_substreams": 0,
+    "on_a_channel_with_a_step": 0
+   },
+   "written_to_the_reading_that_the_sum_is_cut": {
+    "note": "two streams of 24 access units, written while the writer still took a 0x31EB matrix to be cut; not in the repository. `samples` counts the left channel of the six",
+    "q1-dither-bypass-over-step": {
+     "what": "one matrix of the second substream writes the left channel with a bypassed bit; the first substream codes that channel with a step of 2 and the second states the same; no dither",
+     "sha256": "e0065f1224ff751673af82816a8ea871052c0523a34360d6ce7d720e505bd6ec",
+     "samples": 960,
+     "dolby_gave_the_sum_with_the_bit_and_no_cut": 960,
+     "of_those_the_cut_sum_is_the_same_number": 240,
+     "dolby_gave_neither": 0,
+     "the_other_five_channels_are_the_streams": true,
+     "the_second_front_end_gave_what_the_players_element_gave": true,
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "this_decoder_before_the_change": "target"
+    },
+    "q1-dither-bypass-over-step-dithered": {
+     "what": "one matrix of the second substream writes the left channel with a bypassed bit; the first substream codes that channel with a step of 2 and the second states the same; the matrix draws on the dither at a scale of 3",
+     "sha256": "09ff90a64a25492be11cac2b6ea2bebab20b7c5e74b871be7f464c4053351d8d",
+     "samples": 960,
+     "dolby_gave_the_sum_with_the_bit_and_no_cut": 960,
+     "of_those_the_cut_sum_is_the_same_number": 265,
+     "dolby_gave_neither": 0,
+     "the_other_five_channels_are_the_streams": true,
+     "the_second_front_end_gave_what_the_players_element_gave": true,
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "this_decoder_before_the_change": "target"
+    }
+   },
+   "written_to_the_reading_that_it_is_not": {
+    "name": "probe-dither-bypass-over-step",
+    "widest": {
+     "channels": 6,
+     "gave_the_samples": [
+      "dolby"
+     ],
+     "gave_others": [
+      "ffmpeg"
+     ],
+     "refused": [
+      "truehdd"
+     ],
+     "this_decoder": "target",
+     "verify_exit": 0,
+     "rules": [],
+     "ffmpeg": {
+      "samples_written": 960,
+      "samples_expected": 960,
+      "differing_values": 496
+     },
+     "truehdd": {
+      "it_said": "lossless_check failed for substream 1. Calculated 0x69, Read 0x38"
+     }
+    },
+    "substream 0": {
+     "channels": 2,
+     "gave_the_samples": [
+      "ffmpeg",
+      "truehdd",
+      "dolby"
+     ],
+     "gave_others": [],
+     "refused": [],
+     "this_decoder": "target",
+     "verify_exit": 0,
+     "rules": []
+    },
+    "the_second_front_end": {
+     "wrote": true,
+     "channels": 6,
+     "samples": 960,
+     "bits_under_the_24": false,
+     "the_samples_the_players_element_wrote": true,
+     "the_samples_of_the_stream": true
+    },
+    "why_a_probe": "one decoder from outside gives the samples of its six channels, and that the one is Dolby's own does not make two"
+   }
+  },
+  "the_other_two_probes": {
+   "probe-dither-three-blocks": {
+    "widest": {
+     "channels": 6,
+     "gave_the_samples": [
+      "ffmpeg",
+      "truehdd",
+      "dolby"
+     ],
+     "gave_others": [],
+     "refused": [],
+     "this_decoder": "target",
+     "verify_exit": 0,
+     "rules": [
+      "segment.block_count"
+     ]
+    },
+    "substream 0": {
+     "channels": 2,
+     "gave_the_samples": [
+      "ffmpeg",
+      "truehdd",
+      "dolby"
+     ],
+     "gave_others": [],
+     "refused": [],
+     "this_decoder": "target",
+     "verify_exit": 0,
+     "rules": [
+      "segment.block_count"
+     ]
+    }
+   },
+   "probe-nine-matrices-over-eight": {
+    "widest": {
+     "channels": 8,
+     "gave_the_samples": [
+      "truehdd"
+     ],
+     "gave_others": [
+      "ffmpeg"
+     ],
+     "refused": [
+      "dolby"
+     ],
+     "this_decoder": "target",
+     "verify_exit": 0,
+     "rules": [],
+     "ffmpeg": {
+      "samples_written": 680,
+      "samples_expected": 960,
+      "differing_values": 5439
+     },
+     "dolby": {
+      "it_said": "no valid frames decoded"
+     }
+    },
+    "substream 0": {
+     "channels": 2,
+     "gave_the_samples": [
+      "ffmpeg",
+      "truehdd",
+      "dolby"
+     ],
+     "gave_others": [],
+     "refused": [],
+     "this_decoder": "target",
+     "verify_exit": 0,
+     "rules": []
+    },
+    "substream 1": {
+     "channels": 6,
+     "gave_the_samples": [
+      "ffmpeg",
+      "truehdd",
+      "dolby"
+     ],
+     "gave_others": [],
+     "refused": [],
+     "this_decoder": "target",
+     "verify_exit": 0,
+     "rules": []
+    }
+   }
+  },
+  "the_second_front_end_on_recipes": {
+   "six-channels": {
+    "wrote": true,
+    "channels": 6,
+    "samples": 960,
+    "bits_under_the_24": false,
+    "the_samples_the_players_element_wrote": true,
+    "the_samples_of_the_stream": true
+   },
+   "eight-channels": {
+    "wrote": true,
+    "channels": 8,
+    "samples": 960,
+    "bits_under_the_24": false,
+    "the_samples_the_players_element_wrote": true,
+    "the_samples_of_the_stream": true
+   },
+   "six-bypass": {
+    "wrote": true,
+    "channels": 6,
+    "samples": 960,
+    "bits_under_the_24": false,
+    "the_samples_the_players_element_wrote": true,
+    "the_samples_of_the_stream": true
+   },
+   "six-steps-apart": {
+    "wrote": true,
+    "channels": 6,
+    "samples": 960,
+    "bits_under_the_24": false,
+    "the_samples_the_players_element_wrote": true,
+    "the_samples_of_the_stream": true
+   },
+   "six-dither-scales": {
+    "wrote": true,
+    "channels": 6,
+    "samples": 960,
+    "bits_under_the_24": false,
+    "the_samples_the_players_element_wrote": true,
+    "the_samples_of_the_stream": true
+   },
+   "eight-shifts-assigned": {
+    "wrote": true,
+    "channels": 8,
+    "samples": 960,
+    "bits_under_the_24": false,
+    "the_samples_the_players_element_wrote": true,
+    "the_samples_of_the_stream": true
+   },
+   "six-noise-channels": {
+    "wrote": true,
+    "channels": 6,
+    "samples": 960,
+    "bits_under_the_24": false,
+    "the_samples_the_players_element_wrote": true,
+    "the_samples_of_the_stream": true
+   }
+  },
+  "old_and_new_over_real_streams": {
+   "streams": 125,
+   "streams_changed": 0,
+   "fields_added": [],
+   "deliveries": {
+    "pcm -p N": {
+     "runs": 220,
+     "wrote_output": 202,
+     "bytes": 30402893100,
+     "exit_codes": {
+      "0": 198,
+      "2": 18,
+      "7": 4
+     }
+    },
+    "damf": {
+     "runs": 125,
+     "wrote_output": 64,
+     "bytes": 26139214573,
+     "exit_codes": {
+      "0": 56,
+      "2": 61,
+      "7": 8
+     }
+    },
+    "adm": {
+     "runs": 125,
+     "wrote_output": 64,
+     "bytes": 26155503004,
+     "exit_codes": {
+      "0": 56,
+      "2": 61,
+      "7": 8
+     }
+    },
+    "pcm": {
+     "runs": 70,
+     "wrote_output": 70,
+     "bytes": 4058892288,
+     "exit_codes": {
+      "0": 61,
+      "7": 9
+     }
+    },
+    "pcm --core-only": {
+     "runs": 70,
+     "wrote_output": 70,
+     "bytes": 3823884288,
+     "exit_codes": {
+      "0": 61,
+      "7": 9
+     }
+    }
+   }
+  },
+  "media": {
+   "the_media_suite": {
+    "passed": 28,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8,
+    "line": "all media checks passed"
+   }
+  },
+  "mutations": {
+   "count": 15,
+   "survived_the_suite_before_the_written_streams": [
+    "the dither of a matrix taken at the place of another matrix",
+    "the dither stepping through its table without the sample added",
+    "the dither one bit lower than its scale says",
+    "a dither scale of 1 taken for none",
+    "the dither of a unit 64 values at every rate",
+    "a matrix of a dither substream that sends a bypassed bit cut to the quantiser step all the same",
+    "a matrix of a dither substream cut to no quantiser step",
+    "the quantiser steps of a block read for the channels its substream codes alone"
+   ],
+   "survive_now": [],
+   "survive_the_tests_over_the_written_streams_alone": [],
+   "each": [
+    {
+     "mutation": "a presentation given the channels under its own substream as that substream last held them",
+     "caught_before_the_written_streams": true,
+     "by_tests_before": 18,
+     "tests_before": [
+      "a_clean_decode_says_it_is_done",
+      "a_clean_object_decode_says_it_is_done",
+      "a_decode_that_starts_inside_the_stream_is_the_tail_of_a_full_one",
+      "a_piped_run_carries_no_progress",
+      "a_presentation_other_than_three_is_refused_with_the_object_formats",
+      "a_start_lands_on_the_unit_whose_end_passes_the_requested_time"
+     ],
+     "caught_now": true,
+     "by_tests_now": 29,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 11
+    },
+    {
+     "mutation": "a presentation without a substream of its own decoded from one the stream does not have",
+     "caught_before_the_written_streams": true,
+     "by_tests_before": 10,
+     "tests_before": [
+      "each_output_names_the_rate_the_stream_declares",
+      "mlp_41_48k",
+      "mlp_51_96k",
+      "mlp_quad_48k",
+      "mlp_stereo_44k",
+      "truehd_20_176k"
+     ],
+     "caught_now": true,
+     "by_tests_now": 11,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 1
+    },
+    {
+     "mutation": "the eight-channel presentation read without its third substream",
+     "caught_before_the_written_streams": true,
+     "by_tests_before": 6,
+     "tests_before": [
+      "a_damage_region_is_where_the_decode_differs",
+      "authored_scene_mlp",
+      "presentation::tests::atmos_stream_has_four_presentations",
+      "the_announced_sample_is_where_the_output_actually_begins",
+      "the_wave_mask_is_written_only_when_it_is_true",
+      "verify_decode_reports_the_lossless_checks_of_every_presentation"
+     ],
+     "caught_now": true,
+     "by_tests_now": 13,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 7
+    },
+    {
+     "mutation": "the dither of a matrix taken at the place of another matrix",
+     "caught_before_the_written_streams": false,
+     "by_tests_before": 0,
+     "tests_before": [],
+     "caught_now": true,
+     "by_tests_now": 9,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 9
+    },
+    {
+     "mutation": "the dither stepping through its table without the sample added",
+     "caught_before_the_written_streams": false,
+     "by_tests_before": 0,
+     "tests_before": [],
+     "caught_now": true,
+     "by_tests_now": 9,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 9
+    },
+    {
+     "mutation": "the dither one bit lower than its scale says",
+     "caught_before_the_written_streams": false,
+     "by_tests_before": 0,
+     "tests_before": [],
+     "caught_now": true,
+     "by_tests_now": 9,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 9
+    },
+    {
+     "mutation": "a dither scale of 1 taken for none",
+     "caught_before_the_written_streams": false,
+     "by_tests_before": 0,
+     "tests_before": [],
+     "caught_now": true,
+     "by_tests_now": 7,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 7
+    },
+    {
+     "mutation": "the dither of a unit 64 values at every rate",
+     "caught_before_the_written_streams": false,
+     "by_tests_before": 0,
+     "tests_before": [],
+     "caught_now": true,
+     "by_tests_now": 5,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 5
+    },
+    {
+     "mutation": "the dither register not moved on from one unit to the next",
+     "caught_before_the_written_streams": true,
+     "by_tests_before": 10,
+     "tests_before": [
+      "a_clean_object_decode_says_it_is_done",
+      "a_presentation_other_than_three_is_refused_with_the_object_formats",
+      "a_unit_that_cannot_be_read_is_silence_in_its_place",
+      "authored_scene_mlp",
+      "real_interpolation_is_marked_and_refuses_the_dolby_origin_tag",
+      "the_object_output_keeps_its_length"
+     ],
+     "caught_now": true,
+     "by_tests_now": 19,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 9
+    },
+    {
+     "mutation": "the dither register moved on by another rule",
+     "caught_before_the_written_streams": true,
+     "by_tests_before": 10,
+     "tests_before": [
+      "a_clean_object_decode_says_it_is_done",
+      "a_presentation_other_than_three_is_refused_with_the_object_formats",
+      "a_unit_that_cannot_be_read_is_silence_in_its_place",
+      "authored_scene_mlp",
+      "real_interpolation_is_marked_and_refuses_the_dolby_origin_tag",
+      "the_object_output_keeps_its_length"
+     ],
+     "caught_now": true,
+     "by_tests_now": 19,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 9
+    },
+    {
+     "mutation": "the dither table read one entry off",
+     "caught_before_the_written_streams": true,
+     "by_tests_before": 11,
+     "tests_before": [
+      "a_clean_object_decode_says_it_is_done",
+      "a_presentation_other_than_three_is_refused_with_the_object_formats",
+      "a_unit_that_cannot_be_read_is_silence_in_its_place",
+      "authored_scene_mlp",
+      "dither::tests::table_bc_draws_from_the_lookup_table",
+      "real_interpolation_is_marked_and_refuses_the_dolby_origin_tag"
+     ],
+     "caught_now": true,
+     "by_tests_now": 20,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 9
+    },
+    {
+     "mutation": "the dither scale of a matrix read and dropped",
+     "caught_before_the_written_streams": true,
+     "by_tests_before": 1,
+     "tests_before": [
+      "matrix::tests::sync_a_reads_two_noise_columns_and_sync_b_reads_dither_scale"
+     ],
+     "caught_now": true,
+     "by_tests_now": 11,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 10
+    },
+    {
+     "mutation": "a matrix of a dither substream that sends a bypassed bit cut to the quantiser step all the same",
+     "caught_before_the_written_streams": false,
+     "by_tests_before": 0,
+     "tests_before": [],
+     "caught_now": true,
+     "by_tests_now": 2,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 2
+    },
+    {
+     "mutation": "a matrix of a dither substream cut to no quantiser step",
+     "caught_before_the_written_streams": false,
+     "by_tests_before": 0,
+     "tests_before": [],
+     "caught_now": true,
+     "by_tests_now": 4,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 4
+    },
+    {
+     "mutation": "the quantiser steps of a block read for the channels its substream codes alone",
+     "caught_before_the_written_streams": false,
+     "by_tests_before": 0,
+     "tests_before": [],
+     "caught_now": true,
+     "by_tests_now": 9,
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "by_those_tests": 9
+    }
+   ]
+  },
+  "not_measured": "a 0x31EC substream: the writer writes none, so its matrices, its count of bypassed bits and its interpolation are held by real streams alone, and what Dolby's decoder does with bypassed bits over a step there has not been asked. Substreams that a presentation reads alone (a second that codes all six channels, a third that codes all eight), which ten of the 55 real streams have, are not written either"
+ },
+ "reading": "All 25 presentations of the 11 recipes of several substreams come out of FFmpeg, of truehdd and of Dolby's decoder as the samples the writer says they are, the two- and six-channel ones included, which are not what the stream was written from but what the writer worked out the matrices under the top come to; and this decoder gives the same. That closes the gap the forwards arithmetic would otherwise leave: it is the decoder's arithmetic a second time from the same hand, and three decoders that share nothing with it agree with it on every sample. With these the record holds 65 presentations of 51 recipes, each confirmed by two outside decoders, and the 40 streams that were on it before are the same bytes. Three things no real stream settles were asked. A substream states a quantiser step for the channels under its own, and encoders repeat there what the coder of the channel has, 138,368,388 times out of 138,368,388; made to differ, all four decoders cut a matrix to what its own substream states. A noise shift stated by a substream with a table of dither changes nothing in any decoder. And a matrix of a 0x31EB substream with a bypassed bit over a step is left uncut by Dolby's decoder, on every one of 1,920 samples of two streams and from two front ends, as in a 0x31EA substream; FFmpeg's decoder and truehdd cut. This decoder cut there and no longer does. No real stream can show the change or be touched by it: none of 63,138 such matrices writes a channel with a step, and over 125 streams, 90,580,387,253 bytes of deliveries, the old and the new binary write the same. Of 15 mutations of what a second and a third substream add, the suite caught 7 before these streams, by the two fixtures that have more than one substream: a stream of two written by FFmpeg's encoder, which gives its second substream noise channels and no matrix, and an authored object scene of four. The 8 that passed are all in what only a 0x31EB substream does, or in a field those fixtures never send: the dither of a matrix taken at the place of another matrix; the dither stepping through its table without the sample added; the dither one bit lower than its scale says; a dither scale of 1 taken for none; the dither of a unit 64 values at every rate; a matrix of a dither substream that sends a bypassed bit cut to the quantiser step all the same; a matrix of a dither substream cut to no quantiser step; the quantiser steps of a block read for the channels its substream codes alone. So the dither of a 0x31EB matrix, where it is read and at what scale, and what such a matrix is cut to, were held by nothing in the repository; real streams hold them, in tests that need media. The tests over the written streams catch all fifteen by themselves. What the count of real layouts adds is a bound to write a rule from: two, six, eight and sixteen matrices at most from the first substream to the fourth, two blocks to a segment in every kind, and substreams that always restart together. The limits are stated: no object substream is written, and no substream that a presentation reads alone."
+}
