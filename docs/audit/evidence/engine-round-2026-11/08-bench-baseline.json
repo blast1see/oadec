@@ -1,0 +1,3436 @@
+{
+ "question": "What does decoding cost before anything is done to make it faster: wall time, processor time and memory, for TrueHD at 2, 6, 8, 12, 14 and 16 channels, for AC-3 and E-AC-3, and for the object formats?",
+ "method": "`python tools/bench.py --refs --runs 5 --per-kind 2` over the TrueHD heads, the AC-3 and E-AC-3 heads and the clips of the work directory, with a release build of main as it stood after the extractor fix of evidence 04 (rustc 1.99.1) and the machine otherwise idle. The tool runs every command as a process of its own and reads its start and end times, its user and kernel processor time and its peak working set from the operating system; each stream is read once before it is measured; PCM goes to the null device and the object formats to a file. It sorts the streams into kinds by what `info --json` says of them, a TrueHD stream also by the channels of its widest presentation, and measures the two longest and heaviest of each kind. `--refs` times FFmpeg and truehdd on the same streams the same way. The kernels are `cargo bench --locked -p oadec-bench` on the same machine: the decoders called in-process over the committed fixtures, fifteen batches each, the median of the time of one call. `result` is the tool's own record of the run; `python tools/bench.py --report` on this file prints it as a table.",
+ "exit_codes_of_the_commands_measured": [
+  0,
+  7
+ ],
+ "result": {
+  "schema": 1,
+  "machine": {
+   "processor": "Intel(R) Core(TM) i7-14700K",
+   "logical_processors": 28,
+   "system": "Windows 11"
+  },
+  "runs": 5,
+  "binaries": [
+   {
+    "name": "oadec-main-61d841c.exe",
+    "version": "oadec 0.8.0",
+    "sha256": "f1af0af68489a0b0efcee1ffd744d3671cbd8c12c861bcaf01884b4d62456261"
+   }
+  ],
+  "workloads": [
+   {
+    "alias": "ac3-1",
+    "kind": "ac3",
+    "seconds": 124.992,
+    "bytes": 3000000,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode (2 ch) pcm",
+      "exit": 7,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.4029,
+       "min": 0.3995,
+       "max": 0.4055,
+       "mad_share": 0.0066
+      },
+      "cpu_s": {
+       "median": 0.4062,
+       "min": 0.3906,
+       "max": 0.4219,
+       "mad_share": 0.0
+      },
+      "user_s": 0.3438,
+      "kernel_s": 0.0469,
+      "peak_mib": 16.8,
+      "realtime": 310.2,
+      "realtime_cpu": 307.7
+     },
+     {
+      "command": "verify",
+      "exit": 7,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3979,
+       "min": 0.3899,
+       "max": 0.4,
+       "mad_share": 0.0054
+      },
+      "cpu_s": {
+       "median": 0.3906,
+       "min": 0.375,
+       "max": 0.4062,
+       "mad_share": 0.0
+      },
+      "user_s": 0.3125,
+      "kernel_s": 0.0781,
+      "peak_mib": 12.7,
+      "realtime": 314.1,
+      "realtime_cpu": 320.0
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, DRC off",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.0789,
+       "min": 0.0785,
+       "max": 0.0876,
+       "mad_share": 0.0048
+      },
+      "cpu_s": {
+       "median": 0.1719,
+       "min": 0.125,
+       "max": 0.25,
+       "mad_share": 0.1818
+      },
+      "user_s": 0.1094,
+      "kernel_s": 0.0625,
+      "peak_mib": 24.1,
+      "realtime": 1584.2,
+      "realtime_cpu": 727.1
+     }
+    ]
+   },
+   {
+    "alias": "ac3-2",
+    "kind": "ac3",
+    "seconds": 60.0,
+    "bytes": 3360000,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3413,
+       "min": 0.3382,
+       "max": 0.3479,
+       "mad_share": 0.009
+      },
+      "cpu_s": {
+       "median": 0.3438,
+       "min": 0.3281,
+       "max": 0.3438,
+       "mad_share": 0.0
+      },
+      "user_s": 0.3125,
+      "kernel_s": 0.0312,
+      "peak_mib": 17.3,
+      "realtime": 175.8,
+      "realtime_cpu": 174.5
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3318,
+       "min": 0.3289,
+       "max": 0.3356,
+       "mad_share": 0.0022
+      },
+      "cpu_s": {
+       "median": 0.3281,
+       "min": 0.3125,
+       "max": 0.3438,
+       "mad_share": 0.0
+      },
+      "user_s": 0.3125,
+      "kernel_s": 0.0312,
+      "peak_mib": 13.2,
+      "realtime": 180.8,
+      "realtime_cpu": 182.9
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, DRC off",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.0698,
+       "min": 0.0681,
+       "max": 0.0765,
+       "mad_share": 0.0236
+      },
+      "cpu_s": {
+       "median": 0.1094,
+       "min": 0.0781,
+       "max": 0.1406,
+       "mad_share": 0.1429
+      },
+      "user_s": 0.0625,
+      "kernel_s": 0.0469,
+      "peak_mib": 24.0,
+      "realtime": 859.6,
+      "realtime_cpu": 548.4
+     }
+    ]
+   },
+   {
+    "alias": "eac3-1",
+    "kind": "eac3",
+    "seconds": 105.76,
+    "bytes": 5076480,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.614,
+       "min": 0.6125,
+       "max": 0.6195,
+       "mad_share": 0.0025
+      },
+      "cpu_s": {
+       "median": 0.6094,
+       "min": 0.6094,
+       "max": 0.625,
+       "mad_share": 0.0
+      },
+      "user_s": 0.5156,
+      "kernel_s": 0.1094,
+      "peak_mib": 18.3,
+      "realtime": 172.2,
+      "realtime_cpu": 173.5
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.5927,
+       "min": 0.5893,
+       "max": 0.5963,
+       "mad_share": 0.0035
+      },
+      "cpu_s": {
+       "median": 0.5938,
+       "min": 0.5781,
+       "max": 0.6094,
+       "mad_share": 0.0263
+      },
+      "user_s": 0.4219,
+      "kernel_s": 0.1719,
+      "peak_mib": 14.3,
+      "realtime": 178.4,
+      "realtime_cpu": 178.1
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, DRC off",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.1139,
+       "min": 0.1114,
+       "max": 0.1479,
+       "mad_share": 0.0223
+      },
+      "cpu_s": {
+       "median": 0.1719,
+       "min": 0.1562,
+       "max": 0.2344,
+       "mad_share": 0.0909
+      },
+      "user_s": 0.0938,
+      "kernel_s": 0.0781,
+      "peak_mib": 24.0,
+      "realtime": 928.5,
+      "realtime_cpu": 615.2
+     }
+    ]
+   },
+   {
+    "alias": "eac3-2",
+    "kind": "eac3",
+    "seconds": 105.76,
+    "bytes": 2538240,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.4693,
+       "min": 0.465,
+       "max": 0.4755,
+       "mad_share": 0.0075
+      },
+      "cpu_s": {
+       "median": 0.4531,
+       "min": 0.4375,
+       "max": 0.4688,
+       "mad_share": 0.0345
+      },
+      "user_s": 0.375,
+      "kernel_s": 0.0781,
+      "peak_mib": 16.7,
+      "realtime": 225.4,
+      "realtime_cpu": 233.4
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.4459,
+       "min": 0.4366,
+       "max": 0.4503,
+       "mad_share": 0.006
+      },
+      "cpu_s": {
+       "median": 0.4219,
+       "min": 0.4219,
+       "max": 0.4375,
+       "mad_share": 0.0
+      },
+      "user_s": 0.3125,
+      "kernel_s": 0.1094,
+      "peak_mib": 12.6,
+      "realtime": 237.2,
+      "realtime_cpu": 250.7
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, DRC off",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.0997,
+       "min": 0.097,
+       "max": 0.1027,
+       "mad_share": 0.0186
+      },
+      "cpu_s": {
+       "median": 0.1562,
+       "min": 0.1562,
+       "max": 0.2188,
+       "mad_share": 0.0
+      },
+      "user_s": 0.0938,
+      "kernel_s": 0.0781,
+      "peak_mib": 24.0,
+      "realtime": 1060.8,
+      "realtime_cpu": 677.1
+     }
+    ]
+   },
+   {
+    "alias": "eac3-7.1-1",
+    "kind": "eac3-7.1",
+    "seconds": 60.0,
+    "bytes": 12480000,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode (8 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.7242,
+       "min": 0.7141,
+       "max": 0.726,
+       "mad_share": 0.0024
+      },
+      "cpu_s": {
+       "median": 0.7188,
+       "min": 0.7031,
+       "max": 0.7188,
+       "mad_share": 0.0
+      },
+      "user_s": 0.5938,
+      "kernel_s": 0.125,
+      "peak_mib": 18.4,
+      "realtime": 82.9,
+      "realtime_cpu": 83.5
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.7078,
+       "min": 0.7027,
+       "max": 0.7135,
+       "mad_share": 0.0033
+      },
+      "cpu_s": {
+       "median": 0.7031,
+       "min": 0.6875,
+       "max": 0.7031,
+       "mad_share": 0.0
+      },
+      "user_s": 0.6406,
+      "kernel_s": 0.0625,
+      "peak_mib": 14.4,
+      "realtime": 84.8,
+      "realtime_cpu": 85.3
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, DRC off",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.1068,
+       "min": 0.1053,
+       "max": 0.1091,
+       "mad_share": 0.0036
+      },
+      "cpu_s": {
+       "median": 0.125,
+       "min": 0.1094,
+       "max": 0.1719,
+       "mad_share": 0.125
+      },
+      "user_s": 0.0625,
+      "kernel_s": 0.0625,
+      "peak_mib": 24.3,
+      "realtime": 561.8,
+      "realtime_cpu": 480.0
+     }
+    ]
+   },
+   {
+    "alias": "eac3-7.1-2",
+    "kind": "eac3-7.1",
+    "seconds": 60.0,
+    "bytes": 11520000,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode (8 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6959,
+       "min": 0.692,
+       "max": 0.6994,
+       "mad_share": 0.0039
+      },
+      "cpu_s": {
+       "median": 0.6875,
+       "min": 0.6875,
+       "max": 0.7188,
+       "mad_share": 0.0
+      },
+      "user_s": 0.5781,
+      "kernel_s": 0.125,
+      "peak_mib": 18.4,
+      "realtime": 86.2,
+      "realtime_cpu": 87.3
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6791,
+       "min": 0.6739,
+       "max": 0.681,
+       "mad_share": 0.0027
+      },
+      "cpu_s": {
+       "median": 0.6562,
+       "min": 0.6562,
+       "max": 0.6875,
+       "mad_share": 0.0
+      },
+      "user_s": 0.5,
+      "kernel_s": 0.1562,
+      "peak_mib": 14.4,
+      "realtime": 88.4,
+      "realtime_cpu": 91.4
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, DRC off",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.1111,
+       "min": 0.1102,
+       "max": 0.1166,
+       "mad_share": 0.0043
+      },
+      "cpu_s": {
+       "median": 0.1562,
+       "min": 0.125,
+       "max": 0.2188,
+       "mad_share": 0.2
+      },
+      "user_s": 0.0938,
+      "kernel_s": 0.0469,
+      "peak_mib": 24.3,
+      "realtime": 540.1,
+      "realtime_cpu": 384.1
+     }
+    ]
+   },
+   {
+    "alias": "joc-1",
+    "kind": "joc",
+    "seconds": 105.76,
+    "bytes": 5076480,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6254,
+       "min": 0.6223,
+       "max": 0.632,
+       "mad_share": 0.0051
+      },
+      "cpu_s": {
+       "median": 0.625,
+       "min": 0.5938,
+       "max": 0.625,
+       "mad_share": 0.0
+      },
+      "user_s": 0.4844,
+      "kernel_s": 0.125,
+      "peak_mib": 18.4,
+      "realtime": 169.1,
+      "realtime_cpu": 169.2
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6111,
+       "min": 0.6082,
+       "max": 0.6215,
+       "mad_share": 0.0047
+      },
+      "cpu_s": {
+       "median": 0.6094,
+       "min": 0.5781,
+       "max": 0.6094,
+       "mad_share": 0.0
+      },
+      "user_s": 0.5156,
+      "kernel_s": 0.0781,
+      "peak_mib": 14.3,
+      "realtime": 173.1,
+      "realtime_cpu": 173.5
+     },
+     {
+      "command": "decode damf",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 2.619,
+       "min": 2.6084,
+       "max": 2.6403,
+       "mad_share": 0.0018
+      },
+      "cpu_s": {
+       "median": 2.6094,
+       "min": 2.6094,
+       "max": 2.6406,
+       "mad_share": 0.0
+      },
+      "user_s": 2.1719,
+      "kernel_s": 0.4531,
+      "peak_mib": 21.6,
+      "realtime": 40.4,
+      "realtime_cpu": 40.5
+     },
+     {
+      "command": "decode adm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 2.5419,
+       "min": 2.5175,
+       "max": 2.5671,
+       "mad_share": 0.0073
+      },
+      "cpu_s": {
+       "median": 2.5,
+       "min": 2.4844,
+       "max": 2.5156,
+       "mad_share": 0.0063
+      },
+      "user_s": 2.2812,
+      "kernel_s": 0.2188,
+      "peak_mib": 21.2,
+      "realtime": 41.6,
+      "realtime_cpu": 42.3
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, DRC off",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.1086,
+       "min": 0.1081,
+       "max": 0.1127,
+       "mad_share": 0.0048
+      },
+      "cpu_s": {
+       "median": 0.1719,
+       "min": 0.1094,
+       "max": 0.1875,
+       "mad_share": 0.0909
+      },
+      "user_s": 0.0938,
+      "kernel_s": 0.0469,
+      "peak_mib": 23.9,
+      "realtime": 973.8,
+      "realtime_cpu": 615.2
+     }
+    ]
+   },
+   {
+    "alias": "joc-2",
+    "kind": "joc",
+    "seconds": 60.0,
+    "bytes": 11520000,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode (8 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.7321,
+       "min": 0.7265,
+       "max": 0.7364,
+       "mad_share": 0.006
+      },
+      "cpu_s": {
+       "median": 0.7188,
+       "min": 0.7031,
+       "max": 0.7344,
+       "mad_share": 0.0
+      },
+      "user_s": 0.625,
+      "kernel_s": 0.0938,
+      "peak_mib": 18.6,
+      "realtime": 82.0,
+      "realtime_cpu": 83.5
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.7054,
+       "min": 0.7016,
+       "max": 0.7063,
+       "mad_share": 0.0009
+      },
+      "cpu_s": {
+       "median": 0.6875,
+       "min": 0.6875,
+       "max": 0.7031,
+       "mad_share": 0.0
+      },
+      "user_s": 0.625,
+      "kernel_s": 0.0781,
+      "peak_mib": 14.5,
+      "realtime": 85.1,
+      "realtime_cpu": 87.3
+     },
+     {
+      "command": "decode damf",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 2.27,
+       "min": 2.2533,
+       "max": 2.2959,
+       "mad_share": 0.004
+      },
+      "cpu_s": {
+       "median": 2.25,
+       "min": 2.25,
+       "max": 2.2812,
+       "mad_share": 0.0
+      },
+      "user_s": 1.8906,
+      "kernel_s": 0.3594,
+      "peak_mib": 22.4,
+      "realtime": 26.4,
+      "realtime_cpu": 26.7
+     },
+     {
+      "command": "decode adm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 2.2495,
+       "min": 2.2416,
+       "max": 2.2988,
+       "mad_share": 0.0035
+      },
+      "cpu_s": {
+       "median": 2.2031,
+       "min": 2.1875,
+       "max": 2.2344,
+       "mad_share": 0.0071
+      },
+      "user_s": 1.9375,
+      "kernel_s": 0.2969,
+      "peak_mib": 22.3,
+      "realtime": 26.7,
+      "realtime_cpu": 27.2
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, DRC off",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.1082,
+       "min": 0.1077,
+       "max": 0.1163,
+       "mad_share": 0.0046
+      },
+      "cpu_s": {
+       "median": 0.1562,
+       "min": 0.1406,
+       "max": 0.1875,
+       "mad_share": 0.1
+      },
+      "user_s": 0.0938,
+      "kernel_s": 0.0625,
+      "peak_mib": 24.2,
+      "realtime": 554.5,
+      "realtime_cpu": 384.1
+     }
+    ]
+   },
+   {
+    "alias": "truehd-6ch-1",
+    "kind": "truehd-6ch",
+    "seconds": 60.0,
+    "bytes": 10180048,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode -p 0 (2 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.1167,
+       "min": 0.1147,
+       "max": 0.1217,
+       "mad_share": 0.0122
+      },
+      "cpu_s": {
+       "median": 0.2188,
+       "min": 0.2031,
+       "max": 0.2188,
+       "mad_share": 0.0
+      },
+      "user_s": 0.1875,
+      "kernel_s": 0.0312,
+      "peak_mib": 30.2,
+      "realtime": 514.1,
+      "realtime_cpu": 274.2
+     },
+     {
+      "command": "decode -p 1 (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2692,
+       "min": 0.2654,
+       "max": 0.2786,
+       "mad_share": 0.007
+      },
+      "cpu_s": {
+       "median": 0.375,
+       "min": 0.3594,
+       "max": 0.3906,
+       "mad_share": 0.0417
+      },
+      "user_s": 0.3125,
+      "kernel_s": 0.0469,
+      "peak_mib": 30.0,
+      "realtime": 222.9,
+      "realtime_cpu": 160.0
+     },
+     {
+      "command": "decode -p 2 (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2701,
+       "min": 0.2629,
+       "max": 0.283,
+       "mad_share": 0.0212
+      },
+      "cpu_s": {
+       "median": 0.375,
+       "min": 0.3438,
+       "max": 0.4219,
+       "mad_share": 0.0
+      },
+      "user_s": 0.3281,
+      "kernel_s": 0.0781,
+      "peak_mib": 30.1,
+      "realtime": 222.1,
+      "realtime_cpu": 160.0
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.1163,
+       "min": 0.1146,
+       "max": 0.1166,
+       "mad_share": 0.0024
+      },
+      "cpu_s": {
+       "median": 0.1094,
+       "min": 0.1094,
+       "max": 0.125,
+       "mad_share": 0.0
+      },
+      "user_s": 0.0938,
+      "kernel_s": 0.0156,
+      "peak_mib": 17.5,
+      "realtime": 515.9,
+      "realtime_cpu": 548.4
+     },
+     {
+      "command": "verify --decode",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.4733,
+       "min": 0.4703,
+       "max": 0.4788,
+       "mad_share": 0.0034
+      },
+      "cpu_s": {
+       "median": 0.4688,
+       "min": 0.4531,
+       "max": 0.4844,
+       "mad_share": 0.0
+      },
+      "user_s": 0.4375,
+      "kernel_s": 0.0312,
+      "peak_mib": 18.0,
+      "realtime": 126.8,
+      "realtime_cpu": 128.0
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, its default presentation",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.4762,
+       "min": 0.4719,
+       "max": 0.4838,
+       "mad_share": 0.0057
+      },
+      "cpu_s": {
+       "median": 1.2188,
+       "min": 1.1406,
+       "max": 1.2344,
+       "mad_share": 0.0128
+      },
+      "user_s": 0.7188,
+      "kernel_s": 0.5,
+      "peak_mib": 23.9,
+      "realtime": 126.0,
+      "realtime_cpu": 49.2
+     },
+     {
+      "command": "truehdd --presentation 0 (2 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3474,
+       "min": 0.3427,
+       "max": 0.356,
+       "mad_share": 0.0028
+      },
+      "cpu_s": {
+       "median": 1.2812,
+       "min": 1.1875,
+       "max": 1.3281,
+       "mad_share": 0.0366
+      },
+      "user_s": 1.1562,
+      "kernel_s": 0.1094,
+      "peak_mib": 8.8,
+      "realtime": 172.7,
+      "realtime_cpu": 46.8
+     },
+     {
+      "command": "truehdd --presentation 1 (6 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.665,
+       "min": 0.6593,
+       "max": 0.6759,
+       "mad_share": 0.0066
+      },
+      "cpu_s": {
+       "median": 2.4531,
+       "min": 2.4062,
+       "max": 2.5,
+       "mad_share": 0.0191
+      },
+      "user_s": 1.8281,
+      "kernel_s": 0.625,
+      "peak_mib": 9.4,
+      "realtime": 90.2,
+      "realtime_cpu": 24.5
+     },
+     {
+      "command": "truehdd --presentation 2 (6 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6845,
+       "min": 0.6702,
+       "max": 0.6911,
+       "mad_share": 0.0067
+      },
+      "cpu_s": {
+       "median": 2.5156,
+       "min": 2.375,
+       "max": 2.5312,
+       "mad_share": 0.0062
+      },
+      "user_s": 1.75,
+      "kernel_s": 0.7812,
+      "peak_mib": 8.7,
+      "realtime": 87.7,
+      "realtime_cpu": 23.9
+     }
+    ]
+   },
+   {
+    "alias": "truehd-6ch-2",
+    "kind": "truehd-6ch",
+    "seconds": 60.0,
+    "bytes": 7677912,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode -p 0 (2 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.1141,
+       "min": 0.1114,
+       "max": 0.1161,
+       "mad_share": 0.012
+      },
+      "cpu_s": {
+       "median": 0.2188,
+       "min": 0.2031,
+       "max": 0.2188,
+       "mad_share": 0.0
+      },
+      "user_s": 0.1719,
+      "kernel_s": 0.0312,
+      "peak_mib": 26.1,
+      "realtime": 525.9,
+      "realtime_cpu": 274.2
+     },
+     {
+      "command": "decode -p 1 (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2548,
+       "min": 0.2501,
+       "max": 0.2706,
+       "mad_share": 0.0103
+      },
+      "cpu_s": {
+       "median": 0.3594,
+       "min": 0.3281,
+       "max": 0.375,
+       "mad_share": 0.0
+      },
+      "user_s": 0.3438,
+      "kernel_s": 0.0156,
+      "peak_mib": 26.0,
+      "realtime": 235.5,
+      "realtime_cpu": 166.9
+     },
+     {
+      "command": "decode -p 2 (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2529,
+       "min": 0.2503,
+       "max": 0.2563,
+       "mad_share": 0.0065
+      },
+      "cpu_s": {
+       "median": 0.3594,
+       "min": 0.3281,
+       "max": 0.3594,
+       "mad_share": 0.0
+      },
+      "user_s": 0.3281,
+      "kernel_s": 0.0312,
+      "peak_mib": 26.0,
+      "realtime": 237.2,
+      "realtime_cpu": 166.9
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.1106,
+       "min": 0.1103,
+       "max": 0.1137,
+       "mad_share": 0.0027
+      },
+      "cpu_s": {
+       "median": 0.1094,
+       "min": 0.1094,
+       "max": 0.1094,
+       "mad_share": 0.0
+      },
+      "user_s": 0.0938,
+      "kernel_s": 0.0156,
+      "peak_mib": 13.5,
+      "realtime": 542.5,
+      "realtime_cpu": 548.4
+     },
+     {
+      "command": "verify --decode",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.4572,
+       "min": 0.4512,
+       "max": 0.4577,
+       "mad_share": 0.0012
+      },
+      "cpu_s": {
+       "median": 0.4531,
+       "min": 0.4375,
+       "max": 0.4531,
+       "mad_share": 0.0
+      },
+      "user_s": 0.4219,
+      "kernel_s": 0.0312,
+      "peak_mib": 13.9,
+      "realtime": 131.2,
+      "realtime_cpu": 132.4
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, its default presentation",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.471,
+       "min": 0.4653,
+       "max": 0.4774,
+       "mad_share": 0.0072
+      },
+      "cpu_s": {
+       "median": 1.2188,
+       "min": 1.1406,
+       "max": 1.4531,
+       "mad_share": 0.0256
+      },
+      "user_s": 0.6719,
+      "kernel_s": 0.5938,
+      "peak_mib": 23.9,
+      "realtime": 127.4,
+      "realtime_cpu": 49.2
+     },
+     {
+      "command": "truehdd --presentation 0 (2 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3534,
+       "min": 0.3498,
+       "max": 0.3627,
+       "mad_share": 0.0083
+      },
+      "cpu_s": {
+       "median": 1.3281,
+       "min": 1.2188,
+       "max": 1.3438,
+       "mad_share": 0.0118
+      },
+      "user_s": 1.0625,
+      "kernel_s": 0.2656,
+      "peak_mib": 8.8,
+      "realtime": 169.8,
+      "realtime_cpu": 45.2
+     },
+     {
+      "command": "truehdd --presentation 1 (6 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6458,
+       "min": 0.6327,
+       "max": 0.6558,
+       "mad_share": 0.014
+      },
+      "cpu_s": {
+       "median": 2.4219,
+       "min": 2.3594,
+       "max": 2.5,
+       "mad_share": 0.0258
+      },
+      "user_s": 1.5469,
+      "kernel_s": 0.875,
+      "peak_mib": 8.8,
+      "realtime": 92.9,
+      "realtime_cpu": 24.8
+     },
+     {
+      "command": "truehdd --presentation 2 (6 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6373,
+       "min": 0.607,
+       "max": 0.6479,
+       "mad_share": 0.0069
+      },
+      "cpu_s": {
+       "median": 2.3594,
+       "min": 2.2812,
+       "max": 2.375,
+       "mad_share": 0.0066
+      },
+      "user_s": 1.5625,
+      "kernel_s": 0.7656,
+      "peak_mib": 9.7,
+      "realtime": 94.1,
+      "realtime_cpu": 25.4
+     }
+    ]
+   },
+   {
+    "alias": "truehd-8ch-1",
+    "kind": "truehd-8ch",
+    "seconds": 55.083,
+    "bytes": 16278126,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode -p 0 (2 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.1471,
+       "min": 0.1457,
+       "max": 0.1494,
+       "mad_share": 0.0048
+      },
+      "cpu_s": {
+       "median": 0.25,
+       "min": 0.2344,
+       "max": 0.25,
+       "mad_share": 0.0
+      },
+      "user_s": 0.2031,
+      "kernel_s": 0.0469,
+      "peak_mib": 30.2,
+      "realtime": 374.5,
+      "realtime_cpu": 220.3
+     },
+     {
+      "command": "decode -p 1 (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2672,
+       "min": 0.2588,
+       "max": 0.2765,
+       "mad_share": 0.0257
+      },
+      "cpu_s": {
+       "median": 0.4062,
+       "min": 0.3906,
+       "max": 0.4219,
+       "mad_share": 0.0385
+      },
+      "user_s": 0.3594,
+      "kernel_s": 0.0469,
+      "peak_mib": 30.2,
+      "realtime": 206.1,
+      "realtime_cpu": 135.6
+     },
+     {
+      "command": "decode -p 2 (8 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3506,
+       "min": 0.3482,
+       "max": 0.3568,
+       "mad_share": 0.0059
+      },
+      "cpu_s": {
+       "median": 0.4844,
+       "min": 0.4844,
+       "max": 0.5,
+       "mad_share": 0.0
+      },
+      "user_s": 0.4375,
+      "kernel_s": 0.0469,
+      "peak_mib": 30.1,
+      "realtime": 157.1,
+      "realtime_cpu": 113.7
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.1496,
+       "min": 0.1478,
+       "max": 0.1523,
+       "mad_share": 0.006
+      },
+      "cpu_s": {
+       "median": 0.1406,
+       "min": 0.1406,
+       "max": 0.1562,
+       "mad_share": 0.0
+      },
+      "user_s": 0.1094,
+      "kernel_s": 0.0312,
+      "peak_mib": 17.5,
+      "realtime": 368.2,
+      "realtime_cpu": 391.8
+     },
+     {
+      "command": "verify --decode",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.8465,
+       "min": 0.8227,
+       "max": 0.8518,
+       "mad_share": 0.0063
+      },
+      "cpu_s": {
+       "median": 0.8281,
+       "min": 0.8281,
+       "max": 0.8438,
+       "mad_share": 0.0
+      },
+      "user_s": 0.8125,
+      "kernel_s": 0.0312,
+      "peak_mib": 18.2,
+      "realtime": 65.1,
+      "realtime_cpu": 66.5
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, its default presentation",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.4947,
+       "min": 0.4923,
+       "max": 0.5056,
+       "mad_share": 0.0024
+      },
+      "cpu_s": {
+       "median": 1.2344,
+       "min": 1.2188,
+       "max": 1.375,
+       "mad_share": 0.0127
+      },
+      "user_s": 0.75,
+      "kernel_s": 0.6094,
+      "peak_mib": 24.0,
+      "realtime": 111.3,
+      "realtime_cpu": 44.6
+     },
+     {
+      "command": "truehdd --presentation 0 (2 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3209,
+       "min": 0.3131,
+       "max": 0.3293,
+       "mad_share": 0.0195
+      },
+      "cpu_s": {
+       "median": 1.1406,
+       "min": 1.1094,
+       "max": 1.1562,
+       "mad_share": 0.0137
+      },
+      "user_s": 0.9531,
+      "kernel_s": 0.1875,
+      "peak_mib": 8.8,
+      "realtime": 171.7,
+      "realtime_cpu": 48.3
+     },
+     {
+      "command": "truehdd --presentation 1 (6 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6084,
+       "min": 0.6011,
+       "max": 0.6288,
+       "mad_share": 0.0119
+      },
+      "cpu_s": {
+       "median": 2.2344,
+       "min": 2.1562,
+       "max": 2.2656,
+       "mad_share": 0.014
+      },
+      "user_s": 1.5625,
+      "kernel_s": 0.6719,
+      "peak_mib": 10.0,
+      "realtime": 90.5,
+      "realtime_cpu": 24.7
+     },
+     {
+      "command": "truehdd --presentation 2 (8 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.8538,
+       "min": 0.8475,
+       "max": 0.8601,
+       "mad_share": 0.0045
+      },
+      "cpu_s": {
+       "median": 3.0938,
+       "min": 2.9688,
+       "max": 3.2188,
+       "mad_share": 0.0303
+      },
+      "user_s": 2.0781,
+      "kernel_s": 1.0938,
+      "peak_mib": 9.6,
+      "realtime": 64.5,
+      "realtime_cpu": 17.8
+     }
+    ]
+   },
+   {
+    "alias": "truehd-8ch-2",
+    "kind": "truehd-8ch",
+    "seconds": 30.0,
+    "bytes": 24837264,
+    "sample_rate": 96000,
+    "results": [
+     {
+      "command": "decode -p 0 (2 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2126,
+       "min": 0.2112,
+       "max": 0.2139,
+       "mad_share": 0.0034
+      },
+      "cpu_s": {
+       "median": 0.2969,
+       "min": 0.2812,
+       "max": 0.3125,
+       "mad_share": 0.0526
+      },
+      "user_s": 0.25,
+      "kernel_s": 0.0469,
+      "peak_mib": 30.2,
+      "realtime": 141.1,
+      "realtime_cpu": 101.0
+     },
+     {
+      "command": "decode -p 1 (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2509,
+       "min": 0.2499,
+       "max": 0.265,
+       "mad_share": 0.0042
+      },
+      "cpu_s": {
+       "median": 0.4531,
+       "min": 0.4375,
+       "max": 0.4688,
+       "mad_share": 0.0
+      },
+      "user_s": 0.4219,
+      "kernel_s": 0.0469,
+      "peak_mib": 30.2,
+      "realtime": 119.6,
+      "realtime_cpu": 66.2
+     },
+     {
+      "command": "decode -p 2 (8 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2923,
+       "min": 0.2916,
+       "max": 0.3107,
+       "mad_share": 0.0025
+      },
+      "cpu_s": {
+       "median": 0.4844,
+       "min": 0.4688,
+       "max": 0.5312,
+       "mad_share": 0.0323
+      },
+      "user_s": 0.4219,
+      "kernel_s": 0.0625,
+      "peak_mib": 30.2,
+      "realtime": 102.6,
+      "realtime_cpu": 61.9
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2131,
+       "min": 0.2124,
+       "max": 0.2151,
+       "mad_share": 0.0011
+      },
+      "cpu_s": {
+       "median": 0.2031,
+       "min": 0.2031,
+       "max": 0.2188,
+       "mad_share": 0.0
+      },
+      "user_s": 0.1719,
+      "kernel_s": 0.0469,
+      "peak_mib": 17.5,
+      "realtime": 140.8,
+      "realtime_cpu": 147.7
+     },
+     {
+      "command": "verify --decode",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.8509,
+       "min": 0.843,
+       "max": 0.862,
+       "mad_share": 0.0083
+      },
+      "cpu_s": {
+       "median": 0.8281,
+       "min": 0.8281,
+       "max": 0.8438,
+       "mad_share": 0.0
+      },
+      "user_s": 0.7188,
+      "kernel_s": 0.125,
+      "peak_mib": 18.2,
+      "realtime": 35.3,
+      "realtime_cpu": 36.2
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, its default presentation",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.4367,
+       "min": 0.4323,
+       "max": 0.4665,
+       "mad_share": 0.01
+      },
+      "cpu_s": {
+       "median": 0.9688,
+       "min": 0.9375,
+       "max": 1.0156,
+       "mad_share": 0.0323
+      },
+      "user_s": 0.625,
+      "kernel_s": 0.3438,
+      "peak_mib": 24.0,
+      "realtime": 68.7,
+      "realtime_cpu": 31.0
+     },
+     {
+      "command": "truehdd --presentation 0 (2 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2251,
+       "min": 0.2209,
+       "max": 0.2321,
+       "mad_share": 0.0185
+      },
+      "cpu_s": {
+       "median": 0.8281,
+       "min": 0.7969,
+       "max": 0.8438,
+       "mad_share": 0.0189
+      },
+      "user_s": 0.6719,
+      "kernel_s": 0.1562,
+      "peak_mib": 8.8,
+      "realtime": 133.3,
+      "realtime_cpu": 36.2
+     },
+     {
+      "command": "truehdd --presentation 1 (6 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.4548,
+       "min": 0.4404,
+       "max": 0.4594,
+       "mad_share": 0.0101
+      },
+      "cpu_s": {
+       "median": 1.625,
+       "min": 1.625,
+       "max": 1.6719,
+       "mad_share": 0.0
+      },
+      "user_s": 1.3281,
+      "kernel_s": 0.2969,
+      "peak_mib": 10.2,
+      "realtime": 66.0,
+      "realtime_cpu": 18.5
+     },
+     {
+      "command": "truehdd --presentation 2 (8 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.4908,
+       "min": 0.4842,
+       "max": 0.57,
+       "mad_share": 0.0011
+      },
+      "cpu_s": {
+       "median": 1.7656,
+       "min": 1.7031,
+       "max": 1.7812,
+       "mad_share": 0.0088
+      },
+      "user_s": 1.3438,
+      "kernel_s": 0.4219,
+      "peak_mib": 9.0,
+      "realtime": 61.1,
+      "realtime_cpu": 17.0
+     }
+    ]
+   },
+   {
+    "alias": "truehd-objects-12ch-1",
+    "kind": "truehd-objects-12ch",
+    "seconds": 105.746,
+    "bytes": 50000000,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode -p 0 (2 ch) pcm",
+      "exit": 7,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3882,
+       "min": 0.3855,
+       "max": 0.3916,
+       "mad_share": 0.0053
+      },
+      "cpu_s": {
+       "median": 0.5938,
+       "min": 0.5469,
+       "max": 0.5938,
+       "mad_share": 0.0
+      },
+      "user_s": 0.5156,
+      "kernel_s": 0.0781,
+      "peak_mib": 30.3,
+      "realtime": 272.4,
+      "realtime_cpu": 178.1
+     },
+     {
+      "command": "decode -p 1 (6 ch) pcm",
+      "exit": 7,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.5085,
+       "min": 0.5056,
+       "max": 0.5257,
+       "mad_share": 0.0007
+      },
+      "cpu_s": {
+       "median": 0.8906,
+       "min": 0.875,
+       "max": 0.8906,
+       "mad_share": 0.0
+      },
+      "user_s": 0.8281,
+      "kernel_s": 0.0469,
+      "peak_mib": 30.2,
+      "realtime": 208.0,
+      "realtime_cpu": 118.7
+     },
+     {
+      "command": "decode -p 2 (8 ch) pcm",
+      "exit": 7,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6841,
+       "min": 0.6812,
+       "max": 0.7149,
+       "mad_share": 0.0043
+      },
+      "cpu_s": {
+       "median": 1.0781,
+       "min": 1.0469,
+       "max": 1.1094,
+       "mad_share": 0.029
+      },
+      "user_s": 0.9844,
+      "kernel_s": 0.0625,
+      "peak_mib": 30.3,
+      "realtime": 154.6,
+      "realtime_cpu": 98.1
+     },
+     {
+      "command": "decode -p 3 (12 ch) pcm",
+      "exit": 7,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.1575,
+       "min": 1.1564,
+       "max": 1.1797,
+       "mad_share": 0.0009
+      },
+      "cpu_s": {
+       "median": 1.5312,
+       "min": 1.5156,
+       "max": 1.5469,
+       "mad_share": 0.0102
+      },
+      "user_s": 1.4375,
+      "kernel_s": 0.1094,
+      "peak_mib": 30.3,
+      "realtime": 91.4,
+      "realtime_cpu": 69.1
+     },
+     {
+      "command": "verify",
+      "exit": 7,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3869,
+       "min": 0.3856,
+       "max": 0.3885,
+       "mad_share": 0.0027
+      },
+      "cpu_s": {
+       "median": 0.3906,
+       "min": 0.375,
+       "max": 0.3906,
+       "mad_share": 0.0
+      },
+      "user_s": 0.3594,
+      "kernel_s": 0.0312,
+      "peak_mib": 17.6,
+      "realtime": 273.3,
+      "realtime_cpu": 270.7
+     },
+     {
+      "command": "verify --decode",
+      "exit": 7,
+      "runs": 5,
+      "wall_s": {
+       "median": 2.8957,
+       "min": 2.8924,
+       "max": 2.94,
+       "mad_share": 0.0011
+      },
+      "cpu_s": {
+       "median": 2.875,
+       "min": 2.8281,
+       "max": 2.9062,
+       "mad_share": 0.0109
+      },
+      "user_s": 2.7188,
+      "kernel_s": 0.1719,
+      "peak_mib": 18.6,
+      "realtime": 36.5,
+      "realtime_cpu": 36.8
+     },
+     {
+      "command": "decode damf",
+      "exit": 7,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.3449,
+       "min": 1.3137,
+       "max": 1.8849,
+       "mad_share": 0.0232
+      },
+      "cpu_s": {
+       "median": 1.6875,
+       "min": 1.6719,
+       "max": 1.7188,
+       "mad_share": 0.0093
+      },
+      "user_s": 1.4219,
+      "kernel_s": 0.2656,
+      "peak_mib": 30.6,
+      "realtime": 78.6,
+      "realtime_cpu": 62.7
+     },
+     {
+      "command": "decode adm",
+      "exit": 7,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.3438,
+       "min": 1.308,
+       "max": 1.5085,
+       "mad_share": 0.0237
+      },
+      "cpu_s": {
+       "median": 1.6875,
+       "min": 1.625,
+       "max": 1.7031,
+       "mad_share": 0.0093
+      },
+      "user_s": 1.5469,
+      "kernel_s": 0.125,
+      "peak_mib": 30.4,
+      "realtime": 78.7,
+      "realtime_cpu": 62.7
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, its default presentation",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.0149,
+       "min": 1.0108,
+       "max": 1.0212,
+       "mad_share": 0.0035
+      },
+      "cpu_s": {
+       "median": 2.6094,
+       "min": 2.5312,
+       "max": 2.7812,
+       "mad_share": 0.024
+      },
+      "user_s": 1.3906,
+      "kernel_s": 1.2188,
+      "peak_mib": 24.3,
+      "realtime": 104.2,
+      "realtime_cpu": 40.5
+     },
+     {
+      "command": "truehdd --presentation 0 (2 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6222,
+       "min": 0.6201,
+       "max": 0.6375,
+       "mad_share": 0.0034
+      },
+      "cpu_s": {
+       "median": 2.3281,
+       "min": 2.3125,
+       "max": 2.4219,
+       "mad_share": 0.0067
+      },
+      "user_s": 2.125,
+      "kernel_s": 0.2969,
+      "peak_mib": 9.2,
+      "realtime": 170.0,
+      "realtime_cpu": 45.4
+     },
+     {
+      "command": "truehdd --presentation 1 (6 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.193,
+       "min": 1.1863,
+       "max": 1.2009,
+       "mad_share": 0.0027
+      },
+      "cpu_s": {
+       "median": 4.3906,
+       "min": 4.3281,
+       "max": 4.5,
+       "mad_share": 0.0107
+      },
+      "user_s": 3.6094,
+      "kernel_s": 0.7188,
+      "peak_mib": 10.3,
+      "realtime": 88.6,
+      "realtime_cpu": 24.1
+     },
+     {
+      "command": "truehdd --presentation 2 (8 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.6892,
+       "min": 1.6724,
+       "max": 1.7513,
+       "mad_share": 0.0099
+      },
+      "cpu_s": {
+       "median": 6.1094,
+       "min": 6.0,
+       "max": 6.2969,
+       "mad_share": 0.0179
+      },
+      "user_s": 3.9844,
+      "kernel_s": 2.1406,
+      "peak_mib": 11.2,
+      "realtime": 62.6,
+      "realtime_cpu": 17.3
+     },
+     {
+      "command": "truehdd --presentation 3 (12 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 2.4925,
+       "min": 2.4284,
+       "max": 2.7002,
+       "mad_share": 0.0257
+      },
+      "cpu_s": {
+       "median": 7.9531,
+       "min": 7.7656,
+       "max": 8.1875,
+       "mad_share": 0.0236
+      },
+      "user_s": 5.7812,
+      "kernel_s": 2.4062,
+      "peak_mib": 12.4,
+      "realtime": 42.4,
+      "realtime_cpu": 13.3
+     }
+    ]
+   },
+   {
+    "alias": "truehd-objects-12ch-2",
+    "kind": "truehd-objects-12ch",
+    "seconds": 60.0,
+    "bytes": 34919876,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode -p 0 (2 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2433,
+       "min": 0.2429,
+       "max": 0.2501,
+       "mad_share": 0.0007
+      },
+      "cpu_s": {
+       "median": 0.3438,
+       "min": 0.3438,
+       "max": 0.375,
+       "mad_share": 0.0
+      },
+      "user_s": 0.2969,
+      "kernel_s": 0.0469,
+      "peak_mib": 30.3,
+      "realtime": 246.6,
+      "realtime_cpu": 174.5
+     },
+     {
+      "command": "decode -p 1 (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3023,
+       "min": 0.299,
+       "max": 0.3046,
+       "mad_share": 0.0046
+      },
+      "cpu_s": {
+       "median": 0.5312,
+       "min": 0.5156,
+       "max": 0.5469,
+       "mad_share": 0.0294
+      },
+      "user_s": 0.4688,
+      "kernel_s": 0.0625,
+      "peak_mib": 30.4,
+      "realtime": 198.5,
+      "realtime_cpu": 113.0
+     },
+     {
+      "command": "decode -p 2 (8 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.4098,
+       "min": 0.4078,
+       "max": 0.4135,
+       "mad_share": 0.0049
+      },
+      "cpu_s": {
+       "median": 0.6406,
+       "min": 0.625,
+       "max": 0.6406,
+       "mad_share": 0.0
+      },
+      "user_s": 0.5469,
+      "kernel_s": 0.0938,
+      "peak_mib": 30.3,
+      "realtime": 146.4,
+      "realtime_cpu": 93.7
+     },
+     {
+      "command": "decode -p 3 (12 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6853,
+       "min": 0.6791,
+       "max": 0.6996,
+       "mad_share": 0.0038
+      },
+      "cpu_s": {
+       "median": 0.9062,
+       "min": 0.9062,
+       "max": 0.9219,
+       "mad_share": 0.0
+      },
+      "user_s": 0.8281,
+      "kernel_s": 0.0781,
+      "peak_mib": 30.3,
+      "realtime": 87.6,
+      "realtime_cpu": 66.2
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2426,
+       "min": 0.2413,
+       "max": 0.2458,
+       "mad_share": 0.0052
+      },
+      "cpu_s": {
+       "median": 0.2344,
+       "min": 0.2344,
+       "max": 0.25,
+       "mad_share": 0.0
+      },
+      "user_s": 0.1875,
+      "kernel_s": 0.0469,
+      "peak_mib": 17.6,
+      "realtime": 247.3,
+      "realtime_cpu": 256.0
+     },
+     {
+      "command": "verify --decode",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.7081,
+       "min": 1.6957,
+       "max": 1.7436,
+       "mad_share": 0.0073
+      },
+      "cpu_s": {
+       "median": 1.7031,
+       "min": 1.6562,
+       "max": 1.7344,
+       "mad_share": 0.0183
+      },
+      "user_s": 1.5938,
+      "kernel_s": 0.0938,
+      "peak_mib": 18.6,
+      "realtime": 35.1,
+      "realtime_cpu": 35.2
+     },
+     {
+      "command": "decode damf",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.7889,
+       "min": 0.7669,
+       "max": 1.2946,
+       "mad_share": 0.0278
+      },
+      "cpu_s": {
+       "median": 1.0,
+       "min": 0.9688,
+       "max": 1.0312,
+       "mad_share": 0.0156
+      },
+      "user_s": 0.8281,
+      "kernel_s": 0.1406,
+      "peak_mib": 30.6,
+      "realtime": 76.1,
+      "realtime_cpu": 60.0
+     },
+     {
+      "command": "decode adm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.0988,
+       "min": 0.7748,
+       "max": 1.2817,
+       "mad_share": 0.0406
+      },
+      "cpu_s": {
+       "median": 0.9844,
+       "min": 0.9688,
+       "max": 1.0312,
+       "mad_share": 0.0159
+      },
+      "user_s": 0.8438,
+      "kernel_s": 0.1562,
+      "peak_mib": 30.4,
+      "realtime": 54.6,
+      "realtime_cpu": 61.0
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, its default presentation",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.5768,
+       "min": 0.5744,
+       "max": 0.5937,
+       "mad_share": 0.0041
+      },
+      "cpu_s": {
+       "median": 1.4531,
+       "min": 1.375,
+       "max": 1.5156,
+       "mad_share": 0.0323
+      },
+      "user_s": 0.8125,
+      "kernel_s": 0.6562,
+      "peak_mib": 24.2,
+      "realtime": 104.0,
+      "realtime_cpu": 41.3
+     },
+     {
+      "command": "truehdd --presentation 0 (2 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3702,
+       "min": 0.3608,
+       "max": 0.6042,
+       "mad_share": 0.0115
+      },
+      "cpu_s": {
+       "median": 1.3594,
+       "min": 1.3125,
+       "max": 1.3906,
+       "mad_share": 0.023
+      },
+      "user_s": 1.1406,
+      "kernel_s": 0.1875,
+      "peak_mib": 9.2,
+      "realtime": 162.1,
+      "realtime_cpu": 44.1
+     },
+     {
+      "command": "truehdd --presentation 1 (6 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.7189,
+       "min": 0.7081,
+       "max": 0.7387,
+       "mad_share": 0.0133
+      },
+      "cpu_s": {
+       "median": 2.6562,
+       "min": 2.6094,
+       "max": 2.75,
+       "mad_share": 0.0176
+      },
+      "user_s": 1.8906,
+      "kernel_s": 0.7969,
+      "peak_mib": 10.1,
+      "realtime": 83.5,
+      "realtime_cpu": 22.6
+     },
+     {
+      "command": "truehdd --presentation 2 (8 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.0437,
+       "min": 1.0376,
+       "max": 1.0571,
+       "mad_share": 0.0059
+      },
+      "cpu_s": {
+       "median": 3.625,
+       "min": 3.5469,
+       "max": 3.7656,
+       "mad_share": 0.0216
+      },
+      "user_s": 2.1562,
+      "kernel_s": 1.4531,
+      "peak_mib": 11.0,
+      "realtime": 57.5,
+      "realtime_cpu": 16.6
+     },
+     {
+      "command": "truehdd --presentation 3 (12 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.4705,
+       "min": 1.4406,
+       "max": 1.5416,
+       "mad_share": 0.0051
+      },
+      "cpu_s": {
+       "median": 4.6875,
+       "min": 4.5469,
+       "max": 4.7656,
+       "mad_share": 0.0133
+      },
+      "user_s": 3.1406,
+      "kernel_s": 1.4219,
+      "peak_mib": 12.2,
+      "realtime": 40.8,
+      "realtime_cpu": 12.8
+     }
+    ]
+   },
+   {
+    "alias": "truehd-objects-14ch-1",
+    "kind": "truehd-objects-14ch",
+    "seconds": 60.0,
+    "bytes": 47308740,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode -p 0 (2 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3147,
+       "min": 0.3117,
+       "max": 0.3222,
+       "mad_share": 0.0048
+      },
+      "cpu_s": {
+       "median": 0.4375,
+       "min": 0.4219,
+       "max": 0.4375,
+       "mad_share": 0.0
+      },
+      "user_s": 0.3906,
+      "kernel_s": 0.0312,
+      "peak_mib": 30.4,
+      "realtime": 190.7,
+      "realtime_cpu": 137.1
+     },
+     {
+      "command": "decode -p 1 (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3173,
+       "min": 0.3139,
+       "max": 0.3215,
+       "mad_share": 0.0074
+      },
+      "cpu_s": {
+       "median": 0.6094,
+       "min": 0.5781,
+       "max": 0.6094,
+       "mad_share": 0.0
+      },
+      "user_s": 0.5312,
+      "kernel_s": 0.0625,
+      "peak_mib": 30.4,
+      "realtime": 189.1,
+      "realtime_cpu": 98.5
+     },
+     {
+      "command": "decode -p 2 (8 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3691,
+       "min": 0.3644,
+       "max": 0.3799,
+       "mad_share": 0.0069
+      },
+      "cpu_s": {
+       "median": 0.6719,
+       "min": 0.6719,
+       "max": 0.6875,
+       "mad_share": 0.0
+      },
+      "user_s": 0.6094,
+      "kernel_s": 0.0625,
+      "peak_mib": 30.4,
+      "realtime": 162.6,
+      "realtime_cpu": 89.3
+     },
+     {
+      "command": "decode -p 3 (14 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6838,
+       "min": 0.6826,
+       "max": 0.6866,
+       "mad_share": 0.0017
+      },
+      "cpu_s": {
+       "median": 0.9844,
+       "min": 0.9688,
+       "max": 1.0,
+       "mad_share": 0.0159
+      },
+      "user_s": 0.9062,
+      "kernel_s": 0.0781,
+      "peak_mib": 30.3,
+      "realtime": 87.7,
+      "realtime_cpu": 61.0
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3179,
+       "min": 0.3153,
+       "max": 0.3192,
+       "mad_share": 0.0009
+      },
+      "cpu_s": {
+       "median": 0.3125,
+       "min": 0.3125,
+       "max": 0.3281,
+       "mad_share": 0.0
+      },
+      "user_s": 0.2656,
+      "kernel_s": 0.0469,
+      "peak_mib": 17.6,
+      "realtime": 188.7,
+      "realtime_cpu": 192.0
+     },
+     {
+      "command": "verify --decode",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.7529,
+       "min": 1.7457,
+       "max": 1.7668,
+       "mad_share": 0.0041
+      },
+      "cpu_s": {
+       "median": 1.7344,
+       "min": 1.7188,
+       "max": 1.75,
+       "mad_share": 0.009
+      },
+      "user_s": 1.6406,
+      "kernel_s": 0.0781,
+      "peak_mib": 18.6,
+      "realtime": 34.2,
+      "realtime_cpu": 34.6
+     },
+     {
+      "command": "decode damf",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.7857,
+       "min": 0.7726,
+       "max": 1.1026,
+       "mad_share": 0.0097
+      },
+      "cpu_s": {
+       "median": 1.0781,
+       "min": 1.0625,
+       "max": 1.0938,
+       "mad_share": 0.0145
+      },
+      "user_s": 0.9688,
+      "kernel_s": 0.1094,
+      "peak_mib": 30.7,
+      "realtime": 76.4,
+      "realtime_cpu": 55.7
+     },
+     {
+      "command": "decode adm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.1702,
+       "min": 0.8128,
+       "max": 1.4648,
+       "mad_share": 0.1163
+      },
+      "cpu_s": {
+       "median": 1.0781,
+       "min": 1.0469,
+       "max": 1.0938,
+       "mad_share": 0.0145
+      },
+      "user_s": 0.9844,
+      "kernel_s": 0.1094,
+      "peak_mib": 30.5,
+      "realtime": 51.3,
+      "realtime_cpu": 55.7
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, its default presentation",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6075,
+       "min": 0.6016,
+       "max": 0.6225,
+       "mad_share": 0.0018
+      },
+      "cpu_s": {
+       "median": 1.5,
+       "min": 1.4688,
+       "max": 1.6562,
+       "mad_share": 0.0208
+      },
+      "user_s": 0.7969,
+      "kernel_s": 0.7812,
+      "peak_mib": 24.3,
+      "realtime": 98.8,
+      "realtime_cpu": 40.0
+     },
+     {
+      "command": "truehdd --presentation 0 (2 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3714,
+       "min": 0.3667,
+       "max": 0.3767,
+       "mad_share": 0.0066
+      },
+      "cpu_s": {
+       "median": 1.3438,
+       "min": 1.3125,
+       "max": 1.4062,
+       "mad_share": 0.0233
+      },
+      "user_s": 1.125,
+      "kernel_s": 0.2188,
+      "peak_mib": 9.0,
+      "realtime": 161.6,
+      "realtime_cpu": 44.6
+     },
+     {
+      "command": "truehdd --presentation 1 (6 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.7267,
+       "min": 0.7204,
+       "max": 0.7313,
+       "mad_share": 0.0057
+      },
+      "cpu_s": {
+       "median": 2.6719,
+       "min": 2.6094,
+       "max": 2.7656,
+       "mad_share": 0.0175
+      },
+      "user_s": 1.9219,
+      "kernel_s": 0.7969,
+      "peak_mib": 9.1,
+      "realtime": 82.6,
+      "realtime_cpu": 22.5
+     },
+     {
+      "command": "truehdd --presentation 2 (8 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6325,
+       "min": 0.6257,
+       "max": 0.9495,
+       "mad_share": 0.0108
+      },
+      "cpu_s": {
+       "median": 2.3281,
+       "min": 2.2812,
+       "max": 2.4219,
+       "mad_share": 0.0201
+      },
+      "user_s": 1.7969,
+      "kernel_s": 0.5781,
+      "peak_mib": 9.6,
+      "realtime": 94.9,
+      "realtime_cpu": 25.8
+     },
+     {
+      "command": "truehdd --presentation 3 (14 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.97,
+       "min": 0.9206,
+       "max": 1.0067,
+       "mad_share": 0.0377
+      },
+      "cpu_s": {
+       "median": 3.375,
+       "min": 3.3438,
+       "max": 3.4219,
+       "mad_share": 0.0046
+      },
+      "user_s": 2.5312,
+      "kernel_s": 0.8281,
+      "peak_mib": 10.7,
+      "realtime": 61.9,
+      "realtime_cpu": 17.8
+     }
+    ]
+   },
+   {
+    "alias": "truehd-objects-14ch-2",
+    "kind": "truehd-objects-14ch",
+    "seconds": 60.0,
+    "bytes": 30381346,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode -p 0 (2 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2334,
+       "min": 0.232,
+       "max": 0.2394,
+       "mad_share": 0.0061
+      },
+      "cpu_s": {
+       "median": 0.3594,
+       "min": 0.3438,
+       "max": 0.3594,
+       "mad_share": 0.0
+      },
+      "user_s": 0.2969,
+      "kernel_s": 0.0469,
+      "peak_mib": 30.4,
+      "realtime": 257.1,
+      "realtime_cpu": 166.9
+     },
+     {
+      "command": "decode -p 1 (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2873,
+       "min": 0.2862,
+       "max": 0.2941,
+       "mad_share": 0.0039
+      },
+      "cpu_s": {
+       "median": 0.5,
+       "min": 0.5,
+       "max": 0.5156,
+       "mad_share": 0.0
+      },
+      "user_s": 0.4375,
+      "kernel_s": 0.0781,
+      "peak_mib": 30.3,
+      "realtime": 208.8,
+      "realtime_cpu": 120.0
+     },
+     {
+      "command": "decode -p 2 (8 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3948,
+       "min": 0.3899,
+       "max": 0.4125,
+       "mad_share": 0.0126
+      },
+      "cpu_s": {
+       "median": 0.6094,
+       "min": 0.5781,
+       "max": 0.6406,
+       "mad_share": 0.0
+      },
+      "user_s": 0.5312,
+      "kernel_s": 0.0781,
+      "peak_mib": 30.3,
+      "realtime": 152.0,
+      "realtime_cpu": 98.5
+     },
+     {
+      "command": "decode -p 3 (14 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.7251,
+       "min": 0.7139,
+       "max": 0.7288,
+       "mad_share": 0.0051
+      },
+      "cpu_s": {
+       "median": 0.9375,
+       "min": 0.9219,
+       "max": 0.9531,
+       "mad_share": 0.0
+      },
+      "user_s": 0.8594,
+      "kernel_s": 0.0938,
+      "peak_mib": 30.3,
+      "realtime": 82.7,
+      "realtime_cpu": 64.0
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2328,
+       "min": 0.2317,
+       "max": 0.2344,
+       "mad_share": 0.0048
+      },
+      "cpu_s": {
+       "median": 0.2344,
+       "min": 0.2188,
+       "max": 0.2344,
+       "mad_share": 0.0
+      },
+      "user_s": 0.1875,
+      "kernel_s": 0.0469,
+      "peak_mib": 17.6,
+      "realtime": 257.7,
+      "realtime_cpu": 256.0
+     },
+     {
+      "command": "verify --decode",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.6989,
+       "min": 1.6859,
+       "max": 1.7118,
+       "mad_share": 0.003
+      },
+      "cpu_s": {
+       "median": 1.6875,
+       "min": 1.6562,
+       "max": 1.7188,
+       "mad_share": 0.0093
+      },
+      "user_s": 1.6094,
+      "kernel_s": 0.0469,
+      "peak_mib": 18.6,
+      "realtime": 35.3,
+      "realtime_cpu": 35.6
+     },
+     {
+      "command": "decode damf",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.8219,
+       "min": 0.8036,
+       "max": 1.0056,
+       "mad_share": 0.018
+      },
+      "cpu_s": {
+       "median": 1.0156,
+       "min": 1.0,
+       "max": 1.0469,
+       "mad_share": 0.0154
+      },
+      "user_s": 0.9062,
+      "kernel_s": 0.0938,
+      "peak_mib": 30.7,
+      "realtime": 73.0,
+      "realtime_cpu": 59.1
+     },
+     {
+      "command": "decode adm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.315,
+       "min": 0.832,
+       "max": 1.7854,
+       "mad_share": 0.35
+      },
+      "cpu_s": {
+       "median": 1.0,
+       "min": 0.9688,
+       "max": 1.0469,
+       "mad_share": 0.0312
+      },
+      "user_s": 0.9062,
+      "kernel_s": 0.0781,
+      "peak_mib": 30.5,
+      "realtime": 45.6,
+      "realtime_cpu": 60.0
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, its default presentation",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.5792,
+       "min": 0.5703,
+       "max": 0.5847,
+       "mad_share": 0.0095
+      },
+      "cpu_s": {
+       "median": 1.4375,
+       "min": 1.4219,
+       "max": 1.5156,
+       "mad_share": 0.0109
+      },
+      "user_s": 0.8438,
+      "kernel_s": 0.5938,
+      "peak_mib": 24.2,
+      "realtime": 103.6,
+      "realtime_cpu": 41.7
+     },
+     {
+      "command": "truehdd --presentation 0 (2 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3699,
+       "min": 0.3689,
+       "max": 0.373,
+       "mad_share": 0.0023
+      },
+      "cpu_s": {
+       "median": 1.3438,
+       "min": 1.2969,
+       "max": 1.3906,
+       "mad_share": 0.0116
+      },
+      "user_s": 1.1562,
+      "kernel_s": 0.1875,
+      "peak_mib": 9.4,
+      "realtime": 162.2,
+      "realtime_cpu": 44.6
+     },
+     {
+      "command": "truehdd --presentation 1 (6 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6848,
+       "min": 0.6634,
+       "max": 0.7546,
+       "mad_share": 0.0014
+      },
+      "cpu_s": {
+       "median": 2.5469,
+       "min": 2.4531,
+       "max": 2.5625,
+       "mad_share": 0.0061
+      },
+      "user_s": 1.9062,
+      "kernel_s": 0.5938,
+      "peak_mib": 10.4,
+      "realtime": 87.6,
+      "realtime_cpu": 23.6
+     },
+     {
+      "command": "truehdd --presentation 2 (8 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.9704,
+       "min": 0.9466,
+       "max": 0.9798,
+       "mad_share": 0.0094
+      },
+      "cpu_s": {
+       "median": 3.4531,
+       "min": 3.4062,
+       "max": 3.4844,
+       "mad_share": 0.009
+      },
+      "user_s": 2.1562,
+      "kernel_s": 1.2969,
+      "peak_mib": 11.2,
+      "realtime": 61.8,
+      "realtime_cpu": 17.4
+     },
+     {
+      "command": "truehdd --presentation 3 (14 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.3754,
+       "min": 1.3622,
+       "max": 1.4799,
+       "mad_share": 0.0096
+      },
+      "cpu_s": {
+       "median": 4.6094,
+       "min": 4.3906,
+       "max": 4.6875,
+       "mad_share": 0.0169
+      },
+      "user_s": 3.125,
+      "kernel_s": 1.5625,
+      "peak_mib": 12.4,
+      "realtime": 43.6,
+      "realtime_cpu": 13.0
+     }
+    ]
+   },
+   {
+    "alias": "truehd-objects-16ch-1",
+    "kind": "truehd-objects-16ch",
+    "seconds": 60.0,
+    "bytes": 35020252,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode -p 0 (2 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2818,
+       "min": 0.279,
+       "max": 0.2886,
+       "mad_share": 0.0092
+      },
+      "cpu_s": {
+       "median": 0.4062,
+       "min": 0.3906,
+       "max": 0.4062,
+       "mad_share": 0.0
+      },
+      "user_s": 0.3438,
+      "kernel_s": 0.0625,
+      "peak_mib": 30.4,
+      "realtime": 212.9,
+      "realtime_cpu": 147.7
+     },
+     {
+      "command": "decode -p 1 (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2957,
+       "min": 0.2928,
+       "max": 0.3121,
+       "mad_share": 0.0098
+      },
+      "cpu_s": {
+       "median": 0.5625,
+       "min": 0.5469,
+       "max": 0.5781,
+       "mad_share": 0.0278
+      },
+      "user_s": 0.5,
+      "kernel_s": 0.0625,
+      "peak_mib": 30.3,
+      "realtime": 202.9,
+      "realtime_cpu": 106.7
+     },
+     {
+      "command": "decode -p 2 (8 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.4055,
+       "min": 0.4027,
+       "max": 0.4196,
+       "mad_share": 0.007
+      },
+      "cpu_s": {
+       "median": 0.6875,
+       "min": 0.6719,
+       "max": 0.6875,
+       "mad_share": 0.0
+      },
+      "user_s": 0.5781,
+      "kernel_s": 0.0938,
+      "peak_mib": 30.2,
+      "realtime": 148.0,
+      "realtime_cpu": 87.3
+     },
+     {
+      "command": "decode -p 3 (16 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.82,
+       "min": 0.8116,
+       "max": 0.8317,
+       "mad_share": 0.0067
+      },
+      "cpu_s": {
+       "median": 1.0938,
+       "min": 1.0781,
+       "max": 1.1094,
+       "mad_share": 0.0
+      },
+      "user_s": 0.9531,
+      "kernel_s": 0.1562,
+      "peak_mib": 30.3,
+      "realtime": 73.2,
+      "realtime_cpu": 54.9
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2816,
+       "min": 0.2784,
+       "max": 0.2902,
+       "mad_share": 0.003
+      },
+      "cpu_s": {
+       "median": 0.2812,
+       "min": 0.2812,
+       "max": 0.2812,
+       "mad_share": 0.0
+      },
+      "user_s": 0.2344,
+      "kernel_s": 0.0469,
+      "peak_mib": 17.6,
+      "realtime": 213.1,
+      "realtime_cpu": 213.4
+     },
+     {
+      "command": "verify --decode",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.8769,
+       "min": 1.8568,
+       "max": 1.8795,
+       "mad_share": 0.0014
+      },
+      "cpu_s": {
+       "median": 1.8281,
+       "min": 1.8281,
+       "max": 1.8594,
+       "mad_share": 0.0
+      },
+      "user_s": 1.7188,
+      "kernel_s": 0.1094,
+      "peak_mib": 18.6,
+      "realtime": 32.0,
+      "realtime_cpu": 32.8
+     },
+     {
+      "command": "decode damf",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.9776,
+       "min": 0.902,
+       "max": 1.4624,
+       "mad_share": 0.0774
+      },
+      "cpu_s": {
+       "median": 1.1719,
+       "min": 1.1406,
+       "max": 1.2031,
+       "mad_share": 0.0133
+      },
+      "user_s": 0.9531,
+      "kernel_s": 0.2188,
+      "peak_mib": 30.6,
+      "realtime": 61.4,
+      "realtime_cpu": 51.2
+     },
+     {
+      "command": "decode adm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.1696,
+       "min": 1.0613,
+       "max": 1.9601,
+       "mad_share": 0.0926
+      },
+      "cpu_s": {
+       "median": 1.1719,
+       "min": 1.1562,
+       "max": 1.1719,
+       "mad_share": 0.0
+      },
+      "user_s": 1.0,
+      "kernel_s": 0.1719,
+      "peak_mib": 30.4,
+      "realtime": 51.3,
+      "realtime_cpu": 51.2
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, its default presentation",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.5968,
+       "min": 0.5845,
+       "max": 0.6023,
+       "mad_share": 0.0092
+      },
+      "cpu_s": {
+       "median": 1.5,
+       "min": 1.4219,
+       "max": 1.5938,
+       "mad_share": 0.0521
+      },
+      "user_s": 0.8281,
+      "kernel_s": 0.6406,
+      "peak_mib": 24.2,
+      "realtime": 100.5,
+      "realtime_cpu": 40.0
+     },
+     {
+      "command": "truehdd --presentation 0 (2 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3625,
+       "min": 0.3613,
+       "max": 0.3766,
+       "mad_share": 0.0007
+      },
+      "cpu_s": {
+       "median": 1.3438,
+       "min": 1.2969,
+       "max": 1.3594,
+       "mad_share": 0.0116
+      },
+      "user_s": 1.1719,
+      "kernel_s": 0.1875,
+      "peak_mib": 9.1,
+      "realtime": 165.5,
+      "realtime_cpu": 44.6
+     },
+     {
+      "command": "truehdd --presentation 1 (6 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.7157,
+       "min": 0.7003,
+       "max": 0.7276,
+       "mad_share": 0.0054
+      },
+      "cpu_s": {
+       "median": 2.5781,
+       "min": 2.5625,
+       "max": 2.7188,
+       "mad_share": 0.0061
+      },
+      "user_s": 1.8594,
+      "kernel_s": 0.7344,
+      "peak_mib": 10.1,
+      "realtime": 83.8,
+      "realtime_cpu": 23.3
+     },
+     {
+      "command": "truehdd --presentation 2 (8 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.0295,
+       "min": 0.9877,
+       "max": 1.1014,
+       "mad_share": 0.0116
+      },
+      "cpu_s": {
+       "median": 3.5938,
+       "min": 3.4844,
+       "max": 3.8594,
+       "mad_share": 0.0217
+      },
+      "user_s": 2.3125,
+      "kernel_s": 1.3594,
+      "peak_mib": 11.2,
+      "realtime": 58.3,
+      "realtime_cpu": 16.7
+     },
+     {
+      "command": "truehdd --presentation 3 (16 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.5454,
+       "min": 1.5182,
+       "max": 1.6912,
+       "mad_share": 0.0176
+      },
+      "cpu_s": {
+       "median": 4.9062,
+       "min": 4.75,
+       "max": 5.0,
+       "mad_share": 0.0064
+      },
+      "user_s": 3.2656,
+      "kernel_s": 1.5781,
+      "peak_mib": 12.1,
+      "realtime": 38.8,
+      "realtime_cpu": 12.2
+     }
+    ]
+   },
+   {
+    "alias": "truehd-objects-16ch-2",
+    "kind": "truehd-objects-16ch",
+    "seconds": 60.0,
+    "bytes": 34964380,
+    "sample_rate": 48000,
+    "results": [
+     {
+      "command": "decode -p 0 (2 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2775,
+       "min": 0.2749,
+       "max": 0.2796,
+       "mad_share": 0.0074
+      },
+      "cpu_s": {
+       "median": 0.4062,
+       "min": 0.375,
+       "max": 0.4062,
+       "mad_share": 0.0
+      },
+      "user_s": 0.3125,
+      "kernel_s": 0.0938,
+      "peak_mib": 30.3,
+      "realtime": 216.2,
+      "realtime_cpu": 147.7
+     },
+     {
+      "command": "decode -p 1 (6 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2942,
+       "min": 0.2898,
+       "max": 0.2996,
+       "mad_share": 0.0133
+      },
+      "cpu_s": {
+       "median": 0.5625,
+       "min": 0.5469,
+       "max": 0.5781,
+       "mad_share": 0.0
+      },
+      "user_s": 0.5,
+      "kernel_s": 0.0625,
+      "peak_mib": 30.4,
+      "realtime": 203.9,
+      "realtime_cpu": 106.7
+     },
+     {
+      "command": "decode -p 2 (8 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3985,
+       "min": 0.3933,
+       "max": 0.4135,
+       "mad_share": 0.0131
+      },
+      "cpu_s": {
+       "median": 0.6562,
+       "min": 0.625,
+       "max": 0.6719,
+       "mad_share": 0.0238
+      },
+      "user_s": 0.5938,
+      "kernel_s": 0.0781,
+      "peak_mib": 30.3,
+      "realtime": 150.6,
+      "realtime_cpu": 91.4
+     },
+     {
+      "command": "decode -p 3 (16 ch) pcm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.9468,
+       "min": 0.9407,
+       "max": 0.9548,
+       "mad_share": 0.0065
+      },
+      "cpu_s": {
+       "median": 1.2031,
+       "min": 1.1875,
+       "max": 1.2188,
+       "mad_share": 0.013
+      },
+      "user_s": 1.1562,
+      "kernel_s": 0.0625,
+      "peak_mib": 30.4,
+      "realtime": 63.4,
+      "realtime_cpu": 49.9
+     },
+     {
+      "command": "verify",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.2765,
+       "min": 0.2757,
+       "max": 0.2807,
+       "mad_share": 0.0022
+      },
+      "cpu_s": {
+       "median": 0.2812,
+       "min": 0.2656,
+       "max": 0.2812,
+       "mad_share": 0.0
+      },
+      "user_s": 0.25,
+      "kernel_s": 0.0312,
+      "peak_mib": 17.6,
+      "realtime": 217.0,
+      "realtime_cpu": 213.4
+     },
+     {
+      "command": "verify --decode",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.9917,
+       "min": 1.984,
+       "max": 1.9934,
+       "mad_share": 0.0009
+      },
+      "cpu_s": {
+       "median": 1.9844,
+       "min": 1.9375,
+       "max": 2.0,
+       "mad_share": 0.0079
+      },
+      "user_s": 1.8125,
+      "kernel_s": 0.125,
+      "peak_mib": 18.5,
+      "realtime": 30.1,
+      "realtime_cpu": 30.2
+     },
+     {
+      "command": "decode damf",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.0591,
+       "min": 1.0264,
+       "max": 1.4109,
+       "mad_share": 0.0308
+      },
+      "cpu_s": {
+       "median": 1.3125,
+       "min": 1.2812,
+       "max": 1.3438,
+       "mad_share": 0.0119
+      },
+      "user_s": 1.1719,
+      "kernel_s": 0.1094,
+      "peak_mib": 30.6,
+      "realtime": 56.7,
+      "realtime_cpu": 45.7
+     },
+     {
+      "command": "decode adm",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.5382,
+       "min": 1.4438,
+       "max": 1.9362,
+       "mad_share": 0.0311
+      },
+      "cpu_s": {
+       "median": 1.2812,
+       "min": 1.2812,
+       "max": 1.3125,
+       "mad_share": 0.0
+      },
+      "user_s": 1.1875,
+      "kernel_s": 0.0938,
+      "peak_mib": 30.4,
+      "realtime": 39.0,
+      "realtime_cpu": 46.8
+     }
+    ],
+    "references": [
+     {
+      "command": "ffmpeg, its default presentation",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.5979,
+       "min": 0.5886,
+       "max": 0.6024,
+       "mad_share": 0.0074
+      },
+      "cpu_s": {
+       "median": 1.4375,
+       "min": 1.375,
+       "max": 1.5,
+       "mad_share": 0.0217
+      },
+      "user_s": 0.8125,
+      "kernel_s": 0.6406,
+      "peak_mib": 24.2,
+      "realtime": 100.4,
+      "realtime_cpu": 41.7
+     },
+     {
+      "command": "truehdd --presentation 0 (2 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.3632,
+       "min": 0.3608,
+       "max": 0.3703,
+       "mad_share": 0.0037
+      },
+      "cpu_s": {
+       "median": 1.3438,
+       "min": 1.2344,
+       "max": 1.3438,
+       "mad_share": 0.0
+      },
+      "user_s": 1.1562,
+      "kernel_s": 0.1719,
+      "peak_mib": 9.3,
+      "realtime": 165.2,
+      "realtime_cpu": 44.6
+     },
+     {
+      "command": "truehdd --presentation 1 (6 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 0.6871,
+       "min": 0.6821,
+       "max": 0.7617,
+       "mad_share": 0.0058
+      },
+      "cpu_s": {
+       "median": 2.5469,
+       "min": 2.5156,
+       "max": 2.5938,
+       "mad_share": 0.0123
+      },
+      "user_s": 1.8594,
+      "kernel_s": 0.7344,
+      "peak_mib": 10.1,
+      "realtime": 87.3,
+      "realtime_cpu": 23.6
+     },
+     {
+      "command": "truehdd --presentation 2 (8 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.0186,
+       "min": 0.9726,
+       "max": 1.3529,
+       "mad_share": 0.0016
+      },
+      "cpu_s": {
+       "median": 3.4844,
+       "min": 3.3281,
+       "max": 3.6562,
+       "mad_share": 0.0224
+      },
+      "user_s": 2.3438,
+      "kernel_s": 1.25,
+      "peak_mib": 11.0,
+      "realtime": 58.9,
+      "realtime_cpu": 17.2
+     },
+     {
+      "command": "truehdd --presentation 3 (16 ch)",
+      "exit": 0,
+      "runs": 5,
+      "wall_s": {
+       "median": 1.6332,
+       "min": 1.5742,
+       "max": 1.7118,
+       "mad_share": 0.0361
+      },
+      "cpu_s": {
+       "median": 4.9531,
+       "min": 4.8281,
+       "max": 5.1094,
+       "mad_share": 0.0189
+      },
+      "user_s": 3.6562,
+      "kernel_s": 1.3125,
+      "peak_mib": 12.1,
+      "realtime": 36.7,
+      "realtime_cpu": 12.1
+     }
+    ]
+   }
+  ],
+  "failed": []
+ },
+ "kernels": {
+  "schema": 1,
+  "batches": 15,
+  "kernels": [
+   {
+    "kernel": "truehd: frame the access units",
+    "calls_per_batch": 156,
+    "median_ns": 174044.2,
+    "mad_share": 0.0375,
+    "audio_seconds": null,
+    "realtime": null
+   },
+   {
+    "kernel": "truehd: decode presentation 0, 2 channels",
+    "calls_per_batch": 14,
+    "median_ns": 3007435.7,
+    "mad_share": 0.0042,
+    "audio_seconds": 2,
+    "realtime": 665.0
+   },
+   {
+    "kernel": "truehd: decode presentation 1, 6 channels",
+    "calls_per_batch": 10,
+    "median_ns": 7908790.0,
+    "mad_share": 0.0029,
+    "audio_seconds": 2,
+    "realtime": 252.9
+   },
+   {
+    "kernel": "truehd: decode presentation 2, 8 channels",
+    "calls_per_batch": 4,
+    "median_ns": 11259375.0,
+    "mad_share": 0.0174,
+    "audio_seconds": 2,
+    "realtime": 177.6
+   },
+   {
+    "kernel": "truehd: decode presentation 3, 12 channels",
+    "calls_per_batch": 2,
+    "median_ns": 32913150.0,
+    "mad_share": 0.0086,
+    "audio_seconds": 2,
+    "realtime": 60.8
+   },
+   {
+    "kernel": "truehd: decode 88.2 kHz, 6 channels",
+    "calls_per_batch": 44,
+    "median_ns": 960954.5,
+    "mad_share": 0.0185,
+    "audio_seconds": 0.10068027210884353,
+    "realtime": 104.8
+   },
+   {
+    "kernel": "mlp: decode 96 kHz, 6 channels",
+    "calls_per_batch": 53,
+    "median_ns": 921143.4,
+    "mad_share": 0.0075,
+    "audio_seconds": 0.1,
+    "realtime": 108.6
+   },
+   {
+    "kernel": "eac3: decode the 5.1 core of the object stream",
+    "calls_per_batch": 8,
+    "median_ns": 9629962.5,
+    "mad_share": 0.0072,
+    "audio_seconds": 2.016,
+    "realtime": 209.3
+   },
+   {
+    "kernel": "joc: analysis bank, one channel, one frame",
+    "calls_per_batch": 2170,
+    "median_ns": 37076.1,
+    "mad_share": 0.0014,
+    "audio_seconds": 0.032,
+    "realtime": 863.1
+   },
+   {
+    "kernel": "joc: synthesis bank, one object, one frame",
+    "calls_per_batch": 1045,
+    "median_ns": 39015.8,
+    "mad_share": 0.0051,
+    "audio_seconds": 0.032,
+    "realtime": 820.2
+   }
+  ]
+ },
+ "reading": "TrueHD is not where the time is: a 16-channel presentation decodes at 63 to 73 times real time for a little over a second of processor time a minute of audio, memory is flat at 30 MiB whatever the width, and both reference decoders take longer on the same streams (truehdd 1.06 to 3.1 times as long with 2.8 to 6.7 times the processor time; FFmpeg 1.4 to 1.9 times as long on the widest presentation it decodes). The AC-3 family is where it is: the core runs at 83 to 310 times real time and FFmpeg decodes the same frames 4.7 to 6.8 times faster, and `verify` there costs what a decode costs because it decodes. Objects out of JOC cost three to four times the channels under them, 26 to 42 times real time, and the kernels say why: an analysis bank per coded channel and a synthesis bank per object at 37 and 39 microseconds a frame of 32 ms. `verify --decode` is the sum of its presentations. The figures of the decoder alone repeat to within three per cent; the two widest spreads, 35 and 8 per cent, are object files written to a disk. One machine, heads of about a minute, the heaviest streams of each kind and not a sample of what is common: the ratios between commands carry to another machine and the figures do not. An exit code of 7 among the commands is a head that was cut inside a frame; it decodes like any other."
+}

@@ -135,6 +135,16 @@ comes from a measurement that can be repeated:
   every field `info --json` reports about it. `tools/split_fields.py` then asks
   which field, if any, separates two outcomes — and says when the answer is
   what chance would have produced, which on a lopsided set it usually is.
+- **Any input.** `crates/oadec-fuzz` holds what must be true of every parser
+  and decoder whatever bytes it is given: more than no panic, a stream read
+  whole and in pieces gives the same units and two decodes give the same
+  samples. A seeded run over the fixtures is part of `cargo test`, and
+  libFuzzer runs the same targets every week
+  ([`docs/testing-tools.md`](docs/testing-tools.md)).
+- **Cost.** `tools/bench.py` measures the wall time, the processor time and
+  the memory of every command from outside the process, with FFmpeg and
+  truehdd on the same streams for scale. The baseline and what it says are in
+  [`docs/performance.md`](docs/performance.md).
 
 The real-media suite is opt-in. Point `OADEC_MEDIA` at a work directory
 that holds the streams and references and run:

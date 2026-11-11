@@ -8,6 +8,27 @@ Semantic Versioning.
 
 ### Added
 
+- **What decoding costs, measured from outside the process.** The only
+  figure for speed was the line `verify` prints about itself.
+  `tools/bench.py` runs every command as a process of its own and reads its
+  wall time, its processor time and the most memory it held from the
+  operating system: every presentation of a TrueHD stream, `verify`,
+  `verify --decode`, the AC-3 family and both object formats, five runs
+  each, the median and the spread. `--refs` times FFmpeg and `truehdd` on
+  the same streams for scale, `--compare OLD NEW` runs two binaries turn and
+  turn about and says faster or slower only outside the spread, `--report`
+  prints a saved run as a table. `crates/oadec-bench` is the other half,
+  `cargo bench -p oadec-bench`: the kernels over the committed fixtures,
+  in-process, with no dependency.
+- **A baseline** (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/08-bench-baseline.json`). TrueHD
+  decodes at 63 to 73 times real time at 16 channels and 141 to 526 at two,
+  in 30 MiB whatever the width, and both reference decoders take longer on
+  the same streams. The AC-3 family is where the time is: its core runs at
+  83 to 310 times real time and FFmpeg decodes the same frames 4.7 to 6.8
+  times faster. Objects out of JOC come at 26 to 42 times real time, three
+  to four times the cost of the channels under them, most of it the filter
+  banks.
 - **`verify` says which coding tools a TrueHD stream uses, and `verify
   --census` how often.** The parser read every element the descriptions
   define, and nothing said which of them a stream was coded with: "no
@@ -86,6 +107,11 @@ Semantic Versioning.
 
 ### Changed
 
+- **The media suite no longer asserts a speed.** One test failed when
+  `verify` of a whole film read less than a hundred times faster than real
+  time, which it did whenever something else was using the disk: a
+  conformance test that said nothing about conformance. The speed is held by
+  `tools/bench.py --verify-floor`, on a stream read into the cache first.
 - **The real-media suite runs again: 28 of 28 tests pass.** Its clips went with
   the old work directory, so 23 tests failed on missing files. The clips were
   rebuilt from the library they were first cut from, and every hash and size
@@ -126,6 +152,10 @@ Semantic Versioning.
 
 ### Fixed
 
+- **The media regression failed its ADM step in a checkout that had never
+  built the writer harness.** The step runs a Cargo project of its own and
+  the script did not build it, so the missing binary read as a result of the
+  step. It is built as a step of its own now.
 - **The search for sync locked onto the unit it had just refused.** A major
   sync sits four bytes into its access unit. When the TrueHD extractor refused
   a unit that carries one, for a header or a directory that fails its parity,
