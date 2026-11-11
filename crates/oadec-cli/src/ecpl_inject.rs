@@ -257,29 +257,11 @@ fn rewrite(bytes: &[u8], frame: &Frame, shape: Shape) -> Result<Option<Vec<u8>>>
     // patch frmsiz, then close with the CRC that makes the frame check out
     let frmsiz = (words - 1) as u32;
     put_bits(&mut out, FRMSIZ_BIT, FRMSIZ_BITS, frmsiz);
-    let n = out.len();
-    let crc = crc16(&out[2..n - 2]);
-    out[n - 2] = (crc >> 8) as u8;
-    out[n - 1] = crc as u8;
-    Ok(Some(out))
-}
-
-/// The frame check of clause 7.10: polynomial 0x8005, register cleared, data
-/// entering at the top, no final inversion. Appending the value it returns
-/// makes the check over the whole frame come out zero.
-fn crc16(bytes: &[u8]) -> u16 {
-    let mut crc = 0u16;
-    for &b in bytes {
-        crc ^= u16::from(b) << 8;
-        for _ in 0..8 {
-            crc = if crc & 0x8000 == 0 {
-                crc << 1
-            } else {
-                (crc << 1) ^ 0x8005
-            };
-        }
+    // the frame has the length its patched `frmsiz` says, so this closes it
+    if oadec_eac3::repair::fix_crcs(&mut out).is_none() {
+        bail!("the rewritten frame no longer reads as a syncframe");
     }
-    crc
+    Ok(Some(out))
 }
 
 /// Writes `n` bits of `value` at bit offset `at`.

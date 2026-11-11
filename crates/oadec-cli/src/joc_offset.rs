@@ -32,7 +32,7 @@ use oadec_emdf::container::{self, PAYLOAD_ID_JOC};
 use oadec_emdf::joc::Joc;
 
 use crate::eac3::for_each_frame;
-use crate::joc_config::{crc16, put_bits};
+use crate::joc_config::put_bits;
 
 /// Bits of `joc_offset_ts_bits` (clause 6.3.4.4).
 const OFFSET_BITS: u32 = 5;
@@ -88,10 +88,7 @@ pub fn run(path: &Path, out: &Path, offset: u8) -> Result<()> {
                     }
                     fields += at.len() as u64;
                     frames_touched += 1;
-                    let n = frame.len();
-                    let crc = crc16(&frame[2..n - 2]);
-                    frame[n - 2] = (crc >> 8) as u8;
-                    frame[n - 1] = crc as u8;
+                    oadec_eac3::repair::fix_crcs(&mut frame);
                 }
             }
         }
