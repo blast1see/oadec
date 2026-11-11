@@ -190,6 +190,10 @@ pub struct ParserState {
     pub fbb: bool,
     /// Per-substream state.
     pub substream: [SubstreamState; MAX_PRESENTATIONS],
+    /// Set while a unit's checksums are being repaired (`crate::repair`): a
+    /// restart header then says where its CRC is and what it has to be, and
+    /// is read on past a CRC that is wrong. Never set by a decoder.
+    pub(crate) crc_sites: Option<Vec<crate::repair::CrcSite>>,
 }
 
 impl ParserState {
@@ -197,6 +201,7 @@ impl ParserState {
     #[must_use]
     pub fn new(config: &StreamConfig) -> Self {
         Self {
+            crc_sites: None,
             samples_per_au: usize::from(config.samples_per_au),
             flags: config.flags,
             substream_info: config.substream_info,

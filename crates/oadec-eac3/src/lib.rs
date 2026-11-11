@@ -17,6 +17,7 @@ pub mod frame;
 pub mod header;
 pub mod imdct;
 pub mod program;
+pub mod repair;
 pub mod tables;
 pub mod tpnp;
 pub mod vq;

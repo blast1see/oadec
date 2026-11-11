@@ -100,7 +100,9 @@ macro_rules! targets {
 targets!(
     truehd_extract,
     truehd_unit,
+    truehd_unit_repaired,
     truehd_decode,
+    truehd_decode_repaired,
     emdf_container,
     oamd_parse,
     joc_params,

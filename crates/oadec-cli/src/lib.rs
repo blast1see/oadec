@@ -25,6 +25,7 @@ mod joc_offset;
 mod oamd;
 mod progress;
 mod protection;
+mod repair;
 mod scan;
 mod thd_demux;
 mod verify;
@@ -418,6 +419,20 @@ enum Command {
         #[arg(long)]
         offset_ts_bits: u8,
     },
+    /// Recompute the checksums of a stream that was changed on purpose, so
+    /// that a parser takes the change at its word. The protection of the
+    /// metadata and the lossless checks are left as they are.
+    #[command(hide = true)]
+    Repair {
+        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary stream.
+        file: PathBuf,
+        /// Where to write the stream with its checksums recomputed.
+        #[arg(short, long)]
+        output: PathBuf,
+        /// Machine-readable JSON instead of text.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Exit code when a verification finds non-conformance.
@@ -806,6 +821,9 @@ where
                 output,
                 offset_ts_bits,
             } => joc_offset::run(&file, &output, offset_ts_bits).map(|()| ExitCode::SUCCESS),
+            Command::Repair { file, output, json } => {
+                repair::run(&file, &output, json).map(|()| ExitCode::SUCCESS)
+            }
         };
     match result {
         Ok(code) => code,

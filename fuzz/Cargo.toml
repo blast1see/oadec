@@ -38,8 +38,22 @@ doc = false
 bench = false
 
 [[bin]]
+name = "truehd_unit_repaired"
+path = "fuzz_targets/truehd_unit_repaired.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "truehd_decode"
 path = "fuzz_targets/truehd_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "truehd_decode_repaired"
+path = "fuzz_targets/truehd_decode_repaired.rs"
 test = false
 doc = false
 bench = false

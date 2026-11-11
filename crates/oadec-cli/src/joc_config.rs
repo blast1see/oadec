@@ -52,22 +52,6 @@ pub fn put_bits(buf: &mut [u8], at: usize, n: u32, value: u32) {
     }
 }
 
-/// The frame check of clause 7.10, as in `eac3-ecpl-inject`.
-pub fn crc16(bytes: &[u8]) -> u16 {
-    let mut crc = 0u16;
-    for &b in bytes {
-        crc ^= u16::from(b) << 8;
-        for _ in 0..8 {
-            crc = if crc & 0x8000 == 0 {
-                crc << 1
-            } else {
-                (crc << 1) ^ 0x8005
-            };
-        }
-    }
-    crc
-}
-
 /// Bit offset in the frame of the `joc_dmx_config_idx` field, if the frame
 /// carries a JOC payload.
 fn config_bit(frame: &Frame) -> Option<usize> {
@@ -115,10 +99,7 @@ pub fn run(path: &Path, out: &Path, config: u8) -> Result<()> {
                 && let Some(at) = config_bit(&parsed)
             {
                 put_bits(&mut frame, at, CONFIG_BITS, u32::from(config));
-                let n = frame.len();
-                let crc = crc16(&frame[2..n - 2]);
-                frame[n - 2] = (crc >> 8) as u8;
-                frame[n - 1] = crc as u8;
+                oadec_eac3::repair::fix_crcs(&mut frame);
                 changed += 1;
             } else {
                 untouched += 1;
