@@ -1,0 +1,570 @@
+{
+ "question": "Do streams written with matrices, noise channels, bypassed bits, output shifts and channel assignments decode to the samples they were written from, in this decoder and in decoders that share nothing with it; and where the decoders part, what does each of them do?",
+ "method": "crates/oadec-synth now writes what lies over the channels of a 0x31EA substream and undoes it: from the samples of a recipe it takes off the output shift and inverts each matrix, the last first, with the noise the decoder will draw. tools/synth_accept.py runs FFmpeg, `truehdd` and Dolby's decoder (the `dlbtruehddec` element of the Dolby Reference Player, on the stream wrapped in MP4, TrueHD syntax only) on every recipe as in evidence 10, and compares what each writes with the samples of the recipe byte for byte. Where a decoder gave other samples, streams of one matrix each were written to find the rule: every arrangement of a quantiser step, a matrix and a bypassed bit, and of the two noise channels, their shift and their register. For the step with a bypassed bit, three readings of the decoding were computed from the samples of the stream and counted against what Dolby's decoder wrote. The matrices in force in the blocks of real streams were counted with the segment parser of the decoder, a callback seeing every block with the state in force after its header, over the 41 TrueHD streams and five clips of the work directory and the nine committed fixtures. Ten mutations of what the decoder does over the channels (tools/mutants.py) were run against the suite of the commit this branch starts from, which has the 26 recipes of evidence 10, against the suite of this branch, and against the tests over the recipes alone, every test run to its end.",
+ "decoders": {
+  "ffmpeg": "2026-10-12-git-615b07170e",
+  "truehdd": "b54f209 (truehd library 0.7.1)",
+  "dolby": "the dlbtruehddec element of the Dolby Reference Player, as a black box"
+ },
+ "result": {
+  "recipes": {
+   "count": 38,
+   "new_here": 12,
+   "access_units_of_the_new": 352,
+   "bytes_of_the_new": 66968,
+   "the_26_of_evidence_10": "the same bytes as before: the tests hold every stream to the digest recorded then",
+   "confirmed_by_two_outside_decoders": 38,
+   "confirmed_by_every_decoder_asked": 33,
+   "of_the_new_by_every_decoder_asked": 10,
+   "ffmpeg": {
+    "gave_the_samples": 37,
+    "gave_others": 1
+   },
+   "truehdd": {
+    "gave_the_samples": 36,
+    "refused": 2
+   },
+   "dolby": {
+    "gave_the_samples": 32,
+    "gave_others": 1,
+    "refused": 1,
+    "not_asked": 4
+   },
+   "this_decoder": {
+    "gave_the_samples": 38,
+    "verify_exit_0": 38,
+    "verify_without_a_finding_of_any_severity": 38
+   },
+   "the_new_by_recipe": {
+    "matrix": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "access_units": 32,
+     "bytes": 6020,
+     "tools": [
+      "matrixing"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "matrix-many": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "access_units": 24,
+     "bytes": 4318,
+     "tools": [
+      "matrixing"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "matrix-noise": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "access_units": 32,
+     "bytes": 6402,
+     "tools": [
+      "matrixing",
+      "noise-columns"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "matrix-noise-reseeded": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "access_units": 32,
+     "bytes": 6402,
+     "tools": [
+      "matrixing",
+      "noise-columns"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "matrix-noise-shifted": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "access_units": 32,
+     "bytes": 6746,
+     "tools": [
+      "matrixing",
+      "noise-columns"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target"
+    },
+    "matrix-bypass": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "access_units": 32,
+     "bytes": 5136,
+     "tools": [
+      "matrixing",
+      "lsb-bypass"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "matrix-steps": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "access_units": 32,
+     "bytes": 4874,
+     "tools": [
+      "quantiser-step",
+      "matrixing"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "bypass-over-step": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "access_units": 32,
+     "bytes": 5444,
+     "tools": [
+      "quantiser-step",
+      "matrixing",
+      "lsb-bypass"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "differs"
+    },
+    "matrix-coded": {
+     "syntax": "FBA",
+     "rate": 96000,
+     "access_units": 24,
+     "bytes": 9012,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2",
+      "matrixing",
+      "noise-columns"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "output-shift": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "access_units": 32,
+     "bytes": 4900,
+     "tools": [
+      "output-shift"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "channels-swapped": {
+     "syntax": "FBA",
+     "rate": 48000,
+     "access_units": 24,
+     "bytes": 3016,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2",
+      "channel-reassignment"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "mlp-matrix": {
+     "syntax": "FBB",
+     "rate": 44100,
+     "access_units": 24,
+     "bytes": 4698,
+     "tools": [
+      "matrixing"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "not asked"
+    }
+   }
+  },
+  "a_bypassed_bit_over_a_quantiser_step": {
+   "in_real_streams": {
+    "streams": 55,
+    "matrices_in_force_in_blocks": 242812003,
+    "with_a_bypassed_bit": 1844026,
+    "on_a_channel_with_a_step": 65236400,
+    "with_both": 0,
+    "by_substream": {
+     "0": {
+      "matrices_in_force_in_blocks": 18332647,
+      "with_a_bypassed_bit": 347,
+      "on_a_channel_with_a_step": 5411341,
+      "with_both": 0
+     },
+     "1": {
+      "matrices_in_force_in_blocks": 53189508,
+      "with_a_bypassed_bit": 63138,
+      "on_a_channel_with_a_step": 14741766,
+      "with_both": 0
+     },
+     "2": {
+      "matrices_in_force_in_blocks": 70954821,
+      "with_a_bypassed_bit": 0,
+      "on_a_channel_with_a_step": 19587200,
+      "with_both": 0
+     },
+     "3": {
+      "matrices_in_force_in_blocks": 100335027,
+      "with_a_bypassed_bit": 1780541,
+      "on_a_channel_with_a_step": 25496093,
+      "with_both": 0
+     }
+    }
+   },
+   "the_recipe": {
+    "name": "bypass-over-step",
+    "ffmpeg_and_truehdd": "the samples of the recipe, which are `(sum & mask) + bit`",
+    "dolby": "other samples",
+    "differing_samples": 1247,
+    "of": 2560,
+    "first_differing_sample": 41,
+    "that_is": "the second sample of access unit 1, the first unit with a step on the left channel"
+   },
+   "streams_of_one_matrix": {
+    "m0": {
+     "what": "a matrix, no step, no bypassed bit",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "m0b": {
+     "what": "a matrix with a bypassed bit, no step",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "s0": {
+     "what": "a step on channel 0, no matrix",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "s0-m0": {
+     "what": "a step on the channel the matrix writes",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "s1-m0": {
+     "what": "a step on the other channel only",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "s01-m0": {
+     "what": "a step on both channels, a matrix on one",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "s01-m01": {
+     "what": "a step on both channels, a matrix on each",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "s0-m0b": {
+     "what": "a step on the channel the matrix writes, and a bypassed bit: every bit clear",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "differs"
+    },
+    "s0-m0b1": {
+     "what": "the same, every bit set",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "differs"
+    },
+    "s01-m0b": {
+     "what": "a step on both channels, a matrix with a bypassed bit on one: every bit clear",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "differs"
+    },
+    "s01-m0b1": {
+     "what": "the same, every bit set",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "differs"
+    },
+    "s01-m01b": {
+     "what": "a step on both channels, a matrix with a bypassed bit on each",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "differs"
+    }
+   },
+   "three_readings_against_dolby": {
+    "the_matrix": "channel 0 kept, 300/1024 of channel 1 added, a quantiser step of 4 bits, 16 access units",
+    "by_stream": {
+     "s0-m0b": {
+      "samples": 640,
+      "bypassed_bits_set": 0,
+      "the_other_channel_as_written": true,
+      "samples_of_dolby_that_are": {
+       "sum + bit": 640,
+       "sum, the bit left out": 640,
+       "(sum & mask) + bit": 33
+      }
+     },
+     "s0-m0b1": {
+      "samples": 640,
+      "bypassed_bits_set": 640,
+      "the_other_channel_as_written": true,
+      "samples_of_dolby_that_are": {
+       "sum + bit": 640,
+       "sum, the bit left out": 0,
+       "(sum & mask) + bit": 39
+      }
+     },
+     "s01-m0b": {
+      "samples": 640,
+      "bypassed_bits_set": 0,
+      "the_other_channel_as_written": true,
+      "samples_of_dolby_that_are": {
+       "sum + bit": 640,
+       "sum, the bit left out": 640,
+       "(sum & mask) + bit": 37
+      }
+     },
+     "s01-m0b1": {
+      "samples": 640,
+      "bypassed_bits_set": 640,
+      "the_other_channel_as_written": true,
+      "samples_of_dolby_that_are": {
+       "sum + bit": 640,
+       "sum, the bit left out": 0,
+       "(sum & mask) + bit": 39
+      }
+     }
+    }
+   }
+  },
+  "the_noise_channels": {
+   "in_real_streams": "no matrix of any of the 157 library tracks and 55 work streams of evidence 05 has a coefficient on a noise channel",
+   "the_recipes": {
+    "matrix-noise": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "matrix-noise-reseeded": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "matrix-noise-shifted": {
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target"
+    },
+    "matrix-coded": {
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    }
+   },
+   "what_truehdd_said_of_the_shifted_one": "Decode error: Decode error at frame 8: lossless_check failed for substream 0. Calculated 0xD2, Read 0x6",
+   "streams_of_one_matrix": {
+    "seed0": {
+     "what": "coefficients on both noise channels, the register at 0: the noise is silence",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "seed1": {
+     "what": "the first noise channel, shift 0, the register at 1",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "first-shift0": {
+     "what": "the first noise channel, shift 0",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "second-shift0": {
+     "what": "the second noise channel, shift 0",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "both-shift0": {
+     "what": "both noise channels, shift 0",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "first-one-restart": {
+     "what": "the first noise channel, shift 0, one restart header in the stream",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "first-shift5": {
+     "what": "the first noise channel, shift 5",
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target"
+    },
+    "second-shift5": {
+     "what": "the second noise channel, shift 5",
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target"
+    }
+   }
+  },
+  "mutations": {
+   "count": 10,
+   "passed_the_suite_before": [
+    "the two noise channels of a matrix swapped",
+    "the noise register moved on by another rule"
+   ],
+   "caught_before_by_one_hand_built_unit_test_alone": [
+    "the shift of the noise channels dropped",
+    "a bypassed bit added before the sum is cut to the quantiser step",
+    "the sum of a matrix not cut to the quantiser step"
+   ],
+   "pass_the_suite_with_the_recipes": [],
+   "not_caught_by_the_tests_over_the_recipes_alone": [],
+   "each": [
+    {
+     "mutation": "the two noise channels of a matrix swapped",
+     "the_suite_before": "passes",
+     "the_suite_with_the_recipes": "caught by 5 tests",
+     "the_tests_over_the_recipes_alone": [
+      "bypassed_bits_steps_shifts_and_assignments_come_back",
+      "decode_writes_the_samples_of_every_recipe",
+      "matrixed_samples_come_back",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the shift of the noise channels dropped",
+     "the_suite_before": "caught by 1 test, built by hand in the crate of the decoder",
+     "the_suite_with_the_recipes": "caught by 6 tests",
+     "the_tests_over_the_recipes_alone": [
+      "bypassed_bits_steps_shifts_and_assignments_come_back",
+      "decode_writes_the_samples_of_every_recipe",
+      "matrixed_samples_come_back",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the noise register moved on by another rule",
+     "the_suite_before": "passes",
+     "the_suite_with_the_recipes": "caught by 5 tests",
+     "the_tests_over_the_recipes_alone": [
+      "bypassed_bits_steps_shifts_and_assignments_come_back",
+      "decode_writes_the_samples_of_every_recipe",
+      "matrixed_samples_come_back",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the noise register left running through a restart header",
+     "the_suite_before": "caught by 1 test",
+     "the_suite_with_the_recipes": "caught by 5 tests",
+     "the_tests_over_the_recipes_alone": [
+      "bypassed_bits_steps_shifts_and_assignments_come_back",
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "a bypassed bit added before the sum is cut to the quantiser step",
+     "the_suite_before": "caught by 1 test, built by hand in the crate of the decoder",
+     "the_suite_with_the_recipes": "caught by 5 tests",
+     "the_tests_over_the_recipes_alone": [
+      "bypassed_bits_steps_shifts_and_assignments_come_back",
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the bypassed bit of a matrix left out",
+     "the_suite_before": "caught by 16 tests",
+     "the_suite_with_the_recipes": "caught by 20 tests",
+     "the_tests_over_the_recipes_alone": [
+      "bypassed_bits_steps_shifts_and_assignments_come_back",
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the sum of a matrix not cut to the quantiser step",
+     "the_suite_before": "caught by 1 test, built by hand in the crate of the decoder",
+     "the_suite_with_the_recipes": "caught by 5 tests",
+     "the_tests_over_the_recipes_alone": [
+      "bypassed_bits_steps_shifts_and_assignments_come_back",
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "an output shifted the other way",
+     "the_suite_before": "caught by 21 tests",
+     "the_suite_with_the_recipes": "caught by 25 tests",
+     "the_tests_over_the_recipes_alone": [
+      "bypassed_bits_steps_shifts_and_assignments_come_back",
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the outputs left in the order of the coded channels",
+     "the_suite_before": "caught by 1 test",
+     "the_suite_with_the_recipes": "caught by 4 tests",
+     "the_tests_over_the_recipes_alone": [
+      "bypassed_bits_steps_shifts_and_assignments_come_back",
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe"
+     ]
+    },
+    {
+     "mutation": "the check word taken in the order of the outputs",
+     "the_suite_before": "caught by 15 tests",
+     "the_suite_with_the_recipes": "caught by 19 tests",
+     "the_tests_over_the_recipes_alone": [
+      "bypassed_bits_steps_shifts_and_assignments_come_back",
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    }
+   ]
+  }
+ },
+ "reading": "The writer can now be told what lies over the channels, and the 12 recipes that say so come back from this decoder and from the outside ones: 10 of them from every decoder asked. The noise channels are the part of this syntax no real stream uses, and the three outside decoders draw the same noise from the same register at a shift of 0, FFmpeg and Dolby's decoder at any shift; truehdd parts from them when the noise is shifted, on the evidence of its own lossless check. The other exception is of another weight. A matrix that has both a quantiser step to cut to and a bypassed bit to add is read one way by FFmpeg, truehdd and this decoder and another way by Dolby's: on four streams written to separate the readings, `sum + bit` gives every sample Dolby's decoder wrote and the cut sum gives 33 to 39 of 640. No real stream can be heard on it: none of 242,812,003 matrices in force in the blocks of 55 streams has both. So the three decoders that agree here agree on something only one more decoder has ever been asked, and that one, the format owner's, says otherwise. This decoder is left where it was: the change would move no sample of any stream that exists, and the recipe records the reading it has with Dolby's decoder named as the one that gave other samples. What the measurement settles is narrower than which reading is right: it is what each decoder does, and that a test on real material could never have shown the difference. The mutations say the same of the suite. Of 10, 2 passed the suite before these recipes, the 26 of evidence 10 in it, and 3 more were caught by one hand-built unit test alone; with the recipes all are caught, every one of them by the decode of a written stream alone."
+}

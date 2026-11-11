@@ -415,7 +415,7 @@ add the bit, `(sum & mask) + bit`, as this decoder does, and give the samples
 of the recipe. Dolby's decoder gives the sum as it is with the bit added,
 `sum + bit`: on four streams written for the purpose, with the bit clear and
 with it set, with the step on one channel and on both, that reading gives
-every one of its samples, 640 of 640 each time, and the other gives 37 to 39.
+every one of its samples, 640 of 640 each time, and the other gives 33 to 39.
 With a step and no bypassed bit, and with a bypassed bit and no step, the
 four decoders agree (`matrix-steps`, `matrix-bypass`).
 
