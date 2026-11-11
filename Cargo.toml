@@ -10,6 +10,7 @@ members = [
     "crates/oadec-cli",
     "crates/oadec-fuzz",
     "crates/oadec-bench",
+    "crates/oadec-synth",
 ]
 
 [workspace.package]
@@ -27,6 +28,7 @@ oadec-truehd = { path = "crates/oadec-truehd" }
 oadec-eac3 = { path = "crates/oadec-eac3" }
 oadec-joc = { path = "crates/oadec-joc" }
 oadec-spatial = { path = "crates/oadec-spatial" }
+oadec-synth = { path = "crates/oadec-synth" }
 thiserror = "2"
 log = "0.4"
 anyhow = "1"
