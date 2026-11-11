@@ -103,6 +103,11 @@ struct Walk {
     restart_block_sizes: Vec<usize>,
     /// The most blocks any segment holds.
     most_blocks: usize,
+    /// The most matrices in force in any block.
+    most_matrices: usize,
+    /// The most times one unit sends its matrices, or one filter of one
+    /// channel.
+    most_sends_in_a_unit: usize,
     /// Segments the directory says end without parity and CRC.
     without_check_bytes: usize,
     major_syncs: usize,
@@ -117,6 +122,8 @@ fn walk(stream: &[u8]) -> Walk {
         restart_blocks_filtered: 0,
         restart_block_sizes: Vec::new(),
         most_blocks: 0,
+        most_matrices: 0,
+        most_sends_in_a_unit: 0,
         without_check_bytes: 0,
         major_syncs: 0,
     };
@@ -140,6 +147,8 @@ fn walk(stream: &[u8]) -> Walk {
         out.without_check_bytes += usize::from(!entry.crc_present);
         buf.clear();
         let mut blocks = 0;
+        // matrices, then filter A and filter B of each of two channels
+        let mut sends = [0usize; 5];
         let segment = Segment::parse_located_with(
             &unit.bytes[au.segment_range(0)],
             state,
@@ -150,6 +159,16 @@ fn walk(stream: &[u8]) -> Walk {
                 let ss = &state.substream[0];
                 out.census.take_block(0, block, ss);
                 blocks += 1;
+                out.most_matrices = out.most_matrices.max(ss.primitive_matrices);
+                if let Some(header) = &block.header {
+                    sends[0] += usize::from(header.matrixing.is_some());
+                    for (ch, sent) in header.channel.iter().take(2).enumerate() {
+                        if let Some(sent) = sent {
+                            sends[1 + 2 * ch] += usize::from(sent.new_fir);
+                            sends[2 + 2 * ch] += usize::from(sent.new_iir);
+                        }
+                    }
+                }
                 if block.restart.is_some() {
                     out.restart_blocks += 1;
                     out.restart_block_sizes.push(block.block_size);
@@ -164,6 +183,9 @@ fn walk(stream: &[u8]) -> Walk {
             panic!("access unit {k}: {e} at bit {bit}");
         }
         out.most_blocks = out.most_blocks.max(blocks);
+        out.most_sends_in_a_unit = out
+            .most_sends_in_a_unit
+            .max(sends.into_iter().max().unwrap_or(0));
         config = Some(next);
     }
     out
@@ -265,6 +287,14 @@ fn a_recipe_keeps_within_what_the_format_and_its_encoders_do() {
         assert_eq!(walk.restart_blocks, restarts, "{name}");
         // a segment of this kind holds four blocks at most
         assert!(walk.most_blocks <= 4, "{name}: {} blocks", walk.most_blocks);
+        // FFmpeg's decoder takes eight matrices of a TrueHD stream and six
+        // of a DVD-Audio one, and a filter or the matrices once in a unit
+        let most_matrices = match made.layout.family {
+            oadec_synth::Family::TrueHd => 8,
+            oadec_synth::Family::Mlp => 6,
+        };
+        assert!(walk.most_matrices <= most_matrices, "{name}");
+        assert!(walk.most_sends_in_a_unit <= 1, "{name}");
         // a major sync every eight units at least, and every 128 at most
         assert!(
             (8..=128).contains(&made.layout.sync_interval),
@@ -297,9 +327,12 @@ fn a_recipe_keeps_within_what_the_format_and_its_encoders_do() {
     }
 }
 
-/// The one recipe FFmpeg does not give the samples of is the one about the
-/// restart block, and the record says so: FFmpeg's decoder keeps its filter
-/// histories across a restart header, `truehdd` and Dolby's clear them.
+/// Two recipes are about something no encoder writes and the decoders read
+/// differently, and the record says who read it how. FFmpeg's decoder keeps
+/// its filter histories across a restart header; `truehdd` and Dolby's clear
+/// them, as this decoder does. And Dolby's decoder does not cut the sum of a
+/// matrix to the quantiser step when the matrix sends its lowest bit apart;
+/// FFmpeg and `truehdd` cut it, as this decoder does.
 #[test]
 fn the_record_keeps_what_the_decoders_disagreed_on() {
     let record = record();
@@ -308,7 +341,13 @@ fn the_record_keeps_what_the_decoders_disagreed_on() {
         .filter(|line| !line.gave_others.is_empty())
         .map(|line| (line.name, &line.gave_others))
         .collect();
-    assert_eq!(differing, [("filter-at-restart", &vec!["ffmpeg"])]);
+    assert_eq!(
+        differing,
+        [
+            ("filter-at-restart", &vec!["ffmpeg"]),
+            ("bypass-over-step", &vec!["dolby"])
+        ]
+    );
     let planned: Vec<&str> = RECIPES
         .iter()
         .filter(|recipe| recipe.at_restart == AtRestart::Planned)

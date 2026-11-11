@@ -2,7 +2,7 @@
 //! workspace, and the plans it refuses.
 
 use oadec_synth::signal::noise;
-use oadec_synth::{BlockPlan, Coding, Family, Filter, Layout, UnitPlan, write};
+use oadec_synth::{BlockPlan, Coding, Family, Filter, Layout, Matrix, UnitPlan, write};
 use oadec_truehd::{AccessUnit, DecodeStats, Decoder, Extractor};
 
 /// Decodes `stream` at presentation 0, strictly: any fault of the stream is
@@ -40,13 +40,7 @@ fn decode(stream: &[u8]) -> (Vec<Vec<i32>>, DecodeStats) {
 }
 
 fn stereo(rate: u32) -> Layout {
-    Layout {
-        family: Family::TrueHd,
-        rate,
-        channels: 2,
-        sync_interval: 8,
-        trailer: true,
-    }
+    Layout::new(Family::TrueHd, rate, 2)
 }
 
 fn plain() -> Vec<Coding> {
@@ -202,6 +196,8 @@ fn blocks_that_are_not_a_unit_are_refused() {
         blocks: vec![BlockPlan {
             size: 40,
             coding: vec![Coding::default()],
+            matrices: Vec::new(),
+            shifts: Vec::new(),
         }],
     };
     refused(&layout, &[short], &pcm, "a coding for each channel");
@@ -321,4 +317,200 @@ fn samples_the_coding_cannot_hold_are_refused() {
     let plans = vec![UnitPlan::uniform(&[40], &coding)];
     let full = vec![1i32 << 22; 40];
     refused(&layout, &plans, &[full.clone(), full], "leaves 24 bits");
+}
+
+/// Noise that fills `bits` bits, shifted up by `up`: outputs an output shift
+/// of `up` can make.
+fn stepped(n: usize, bits: u32, up: u32, seed: u64) -> Vec<i32> {
+    noise(n, bits, seed).iter().map(|s| s << up).collect()
+}
+
+#[test]
+fn matrixed_samples_come_back() {
+    let mut layout = stereo(48_000);
+    layout.noise_shift = 3;
+    layout.noise_seeds = vec![0x2A_BCDE];
+    let units = 24;
+    let n = units * layout.samples_per_unit();
+    let pcm = vec![noise(n, 16, 21), noise(n, 16, 22)];
+    // the left channel takes on half the right and some of both noise
+    // channels; then the right, turned over, a quarter of the left
+    let matrices = vec![
+        Matrix::new(0, 12, &[0, 2048, 700, -300]),
+        Matrix::new(1, 10, &[-256, -1, 0, 90]),
+    ];
+    let plan = UnitPlan::uniform(&[40], &plain()).matrixed(&matrices);
+    let stream = write(&layout, &vec![plan; units], &pcm).expect("the stream is written");
+    let (decoded, stats) = decode(&stream.bytes);
+    assert!(decoded == pcm, "other samples");
+    assert_eq!(stats.lossless_checks, 2);
+    assert_eq!(stats.lossless_mismatches, 0);
+    assert_eq!(stats.first_problem, None);
+}
+
+#[test]
+fn bypassed_bits_steps_shifts_and_assignments_come_back() {
+    let mut layout = stereo(48_000);
+    layout.noise_shift = 1;
+    layout.noise_seeds = vec![0x12_3456, 0x00_0001, 0x7F_FFFF];
+    layout.assignment = vec![1, 0];
+    let units = 24;
+    let n = units * layout.samples_per_unit();
+    // the outputs: the left shifted up by 2, the right by none; the coded
+    // channel of the left output carries a quantiser step of 3 under a
+    // matrix that sends its lowest bit apart
+    let mut left = stepped(n, 10, 3, 23);
+    for (i, sample) in left.iter_mut().enumerate() {
+        *sample |= (i as i32 >> 2) & 1;
+    }
+    let left: Vec<i32> = left.iter().map(|s| s << 2).collect();
+    let pcm = vec![left, noise(n, 14, 24)];
+    // coded channel 0 is the right output, coded channel 1 the left
+    let mut on_left = Matrix::new(1, 8, &[64, 1, 5, 0]);
+    on_left.bypass = true;
+    let mut on_right = Matrix::new(0, 14, &[1, 0, 0, -8000]);
+    on_right.bypass = true;
+    let coding = vec![
+        Coding::default(),
+        Coding {
+            step: 3,
+            ..Coding::default()
+        },
+    ];
+    let plan = UnitPlan::uniform(&[16, 24], &coding)
+        .matrixed(&[on_right, on_left])
+        .shifted(&[0, 2]);
+    let stream = write(&layout, &vec![plan; units], &pcm).expect("the stream is written");
+    let (decoded, stats) = decode(&stream.bytes);
+    assert!(decoded == pcm, "other samples");
+    assert_eq!(stats.lossless_mismatches, 0);
+    assert_eq!(stats.first_problem, None);
+}
+
+#[test]
+fn a_matrix_or_a_shift_the_writer_cannot_undo_is_refused() {
+    let layout = stereo(48_000);
+    let (plans, pcm) = one_unit(8, &plain());
+    let with = |matrix: Matrix| vec![plans[0].clone().matrixed(&[matrix])];
+    // the channel a matrix writes has to be kept at 1 or -1
+    let mut halved = Matrix::new(0, 10, &[1, 100, 0, 0]);
+    halved.coefficients[0] = 512;
+    refused(&layout, &with(halved), &pcm, "cannot be undone");
+    refused(
+        &layout,
+        &with(Matrix::new(2, 10, &[1, 0, 0, 0])),
+        &pcm,
+        "writes channel 2",
+    );
+    refused(
+        &layout,
+        &with(Matrix::new(0, 15, &[1, 0, 0, 0])),
+        &pcm,
+        "15 fractional bits",
+    );
+    // a coefficient for each channel and two for the noise, each within two
+    // bits more than the fraction
+    refused(
+        &layout,
+        &with(Matrix::new(0, 10, &[1, 0, 0])),
+        &pcm,
+        "two for the noise",
+    );
+    refused(
+        &layout,
+        &with(Matrix::new(0, 10, &[1, 2048, 0, 0])),
+        &pcm,
+        "outside 12 bits",
+    );
+    // an output with bits under its shift cannot have been shifted there
+    let shifted = vec![plans[0].clone().shifted(&[1, 0])];
+    assert!(pcm[0].iter().any(|s| s & 1 == 1));
+    refused(&layout, &shifted, &pcm, "bits under an output shift of 1");
+    refused(
+        &layout,
+        &[plans[0].clone().shifted(&[8, 0])],
+        &pcm,
+        "of -8 to 7",
+    );
+    refused(
+        &layout,
+        &[plans[0].clone().shifted(&[0])],
+        &pcm,
+        "an output shift for each channel",
+    );
+}
+
+#[test]
+fn a_layout_of_noise_or_channels_the_header_cannot_state_is_refused() {
+    let (plans, pcm) = one_unit(8, &plain());
+    let with = |change: fn(&mut Layout)| {
+        let mut layout = stereo(48_000);
+        change(&mut layout);
+        layout
+    };
+    refused(&with(|l| l.noise_shift = 16), &plans, &pcm, "noise shift");
+    refused(
+        &with(|l| l.noise_seeds = vec![1 << 23]),
+        &plans,
+        &pcm,
+        "register of 23 bits",
+    );
+    refused(
+        &with(|l| l.assignment = vec![0, 0]),
+        &plans,
+        &pcm,
+        "every output channel to one coded channel",
+    );
+    refused(
+        &with(|l| l.assignment = vec![1]),
+        &plans,
+        &pcm,
+        "every output channel to one coded channel",
+    );
+}
+
+/// The noise register a restart header states is the one the samples after
+/// it are drawn from: with a list of seeds, each header its own; with one,
+/// the later headers state where the register has run to.
+#[test]
+fn a_restart_header_states_the_noise_register_it_starts_from() {
+    let seeds_of = |seeds: Vec<u32>| -> Vec<u32> {
+        let mut layout = stereo(48_000);
+        layout.noise_seeds = seeds;
+        let units = 24;
+        let n = units * layout.samples_per_unit();
+        let pcm = vec![noise(n, 12, 31), noise(n, 12, 32)];
+        let plan = UnitPlan::uniform(&[40], &plain());
+        let stream = write(&layout, &vec![plan; units], &pcm).expect("the stream is written");
+        // the restart header follows the 4 bytes of the unit header, the 28
+        // of the major sync and the 2 of the directory, two bits into the
+        // segment; its seed comes 14 + 16 + 4 + 4 + 4 + 4 bits after
+        [0usize, 8, 16]
+            .iter()
+            .map(|&k| {
+                let bit = (stream.unit_offsets[k] + 34) * 8 + 2 + 46;
+                (0..23).fold(0u32, |seed, i| {
+                    let at = bit + i;
+                    (seed << 1) | u32::from(stream.bytes[at / 8] >> (7 - at % 8) & 1)
+                })
+            })
+            .collect()
+    };
+    assert_eq!(seeds_of(Vec::new()), [0, 0, 0]);
+    assert_eq!(seeds_of(vec![5, 6, 7]), [5, 6, 7]);
+    // 320 samples on from 0x2A_BCDE, and 320 more: the register moved by the
+    // rule of the format, which the decoder's own test of it gives too
+    let run = seeds_of(vec![0x2A_BCDE]);
+    assert_eq!(run[0], 0x2A_BCDE);
+    let mut register = 0x2A_BCDEu32;
+    let mut expected = Vec::new();
+    for sample in 0..=640 {
+        if sample % 320 == 0 {
+            expected.push(register);
+        }
+        let low = register >> 7;
+        register = (low ^ (low << 5) ^ (register << 16)) & 0x7F_FFFF;
+    }
+    assert_eq!(run, expected);
+    assert_ne!(run[1], run[0]);
 }

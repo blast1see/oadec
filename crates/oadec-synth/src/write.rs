@@ -2,16 +2,22 @@
 //!
 //! This is the syntax and the arithmetic of `docs/truehd.md` written from the
 //! encoding side. It shares no code with the decoder. A stream it writes
-//! carries one substream of one or two channels with no matrix, which is the
-//! whole of a two-channel presentation, and every element of the block syntax
-//! under that: both prediction filters with every order, coded filter states,
-//! the three code books and plain coding, the offset, the quantiser step,
-//! several blocks to a unit.
+//! carries one substream of one or two channels, which is the whole of a
+//! two-channel presentation, and every element of the block syntax under
+//! that: both prediction filters with every order, coded filter states, the
+//! three code books and plain coding, the offset, the quantiser step, several
+//! blocks to a unit; and over the channels the matrices of a `0x31EA`
+//! substream with their two noise channels and bypassed LSBs, the output
+//! shifts and the channel assignment.
 //!
-//! Lossless by construction: the residual is what is left of the sample when
-//! the prediction the decoder will make is taken off, so the decoder's sum is
-//! the sample again. The writer runs the decoder's recursion to know that
-//! prediction; it does not search for good filters, it is told them.
+//! Lossless by construction, from the output backwards. The output shift is
+//! taken off the samples, then each matrix is undone, the last first: a
+//! matrix whose coefficient on the channel it writes is 1 or -1 loses
+//! nothing. What is left are the samples of the coded channels, and the
+//! residual of each is what remains of it when the prediction the decoder
+//! will make is taken off. The writer runs the decoder's recursions to know
+//! what they will give; it does not search for good filters or matrices, it
+//! is told them.
 
 use oadec_bits::{CRC8_RESTART, CRC8_SUBSTREAM, CRC8_SUBSTREAM_INIT, CRC16_MAJOR_SYNC};
 use oadec_bits::{fold_nibble, xor_bytes};
@@ -129,9 +135,42 @@ pub struct Layout {
     pub sync_interval: usize,
     /// A parity byte and a CRC close every segment (`crc_present`).
     pub trailer: bool,
+    /// Left shift of the two noise channels the matrices may draw on
+    /// (`dither_shift`), 0 to 15.
+    pub noise_shift: u8,
+    /// The 23-bit register the noise channels are drawn from, as each restart
+    /// header in turn states it. Where the list ends a restart header states
+    /// the register as it stands, which is what an encoder that never stops
+    /// writes; an empty list starts it at 0, where it stays and the noise is
+    /// silence.
+    pub noise_seeds: Vec<u32>,
+    /// Which output channel each coded channel is (`ch_assign`); empty for
+    /// each its own.
+    pub assignment: Vec<usize>,
 }
 
 impl Layout {
+    /// A layout with a major sync every eight access units, the check bytes
+    /// of every segment, no noise and each channel its own output.
+    #[must_use]
+    pub fn new(family: Family, rate: u32, channels: usize) -> Self {
+        Self {
+            family,
+            rate,
+            channels,
+            sync_interval: 8,
+            trailer: true,
+            noise_shift: 0,
+            noise_seeds: Vec::new(),
+            assignment: Vec::new(),
+        }
+    }
+
+    /// The output channel of coded channel `ch`.
+    fn output_of(&self, ch: usize) -> usize {
+        self.assignment.get(ch).copied().unwrap_or(ch)
+    }
+
     /// Samples in an access unit: 40 at the base rates, 80 and 160 above.
     #[must_use]
     pub fn samples_per_unit(&self) -> usize {
@@ -150,6 +189,43 @@ impl Layout {
     }
 }
 
+/// A primitive matrix: one channel replaced by a weighted sum of them all.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Matrix {
+    /// The channel the matrix writes (`matrix_ch`).
+    pub out: usize,
+    /// Fractional bits of the coefficients as they are sent (`frac_bits`), 0
+    /// to 14.
+    pub frac_bits: u8,
+    /// A coefficient for each channel and then for the two noise channels,
+    /// in units of `2^-frac_bits`. The one on the channel the matrix writes
+    /// is 1 or -1: a matrix can be undone exactly with no other.
+    pub coefficients: Vec<i32>,
+    /// One more bit a sample, sent as it is and added after the sum
+    /// (`lsb_bypass_used`).
+    pub bypass: bool,
+}
+
+impl Matrix {
+    /// A matrix that adds to channel `out` the other channels and the noise
+    /// by `weights`, in units of `2^-frac_bits`; the weight given for `out`
+    /// itself only says whether the channel is kept (not negative) or turned
+    /// over (negative).
+    #[must_use]
+    pub fn new(out: usize, frac_bits: u8, weights: &[i32]) -> Self {
+        let mut coefficients = weights.to_vec();
+        if let Some(own) = coefficients.get_mut(out) {
+            *own = if *own < 0 { -1 } else { 1 } << frac_bits;
+        }
+        Self {
+            out,
+            frac_bits,
+            coefficients,
+            bypass: false,
+        }
+    }
+}
+
 /// One block: so many samples of every channel, and what codes them.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockPlan {
@@ -158,6 +234,12 @@ pub struct BlockPlan {
     /// The coding of each channel from this block on. A block says of it
     /// only what differs from the block before.
     pub coding: Vec<Coding>,
+    /// The matrices from this block on, in the order the decoder applies
+    /// them. All are sent again when any differs.
+    pub matrices: Vec<Matrix>,
+    /// The left shift of each output from this block on (`output_shift`), -8
+    /// to 7; empty for none.
+    pub shifts: Vec<i8>,
 }
 
 /// The blocks of one access unit, whose sizes add up to the samples of a
@@ -178,9 +260,29 @@ impl UnitPlan {
                 .map(|&size| BlockPlan {
                     size,
                     coding: coding.to_vec(),
+                    matrices: Vec::new(),
+                    shifts: Vec::new(),
                 })
                 .collect(),
         }
+    }
+
+    /// The unit with these matrices in force in every block.
+    #[must_use]
+    pub fn matrixed(mut self, matrices: &[Matrix]) -> Self {
+        for block in &mut self.blocks {
+            block.matrices = matrices.to_vec();
+        }
+        self
+    }
+
+    /// The unit with these output shifts in force in every block.
+    #[must_use]
+    pub fn shifted(mut self, shifts: &[i8]) -> Self {
+        for block in &mut self.blocks {
+            block.shifts = shifts.to_vec();
+        }
+        self
     }
 }
 
@@ -410,7 +512,8 @@ fn choose_lsbs(coding: &Coding, residuals: &[i64]) -> Result<u8, String> {
         .ok_or_else(|| "the block fits in no huff_lsbs up to 24".to_string())
 }
 
-/// The check word of one sample across the channels, as the decoder XORs it.
+/// The check word of one sample across the channels, as the decoder XORs it:
+/// the outputs in the order of the coded channels they come from.
 fn check_word(samples: impl Iterator<Item = i32>) -> u32 {
     samples.enumerate().fold(0, |check, (ch, v)| {
         check ^ ((v as u32 & 0x00FF_FFFF) << (ch & 7))
@@ -519,21 +622,223 @@ struct Sent {
     offset: bool,
 }
 
+/// What the decoder holds for the substream, kept in step with it from one
+/// access unit to the next.
+#[derive(Debug, Clone)]
+struct Running {
+    channels: Vec<Channel>,
+    block_size: usize,
+    /// The check over every output since the last restart header.
+    check: u32,
+    /// The matrices in force.
+    matrices: Vec<Matrix>,
+    /// The output shift of each channel in force.
+    shifts: Vec<i8>,
+    /// The register the two noise channels are drawn from.
+    noise: u32,
+    /// Where the bypassed LSBs come from when nothing decides them: any bit
+    /// will do, and these are the same on every run.
+    bypass: u64,
+    /// Restart headers written so far.
+    restarts: usize,
+    /// The largest output shift of the stream, which every restart header
+    /// states (`max_shift`).
+    max_shift: u8,
+}
+
+impl Running {
+    fn new(layout: &Layout, plans: &[UnitPlan]) -> Self {
+        let max_shift = plans
+            .iter()
+            .flat_map(|plan| &plan.blocks)
+            .flat_map(|block| &block.shifts)
+            .map(|&shift| shift.max(0) as u8)
+            .max()
+            .unwrap_or(0);
+        Self {
+            channels: Vec::new(),
+            block_size: DEFAULT_BLOCK,
+            check: 0,
+            matrices: Vec::new(),
+            shifts: vec![0; layout.channels],
+            noise: 0,
+            bypass: 0x9E37_79B9_7F4A_7C15,
+            restarts: 0,
+            max_shift,
+        }
+    }
+
+    /// The state a restart header leaves, and the noise register it states.
+    fn restart(&mut self, layout: &Layout) {
+        self.channels = vec![Channel::after_restart(); layout.channels];
+        self.block_size = DEFAULT_BLOCK;
+        self.matrices.clear();
+        self.shifts = vec![0; layout.channels];
+        if let Some(&seed) = layout.noise_seeds.get(self.restarts) {
+            self.noise = seed;
+        }
+        self.restarts += 1;
+    }
+
+    fn next_bypass_bit(&mut self) -> i64 {
+        self.bypass ^= self.bypass << 13;
+        self.bypass ^= self.bypass >> 7;
+        self.bypass ^= self.bypass << 17;
+        (self.bypass >> 32 & 1) as i64
+    }
+}
+
+/// The two noise samples of one position, and the register moved on: the
+/// byte from bit 15 up and the byte from bit 7 up, each as a signed number.
+fn noise_pair(register: &mut u32, shift: u8) -> (i64, i64) {
+    let low = *register >> 7;
+    let first = i64::from((*register >> 15) as u8 as i8) << shift;
+    let second = i64::from(low as u8 as i8) << shift;
+    *register = (low ^ (low << 5) ^ (*register << 16)) & 0x7F_FFFF;
+    (first, second)
+}
+
+/// Whether the syntax can say `matrix` for a substream of `channels`
+/// channels, and the writer undo it.
+fn check_matrix(matrix: &Matrix, channels: usize) -> Result<(), String> {
+    if matrix.out >= channels {
+        return Err(format!("a matrix that writes channel {}", matrix.out));
+    }
+    if matrix.frac_bits > 14 {
+        return Err(format!("a matrix of {} fractional bits", matrix.frac_bits));
+    }
+    if matrix.coefficients.len() != channels + 2 {
+        return Err("a matrix has a coefficient for each channel and two for the noise".into());
+    }
+    let most = 1i32 << (matrix.frac_bits + 1);
+    if matrix
+        .coefficients
+        .iter()
+        .any(|c| !(-most..most).contains(c))
+    {
+        return Err(format!(
+            "a matrix coefficient outside {} bits",
+            matrix.frac_bits + 2
+        ));
+    }
+    if matrix.coefficients[matrix.out].abs() != 1 << matrix.frac_bits {
+        return Err(format!(
+            "the matrix on channel {} does not keep the channel at 1 or -1, and cannot be undone",
+            matrix.out
+        ));
+    }
+    Ok(())
+}
+
+/// What lies under the matrices of a block.
+struct Unmatrixed {
+    /// The samples of each coded channel.
+    samples: Vec<Vec<i32>>,
+    /// At each position, the bypassed LSB of each matrix.
+    bypassed: Vec<Vec<bool>>,
+}
+
+/// The samples of the coded channels for `size` positions from `at`, and the
+/// bypassed LSB of each matrix at each position: the outputs with the shifts
+/// taken off and the matrices in force undone, the last first.
+#[allow(
+    clippy::needless_range_loop,
+    reason = "one position of every channel at a time, the channels in the order of the outputs"
+)]
+fn coded_samples(
+    layout: &Layout,
+    block: &BlockPlan,
+    run: &mut Running,
+    pcm: &[Vec<i32>],
+    at: usize,
+    size: usize,
+) -> Result<Unmatrixed, String> {
+    let channels = layout.channels;
+    let mut coded = vec![Vec::with_capacity(size); channels];
+    let mut bypassed = Vec::with_capacity(size);
+    let mut row = vec![0i64; channels + 2];
+    for n in at..at + size {
+        for (ch, value) in row.iter_mut().take(channels).enumerate() {
+            let output = i64::from(pcm[layout.output_of(ch)][n]);
+            let shift = run.shifts[ch];
+            *value = if shift >= 0 {
+                if output & ((1 << shift) - 1) != 0 {
+                    return Err(format!(
+                        "output {output} has bits under an output shift of {shift}"
+                    ));
+                }
+                output >> shift
+            } else {
+                // the decoder shifts right, and the bits it drops are noughts
+                output << -shift
+            };
+        }
+        (row[channels], row[channels + 1]) = noise_pair(&mut run.noise, layout.noise_shift);
+        let mut bits = vec![false; run.matrices.len()];
+        for pmi in (0..run.matrices.len()).rev() {
+            let matrix = &run.matrices[pmi];
+            let out = matrix.out;
+            let step = block.coding[out].step;
+            let mask = !((1i64 << step) - 1);
+            let scale = 18 - u32::from(matrix.frac_bits);
+            let others: i64 = row
+                .iter()
+                .zip(&matrix.coefficients)
+                .enumerate()
+                .filter(|&(ch, _)| ch != out)
+                .map(|(_, (value, &c))| value * (i64::from(c) << scale))
+                .sum::<i64>()
+                >> 18;
+            let keeps = matrix.coefficients[out] > 0;
+            let bypass = matrix.bypass;
+            // Under a quantiser step the sum is cut to the step before the
+            // bit is added, so the bit is the one the output has; without a
+            // step any bit can be sent.
+            let lsb = match (bypass, step) {
+                (false, _) => 0,
+                (true, 0) => run.next_bypass_bit(),
+                (true, _) => row[out] & 1,
+            };
+            let sum = row[out] - lsb;
+            if sum & !mask != 0 {
+                return Err(format!(
+                    "channel {out}: {} has bits under a quantiser step of {step} at matrix {pmi}",
+                    row[out]
+                ));
+            }
+            // The decoder gives `(own + others) & mask`, `own` being the
+            // channel kept or turned over. `own` is a multiple of the step
+            // as every coded sample is, so only the part of `others` above
+            // the step comes through the cut.
+            let own = sum - (others & mask);
+            row[out] = if keeps { own } else { -own };
+            bits[pmi] = lsb != 0;
+        }
+        for (channel, &value) in coded.iter_mut().zip(&row) {
+            if !(-LIMIT..LIMIT).contains(&value) {
+                return Err(format!(
+                    "a sample of {value} under the matrices leaves 24 bits"
+                ));
+            }
+            channel.push(value as i32);
+        }
+        bypassed.push(bits);
+    }
+    Ok(Unmatrixed {
+        samples: coded,
+        bypassed,
+    })
+}
+
 /// The segment of access unit `k`: its blocks, the termination word if the
 /// stream ends with it, and the parity and CRC that close it.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "the state that runs from one access unit to the next, each named"
-)]
 fn segment(
     layout: &Layout,
     k: usize,
     last: bool,
     plan: &UnitPlan,
     pcm: &[Vec<i32>],
-    channels: &mut Vec<Channel>,
-    block_size: &mut usize,
-    check: &mut u32,
+    run: &mut Running,
 ) -> Result<Vec<u8>, String> {
     let per_unit = layout.samples_per_unit();
     let restart = k.is_multiple_of(layout.sync_interval);
@@ -545,20 +850,42 @@ fn segment(
             return Err(format!("a block of {size} samples"));
         }
         let restart_here = restart && j == 0;
+        let seed_before = run.noise;
         if restart_here {
-            *channels = vec![Channel::after_restart(); layout.channels];
-            *block_size = DEFAULT_BLOCK;
+            run.restart(layout);
         }
+        // the register a restart header states is the one the first sample
+        // after it is drawn from
+        let stated_seed = if restart_here { run.noise } else { seed_before };
 
-        // What this block changes, and the residuals under it.
+        // What this block changes above the channels, and the samples of the
+        // coded channels under it.
+        for (pmi, matrix) in block.matrices.iter().enumerate() {
+            check_matrix(matrix, layout.channels).map_err(|e| format!("matrix {pmi}: {e}"))?;
+        }
+        let shifts = if block.shifts.is_empty() {
+            vec![0; layout.channels]
+        } else {
+            block.shifts.clone()
+        };
+        if shifts.len() != layout.channels || shifts.iter().any(|s| !(-8..=7).contains(s)) {
+            return Err("an output shift for each channel, of -8 to 7".into());
+        }
+        let matrices_change = block.matrices != run.matrices;
+        let shifts_change = shifts != run.shifts;
+        run.matrices.clone_from(&block.matrices);
+        run.shifts = shifts;
+        let Unmatrixed { samples, bypassed } = coded_samples(layout, block, run, pcm, at, size)?;
+
+        // What it changes in the channels, and the residuals under that.
         let steps_change = block
             .coding
             .iter()
-            .zip(channels.iter())
+            .zip(run.channels.iter())
             .any(|(target, state)| target.step != state.held.step);
         let mut sent = Vec::with_capacity(layout.channels);
         let mut residuals = Vec::with_capacity(layout.channels);
-        for (ch, state) in channels.iter_mut().enumerate() {
+        for (ch, state) in run.channels.iter_mut().enumerate() {
             let target = &block.coding[ch];
             if target.fir.order() + target.iir.order() > MAX_TAPS {
                 return Err(format!("channel {ch}: more than {MAX_TAPS} taps"));
@@ -589,7 +916,7 @@ fn segment(
             }
             state.held = target.clone();
             let coded = state
-                .residuals(&pcm[ch][at..at + size])
+                .residuals(&samples[ch])
                 .map_err(|e| format!("channel {ch}: {e}"))?;
             let lsbs = choose_lsbs(target, &coded).map_err(|e| format!("channel {ch}: {e}"))?;
             now.params |= now.fir || now.iir || now.offset || lsbs != state.lsbs;
@@ -597,8 +924,12 @@ fn segment(
             sent.push(now);
             residuals.push(coded);
         }
-        let header =
-            restart_here || size != *block_size || steps_change || sent.iter().any(|s| s.params);
+        let header = restart_here
+            || size != run.block_size
+            || matrices_change
+            || shifts_change
+            || steps_change
+            || sent.iter().any(|s| s.params);
 
         w.put_bool(header);
         if header {
@@ -612,10 +943,11 @@ fn segment(
                 w.put(4, 0);
                 w.put(4, (layout.channels - 1) as u64);
                 w.put(4, (layout.channels - 1) as u64);
-                // no dither shift, a zero seed, no output shift allowed
-                w.put(4, 0);
-                w.put(23, 0);
-                w.put(4, 0);
+                // the noise channels: their shift and the register, and the
+                // largest output shift a block may ask for
+                w.put(4, u64::from(layout.noise_shift));
+                w.put(23, u64::from(stated_seed));
+                w.put(4, u64::from(run.max_shift));
                 // max_lsbs, and max_bits twice
                 w.put(5, u64::from(DEFAULT_LSBS));
                 w.put(5, 24);
@@ -623,13 +955,13 @@ fn segment(
                 // no error protection
                 w.put_bool(false);
                 // the check over every sample since the restart header before
-                w.put(8, u64::from(fold_check(*check)));
-                *check = 0;
+                w.put(8, u64::from(fold_check(run.check)));
+                run.check = 0;
                 // no high-resolution output timing, two reserved bits, no
                 // heavy dynamic range control and the twelve bits it leaves
                 w.put(16, 0);
                 for ch in 0..layout.channels {
-                    w.put(6, ch as u64);
+                    w.put(6, layout.output_of(ch) as u64);
                 }
                 let len = w.len_bits() - start;
                 let crc = CRC8_RESTART.update_bits(0, w.bytes(), start, len);
@@ -638,20 +970,41 @@ fn segment(
             // Every guard is set after a restart header and none is cleared
             // here, so each of these flags is in the stream.
             w.put_bool(false); // new guards
-            w.put_bool(size != *block_size);
-            if size != *block_size {
+            w.put_bool(size != run.block_size);
+            if size != run.block_size {
                 w.put(9, size as u64);
-                *block_size = size;
+                run.block_size = size;
             }
-            w.put_bool(false); // matrices
-            w.put_bool(false); // output shifts
+            w.put_bool(matrices_change);
+            if matrices_change {
+                w.put(4, run.matrices.len() as u64);
+                for matrix in &run.matrices {
+                    w.put(4, matrix.out as u64);
+                    w.put(4, u64::from(matrix.frac_bits));
+                    w.put_bool(matrix.bypass);
+                    // a flag for each coefficient, and only the ones that
+                    // are not nought behind it
+                    for &c in &matrix.coefficients {
+                        w.put_bool(c != 0);
+                        if c != 0 {
+                            w.put_signed(u32::from(matrix.frac_bits) + 2, i64::from(c));
+                        }
+                    }
+                }
+            }
+            w.put_bool(shifts_change);
+            if shifts_change {
+                for &shift in &run.shifts {
+                    w.put_signed(4, i64::from(shift));
+                }
+            }
             w.put_bool(steps_change);
             if steps_change {
-                for state in channels.iter() {
+                for state in &run.channels {
                     w.put(4, u64::from(state.held.step));
                 }
             }
-            for (state, now) in channels.iter().zip(&sent) {
+            for (state, now) in run.channels.iter().zip(&sent) {
                 w.put_bool(now.params);
                 if !now.params {
                     continue;
@@ -673,9 +1026,15 @@ fn segment(
             }
         }
 
-        // The samples: for each one, the code and then the LSBs of each channel.
+        // The samples: for each one, the bypassed LSB of each matrix that
+        // sends one, then the code and the LSBs of each channel.
         for n in 0..size {
-            for (state, coded) in channels.iter().zip(&residuals) {
+            for (matrix, &bit) in run.matrices.iter().zip(&bypassed[n]) {
+                if matrix.bypass {
+                    w.put_bool(bit);
+                }
+            }
+            for (state, coded) in run.channels.iter().zip(&residuals) {
                 let coding = &state.held;
                 let lsb_bits = u32::from(state.lsbs - coding.step);
                 let value = (coded[n] >> coding.step) + sign_bias(coding.book, lsb_bits)
@@ -685,7 +1044,8 @@ fn segment(
                 }
                 w.put(lsb_bits, (value & ((1i64 << lsb_bits) - 1)) as u64);
             }
-            *check ^= check_word(pcm.iter().map(|ch| ch[at + n]));
+            run.check ^=
+                check_word((0..layout.channels).map(|ch| pcm[layout.output_of(ch)][at + n]));
         }
         at += size;
         w.put_bool(j + 1 == plan.blocks.len());
@@ -731,6 +1091,16 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
     if layout.sync_interval == 0 || layout.sync_interval > 128 {
         return Err("a major sync at least every 128 access units".into());
     }
+    if layout.noise_shift > 15 || layout.noise_seeds.iter().any(|&seed| seed > 0x7F_FFFF) {
+        return Err("a noise shift of 0 to 15 and a register of 23 bits".into());
+    }
+    if !layout.assignment.is_empty() {
+        let mut seen = layout.assignment.clone();
+        seen.sort_unstable();
+        if seen != (0..layout.channels).collect::<Vec<_>>() {
+            return Err("an assignment gives every output channel to one coded channel".into());
+        }
+    }
     if plans.is_empty() || pcm.iter().any(|ch| ch.len() != plans.len() * per_unit) {
         return Err(format!(
             "{} access units of {per_unit} samples each",
@@ -740,9 +1110,7 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
 
     // The segments first: the major sync states the peak data rate, which is
     // that of the largest unit.
-    let mut channels = Vec::new();
-    let mut block_size = DEFAULT_BLOCK;
-    let mut check = 0u32;
+    let mut run = Running::new(layout, plans);
     let mut segments = Vec::with_capacity(plans.len());
     for (k, plan) in plans.iter().enumerate() {
         if plan
@@ -755,17 +1123,8 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
                 "access unit {k}: a coding for each channel and blocks of {per_unit} samples in all"
             ));
         }
-        let bytes = segment(
-            layout,
-            k,
-            k + 1 == plans.len(),
-            plan,
-            pcm,
-            &mut channels,
-            &mut block_size,
-            &mut check,
-        )
-        .map_err(|e| format!("access unit {k}: {e}"))?;
+        let bytes = segment(layout, k, k + 1 == plans.len(), plan, pcm, &mut run)
+            .map_err(|e| format!("access unit {k}: {e}"))?;
         segments.push(bytes);
     }
     let unit_len = |k: usize, segment: &[u8]| {

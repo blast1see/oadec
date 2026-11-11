@@ -20,4 +20,4 @@ pub mod signal;
 pub mod write;
 
 pub use recipe::{Made, RECIPES, Recipe};
-pub use write::{BlockPlan, Coding, Family, Filter, Layout, Stream, UnitPlan, write};
+pub use write::{BlockPlan, Coding, Family, Filter, Layout, Matrix, Stream, UnitPlan, write};
