@@ -1,0 +1,9 @@
+# The toolchain every build, test and release of this repository uses.
+#
+# It is raised by a pull request of its own, which runs the old and the new
+# binary over the corpus, so that a new lint or a change in generated code
+# never arrives with an unrelated commit. `rust-version` in Cargo.toml follows
+# this file.
+[toolchain]
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]
