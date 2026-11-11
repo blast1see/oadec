@@ -1,0 +1,49 @@
+{
+ "question": "Do the three gates this round leans on fail when they should: the transcripts when a command says something else, the old/new comparison when a binary delivers other bytes, the mutation run when a mutation can no longer be applied or its verdict is not the one expected?",
+ "method": "Each gate was run once on a state it should accept and once on a state made wrong on purpose, and the exit code and the message were read. Transcripts: `cargo test --locked -p oadec-cli --test transcripts` on the tree as committed, then with line 2 of tests/golden/mlp-quad-48k-mlp.txt changed from `exit 0` to `exit 1`. Old/new: `python tools/old_new.py --decode-all` between the two binaries of evidence 01 over the 125 streams of that evidence, then between release 0.6.2 and main over the one committed fixture with an object programme (authored-scene.mlp), whose metadata the releases in between changed on purpose. Mutation run: `python tools/mutants.py --check` on the tree as committed, then with the line one mutation is anchored to rewritten (`MATRIX_ALIGN: usize = 10` to `5 + 5`); the whole run, `python tools/mutants.py`, on the tree as committed; then two copies of the tool with another EXPECTED_SURVIVORS table, each run with --only on one mutation: one with the table empty on the mutation that survives, one that also names a mutation the suite catches.",
+ "binaries": {
+  "release 0.6.2": "102507eab9948bd10dee84d010ebdbd48e1b5a40d6d6a59069962b10dd3a7f2f",
+  "main, rustc 1.99.1, updated locks": "3864763a9374e3a61521a09ef54e0b0abbf674cdfb17f550d6fbcc79cdc90068"
+ },
+ "result": {
+  "transcripts": {
+   "recorded": "11 files, 12,182 lines: 120 commands over the 10 fixtures and the rule catalogue in both its forms",
+   "as_committed": "exit 0, 14 tests pass",
+   "one_line_changed": {
+    "exit": 101,
+    "message": "mlp-quad-48k-mlp.txt differs from this run at line 2: recorded: exit 1, this run: exit 0",
+    "tests": "13 pass, 1 fails"
+   }
+  },
+  "old_new_decode_all": {
+   "binaries_that_should_agree": "125 streams, 0 changed, 90,580,387,253 bytes of deliveries compared (evidence 01)",
+   "binaries_that_should_not": {
+    "exit": 1,
+    "streams": 1,
+    "streams_changed": 1,
+    "fields_added": ["buffer", "diagnostics", "disc", "extra.oamd_stale_sizes", "extra.protection", "foreign_syncs", "substream_stats"],
+    "deliveries": {
+     "pcm -p N": {"runs": 4, "wrote_output": 4, "bytes_compared": 8064000, "differ": 0},
+     "damf": {"runs": 1, "wrote_output": 1, "bytes_compared": 6054273, "differ": 1},
+     "adm": {"runs": 1, "wrote_output": 1, "bytes_compared": 6090390, "differ": 1}
+    }
+   }
+  },
+  "mutation_run": {
+   "check_as_committed": "exit 0: 95 mutations, the text of every one is in its file",
+   "check_with_one_line_moved": "exit 1: MISSING the matrix alignment, 10 -> 9: the text is not in crates/oadec-joc/src/quadrature.rs; 95 mutations, 1 cannot be applied; nothing was run",
+   "whole_run_as_committed": {
+    "exit": 0,
+    "mutations": 95,
+    "applied": 95,
+    "caught": 94,
+    "survived": ["the matrix alignment, 10 -> 9"],
+    "unexpected_survivors": 0,
+    "tree_after": "clean"
+   },
+   "survivor_not_in_the_table": "exit 1: SURVIVED the matrix alignment, 10 -> 9 (a hole in the suite); 1 mutations, 1 survived, 1 of them unexpected",
+   "table_names_a_mutation_that_is_caught": "exit 1: caught, though expected to survive: the WAVE header naming 48 kHz whatever the stream runs at -- take it out of EXPECTED_SURVIVORS"
+  }
+ },
+ "reading": "Each gate passes the state it should and fails the one it should not, with a message that names the place. The old/new comparison also shows what it does not see as a change: the PCM of all four presentations of the fixture is the same from 0.6.2 to main, which it is, while both object deliveries differ, which the releases in between intended. The mutation run's one survivor is the one the table names: no clause states the alignment of the matrix against the corrected low band, and the two tests that judge it need media and another decoder. What these controls do not show is that the gates see every kind of change. The transcripts hold the committed fixtures only, ten short streams and no AC-3 stream without objects; the object audio of an E-AC-3 stream is held by its length alone, because its samples are floating point; and a mutation the table does not list is not looked for at all."
+}

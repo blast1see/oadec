@@ -20,6 +20,22 @@ Semantic Versioning.
   Coding tools line of `verify` ends with that count. `tools/sweep.py
   --codecs` sweeps only the codecs it names, so a sweep for an AC-3 coding
   tool need not cut TrueHD heads.
+- **What every command says about the fixtures is held to a transcript.** The
+  tests of single fields say that a field is right; none said that nothing
+  else moved, which is the claim a change makes when it only moves code,
+  raises the toolchain or updates a dependency. `tests/transcripts.rs` runs
+  each reporting command and each delivery over every stream under
+  `tests/fixtures` and holds the exit code, what was printed and what was
+  written to `tests/golden/`. Run time, speed, output directory and the tool's
+  version are masked; integer audio is recorded by length and digest, the
+  floating-point object audio of an E-AC-3 stream by length alone.
+  `OADEC_BLESS=1` records them again (`docs/testing-tools.md`).
+- **`tools/old_new.py --decode-all` compares every delivery of two binaries**,
+  where `--decode` compared the PCM of one presentation of a TrueHD stream:
+  the PCM of presentations 0 to 3, the E-AC-3 programme and its core alone,
+  the DAMF set and the ADM file. It hashes every file a command left behind,
+  whatever the command named it, reports a command that exits 0 and writes
+  nothing, and counts what each kind of delivery compared.
 
 ### Changed
 
@@ -86,6 +102,14 @@ Semantic Versioning.
   Windows it decoded its children's output with that code page, so such a name
   killed the reader thread and the sweep ended in a `TypeError`. A track title
   outside it would have left the file out without a word. It reads UTF-8 now.
+- **The mutation run could pass over a mutation it never applied.**
+  `tools/mutants.py` printed SKIP for a mutation whose text was no longer in
+  its file and ended 0 whatever survived, so code that moved took its
+  mutations out of the run without a word. The text of every mutation is now
+  looked for before any test runs and a missing one ends the run; the exit
+  code carries the verdict, with the one mutation that survives on purpose
+  named with its reason; and CI checks on every pull request that each
+  mutation still finds its text (evidence 02 of `engine-round-2026-11`).
 
 ## [0.8.0] - 2026-11-10
 

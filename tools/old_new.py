@@ -21,6 +21,15 @@ then reports:
   line and `Speed:` the one before it;
 - for decodes, whether the output bytes are identical.
 
+`--decode-all` compares every delivery instead of one: for TrueHD and MLP the
+PCM of presentations 0 to 3, for AC-3 and E-AC-3 the PCM of the programme and
+of the core alone, and for both the DAMF set and the ADM file. Each command
+writes into a directory of its own and every file found there afterwards is
+hashed, whatever the command named it, so a delivery this tool has the name of
+wrong cannot pass as two empty sets agreeing. A command that exits 0 and writes
+nothing is reported, and the summary counts what each kind of delivery
+compared. The outputs are large; `--tmp` says where they go.
+
 Fields that differ between two runs of the same binary (`seconds`,
 `realtime_factor`, the `Speed:` line) are left out. The exit code of this tool
 is 0 when nothing changed, 1 when something did, 2 on a usage error.
@@ -31,12 +40,14 @@ import concurrent.futures
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 STREAM_SUFFIXES = {'.thd', '.mlp', '.truehd', '.ec3', '.eac3', '.ac3'}
+TRUEHD_SUFFIXES = {'.thd', '.mlp', '.truehd'}
 VOLATILE = {'seconds', 'realtime_factor'}
 
 
@@ -112,8 +123,60 @@ def sha256(path):
     return h.hexdigest()
 
 
+def deliveries(stream):
+    """(name, arguments, value of -o) for every delivery of one stream."""
+    s = str(stream)
+    if stream.suffix.lower() in TRUEHD_SUFFIXES:
+        for p in range(4):
+            yield f'pcm -p {p}', ['decode', s, '-p', str(p), '--format', 'pcm'], 'out.pcm'
+    else:
+        yield 'pcm', ['decode', s, '--format', 'pcm'], 'out.pcm'
+        yield 'pcm --core-only', ['decode', s, '--format', 'pcm', '--core-only'], 'out.pcm'
+    # the object formats take a base name and add their own extensions
+    yield 'damf', ['decode', s, '--format', 'damf'], 'out'
+    yield 'adm', ['decode', s, '--format', 'adm'], 'out'
+
+
+def deliver(exe, cmd, target, work, timeout):
+    """Runs one delivery into `work` and hashes every file it left there."""
+    shutil.rmtree(work, ignore_errors=True)
+    work.mkdir(parents=True)
+    try:
+        code = run(exe, [*cmd, '-o', str(work / target)], timeout)[0]
+    except subprocess.TimeoutExpired:
+        code = 'timeout'
+    hashes = {f.name: {'bytes': f.stat().st_size, 'sha256': sha256(f)}
+              for f in sorted(work.iterdir()) if f.is_file()}
+    shutil.rmtree(work, ignore_errors=True)
+    return code, hashes
+
+
+def compare_deliveries(args, stream, rec):
+    with tempfile.TemporaryDirectory(dir=args.tmp) as tmp:
+        for name, cmd, target in deliveries(stream):
+            co, ho = deliver(args.old, cmd, target, Path(tmp) / 'old', args.timeout)
+            cn, hn = deliver(args.new, cmd, target, Path(tmp) / 'new', args.timeout)
+            rec['deliveries'].append({'delivery': name, 'exit': co, 'files': sorted(ho),
+                                      'bytes': sum(v['bytes'] for v in ho.values())})
+            command = f'decode ({name})'
+            if co != cn:
+                rec['changes'].append({'command': command, 'what': 'exit code',
+                                       'old': co, 'new': cn})
+            if ho != hn:
+                rec['changes'].append({'command': command, 'what': 'output bytes',
+                                       'old': ho, 'new': hn})
+            for side, code, hashes in (('old', co, ho), ('new', cn, hn)):
+                if code == 0 and not any(v['bytes'] for v in hashes.values()):
+                    rec['changes'].append({'command': command,
+                                           'what': f'{side}: exit 0 and nothing written'})
+
+
+def delivery_kind(name):
+    return 'pcm -p N' if name.startswith('pcm -p ') else name
+
+
 def compare_one(args, stream):
-    rec = {'stream': str(stream), 'changes': [], 'added_fields': []}
+    rec = {'stream': str(stream), 'changes': [], 'added_fields': [], 'deliveries': []}
     s = str(stream)
     for name, cmd in (('verify', ['verify', s]),
                       ('verify --json', ['verify', '--json', s]),
@@ -140,8 +203,10 @@ def compare_one(args, stream):
             else:
                 rec['changes'].append({'command': name, 'what': 'field', 'path': path,
                                        'old': a, 'new': b})
-    if args.decode and stream.suffix.lower() in {'.thd', '.mlp', '.truehd'}:
-        with tempfile.TemporaryDirectory() as tmp:
+    if args.decode_all:
+        compare_deliveries(args, stream, rec)
+    elif args.decode and stream.suffix.lower() in TRUEHD_SUFFIXES:
+        with tempfile.TemporaryDirectory(dir=args.tmp) as tmp:
             outs = []
             for tag, exe in (('old', args.old), ('new', args.new)):
                 target = os.path.join(tmp, f'{tag}.pcm')
@@ -162,11 +227,23 @@ def main():
     ap.add_argument('--old', required=True)
     ap.add_argument('--new', required=True)
     ap.add_argument('--out')
-    ap.add_argument('--decode', action='store_true')
+    ap.add_argument('--decode', action='store_true',
+                    help='also compare the PCM of presentation 2 (TrueHD only)')
+    ap.add_argument('--decode-all', action='store_true',
+                    help='also compare every delivery: PCM, DAMF and ADM')
+    ap.add_argument('--tmp', help='where the decodes are written (default: the system temporary directory)')
     ap.add_argument('--jobs', type=int, default=max(1, (os.cpu_count() or 2) // 2))
     ap.add_argument('--timeout', type=int, default=3600)
     ap.add_argument('paths', nargs='+')
     args = ap.parse_args()
+    # A relative path with forward slashes does not start a process on Windows.
+    args.old, args.new = os.path.abspath(args.old), os.path.abspath(args.new)
+    for exe in (args.old, args.new):
+        if not os.path.isfile(exe):
+            print(f'not a file: {exe}', file=sys.stderr)
+            return 2
+    if args.tmp:
+        os.makedirs(args.tmp, exist_ok=True)
     files = streams(args.paths)
     if not files:
         print('no streams found', file=sys.stderr)
@@ -175,16 +252,34 @@ def main():
         recs = list(pool.map(lambda f: compare_one(args, f), files))
     changed = [r for r in recs if r['changes']]
     added = sorted({f for r in recs for f in r['added_fields']})
-    summary = {'old': args.old, 'new': args.new, 'streams': len(recs),
-               'streams_changed': len(changed), 'fields_added': added,
-               'changed': changed}
+    kinds = {}
+    for r in recs:
+        for d in r['deliveries']:
+            k = kinds.setdefault(delivery_kind(d['delivery']),
+                                 {'runs': 0, 'wrote_output': 0, 'bytes': 0, 'exit_codes': {}})
+            k['runs'] += 1
+            k['wrote_output'] += bool(d['bytes'])
+            k['bytes'] += d['bytes']
+            k['exit_codes'][str(d['exit'])] = k['exit_codes'].get(str(d['exit']), 0) + 1
+    # The binaries by name and digest: a path says where they were on one
+    # machine, the digest says which binaries they were.
+    summary = {'old': os.path.basename(args.old), 'old_sha256': sha256(args.old),
+               'new': os.path.basename(args.new), 'new_sha256': sha256(args.new),
+               'streams': len(recs), 'streams_changed': len(changed),
+               'fields_added': added, 'deliveries': kinds, 'changed': changed}
     if args.out:
         Path(args.out).write_text(json.dumps(summary, indent=1), encoding='utf-8')
     print(f'{len(recs)} streams, {len(changed)} changed; fields added: {", ".join(added) or "none"}')
+    for kind, k in kinds.items():
+        print(f'  {kind}: {k["runs"]} runs, {k["wrote_output"]} wrote output, '
+              f'{k["bytes"]} bytes compared, exit codes {k["exit_codes"]}')
     for r in changed:
         print(f'  {r["stream"]}')
         for c in r['changes'][:12]:
             print(f'    {c}')
+    if args.decode_all and not any(k['bytes'] for k in kinds.values()):
+        print('--decode-all compared no output at all', file=sys.stderr)
+        return 1
     return 1 if changed else 0
 
 

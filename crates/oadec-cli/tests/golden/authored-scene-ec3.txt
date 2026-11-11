@@ -1,0 +1,1160 @@
+$ oadec info tests/fixtures/authored-scene.ec3
+exit 0
+[stdout]
+File:              tests/fixtures/authored-scene.ec3
+Stream:            E-AC-3 bsid 16, 48000 Hz, 6 blocks/frame, 448 kbit/s
+Channels:          6 (acmod 7 + LFE): L C R Ls Rs LFE
+Frames:            63 decoded (63 independent, 0 dependent in the file), 0 sync errors, 0 bytes skipped
+Duration:          0:00:02.016 (96768 samples)
+Substreams:        type 0 id 0: 63
+Dialnorm:          -26 dB x63
+JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
+Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
+EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
+Metadata:          63 OAMD payloads (0 errors), 63 JOC payloads
+JOC parse:         63 ok, 0 errors, 0 reserved extensions, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 63}; objects per payload {15: 63}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 63}
+JOC objects:       bands {12: 945}; 0 sparse, 945 dense, 0 absent; 0 with two data points, 15 steep, 945 fine-quantized
+OAMD gain/size:    0 non-unity gains {}, 0 mutes, 0 non-zero sizes
+Integrity:         0 decode errors, 0 CRC failures, 0 frames ending inside the frame tail
+Speed:             <masked>
+
+$ oadec info --json tests/fixtures/authored-scene.ec3
+exit 0
+[stdout]
+{
+  "aht_frames": 0,
+  "bit_rate": 448000,
+  "blocks_per_frame": 6,
+  "bsid": 16,
+  "channels": [
+    "L",
+    "C",
+    "R",
+    "Ls",
+    "Rs",
+    "LFE"
+  ],
+  "clean": true,
+  "clipgains": [],
+  "coverage": [
+    "coupling",
+    "block-switching",
+    "dither",
+    "skip-fields"
+  ],
+  "dba_frames": 0,
+  "dependent_frames": 0,
+  "dialnorm": [
+    26
+  ],
+  "duration": 2.016,
+  "ecpl_frames": 0,
+  "emdf": {
+    "auxdata_bytes": 0,
+    "auxdata_frames": 0,
+    "auxdata_overruns": 0,
+    "container_errors": 0,
+    "containers": 63,
+    "containers_in_auxdata": 0,
+    "containers_in_independent_substream": 0,
+    "false_syncs": 0,
+    "frames_with_skip": 63,
+    "joc_payloads": 63,
+    "oamd_errors": 0,
+    "oamd_muted_updates": 0,
+    "oamd_object_gains_db": {},
+    "oamd_ok": 63,
+    "oamd_sized_updates": 0,
+    "payload_ids": {
+      "1": 63,
+      "11": 63,
+      "14": 63,
+      "2": 63
+    },
+    "skip_bytes": 16942
+  },
+  "failures": {
+    "channels_over_capacity": 0,
+    "complexity_mismatches": 0,
+    "crc_failures": 0,
+    "decode_errors": 0,
+    "dependent_dropped": 0,
+    "duplicate_substream_frames": 0,
+    "joc_errors": 0,
+    "joc_reserved_ext_config": 0,
+    "joc_size_mismatches": 0,
+    "layout_changes": 0,
+    "location_errors": 0,
+    "misaligned_substreams": 0,
+    "missing_substream_frames": 0,
+    "oamd_errors": 0,
+    "oamd_stale_sizes": 0,
+    "orphan_dependents": 0,
+    "payload_config_violations": 0,
+    "skipped_bytes": 0,
+    "stalled_substreams": 0,
+    "substream_crc_failures": 0,
+    "substream_decode_errors": 0,
+    "substream_tail_overruns": 0,
+    "sync_errors": 0,
+    "tail_overruns": 0
+  },
+  "file": "tests/fixtures/authored-scene.ec3",
+  "first_error": null,
+  "frames": 63,
+  "independent_frames": 63,
+  "joc": {
+    "absent_objects": 0,
+    "bands": [
+      12
+    ],
+    "clipgain_frames": 0,
+    "clipgain_x1000": [
+      1000
+    ],
+    "coarse_quantized_objects": 0,
+    "dense_objects": 945,
+    "downmix_configs": [
+      3
+    ],
+    "errors": 0,
+    "fine_quantized_objects": 945,
+    "interpolation_branches": {
+      "smooth-1": 930,
+      "steep-1": 15
+    },
+    "non_zero_padding": 0,
+    "objects_per_payload": [
+      15
+    ],
+    "offset_ts": {
+      "0": 930,
+      "15": 15
+    },
+    "parsed": 63,
+    "rare_branch_frames": {
+      "seq-count-zero": [
+        0
+      ],
+      "steep-1": [
+        0
+      ]
+    },
+    "reserved_ext_config": 0,
+    "seq_count_zero": 1,
+    "size_mismatches": 0,
+    "sparse_and_steep_objects": 0,
+    "sparse_objects": 0,
+    "steep_objects": 15,
+    "two_data_points": 0
+  },
+  "joc_extension": {
+    "complexity_index": 16,
+    "flag": true
+  },
+  "max_pending_groups": 1,
+  "other_program_frames": 0,
+  "program": [
+    {
+      "acmod": 7,
+      "bit_rate": 448000,
+      "chanmap": null,
+      "channels": [
+        "L",
+        "C",
+        "R",
+        "Ls",
+        "Rs",
+        "LFE"
+      ],
+      "crc_failures": 0,
+      "decode_errors": 0,
+      "frames": 63,
+      "lfeon": true,
+      "merged": true,
+      "substream": "independent 0",
+      "syntax": "E-AC-3",
+      "tail_overruns": 0
+    }
+  ],
+  "sample_rate": 48000,
+  "samples": 96768,
+  "seconds": "<masked>",
+  "spx_frames": 0,
+  "syntax": "E-AC-3",
+  "tpnp_frames": 0,
+  "transients": []
+}
+
+$ oadec verify tests/fixtures/authored-scene.ec3
+exit 0
+[stdout]
+File:              tests/fixtures/authored-scene.ec3
+Stream:            E-AC-3 bsid 16, 48000 Hz, 6 blocks/frame, 448 kbit/s
+Channels:          6 (acmod 7 + LFE): L C R Ls Rs LFE
+Frames:            63 decoded (63 independent, 0 dependent in the file), 0 sync errors, 0 bytes skipped
+Duration:          0:00:02.016 (96768 samples)
+Substreams:        type 0 id 0: 63
+Dialnorm:          -26 dB x63
+JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
+Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
+EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
+Metadata:          63 OAMD payloads (0 errors), 63 JOC payloads
+JOC parse:         63 ok, 0 errors, 0 reserved extensions, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 63}; objects per payload {15: 63}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 63}
+JOC objects:       bands {12: 945}; 0 sparse, 945 dense, 0 absent; 0 with two data points, 15 steep, 945 fine-quantized
+OAMD gain/size:    0 non-unity gains {}, 0 mutes, 0 non-zero sizes
+Integrity:         0 decode errors, 0 CRC failures, 0 frames ending inside the frame tail
+Speed:             <masked>
+Result:            CLEAN
+
+$ oadec verify --json tests/fixtures/authored-scene.ec3
+exit 0
+[stdout]
+{
+  "aht_frames": 0,
+  "bit_rate": 448000,
+  "blocks_per_frame": 6,
+  "bsid": 16,
+  "channels": [
+    "L",
+    "C",
+    "R",
+    "Ls",
+    "Rs",
+    "LFE"
+  ],
+  "clean": true,
+  "clipgains": [],
+  "coverage": [
+    "coupling",
+    "block-switching",
+    "dither",
+    "skip-fields"
+  ],
+  "dba_frames": 0,
+  "dependent_frames": 0,
+  "dialnorm": [
+    26
+  ],
+  "duration": 2.016,
+  "ecpl_frames": 0,
+  "emdf": {
+    "auxdata_bytes": 0,
+    "auxdata_frames": 0,
+    "auxdata_overruns": 0,
+    "container_errors": 0,
+    "containers": 63,
+    "containers_in_auxdata": 0,
+    "containers_in_independent_substream": 0,
+    "false_syncs": 0,
+    "frames_with_skip": 63,
+    "joc_payloads": 63,
+    "oamd_errors": 0,
+    "oamd_muted_updates": 0,
+    "oamd_object_gains_db": {},
+    "oamd_ok": 63,
+    "oamd_sized_updates": 0,
+    "payload_ids": {
+      "1": 63,
+      "11": 63,
+      "14": 63,
+      "2": 63
+    },
+    "skip_bytes": 16942
+  },
+  "failures": {
+    "channels_over_capacity": 0,
+    "complexity_mismatches": 0,
+    "crc_failures": 0,
+    "decode_errors": 0,
+    "dependent_dropped": 0,
+    "duplicate_substream_frames": 0,
+    "joc_errors": 0,
+    "joc_reserved_ext_config": 0,
+    "joc_size_mismatches": 0,
+    "layout_changes": 0,
+    "location_errors": 0,
+    "misaligned_substreams": 0,
+    "missing_substream_frames": 0,
+    "oamd_errors": 0,
+    "oamd_stale_sizes": 0,
+    "orphan_dependents": 0,
+    "payload_config_violations": 0,
+    "skipped_bytes": 0,
+    "stalled_substreams": 0,
+    "substream_crc_failures": 0,
+    "substream_decode_errors": 0,
+    "substream_tail_overruns": 0,
+    "sync_errors": 0,
+    "tail_overruns": 0
+  },
+  "file": "tests/fixtures/authored-scene.ec3",
+  "first_error": null,
+  "frames": 63,
+  "independent_frames": 63,
+  "joc": {
+    "absent_objects": 0,
+    "bands": [
+      12
+    ],
+    "clipgain_frames": 0,
+    "clipgain_x1000": [
+      1000
+    ],
+    "coarse_quantized_objects": 0,
+    "dense_objects": 945,
+    "downmix_configs": [
+      3
+    ],
+    "errors": 0,
+    "fine_quantized_objects": 945,
+    "interpolation_branches": {
+      "smooth-1": 930,
+      "steep-1": 15
+    },
+    "non_zero_padding": 0,
+    "objects_per_payload": [
+      15
+    ],
+    "offset_ts": {
+      "0": 930,
+      "15": 15
+    },
+    "parsed": 63,
+    "rare_branch_frames": {
+      "seq-count-zero": [
+        0
+      ],
+      "steep-1": [
+        0
+      ]
+    },
+    "reserved_ext_config": 0,
+    "seq_count_zero": 1,
+    "size_mismatches": 0,
+    "sparse_and_steep_objects": 0,
+    "sparse_objects": 0,
+    "steep_objects": 15,
+    "two_data_points": 0
+  },
+  "joc_extension": {
+    "complexity_index": 16,
+    "flag": true
+  },
+  "max_pending_groups": 1,
+  "other_program_frames": 0,
+  "program": [
+    {
+      "acmod": 7,
+      "bit_rate": 448000,
+      "chanmap": null,
+      "channels": [
+        "L",
+        "C",
+        "R",
+        "Ls",
+        "Rs",
+        "LFE"
+      ],
+      "crc_failures": 0,
+      "decode_errors": 0,
+      "frames": 63,
+      "lfeon": true,
+      "merged": true,
+      "substream": "independent 0",
+      "syntax": "E-AC-3",
+      "tail_overruns": 0
+    }
+  ],
+  "sample_rate": 48000,
+  "samples": 96768,
+  "seconds": "<masked>",
+  "spx_frames": 0,
+  "syntax": "E-AC-3",
+  "tpnp_frames": 0,
+  "transients": []
+}
+
+$ oadec verify --json --decode tests/fixtures/authored-scene.ec3
+exit 0
+[stdout]
+{
+  "aht_frames": 0,
+  "bit_rate": 448000,
+  "blocks_per_frame": 6,
+  "bsid": 16,
+  "channels": [
+    "L",
+    "C",
+    "R",
+    "Ls",
+    "Rs",
+    "LFE"
+  ],
+  "clean": true,
+  "clipgains": [],
+  "coverage": [
+    "coupling",
+    "block-switching",
+    "dither",
+    "skip-fields"
+  ],
+  "dba_frames": 0,
+  "dependent_frames": 0,
+  "dialnorm": [
+    26
+  ],
+  "duration": 2.016,
+  "ecpl_frames": 0,
+  "emdf": {
+    "auxdata_bytes": 0,
+    "auxdata_frames": 0,
+    "auxdata_overruns": 0,
+    "container_errors": 0,
+    "containers": 63,
+    "containers_in_auxdata": 0,
+    "containers_in_independent_substream": 0,
+    "false_syncs": 0,
+    "frames_with_skip": 63,
+    "joc_payloads": 63,
+    "oamd_errors": 0,
+    "oamd_muted_updates": 0,
+    "oamd_object_gains_db": {},
+    "oamd_ok": 63,
+    "oamd_sized_updates": 0,
+    "payload_ids": {
+      "1": 63,
+      "11": 63,
+      "14": 63,
+      "2": 63
+    },
+    "skip_bytes": 16942
+  },
+  "failures": {
+    "channels_over_capacity": 0,
+    "complexity_mismatches": 0,
+    "crc_failures": 0,
+    "decode_errors": 0,
+    "dependent_dropped": 0,
+    "duplicate_substream_frames": 0,
+    "joc_errors": 0,
+    "joc_reserved_ext_config": 0,
+    "joc_size_mismatches": 0,
+    "layout_changes": 0,
+    "location_errors": 0,
+    "misaligned_substreams": 0,
+    "missing_substream_frames": 0,
+    "oamd_errors": 0,
+    "oamd_stale_sizes": 0,
+    "orphan_dependents": 0,
+    "payload_config_violations": 0,
+    "skipped_bytes": 0,
+    "stalled_substreams": 0,
+    "substream_crc_failures": 0,
+    "substream_decode_errors": 0,
+    "substream_tail_overruns": 0,
+    "sync_errors": 0,
+    "tail_overruns": 0
+  },
+  "file": "tests/fixtures/authored-scene.ec3",
+  "first_error": null,
+  "frames": 63,
+  "independent_frames": 63,
+  "joc": {
+    "absent_objects": 0,
+    "bands": [
+      12
+    ],
+    "clipgain_frames": 0,
+    "clipgain_x1000": [
+      1000
+    ],
+    "coarse_quantized_objects": 0,
+    "dense_objects": 945,
+    "downmix_configs": [
+      3
+    ],
+    "errors": 0,
+    "fine_quantized_objects": 945,
+    "interpolation_branches": {
+      "smooth-1": 930,
+      "steep-1": 15
+    },
+    "non_zero_padding": 0,
+    "objects_per_payload": [
+      15
+    ],
+    "offset_ts": {
+      "0": 930,
+      "15": 15
+    },
+    "parsed": 63,
+    "rare_branch_frames": {
+      "seq-count-zero": [
+        0
+      ],
+      "steep-1": [
+        0
+      ]
+    },
+    "reserved_ext_config": 0,
+    "seq_count_zero": 1,
+    "size_mismatches": 0,
+    "sparse_and_steep_objects": 0,
+    "sparse_objects": 0,
+    "steep_objects": 15,
+    "two_data_points": 0
+  },
+  "joc_extension": {
+    "complexity_index": 16,
+    "flag": true
+  },
+  "max_pending_groups": 1,
+  "other_program_frames": 0,
+  "program": [
+    {
+      "acmod": 7,
+      "bit_rate": 448000,
+      "chanmap": null,
+      "channels": [
+        "L",
+        "C",
+        "R",
+        "Ls",
+        "Rs",
+        "LFE"
+      ],
+      "crc_failures": 0,
+      "decode_errors": 0,
+      "frames": 63,
+      "lfeon": true,
+      "merged": true,
+      "substream": "independent 0",
+      "syntax": "E-AC-3",
+      "tail_overruns": 0
+    }
+  ],
+  "sample_rate": 48000,
+  "samples": 96768,
+  "seconds": "<masked>",
+  "spx_frames": 0,
+  "syntax": "E-AC-3",
+  "tpnp_frames": 0,
+  "transients": []
+}
+
+$ oadec emdf --json tests/fixtures/authored-scene.ec3
+exit 0
+[stdout]
+{
+  "bytes": 112896,
+  "clean": true,
+  "container_errors": 0,
+  "containers": 63,
+  "crc_failures": 0,
+  "dependent_frames": 0,
+  "event_times_mod_frame": {
+    "0": 63
+  },
+  "first_error": null,
+  "frames": 63,
+  "frames_with_emdf": 63,
+  "independent_frames": 63,
+  "joc_payloads": 63,
+  "loudness": {
+    "boundaries": 0,
+    "dialogue_gated_correction": {
+      "no": 63
+    },
+    "downmix_offset_lu": {},
+    "payloads": 63,
+    "practices": {
+      "ATSC A/85": 63
+    },
+    "relative_gated_lufs": {
+      "-26.5": 1
+    },
+    "short_term_lufs": {
+      "count": 0,
+      "max": null,
+      "min": null
+    },
+    "size_mismatches": 0,
+    "speech_gated_lufs": {},
+    "true_peak_dbtp": {
+      "count": 3,
+      "max": -20.0,
+      "min": -20.0
+    },
+    "unreadable": 0,
+    "versions": {
+      "0": 63
+    }
+  },
+  "oamd_block_offsets": {
+    "0": 63
+  },
+  "oamd_errors": 0,
+  "oamd_payloads": 63,
+  "oamd_ramps": {
+    "1536": 63
+  },
+  "oamd_sample_offsets": {
+    "0": 63
+  },
+  "oamd_smploffst": {
+    "0": 63
+  },
+  "payload_ids": {
+    "1": 63,
+    "11": 63,
+    "14": 63,
+    "2": 63
+  },
+  "programme_information": {
+    "active_channels": {},
+    "downmix": {},
+    "drc_line": {
+      "none": 63
+    },
+    "drc_rf": {
+      "none": 63
+    },
+    "lfe_filter": {
+      "yes": 63
+    },
+    "lfe_monitor_level": {
+      "0": 63
+    },
+    "payloads": 63,
+    "phase_shift_90": {
+      "yes": 63
+    },
+    "size_mismatches": 0,
+    "surround_attenuation": {
+      "no": 63
+    },
+    "unreadable": 0,
+    "upmix": {}
+  },
+  "protection": {
+    "containers": 63,
+    "key_ids": {
+      "0": 63
+    },
+    "primary_bytes": {
+      "4": 63
+    },
+    "reserved_primary_code": 0,
+    "secondary_bytes": {
+      "1": 63
+    },
+    "versions": {
+      "0": 63
+    }
+  },
+  "seconds": "<masked>",
+  "skipped_bytes": 0,
+  "sync_errors": 0,
+  "unparsed_frames": 0,
+  "verify": {
+    "clean": true,
+    "first_problem": null
+  }
+}
+
+$ oadec oamd --json tests/fixtures/authored-scene.ec3
+exit 0
+[stdout]
+{
+  "additional_table_data": 0,
+  "alternate_object_data": 0,
+  "basic_status": {
+    "full": 1008
+  },
+  "block_offset_factors": {
+    "0": 63
+  },
+  "blocks_per_payload": {
+    "1": 63
+  },
+  "clean": true,
+  "container_errors": 0,
+  "container_sample_offsets": {
+    "0": 63
+  },
+  "crc_failures": 0,
+  "differential_positions": 0,
+  "distances": {
+    "unspecified": 945
+  },
+  "element_ids": {
+    "1": 63,
+    "2": 63
+  },
+  "extra_data_faults": 0,
+  "first_error": null,
+  "first_gain_units": [],
+  "first_size_units": [],
+  "global_trim_modes": {
+    "0": 63
+  },
+  "inactive_updates": 0,
+  "muted_updates": 0,
+  "object_counts": {
+    "16": 63
+  },
+  "object_gains_db": {},
+  "padding_long": 0,
+  "padding_nonzero": 0,
+  "parse_errors": 0,
+  "payloads": 63,
+  "payloads_with_extended": 0,
+  "payloads_with_trim": 63,
+  "payloads_with_unknown_elements": 0,
+  "per_object_trim_disables": 0,
+  "program": {
+    "bed_chan_distribute": false,
+    "beds": [
+      [
+        "LFE"
+      ]
+    ],
+    "dyn_object_only": true,
+    "dynamic_objects": 15,
+    "isf_index": null,
+    "objects": 16
+  },
+  "program_changes": 0,
+  "ramp_durations": {
+    "1536": 63
+  },
+  "render_status": {
+    "default": 63,
+    "full": 945
+  },
+  "sample_offsets": {
+    "0": 63
+  },
+  "screen_referenced": 0,
+  "seconds": "<masked>",
+  "size_mismatches": 0,
+  "sized_updates": 0,
+  "skipped_bytes": 0,
+  "snapped": 0,
+  "sync_errors": 0,
+  "trailing_bytes": 0,
+  "trim_configs": {},
+  "units": 63,
+  "units_with_oamd": 63,
+  "unparsed_units": 0,
+  "verify": {
+    "clean": true,
+    "first_problem": null
+  },
+  "warp_modes": {
+    "1": 63
+  },
+  "zone_constraints": {
+    "0": 945
+  }
+}
+
+$ oadec au --index 0 --json tests/fixtures/authored-scene.ec3
+exit 2
+[stderr]
+error: the stream has 0 access units; there is no access unit 0
+
+$ oadec decode tests/fixtures/authored-scene.ec3 --format damf -o <out>/scene
+exit 0
+[stderr]
+program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 5 downmix channels (config 3), clip gain 1.000 (applied)
+DAMF: 96512 frames x 25 channels (0:00:02.011) in <out>/scene.atmos.audio
+metadata: 63 payloads, 33 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD
+core: 63 frames decoded, 0 decode errors, <masked>
+done
+[file] scene.atmos
+version: 0.5.1
+presentations:
+  - type: home
+    simplified: false
+    metadata: scene.atmos.metadata
+    audio: scene.atmos.audio
+    offset: 0.0
+    fps: 24
+    scBedConfiguration: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    creationTool: oadec
+    creationToolVersion: <masked>
+    bedInstances:
+      - channels:
+          - channel: L
+            ID: 0
+          - channel: R
+            ID: 1
+          - channel: C
+            ID: 2
+          - channel: LFE
+            ID: 3
+          - channel: Lss
+            ID: 4
+          - channel: Rss
+            ID: 5
+          - channel: Lrs
+            ID: 6
+          - channel: Rrs
+            ID: 7
+          - channel: Lts
+            ID: 8
+          - channel: Rts
+            ID: 9
+    objects:
+      - ID: 10
+      - ID: 11
+      - ID: 12
+      - ID: 13
+      - ID: 14
+      - ID: 15
+      - ID: 16
+      - ID: 17
+      - ID: 18
+      - ID: 19
+      - ID: 20
+      - ID: 21
+      - ID: 22
+      - ID: 23
+      - ID: 24
+[file] scene.atmos.metadata
+sampleRate: 48000
+events:
+  - ID: 3
+    samplePos: 0
+    active: true
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    headTrackMode: undefined
+    binauralRenderMode: off
+  - ID: 10
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 11
+    samplePos: 0
+    active: true
+    pos: [-1, 0, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 12
+    samplePos: 0
+    active: true
+    pos: [1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 13
+    samplePos: 0
+    active: true
+    pos: [0, -1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 14
+    samplePos: 0
+    active: true
+    pos: [0, 0, 1]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 15
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 16
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 17
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 18
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 19
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 20
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 21
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 22
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 23
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 24
+    samplePos: 0
+    active: true
+    pos: [-1, 1, 0]
+    snap: false
+    elevation: true
+    zones: all
+    size: 0.0
+    importance: 1.0
+    gain: 0
+    rampLength: 1536
+    trimBypass: false
+    dialog: -1
+    music: -1
+    screenFactor: 0.0
+    depthFactor: 0.25
+    headTrackMode: undefined
+    binauralRenderMode: undefined
+  - ID: 15
+    samplePos: 19712
+    pos: [0, 1, 0]
+  - ID: 11
+    samplePos: 22784
+    pos: [-0.70967746, 0, 0]
+  - ID: 11
+    samplePos: 24320
+    pos: [-0.5483871, 0, 0]
+  - ID: 11
+    samplePos: 25856
+    pos: [-0.516129, 0, 0]
+  - ID: 15
+    samplePos: 25856
+    pos: [-1, 1, 0]
+  - ID: 15
+    samplePos: 44288
+    pos: [0, 1, 0]
+  - ID: 11
+    samplePos: 47360
+    pos: [-0.12903225, 0, 0]
+  - ID: 11
+    samplePos: 48896
+    pos: [-0.032258093, 0, 0]
+  - ID: 11
+    samplePos: 50432
+    pos: [0, 0, 0]
+  - ID: 15
+    samplePos: 50432
+    pos: [-1, 1, 0]
+  - ID: 15
+    samplePos: 67328
+    pos: [0, 1, 0]
+  - ID: 11
+    samplePos: 70400
+    pos: [0.16129029, 0, 0]
+  - ID: 11
+    samplePos: 71936
+    pos: [0.4193548, 0, 0]
+  - ID: 11
+    samplePos: 73472
+    pos: [0.48387098, 0, 0]
+  - ID: 15
+    samplePos: 73472
+    pos: [-1, 1, 0]
+  - ID: 11
+    samplePos: 93440
+    pos: [0.6774193, 0, 0]
+  - ID: 11
+    samplePos: 94976
+    pos: [0.9032258, 0, 0]
+[file] scene.atmos.audio: 7238468 bytes
+

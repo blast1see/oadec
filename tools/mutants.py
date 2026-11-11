@@ -9,11 +9,21 @@ comparison against another decoder can judge it.
 
     python tools/mutants.py
     python tools/mutants.py --out mutants.json
+    python tools/mutants.py --check
 
 The tree must be clean: every mutation is undone with `git checkout --`, and
 the run refuses to start otherwise. Each entry is a bug someone could write,
 not a random character: a table entry off by one, an index base, a scale
 factor, a channel mapped to the wrong input.
+
+The verdict is the exit code. 0: every mutation was applied and caught, but
+for the ones `EXPECTED_SURVIVORS` names, which survived. 1: a mutation
+survived that is not expected to, one that is expected to survive was caught,
+or the text a mutation changes is no longer in its file. The last used to be
+printed as SKIP and counted as nothing, so code that moved took its mutations
+out of the run without a word; it is found before any test runs now, and
+`--check` looks for nothing else, which is quick enough for CI. 2: the tree is
+not clean, or the suite does not pass before any mutation.
 """
 
 import argparse
@@ -435,6 +445,14 @@ MUTANTS = [
 ]
 
 
+# The mutations that survive the unit tests on purpose, and why. Anything else
+# that survives is a hole in the suite.
+EXPECTED_SURVIVORS = {
+    'the matrix alignment, 10 -> 9':
+        'no clause states it; two media tests judge it against another decoder',
+}
+
+
 def run(cmd):
     return subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
 
@@ -442,6 +460,32 @@ def run(cmd):
 def clean():
     return not run(['git', 'status', '--porcelain']).stdout.strip()
 
+
+_ap = argparse.ArgumentParser(description=(__doc__ or '').split('\n\n')[0])
+_ap.add_argument('--out')
+_ap.add_argument('--only', help='run the mutations whose name matches this regular expression')
+_ap.add_argument('--check', action='store_true',
+                 help='only check that the text every mutation changes is still in its file')
+_args = _ap.parse_args()
+
+selected = [m for m in MUTANTS if not _args.only or re.search(_args.only, m[0])]
+names = [m[0] for m in MUTANTS]
+duplicates = sorted({n for n in names if names.count(n) > 1})
+unknown = sorted(set(EXPECTED_SURVIVORS) - set(names))
+missing = [(name, path) for name, path, old, _ in selected
+           if old not in open(path, encoding='utf-8').read()]
+for name in duplicates:
+    print(f'  two mutations share the name: {name}')
+for name in unknown:
+    print(f'  expected to survive, but no mutation has the name: {name}')
+for name, path in missing:
+    print(f'  MISSING  {name}: the text is not in {path}')
+if duplicates or unknown or missing:
+    print(f'\n{len(selected)} mutations, {len(missing)} cannot be applied; nothing was run')
+    sys.exit(1)
+if _args.check:
+    print(f'{len(selected)} mutations, the text of every one is in its file')
+    sys.exit(0)
 
 if not clean():
     print('the tree is not clean; refusing to mutate it')
@@ -454,19 +498,9 @@ if base.returncode != 0:
 print('baseline green\n')
 
 rows = []
-_ap = argparse.ArgumentParser()
-_ap.add_argument('--out')
-_ap.add_argument('--only', help='run the mutations whose name matches this regular expression')
-_args = _ap.parse_args()
 
-for name, path, old, new in MUTANTS:
-    if _args.only and not re.search(_args.only, name):
-        continue
+for name, path, old, new in selected:
     src = open(path, encoding='utf-8').read()
-    if old not in src:
-        print(f'  SKIP  {name}: the text is not in {path}')
-        rows.append({'mutation': name, 'applied': False})
-        continue
     open(path, 'w', encoding='utf-8', newline='').write(src.replace(old, new, 1))
     r = run(['cargo', 'test', '--workspace', '--locked'])
     caught = r.returncode != 0
@@ -475,16 +509,25 @@ for name, path, old, new in MUTANTS:
     subprocess.run(['git', 'checkout', '--', path], check=True)
     rows.append({'mutation': name, 'applied': True, 'caught': caught,
                  'failing_tests': failing[:6], 'failing_count': len(failing)})
-    mark = 'caught' if caught else 'SURVIVED'
+    expected = name in EXPECTED_SURVIVORS
+    rows[-1]['expected_to_survive'] = expected
+    mark = 'caught' if caught else ('survived' if expected else 'SURVIVED')
     print(f'  {mark:9s} {name}'
           f'{"  by " + ", ".join(failing[:3]) if failing else ""}'
           f'{f" (+{len(failing) - 3} more)" if len(failing) > 3 else ""}', flush=True)
 
 if _args.out:
     json.dump(rows, open(_args.out, 'w'), indent=1)
-survived = [r for r in rows if r.get('applied') and not r['caught']]
-print(f'\n{len(rows)} mutations, {len(survived)} survived')
+survived = [r for r in rows if not r['caught']]
+holes = [r for r in survived if not r['expected_to_survive']]
+stale = [r for r in rows if r['caught'] and r['expected_to_survive']]
+print(f'\n{len(rows)} mutations, {len(survived)} survived, {len(holes)} of them unexpected')
 for r in survived:
-    print('  survived:', r['mutation'])
+    why = EXPECTED_SURVIVORS.get(r['mutation'])
+    print('  survived:', r['mutation'], f'(expected: {why})' if why else '(a hole in the suite)')
+for r in stale:
+    print('  caught, though expected to survive:', r['mutation'],
+          '-- take it out of EXPECTED_SURVIVORS')
 assert clean(), 'the tree was left dirty'
 print('tree clean')
+sys.exit(1 if holes or stale else 0)

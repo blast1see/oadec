@@ -75,6 +75,18 @@ jobs:
       - name: writer-level cases through the audit toolkit
         run: python docs/audit/adm-remediation/tools/run_remediation.py --repo . --work "$RUNNER_TEMP/adm-remediation" --stage harness --no-dolby --no-ear
 
+  # tools/mutants.py changes one line of the decoder at a time and expects a
+  # test to fail. Code that moves takes the line a mutation names with it, and
+  # the mutation used to drop out of the run without a word. The run itself
+  # takes an hour and is made by hand; that every mutation still finds its
+  # text takes a second and is checked here.
+  mutation-anchors:
+    name: every mutation still finds its text
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/mutants.py --check
+
   deny:
     name: cargo deny
     runs-on: ubuntu-latest
