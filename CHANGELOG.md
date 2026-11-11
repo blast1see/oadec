@@ -8,6 +8,31 @@ Semantic Versioning.
 
 ### Added
 
+- **`verify` says which coding tools a TrueHD stream uses, and `verify
+  --census` how often.** The parser read every element the descriptions
+  define, and nothing said which of them a stream was coded with: "no
+  material carries it" was a belief. The `Coding tools:` line (`coverage` in
+  `--json`, and in `info --json`) names the prediction filters, the code
+  books, quantiser steps, output shifts, the matrix syntaxes and their
+  options. `--census` gives the count behind it: for the major syncs, the
+  unit directories and each substream, how often each element occurs and with
+  which values. A counter ending in `_sent` counts the syntax transmitted,
+  every other the state in force. The bits the parser used to pass over are
+  kept for it: the reserved bits of the major sync, of a directory entry and
+  of a restart header, and the coded state of an IIR filter.
+- **What 157 TrueHD tracks use of the syntax, counted.** `tools/sweep.py`
+  records the census of every TrueHD track of a library and `tools/census.py`
+  adds them up. Over 42.7 million blocks, no track carries error protection,
+  a coefficient on a noise channel of a 0x31EA matrix, heavy DRC, a new guard
+  byte, a negative output shift, or any bit of `flags` but 12: those are what
+  a generated stream has to supply. Two fields the description reserves are
+  in ordinary use, in every track: the fourth bit of a directory entry (12
+  per cent of the entries) and `hires_output_timing` (40 per cent of the
+  restart headers), so a rule that failed a stream for either would fail the
+  library
+  (`docs/audit/evidence/engine-round-2026-11/05-truehd-syntax-census.json`).
+  `tools/cov_regions.py` asks the same of the code: which lines the unit
+  tests reach, which the corpus, which neither.
 - **Fuzz targets for every parser and decoder, and a seeded fuzz run in
   `cargo test`.** The robustness tests were bit flips driven from Python, one
   process a trial, and asked one thing: no silent exit. A new crate,

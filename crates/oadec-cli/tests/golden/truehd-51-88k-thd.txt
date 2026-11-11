@@ -40,6 +40,14 @@ exit 0
     "twoch_dialogue_norm": 0,
     "twoch_mix_level": 0
   },
+  "coverage": [
+    "fir",
+    "coefficient-shift",
+    "huffman-1",
+    "huffman-2",
+    "huffman-3",
+    "huffman-offset"
+  ],
   "crc_present_units": [
     111,
     111,
@@ -276,6 +284,7 @@ Substream 0:       111 segments (0 skipped), 7 restart headers [0x31EA x7], chan
 Substream 1:       111 segments (0 skipped), 7 restart headers [0x31EA x7], channels 2..=5 (matrix 5), error_protect false
                    118 blocks (max 2 per segment, 0 protected), 0 matrixing (0 interpolated), up to 0 matrices, 111 CRC segments, 1 terminated (1 with zero samples)
 Substream checks:  0 parse errors, 0 block bit-count mismatches, 0 parity failures, 0 CRC failures, 0 end-pointer mismatches, 0 sample-count mismatches, 0 restart flag mismatches, 0 bad terminators, 0 unexpected tails
+Coding tools:      fir, coefficient-shift, huffman-1, huffman-2, huffman-3, huffman-offset
 Timing:            0 input timing jumps, 0 output timing jumps, 0 valid seamless branches, 0 invalid branches, 0 duplicate candidates, 0 peak rate changes
 Buffer:            delay up to 80 samples (0.9 ms, au 0); delivery up to 7.162 Mbit/s (au 48)
                    substream depth 490/30000, 938/60000 bytes; decoders p0 502, p1 1444, p2 1444; stream 1444/120000 bytes
@@ -345,6 +354,14 @@ exit 0
     }
   },
   "clean": true,
+  "coverage": [
+    "fir",
+    "coefficient-shift",
+    "huffman-1",
+    "huffman-2",
+    "huffman-3",
+    "huffman-offset"
+  ],
   "crc_present_units": [
     111,
     111,
@@ -629,6 +646,14 @@ exit 0
     }
   },
   "clean": true,
+  "coverage": [
+    "fir",
+    "coefficient-shift",
+    "huffman-1",
+    "huffman-2",
+    "huffman-3",
+    "huffman-offset"
+  ],
   "crc_present_units": [
     111,
     111,
@@ -1110,6 +1135,43 @@ exit 0
   ],
   "unit": 0
 }
+
+$ oadec verify --census tests/fixtures/truehd-51-88k.thd
+exit 0
+[stdout]
+File:              tests/fixtures/truehd-51-88k.thd
+Access units:      111 (7 major syncs, 59202 bytes)
+Header parity:     0 failures
+Major sync CRC:    0 failures, 0 bad signatures
+Framing:           0 errors, 0 configuration changes
+Extra data:        0 header parity failures, 0 truncated, 0 Evolution parity failures, 0 non-zero padding, 0 container errors
+Sync:              0 resyncs, 0 skipped bytes, 0 trailing bytes
+Substream 0:       111 segments (0 skipped), 7 restart headers [0x31EA x7], channels 0..=1 (matrix 1), error_protect false
+                   118 blocks (max 2 per segment, 0 protected), 0 matrixing (0 interpolated), up to 0 matrices, 111 CRC segments, 1 terminated (1 with zero samples)
+Substream 1:       111 segments (0 skipped), 7 restart headers [0x31EA x7], channels 2..=5 (matrix 5), error_protect false
+                   118 blocks (max 2 per segment, 0 protected), 0 matrixing (0 interpolated), up to 0 matrices, 111 CRC segments, 1 terminated (1 with zero samples)
+Substream checks:  0 parse errors, 0 block bit-count mismatches, 0 parity failures, 0 CRC failures, 0 end-pointer mismatches, 0 sample-count mismatches, 0 restart flag mismatches, 0 bad terminators, 0 unexpected tails
+Coding tools:      fir, coefficient-shift, huffman-1, huffman-2, huffman-3, huffman-offset
+Timing:            0 input timing jumps, 0 output timing jumps, 0 valid seamless branches, 0 invalid branches, 0 duplicate candidates, 0 peak rate changes
+Buffer:            delay up to 80 samples (0.9 ms, au 0); delivery up to 7.162 Mbit/s (au 48)
+                   substream depth 490/30000, 938/60000 bytes; decoders p0 502, p1 1444, p2 1444; stream 1444/120000 bytes
+Disc:              BD no, HD DVD unjudged, DVD-A no
+                   Blu-ray takes TrueHD at 48, 96 and 192 kHz; this stream is at 88.2 kHz
+                   no public source gives the rates HD DVD takes; this stream is at 88.2 kHz
+                   DVD-Audio carries the FBB syntax; this stream is FBA
+Census:            major sync: major_syncs 7, twoch_channel_modifier {0: 7}, sixch_channel_modifier {0: 7}, eightch_channel_modifier {0: 7}, variable_rate 7, directory_entries 222
+                   substream 0 restart: headers 7, sync_31ea 7, max_shift {0: 7}, max_lsbs {20: 1, 22: 5, 24: 1}, max_bits {22: 7}, dither_shift {0: 7}, coded_channels {2: 7}, matrix_channels {2: 7}
+                   substream 0 block: blocks 118, headers 33, block_size_sent {8: 7, 72: 7, 80: 7}, block_size {8: 7, 72: 7, 80: 104}, quant_step_size {0: 236}
+                   substream 0 filter: fir_sent {7: 14}, fir_order {0: 14, 7: 222}, iir_order {0: 236}, coeff_q_sent {12: 14}, coeff_bits_sent {15: 14}, coeff_shift_sent {0: 14}
+                   substream 0 entropy: huff_type_sent {0: 58, 1: 5, 2: 1, 3: 2}, huff_type {0: 228, 1: 5, 2: 1, 3: 2}, huff_lsbs_sent {3: 2, 5: 2, 6: 4, 7: 5, 8: 6, 9: 31, 13: 1, 14: 1, 16: 1, 17: 1, 20: 1, 21: 2, 22: 9}, huff_offset_sent 28, huff_offset_bits_sent {0: 14, 14: 13, 15: 1}
+                   substream 0 matrix: primitive_matrices {0: 118}
+                   substream 1 restart: headers 7, sync_31ea 7, max_shift {0: 7}, max_lsbs {21: 1, 22: 5, 24: 1}, max_bits {22: 7}, dither_shift {0: 7}, coded_channels {4: 7}, matrix_channels {6: 7}
+                   substream 1 block: blocks 118, headers 62, block_size_sent {8: 7, 72: 7, 80: 7}, block_size {8: 7, 72: 7, 80: 104}, quant_step_size {0: 472}
+                   substream 1 filter: fir_sent {7: 11, 8: 17}, fir_order {0: 28, 7: 174, 8: 270}, iir_order {0: 472}, coeff_q_sent {11: 4, 12: 24}, coeff_bits_sent {14: 1, 15: 27}, coeff_shift_sent {0: 27, 1: 1}
+                   substream 1 entropy: huff_type_sent {0: 211, 1: 28, 2: 5, 3: 4}, huff_type {0: 432, 1: 31, 2: 5, 3: 4}, huff_lsbs_sent {0: 8, 1: 10, 2: 2, 4: 6, 5: 8, 6: 37, 8: 31, 9: 91, 10: 23, 11: 1, 13: 1, 14: 1, 15: 2, 17: 3, 18: 2, 19: 1, 20: 1, 21: 2, 22: 18}, huff_offset_sent 56, huff_offset_bits_sent {0: 28, 14: 26, 15: 2}
+                   substream 1 matrix: primitive_matrices {0: 118}
+Speed:             <masked>
+Result:            CLEAN
 
 $ oadec decode tests/fixtures/truehd-51-88k.thd -p 0 --format pcm -o <out>/p0.pcm
 exit 0

@@ -216,6 +216,42 @@ decoder: a damaged and an undamaged copy decode identically outside the region,
 and a presentation that reads no damaged substream decodes identically
 everywhere.
 
+## What a stream uses of the syntax
+
+The parser reads every element the descriptions define. Which of them a
+stream is coded with is a separate question, and `verify` answers it: the
+`Coding tools:` line (`coverage` in `--json`, which `info --json` carries
+too) names the prediction filters of either kind, each code book, quantiser
+steps, output shifts, the matrix syntaxes and their options, heavy DRC, and
+the rest of the list `oadec_truehd::Census::tools` holds. A tool is named when
+the stream was coded with it, not when a field for it was present: a filter
+of order zero is no filter.
+
+`verify --census` reports the count the names are drawn from: how often each
+element occurs and with which values, first for the major syncs and the unit
+directories, then for each substream the stream carries (restart headers,
+blocks, filters, entropy coding, matrices). With `--json` every counter is
+listed, the ones at zero included, and a field of 32 values or fewer lists
+them all; as text, one line a group, with the counters that are not zero.
+
+Two kinds of count are kept and the name says which. A counter ending in
+`_sent` counts the syntax: how often the element was transmitted. Every other
+counts the state in force: the blocks, or the blocks times channels, coded
+under each value. A filter sent once and kept for a film is one `fir_sent`
+and millions of `fir_order`.
+
+The census is what makes "no material carries it" a number. One stream says
+what one encoder did with one programme; `tools/sweep.py` records the census
+of every TrueHD track of a library and `tools/census.py` adds them up and
+lists the counters that are zero in every one. It is also the order of work
+for anything that would judge a reserved field: count how often real streams
+set it first, give the rule a severity after.
+
+`tools/cov_regions.py` asks the same question of the code instead of the
+syntax. It sorts every line of the decoder by what reaches it: the unit tests
+(a bitstream built by hand to reach it), the corpus (what an encoder writes),
+both, or neither.
+
 ## Decoder buffer
 
 Dolby's high-level description (section 2.7) gives the model: an access unit

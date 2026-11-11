@@ -194,6 +194,8 @@ pub struct Options {
     pub trace_fifo: Option<std::path::PathBuf>,
     /// Disc formats the stream must fit for the run to pass.
     pub require_disc: Vec<Disc>,
+    /// Also report the census: how often each element of the syntax occurs.
+    pub census: bool,
 }
 
 impl Default for Options {
@@ -205,8 +207,16 @@ impl Default for Options {
             max_per_rule: Tally::DEFAULT_MAX_PER_RULE,
             trace_fifo: None,
             require_disc: Vec::new(),
+            census: false,
         }
     }
+}
+
+/// The substreams the stream declares, which are the ones a census is of.
+fn carried_substreams(scan: &scan::Scan) -> usize {
+    scan.config
+        .as_ref()
+        .map_or(0, |c| usize::from(c.substreams).min(4))
 }
 
 /// Writes what every unit puts into the decoder buffer as CSV.
@@ -798,6 +808,9 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         value["diagnostics"] = diagnostics_json(&scan, opts.fail_on);
         value["buffer"] = buffer_json(&scan);
         value["disc"] = disc_json(discs.as_ref(), &opts.require_disc);
+        if opts.census {
+            value["census"] = crate::census::json(&scan.census, carried_substreams(&scan));
+        }
         value["clean"] = serde_json::json!(clean);
         value["seconds"] = serde_json::json!(elapsed);
         value["realtime_factor"] = serde_json::json!(speed);
@@ -888,6 +901,14 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
             f.terminator_tail,
             f.unexpected_tail
         );
+        println!(
+            "Coding tools:      {}",
+            if scan.coverage.is_empty() {
+                "none beyond plain coding".to_string()
+            } else {
+                scan.coverage.join(", ")
+            }
+        );
         if let Some(c) = &checks {
             println!(
                 "Lossless checks:   {} evaluated, {} failed, {} skipped",
@@ -946,6 +967,15 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         print_diagnostics(&scan, opts.fail_on);
         if let Some(err) = &scan.first_error {
             println!("First error:       {err}");
+        }
+        if opts.census {
+            for (i, line) in crate::census::lines(&scan.census, carried_substreams(&scan))
+                .iter()
+                .enumerate()
+            {
+                let label = if i == 0 { "Census:" } else { "" };
+                println!("{label:<19}{line}");
+            }
         }
         match speed {
             Some(x) => println!("Speed:             {elapsed:.2} s ({x:.0}x realtime)"),

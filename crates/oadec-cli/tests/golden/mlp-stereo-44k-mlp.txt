@@ -37,6 +37,16 @@ exit 0
     "twoch_dialogue_norm": 0,
     "twoch_mix_level": 0
   },
+  "coverage": [
+    "fir",
+    "huffman-1",
+    "huffman-2",
+    "huffman-3",
+    "huffman-offset",
+    "quantiser-step",
+    "output-shift",
+    "matrixing"
+  ],
   "crc_present_units": [
     221,
     0,
@@ -252,6 +262,7 @@ Sync:              0 resyncs, 0 skipped bytes, 0 trailing bytes
 Substream 0:       221 segments (0 skipped), 14 restart headers [0x31EA x14], channels 0..=1 (matrix 1), error_protect false
                    235 blocks (max 2 per segment, 0 protected), 14 matrixing (0 interpolated), up to 1 matrices, 221 CRC segments, 0 terminated (0 with zero samples)
 Substream checks:  0 parse errors, 0 block bit-count mismatches, 0 parity failures, 0 CRC failures, 0 end-pointer mismatches, 0 sample-count mismatches, 0 restart flag mismatches, 0 bad terminators, 0 unexpected tails
+Coding tools:      fir, huffman-1, huffman-2, huffman-3, huffman-offset, quantiser-step, output-shift, matrixing
 Timing:            0 input timing jumps, 0 output timing jumps, 0 valid seamless branches, 0 invalid branches, 0 duplicate candidates, 0 peak rate changes
 Buffer:            delay up to 40 samples (0.9 ms, au 0); delivery up to 1.376 Mbit/s (au 0)
                    substream depth 162/30000 bytes; decoders p0 202, p1 202; stream 202/120000 bytes
@@ -310,6 +321,16 @@ exit 0
     }
   },
   "clean": true,
+  "coverage": [
+    "fir",
+    "huffman-1",
+    "huffman-2",
+    "huffman-3",
+    "huffman-offset",
+    "quantiser-step",
+    "output-shift",
+    "matrixing"
+  ],
   "crc_present_units": [
     221,
     0,
@@ -574,6 +595,16 @@ exit 0
     }
   },
   "clean": true,
+  "coverage": [
+    "fir",
+    "huffman-1",
+    "huffman-2",
+    "huffman-3",
+    "huffman-offset",
+    "quantiser-step",
+    "output-shift",
+    "matrixing"
+  ],
   "crc_present_units": [
     221,
     0,

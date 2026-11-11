@@ -160,6 +160,8 @@ pub struct DirectoryEntry {
     pub drc_gain_update: Option<i16>,
     /// `drc_time_update` (3 bits) when the extra word is present.
     pub drc_time_update: Option<u8>,
+    /// The last four bits of the extra word, which nothing here reads.
+    pub extra_reserved: Option<u8>,
 }
 
 /// A framed access unit (segments not yet parsed).
@@ -232,13 +234,13 @@ impl AccessUnit {
             let crc_present = reader.read_bool()?;
             let reserved = reader.read_bool()?;
             let end_ptr_words = reader.read(12)? as u16;
-            let (drc_gain_update, drc_time_update) = if extra_word {
+            let (drc_gain_update, drc_time_update, extra_reserved) = if extra_word {
                 let gain = reader.read_signed(9)? as i16;
                 let time = reader.read(3)? as u8;
-                reader.skip(4)?;
-                (Some(gain), Some(time))
+                let rest = reader.read(4)? as u8;
+                (Some(gain), Some(time), Some(rest))
             } else {
-                (None, None)
+                (None, None, None)
             };
             directory.push(DirectoryEntry {
                 extra_word,
@@ -248,6 +250,7 @@ impl AccessUnit {
                 end_ptr_words,
                 drc_gain_update,
                 drc_time_update,
+                extra_reserved,
             });
         }
         let segments_start = reader.position() / 8;

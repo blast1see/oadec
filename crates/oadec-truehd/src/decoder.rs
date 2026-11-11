@@ -1090,6 +1090,8 @@ mod tests {
             coeff_shift: 0,
             coeff: [1 << 12, 0, 0, 0, 0, 0, 0, 0],
             new_states: false,
+            state_bits: 0,
+            state_shift: 0,
             state: [0; 8],
         };
         let mut sd = SubstreamDecoder {
@@ -1125,6 +1127,8 @@ mod tests {
             coeff_shift: 0,
             coeff: [-(1 << 8), 0, 0, 0, 0, 0, 0, 0],
             new_states: true,
+            state_bits: 0,
+            state_shift: 0,
             state: [5, 0, 0, 0, 0, 0, 0, 0],
         };
         let mut sd = SubstreamDecoder {
@@ -1159,6 +1163,8 @@ mod tests {
             coeff_shift: 0,
             coeff: [1 << 8, 0, 0, 0, 0, 0, 0, 0],
             new_states: false,
+            state_bits: 0,
+            state_shift: 0,
             state: [0; 8],
         };
         let mut sd = SubstreamDecoder {

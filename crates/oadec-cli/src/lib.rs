@@ -9,6 +9,7 @@
 mod au_dump;
 mod author;
 mod catalog;
+mod census;
 mod compare;
 mod damf;
 mod decode;
@@ -91,6 +92,12 @@ enum Command {
         /// reports the fit (Disc:); this makes it part of the verdict.
         #[arg(long, value_name = "DISC", value_delimiter = ',', value_parser = ["bd", "hddvd", "dvda"])]
         require_disc: Vec<String>,
+        /// TrueHD: also report the census the Coding tools line is drawn
+        /// from: how often each element of the syntax occurs and with which
+        /// values, substream by substream. With --json every counter is
+        /// listed, the ones at zero included.
+        #[arg(long)]
+        census: bool,
     },
     /// Print one access unit of a TrueHD stream field by field, with where each
     /// part sits in the file: the place a finding of verify points to, opened up.
@@ -446,9 +453,16 @@ where
                 max_per_rule,
                 trace_fifo,
                 require_disc,
+                census,
             } => eac3::is_eac3(&file)
                 .and_then(|is| {
                     if is {
+                        if census {
+                            return Err(anyhow::anyhow!(
+                                "--census counts the TrueHD syntax; the report of an AC-3 or \
+                                 E-AC-3 stream names its coding tools as it is"
+                            ));
+                        }
                         if fail_on.is_some()
                             || max_per_rule.is_some()
                             || trace_fifo.is_some()
@@ -480,6 +494,7 @@ where
                                     .iter()
                                     .filter_map(|d| oadec_truehd::disc::Disc::from_id(d))
                                     .collect(),
+                                census,
                             },
                         )
                     }

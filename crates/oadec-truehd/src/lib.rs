@@ -11,6 +11,7 @@
 pub mod au;
 pub mod block;
 pub mod buffer;
+pub mod census;
 pub mod channel;
 pub mod damage;
 pub mod decoder;
@@ -36,6 +37,7 @@ pub(crate) mod testutil;
 
 pub use au::{AccessUnit, AuHeader, DirectoryEntry, StreamConfig};
 pub use block::{Block, BlockHeader, ChannelParams, SampleBuffer};
+pub use census::Census;
 pub use channel::{ChannelLabel, ChannelMeaning, ExtraChannelMeaning};
 pub use decoder::{DecodeStats, Decoded, Decoder};
 pub use diag::{Finding, Location, RuleTally, Severity, Tally};

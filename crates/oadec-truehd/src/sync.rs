@@ -113,6 +113,9 @@ pub struct FormatInfo {
     pub sixch_multichannel_type: bool,
     /// `eightch_multi_channel_type`.
     pub eightch_multichannel_type: bool,
+    /// The two bits between the multichannel types and the channel
+    /// modifiers, which nothing here reads.
+    pub reserved_bits: u8,
     /// `twoch_decoder_channel_modifier` (2 bits).
     pub twoch_channel_modifier: u8,
     /// `sixch_decoder_channel_modifier` (2 bits).
@@ -232,10 +235,8 @@ impl MajorSync {
             sampling_frequency_code: reader.read(4)? as u8,
             sixch_multichannel_type: reader.read_bool()?,
             eightch_multichannel_type: reader.read_bool()?,
-            twoch_channel_modifier: {
-                reader.skip(2)?;
-                reader.read(2)? as u8
-            },
+            reserved_bits: reader.read(2)? as u8,
+            twoch_channel_modifier: reader.read(2)? as u8,
             sixch_channel_modifier: reader.read(2)? as u8,
             sixch_channel_assignment: reader.read(5)? as u8,
             eightch_channel_modifier: reader.read(2)? as u8,
