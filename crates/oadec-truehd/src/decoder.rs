@@ -574,8 +574,12 @@ impl Core {
                             let index = (matrices - pmi) * (2 * n + 1) + n;
                             acc += i64::from(sd.dither_table[index & table_mask]) << (11 + scale);
                         }
-                        row[out_ch] =
-                            matrix_output(acc, ss.quant_step_size[out_ch], lsb[pmi], false);
+                        row[out_ch] = matrix_output(
+                            acc,
+                            ss.quant_step_size[out_ch],
+                            lsb[pmi],
+                            ss.lsb_bypass_used[pmi],
+                        );
                     }
                 }
                 _ => {
@@ -620,13 +624,14 @@ impl Core {
 /// Final value of a matrix output: 18 fractional bits removed, the bits under
 /// the quantiser step cleared, the bypassed LSBs added.
 ///
-/// `uncut` leaves the cut out. A matrix of a `0x31EA` substream that sends a
-/// bypassed LSB is not cut to the step of its channel: Dolby's decoder gives
-/// the sum as it is with the bit added, on every sample of streams written to
-/// ask it (`docs/truehd.md`, *A bypassed bit over a quantiser step*). No real
-/// stream has a matrix with both a bypassed bit and a step, so nothing but a
-/// written stream can tell the two readings apart. The other two kinds of
-/// substream have not been put to Dolby's decoder and are cut as before.
+/// `uncut` leaves the cut out. A matrix of a `0x31EA` or a `0x31EB` substream
+/// that sends a bypassed LSB is not cut to the step of its channel: Dolby's
+/// decoder gives the sum as it is with the bit added, on every sample of
+/// streams written to ask it of each kind (`docs/truehd.md`, *A bypassed bit
+/// over a quantiser step*). No real stream has a matrix with both a bypassed
+/// bit and a step, so nothing but a written stream can tell the two readings
+/// apart. A `0x31EC` substream, whose matrices send a count of bypassed bits,
+/// has not been put to Dolby's decoder and is cut as before.
 #[inline]
 fn matrix_output(acc: i64, qss: u32, bypassed_lsb: i32, uncut: bool) -> i32 {
     let sum = (acc >> MATRIX_FRAC) as i32;
