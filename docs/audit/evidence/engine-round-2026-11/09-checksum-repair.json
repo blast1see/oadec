@@ -1,0 +1,39 @@
+{
+ "question": "Does the repair compute the checksums encoders write, does a field changed under a checksum get past it afterwards, and does the repair leave alone what it says it leaves alone?",
+ "method": "`oadec_truehd::Repairer` recomputes, for one access unit, the CRC-16 of the major sync, the check nibble over the header and the directory, the CRC-8 of every restart header the blocks reach, the parity byte and CRC-8 that close a segment, and the check nibble and parity byte of the extra data. To find a restart header's CRC it runs the segment parser with a switch that only this module can set: the parser then records where the CRC is and what it has to be, and reads on. `oadec_eac3::repair::fix_crcs` recomputes crc2 of a syncframe and, in an AC-3 frame, crc1, which sits in front of the five eighths it covers and is found by dividing the register after them by x once for each bit. The hidden `oadec repair` applies them to a stream. Measured: (1) `oadec repair` over the 125 streams of evidence 01, the output compared with the input by SHA-256; (2) the unit and command-line tests; (3) the two fuzz targets that repair their input first, in the seeded run with overflow checks and debug assertions on (RUSTFLAGS=\"-C debug-assertions=on -C overflow-checks=on\", 200,000 rounds a target); (4) the three commands that rewrite an E-AC-3 frame, which now close it with `fix_crcs`, against main on two streams; (5) eight mutations.",
+ "binaries": {
+  "main": "090abe733fd1e8dbb33388eab40778e761c5690c9adde5fa7de800481be29b06",
+  "this branch, as measured over the 125 streams": "ef8ff67f3ec0d6e9b6befefb9fca845d52b2b84eadb84153f1bf8fc9435bf594",
+  "this branch, rebased, as compared with main": "4d939c45df84691af514396d1b5999bccde34f7f6d48121db8e37af6a685af91"
+ },
+ "result": {
+  "a_sound_stream_is_left_as_it_is": {
+   "streams": 125,
+   "bytes": 4060173690,
+   "output_identical_to_input": 125,
+   "truehd_and_mlp": {"streams": 55, "access_units": 9122814},
+   "ac3_and_eac3": {"streams": 70, "syncframes": 143073},
+   "streams_that_verify_clean": 115,
+   "the_ten_that_do_not": "heads cut inside a frame or a unit; their last 14,612 bytes in all are no whole unit and are copied as they are, and nothing before them needed a checksum written"
+  },
+  "unit_tests": {
+   "fixtures": "the nine TrueHD and MLP fixtures come out byte for byte, with as many units as the extractor frames",
+   "seeded_changes": "one to three bits changed in the first forty units of each fixture, 300 times: after a repair no checksum it covers is wrong wherever the units can still be read, and a second repair changes nothing",
+   "each_checksum": "spoiled alone and put back to the byte it was: major sync CRC, header nibble, segment parity, segment CRC, extra data nibble, extra data parity, and the CRC of a restart header, which is not on a byte",
+   "ac3": "frames of four sizes built from a header and noise pass both CRC checks of the decoder once fixed; a change in the first five eighths rewrites crc1 and leaves crc2, as the standard intends",
+   "left_alone": "a bit changed inside an Evolution frame stays changed and the frame's other bytes with it: the one byte written is the parity that closes the wrapping"
+  },
+  "taken_at_its_word": {
+   "truehd": "one bit of a unit's input timing, and one reserved bit of its directory: `verify` exits 7 with bytes skipped before the repair; after it every unit is framed, nothing is skipped, and the exit code is 0. The timing bit then meets the rule behind the checksum, which reports it as a warning",
+   "eac3": "one bit in the JOC payload of a frame: before, the first fault is the frame's CRC; after, the CRC holds and the first fault is the JOC payload that no longer parses, which is the fault the change made"
+  },
+  "fuzz_targets_that_repair_first": {
+   "targets": ["truehd_unit_repaired", "truehd_decode_repaired"],
+   "seeded_run": "PENDING",
+   "libfuzzer": "PENDING"
+  },
+  "frame_rewriting_commands": "`eac3-joc-config`, `eac3-joc-offset` and `eac3-ecpl-inject` on the committed E-AC-3 fixture and on a head of the work directory: the same exit code, the same messages and the same bytes from main and from this branch, six runs of six",
+  "mutations": "PENDING"
+ },
+ "reading": "The repair writes what encoders write: on 9.1 million access units and 143 thousand syncframes of real material it has nothing to change, down to the CRC of a restart header that starts two bits into a segment. That is a stronger statement than the tests of the parsers make, which only ever read a checksum; this computes each one from the bytes and lands on the stored value every time. What it buys is reach. A change behind a checksum used to end at the checksum, in the tests and in the fuzzers alike; the two fuzz targets that repair first hand the decoder changed coefficients and samples it would otherwise have replaced by silence. Its limits are stated and tested: the lossless check is left wrong on purpose, because it speaks of the samples, and the keyed protection of the metadata is not computed anywhere in this repository, so a payload changed under it is a payload a real decoder with the key would refuse. A repaired stream is consistent bytes, not restored audio, which is why the command is hidden."
+}

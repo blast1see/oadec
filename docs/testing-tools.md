@@ -85,10 +85,13 @@ python tools/old_new.py --old old/oadec --new target/release/oadec \
 # Fuzzing
 
 `crates/oadec-fuzz` holds what must be true of the parsers and decoders
-whatever bytes they are given, as eight plain functions (`src/targets.rs`): the
+whatever bytes they are given, as ten plain functions (`src/targets.rs`): the
 TrueHD extractor, the access-unit and segment parsers, the TrueHD decoder, the
 EMDF container in both its carriages, the OAMD and JOC payloads, and the frame
-decoder and the programme decoder of the AC-3 family. A function takes bytes
+decoder and the programme decoder of the AC-3 family. The unit parser and the
+TrueHD decoder are there twice, the second time on the input with its
+checksums put right first (below), which is what gets a changed field past
+the checksum over it and into the code behind. A function takes bytes
 and asserts; one that returns has found nothing. "No panic" is the least of
 what they assert. The rest is what two routes to one answer have to agree on:
 a stream read whole and the same stream read in pieces, a segment parsed with
@@ -136,3 +139,30 @@ nothing about the change in front of it.
 What a fuzzer finds becomes a unit test of the code it was found in and, where
 it is a rule, a mutation in `tools/mutants.py`. The fuzzers find; the suite
 keeps.
+
+# Putting checksums right
+
+A stream changed on purpose fails at the first checksum over the change, and
+what the parser would have made of the change is never seen. A test of a rule
+behind a checksum, and a fuzzer that wants to reach the decoder, both need the
+checksums recomputed.
+
+`oadec_truehd::Repairer` does that for an access unit: the CRC-16 of a major
+sync, the check nibble over the header and the directory, the CRC-8 of every
+restart header the blocks reach, the parity and the CRC-8 that close a
+segment, and the check nibble and the parity byte of the extra data.
+`oadec_eac3::repair::fix_crcs` does it for a syncframe: `crc2`, and `crc1` of
+an AC-3 frame, which sits in front of what it covers and is found by running
+the register backwards. `oadec repair <stream> -o <out>` applies them to a
+whole stream; the command is hidden, because it makes bytes consistent and not
+audio right.
+
+Two things are left as they are, on purpose. The lossless check of a restart
+header is a statement about the samples: a changed sample is meant to fail
+it. And the protection of an EMDF container or an Evolution frame is keyed;
+nothing here computes it, and a payload changed under it stays changed under
+the protection it had.
+
+On a sound stream a repair changes no byte. That is its test: the fixtures in
+`cargo test`, and every stream of the work directory by hand
+(`docs/audit/evidence/engine-round-2026-11/09-checksum-repair.json`).

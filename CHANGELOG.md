@@ -8,6 +8,24 @@ Semantic Versioning.
 
 ### Added
 
+- **Checksums can be put right, for tests and for fuzzers.** A stream changed
+  on purpose stops every parser at the first checksum over the change, so a
+  rule behind a checksum could not be tested and a fuzzer could not reach the
+  decoder. `oadec_truehd::Repairer` recomputes what a unit's own bytes
+  determine: the CRC-16 of a major sync, the check nibble over the header and
+  the directory, the CRC-8 of each restart header, the parity and CRC-8 that
+  close a segment, and the nibble and parity byte of the extra data.
+  `oadec_eac3::repair::fix_crcs` does the same for a syncframe, `crc1` of an
+  AC-3 frame included, which sits in front of what it covers. The hidden
+  `oadec repair` applies them to a stream. The lossless check and the keyed
+  protection of the metadata are left as they are, on purpose. Over 125
+  streams, 9.3 million access units and frames, a repair changes no byte
+  (`docs/testing-tools.md`,
+  `docs/audit/evidence/engine-round-2026-11/09-checksum-repair.json`).
+- **Two fuzz targets that reach behind the checksums.** `truehd_unit_repaired`
+  and `truehd_decode_repaired` put the checksums of their input right before
+  the parsers and the decoder read it, so a changed coefficient or sample is
+  decoded and not replaced by silence.
 - **What decoding costs, measured from outside the process.** The only
   figure for speed was the line `verify` prints about itself.
   `tools/bench.py` runs every command as a process of its own and reads its
@@ -107,6 +125,10 @@ Semantic Versioning.
 
 ### Changed
 
+- **One piece of code closes a rewritten frame with its CRC.** The three
+  commands that rewrite an E-AC-3 frame (`eac3-ecpl-inject` and the two that
+  relabel a JOC field) each carried a copy of the CRC; they call
+  `oadec_eac3::repair::fix_crcs` now.
 - **The media suite no longer asserts a speed.** One test failed when
   `verify` of a whole film read less than a hundred times faster than real
   time, which it did whenever something else was using the disk: a
