@@ -13,6 +13,13 @@ allow = [
     "GPL-3.0-only",
 ]
 
+# libFuzzer's own sources, which the targets under fuzz/ build: the University
+# of Illinois/NCSA licence, permissive and compatible with this one. Allowed
+# for that crate alone; nothing the tool ships depends on it.
+[[licenses.exceptions]]
+allow = ["NCSA"]
+crate = "libfuzzer-sys"
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"

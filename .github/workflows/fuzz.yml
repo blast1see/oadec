@@ -1,0 +1,96 @@
+name: fuzz
+
+# libFuzzer over the targets of crates/oadec-fuzz, on the kind of runner its
+# runtime links on with nothing more to install: Linux, a nightly toolchain.
+#
+# What every pull request is held to is the seeded fuzz run in
+# `cargo test`, which needs neither. This is the other half, coverage-guided,
+# and it does not gate a change to the decoder: a fuzzer that finds something
+# new says nothing about the change in front of it. It runs every week, by
+# hand, and on a pull request that touches the targets themselves, where what
+# it finds is that pull request's to answer.
+
+on:
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds of fuzzing per target
+        default: "600"
+  pull_request:
+    paths:
+      - "fuzz/**"
+      - "crates/oadec-fuzz/**"
+      - ".github/workflows/fuzz.yml"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # A dated nightly, so that a run fails because of the code and not because
+  # of the day. Raised by hand, as the pinned toolchain is.
+  NIGHTLY: nightly-2026-10-14
+  CARGO_FUZZ_VERSION: 0.13.2
+
+jobs:
+  libfuzzer:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # the targets of oadec_fuzz::TARGETS; a test of that crate holds this
+        # list to them
+        target:
+          - truehd_extract
+          - truehd_unit
+          - truehd_decode
+          - emdf_container
+          - oamd_parse
+          - joc_params
+          - eac3_frame
+          - eac3_program
+    steps:
+      - uses: actions/checkout@v4
+      # rust-toolchain.toml names the toolchain the seeds are cut with
+      - run: rustup toolchain install
+      - run: rustup toolchain install "$NIGHTLY" --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            fuzz
+      - name: cargo-fuzz
+        run: command -v cargo-fuzz || cargo install cargo-fuzz --version "$CARGO_FUZZ_VERSION" --locked
+      - name: the seeds, cut from the fixtures
+        run: cargo run --locked -p oadec-fuzz --example corpus -- crates/oadec-cli/tests/fixtures fuzz/corpus
+      - name: fuzz
+        env:
+          SECONDS_PER_TARGET: ${{ inputs.seconds || (github.event_name == 'pull_request' && '90') || '600' }}
+        run: >
+          cargo "+$NIGHTLY" fuzz run "${{ matrix.target }}" --
+          -max_total_time="$SECONDS_PER_TARGET"
+          -max_len=65536
+          -timeout=25
+          -rss_limit_mb=2048
+          -print_final_stats=1
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-${{ matrix.target }}
+          path: fuzz/artifacts/${{ matrix.target }}
+          if-no-files-found: ignore
+
+  # fuzz/ is a workspace of its own with a lock of its own, which the deny job
+  # of the CI workflow does not read
+  deny:
+    name: cargo deny (fuzz)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: fuzz/Cargo.toml
