@@ -209,3 +209,11 @@ reads it otherwise than `truehdd` and Dolby's decoder do, and
 `bypass-over-step` because Dolby's decoder reads it otherwise than the other
 two. Recording needs the Dolby Reference Player for those: without it each
 has one decoder behind it and the tool writes nothing.
+
+The crate has a second list, `PROBES`: streams that go past a bound of the
+format or into a field whose meaning is not public (`docs/truehd.md`,
+*Probes*). `oadec-synth` lists and writes them with the recipes, their names
+beginning `probe-`, and `synth_accept.py` puts them in front of the same
+decoders and records what each did in `specs/probes.tsv`. A probe needs no
+confirmation and gets none: it is a question. The tests hold the record to
+the streams, and the commands to what they do with each today.

@@ -1,0 +1,467 @@
+{
+ "question": "What do this decoder and three others do with a stream written past a bound of the format or into a field whose meaning is not public, and with three fields no real stream sets?",
+ "method": "crates/oadec-synth gets a second list beside its recipes: probes, each a recipe with the rules `verify` finds it against. tools/synth_accept.py writes them with the recipes and runs FFmpeg, `truehdd` and Dolby's decoder on each as in evidence 10, comparing what each writes with the samples the stream was written from; it records what each did and asks no confirmation of a probe. `oadec verify --json` and `oadec decode -p 0 --format pcm` are run the same way. Before any stream was given a name, eighteen candidates were written with the same writer to see which the decoders read alike: those became recipes, the rest probes. Five mutations of how the decoder reads these fields (tools/mutants.py) were run against the suite of the commit this branch starts from, against the suite of this branch, and against the tests over the written streams alone, every test run to its end.",
+ "decoders": {
+  "ffmpeg": "2026-10-12-git-615b07170e",
+  "truehdd": "b54f209 (truehd library 0.7.1)",
+  "dolby": "the dlbtruehddec element of the Dolby Reference Player, as a black box"
+ },
+ "result": {
+  "recipes": {
+   "count": 41,
+   "new_here": 3,
+   "the_38_before": "the same bytes: the tests hold every stream to the digest recorded for it",
+   "confirmed_by_two_outside_decoders": 41,
+   "confirmed_by_every_decoder_asked": 34,
+   "ffmpeg": {
+    "gave_the_samples": 39,
+    "gave_others": 2
+   },
+   "truehdd": {
+    "gave_the_samples": 38,
+    "refused": 3
+   },
+   "dolby": {
+    "gave_the_samples": 35,
+    "gave_others": 1,
+    "refused": 1,
+    "not_asked": 4
+   },
+   "this_decoder": {
+    "gave_the_samples": 41,
+    "verify_without_a_finding_of_any_severity": 41
+   },
+   "the_new_by_recipe": {
+    "output-shift-down": {
+     "access_units": 32,
+     "bytes": 5244,
+     "tools": [
+      "output-shift"
+     ],
+     "ffmpeg": {
+      "verdict": "differs",
+      "it_said": [
+       "Negative output_shift is not implemented"
+      ]
+     },
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "guards": {
+     "access_units": 32,
+     "bytes": 4718,
+     "tools": [
+      "huffman-1",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target"
+    },
+    "heavy-drc": {
+     "access_units": 24,
+     "bytes": 3028,
+     "tools": [
+      "fir",
+      "iir",
+      "huffman-1",
+      "huffman-2",
+      "heavy-drc"
+     ],
+     "ffmpeg": "target",
+     "truehdd": {
+      "verdict": "refused",
+      "it_said": [
+       "Reserved bits in flags should be 0. Read 0x2000"
+      ]
+     },
+     "dolby": "target"
+    }
+   }
+  },
+  "probes": {
+   "count": 6,
+   "note": "what a decoder did with a probe is what it did, not what is right; `the samples` are the ones the writer made the stream from",
+   "by_probe": {
+    "probe-five-blocks": {
+     "access_units": 24,
+     "bytes": 3568,
+     "tools": [
+      "huffman-1",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": {
+      "verdict": "refused",
+      "it_said": [
+       "Too many blocks in the substream segment. Got 3"
+      ]
+     },
+     "dolby": "target",
+     "verify": {
+      "exit": 0,
+      "rules": [
+       "segment.block_count"
+      ]
+     },
+     "decode": "the samples the stream was written from"
+    },
+    "probe-sync-every-four": {
+     "access_units": 24,
+     "bytes": 3696,
+     "tools": [
+      "huffman-1",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": {
+      "verdict": "refused",
+      "it_said": [
+       "Restart gap must be 1 or >= 8. Read 4"
+      ]
+     },
+     "dolby": "target",
+     "verify": {
+      "exit": 0,
+      "rules": [
+       "sync.major_sync_spacing"
+      ]
+     },
+     "decode": "the samples the stream was written from"
+    },
+    "probe-sync-every-unit": {
+     "access_units": 24,
+     "bytes": 4584,
+     "tools": [
+      "huffman-1",
+      "huffman-2"
+     ],
+     "ffmpeg": "target",
+     "truehdd": {
+      "verdict": "refused",
+      "it_said": [
+       "Invalid hires_output_timing field starting in au 0, extra 0 in the datafield"
+      ]
+     },
+     "dolby": "target",
+     "verify": {
+      "exit": 0,
+      "rules": [
+       "sync.major_sync_spacing"
+      ]
+     },
+     "decode": "the samples the stream was written from"
+    },
+    "probe-nine-matrices": {
+     "access_units": 24,
+     "bytes": 3594,
+     "tools": [
+      "matrixing"
+     ],
+     "ffmpeg": {
+      "verdict": "refused",
+      "it_said": [
+       "Output file is empty"
+      ]
+     },
+     "truehdd": "target",
+     "dolby": {
+      "verdict": "refused",
+      "it_said": [
+       "no valid frames found"
+      ]
+     },
+     "verify": {
+      "exit": 0,
+      "rules": []
+     },
+     "decode": "the samples the stream was written from"
+    },
+    "probe-protected": {
+     "access_units": 24,
+     "bytes": 3616,
+     "tools": [
+      "huffman-1",
+      "huffman-2",
+      "block-protection"
+     ],
+     "ffmpeg": {
+      "verdict": "target",
+      "it_said": [
+       "block data length mismatch",
+       "Substreams with VLC block size check info is not implemented"
+      ]
+     },
+     "truehdd": "target",
+     "dolby": {
+      "verdict": "refused",
+      "it_said": [
+       "no valid frames found"
+      ]
+     },
+     "verify": {
+      "exit": 0,
+      "rules": []
+     },
+     "decode": "the samples the stream was written from"
+    },
+    "probe-protected-counting-itself": {
+     "access_units": 24,
+     "bytes": 3616,
+     "tools": [
+      "huffman-1",
+      "huffman-2",
+      "block-protection"
+     ],
+     "ffmpeg": {
+      "verdict": "target",
+      "it_said": [
+       "Substreams with VLC block size check info is not implemented"
+      ]
+     },
+     "truehdd": {
+      "verdict": "refused",
+      "it_said": [
+       "block_data bit count mismatch: expected 1072, got 1056"
+      ]
+     },
+     "dolby": {
+      "verdict": "refused",
+      "it_said": [
+       "no valid frames found"
+      ]
+     },
+     "verify": {
+      "exit": 7,
+      "rules": [
+       "block.data_bits"
+      ]
+     },
+     "decode": "the samples the stream was written from"
+    }
+   }
+  },
+  "candidates": {
+   "note": "24 access units each, written before anything was named; `target` is the samples the writer made the stream from",
+   "by_stream": {
+    "negshift-1": {
+     "what": "an output shift of -1 on one channel",
+     "ffmpeg": "differs",
+     "truehdd": "target",
+     "dolby": "target",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "negshift-3-8": {
+     "what": "output shifts of -3 and -8",
+     "ffmpeg": "differs",
+     "truehdd": "target",
+     "dolby": "target",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "negshift-mixed": {
+     "what": "an output shift of 2 on one channel and -2 on the other",
+     "ffmpeg": "differs",
+     "truehdd": "target",
+     "dolby": "target",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "matrices-9": {
+     "what": "nine matrices",
+     "ffmpeg": "refused",
+     "truehdd": "target",
+     "dolby": "refused",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "matrices-12": {
+     "what": "twelve matrices",
+     "ffmpeg": "refused",
+     "truehdd": "target",
+     "dolby": "refused",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "matrices-15": {
+     "what": "fifteen matrices",
+     "ffmpeg": "refused",
+     "truehdd": "target",
+     "dolby": "refused",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "protected-0": {
+     "what": "protected blocks: the size counts the block data alone, the check byte 0",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "refused",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "protected-0-ff": {
+     "what": "the same, the check byte 0xFF",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "refused",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "protected-8": {
+     "what": "the size counts 8 bits more than the data",
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "refused",
+     "this_decoder": "target",
+     "rules": [
+      "block.data_bits"
+     ]
+    },
+    "protected-16": {
+     "what": "the size counts its own 16 bits as well",
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "refused",
+     "this_decoder": "target",
+     "rules": [
+      "block.data_bits"
+     ]
+    },
+    "protected-24": {
+     "what": "the size counts its own 16 bits and the 8 of the check byte",
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "refused",
+     "this_decoder": "target",
+     "rules": [
+      "block.data_bits"
+     ]
+    },
+    "heavy-drc-0": {
+     "what": "heavy DRC announced, a gain of 0 and a time of 0 in every restart header",
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "heavy-drc": {
+     "what": "a gain of -37 and a time of 5",
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "heavy-drc-max": {
+     "what": "a gain of 255 and a time of 7",
+     "ffmpeg": "target",
+     "truehdd": "refused",
+     "dolby": "target",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "guards-ff": {
+     "what": "the guard bits sent again as they are",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "guards-01": {
+     "what": "cleared down to the one that lets guards be sent",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "guards-00": {
+     "what": "given up altogether",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target",
+     "this_decoder": "target",
+     "rules": []
+    },
+    "guards-at-restart": {
+     "what": "sent with a restart header, the flags of the filters and the offset gone from its own block",
+     "ffmpeg": "target",
+     "truehdd": "target",
+     "dolby": "target",
+     "this_decoder": "target",
+     "rules": []
+    }
+   }
+  },
+  "mutations": {
+   "count": 5,
+   "passed_the_suite_before": [
+    "an output shift below nought taken for none",
+    "the guard bits a block sends not taken",
+    "the flag of filter A read though its guard bit is clear"
+   ],
+   "caught_before_by_one_hand_built_unit_test_alone": [
+    "the size a protected block states counted with its own field",
+    "the check byte of a protected block not read"
+   ],
+   "pass_the_suite_with_the_streams": [],
+   "not_caught_by_the_tests_over_the_streams_alone": [],
+   "each": [
+    {
+     "mutation": "an output shift below nought taken for none",
+     "the_suite_before": "passes",
+     "the_suite_with_the_streams": "caught by 3 tests",
+     "the_tests_over_the_streams_alone": [
+      "decode_writes_the_samples_of_every_recipe",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the guard bits a block sends not taken",
+     "the_suite_before": "passes",
+     "the_suite_with_the_streams": "caught by 5 tests",
+     "the_tests_over_the_streams_alone": [
+      "a_recipe_keeps_within_what_the_format_and_its_encoders_do",
+      "decode_writes_the_samples_of_every_recipe",
+      "the_census_names_the_tools_a_recipe_says_it_carries_and_no_others",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the flag of filter A read though its guard bit is clear",
+     "the_suite_before": "passes",
+     "the_suite_with_the_streams": "caught by 5 tests",
+     "the_tests_over_the_streams_alone": [
+      "a_recipe_keeps_within_what_the_format_and_its_encoders_do",
+      "decode_writes_the_samples_of_every_recipe",
+      "the_census_names_the_tools_a_recipe_says_it_carries_and_no_others",
+      "the_decoder_gives_back_the_samples_of_every_recipe",
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "the size a protected block states counted with its own field",
+     "the_suite_before": "caught by 1 test, built by hand in the crate of the decoder",
+     "the_suite_with_the_streams": "caught by 2 tests",
+     "the_tests_over_the_streams_alone": [
+      "the_commands_on_the_probes"
+     ]
+    },
+    {
+     "mutation": "the check byte of a protected block not read",
+     "the_suite_before": "caught by 1 test, built by hand in the crate of the decoder",
+     "the_suite_with_the_streams": "caught by 3 tests",
+     "the_tests_over_the_streams_alone": [
+      "the_commands_on_the_probes"
+     ]
+    }
+   ]
+  }
+ },
+ "reading": "Three of the fields no real stream sets turn out to have one meaning that two outside decoders or more agree on, and the streams that set them are recipes now. An output shift below nought is a shift to the right: truehdd and Dolby's decoder give the samples, as this decoder does, and FFmpeg's says it has not implemented it and shifts nothing. Guard bits are read alike by all four, sent again, cleared, given up, or sent with a restart header. The update of the heavy dynamic range control changes no sample; truehdd refuses the bit that announces it. The probes are the other kind, and what they show is where each decoder draws its lines. Dolby's decoder reads five blocks to a segment and a major sync in every unit, both past bounds its own description states, so the two rules that warn there are rightly no more than warnings. It refuses nine matrices, and so does FFmpeg's; this decoder and truehdd read them, and `verify` says nothing, which is a rule to write once the bound has been counted on real streams. And it refuses a protected block however the size is counted and whatever the check byte, so the one open question about that syntax stays open: FFmpeg takes the size to count its own field, truehdd and this decoder take it not to, and `block.data_bits` fails a stream on a reading no measurement here confirms. No real stream sets `error_protect`, so the rule has never fired. Of 5 mutations of how these fields are read, 3 passed the suite before and 2 more were caught by one hand-built unit test alone; with the streams all are caught, every one by the tests over the streams alone."
+}

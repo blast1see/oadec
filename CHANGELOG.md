@@ -8,6 +8,26 @@ Semantic Versioning.
 
 ### Added
 
+- **Probes: streams written past the bounds, to see what a decoder does.**
+  A recipe is a reference because outside decoders gave its samples back. A
+  probe (`oadec_synth::PROBES`) steps past a bound of the format or into a
+  field whose meaning is not public, and nobody's agreement makes it right:
+  five blocks to a segment, major syncs closer than eight units, nine
+  matrices, and blocks with `error_protect`. What FFmpeg, `truehdd` and
+  Dolby's decoder did with each is recorded in
+  `crates/oadec-synth/specs/probes.tsv`, and the tests hold the commands to
+  what they do today. Dolby's decoder reads five blocks and a major sync in
+  every unit, refuses nine matrices, which `verify` lets through without a
+  word, and refuses a protected block however its size is counted
+  (`docs/truehd.md`, *Probes*;
+  `docs/audit/evidence/engine-round-2026-11/12-probes.json`).
+- **Three more recipes, of fields no real stream sets.** An output shift
+  below nought is a shift to the right: `truehdd` and Dolby's decoder give
+  the samples, as `oadec` does, and FFmpeg's decoder takes the shift for
+  none. Guard bits sent again, cleared and given up are read alike by all
+  four decoders. The update of the heavy dynamic range control in a restart
+  header changes no sample in FFmpeg's or Dolby's decoder; `truehdd` refuses
+  the bit of the major sync that announces it. 41 recipes in all.
 - **The written streams reach over the channels: matrices, noise, output
   shifts, channel assignments.** `oadec-synth` undoes what it is told to
   write: the output shift is taken off the samples and each matrix is

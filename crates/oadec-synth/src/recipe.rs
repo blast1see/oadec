@@ -7,7 +7,9 @@
 //! that share nothing with it.
 
 use crate::signal::{Rng, noise, offset, shifted, sum, tone};
-use crate::write::{BlockPlan, Coding, Family, Filter, Layout, Matrix, Stream, UnitPlan, write};
+use crate::write::{
+    BlockPlan, Coding, Family, Filter, Layout, Matrix, Protection, Stream, UnitPlan, write,
+};
 
 /// A recipe made: everything [`write`] takes.
 #[derive(Debug, Clone)]
@@ -102,11 +104,102 @@ impl Recipe {
     }
 }
 
-/// The recipe of that name.
+/// A stream written to ask a question, not to answer one.
+///
+/// A recipe is a reference: it keeps within what the format and its encoders
+/// do, and decoders from outside have given its samples back. A probe steps
+/// outside on purpose, past a bound of the format or into a field whose
+/// meaning no public source gives, to see what a decoder does there. What
+/// the outside decoders did with each is recorded and proves nothing; what
+/// this decoder does is held by the tests as what it does today.
+#[derive(Debug, Clone, Copy)]
+pub struct Probe {
+    /// The stream, and the samples the writer made it from.
+    pub recipe: Recipe,
+    /// The rules `verify` finds it against, by name.
+    pub rules: &'static [&'static str],
+    /// Whether one of those is an error, and `verify` exits 7.
+    pub fails: bool,
+}
+
+/// The recipe of that name, a probe's among them.
 #[must_use]
 pub fn find(name: &str) -> Option<&'static Recipe> {
-    RECIPES.iter().find(|recipe| recipe.name == name)
+    RECIPES
+        .iter()
+        .chain(PROBES.iter().map(|probe| &probe.recipe))
+        .find(|recipe| recipe.name == name)
 }
+
+/// Every probe, in the order they are listed.
+pub const PROBES: &[Probe] = &[
+    Probe {
+        recipe: Recipe {
+            name: "probe-five-blocks",
+            about: "five blocks to a unit, one more than a segment of this kind may hold",
+            tools: &["huffman-1", "huffman-2"],
+            at_restart: AtRestart::Unfiltered,
+            make: || beyond_the_bounds(&[8, 8, 8, 8, 8], 8),
+        },
+        rules: &["segment.block_count"],
+        fails: false,
+    },
+    Probe {
+        recipe: Recipe {
+            name: "probe-sync-every-four",
+            about: "a major sync every four access units, where the format asks for eight between them",
+            tools: &["huffman-1", "huffman-2"],
+            at_restart: AtRestart::Unfiltered,
+            make: || beyond_the_bounds(&[40], 4),
+        },
+        rules: &["sync.major_sync_spacing"],
+        fails: false,
+    },
+    Probe {
+        recipe: Recipe {
+            name: "probe-sync-every-unit",
+            about: "a major sync and a restart header in every access unit",
+            tools: &["huffman-1", "huffman-2"],
+            at_restart: AtRestart::Unfiltered,
+            make: || beyond_the_bounds(&[40], 1),
+        },
+        rules: &["sync.major_sync_spacing"],
+        fails: false,
+    },
+    Probe {
+        recipe: Recipe {
+            name: "probe-nine-matrices",
+            about: "nine matrices, one more than two of the decoders take",
+            tools: &["matrixing"],
+            at_restart: AtRestart::Unfiltered,
+            make: nine_matrices,
+        },
+        rules: &[],
+        fails: false,
+    },
+    Probe {
+        recipe: Recipe {
+            name: "probe-protected",
+            about: "blocks that state the size of their data and a check byte, the size counting the data alone and the byte nought: the definition of neither is public",
+            tools: &["huffman-1", "huffman-2", "block-protection"],
+            at_restart: AtRestart::Unfiltered,
+            make: || protected(0),
+        },
+        rules: &[],
+        fails: false,
+    },
+    Probe {
+        recipe: Recipe {
+            name: "probe-protected-counting-itself",
+            about: "the same blocks with the size counting its own sixteen bits as well, as one decoder reads it",
+            tools: &["huffman-1", "huffman-2", "block-protection"],
+            at_restart: AtRestart::Unfiltered,
+            make: || protected(16),
+        },
+        rules: &["block.data_bits"],
+        fails: true,
+    },
+];
 
 /// Every recipe, in the order they are listed.
 pub const RECIPES: &[Recipe] = &[
@@ -389,6 +482,27 @@ pub const RECIPES: &[Recipe] = &[
         at_restart: AtRestart::Unfiltered,
         make: mlp_matrix,
     },
+    Recipe {
+        name: "output-shift-down",
+        about: "outputs shifted down by 1 to 8 bits after decoding, which no encoder asks for",
+        tools: &["output-shift"],
+        at_restart: AtRestart::Unfiltered,
+        make: output_shift_down,
+    },
+    Recipe {
+        name: "guards",
+        about: "the guard bits sent again as they are, cleared down to the one that lets them be sent, given up altogether, and sent with a restart header",
+        tools: &["huffman-1", "huffman-2"],
+        at_restart: AtRestart::Unfiltered,
+        make: guards,
+    },
+    Recipe {
+        name: "heavy-drc",
+        about: "heavy dynamic range control announced by the major sync and its update carried by every restart header",
+        tools: &["fir", "iir", "huffman-1", "huffman-2", "heavy-drc"],
+        at_restart: AtRestart::Unfiltered,
+        make: heavy_drc,
+    },
 ];
 
 /// Splits the first eight samples off every unit that carries a restart
@@ -418,11 +532,13 @@ fn unfiltered_at_restarts(mut made: Made) -> Made {
                 first.size
             );
             first.size -= 8;
+            // the guards a unit sends go with its first block
             let split = BlockPlan {
                 size: 8,
                 coding: bare,
                 matrices: first.matrices.clone(),
                 shifts: first.shifts.clone(),
+                guards: first.guards.take(),
             };
             plan.blocks.insert(0, split);
         }
@@ -1418,6 +1534,150 @@ fn mlp_matrix() -> Made {
     }
 }
 
+fn output_shift_down() -> Made {
+    let layout = layout(Family::TrueHd, 48_000);
+    let units = 32;
+    let per = layout.samples_per_unit();
+    // A shift below nought is a shift to the right, and the bits it drops
+    // are noughts in the coded samples; a shift up beside it leaves its low
+    // bits clear in the output as before.
+    const SHIFTS: [(i8, i8); 8] = [
+        (-1, 0),
+        (0, -3),
+        (-8, -8),
+        (2, -2),
+        (0, 0),
+        (-4, 1),
+        (-6, -1),
+        (-7, 5),
+    ];
+    let plain = vec![Coding::default(); 2];
+    let channel = |seed: u64, of: fn((i8, i8)) -> i8| -> Vec<i32> {
+        let base = noise(units * per, 12, seed);
+        (0..units * per)
+            .map(|i| match of(SHIFTS[i / per % 8]) {
+                up if up > 0 => base[i] << up,
+                _ => base[i],
+            })
+            .collect()
+    };
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                let (a, b) = SHIFTS[k % 8];
+                UnitPlan::uniform(&[per], &plain).shifted(&[a, b])
+            })
+            .collect(),
+        pcm: vec![channel(56, |s| s.0), channel(58, |s| s.1)],
+        layout,
+    }
+}
+
+/// A book on each channel and nothing else: what the streams about the
+/// header and the framing are coded with.
+fn two_books() -> Vec<Coding> {
+    vec![book(1), book(2)]
+}
+
+fn guards() -> Made {
+    let layout = layout(Family::TrueHd, 48_000);
+    let units = 32;
+    let n = units * layout.samples_per_unit();
+    let coding = two_books();
+    // In the first eight units: the guards sent again as they are, cleared
+    // down to the one bit that lets guards be sent, set again, and given up
+    // altogether. In the next eight they come with the restart header, the
+    // flags of the filters and the offset gone from its own block. Then
+    // both again.
+    let plans = (0..units)
+        .map(|k| {
+            let plan = UnitPlan::uniform(&[layout.samples_per_unit()], &coding);
+            match (k / 8 % 2, k % 8) {
+                (0, 1) => plan.guarded(0xFF),
+                (0, 3) => plan.guarded(0x01),
+                (0, 5) => plan.guarded(0xFF),
+                (0, 6) => plan.guarded(0x00),
+                (1, 0) => plan.guarded(0xF1),
+                (1, 4) => plan.guarded(0x80),
+                _ => plan,
+            }
+        })
+        .collect();
+    Made {
+        plans,
+        pcm: vec![noise(n, 12, 59), noise(n, 12, 60)],
+        layout,
+    }
+}
+
+fn heavy_drc() -> Made {
+    let mut layout = layout(Family::TrueHd, 48_000);
+    layout.heavy_drc = Some((-37, 5));
+    let units = 24;
+    let usual = usual_coding();
+    Made {
+        plans: one_block_units(&layout, units, |_| usual.clone()),
+        pcm: usual_samples(units * layout.samples_per_unit(), 61),
+        layout,
+    }
+}
+
+/// A stream of the two books with its blocks and its major syncs as given,
+/// for the probes that go past a bound of the framing.
+fn beyond_the_bounds(sizes: &[usize], sync_interval: usize) -> Made {
+    let mut layout = layout(Family::TrueHd, 48_000);
+    layout.sync_interval = sync_interval;
+    let units = 24;
+    let n = units * layout.samples_per_unit();
+    let coding = two_books();
+    Made {
+        plans: (0..units)
+            .map(|_| UnitPlan::uniform(sizes, &coding))
+            .collect(),
+        pcm: vec![noise(n, 12, 62), noise(n, 12, 63)],
+        layout,
+    }
+}
+
+fn nine_matrices() -> Made {
+    let layout = layout(Family::TrueHd, 48_000);
+    let units = 24;
+    let n = units * layout.samples_per_unit();
+    let plain = vec![Coding::default(); 2];
+    let matrices: Vec<Matrix> = (0..9)
+        .map(|i| {
+            if i % 2 == 0 {
+                Matrix::new(0, 10, &[1, 100 + i, 0, 0])
+            } else {
+                Matrix::new(1, 10, &[-(50 + i), 1, 0, 0])
+            }
+        })
+        .collect();
+    Made {
+        plans: (0..units)
+            .map(|_| UnitPlan::uniform(&[layout.samples_per_unit()], &plain).matrixed(&matrices))
+            .collect(),
+        pcm: vec![noise(n, 12, 64), noise(n, 12, 65)],
+        layout,
+    }
+}
+
+fn protected(counted_beyond_the_data: u16) -> Made {
+    let mut layout = layout(Family::TrueHd, 48_000);
+    layout.protection = Some(Protection {
+        counted_beyond_the_data,
+        check: 0,
+    });
+    let units = 24;
+    let n = units * layout.samples_per_unit();
+    let coding = two_books();
+    Made {
+        plans: one_block_units(&layout, units, |_| coding.clone()),
+        pcm: vec![noise(n, 12, 66), noise(n, 12, 67)],
+        layout,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1425,7 +1685,17 @@ mod tests {
     #[test]
     fn every_recipe_is_written_and_has_a_name_of_its_own() {
         let mut names = Vec::new();
-        for recipe in RECIPES {
+        for recipe in RECIPES
+            .iter()
+            .chain(PROBES.iter().map(|probe| &probe.recipe))
+        {
+            // a probe says in its name that it is one
+            assert_eq!(
+                recipe.name.starts_with("probe-"),
+                PROBES.iter().any(|probe| probe.recipe.name == recipe.name),
+                "{}",
+                recipe.name
+            );
             let made = recipe.make();
             let stream = made
                 .stream()
@@ -1453,7 +1723,10 @@ mod tests {
 
     #[test]
     fn a_recipe_is_the_same_bytes_every_time() {
-        for recipe in RECIPES {
+        for recipe in RECIPES
+            .iter()
+            .chain(PROBES.iter().map(|probe| &probe.recipe))
+        {
             let (a, b) = (recipe.make(), recipe.make());
             assert_eq!(a.pcm, b.pcm, "{}", recipe.name);
             assert_eq!(a.stream(), b.stream(), "{}", recipe.name);

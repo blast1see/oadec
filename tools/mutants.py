@@ -642,6 +642,32 @@ MUTANTS = [
      'crates/oadec-truehd/src/decoder.rs',
      '                check ^= (v as u32 & 0xFF_FFFF) << (chi & 7);',
      '                check ^= (v as u32 & 0xFF_FFFF) << (usize::from(sd.ch_assign[chi]) & 7);'),
+    # Fields no real stream sets: an output shift below nought, guard bits
+    # other than all set, a protected block.
+    ('an output shift below nought taken for none',
+     'crates/oadec-truehd/src/decoder.rs',
+     '''    } else {
+        value >> -shift
+    }''',
+     '''    } else {
+        value
+    }'''),
+    ('the guard bits a block sends not taken',
+     'crates/oadec-truehd/src/block.rs',
+     '            ss.guards = reader.read(8)? as u8;',
+     '            let _ = reader.read(8)? as u8;'),
+    ('the flag of filter A read though its guard bit is clear',
+     'crates/oadec-truehd/src/block.rs',
+     '        if ss.guards & GUARD_FIR != 0 && reader.read_bool()? {',
+     '        if (ss.guards & GUARD_FIR != 0 || true) && reader.read_bool()? {'),
+    ('the size a protected block states counted with its own field',
+     'crates/oadec-truehd/src/block.rs',
+     '            block.block_data_bits_ok = reader.position() - start == usize::from(expected);',
+     '            block.block_data_bits_ok = reader.position() - start + 16 == usize::from(expected);'),
+    ('the check byte of a protected block not read',
+     'crates/oadec-truehd/src/block.rs',
+     '            block.block_header_crc = Some(reader.read(8)? as u8);',
+     '            block.block_header_crc = Some(0);'),
 ]
 
 

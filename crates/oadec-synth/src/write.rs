@@ -41,6 +41,17 @@ const TERMINATOR_TAIL: u64 = 0x1234;
 const PARITY_XOR: u8 = 0xA9;
 /// `huff_lsbs` after a restart header, and the most a channel may ask for.
 const DEFAULT_LSBS: u8 = 24;
+/// The guard bits: bit 0 for the guards themselves, then the offset, filter
+/// B, filter A, the quantiser steps, the output shifts, the matrices and the
+/// block size.
+const GUARD_GUARDS: u8 = 1 << 0;
+const GUARD_OFFSET: u8 = 1 << 1;
+const GUARD_FILTER_B: u8 = 1 << 2;
+const GUARD_FILTER_A: u8 = 1 << 3;
+const GUARD_STEPS: u8 = 1 << 4;
+const GUARD_SHIFTS: u8 = 1 << 5;
+const GUARD_MATRICES: u8 = 1 << 6;
+const GUARD_BLOCK_SIZE: u8 = 1 << 7;
 /// The block size in force after a restart header.
 const DEFAULT_BLOCK: usize = 8;
 /// One past the largest sample, and the largest residual, of 24 bits.
@@ -147,6 +158,25 @@ pub struct Layout {
     /// Which output channel each coded channel is (`ch_assign`); empty for
     /// each its own.
     pub assignment: Vec<usize>,
+    /// The restart headers set `error_protect`, and every block states the
+    /// size of its data in front of it and a check byte behind.
+    pub protection: Option<Protection>,
+    /// The major sync announces heavy dynamic range control (`flags` bit 13)
+    /// and every restart header carries its update: a gain in 9 bits of
+    /// two's complement and a time in 3 bits.
+    pub heavy_drc: Option<(i16, u8)>,
+}
+
+/// What a protected block states of itself. Neither field has a public
+/// definition: the description names them and says no more.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Protection {
+    /// What `block_data_bits` counts beyond the bits of the block data: 0
+    /// for those alone, 16 with the field itself.
+    pub counted_beyond_the_data: u16,
+    /// `block_header_CRC`, as it is written: how it is computed is not
+    /// known.
+    pub check: u8,
 }
 
 impl Layout {
@@ -163,6 +193,8 @@ impl Layout {
             noise_shift: 0,
             noise_seeds: Vec::new(),
             assignment: Vec::new(),
+            protection: None,
+            heavy_drc: None,
         }
     }
 
@@ -240,6 +272,10 @@ pub struct BlockPlan {
     /// The left shift of each output from this block on (`output_shift`), -8
     /// to 7; empty for none.
     pub shifts: Vec<i8>,
+    /// The guard bits this block sends, which say from here on which of the
+    /// fields of a block header a flag is spent on; `None` sends none and
+    /// leaves them as they are, all set after a restart header.
+    pub guards: Option<u8>,
 }
 
 /// The blocks of one access unit, whose sizes add up to the samples of a
@@ -262,9 +298,19 @@ impl UnitPlan {
                     coding: coding.to_vec(),
                     matrices: Vec::new(),
                     shifts: Vec::new(),
+                    guards: None,
                 })
                 .collect(),
         }
+    }
+
+    /// The unit with its first block sending these guard bits.
+    #[must_use]
+    pub fn guarded(mut self, guards: u8) -> Self {
+        if let Some(first) = self.blocks.first_mut() {
+            first.guards = Some(guards);
+        }
+        self
     }
 
     /// The unit with these matrices in force in every block.
@@ -556,15 +602,19 @@ fn major_sync(layout: &Layout, peak_data_rate: u64) -> Vec<u8> {
         }
     }
     w.put(16, 0xB752);
-    // flags: none for TrueHD; bit 14 marks the DVD-Audio syntax
-    w.put(
-        16,
-        if layout.family == Family::Mlp {
-            0x4000
-        } else {
-            0
-        },
-    );
+    // flags: bit 14 marks the DVD-Audio syntax, bit 13 announces heavy
+    // dynamic range control
+    let dvd_audio = if layout.family == Family::Mlp {
+        0x4000
+    } else {
+        0
+    };
+    let heavy_drc = if layout.heavy_drc.is_some() {
+        0x2000
+    } else {
+        0
+    };
+    w.put(16, dvd_audio | heavy_drc);
     w.put(16, 0);
     // variable rate, and the peak in units of a sixteenth of the sampling rate
     w.put(1, 1);
@@ -644,6 +694,8 @@ struct Running {
     /// The largest output shift of the stream, which every restart header
     /// states (`max_shift`).
     max_shift: u8,
+    /// The guard bits in force.
+    guards: u8,
 }
 
 impl Running {
@@ -665,6 +717,7 @@ impl Running {
             bypass: 0x9E37_79B9_7F4A_7C15,
             restarts: 0,
             max_shift,
+            guards: 0xFF,
         }
     }
 
@@ -674,6 +727,7 @@ impl Running {
         self.block_size = DEFAULT_BLOCK;
         self.matrices.clear();
         self.shifts = vec![0; layout.channels];
+        self.guards = 0xFF;
         if let Some(&seed) = layout.noise_seeds.get(self.restarts) {
             self.noise = seed;
         }
@@ -925,6 +979,7 @@ fn segment(
             residuals.push(coded);
         }
         let header = restart_here
+            || block.guards.is_some()
             || size != run.block_size
             || matrices_change
             || shifts_change
@@ -952,14 +1007,23 @@ fn segment(
                 w.put(5, u64::from(DEFAULT_LSBS));
                 w.put(5, 24);
                 w.put(5, 24);
-                // no error protection
-                w.put_bool(false);
+                // whether every block states its size and a check byte
+                w.put_bool(layout.protection.is_some());
                 // the check over every sample since the restart header before
                 w.put(8, u64::from(fold_check(run.check)));
                 run.check = 0;
-                // no high-resolution output timing, two reserved bits, no
-                // heavy dynamic range control and the twelve bits it leaves
-                w.put(16, 0);
+                // no high-resolution output timing, two reserved bits; then
+                // the update of the heavy dynamic range control, or a bit
+                // that says there is none and the twelve bits it leaves
+                w.put(3, 0);
+                match layout.heavy_drc {
+                    Some((gain, time)) => {
+                        w.put_bool(true);
+                        w.put_signed(9, i64::from(gain));
+                        w.put(3, u64::from(time));
+                    }
+                    None => w.put(13, 0),
+                }
                 for ch in 0..layout.channels {
                     w.put(6, layout.output_of(ch) as u64);
                 }
@@ -967,15 +1031,42 @@ fn segment(
                 let crc = CRC8_RESTART.update_bits(0, w.bytes(), start, len);
                 w.put(8, u64::from(crc));
             }
-            // Every guard is set after a restart header and none is cleared
-            // here, so each of these flags is in the stream.
-            w.put_bool(false); // new guards
-            w.put_bool(size != run.block_size);
+            // A flag is in the stream only while its guard bit is set, and
+            // every guard is set after a restart header. The guards a block
+            // sends hold for the rest of its own header.
+            if run.guards & GUARD_GUARDS != 0 {
+                w.put_bool(block.guards.is_some());
+                if let Some(guards) = block.guards {
+                    w.put(8, u64::from(guards));
+                    run.guards = guards;
+                }
+            } else if block.guards.is_some() {
+                return Err("the guards have given up the flag that sends new ones".into());
+            }
+            let guards = run.guards;
+            // the flag of a field: written if its guard is set, and the
+            // field cannot be sent if it is not
+            let flag = |w: &mut BitWriter, guard: u8, sent: bool, what: &str| {
+                if guards & guard != 0 {
+                    w.put_bool(sent);
+                    Ok(())
+                } else if sent {
+                    Err(format!("the guards leave no flag for {what}"))
+                } else {
+                    Ok(())
+                }
+            };
+            flag(
+                &mut w,
+                GUARD_BLOCK_SIZE,
+                size != run.block_size,
+                "a block size",
+            )?;
             if size != run.block_size {
                 w.put(9, size as u64);
                 run.block_size = size;
             }
-            w.put_bool(matrices_change);
+            flag(&mut w, GUARD_MATRICES, matrices_change, "the matrices")?;
             if matrices_change {
                 w.put(4, run.matrices.len() as u64);
                 for matrix in &run.matrices {
@@ -992,13 +1083,13 @@ fn segment(
                     }
                 }
             }
-            w.put_bool(shifts_change);
+            flag(&mut w, GUARD_SHIFTS, shifts_change, "the output shifts")?;
             if shifts_change {
                 for &shift in &run.shifts {
                     w.put_signed(4, i64::from(shift));
                 }
             }
-            w.put_bool(steps_change);
+            flag(&mut w, GUARD_STEPS, steps_change, "the quantiser steps")?;
             if steps_change {
                 for state in &run.channels {
                     w.put(4, u64::from(state.held.step));
@@ -1009,15 +1100,15 @@ fn segment(
                 if !now.params {
                     continue;
                 }
-                w.put_bool(now.fir);
+                flag(&mut w, GUARD_FILTER_A, now.fir, "filter A")?;
                 if now.fir {
                     put_filter(&mut w, &state.held.fir, false)?;
                 }
-                w.put_bool(now.iir);
+                flag(&mut w, GUARD_FILTER_B, now.iir, "filter B")?;
                 if now.iir {
                     put_filter(&mut w, &state.held.iir, true)?;
                 }
-                w.put_bool(now.offset);
+                flag(&mut w, GUARD_OFFSET, now.offset, "an offset")?;
                 if now.offset {
                     w.put_signed(15, i64::from(state.held.offset));
                 }
@@ -1027,11 +1118,13 @@ fn segment(
         }
 
         // The samples: for each one, the bypassed LSB of each matrix that
-        // sends one, then the code and the LSBs of each channel.
+        // sends one, then the code and the LSBs of each channel. A protected
+        // block states their size in front and a check byte behind.
+        let mut data = BitWriter::new();
         for n in 0..size {
             for (matrix, &bit) in run.matrices.iter().zip(&bypassed[n]) {
                 if matrix.bypass {
-                    w.put_bool(bit);
+                    data.put_bool(bit);
                 }
             }
             for (state, coded) in run.channels.iter().zip(&residuals) {
@@ -1040,12 +1133,23 @@ fn segment(
                 let value = (coded[n] >> coding.step) + sign_bias(coding.book, lsb_bits)
                     - i64::from(coding.offset);
                 if coding.book != 0 {
-                    put_code(&mut w, coding.book, value >> lsb_bits);
+                    put_code(&mut data, coding.book, value >> lsb_bits);
                 }
-                w.put(lsb_bits, (value & ((1i64 << lsb_bits) - 1)) as u64);
+                data.put(lsb_bits, (value & ((1i64 << lsb_bits) - 1)) as u64);
             }
             run.check ^=
                 check_word((0..layout.channels).map(|ch| pcm[layout.output_of(ch)][at + n]));
+        }
+        if let Some(protection) = layout.protection {
+            let stated = data.len_bits() + usize::from(protection.counted_beyond_the_data);
+            if stated > 0xFFFF {
+                return Err(format!("a block of {stated} bits, which 16 cannot state"));
+            }
+            w.put(16, stated as u64);
+        }
+        w.append(&data);
+        if let Some(protection) = layout.protection {
+            w.put(8, u64::from(protection.check));
         }
         at += size;
         w.put_bool(j + 1 == plan.blocks.len());
@@ -1090,6 +1194,13 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
     }
     if layout.sync_interval == 0 || layout.sync_interval > 128 {
         return Err("a major sync at least every 128 access units".into());
+    }
+    if let Some((gain, time)) = layout.heavy_drc
+        && (layout.family != Family::TrueHd || !(-256..256).contains(&gain) || time > 7)
+    {
+        return Err(
+            "heavy dynamic range control is TrueHD's: a gain of 9 bits, a time of 3".into(),
+        );
     }
     if layout.noise_shift > 15 || layout.noise_seeds.iter().any(|&seed| seed > 0x7F_FFFF) {
         return Err("a noise shift of 0 to 15 and a register of 23 bits".into());

@@ -153,3 +153,70 @@ fn info_reads_the_rate_and_the_channels_of_a_recipe() {
     }
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// The probes step past a bound of the format or into a field whose meaning
+/// is not public. This is what the commands do with each today: the rules
+/// `verify` finds it against, whether one of them fails the stream, and that
+/// `decode` still writes the samples the stream was written from, with the
+/// verdict of `verify` for its exit code.
+#[test]
+fn the_commands_on_the_probes() {
+    use oadec_synth::recipe::PROBES;
+    let dir = temp("probes");
+    for probe in PROBES {
+        let name = probe.recipe.name;
+        let (path, pcm, units) = written(&probe.recipe, &dir);
+        let exit = if probe.fails { 7 } else { 0 };
+
+        let out = oadec(&["verify", "--decode", "--json", &path]);
+        assert_eq!(
+            out.status.code(),
+            Some(exit),
+            "{name}: {}",
+            text(&out.stderr)
+        );
+        let report = json(&out);
+        assert_eq!(report["units"], units, "{name}");
+        let mut rules: Vec<&str> = report["diagnostics"]["findings"]
+            .as_array()
+            .expect("findings is a list")
+            .iter()
+            .map(|finding| finding["rule"].as_str().expect("a rule"))
+            .collect();
+        rules.sort_unstable();
+        rules.dedup();
+        assert_eq!(rules, probe.rules, "{name}");
+        let tools: Vec<&str> = report["coverage"]
+            .as_array()
+            .expect("coverage is a list")
+            .iter()
+            .map(|tool| tool.as_str().expect("a name"))
+            .collect();
+        assert_eq!(tools, probe.recipe.tools, "{name}");
+        // the samples themselves check out, whatever the framing did
+        assert_eq!(report["lossless_checks"]["failed"], 0, "{name}");
+
+        let out_path = dir.join(format!("{name}.pcm"));
+        let out = oadec(&[
+            "decode",
+            "-p",
+            "0",
+            "--format",
+            "pcm",
+            "-o",
+            out_path.to_str().unwrap(),
+            &path,
+        ]);
+        assert_eq!(
+            out.status.code(),
+            Some(exit),
+            "{name}: {}",
+            text(&out.stderr)
+        );
+        assert!(
+            std::fs::read(&out_path).unwrap() == pcm,
+            "{name}: other samples"
+        );
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}

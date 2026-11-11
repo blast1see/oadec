@@ -327,12 +327,14 @@ fn a_recipe_keeps_within_what_the_format_and_its_encoders_do() {
     }
 }
 
-/// Two recipes are about something no encoder writes and the decoders read
-/// differently, and the record says who read it how. FFmpeg's decoder keeps
-/// its filter histories across a restart header; `truehdd` and Dolby's clear
-/// them, as this decoder does. And Dolby's decoder does not cut the sum of a
-/// matrix to the quantiser step when the matrix sends its lowest bit apart;
-/// FFmpeg and `truehdd` cut it, as this decoder does.
+/// Three recipes are about something no encoder writes and the decoders
+/// read differently, and the record says who read it how. FFmpeg's decoder
+/// keeps its filter histories across a restart header; `truehdd` and Dolby's
+/// clear them, as this decoder does. Dolby's decoder does not cut the sum of
+/// a matrix to the quantiser step when the matrix sends its lowest bit
+/// apart; FFmpeg and `truehdd` cut it, as this decoder does. And FFmpeg's
+/// decoder takes an output shift below nought for none; `truehdd` and
+/// Dolby's shift to the right, as this decoder does.
 #[test]
 fn the_record_keeps_what_the_decoders_disagreed_on() {
     let record = record();
@@ -345,7 +347,8 @@ fn the_record_keeps_what_the_decoders_disagreed_on() {
         differing,
         [
             ("filter-at-restart", &vec!["ffmpeg"]),
-            ("bypass-over-step", &vec!["dolby"])
+            ("bypass-over-step", &vec!["dolby"]),
+            ("output-shift-down", &vec!["ffmpeg"])
         ]
     );
     let planned: Vec<&str> = RECIPES
