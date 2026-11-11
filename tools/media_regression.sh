@@ -67,6 +67,11 @@ step replay-truehd python tools/replay_fuzz.py "$MEDIA/audit/tmp/fz-thd-clean.th
 # The ADM stages need Dolby's tools and the Python environment of the audit.
 ADM_PY="$MEDIA/audit/adm/venv/Scripts/python.exe"
 if [ -x "$ADM_PY" ]; then
+  # The stage runs the writers through a harness that is a Cargo project of
+  # its own, built where the stage looks for it. In a checkout that had never
+  # built it the stage failed on the missing file, which read as a result.
+  step adm-harness-build env CARGO_TARGET_DIR="$PWD/target/harness" \
+    cargo build --release --locked --manifest-path docs/audit/adm/harness/Cargo.toml
   step adm-harness "$ADM_PY" docs/audit/adm-remediation/tools/run_remediation.py \
     --repo . --work "$LOGS/adm" --media "$MEDIA" --stage harness
 else
