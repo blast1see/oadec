@@ -30,7 +30,24 @@
   "fuzz_targets_that_repair_first": {
    "targets": ["truehd_unit_repaired", "truehd_decode_repaired"],
    "seeded_run": "seed 0, 200,000 rounds for each of the ten targets, and seeds 1 to 3 for the two that repair first, all with overflow checks and debug assertions on: no failure",
-   "libfuzzer": "PENDING"
+   "libfuzzer": {
+    "where": "the `fuzz` workflow on this pull request, at the commit before this file was completed: Linux, nightly-2026-10-14 (rustc 1.101.0-nightly 822182db4), cargo-fuzz 0.13.2, AddressSanitizer and debug assertions on, the corpus seeded from the fixtures, 90 seconds a target, each target once",
+    "crashes": 0,
+    "executions": 4490603,
+    "by_target": {
+     "truehd_extract": {"executions": 435072, "per_second": 4781, "edges_on_the_seeds": 309, "edges_at_the_end": 439, "inputs_kept": 2476},
+     "truehd_unit": {"executions": 104301, "per_second": 1146, "edges_on_the_seeds": 897, "edges_at_the_end": 1263, "inputs_kept": 1308},
+     "truehd_unit_repaired": {"executions": 78538, "per_second": 863, "edges_on_the_seeds": 1065, "edges_at_the_end": 1488, "inputs_kept": 1575},
+     "truehd_decode": {"executions": 243045, "per_second": 2670, "edges_on_the_seeds": 1273, "edges_at_the_end": 2031, "inputs_kept": 2770},
+     "truehd_decode_repaired": {"executions": 305128, "per_second": 3353, "edges_on_the_seeds": 1460, "edges_at_the_end": 2358, "inputs_kept": 3960},
+     "emdf_container": {"executions": 1737087, "per_second": 19088, "edges_on_the_seeds": 402, "edges_at_the_end": 1345, "inputs_kept": 4143},
+     "oamd_parse": {"executions": 1358892, "per_second": 14932, "edges_on_the_seeds": 413, "edges_at_the_end": 1273, "inputs_kept": 3608},
+     "joc_params": {"executions": 12497, "per_second": 137, "edges_on_the_seeds": 542, "edges_at_the_end": 838, "inputs_kept": 413},
+     "eac3_frame": {"executions": 140537, "per_second": 1544, "edges_on_the_seeds": 1021, "edges_at_the_end": 2675, "inputs_kept": 1745},
+     "eac3_program": {"executions": 75506, "per_second": 829, "edges_on_the_seeds": 1180, "edges_at_the_end": 2565, "inputs_kept": 1996}
+    },
+    "the_pairs": "An edge is libFuzzer's unit of coverage, counted over everything linked into the target, the repair's own code included: on the seeds the two targets that repair first stand 168 and 187 edges above their pairs, and that is the repair. From there, in the same 90 seconds, `truehd_unit_repaired` gains 423 edges where `truehd_unit` gains 366, and `truehd_decode_repaired` gains 898 where `truehd_decode` gains 758. One run of each: the direction is what the repair was written for, the size is not a measurement"
+   }
   },
   "frame_rewriting_commands": "`eac3-joc-config`, `eac3-joc-offset` and `eac3-ecpl-inject` on the committed E-AC-3 fixture and on a head of the work directory: the same exit code, the same messages and the same bytes from main and from this branch, six runs of six",
   "mutations": "eight, all caught: the parser reading on past a restart header whose CRC is wrong (by a test of the parser and one of the repair), the CRC of a restart header written a bit late, the CRC of a major sync computed over the CRC as well, the check nibble computed over the header alone, the segment parity without its constant, the parity byte written into the frame it wraps, crc1 taken back sixteen bits too far, crc2 without the sixteen zero bits"
