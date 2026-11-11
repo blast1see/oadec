@@ -7,7 +7,7 @@
 //! that share nothing with it.
 
 use crate::signal::{Rng, noise, offset, shifted, sum, tone};
-use crate::write::{BlockPlan, Coding, Family, Filter, Layout, Stream, UnitPlan, write};
+use crate::write::{BlockPlan, Coding, Family, Filter, Layout, Matrix, Stream, UnitPlan, write};
 
 /// A recipe made: everything [`write`] takes.
 #[derive(Debug, Clone)]
@@ -292,6 +292,103 @@ pub const RECIPES: &[Recipe] = &[
         at_restart: AtRestart::Unfiltered,
         make: mlp_mono,
     },
+    Recipe {
+        name: "matrix",
+        about: "one to three matrices over the two channels, at 0 to 14 fractional bits, a channel kept or turned over, sent anew in every unit",
+        tools: &["matrixing"],
+        at_restart: AtRestart::Unfiltered,
+        make: matrix,
+    },
+    Recipe {
+        name: "matrix-many",
+        about: "eight matrices one after another, as many as a decoder has to take",
+        tools: &["matrixing"],
+        at_restart: AtRestart::Unfiltered,
+        make: matrix_many,
+    },
+    Recipe {
+        name: "matrix-noise",
+        about: "matrices that draw on the two noise channels, which no encoder asks of them: the register runs on through the restart headers",
+        tools: &["matrixing", "noise-columns"],
+        at_restart: AtRestart::Unfiltered,
+        make: || matrix_noise(0, false),
+    },
+    Recipe {
+        name: "matrix-noise-reseeded",
+        about: "the same matrices with the noise register set anew by every restart header",
+        tools: &["matrixing", "noise-columns"],
+        at_restart: AtRestart::Unfiltered,
+        make: || matrix_noise(0, true),
+    },
+    Recipe {
+        name: "matrix-noise-shifted",
+        about: "the same matrices with the noise shifted up by nine bits, as the restart header may ask",
+        tools: &["matrixing", "noise-columns"],
+        at_restart: AtRestart::Unfiltered,
+        make: || matrix_noise(9, false),
+    },
+    Recipe {
+        name: "matrix-bypass",
+        about: "matrices that send one more bit a sample apart, to be added after the sum",
+        tools: &["matrixing", "lsb-bypass"],
+        at_restart: AtRestart::Unfiltered,
+        make: || matrix_bypass(Bypass::Alone),
+    },
+    Recipe {
+        name: "matrix-steps",
+        about: "matrices over channels with a quantiser step, the sum cut to the step of the channel it is written to",
+        tools: &["quantiser-step", "matrixing"],
+        at_restart: AtRestart::Unfiltered,
+        make: || matrix_bypass(Bypass::None),
+    },
+    Recipe {
+        name: "bypass-over-step",
+        about: "a matrix that sends its lowest bit apart over a quantiser step, which no encoder writes: the sum is cut to the step and the bit added, as two decoders of three have it",
+        tools: &["quantiser-step", "matrixing", "lsb-bypass"],
+        at_restart: AtRestart::Unfiltered,
+        make: || matrix_bypass(Bypass::OverStep),
+    },
+    Recipe {
+        name: "matrix-coded",
+        about: "matrices and noise over channels that are filtered and coded with books, at 96 kHz, in blocks of 8 to 80",
+        tools: &[
+            "fir",
+            "iir",
+            "huffman-1",
+            "huffman-2",
+            "matrixing",
+            "noise-columns",
+        ],
+        at_restart: AtRestart::Unfiltered,
+        make: matrix_coded,
+    },
+    Recipe {
+        name: "output-shift",
+        about: "outputs shifted up by 1 to 7 bits after decoding, the shift changing from unit to unit",
+        tools: &["output-shift"],
+        at_restart: AtRestart::Unfiltered,
+        make: output_shift,
+    },
+    Recipe {
+        name: "channels-swapped",
+        about: "the first coded channel sent to the right output and the second to the left",
+        tools: &[
+            "fir",
+            "iir",
+            "huffman-1",
+            "huffman-2",
+            "channel-reassignment",
+        ],
+        at_restart: AtRestart::Unfiltered,
+        make: channels_swapped,
+    },
+    Recipe {
+        name: "mlp-matrix",
+        about: "the DVD-Audio syntax with matrices",
+        tools: &["matrixing"],
+        at_restart: AtRestart::Unfiltered,
+        make: mlp_matrix,
+    },
 ];
 
 /// Splits the first eight samples off every unit that carries a restart
@@ -321,13 +418,13 @@ fn unfiltered_at_restarts(mut made: Made) -> Made {
                 first.size
             );
             first.size -= 8;
-            plan.blocks.insert(
-                0,
-                BlockPlan {
-                    size: 8,
-                    coding: bare,
-                },
-            );
+            let split = BlockPlan {
+                size: 8,
+                coding: bare,
+                matrices: first.matrices.clone(),
+                shifts: first.shifts.clone(),
+            };
+            plan.blocks.insert(0, split);
         }
     }
     made
@@ -339,13 +436,7 @@ fn unfiltered_at_restarts(mut made: Made) -> Made {
 const RATE_TOOLS: &[&str] = &["fir", "iir", "huffman-1", "huffman-2"];
 
 fn layout(family: Family, rate: u32) -> Layout {
-    Layout {
-        family,
-        rate,
-        channels: 2,
-        sync_interval: 8,
-        trailer: true,
-    }
+    Layout::new(family, rate, 2)
 }
 
 /// `units` access units of one block each, coded as `coding` says for the
@@ -1013,6 +1104,316 @@ fn mlp_mono() -> Made {
     Made {
         plans: one_block_units(&layout, units, |_| coding.clone()),
         pcm: vec![usual_samples(n, 35).swap_remove(0)],
+        layout,
+    }
+}
+
+/// `num / den` in units of `2^-frac`, the weight of a matrix on a channel
+/// other than its own.
+fn weight(frac: u8, num: i32, den: i32) -> i32 {
+    (1 << frac) * num / den
+}
+
+/// The fractional bits of the matrices of unit `k`: every value from 0 to 14
+/// in the course of a recipe.
+fn frac_of(k: usize) -> u8 {
+    [14, 0, 7, 1, 13, 4, 10, 2, 12, 3, 9, 5, 11, 6, 8][k % 15]
+}
+
+fn matrix() -> Made {
+    let layout = layout(Family::TrueHd, 48_000);
+    let units = 32;
+    let n = units * layout.samples_per_unit();
+    let plain = vec![Coding::default(); 2];
+    let plans = (0..units)
+        .map(|k| {
+            let f = frac_of(k);
+            // a weight for each channel and two noughts for the noise; the
+            // weight on the channel a matrix writes says kept or turned over
+            let matrices = match k % 4 {
+                0 => vec![
+                    Matrix::new(0, f, &[1, weight(f, 3, 4), 0, 0]),
+                    Matrix::new(1, f, &[weight(f, -1, 2), 1, 0, 0]),
+                ],
+                1 => vec![Matrix::new(1, f, &[weight(f, 1, 4), -1, 0, 0])],
+                2 => vec![
+                    Matrix::new(0, f, &[1, weight(f, -1, 1), 0, 0]),
+                    Matrix::new(1, f, &[weight(f, 1, 1), 1, 0, 0]),
+                    Matrix::new(0, f, &[-1, weight(f, 1, 8), 0, 0]),
+                ],
+                _ => Vec::new(),
+            };
+            UnitPlan::uniform(&[layout.samples_per_unit()], &plain).matrixed(&matrices)
+        })
+        .collect();
+    Made {
+        plans,
+        pcm: vec![noise(n, 16, 40), noise(n, 16, 41)],
+        layout,
+    }
+}
+
+fn matrix_many() -> Made {
+    let layout = layout(Family::TrueHd, 48_000);
+    let units = 24;
+    let n = units * layout.samples_per_unit();
+    let plain = vec![Coding::default(); 2];
+    // eight matrices, the channels in turn, each a different weight of the
+    // other at a different number of fractional bits
+    let matrices: Vec<Matrix> = (0..8)
+        .map(|i| {
+            let f = frac_of(i + 2);
+            let cross = weight(
+                f,
+                [3, -1, 1, -5, 7, 1, -3, 1][i],
+                [8, 2, 4, 8, 8, 16, 4, 2][i],
+            );
+            let own = if i % 3 == 2 { -1 } else { 1 };
+            if i.is_multiple_of(2) {
+                Matrix::new(0, f, &[own, cross, 0, 0])
+            } else {
+                Matrix::new(1, f, &[cross, own, 0, 0])
+            }
+        })
+        .collect();
+    Made {
+        plans: (0..units)
+            .map(|_| UnitPlan::uniform(&[layout.samples_per_unit()], &plain).matrixed(&matrices))
+            .collect(),
+        pcm: vec![noise(n, 15, 42), noise(n, 15, 43)],
+        layout,
+    }
+}
+
+/// The matrices of unit `k` of the recipes about the noise channels: weights
+/// on both of them, changing from unit to unit.
+fn noise_matrices(k: usize) -> Vec<Matrix> {
+    let f = [12, 8, 14, 5][k % 4];
+    vec![
+        Matrix::new(
+            0,
+            f,
+            &[
+                1,
+                weight(f, 1, 2),
+                weight(f, [3, -1, 1, 0][k % 4], 4),
+                weight(f, [-1, 1, 0, 5][k % 4], 8),
+            ],
+        ),
+        Matrix::new(
+            1,
+            f,
+            &[
+                weight(f, -1, 4),
+                if k.is_multiple_of(3) { -1 } else { 1 },
+                weight(f, [0, 1, -3, 1][k % 4], 2),
+                weight(f, [1, 0, 1, -1][k % 4], 1),
+            ],
+        ),
+    ]
+}
+
+fn matrix_noise(shift: u8, reseeded: bool) -> Made {
+    let mut layout = layout(Family::TrueHd, 48_000);
+    layout.noise_shift = shift;
+    layout.noise_seeds = if reseeded {
+        vec![0x5A_5A5A, 0x00_0001, 0x7F_FFFF, 0x12_3456]
+    } else {
+        vec![0x2A_BCDE]
+    };
+    let units = 32;
+    let n = units * layout.samples_per_unit();
+    let plain = vec![Coding::default(); 2];
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                UnitPlan::uniform(&[layout.samples_per_unit()], &plain).matrixed(&noise_matrices(k))
+            })
+            .collect(),
+        pcm: vec![noise(n, 16, 44), noise(n, 16, 45)],
+        layout,
+    }
+}
+
+/// What the recipes about the bypassed bit and the quantiser step put
+/// together.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Bypass {
+    /// A quantiser step under the matrices and no bypassed bit.
+    None,
+    /// A bypassed bit and no quantiser step.
+    Alone,
+    /// Both on one channel. Of 242.8 million matrices in force in the blocks
+    /// of 55 real streams, 1.8 million send a bypassed bit and 65 million
+    /// write a channel with a step, and none does both; the decoders do not
+    /// agree on what it means.
+    OverStep,
+}
+
+fn matrix_bypass(which: Bypass) -> Made {
+    let layout = layout(Family::TrueHd, 48_000);
+    let units = 32;
+    let per = layout.samples_per_unit();
+    // The step of the left channel in each unit, and of the right in every
+    // fourth. Under a step an output is a multiple of it, and where its
+    // matrix sends the lowest bit apart that bit is its own.
+    let step = |k: usize| match which {
+        Bypass::Alone => (0, 0),
+        _ => (
+            [0u8, 2, 0, 5, 1, 0, 9, 3][k % 8],
+            if k % 4 == 3 && which == Bypass::None {
+                4
+            } else {
+                0
+            },
+        ),
+    };
+    let seed = match which {
+        Bypass::None => 55,
+        Bypass::Alone => 57,
+        Bypass::OverStep => 46,
+    };
+    let coarse = [
+        noise(units * per, 12, seed),
+        noise(units * per, 12, seed + 2),
+    ];
+    let bits = noise(units * per, 1, seed + 1);
+    let output = |ch: usize| -> Vec<i32> {
+        (0..units * per)
+            .map(|i| {
+                let (left, right) = step(i / per);
+                let own = if which == Bypass::OverStep && ch == 0 {
+                    bits[i] & 1
+                } else {
+                    0
+                };
+                match [left, right][ch] {
+                    0 => coarse[ch][i],
+                    s => (coarse[ch][i] << s) | own,
+                }
+            })
+            .collect()
+    };
+    let plans = (0..units)
+        .map(|k| {
+            let mut on_left = Matrix::new(0, 10, &[1, weight(10, 1, 4), 0, 0]);
+            on_left.bypass = which != Bypass::None;
+            let mut on_right = Matrix::new(1, 6, &[weight(6, -1, 2), 1, 0, 0]);
+            on_right.bypass = which != Bypass::None && k.is_multiple_of(2);
+            let (left, right) = step(k);
+            let coding = vec![
+                Coding {
+                    step: left,
+                    ..Coding::default()
+                },
+                Coding {
+                    step: right,
+                    ..Coding::default()
+                },
+            ];
+            UnitPlan::uniform(&[per], &coding).matrixed(&[on_left, on_right])
+        })
+        .collect();
+    Made {
+        plans,
+        pcm: vec![output(0), output(1)],
+        layout,
+    }
+}
+
+fn matrix_coded() -> Made {
+    let mut layout = layout(Family::TrueHd, 96_000);
+    layout.noise_seeds = vec![0x40_0001];
+    let per = layout.samples_per_unit();
+    let units = 24;
+    let usual = usual_coding();
+    let sizes: [&[usize]; 4] = [&[80], &[8, 72], &[40, 40], &[72, 8]];
+    Made {
+        plans: (0..units)
+            .map(|k| UnitPlan::uniform(sizes[k % 4], &usual).matrixed(&noise_matrices(k / 2)))
+            .collect(),
+        pcm: usual_samples(units * per, 49),
+        layout,
+    }
+}
+
+fn output_shift() -> Made {
+    let layout = layout(Family::TrueHd, 48_000);
+    let units = 32;
+    let per = layout.samples_per_unit();
+    const SHIFTS: [(i8, i8); 8] = [
+        (1, 0),
+        (0, 3),
+        (7, 7),
+        (2, 5),
+        (0, 0),
+        (4, 1),
+        (6, 0),
+        (3, 3),
+    ];
+    let plain = vec![Coding::default(); 2];
+    // each output is noise that fills what its shift leaves of 16 bits,
+    // shifted up
+    let channel = |seed: u64, of: fn((i8, i8)) -> i8| -> Vec<i32> {
+        let base = noise(units * per, 16, seed);
+        (0..units * per)
+            .map(|i| {
+                let shift = u32::from(of(SHIFTS[i / per % 8]) as u8);
+                (base[i] >> shift) << shift
+            })
+            .collect()
+    };
+    Made {
+        plans: (0..units)
+            .map(|k| {
+                let (a, b) = SHIFTS[k % 8];
+                UnitPlan::uniform(&[per], &plain).shifted(&[a, b])
+            })
+            .collect(),
+        pcm: vec![channel(50, |s| s.0), channel(51, |s| s.1)],
+        layout,
+    }
+}
+
+fn channels_swapped() -> Made {
+    let mut layout = layout(Family::TrueHd, 48_000);
+    layout.assignment = vec![1, 0];
+    let units = 24;
+    // the usual coding is for a tone on the first coded channel and noise on
+    // the second, and the first coded channel is the right output here
+    let usual = usual_coding();
+    let mut pcm = usual_samples(units * layout.samples_per_unit(), 52);
+    pcm.swap(0, 1);
+    Made {
+        plans: one_block_units(&layout, units, |_| usual.clone()),
+        pcm,
+        layout,
+    }
+}
+
+fn mlp_matrix() -> Made {
+    let layout = layout(Family::Mlp, 44_100);
+    let units = 24;
+    let n = units * layout.samples_per_unit();
+    let plain = vec![Coding::default(); 2];
+    // The matrices of the noise recipes with the noise left out: of the
+    // decoders that take this syntax only one reads the noise channels as
+    // the TrueHD decoders do, and one is not enough to record a recipe on.
+    let quiet = |k: usize| -> Vec<Matrix> {
+        noise_matrices(k)
+            .into_iter()
+            .map(|mut matrix| {
+                matrix.coefficients[2] = 0;
+                matrix.coefficients[3] = 0;
+                matrix
+            })
+            .collect()
+    };
+    Made {
+        plans: (0..units)
+            .map(|k| UnitPlan::uniform(&[layout.samples_per_unit()], &plain).matrixed(&quiet(k)))
+            .collect(),
+        pcm: vec![noise(n, 16, 53), noise(n, 16, 54)],
         layout,
     }
 }

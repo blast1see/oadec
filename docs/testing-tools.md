@@ -205,4 +205,7 @@ A new recipe goes into `src/recipe.rs` with the tools a census of it has to
 name, and into the record by a run with `--record`; the two are committed
 together. A recipe on which the decoders disagree is still a recipe, and the
 disagreement is in the record: `filter-at-restart` is there because FFmpeg
-reads it otherwise than `truehdd` and Dolby's decoder do.
+reads it otherwise than `truehdd` and Dolby's decoder do, and
+`bypass-over-step` because Dolby's decoder reads it otherwise than the other
+two. Recording needs the Dolby Reference Player for those: without it each
+has one decoder behind it and the tool writes nothing.
