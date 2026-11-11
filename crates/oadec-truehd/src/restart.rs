@@ -166,8 +166,16 @@ impl RestartHeader {
         }
         let len = reader.position() - start;
         rh.crc = reader.read(8)? as u8;
-        rh.crc_ok = CRC8_RESTART.update_bits(0, reader.data(), start, len) == rh.crc;
-        if !rh.crc_ok {
+        let computed = CRC8_RESTART.update_bits(0, reader.data(), start, len);
+        rh.crc_ok = computed == rh.crc;
+        if let Some(sites) = state.crc_sites.as_mut() {
+            // a repair is under way: it wants the place and the value, and
+            // the header read on as it will be once the CRC is written
+            sites.push(crate::repair::CrcSite {
+                bit: start + len,
+                value: computed,
+            });
+        } else if !rh.crc_ok {
             return Err(Error::malformed(format!(
                 "restart header CRC mismatch in substream {substream}"
             )));
