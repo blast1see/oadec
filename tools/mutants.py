@@ -138,7 +138,7 @@ MUTANTS = [
      '    timeline.signalled_warp = warp;\n',
      ''),
     ('--warp-mode accepted on a sample output',
-     'crates/oadec-cli/src/main.rs',
+     'crates/oadec-cli/src/lib.rs',
      'warp_mode.is_some() && !matches!(format, Format::Damf | Format::Adm)',
      'false && !matches!(format, Format::Damf | Format::Adm)'),
     ('a trim configuration tallied whatever it says',
@@ -285,7 +285,7 @@ MUTANTS = [
      'if self.started_at_sample.is_some() || self.skipped_units == 0 {',
      'if self.started_at_sample.is_none() || self.skipped_units == 0 {'),
     ('--start accepted on E-AC-3 and the object outputs instead of refused',
-     'crates/oadec-cli/src/main.rs',
+     'crates/oadec-cli/src/lib.rs',
      '            } else if start.is_some()',
      '            } else if false && start.is_some()'),
     # --- verification upgrade: a foreign sync pattern ---------------------
@@ -307,7 +307,7 @@ MUTANTS = [
      'let has_major_sync = pattern.is_some();'),
     # --- verification upgrade: rules, findings, regions --------------------
     ('the default threshold of verify raised to fatal',
-     'crates/oadec-cli/src/main.rs',
+     'crates/oadec-cli/src/lib.rs',
      '.unwrap_or(Severity::Error),',
      '.unwrap_or(Severity::Fatal),'),
     ('a finding that bumps no counter',
