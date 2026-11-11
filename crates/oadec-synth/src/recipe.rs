@@ -199,6 +199,17 @@ pub const PROBES: &[Probe] = &[
         rules: &["block.data_bits"],
         fails: true,
     },
+    Probe {
+        recipe: Recipe {
+            name: "probe-bypass-over-step",
+            about: "a matrix that sends its lowest bit apart over a quantiser step, which no encoder writes: the bit is added to the sum and the sum not cut, as Dolby's decoder has it and the two public ones do not",
+            tools: &["quantiser-step", "matrixing", "lsb-bypass"],
+            at_restart: AtRestart::Unfiltered,
+            make: bypass_over_step,
+        },
+        rules: &[],
+        fails: false,
+    },
 ];
 
 /// Every recipe, in the order they are listed.
@@ -433,13 +444,6 @@ pub const RECIPES: &[Recipe] = &[
         tools: &["quantiser-step", "matrixing"],
         at_restart: AtRestart::Unfiltered,
         make: || matrix_bypass(Bypass::None),
-    },
-    Recipe {
-        name: "bypass-over-step",
-        about: "a matrix that sends its lowest bit apart over a quantiser step, which no encoder writes: the sum is cut to the step and the bit added, as two decoders of three have it",
-        tools: &["quantiser-step", "matrixing", "lsb-bypass"],
-        at_restart: AtRestart::Unfiltered,
-        make: || matrix_bypass(Bypass::OverStep),
     },
     Recipe {
         name: "matrix-coded",
@@ -1359,11 +1363,6 @@ enum Bypass {
     None,
     /// A bypassed bit and no quantiser step.
     Alone,
-    /// Both on one channel. Of 242.8 million matrices in force in the blocks
-    /// of 55 real streams, 1.8 million send a bypassed bit and 65 million
-    /// write a channel with a step, and none does both; the decoders do not
-    /// agree on what it means.
-    OverStep,
 }
 
 fn matrix_bypass(which: Bypass) -> Made {
@@ -1371,8 +1370,7 @@ fn matrix_bypass(which: Bypass) -> Made {
     let units = 32;
     let per = layout.samples_per_unit();
     // The step of the left channel in each unit, and of the right in every
-    // fourth. Under a step an output is a multiple of it, and where its
-    // matrix sends the lowest bit apart that bit is its own.
+    // fourth: an output under a step is a multiple of it.
     let step = |k: usize| match which {
         Bypass::Alone => (0, 0),
         _ => (
@@ -1387,26 +1385,16 @@ fn matrix_bypass(which: Bypass) -> Made {
     let seed = match which {
         Bypass::None => 55,
         Bypass::Alone => 57,
-        Bypass::OverStep => 46,
     };
     let coarse = [
         noise(units * per, 12, seed),
         noise(units * per, 12, seed + 2),
     ];
-    let bits = noise(units * per, 1, seed + 1);
     let output = |ch: usize| -> Vec<i32> {
         (0..units * per)
             .map(|i| {
                 let (left, right) = step(i / per);
-                let own = if which == Bypass::OverStep && ch == 0 {
-                    bits[i] & 1
-                } else {
-                    0
-                };
-                match [left, right][ch] {
-                    0 => coarse[ch][i],
-                    s => (coarse[ch][i] << s) | own,
-                }
+                coarse[ch][i] << [left, right][ch]
             })
             .collect()
     };
@@ -1433,6 +1421,54 @@ fn matrix_bypass(which: Bypass) -> Made {
     Made {
         plans,
         pcm: vec![output(0), output(1)],
+        layout,
+    }
+}
+
+/// Both on one channel: a quantiser step, and a matrix that sends its lowest
+/// bit apart.
+///
+/// Of 242.8 million matrices in force in the blocks of 55 real streams, 1.8
+/// million send a bypassed bit and 65 million write a channel with a step,
+/// and none does both. Dolby's decoder adds the bit to the sum and does not
+/// cut the sum to the step; FFmpeg's and `truehdd` cut it and then add. The
+/// stream is written to the first reading, which is the one the decoder of
+/// this workspace follows, and with one outside decoder behind it it is a
+/// probe and not a recipe.
+fn bypass_over_step() -> Made {
+    let layout = layout(Family::TrueHd, 48_000);
+    let units = 32;
+    let per = layout.samples_per_unit();
+    let step = |k: usize| [0u8, 2, 0, 5, 1, 0, 9, 3][k % 8];
+    let right = noise(units * per, 14, 48);
+    let coarse = noise(units * per, 12, 46);
+    let bits = noise(units * per, 1, 47);
+    // With no cut the left output is not free: it is a coded sample that
+    // keeps to its step, a quarter of the right channel, and the bit. Where
+    // the unit has no step it is noise, and the bit whatever is sent.
+    let left: Vec<i32> = (0..units * per)
+        .map(|i| match step(i / per) {
+            0 => coarse[i],
+            s => (coarse[i] << s) + ((weight(10, 1, 4) * right[i]) >> 10) + (bits[i] & 1),
+        })
+        .collect();
+    let plans = (0..units)
+        .map(|k| {
+            let mut on_left = Matrix::new(0, 10, &[1, weight(10, 1, 4), 0, 0]);
+            on_left.bypass = true;
+            let coding = vec![
+                Coding {
+                    step: step(k),
+                    ..Coding::default()
+                },
+                Coding::default(),
+            ];
+            UnitPlan::uniform(&[per], &coding).matrixed(&[on_left])
+        })
+        .collect();
+    Made {
+        plans,
+        pcm: vec![left, right],
         layout,
     }
 }

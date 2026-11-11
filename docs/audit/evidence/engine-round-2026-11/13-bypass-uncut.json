@@ -1,0 +1,264 @@
+{
+ "question": "When a matrix has both a bypassed bit to add and a quantiser step to cut to, does this decoder give what Dolby's decoder gives once it stops cutting; and does the change move anything on real streams?",
+ "method": "In crates/oadec-truehd/src/decoder.rs a matrix of a 0x31EA substream that sends a bypassed bit is no longer cut to the quantiser step of its channel: `(sum & mask) + bit` becomes `sum + bit`. Two release binaries, the commit this branch starts from and the branch, decoded the thirteen streams evidence 11 put to Dolby's decoder (`decode -p 0 --format pcm`), and what each wrote was compared sample for sample with what the `dlbtruehddec` element of the Dolby Reference Player had written for the same stream, and for three of them with what a second front end of Dolby's decoder wrote, the engine Plex ships (`Plex Transcoder -c:a truehd_eae`). Both are black boxes: a stream goes in, samples come out. The writer of crates/oadec-synth was then changed to the same reading and the stream that has both written again, as a probe; tools/synth_accept.py put every recipe and probe to FFmpeg, `truehdd` and Dolby's decoder, and the second front end was given the probe and its two neighbours. `python tools/old_new.py --decode-all` compared the two binaries over the 125 streams of evidence 01: exit codes, every field of `verify --json` and `info --json`, and every file each delivery leaves behind. The media regression and the media suite were run on the branch.",
+ "binaries": {
+  "before": "52090e8e7d58794d482765f6e7f431b0fbd673a82d464ed208c2002eb23bfb4a",
+  "after": "d853c9e68ff59c418e180c1e264ff78b82e816c77d0b495ca8ae98d73fd2bb5d"
+ },
+ "decoders": {
+  "ffmpeg": "2026-10-12-git-615b07170e",
+  "truehdd": "b54f209 (truehd library 0.7.1)",
+  "dolby": "the dlbtruehddec element of the Dolby Reference Player, as a black box",
+  "the_second_front_end": "the Dolby engine the Plex transcoder drives for TrueHD, as a black box"
+ },
+ "result": {
+  "in_real_streams": {
+   "streams": 55,
+   "matrices_in_force_in_blocks": 242812003,
+   "with_a_bypassed_bit": 1844026,
+   "on_a_channel_with_a_step": 65236400,
+   "with_both": 0,
+   "from": "evidence 11"
+  },
+  "against_what_dolby_wrote": {
+   "note": "the streams of evidence 11, written when the writer still took the sum to be cut; `samples` counts both channels",
+   "streams_with_both_a_bypassed_bit_and_a_step": {
+    "bypass-over-step": {
+     "what": "the recipe of evidence 11, 32 access units: a bypassed bit over steps of 1 to 9 bits and a second matrix reading the first",
+     "samples": 2560,
+     "of_what_dolby_wrote_this_decoder_gave_before": 1313,
+     "and_gives_now": 2560
+    },
+    "s0-m0b": {
+     "what": "a step on the channel the matrix writes, and a bypassed bit: every bit clear",
+     "samples": 1280,
+     "of_what_dolby_wrote_this_decoder_gave_before": 673,
+     "and_gives_now": 1280
+    },
+    "s0-m0b1": {
+     "what": "the same, every bit set",
+     "samples": 1280,
+     "of_what_dolby_wrote_this_decoder_gave_before": 679,
+     "and_gives_now": 1280,
+     "the_second_front_end_gave": 1280
+    },
+    "s01-m0b": {
+     "what": "a step on both channels, a matrix with a bypassed bit on one: every bit clear",
+     "samples": 1280,
+     "of_what_dolby_wrote_this_decoder_gave_before": 677,
+     "and_gives_now": 1280,
+     "the_second_front_end_gave": 1280
+    },
+    "s01-m0b1": {
+     "what": "the same, every bit set",
+     "samples": 1280,
+     "of_what_dolby_wrote_this_decoder_gave_before": 679,
+     "and_gives_now": 1280
+    },
+    "s01-m01b": {
+     "what": "a step on both channels, a matrix with a bypassed bit on each",
+     "samples": 1280,
+     "of_what_dolby_wrote_this_decoder_gave_before": 90,
+     "and_gives_now": 1280
+    }
+   },
+   "the_others": {
+    "m0": {
+     "what": "a matrix, no step, no bypassed bit",
+     "samples": 1280,
+     "of_what_dolby_wrote_this_decoder_gave_before": 1280,
+     "and_gives_now": 1280
+    },
+    "m0b": {
+     "what": "a matrix with a bypassed bit, no step",
+     "samples": 1280,
+     "of_what_dolby_wrote_this_decoder_gave_before": 1280,
+     "and_gives_now": 1280,
+     "the_second_front_end_gave": 1280
+    },
+    "s0": {
+     "what": "a step on channel 0, no matrix",
+     "samples": 1280,
+     "of_what_dolby_wrote_this_decoder_gave_before": 1280,
+     "and_gives_now": 1280
+    },
+    "s0-m0": {
+     "what": "a step on the channel the matrix writes",
+     "samples": 1280,
+     "of_what_dolby_wrote_this_decoder_gave_before": 1280,
+     "and_gives_now": 1280
+    },
+    "s1-m0": {
+     "what": "a step on the other channel only",
+     "samples": 1280,
+     "of_what_dolby_wrote_this_decoder_gave_before": 1280,
+     "and_gives_now": 1280
+    },
+    "s01-m0": {
+     "what": "a step on both channels, a matrix on one",
+     "samples": 1280,
+     "of_what_dolby_wrote_this_decoder_gave_before": 1280,
+     "and_gives_now": 1280
+    },
+    "s01-m01": {
+     "what": "a step on both channels, a matrix on each",
+     "samples": 1280,
+     "of_what_dolby_wrote_this_decoder_gave_before": 1280,
+     "and_gives_now": 1280
+    }
+   },
+   "before_and_after_differ_on": [
+    "bypass-over-step",
+    "s0-m0b",
+    "s0-m0b1",
+    "s01-m01b",
+    "s01-m0b",
+    "s01-m0b1"
+   ],
+   "what_the_decoder_says_of_the_old_streams_now": "exit 7: their lossless check words were computed from the samples of the cut reading, and the decoder no longer gives those"
+  },
+  "the_stream_written_to_the_new_reading": {
+   "name": "probe-bypass-over-step",
+   "access_units": 32,
+   "this_decoder": "the samples; `verify` exit 0, no finding",
+   "dolby": "target",
+   "the_second_front_end": {
+    "samples": 2560,
+    "written": 2560,
+    "the_samples_of_the_stream": 2560
+   },
+   "ffmpeg": {
+    "verdict": "differs",
+    "differing_samples": 650
+   },
+   "truehdd": {
+    "verdict": "refused",
+    "it_said": "lossless_check failed for substream 0. Calculated 0xA, Read 0x50"
+   },
+   "why_a_probe": "one decoder from outside gives its samples, and that the one is Dolby's own does not make two"
+  },
+  "the_recipes": {
+   "count": 40,
+   "confirmed_by_two_outside_decoders": 40,
+   "this_decoder_gave_the_samples": 40,
+   "verify_without_a_finding_of_any_severity": 40,
+   "the_two_beside_the_probe_in_the_second_front_end": {
+    "matrix-bypass": {
+     "samples": 2560,
+     "written": 2560,
+     "the_samples_of_the_stream": 2560
+    },
+    "matrix-steps": {
+     "samples": 2560,
+     "written": 2560,
+     "the_samples_of_the_stream": 2560
+    }
+   }
+  },
+  "old_and_new_over_real_streams": {
+   "streams": 125,
+   "streams_changed": 0,
+   "fields_added": [],
+   "deliveries": {
+    "pcm -p N": {
+     "runs": 220,
+     "wrote_output": 202,
+     "bytes": 30402893100,
+     "exit_codes": {
+      "0": 198,
+      "2": 18,
+      "7": 4
+     }
+    },
+    "damf": {
+     "runs": 125,
+     "wrote_output": 64,
+     "bytes": 26139214573,
+     "exit_codes": {
+      "0": 56,
+      "2": 61,
+      "7": 8
+     }
+    },
+    "adm": {
+     "runs": 125,
+     "wrote_output": 64,
+     "bytes": 26155503004,
+     "exit_codes": {
+      "0": 56,
+      "2": 61,
+      "7": 8
+     }
+    },
+    "pcm": {
+     "runs": 70,
+     "wrote_output": 70,
+     "bytes": 4058892288,
+     "exit_codes": {
+      "0": 61,
+      "7": 9
+     }
+    },
+    "pcm --core-only": {
+     "runs": 70,
+     "wrote_output": 70,
+     "bytes": 3823884288,
+     "exit_codes": {
+      "0": 61,
+      "7": 9
+     }
+    }
+   }
+  },
+  "media": {
+   "the_media_suite": {
+    "passed": 28,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8,
+    "line": "all media checks passed"
+   }
+  },
+  "mutations": [
+   {
+    "mutation": "a matrix that sends a bypassed bit cut to the quantiser step all the same",
+    "caught_by": 4,
+    "tests": [
+     "a_bypassed_bit_over_a_quantiser_step_is_not_cut",
+     "decoder::tests::a_matrix_that_sends_a_bypassed_bit_is_not_cut_to_the_step",
+     "the_commands_on_the_probes",
+     "the_decoder_reads_every_probe_to_the_samples_it_was_written_from"
+    ]
+   },
+   {
+    "mutation": "the bypassed bit of a matrix left out",
+    "caught_by": 24,
+    "tests": [
+     "a_bypassed_bit_over_a_quantiser_step_is_not_cut",
+     "a_clean_object_decode_says_it_is_done",
+     "a_presentation_other_than_three_is_refused_with_the_object_formats",
+     "a_unit_that_cannot_be_read_is_silence_in_its_place",
+     "authored_scene_mlp",
+     "bypassed_bits_steps_shifts_and_assignments_come_back",
+     "decode_writes_the_samples_of_every_recipe",
+     "decoder::tests::a_matrix_that_sends_a_bypassed_bit_is_not_cut_to_the_step"
+    ]
+   },
+   {
+    "mutation": "the sum of a matrix not cut to the quantiser step",
+    "caught_by": 5,
+    "tests": [
+     "bypassed_bits_steps_shifts_and_assignments_come_back",
+     "decode_writes_the_samples_of_every_recipe",
+     "decoder::tests::matrix_output_rounds_cuts_and_adds_bypassed_bits",
+     "the_decoder_gives_back_the_samples_of_every_recipe",
+     "verify_has_nothing_to_say_of_any_recipe"
+    ]
+   }
+  ],
+  "not_measured": "a 0x31EB substream has the same flag and a 0x31EC substream a count of bypassed bits. Neither could be written and put to Dolby's decoder; both are still cut and then added to"
+ },
+ "reading": "On the 6 streams that have both a bypassed bit and a step, this decoder gave between 90 and 1313 of the samples Dolby's decoder wrote, of 1280 to 2560, and gives every one of them now; on the 7 that have one or neither it gave all of them before and gives all of them still, from the same bytes. That is the whole of the change, and it is in one place: a matrix that sends a bit is not cut. It could not have been found on real material and it cannot be seen there: none of 242,812,003 matrices in force in the blocks of 55 streams has both, and over 125 streams, 90,580,387,253 bytes of deliveries, the old and the new binary write the same. What settles the reading is whose decoder it is. FFmpeg and truehdd cut, and this decoder cut because they do; Dolby's does not, from two front ends, on every sample it was asked for. Two decoders agreeing was the test for calling a written stream a reference, and by that test the stream that has both is no reference now, with one outside decoder behind it; it is kept as a probe, and the record says who reads it how. The limit is stated: this is the 0x31EA substream. The same question for the other two kinds has not been asked of Dolby's decoder, and there the decoder is as it was."
+}

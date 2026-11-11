@@ -203,12 +203,12 @@ without having been in front of the decoders again.
 
 A new recipe goes into `src/recipe.rs` with the tools a census of it has to
 name, and into the record by a run with `--record`; the two are committed
-together. A recipe on which the decoders disagree is still a recipe, and the
-disagreement is in the record: `filter-at-restart` is there because FFmpeg
-reads it otherwise than `truehdd` and Dolby's decoder do, and
-`bypass-over-step` because Dolby's decoder reads it otherwise than the other
-two. Recording needs the Dolby Reference Player for those: without it each
-has one decoder behind it and the tool writes nothing.
+together. A recipe on which the decoders disagree is still a recipe while
+two of them give its samples, and the disagreement is in the record:
+`filter-at-restart` and `output-shift-down` are there because FFmpeg reads
+them otherwise than `truehdd` and Dolby's decoder do. Recording needs the
+Dolby Reference Player: for those and a few others it is one of the two, and
+without it the tool writes nothing.
 
 The crate has a second list, `PROBES`: streams that go past a bound of the
 format or into a field whose meaning is not public (`docs/truehd.md`,

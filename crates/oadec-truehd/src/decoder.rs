@@ -554,7 +554,12 @@ impl Core {
                         for ch in 0..=mmc + 2 {
                             acc += i64::from(row[ch]) * i64::from(sd.m[pmi][ch]);
                         }
-                        row[out_ch] = matrix_output(acc, ss.quant_step_size[out_ch], lsb[pmi]);
+                        row[out_ch] = matrix_output(
+                            acc,
+                            ss.quant_step_size[out_ch],
+                            lsb[pmi],
+                            ss.lsb_bypass_used[pmi],
+                        );
                     }
                 }
                 SYNC_B => {
@@ -569,7 +574,8 @@ impl Core {
                             let index = (matrices - pmi) * (2 * n + 1) + n;
                             acc += i64::from(sd.dither_table[index & table_mask]) << (11 + scale);
                         }
-                        row[out_ch] = matrix_output(acc, ss.quant_step_size[out_ch], lsb[pmi]);
+                        row[out_ch] =
+                            matrix_output(acc, ss.quant_step_size[out_ch], lsb[pmi], false);
                     }
                 }
                 _ => {
@@ -588,7 +594,8 @@ impl Core {
                             acc += i64::from(sd.dither_table[index & table_mask]) << (11 + scale);
                         }
                         acc += (acc_delta >> MATRIX_FRAC) * n as i64 * (recip << 2);
-                        row[out_ch] = matrix_output(acc, ss.quant_step_size[out_ch], lsb[pmi]);
+                        row[out_ch] =
+                            matrix_output(acc, ss.quant_step_size[out_ch], lsb[pmi], false);
                     }
                 }
             }
@@ -610,11 +617,25 @@ impl Core {
     }
 }
 
-/// Final value of a matrix output: 18 fractional bits removed, quantiser step
-/// bits cleared, bypassed LSBs added.
+/// Final value of a matrix output: 18 fractional bits removed, the bits under
+/// the quantiser step cleared, the bypassed LSBs added.
+///
+/// `uncut` leaves the cut out. A matrix of a `0x31EA` substream that sends a
+/// bypassed LSB is not cut to the step of its channel: Dolby's decoder gives
+/// the sum as it is with the bit added, on every sample of streams written to
+/// ask it (`docs/truehd.md`, *A bypassed bit over a quantiser step*). No real
+/// stream has a matrix with both a bypassed bit and a step, so nothing but a
+/// written stream can tell the two readings apart. The other two kinds of
+/// substream have not been put to Dolby's decoder and are cut as before.
 #[inline]
-fn matrix_output(acc: i64, qss: u32, bypassed_lsb: i32) -> i32 {
-    (((acc >> MATRIX_FRAC) as i32) & !((1i32 << qss) - 1)).wrapping_add(bypassed_lsb)
+fn matrix_output(acc: i64, qss: u32, bypassed_lsb: i32, uncut: bool) -> i32 {
+    let sum = (acc >> MATRIX_FRAC) as i32;
+    let sum = if uncut {
+        sum
+    } else {
+        sum & !((1i32 << qss) - 1)
+    };
+    sum.wrapping_add(bypassed_lsb)
 }
 
 /// Decoder for one presentation of a TrueHD stream.
@@ -1181,11 +1202,31 @@ mod tests {
     }
 
     #[test]
-    fn matrix_output_rounds_masks_and_adds_bypassed_bits() {
-        assert_eq!(matrix_output(5 << 18, 0, 0), 5);
-        assert_eq!(matrix_output((5 << 18) + 1, 0, 0), 5);
-        assert_eq!(matrix_output(-1, 0, 0), -1);
-        assert_eq!(matrix_output(0b10111 << 18, 2, 0b01), 0b10101);
+    fn matrix_output_rounds_cuts_and_adds_bypassed_bits() {
+        assert_eq!(matrix_output(5 << 18, 0, 0, false), 5);
+        assert_eq!(matrix_output((5 << 18) + 1, 0, 0, false), 5);
+        assert_eq!(matrix_output(-1, 0, 0, false), -1);
+        // cut to a quantiser step of two bits
+        assert_eq!(matrix_output(0b10111 << 18, 2, 0, false), 0b10100);
+        // cut, and then the bits sent apart: the two kinds of substream
+        // where nothing else has been measured
+        assert_eq!(matrix_output(0b10111 << 18, 2, 0b01, false), 0b10101);
+    }
+
+    /// A matrix of a 0x31EA substream that sends a bypassed bit is not cut to
+    /// the quantiser step: the sum as it is, and the bit. With the bit clear
+    /// too, which is what tells "not cut" from "the bit put where the cut
+    /// left room".
+    #[test]
+    fn a_matrix_that_sends_a_bypassed_bit_is_not_cut_to_the_step() {
+        assert_eq!(matrix_output(0b10111 << 18, 2, 0b01, true), 0b11000);
+        assert_eq!(matrix_output(0b10111 << 18, 2, 0, true), 0b10111);
+        assert_eq!(matrix_output(0b10100 << 18, 2, 0b01, true), 0b10101);
+        // without a step there is nothing to cut either way
+        assert_eq!(
+            matrix_output(0b10111 << 18, 0, 0b01, true),
+            matrix_output(0b10111 << 18, 0, 0b01, false)
+        );
     }
 
     #[test]

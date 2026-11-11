@@ -359,16 +359,11 @@ fn bypassed_bits_steps_shifts_and_assignments_come_back() {
     let n = units * layout.samples_per_unit();
     // the outputs: the left shifted up by 2, the right by none; the coded
     // channel of the left output carries a quantiser step of 3 under a
-    // matrix that sends its lowest bit apart
-    let mut left = stepped(n, 10, 3, 23);
-    for (i, sample) in left.iter_mut().enumerate() {
-        *sample |= (i as i32 >> 2) & 1;
-    }
-    let left: Vec<i32> = left.iter().map(|s| s << 2).collect();
+    // matrix, and the matrix of the other channel sends its lowest bit apart
+    let left: Vec<i32> = stepped(n, 10, 3, 23).iter().map(|s| s << 2).collect();
     let pcm = vec![left, noise(n, 14, 24)];
     // coded channel 0 is the right output, coded channel 1 the left
-    let mut on_left = Matrix::new(1, 8, &[64, 1, 5, 0]);
-    on_left.bypass = true;
+    let on_left = Matrix::new(1, 8, &[64, 1, 5, 0]);
     let mut on_right = Matrix::new(0, 14, &[1, 0, 0, -8000]);
     on_right.bypass = true;
     let coding = vec![
@@ -386,6 +381,51 @@ fn bypassed_bits_steps_shifts_and_assignments_come_back() {
     assert!(decoded == pcm, "other samples");
     assert_eq!(stats.lossless_mismatches, 0);
     assert_eq!(stats.first_problem, None);
+}
+
+/// A matrix that sends its lowest bit apart is not cut to the quantiser step
+/// of its channel: the decoder gives the sum as it is, and the bit. So the
+/// output of such a matrix is a coded sample that keeps to its step, the
+/// share of the other channel, and the bit; and an output that could only
+/// come from a cut sum is one the writer cannot make.
+#[test]
+fn a_bypassed_bit_over_a_quantiser_step_is_not_cut() {
+    let layout = stereo(48_000);
+    let units = 16;
+    let n = units * layout.samples_per_unit();
+    let mut matrix = Matrix::new(0, 10, &[1, 300, 0, 0]);
+    matrix.bypass = true;
+    let coding = vec![
+        Coding {
+            step: 4,
+            ..Coding::default()
+        },
+        Coding::default(),
+    ];
+    let plans = vec![UnitPlan::uniform(&[40], &coding).matrixed(&[matrix]); units];
+    let right = noise(n, 14, 26);
+    let coded = stepped(n, 10, 4, 25);
+    let left: Vec<i32> = (0..n)
+        .map(|i| coded[i] + ((300 * right[i]) >> 10) + (i as i32 >> 1 & 1))
+        .collect();
+    // the share of the other channel shows under the step: the sum was not cut
+    assert!(left.iter().any(|sample| sample & 0b1110 != 0));
+    let pcm = vec![left, right.clone()];
+    let stream = write(&layout, &plans, &pcm).expect("the stream is written");
+    let (decoded, stats) = decode(&stream.bytes);
+    assert!(decoded == pcm, "other samples");
+    assert_eq!(stats.lossless_mismatches, 0);
+    assert_eq!(stats.first_problem, None);
+
+    // what a cut sum would have given, a multiple of the step and the bit,
+    // is no output of this matrix
+    let cut: Vec<i32> = (0..n).map(|i| coded[i] | (i as i32 >> 1 & 1)).collect();
+    refused(
+        &layout,
+        &plans,
+        &[cut, right],
+        "would need a coded sample with bits under its quantiser step of 4",
+    );
 }
 
 #[test]
