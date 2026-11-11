@@ -152,6 +152,14 @@ fn what_the_decoders_did_with_each_probe() {
             "probe-protected-counting-itself",
             r#"gave ["ffmpeg"], others [], refused ["truehdd", "dolby"]"#,
         ),
+        // a bypassed bit over a quantiser step: Dolby's decoder does not cut
+        // the sum, and this decoder follows it; the two public ones cut,
+        // FFmpeg's to other samples and truehdd to samples that fail its own
+        // check of them
+        (
+            "probe-bypass-over-step",
+            r#"gave ["dolby"], others ["ffmpeg"], refused ["truehdd"]"#,
+        ),
     ];
     let said: Vec<(&str, &str)> = said.iter().map(|(name, s)| (*name, s.as_str())).collect();
     assert_eq!(said, expected);
@@ -160,7 +168,9 @@ fn what_the_decoders_did_with_each_probe() {
 /// The decoder of this workspace reads every probe to its end and gives the
 /// samples the writer made it from: none of the bounds a probe steps past is
 /// one it stops at. Whether it should is another matter, and `verify` says
-/// of four of them that something is wrong.
+/// of four of them that something is wrong. For the bypassed bit over a
+/// quantiser step it means that writer and decoder have the same reading,
+/// which is Dolby's.
 #[test]
 fn the_decoder_reads_every_probe_to_the_samples_it_was_written_from() {
     for probe in PROBES {

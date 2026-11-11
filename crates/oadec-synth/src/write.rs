@@ -233,8 +233,8 @@ pub struct Matrix {
     /// in units of `2^-frac_bits`. The one on the channel the matrix writes
     /// is 1 or -1: a matrix can be undone exactly with no other.
     pub coefficients: Vec<i32>,
-    /// One more bit a sample, sent as it is and added after the sum
-    /// (`lsb_bypass_used`).
+    /// One more bit a sample, sent as it is and added to the sum, which is
+    /// then not cut to a quantiser step (`lsb_bypass_used`).
     pub bypass: bool,
 }
 
@@ -844,27 +844,43 @@ fn coded_samples(
                 .sum::<i64>()
                 >> 18;
             let keeps = matrix.coefficients[out] > 0;
-            let bypass = matrix.bypass;
-            // Under a quantiser step the sum is cut to the step before the
-            // bit is added, so the bit is the one the output has; without a
-            // step any bit can be sent.
-            let lsb = match (bypass, step) {
-                (false, _) => 0,
-                (true, 0) => run.next_bypass_bit(),
-                (true, _) => row[out] & 1,
+            // The decoder sums `own + others`, `own` being the channel kept
+            // or turned over, and does one of two things with the sum. A
+            // matrix that sends no bit cuts it to the quantiser step of its
+            // channel. A matrix that sends one adds the bit to the sum as it
+            // is, with no cut: that is what Dolby's decoder does, and no
+            // real stream has both to say otherwise. Either way `own` is a
+            // multiple of the step, as every coded sample is.
+            let (lsb, own) = if matrix.bypass {
+                // Without a step any bit can be sent. With one the bit is
+                // what makes `own` even, and the rest of `own` has to keep
+                // to the step by itself: the output of such a matrix is not
+                // free, it is a coded sample that keeps to its step, the
+                // share of the other channels and the bit.
+                let lsb = if step == 0 {
+                    run.next_bypass_bit()
+                } else {
+                    (row[out] - others) & 1
+                };
+                (lsb, row[out] - lsb - others)
+            } else {
+                if row[out] & !mask != 0 {
+                    return Err(format!(
+                        "channel {out}: {} has bits under a quantiser step of {step} at matrix {pmi}",
+                        row[out]
+                    ));
+                }
+                // only the part of `others` above the step comes through
+                // the cut
+                (0, row[out] - (others & mask))
             };
-            let sum = row[out] - lsb;
-            if sum & !mask != 0 {
+            if own & !mask != 0 {
                 return Err(format!(
-                    "channel {out}: {} has bits under a quantiser step of {step} at matrix {pmi}",
+                    "channel {out}: {} at matrix {pmi}, which sends a bypassed bit, would need a coded \
+                     sample with bits under its quantiser step of {step}",
                     row[out]
                 ));
             }
-            // The decoder gives `(own + others) & mask`, `own` being the
-            // channel kept or turned over. `own` is a multiple of the step
-            // as every coded sample is, so only the part of `others` above
-            // the step comes through the cut.
-            let own = sum - (others & mask);
             row[out] = if keeps { own } else { -own };
             bits[pmi] = lsb != 0;
         }
