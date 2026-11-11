@@ -55,6 +55,11 @@ const REPORTS: [&[&str]; 8] = [
     &["au", "--index", "0", "--json"],
 ];
 
+/// The streams whose census is recorded too, as text: one of each syntax and
+/// each encoder among the fixtures. The first carries all three restart sync
+/// words in its four substreams.
+const CENSUS_OF: [&str; 3] = ["authored-scene.mlp", "mlp-51-96k.mlp", "truehd-51-88k.thd"];
+
 const MASK: &str = "<masked>";
 
 fn manifest_dir() -> &'static Path {
@@ -222,6 +227,10 @@ fn transcript(stream: &str) -> String {
         let mut args = report.to_vec();
         args.push(&path);
         section(&mut t, &args, None);
+        t.push('\n');
+    }
+    if CENSUS_OF.contains(&stream) {
+        section(&mut t, &["verify", "--census", &path], None);
         t.push('\n');
     }
     if is_truehd(stream) {

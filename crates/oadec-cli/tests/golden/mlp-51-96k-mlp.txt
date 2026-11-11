@@ -37,6 +37,14 @@ exit 0
     "twoch_dialogue_norm": 0,
     "twoch_mix_level": 0
   },
+  "coverage": [
+    "fir",
+    "huffman-1",
+    "huffman-2",
+    "huffman-offset",
+    "quantiser-step",
+    "output-shift"
+  ],
   "crc_present_units": [
     120,
     0,
@@ -260,6 +268,7 @@ Sync:              0 resyncs, 0 skipped bytes, 0 trailing bytes
 Substream 0:       120 segments (0 skipped), 8 restart headers [0x31EA x8], channels 0..=5 (matrix 5), error_protect false
                    128 blocks (max 2 per segment, 0 protected), 0 matrixing (0 interpolated), up to 0 matrices, 120 CRC segments, 0 terminated (0 with zero samples)
 Substream checks:  0 parse errors, 0 block bit-count mismatches, 0 parity failures, 0 CRC failures, 0 end-pointer mismatches, 0 sample-count mismatches, 0 restart flag mismatches, 0 bad terminators, 0 unexpected tails
+Coding tools:      fir, huffman-1, huffman-2, huffman-offset, quantiser-step, output-shift
 Timing:            0 input timing jumps, 0 output timing jumps, 0 valid seamless branches, 0 invalid branches, 0 duplicate candidates, 0 peak rate changes
 Buffer:            delay up to 80 samples (0.8 ms, au 0); delivery up to 3.878 Mbit/s (au 112)
                    substream depth 550/90000 bytes; decoders p0 590, p1 590; stream 590/120000 bytes
@@ -317,6 +326,14 @@ exit 0
     }
   },
   "clean": true,
+  "coverage": [
+    "fir",
+    "huffman-1",
+    "huffman-2",
+    "huffman-offset",
+    "quantiser-step",
+    "output-shift"
+  ],
   "crc_present_units": [
     120,
     0,
@@ -577,6 +594,14 @@ exit 0
     }
   },
   "clean": true,
+  "coverage": [
+    "fir",
+    "huffman-1",
+    "huffman-2",
+    "huffman-offset",
+    "quantiser-step",
+    "output-shift"
+  ],
   "crc_present_units": [
     120,
     0,
@@ -1003,6 +1028,35 @@ exit 0
   ],
   "unit": 0
 }
+
+$ oadec verify --census tests/fixtures/mlp-51-96k.mlp
+exit 0
+[stdout]
+File:              tests/fixtures/mlp-51-96k.mlp
+Access units:      120 (8 major syncs, 21916 bytes)
+Header parity:     0 failures
+Major sync CRC:    0 failures, 0 bad signatures
+Framing:           0 errors, 0 configuration changes
+Extra data:        0 header parity failures, 0 truncated, 0 Evolution parity failures, 0 non-zero padding, 0 container errors
+Sync:              0 resyncs, 0 skipped bytes, 0 trailing bytes
+Substream 0:       120 segments (0 skipped), 8 restart headers [0x31EA x8], channels 0..=5 (matrix 5), error_protect false
+                   128 blocks (max 2 per segment, 0 protected), 0 matrixing (0 interpolated), up to 0 matrices, 120 CRC segments, 0 terminated (0 with zero samples)
+Substream checks:  0 parse errors, 0 block bit-count mismatches, 0 parity failures, 0 CRC failures, 0 end-pointer mismatches, 0 sample-count mismatches, 0 restart flag mismatches, 0 bad terminators, 0 unexpected tails
+Coding tools:      fir, huffman-1, huffman-2, huffman-offset, quantiser-step, output-shift
+Timing:            0 input timing jumps, 0 output timing jumps, 0 valid seamless branches, 0 invalid branches, 0 duplicate candidates, 0 peak rate changes
+Buffer:            delay up to 80 samples (0.8 ms, au 0); delivery up to 3.878 Mbit/s (au 112)
+                   substream depth 550/90000 bytes; decoders p0 590, p1 590; stream 590/120000 bytes
+Disc:              BD no, HD DVD no, DVD-A yes
+                   Blu-ray carries the FBA syntax; this stream is not FBA
+                   HD DVD takes an FBB stream with both its two- and its six-channel presentations; this one has one
+Census:            major sync: major_syncs 8, fbb_major_syncs 8, flag_bits {14: 8}, variable_rate 8, directory_entries 120
+                   substream 0 restart: headers 8, sync_31ea 8, max_shift {7: 8}, max_lsbs {8: 4, 9: 3, 24: 1}, max_bits {21: 8}, dither_shift {0: 8}, coded_channels {6: 8}, matrix_channels {6: 8}
+                   substream 0 block: blocks 128, headers 28, block_size_sent {8: 8, 72: 8, 80: 8}, block_size {8: 8, 72: 8, 80: 112}, output_shift_sent {7: 48}, quant_step_size_sent {1: 48}, quant_step_size {1: 768}
+                   substream 0 filter: fir_sent {2: 1, 4: 3, 5: 3, 6: 2, 7: 12, 8: 27}, fir_order {0: 48, 2: 16, 4: 48, 5: 40, 6: 32, 7: 168, 8: 416}, iir_order {0: 768}, coeff_q_sent {12: 22, 13: 25, 14: 1}, coeff_bits_sent {15: 48}, coeff_shift_sent {0: 48}
+                   substream 0 entropy: huff_type_sent {0: 3, 1: 43, 2: 122}, huff_type {0: 13, 1: 43, 2: 712}, huff_lsbs_sent {1: 117, 3: 5, 4: 4, 5: 2, 6: 3, 7: 21, 8: 13, 9: 3}, huff_offset_sent 96, huff_offset_bits_sent {0: 48, 7: 2, 9: 11, 10: 14, 12: 21}
+                   substream 0 matrix: primitive_matrices {0: 128}
+Speed:             <masked>
+Result:            CLEAN
 
 $ oadec decode tests/fixtures/mlp-51-96k.mlp -p 0 --format pcm -o <out>/p0.pcm
 exit 0

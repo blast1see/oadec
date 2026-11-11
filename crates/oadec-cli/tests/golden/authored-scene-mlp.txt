@@ -44,6 +44,26 @@ exit 0
     "twoch_dialogue_norm": 32,
     "twoch_mix_level": 29
   },
+  "coverage": [
+    "fir",
+    "iir",
+    "fir-with-iir",
+    "iir-states",
+    "coefficient-shift",
+    "huffman-1",
+    "huffman-2",
+    "huffman-3",
+    "huffman-offset",
+    "output-shift",
+    "matrixing",
+    "lsb-bypass",
+    "dither-scale",
+    "matrix-shift-code",
+    "matrix-interpolation",
+    "channel-reassignment",
+    "hires-output-timing",
+    "drc-update"
+  ],
   "crc_present_units": [
     2400,
     2400,
@@ -328,6 +348,7 @@ Substream 2:       2400 segments (0 skipped), 22 restart headers [0x31EB x22], c
 Substream 3:       2400 segments (0 skipped), 22 restart headers [0x31EC x22], channels 8..=11 (matrix 11), error_protect false
                    2422 blocks (max 2 per segment, 0 protected), 143 matrixing (124 interpolated), up to 9 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
 Substream checks:  0 parse errors, 0 block bit-count mismatches, 0 parity failures, 0 CRC failures, 0 end-pointer mismatches, 0 sample-count mismatches, 0 restart flag mismatches, 0 bad terminators, 0 unexpected tails
+Coding tools:      fir, iir, fir-with-iir, iir-states, coefficient-shift, huffman-1, huffman-2, huffman-3, huffman-offset, output-shift, matrixing, lsb-bypass, dither-scale, matrix-shift-code, matrix-interpolation, channel-reassignment, hires-output-timing, drc-update
 Timing:            0 input timing jumps, 0 output timing jumps, 0 valid seamless branches, 0 invalid branches, 0 duplicate candidates, 0 peak rate changes
 Buffer:            delay up to 3580 samples (74.6 ms, au 1128); delivery up to 2.850 Mbit/s (au 1259)
                    substream depth 7594/30000, 9782/60000, 4334/30000, 8984/60000 bytes; decoders p0 8188, p1 18116, p2 22596, p3 27160; stream 27160/120000 bytes
@@ -411,6 +432,26 @@ exit 0
     }
   },
   "clean": true,
+  "coverage": [
+    "fir",
+    "iir",
+    "fir-with-iir",
+    "iir-states",
+    "coefficient-shift",
+    "huffman-1",
+    "huffman-2",
+    "huffman-3",
+    "huffman-offset",
+    "output-shift",
+    "matrixing",
+    "lsb-bypass",
+    "dither-scale",
+    "matrix-shift-code",
+    "matrix-interpolation",
+    "channel-reassignment",
+    "hires-output-timing",
+    "drc-update"
+  ],
   "crc_present_units": [
     2400,
     2400,
@@ -729,6 +770,26 @@ exit 0
     }
   },
   "clean": true,
+  "coverage": [
+    "fir",
+    "iir",
+    "fir-with-iir",
+    "iir-states",
+    "coefficient-shift",
+    "huffman-1",
+    "huffman-2",
+    "huffman-3",
+    "huffman-offset",
+    "output-shift",
+    "matrixing",
+    "lsb-bypass",
+    "dither-scale",
+    "matrix-shift-code",
+    "matrix-interpolation",
+    "channel-reassignment",
+    "hires-output-timing",
+    "drc-update"
+  ],
   "crc_present_units": [
     2400,
     2400,
@@ -1396,6 +1457,56 @@ exit 0
   ],
   "unit": 0
 }
+
+$ oadec verify --census tests/fixtures/authored-scene.mlp
+exit 0
+[stdout]
+File:              tests/fixtures/authored-scene.mlp
+Access units:      2400 (22 major syncs, 546456 bytes)
+Header parity:     0 failures
+Major sync CRC:    0 failures, 0 bad signatures
+Framing:           0 errors, 0 configuration changes
+Extra data:        0 header parity failures, 0 truncated, 0 Evolution parity failures, 0 non-zero padding, 0 container errors
+Object metadata:   63 payloads parsed, 0 errors; 0 non-unity gains {}, 0 mutes, 0 non-zero sizes
+Sync:              0 resyncs, 0 skipped bytes, 0 trailing bytes
+Substream 0:       2400 segments (0 skipped), 22 restart headers [0x31EA x22], channels 0..=1 (matrix 1), error_protect false
+                   2422 blocks (max 2 per segment, 0 protected), 26 matrixing (0 interpolated), up to 2 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
+Substream 1:       2400 segments (0 skipped), 22 restart headers [0x31EB x22], channels 2..=5 (matrix 5), error_protect false
+                   2422 blocks (max 2 per segment, 0 protected), 30 matrixing (0 interpolated), up to 6 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
+Substream 2:       2400 segments (0 skipped), 22 restart headers [0x31EB x22], channels 6..=7 (matrix 7), error_protect false
+                   2422 blocks (max 2 per segment, 0 protected), 44 matrixing (0 interpolated), up to 8 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
+Substream 3:       2400 segments (0 skipped), 22 restart headers [0x31EC x22], channels 8..=11 (matrix 11), error_protect false
+                   2422 blocks (max 2 per segment, 0 protected), 143 matrixing (124 interpolated), up to 9 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
+Substream checks:  0 parse errors, 0 block bit-count mismatches, 0 parity failures, 0 CRC failures, 0 end-pointer mismatches, 0 sample-count mismatches, 0 restart flag mismatches, 0 bad terminators, 0 unexpected tails
+Coding tools:      fir, iir, fir-with-iir, iir-states, coefficient-shift, huffman-1, huffman-2, huffman-3, huffman-offset, output-shift, matrixing, lsb-bypass, dither-scale, matrix-shift-code, matrix-interpolation, channel-reassignment, hires-output-timing, drc-update
+Timing:            0 input timing jumps, 0 output timing jumps, 0 valid seamless branches, 0 invalid branches, 0 duplicate candidates, 0 peak rate changes
+Buffer:            delay up to 3580 samples (74.6 ms, au 1128); delivery up to 2.850 Mbit/s (au 1259)
+                   substream depth 7594/30000, 9782/60000, 4334/30000, 8984/60000 bytes; decoders p0 8188, p1 18116, p2 22596, p3 27160; stream 27160/120000 bytes
+Disc:              BD yes, HD DVD yes, DVD-A no
+                   DVD-Audio carries the FBB syntax; this stream is FBA
+Census:            major sync: major_syncs 22, flag_bits {12: 22}, twoch_channel_modifier {0: 22}, sixch_channel_modifier {1: 22}, eightch_channel_modifier {0: 22}, variable_rate 22, extra_channel_meaning 22, dyn_object_only 22, content_description {0: 22}, directory_entries 9600, directory_reserved 1110, directory_extra_words 80
+                   substream 0 restart: headers 22, sync_31ea 22, hires_output_timing 7, max_shift {5: 22}, max_lsbs {10: 1, 11: 5, 12: 10, 13: 3, 14: 3}, max_bits {20: 22}, dither_shift {0: 22}, coded_channels {2: 22}, matrix_channels {2: 22}
+                   substream 0 block: blocks 2422, headers 323, block_size_sent {32: 22, 40: 22}, block_size {8: 22, 32: 22, 40: 2378}, output_shift_sent {4: 144, 5: 144}, quant_step_size {0: 4844}
+                   substream 0 filter: fir_sent {4: 1, 6: 4, 8: 39}, iir_sent {2: 5}, fir_order {0: 44, 4: 38, 6: 396, 8: 4366}, iir_order {0: 4410, 2: 434}, fir_and_iir 434, coeff_q_sent {8: 11, 13: 38}, coeff_bits_sent {8: 1, 9: 4, 10: 6, 16: 38}, coeff_shift_sent {0: 43, 1: 1, 2: 5}, iir_states_sent 5, state_bits_sent {8: 4, 10: 1}, state_shift_sent {0: 5}
+                   substream 0 entropy: huff_type_sent {0: 57, 1: 122, 2: 76, 3: 18}, huff_type {0: 87, 1: 1985, 2: 2750, 3: 22}, huff_lsbs_sent {0: 33, 1: 90, 2: 28, 3: 2, 4: 3, 5: 5, 6: 8, 7: 17, 8: 7, 9: 13, 10: 24, 11: 13, 12: 23, 13: 4, 14: 3}, huff_offset_sent 81, huff_offset_bits_sent {0: 28, 1: 1, 5: 1, 6: 7, 7: 13, 8: 13, 9: 1, 10: 1, 12: 5, 13: 6, 14: 5}
+                   substream 0 matrix: sent 26, coefficients_sent 26, configurations_sent 26, primitive_matrices_sent {2: 26}, primitive_matrices {2: 2422}, frac_bits_sent {11: 1, 13: 6, 14: 45}, self_coefficient_other_sent 52
+                   substream 1 restart: headers 22, sync_31eb 22, hires_output_timing 7, max_shift {5: 22}, max_lsbs {11: 1, 12: 6, 13: 6, 14: 5, 15: 4}, max_bits {20: 19, 21: 3}, dither_shift {0: 22}, coded_channels {4: 22}, matrix_channels {6: 22}, ch_assign_reordered 22
+                   substream 1 block: blocks 2422, headers 444, block_size_sent {32: 22, 40: 22}, block_size {8: 22, 32: 22, 40: 2378}, output_shift_sent {0: 6, 1: 12, 2: 72, 3: 284, 4: 346, 5: 144}, quant_step_size {0: 9688}
+                   substream 1 filter: fir_sent {5: 2, 6: 8, 7: 1, 8: 55}, iir_sent {1: 5, 2: 2}, fir_order {0: 2488, 5: 176, 6: 820, 7: 13, 8: 6191}, iir_order {0: 8906, 1: 622, 2: 160}, fir_and_iir 782, coeff_q_sent {8: 11, 11: 5, 12: 1, 13: 56}, coeff_bits_sent {3: 1, 5: 2, 6: 1, 7: 4, 8: 1, 9: 2, 10: 3, 11: 1, 14: 5, 15: 1, 16: 52}, coeff_shift_sent {0: 61, 1: 3, 2: 1, 3: 1, 4: 1, 5: 2, 7: 4}, iir_states_sent 7, state_bits_sent {1: 1, 3: 1, 5: 2, 7: 1, 8: 1, 9: 1}, state_shift_sent {0: 7}
+                   substream 1 entropy: huff_type_sent {0: 102, 1: 207, 2: 142, 3: 33}, huff_type {0: 2540, 1: 4086, 2: 3022, 3: 40}, huff_lsbs_sent {0: 23, 1: 170, 2: 106, 3: 6, 4: 29, 5: 6, 6: 21, 7: 10, 8: 6, 9: 21, 10: 22, 11: 22, 12: 21, 13: 11, 14: 6, 15: 4}, huff_offset_sent 95, huff_offset_bits_sent {0: 41, 2: 5, 3: 13, 5: 4, 6: 1, 7: 1, 8: 3, 9: 2, 10: 2, 11: 1, 12: 4, 13: 4, 14: 14}
+                   substream 1 matrix: sent 30, coefficients_sent 30, configurations_sent 30, primitive_matrices_sent {6: 30}, primitive_matrices {6: 2422}, frac_bits_sent {0: 34, 13: 5, 14: 141}, dither_scale_sent {0: 180}, self_coefficient_unit_sent 30, self_coefficient_other_sent 150
+                   substream 2 restart: headers 22, sync_31eb 22, hires_output_timing 7, max_shift {5: 22}, max_lsbs {0: 8, 11: 2, 12: 3, 13: 1, 14: 8}, max_bits {20: 19, 21: 3}, dither_shift {0: 22}, coded_channels {2: 22}, matrix_channels {8: 22}, ch_assign_reordered 22
+                   substream 2 block: blocks 2422, headers 240, block_size_sent {32: 22, 40: 22}, block_size {8: 22, 32: 22, 40: 2378}, output_shift_sent {0: 6, 1: 12, 2: 42, 3: 578, 4: 336, 5: 178}, quant_step_size {0: 4844}
+                   substream 2 filter: fir_sent {6: 5, 8: 9}, iir_sent {2: 4}, fir_order {0: 3411, 6: 349, 8: 1084}, iir_order {0: 4508, 2: 336}, fir_and_iir 336, coeff_q_sent {8: 9, 13: 9}, coeff_bits_sent {7: 4, 10: 2, 11: 2, 12: 1, 16: 9}, coeff_shift_sent {0: 13, 1: 1, 3: 4}, iir_states_sent 4, state_bits_sent {8: 2, 10: 2}, state_shift_sent {0: 4}
+                   substream 2 entropy: huff_type_sent {0: 58, 1: 45, 2: 28, 3: 18}, huff_type {0: 3570, 1: 716, 2: 539, 3: 19}, huff_lsbs_sent {0: 30, 1: 31, 2: 20, 3: 2, 4: 1, 5: 2, 6: 3, 7: 6, 8: 10, 9: 3, 10: 6, 11: 21, 12: 5, 13: 1, 14: 8}, huff_offset_sent 33, huff_offset_bits_sent {0: 14, 6: 1, 7: 5, 8: 3, 10: 1, 13: 1, 14: 8}
+                   substream 2 matrix: sent 44, coefficients_sent 44, configurations_sent 44, primitive_matrices_sent {8: 44}, primitive_matrices {8: 2422}, frac_bits_sent {0: 48, 13: 14, 14: 290}, dither_scale_sent {0: 352}, self_coefficient_unit_sent 44, self_coefficient_other_sent 308
+                   substream 3 restart: headers 22, sync_31ec 22, hires_output_timing 7, max_shift {4: 22}, max_lsbs {9: 2, 10: 3, 11: 4, 12: 2, 13: 2, 14: 2, 15: 3, 16: 2, 17: 1, 18: 1}, max_bits {20: 19, 21: 3}, dither_shift {0: 22}, coded_channels {4: 22}, matrix_channels {12: 22}, ch_assign_reordered 22
+                   substream 3 block: blocks 2422, headers 517, block_size_sent {32: 22, 40: 22}, block_size {8: 22, 32: 22, 40: 2378}, output_shift_sent {4: 1728}, quant_step_size {0: 9688}
+                   substream 3 filter: fir_sent {4: 1, 5: 2, 6: 5, 7: 4, 8: 14}, iir_sent {1: 3, 2: 5}, fir_order {0: 6821, 4: 116, 5: 129, 6: 537, 7: 484, 8: 1601}, iir_order {0: 8907, 1: 357, 2: 424}, fir_and_iir 781, coeff_q_sent {8: 9, 9: 4, 10: 2, 12: 6, 13: 11, 14: 2}, coeff_bits_sent {4: 1, 6: 1, 7: 4, 8: 4, 10: 3, 11: 2, 12: 1, 13: 1, 14: 1, 15: 2, 16: 14}, coeff_shift_sent {0: 21, 1: 1, 2: 6, 3: 2, 4: 1, 6: 1, 7: 2}, iir_states_sent 8, state_bits_sent {1: 1, 2: 1, 4: 1, 7: 1, 9: 1, 10: 1, 11: 2}, state_shift_sent {0: 8}
+                   substream 3 entropy: huff_type_sent {0: 350, 1: 111, 2: 49, 3: 24}, huff_type {0: 7369, 1: 1829, 2: 462, 3: 28}, huff_lsbs_sent {0: 81, 1: 34, 2: 19, 3: 9, 4: 39, 5: 101, 6: 55, 7: 20, 8: 44, 9: 40, 10: 23, 11: 15, 12: 16, 13: 15, 14: 14, 15: 5, 16: 2, 17: 1, 18: 1}, huff_offset_sent 209, huff_offset_bits_sent {0: 54, 1: 2, 2: 5, 3: 9, 4: 27, 5: 40, 6: 29, 7: 10, 8: 3, 9: 4, 10: 7, 11: 4, 12: 6, 13: 6, 14: 3}
+                   substream 3 matrix: sent 143, coefficients_sent 143, configurations_sent 91, primitive_matrices_sent {7: 3, 8: 68, 9: 20}, primitive_matrices {7: 8, 8: 729, 9: 1685}, frac_bits_sent {5: 17, 6: 7, 7: 4, 13: 11, 14: 706}, lsb_bypass_sent 34, lsb_bypass_bit_count_sent {0: 711, 1: 25, 2: 9}, dither_scale_sent {0: 28, 1: 683, 2: 25, 3: 9}, cf_shift_code_sent {-1: 4, 0: 363, 1: 235, 2: 135, 3: 8}, self_coefficient_unit_sent 1117, self_coefficient_power_of_two_sent 49, interpolation_sent 124, deltas_sent 124, delta_configurations_sent 120, delta_bits_sent {0: 20, 1: 7, 2: 17, 3: 19, 4: 6, 5: 14, 6: 14, 7: 24, 8: 25, 9: 22, 10: 47, 11: 60, 12: 143, 13: 211, 14: 203, 15: 140}, delta_precision_sent {0: 25, 1: 27, 2: 89, 3: 831}, interpolated_blocks 733
+Speed:             <masked>
+Result:            CLEAN
 
 $ oadec decode tests/fixtures/authored-scene.mlp -p 0 --format pcm -o <out>/p0.pcm
 exit 0

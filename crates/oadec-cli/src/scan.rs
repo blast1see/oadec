@@ -266,6 +266,13 @@ pub struct Scan {
     /// over. Not a fault by itself: the damage that exposed one is counted
     /// where it was found.
     pub foreign_syncs: u64,
+    /// The parts of the syntax the stream is coded with, by name: what
+    /// [`oadec_truehd::Census::tools`] makes of the census below.
+    pub coverage: Vec<&'static str>,
+    /// How often each element of the syntax occurs, and with which values.
+    /// `verify --census` prints it.
+    #[serde(skip)]
+    pub census: oadec_truehd::Census,
     /// Every finding of the pass, by rule, with where each rule fired, and
     /// the damage regions they add up to.
     #[serde(skip)]
@@ -443,6 +450,8 @@ impl Scan {
             failures: Failures::default(),
             first_error: None,
             foreign_syncs: 0,
+            coverage: Vec::new(),
+            census: oadec_truehd::Census::default(),
             diag: Diagnostics::new(max_per_rule),
             branches_judged: 0,
             program_from_sync: None,
@@ -573,6 +582,7 @@ impl Scan {
             }
         };
         self.diag.substreams = config.substreams;
+        self.census.take_unit(&au);
         if self.first_input_timing.is_none() {
             self.first_input_timing = Some(au.header.input_timing);
         }
@@ -969,28 +979,37 @@ impl Scan {
                 self.substreams[i].skipped += 1;
                 continue;
             }
-            let seg =
-                match Segment::parse_located(bytes, parser, i, entry.crc_present, &mut self.buffer)
-                {
-                    Ok(seg) => seg,
-                    Err((e, bit)) => {
-                        fault(
-                            &mut self.failures,
-                            &mut self.diag,
-                            RuleId::SegmentSyntax,
-                            at_seg.at_bit(unit.offset + range.start as u64, bit),
-                            || e.to_string(),
-                        );
-                        note_first(&mut self.first_error, || {
-                            format!(
-                                "access unit {index} at byte {}: substream {i}: {e}",
-                                unit.offset
-                            )
-                        });
-                        parser.substream[i].restart_seen = false;
-                        continue;
-                    }
-                };
+            let census = &mut self.census;
+            let seg = match Segment::parse_located_with(
+                bytes,
+                parser,
+                i,
+                entry.crc_present,
+                &mut self.buffer,
+                |block, state, _| {
+                    census.take_block(i, block, &state.substream[i]);
+                    Ok(())
+                },
+            ) {
+                Ok(seg) => seg,
+                Err((e, bit)) => {
+                    fault(
+                        &mut self.failures,
+                        &mut self.diag,
+                        RuleId::SegmentSyntax,
+                        at_seg.at_bit(unit.offset + range.start as u64, bit),
+                        || e.to_string(),
+                    );
+                    note_first(&mut self.first_error, || {
+                        format!(
+                            "access unit {index} at byte {}: substream {i}: {e}",
+                            unit.offset
+                        )
+                    });
+                    parser.substream[i].restart_seen = false;
+                    continue;
+                }
+            };
             if let (Some(model), Some(rh)) = (
                 self.timing.as_mut(),
                 seg.blocks.first().and_then(|b| b.restart.as_ref()),
@@ -1189,6 +1208,7 @@ impl Scan {
         self.failures.trailing_bytes = summary.trailing_bytes;
         self.failures.major_sync_crc += summary.stats.major_sync_crc_failures;
         self.foreign_syncs = summary.stats.foreign_syncs;
+        self.coverage = self.census.tools();
         if self.min_unit_bytes == usize::MAX {
             self.min_unit_bytes = 0;
         }
