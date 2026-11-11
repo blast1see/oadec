@@ -340,6 +340,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "oadec-bench"
+version = "0.8.0"
+dependencies = [
+ "oadec-eac3",
+ "oadec-joc",
+ "oadec-truehd",
+]
+
+[[package]]
 name = "oadec-bits"
 version = "0.8.0"
 dependencies = [
