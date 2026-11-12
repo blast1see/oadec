@@ -490,6 +490,19 @@ Semantic Versioning.
 
 ### Fixed
 
+- **A second repair of a stream's checksums still reported a change.** A
+  restart header that runs into the two bytes that close its segment has its
+  CRC in bits the trailer is written over. `oadec_truehd::Repairer` wrote
+  both, the second over the first: the bytes settled, and every further
+  repair wrote the CRC again, wrote the trailer back over it and reported one
+  of each. Those bytes are the trailer's now, and the CRC of such a header is
+  left alone. libFuzzer found it in ninety seconds, in a unit no test had:
+  the first segment of a fixture cut to nine words. A test cuts the first
+  segment of every fixture unit to every length and repairs each twice, 1 175
+  units, and the input the fuzzer found is kept and put to its target again
+  with every `cargo test`. No command that reads a stream uses the repair,
+  and on a sound stream it changes no byte, as before
+  (`docs/audit/evidence/engine-round-2026-11/25-a-second-repair.json`).
 - **`verify` and `oamd` called a stream clean that an object decode exited 7
   on.** An object output puts every Object Audio Metadata payload on a
   timeline, which refuses one without an object element and one that

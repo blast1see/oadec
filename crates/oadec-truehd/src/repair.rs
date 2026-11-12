@@ -203,9 +203,10 @@ impl Repairer {
                 // it has to be, and reads on past one that is wrong.
                 parser.crc_sites = Some(Vec::new());
                 let parsed = Segment::parse(segment, parser, i, entry.crc_present, &mut self.buf);
-                for site in parser.crc_sites.take().unwrap_or_default() {
-                    done.restart_crcs += u32::from(put_at_bit(segment, site.bit, site.value));
-                }
+                let sites = parser.crc_sites.take().unwrap_or_default();
+                // Where the two bytes that close the segment are: where the
+                // parse read them, or, in a segment it could not read to its
+                // end, where the directory has them, which is the end.
                 let trailer = match &parsed {
                     Ok(read) => (read.len_bits / 8).checked_sub(2),
                     Err(_) => {
@@ -213,10 +214,19 @@ impl Repairer {
                         segment.len().checked_sub(2)
                     }
                 };
-                if entry.crc_present
-                    && let Some(at) = trailer
-                    && at + 2 <= segment.len()
-                {
+                let trailer = trailer.filter(|at| entry.crc_present && at + 2 <= segment.len());
+                for site in sites {
+                    // A header that runs into the bytes that close its
+                    // segment has its CRC in bits the trailer is written
+                    // over. The two cannot both hold, and written one over
+                    // the other they leave something to change on every run:
+                    // those bytes are the trailer's.
+                    if trailer.is_some_and(|at| site.bit + 8 > at * 8) {
+                        continue;
+                    }
+                    done.restart_crcs += u32::from(put_at_bit(segment, site.bit, site.value));
+                }
+                if let Some(at) = trailer {
                     let parity = xor_bytes(&segment[..at]) ^ PARITY_XOR;
                     let crc = CRC8_SUBSTREAM.update_bytes(CRC8_SUBSTREAM_INIT, &segment[..at]);
                     done.segment_trailers += u32::from(put(segment, at, &[parity, crc]));
@@ -632,5 +642,125 @@ mod tests {
         repairer.repair(&mut noise);
         assert_eq!(noise, before);
         assert_eq!(repair_stream(&mut []), (Repaired::default(), 0));
+    }
+
+    /// A restart header that runs into the two bytes that close its segment
+    /// has its CRC in bits the trailer is written over. The two cannot both
+    /// hold. The trailer is what the directory says those bytes are, so the
+    /// repair writes it and leaves the CRC of the header alone. It used to
+    /// write both, the second over the first, and so found something to
+    /// change on every run: a fuzzer found the unit this is, and a second
+    /// repair of it reported one restart CRC and one trailer.
+    #[test]
+    fn a_restart_crc_inside_the_trailer_of_its_segment_is_left_to_the_trailer() {
+        let path = format!(
+            "{}/../oadec-fuzz/found/truehd_unit_repaired/restart-crc-in-the-trailer.bin",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let mut unit = std::fs::read(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
+        let first = Repairer::new().repair(&mut unit);
+        assert!(first.any(), "the unit is not as the fuzzer left it");
+
+        // The case is in the unit: the segment of substream 0 cannot be read
+        // to its end, and the CRC of its restart header reaches into its last
+        // two bytes.
+        let (range, crc_present) = {
+            let (au, _) = AccessUnit::parse(&unit, None).expect("the unit is framed");
+            (au.segment_range(0), au.directory[0].crc_present)
+        };
+        let trailer = range.len() - 2;
+        let sites = {
+            let (_, config) = AccessUnit::parse(&unit, None).unwrap();
+            let mut parser = ParserState::new(&config);
+            parser.crc_sites = Some(Vec::new());
+            let mut buf = Box::<SampleBuffer>::default();
+            let parsed =
+                Segment::parse(&unit[range.clone()], &mut parser, 0, crc_present, &mut buf);
+            assert!(parsed.is_err() && crc_present);
+            parser.crc_sites.take().unwrap()
+        };
+        assert_eq!(sites.len(), 1);
+        assert!(
+            sites[0].bit + 8 > trailer * 8 && sites[0].bit < (trailer + 2) * 8,
+            "{sites:?} against a trailer at byte {trailer}"
+        );
+
+        // the trailer holds
+        let segment = &unit[range];
+        assert_eq!(
+            segment[trailer],
+            xor_bytes(&segment[..trailer]) ^ PARITY_XOR
+        );
+        assert_eq!(
+            segment[trailer + 1],
+            CRC8_SUBSTREAM.update_bytes(CRC8_SUBSTREAM_INIT, &segment[..trailer])
+        );
+
+        // and a second repair has nothing to do, and says so
+        let once = unit.clone();
+        let again = Repairer::new().repair(&mut unit);
+        assert!(!again.any(), "{again:?}");
+        assert_eq!(unit, once);
+    }
+
+    /// A segment cut short anywhere is repaired in one go. The end pointer of
+    /// the first substream of a unit is set to every length shorter than its
+    /// own, so that its blocks, and at some lengths its restart header, run
+    /// into the two bytes that close it, and what was cut off falls to the
+    /// substream after it or to the extra data. Whatever the length, a
+    /// repair leaves nothing for a second one to change.
+    #[test]
+    fn a_segment_cut_short_anywhere_is_repaired_in_one_go() {
+        let (mut cut, mut into_the_trailer) = (0, 0);
+        for name in FIXTURES {
+            let stream = fixture(name);
+            let unit = &stream[units(&stream)[0].clone()];
+            let sync = MajorSync::parse(&unit[4..]).expect("a first unit opens with a major sync");
+            // the first entry of the directory: four flags and twelve bits of
+            // end pointer, in words
+            let entry = 4 + sync.len_bytes;
+            let flags = unit[entry] & 0xF0;
+            let whole = u16::from_be_bytes([unit[entry], unit[entry + 1]]) & 0x0FFF;
+            for words in 1..whole {
+                let mut short = unit.to_vec();
+                short[entry] = flags | (words >> 8) as u8;
+                short[entry + 1] = words as u8;
+                let first = Repairer::new().repair(&mut short);
+                let once = short.clone();
+                let again = Repairer::new().repair(&mut short);
+                assert!(
+                    !again.any() && short == once,
+                    "{name} cut to {words} words: {first:?}, then {again:?}"
+                );
+                cut += 1;
+
+                // the lengths this is about: a restart CRC in the trailer
+                let Ok((au, config)) = AccessUnit::parse(&short, None) else {
+                    continue;
+                };
+                let (range, crc_present) = (au.segment_range(0), au.directory[0].crc_present);
+                let mut parser = ParserState::new(&config);
+                parser.crc_sites = Some(Vec::new());
+                let mut buf = Box::<SampleBuffer>::default();
+                let _ =
+                    Segment::parse(&short[range.clone()], &mut parser, 0, crc_present, &mut buf);
+                let trailer = range.len() - 2;
+                if crc_present
+                    && parser
+                        .crc_sites
+                        .take()
+                        .unwrap()
+                        .iter()
+                        .any(|site| site.bit + 8 > trailer * 8)
+                {
+                    into_the_trailer += 1;
+                }
+            }
+        }
+        println!("{cut} cuts, {into_the_trailer} of them with a restart CRC in the trailer");
+        assert!(cut > 1000, "{cut} cuts");
+        // seven of the nine fixtures close their segments with a parity byte
+        // and a CRC, and each has a length at which this happens
+        assert!(into_the_trailer >= 5, "{into_the_trailer}");
     }
 }

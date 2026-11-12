@@ -84,6 +84,42 @@ fn run(name: &str) {
     }
 }
 
+/// The inputs a fuzzer broke a target with are kept beside the crate, under
+/// the name of the target, and each is put to its target again:
+/// `found/README.md` says what each is. A libFuzzer run that finds something
+/// leaves its input as an artifact of the run, and this is where it goes
+/// once what it found is put right.
+#[test]
+fn the_inputs_a_fuzzer_found_still_hold() {
+    let dir = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/found"));
+    let mut replayed = 0;
+    for entry in std::fs::read_dir(dir).expect("the inputs that were found") {
+        let path = entry.expect("an entry").path();
+        if !path.is_dir() {
+            continue;
+        }
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        // a directory that is not the name of a target is inputs nobody replays
+        let (_, target) = TARGETS
+            .iter()
+            .find(|(known, _)| *known == name)
+            .unwrap_or_else(|| panic!("{name} is the name of no target"));
+        for input in std::fs::read_dir(&path).expect("the inputs of a target") {
+            let input = input.expect("an entry").path();
+            if input.extension().is_none_or(|e| e != "bin") {
+                continue;
+            }
+            let bytes = std::fs::read(&input).expect("an input");
+            if let Err(cause) = panic::catch_unwind(AssertUnwindSafe(|| target(&bytes))) {
+                eprintln!("{name} fails again on {}", input.display());
+                panic::resume_unwind(cause);
+            }
+            replayed += 1;
+        }
+    }
+    assert!(replayed >= 1, "nothing was replayed");
+}
+
 macro_rules! targets {
     ($($name:ident),* $(,)?) => {
         /// The targets this file runs.
