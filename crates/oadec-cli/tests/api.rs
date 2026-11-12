@@ -369,6 +369,9 @@ fn a_call_refuses_what_the_command_refuses_in_its_words() {
     );
     let fifo = dir.join("fifo.csv");
     let fifo_name = fifo.to_str().unwrap();
+    // The threshold and the listing limit are the family's since its checks
+    // are rules: a call takes them as the command does, and gives the verdict
+    // and the report the command gives.
     for (rules, args) in [
         (
             VerifyOptions {
@@ -384,6 +387,16 @@ fn a_call_refuses_what_the_command_refuses_in_its_words() {
             },
             ["--fail-on", "warning"],
         ),
+    ] {
+        let report = api::verify(&source, &rules).expect("taken");
+        let said = oadec(&["verify", "--json", args[0], args[1], name]);
+        assert_eq!(said.status.code(), Some(0), "{args:?}");
+        assert!(report.clean(), "{args:?}");
+        let printed: serde_json::Value = serde_json::from_slice(&said.stdout).expect("JSON");
+        let handed = report.json().expect("a report").expect("of a stream");
+        assert_eq!(handed["diagnostics"], printed["diagnostics"], "{args:?}");
+    }
+    for (rules, args) in [
         (
             VerifyOptions {
                 trace_fifo: Some(fifo.clone()),

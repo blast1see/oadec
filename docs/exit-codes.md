@@ -147,19 +147,25 @@ what the format is.
 
 ## The threshold of `verify`
 
-On a TrueHD stream every check is a named rule with a default severity
-(`info`, `warning`, `error` or `fatal`; `oadec rules` lists them and
-[`conformance-rules.md`](conformance-rules.md) has the sources). `verify`
-exits 7 when its worst finding is at or above `--fail-on`, `error` by
-default. Every fault in the list above is a rule at `error` or `fatal`, so the
-default is the verdict `verify` has always given, and the counters of
-`verify --json` are unchanged. `--fail-on warning` also fails on rules no
-public specification or measurement confirms; `--fail-on fatal` passes a stream
-whose only faults left it readable. `--max-per-rule` changes what is listed and
+Every check is a named rule with a default severity (`info`, `warning`,
+`error` or `fatal`; `oadec rules` lists them and
+[`conformance-rules.md`](conformance-rules.md) has the sources), on a TrueHD
+stream and on a stream of the AC-3 family. `verify` exits 7 when its worst
+finding is at or above `--fail-on`, `error` by default. Every fault in the
+list above is a rule at `error` or `fatal`, so the default is the verdict
+`verify` has always given, and the counters of `verify --json` are unchanged.
+`--fail-on warning` also fails on rules no public specification or
+measurement confirms, and on a stream of the AC-3 family on an element of an
+Object Audio Metadata payload that declares a stale size, which is counted and
+judges nothing by default; `--fail-on fatal` passes a stream whose only faults
+left it readable, which for the AC-3 family is every stream that has a frame,
+since none of its rules is fatal. `--max-per-rule` changes what is listed and
 never a count or a verdict. `--require-disc` adds a finding under
 `disc.required`, an error, for each disc format it names that the stream does
 not fit, so such a stream exits 7; without it the fit is reported and judges
-nothing. The other commands keep the default.
+nothing. It and `--trace-fifo` are about a TrueHD stream and are refused on
+any other. The other commands keep the default: a decode is given no
+threshold.
 
 `compare` folds the two questions together on purpose: a comparison against a
 reference is only worth reporting if the decode under it was sound, and the

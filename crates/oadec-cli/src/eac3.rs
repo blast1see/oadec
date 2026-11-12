@@ -855,13 +855,25 @@ fn pass_while(
     source: &Source,
     opts: Options,
     go_on: &dyn Fn() -> bool,
+    on_pcm: impl FnMut(&ProgramFrame) -> Result<()>,
+) -> Result<(Pass, u64, u64)> {
+    pass_listing(source, opts, go_on, Diag::DEFAULT_MAX_PER_RULE, on_pcm)
+}
+
+/// [`pass_while`], keeping at most `listed` findings of a rule in full (0
+/// keeps every one). The limit changes what is listed and never a count.
+fn pass_listing(
+    source: &Source,
+    opts: Options,
+    go_on: &dyn Fn() -> bool,
+    listed: usize,
     mut on_pcm: impl FnMut(&ProgramFrame) -> Result<()>,
 ) -> Result<(Pass, u64, u64)> {
     let mut dec = ProgramDecoder::new(opts);
     let mut p = Pass::default();
     // The findings are filed from two places that are two closures: the walk
     // over the bytes, and the frames it yields.
-    let diag = std::cell::RefCell::new(Diag::default());
+    let diag = std::cell::RefCell::new(Diag::new(listed));
     let mut seen = ProgramSeen::default();
     let (frames, sync_errors, skipped) = for_each_frame_and_gap(
         source,
@@ -1432,7 +1444,14 @@ fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
 
 /// The report of a pass as `--json` prints it, or `None` when no frame of the
 /// stream decoded: there is nothing to report of it then but that.
-fn pass_json(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64) -> Option<Value> {
+fn pass_json(
+    name: &str,
+    p: &Pass,
+    sync_errors: u64,
+    skipped: u64,
+    elapsed: f64,
+    fail_on: Severity,
+) -> Option<Value> {
     let (h, bsi) = p.first.as_ref()?;
     let names = p.layout.as_ref().map_or_else(
         || Decoder::channel_names(h),
@@ -1462,7 +1481,7 @@ fn pass_json(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64)
         "dependent_frames": p.dependent,
         "samples": p.samples,
         "duration": duration,
-        "clean": is_clean(p, sync_errors, skipped),
+        "clean": verdict(p, sync_errors, skipped, fail_on),
         "failures": {
             "sync_errors": sync_errors,
             "skipped_bytes": skipped,
@@ -1491,7 +1510,7 @@ fn pass_json(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64)
             "stalled_substreams": p.program.stalled_substreams,
             "missing_substream_frames": p.program.missing_substream_frames,
         },
-        "diagnostics": diagnostics_json(&p.diag, frame_seconds(h)),
+        "diagnostics": diagnostics_json(&p.diag, frame_seconds(h), fail_on),
         "program": program_parts(p, h),
         "other_program_frames": p.program.other_program_frames,
         "max_pending_groups": p.program.max_pending_groups,
@@ -1592,13 +1611,21 @@ fn pass_json(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64)
     clippy::print_stdout,
     reason = "printing is what this one is for"
 )]
-fn print_pass(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64, json: bool) {
+fn print_pass(
+    name: &str,
+    p: &Pass,
+    sync_errors: u64,
+    skipped: u64,
+    elapsed: f64,
+    json: bool,
+    fail_on: Severity,
+) {
     let Some((h, bsi)) = &p.first else {
         eprintln!("{name}: no decodable frames");
         return;
     };
     if json {
-        if let Some(report) = pass_json(name, p, sync_errors, skipped, elapsed) {
+        if let Some(report) = pass_json(name, p, sync_errors, skipped, elapsed, fail_on) {
             println!("{report}");
         }
         return;
@@ -1857,7 +1884,7 @@ fn print_pass(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64
         "Integrity:         {} decode errors, {} CRC failures, {} frames ending inside the frame tail",
         p.decode_errors, p.crc_failures, p.tail_overruns
     );
-    print_diagnostics(&p.diag, frame_seconds(h));
+    print_diagnostics(&p.diag, frame_seconds(h), fail_on);
     if let Some(e) = p.first_error.as_ref().or(p.emdf.first_error.as_ref()) {
         println!("First problem:     {e}");
     }
@@ -1877,10 +1904,23 @@ fn frame_seconds(h: &FrameHeader) -> f64 {
     (h.blocks as f64) * (oadec_eac3::BLOCK_SAMPLES as f64) / f64::from(h.sample_rate)
 }
 
+/// The verdict of `verify` at the threshold `fail_on`. At `error`, the
+/// threshold it has when it is given none, the counters decide, as they did
+/// before a check had a name; the findings are held to them at the end of
+/// every pass, so the two readings are one. At any other threshold the worst
+/// finding decides.
+fn verdict(p: &Pass, sync_errors: u64, skipped: u64, fail_on: Severity) -> bool {
+    if fail_on == Severity::Error {
+        is_clean(p, sync_errors, skipped)
+    } else {
+        p.diag.passes(fail_on)
+    }
+}
+
 /// The `diagnostics` object of the JSON report: the findings of the pass by
 /// rule, as `verify` writes them of a TrueHD stream. A finding names its
 /// frame group, or the offset in the file where it belongs to none.
-fn diagnostics_json(d: &Diag, frame_seconds: f64) -> Value {
+fn diagnostics_json(d: &Diag, frame_seconds: f64, fail_on: Severity) -> Value {
     let place = |at: &Location| {
         json!({
             "frame": at.unit,
@@ -1927,7 +1967,7 @@ fn diagnostics_json(d: &Diag, frame_seconds: f64) -> Value {
         .collect();
     json!({
         "schema": 1,
-        "fail_on": Severity::Error.name(),
+        "fail_on": fail_on.name(),
         "worst": d.worst().map(Severity::name),
         "max_per_rule": d.max_per_rule(),
         "counts": counts,
@@ -1963,12 +2003,17 @@ fn place_text(at: &Location, frame_seconds: f64) -> String {
 /// stream, then one line per rule that fired, at most six of them, the
 /// heaviest first. A stream nothing was found in has neither.
 #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-fn print_diagnostics(d: &Diag, frame_seconds: f64) {
+fn print_diagnostics(d: &Diag, frame_seconds: f64, fail_on: Severity) {
     if d.is_empty() {
         return;
     }
     let mut first = true;
-    for (rule, t) in d.iter().filter(|(r, _)| r.info().severity > Severity::Info) {
+    // findings of an info rule are counted below and listed only when the
+    // threshold asks for them
+    for (rule, t) in d
+        .iter()
+        .filter(|(r, _)| fail_on == Severity::Info || r.info().severity > Severity::Info)
+    {
         for f in &t.listed {
             println!(
                 "{}{:<8} {:<26} {}  {}",
@@ -1986,7 +2031,7 @@ fn print_diagnostics(d: &Diag, frame_seconds: f64) {
         }
         if t.suppressed() > 0 {
             println!(
-                "                   {}: {} listed, {} more not listed, last at {}",
+                "                   {}: {} listed, {} more not listed (--max-per-rule), last at {}",
                 rule.info().id,
                 t.listed.len(),
                 t.suppressed(),
@@ -2000,10 +2045,7 @@ fn print_diagnostics(d: &Diag, frame_seconds: f64) {
         .map(|s| format!("{} {}", d.count_at(*s), s.name()))
         .collect::<Vec<_>>()
         .join(", ");
-    println!(
-        "Rules:             {counts} (fail on {})",
-        Severity::Error.name()
-    );
+    println!("Rules:             {counts} (fail on {})", fail_on.name());
     let mut fired: Vec<_> = d.iter().collect();
     fired.sort_by_key(|(r, _)| core::cmp::Reverse(r.info().severity));
     for (rule, t) in fired.iter().take(6) {
@@ -2042,13 +2084,45 @@ pub struct Report {
     sync_errors: u64,
     skipped: u64,
     elapsed: f64,
+    /// The threshold of the verdict.
+    fail_on: Severity,
+}
+
+/// What `verify` may be told about the rules of an AC-3 family stream.
+#[derive(Debug, Clone, Copy)]
+pub struct ReportOptions {
+    /// The verdict fails when the worst finding is at or above this.
+    pub fail_on: Severity,
+    /// Findings listed in full per rule; 0 lists every one.
+    pub max_per_rule: usize,
+}
+
+impl Default for ReportOptions {
+    fn default() -> Self {
+        Self {
+            fail_on: Severity::Error,
+            max_per_rule: Diag::DEFAULT_MAX_PER_RULE,
+        }
+    }
 }
 
 /// Decodes the whole stream to gather what `info` and `verify` report, and
 /// prints nothing.
 pub fn report(source: &Source) -> Result<Report> {
+    report_with(source, &ReportOptions::default())
+}
+
+/// [`report`], with the threshold of the verdict and the number of findings
+/// a rule lists.
+pub fn report_with(source: &Source, options: &ReportOptions) -> Result<Report> {
     let started = Instant::now();
-    let (p, sync_errors, skipped) = pass(source, Options::default(), |_| Ok(()))?;
+    let (p, sync_errors, skipped) = pass_listing(
+        source,
+        Options::default(),
+        &|| true,
+        options.max_per_rule,
+        |_| Ok(()),
+    )?;
     if p.independent + p.dependent == 0 {
         // A sync word opened the file and no whole syncframe followed. A report
         // of nothing reads like a clean stream that holds nothing: the file is
@@ -2062,15 +2136,16 @@ pub fn report(source: &Source) -> Result<Report> {
         sync_errors,
         skipped,
         elapsed: started.elapsed().as_secs_f64(),
+        fail_on: options.fail_on,
     })
 }
 
 impl Report {
     /// Whether every frame decodes, every CRC checks and nothing was skipped:
-    /// the verdict of `verify`.
+    /// the verdict of `verify`, at the threshold the report was made with.
     #[must_use]
     pub fn clean(&self) -> bool {
-        is_clean(&self.pass, self.sync_errors, self.skipped)
+        verdict(&self.pass, self.sync_errors, self.skipped, self.fail_on)
     }
 
     /// The report as `--json` prints it, or `None` when no frame of the
@@ -2083,6 +2158,7 @@ impl Report {
             self.sync_errors,
             self.skipped,
             self.elapsed,
+            self.fail_on,
         )
     }
 
@@ -2095,6 +2171,7 @@ impl Report {
             self.skipped,
             self.elapsed,
             json,
+            self.fail_on,
         );
     }
 
@@ -2217,6 +2294,9 @@ pub fn decode_into(
         sync_errors,
         skipped,
         elapsed: started.elapsed().as_secs_f64(),
+        // a decode is given no threshold: the report of its pass has the
+        // one `verify` has when it is given none
+        fail_on: Severity::Error,
     })
 }
 
@@ -2472,7 +2552,15 @@ pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Resu
             );
         }
     }
-    print_pass(source.name(), &p, sync_errors, skipped, elapsed, false);
+    print_pass(
+        source.name(),
+        &p,
+        sync_errors,
+        skipped,
+        elapsed,
+        false,
+        Severity::Error,
+    );
     let clean = findings(&p, sync_errors, skipped).report_clean();
     // drain the rest of the reference to learn its length
     let mut tail = [0u8; 1 << 16];

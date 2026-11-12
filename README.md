@@ -78,7 +78,7 @@ severity and a source (a public specification, a measurement, or another
 implementation), listed in [`docs/conformance-rules.md`](docs/conformance-rules.md);
 a finding says where it is (access unit or frame, byte and bit, substream, time), and
 for TrueHD the report says which stretch of the programme each fault leaves
-untrustworthy and where it is clean again. On TrueHD `--fail-on` moves the threshold of the verdict and
+untrustworthy and where it is clean again. `--fail-on` moves the threshold of the verdict and
 `--max-per-rule` how much is listed; neither changes a count. A command that reads a whole file draws a bar with the
 share read, the rate and what is left, and says `done` when it finishes, on
 a terminal; piped or redirected it prints neither, so a log or a script sees
