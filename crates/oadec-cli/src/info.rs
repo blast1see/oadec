@@ -109,7 +109,16 @@ fn print_text(scan: &Scan) {
         scan.file, scan.file_bytes
     );
     let Some(ms) = &scan.first_major_sync else {
-        println!("No major sync found: not a Dolby TrueHD stream.");
+        // A sync word that was found and could not be read is not a stream
+        // without one: `verify` counts its access units and names the fault,
+        // and saying here that there is no TrueHD stream would be another
+        // story of the same file.
+        match &scan.first_error {
+            Some(error) if scan.major_syncs > 0 => {
+                println!("No major sync could be read: {error}");
+            }
+            _ => println!("No major sync found: not a Dolby TrueHD stream."),
+        }
         return;
     };
     let fs = ms.sampling_frequency().unwrap_or(0);

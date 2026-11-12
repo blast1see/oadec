@@ -461,6 +461,24 @@ Semantic Versioning.
 
 ### Fixed
 
+- **`verify` and `oamd` called a stream clean that an object decode exited 7
+  on.** An object output puts every Object Audio Metadata payload on a
+  timeline, which refuses one without an object element and one that
+  describes other beds or another number of objects than the first payload
+  did, and counts each refusal against what it delivers. `verify` parsed the
+  payloads and never asked that question, so `decode --format damf` exited 7
+  on a stream `verify` and `oamd` called clean, saying as it did that
+  `oadec verify` reports the same faults. They make the same refusals now,
+  through the check the timeline itself makes: on a TrueHD stream it is the
+  rule `evo.oamd_unusable`, an error, and on an E-AC-3 stream the counter
+  `oamd_unusable` of the report, which fails the verdict of `verify`, of
+  `emdf` and `oamd`, and of every decode. No stream of the corpus has such a
+  payload: 0 in 261 064 payloads of 64 streams
+  (`docs/audit/evidence/engine-round-2026-11/22-verdict-parity.json`).
+- **`info` said a stream held no major sync where it held one it could not
+  read.** A major sync whose fields do not parse printed "No major sync
+  found: not a Dolby TrueHD stream" at exit 0, while `verify` counted the
+  access units of the same file and named the field. `info` names it too.
 - **The comparison of two binaries counted a stream that was gone as an
   agreement.** Two binaries that are both told of a file that is not there
   print the same refusal and exit alike, so `tools/old_new.py` took such a

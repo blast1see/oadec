@@ -256,8 +256,13 @@ struct EmdfStats {
     /// even when not one container opens.
     declares_joc: bool,
     payload_ids: BTreeMap<u32, u64>,
+    /// What an object decode asks of every payload, asked here too.
+    payloads: oadec_spatial::PayloadCheck,
     oamd_ok: u64,
     oamd_errors: u64,
+    /// Payloads that parse and that an object output can make nothing of:
+    /// without an object element, or of another programme than the first.
+    oamd_unusable: u64,
     /// Elements whose declared size is not theirs, as `scan` counts them for TrueHD.
     oamd_stale_sizes: u64,
     /// Object gains other than unity, by decibel value, over updates that
@@ -525,6 +530,18 @@ impl EmdfStats {
                             match Oamd::parse(&p.data) {
                                 Ok(oamd) => {
                                     self.oamd_ok += 1;
+                                    // A payload that parses is not yet one an
+                                    // object output can use: its timeline
+                                    // refuses one without an object element
+                                    // and one of another programme, and counts
+                                    // it against what it delivers.
+                                    if let Err(e) = self.payloads.take(&oamd) {
+                                        self.oamd_unusable += 1;
+                                        if self.first_error.is_none() {
+                                            self.first_error =
+                                                Some(format!("frame {frame_index}: OAMD: {e}"));
+                                        }
+                                    }
                                     self.oamd_stale_sizes +=
                                         oamd.elements.iter().filter(|e| !e.size_ok).count() as u64;
                                     let program = &oamd.program;
@@ -995,6 +1012,7 @@ fn is_clean(p: &Pass, sync_errors: u64, skipped: u64) -> bool {
         && sync_errors == 0
         && skipped == 0
         && p.emdf.oamd_errors == 0
+        && p.emdf.oamd_unusable == 0
         && p.emdf.joc_errors == 0
         && p.emdf.joc_reserved_ext == 0
         && p.emdf.joc_size_mismatch == 0
@@ -1067,6 +1085,10 @@ fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
     f.note(
         p.emdf.oamd_errors,
         "Object Audio Metadata payloads failed to parse",
+    );
+    f.note(
+        p.emdf.oamd_unusable,
+        "Object Audio Metadata payloads the programme cannot take",
     );
     f.note(p.emdf.joc_errors, "JOC payloads failed to parse");
     f.note(
@@ -1169,6 +1191,8 @@ fn pass_json(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64)
             "crc_failures": p.crc_failures,
             "tail_overruns": p.tail_overruns,
             "oamd_errors": e.oamd_errors,
+            "oamd_unusable": e.oamd_unusable,
+            "missing_containers": e.missing_containers(),
             "oamd_stale_sizes": e.oamd_stale_sizes,
             "joc_errors": e.joc_errors,
             "joc_reserved_ext_config": e.joc_reserved_ext,
@@ -1476,8 +1500,14 @@ fn print_pass(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64
         p.emdf.false_syncs,
         p.emdf.payload_ids
     );
+    // said only where there is one, so that the line of every other stream
+    // is the line it was
+    let refused = match p.emdf.oamd_unusable {
+        0 => String::new(),
+        n => format!(", {n} the programme cannot take"),
+    };
     println!(
-        "Metadata:          {} OAMD payloads ({} errors), {} JOC payloads",
+        "Metadata:          {} OAMD payloads ({} errors{refused}), {} JOC payloads",
         p.emdf.oamd_ok, p.emdf.oamd_errors, p.emdf.joc
     );
     if p.emdf.joc > 0 {
@@ -2120,11 +2150,12 @@ mod tests {
         );
 
         type Set = fn(&mut Pass);
-        let unclean: [(&str, Set); 11] = [
+        let unclean: [(&str, Set); 12] = [
             ("decode_errors", |p| p.decode_errors = 1),
             ("crc_failures", |p| p.crc_failures = 1),
             ("tail_overruns", |p| p.tail_overruns = 1),
             ("emdf.oamd_errors", |p| p.emdf.oamd_errors = 1),
+            ("emdf.oamd_unusable", |p| p.emdf.oamd_unusable = 1),
             ("emdf.joc_errors", |p| p.emdf.joc_errors = 1),
             ("emdf.joc_reserved_ext", |p| p.emdf.joc_reserved_ext = 1),
             ("emdf.payload_config_violations", |p| {

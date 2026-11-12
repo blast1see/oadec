@@ -30,6 +30,10 @@ Anything that makes the delivered output untrustworthy:
 - an Object Audio Metadata or JOC payload that would not parse or whose
   declared size was wrong, or a JOC payload whose `joc_ext_config_idx` is
   reserved (the matrices of the previous frame are held in its place);
+- an Object Audio Metadata payload that parses and that an object output can
+  make nothing of: one without an object element, or one that describes
+  other beds or another number of objects than the first payload of the
+  stream did;
 - in a substream that carries EMDF, an E-AC-3 frame whose skip fields hold no
   container that opens, whether it is erased, broken, or declares a length its
   syntax disagrees with;
