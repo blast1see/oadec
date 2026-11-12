@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::io::{BufReader, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::time::Instant;
 
@@ -215,21 +215,26 @@ fn output_order(chans: &[ChannelLoc], order: Order) -> Vec<usize> {
 /// surround-direct and wide pairs, the second LFE): a mask with fewer bits set
 /// than there are channels is not a valid `WAVEFORMATEXTENSIBLE`, and zero is
 /// the format's own way of saying the assignment is not stated.
-fn channel_mask(chans: &[ChannelLoc]) -> u32 {
+///
+/// With a mask of zero comes the warning that says why, for the caller to
+/// pass on.
+fn channel_mask(chans: &[ChannelLoc]) -> (u32, Option<String>) {
     let mask = chans.iter().fold(0, |a, c| a | c.wave_mask());
     if mask.count_ones() as usize == chans.len() {
-        mask
+        (mask, None)
     } else {
         let unnamed: Vec<&str> = chans
             .iter()
             .filter(|c| c.wave_mask() == 0)
             .map(|c| c.name())
             .collect();
-        eprintln!(
-            "warning: WAVE has no channel mask bit for {}; writing an unassigned mask",
-            unnamed.join(", ")
-        );
-        0
+        (
+            0,
+            Some(format!(
+                "warning: WAVE has no channel mask bit for {}; writing an unassigned mask",
+                unnamed.join(", ")
+            )),
+        )
     }
 }
 
@@ -1124,11 +1129,10 @@ fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
     f
 }
 
-fn print_pass(source: &Source, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64, json: bool) {
-    let Some((h, bsi)) = &p.first else {
-        eprintln!("{}: no decodable frames", source.name());
-        return;
-    };
+/// The report of a pass as `--json` prints it, or `None` when no frame of the
+/// stream decoded: there is nothing to report of it then but that.
+fn pass_json(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64) -> Option<Value> {
+    let (h, bsi) = p.first.as_ref()?;
     let names = p.layout.as_ref().map_or_else(
         || Decoder::channel_names(h),
         oadec_eac3::ProgramLayout::names,
@@ -1138,148 +1142,173 @@ fn print_pass(source: &Source, p: &Pass, sync_errors: u64, skipped: u64, elapsed
     // the container, which is not the independent one when a dependent follows
     let meta = p.metadata_bsi.as_ref().unwrap_or(bsi);
     let joc = meta.joc_extension();
-    if json {
-        let e = &p.emdf;
-        let payload_ids: serde_json::Map<String, Value> = e
-            .payload_ids
+    let e = &p.emdf;
+    let payload_ids: serde_json::Map<String, Value> = e
+        .payload_ids
+        .iter()
+        .map(|(k, v)| (k.to_string(), Value::from(*v)))
+        .collect();
+    let report = json!({
+        "file": name,
+        "syntax": syntax_name(h),
+        "sample_rate": h.sample_rate,
+        "channels": names,
+        "blocks_per_frame": h.blocks,
+        "bit_rate": h.bit_rate(),
+        "bsid": h.bsid,
+        "frames": p.frames,
+        "independent_frames": p.independent,
+        "dependent_frames": p.dependent,
+        "samples": p.samples,
+        "duration": duration,
+        "clean": is_clean(p, sync_errors, skipped),
+        "failures": {
+            "sync_errors": sync_errors,
+            "skipped_bytes": skipped,
+            "decode_errors": p.decode_errors,
+            "crc_failures": p.crc_failures,
+            "tail_overruns": p.tail_overruns,
+            "oamd_errors": e.oamd_errors,
+            "oamd_stale_sizes": e.oamd_stale_sizes,
+            "joc_errors": e.joc_errors,
+            "joc_reserved_ext_config": e.joc_reserved_ext,
+            "joc_size_mismatches": e.joc_size_mismatch,
+            "payload_config_violations": e.payload_config_violations,
+            "complexity_mismatches": p.complexity_mismatches,
+            "dependent_dropped": p.program.dependent_dropped,
+            "orphan_dependents": p.program.orphan_dependents,
+            "substream_decode_errors": p.subs.values().map(|s| s.decode_errors).sum::<u64>(),
+            "substream_crc_failures": p.subs.values().map(|s| s.crc_failures).sum::<u64>(),
+            "substream_tail_overruns": p.subs.values().map(|s| s.tail_overruns).sum::<u64>(),
+            "location_errors": p.program.location_errors,
+            "misaligned_substreams": p.program.misaligned,
+            "channels_over_capacity": p.program.over_capacity,
+            "layout_changes": p.program.layout_changes,
+            "duplicate_substream_frames": p.program.duplicate_substream_frames,
+            "stalled_substreams": p.program.stalled_substreams,
+            "missing_substream_frames": p.program.missing_substream_frames,
+        },
+        "program": program_parts(p, h),
+        "other_program_frames": p.program.other_program_frames,
+        "max_pending_groups": p.program.max_pending_groups,
+        "coverage": coverage_list(&p.coverage),
+        "aht_frames": p.aht_frames,
+        "spx_frames": p.spx_frames,
+        "ecpl_frames": p.ecpl_frames,
+        "tpnp_frames": p.tpnp_frames,
+        "dba_frames": p.dba_frames,
+        "clipgains": p
+            .clipgains
             .iter()
-            .map(|(k, v)| (k.to_string(), Value::from(*v)))
-            .collect();
-        let report = json!({
-            "file": source.name().to_string(),
-            "syntax": syntax_name(h),
-            "sample_rate": h.sample_rate,
-            "channels": names,
-            "blocks_per_frame": h.blocks,
-            "bit_rate": h.bit_rate(),
-            "bsid": h.bsid,
-            "frames": p.frames,
-            "independent_frames": p.independent,
-            "dependent_frames": p.dependent,
-            "samples": p.samples,
-            "duration": duration,
-            "clean": is_clean(p, sync_errors, skipped),
-            "failures": {
-                "sync_errors": sync_errors,
-                "skipped_bytes": skipped,
-                "decode_errors": p.decode_errors,
-                "crc_failures": p.crc_failures,
-                "tail_overruns": p.tail_overruns,
-                "oamd_errors": e.oamd_errors,
-                "oamd_stale_sizes": e.oamd_stale_sizes,
-                "joc_errors": e.joc_errors,
-                "joc_reserved_ext_config": e.joc_reserved_ext,
-                "joc_size_mismatches": e.joc_size_mismatch,
-                "payload_config_violations": e.payload_config_violations,
-                "complexity_mismatches": p.complexity_mismatches,
-                "dependent_dropped": p.program.dependent_dropped,
-                "orphan_dependents": p.program.orphan_dependents,
-                "substream_decode_errors": p.subs.values().map(|s| s.decode_errors).sum::<u64>(),
-                "substream_crc_failures": p.subs.values().map(|s| s.crc_failures).sum::<u64>(),
-                "substream_tail_overruns": p.subs.values().map(|s| s.tail_overruns).sum::<u64>(),
-                "location_errors": p.program.location_errors,
-                "misaligned_substreams": p.program.misaligned,
-                "channels_over_capacity": p.program.over_capacity,
-                "layout_changes": p.program.layout_changes,
-                "duplicate_substream_frames": p.program.duplicate_substream_frames,
-                "stalled_substreams": p.program.stalled_substreams,
-                "missing_substream_frames": p.program.missing_substream_frames,
-            },
-            "program": program_parts(p, h),
-            "other_program_frames": p.program.other_program_frames,
-            "max_pending_groups": p.program.max_pending_groups,
-            "coverage": coverage_list(&p.coverage),
-            "aht_frames": p.aht_frames,
-            "spx_frames": p.spx_frames,
-            "ecpl_frames": p.ecpl_frames,
-            "tpnp_frames": p.tpnp_frames,
-            "dba_frames": p.dba_frames,
-            "clipgains": p
-                .clipgains
-                .iter()
-                .map(|&(frame, gain)| serde_json::json!({ "frame": frame, "gain": gain }))
-                .collect::<Vec<_>>(),
-            "transients": p
-                .transients
-                .iter()
-                .map(|&(frame, channel, loc, len)| {
-                    serde_json::json!({
-                        "frame": frame,
-                        "channel": channel,
-                        "loc": loc,
-                        "len": len,
-                    })
+            .map(|&(frame, gain)| serde_json::json!({ "frame": frame, "gain": gain }))
+            .collect::<Vec<_>>(),
+        "transients": p
+            .transients
+            .iter()
+            .map(|&(frame, channel, loc, len)| {
+                serde_json::json!({
+                    "frame": frame,
+                    "channel": channel,
+                    "loc": loc,
+                    "len": len,
                 })
-                .collect::<Vec<_>>(),
-            "joc_extension": joc.map(|(flag, complexity)| json!({
-                "flag": flag,
-                "complexity_index": complexity,
-            })),
-            "dialnorm": p.dialnorm.keys().collect::<Vec<_>>(),
-            "emdf": {
-                "frames_with_skip": e.frames_with_skip,
-                "skip_bytes": e.skip_bytes,
-                "containers": e.containers,
-                "container_errors": e.container_errors,
-                "containers_in_independent_substream": e.containers_in_independent,
-                "auxdata_frames": e.auxdata_frames,
-                "auxdata_bytes": e.auxdata_bytes,
-                "containers_in_auxdata": e.containers_in_auxdata,
-                "auxdata_overruns": e.auxdata_overruns,
-                "false_syncs": e.false_syncs,
-                "payload_ids": payload_ids,
-                "oamd_ok": e.oamd_ok,
-                "oamd_errors": e.oamd_errors,
-                "oamd_object_gains_db": e.oamd_gain_size.gains_db.iter()
-                    .map(|(db, n)| (db.to_string(), *n))
-                    .collect::<BTreeMap<_, _>>(),
-                "oamd_muted_updates": e.oamd_gain_size.muted,
-                "oamd_sized_updates": e.oamd_gain_size.sized,
-                "joc_payloads": e.joc,
-            },
-            "joc": (e.joc > 0).then(|| json!({
-                "parsed": e.joc_ok,
-                "errors": e.joc_errors,
-                "reserved_ext_config": e.joc_reserved_ext,
-                "size_mismatches": e.joc_size_mismatch,
-                "non_zero_padding": e.joc_padding_nonzero,
-                "downmix_configs": e.joc_dmx.keys().collect::<Vec<_>>(),
-                "objects_per_payload": e.joc_objects.keys().collect::<Vec<_>>(),
-                "bands": e.joc_bands.keys().collect::<Vec<_>>(),
-                "sparse_objects": e.joc_sparse,
-                "sparse_and_steep_objects": e.joc_sparse_steep,
-                "dense_objects": e.joc_dense,
-                "absent_objects": e.joc_absent_objects,
-                "steep_objects": e.joc_steep,
-                "fine_quantized_objects": e.joc_fine,
-                "coarse_quantized_objects": e.joc_coarse,
-                "two_data_points": e.joc_two_dpoints,
-                "interpolation_branches": e.joc_interp.iter()
-                    .map(|(k, v)| ((*k).to_string(), Value::from(*v)))
-                    .collect::<serde_json::Map<String, Value>>(),
-                "rare_branch_frames": e.joc_rare_frames.iter()
-                    .map(|(k, v)| ((*k).to_string(), Value::from(v.clone())))
-                    .collect::<serde_json::Map<String, Value>>(),
-                "offset_ts": e.joc_offset_ts.iter()
-                    .map(|(k, v)| (k.to_string(), Value::from(*v)))
-                    .collect::<serde_json::Map<String, Value>>(),
-                "seq_count_zero": e.joc_seq_zero,
-                // clause 6.3.3.2, x1000 so the ladder stays exact in JSON
-                "clipgain_x1000": e.joc_clipgain.keys().collect::<Vec<_>>(),
-                "clipgain_frames": e
-                    .joc_clipgain
-                    .iter()
-                    .filter(|(g, _)| **g != 1000)
-                    .map(|(_, n)| n)
-                    .sum::<u64>(),
-            })),
-            "first_error": p.first_error.as_ref().or(e.first_error.as_ref()),
-            "seconds": elapsed,
-        });
-        println!("{report}");
+            })
+            .collect::<Vec<_>>(),
+        "joc_extension": joc.map(|(flag, complexity)| json!({
+            "flag": flag,
+            "complexity_index": complexity,
+        })),
+        "dialnorm": p.dialnorm.keys().collect::<Vec<_>>(),
+        "emdf": {
+            "frames_with_skip": e.frames_with_skip,
+            "skip_bytes": e.skip_bytes,
+            "containers": e.containers,
+            "container_errors": e.container_errors,
+            "containers_in_independent_substream": e.containers_in_independent,
+            "auxdata_frames": e.auxdata_frames,
+            "auxdata_bytes": e.auxdata_bytes,
+            "containers_in_auxdata": e.containers_in_auxdata,
+            "auxdata_overruns": e.auxdata_overruns,
+            "false_syncs": e.false_syncs,
+            "payload_ids": payload_ids,
+            "oamd_ok": e.oamd_ok,
+            "oamd_errors": e.oamd_errors,
+            "oamd_object_gains_db": e.oamd_gain_size.gains_db.iter()
+                .map(|(db, n)| (db.to_string(), *n))
+                .collect::<BTreeMap<_, _>>(),
+            "oamd_muted_updates": e.oamd_gain_size.muted,
+            "oamd_sized_updates": e.oamd_gain_size.sized,
+            "joc_payloads": e.joc,
+        },
+        "joc": (e.joc > 0).then(|| json!({
+            "parsed": e.joc_ok,
+            "errors": e.joc_errors,
+            "reserved_ext_config": e.joc_reserved_ext,
+            "size_mismatches": e.joc_size_mismatch,
+            "non_zero_padding": e.joc_padding_nonzero,
+            "downmix_configs": e.joc_dmx.keys().collect::<Vec<_>>(),
+            "objects_per_payload": e.joc_objects.keys().collect::<Vec<_>>(),
+            "bands": e.joc_bands.keys().collect::<Vec<_>>(),
+            "sparse_objects": e.joc_sparse,
+            "sparse_and_steep_objects": e.joc_sparse_steep,
+            "dense_objects": e.joc_dense,
+            "absent_objects": e.joc_absent_objects,
+            "steep_objects": e.joc_steep,
+            "fine_quantized_objects": e.joc_fine,
+            "coarse_quantized_objects": e.joc_coarse,
+            "two_data_points": e.joc_two_dpoints,
+            "interpolation_branches": e.joc_interp.iter()
+                .map(|(k, v)| ((*k).to_string(), Value::from(*v)))
+                .collect::<serde_json::Map<String, Value>>(),
+            "rare_branch_frames": e.joc_rare_frames.iter()
+                .map(|(k, v)| ((*k).to_string(), Value::from(v.clone())))
+                .collect::<serde_json::Map<String, Value>>(),
+            "offset_ts": e.joc_offset_ts.iter()
+                .map(|(k, v)| (k.to_string(), Value::from(*v)))
+                .collect::<serde_json::Map<String, Value>>(),
+            "seq_count_zero": e.joc_seq_zero,
+            // clause 6.3.3.2, x1000 so the ladder stays exact in JSON
+            "clipgain_x1000": e.joc_clipgain.keys().collect::<Vec<_>>(),
+            "clipgain_frames": e
+                .joc_clipgain
+                .iter()
+                .filter(|(g, _)| **g != 1000)
+                .map(|(_, n)| n)
+                .sum::<u64>(),
+        })),
+        "first_error": p.first_error.as_ref().or(e.first_error.as_ref()),
+        "seconds": elapsed,
+    });
+    Some(report)
+}
+
+/// Prints the report of a pass on stdout, as JSON or as text.
+#[allow(
+    clippy::print_stderr,
+    clippy::print_stdout,
+    reason = "printing is what this one is for"
+)]
+fn print_pass(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64, json: bool) {
+    let Some((h, bsi)) = &p.first else {
+        eprintln!("{name}: no decodable frames");
+        return;
+    };
+    if json {
+        if let Some(report) = pass_json(name, p, sync_errors, skipped, elapsed) {
+            println!("{report}");
+        }
         return;
     }
-    println!("File:              {}", source.name());
+    let names = p.layout.as_ref().map_or_else(
+        || Decoder::channel_names(h),
+        oadec_eac3::ProgramLayout::names,
+    );
+    let duration = p.samples as f64 / f64::from(h.sample_rate);
+    // TS 103 420 clause 8.3.1: the extension is in the substream that carries
+    // the container, which is not the independent one when a dependent follows
+    let meta = p.metadata_bsi.as_ref().unwrap_or(bsi);
+    let joc = meta.joc_extension();
+    println!("File:              {name}");
     println!(
         "Stream:            {} bsid {}, {} Hz, {} blocks/frame, {} kbit/s",
         syntax_name(h),
@@ -1532,52 +1561,87 @@ fn print_pass(source: &Source, p: &Pass, sync_errors: u64, skipped: u64, elapsed
     );
 }
 
-/// `oadec info` for an AC-3 family stream (decodes everything to gather the
-/// coverage and metadata statistics).
-pub fn info(source: &Source, json: bool) -> Result<()> {
-    let started = Instant::now();
-    let (p, sync_errors, skipped) = pass(source, Options::default(), |_| Ok(()))?;
-    if p.independent + p.dependent == 0 {
-        // A sync word opened the file and no whole syncframe followed: a report
-        // of nothing reads like a clean stream that holds nothing.
-        return Err(crate::info::no_stream(source));
-    }
-    print_pass(
-        source,
-        &p,
-        sync_errors,
-        skipped,
-        started.elapsed().as_secs_f64(),
-        json,
-    );
-    Ok(())
+/// What a pass over an AC-3 or E-AC-3 stream found: the report `info` and
+/// `verify` print, and the verdict of `verify`.
+#[derive(Debug)]
+pub struct Report {
+    name: String,
+    // on the heap: a report is handed from frame to frame
+    pass: Box<Pass>,
+    sync_errors: u64,
+    skipped: u64,
+    elapsed: f64,
 }
 
-/// `oadec verify`: every frame decodes, every CRC checks, no sync errors.
-pub fn verify(source: &Source, json: bool) -> Result<bool> {
+/// Decodes the whole stream to gather what `info` and `verify` report, and
+/// prints nothing.
+pub fn report(source: &Source) -> Result<Report> {
     let started = Instant::now();
     let (p, sync_errors, skipped) = pass(source, Options::default(), |_| Ok(()))?;
     if p.independent + p.dependent == 0 {
-        // Nothing framed: the file is not a stream to judge but an unsupported
-        // input, exit 2, as it is for every command that reports one.
+        // A sync word opened the file and no whole syncframe followed. A report
+        // of nothing reads like a clean stream that holds nothing: the file is
+        // not a stream to judge but an unsupported input, exit 2, as it is for
+        // every command that reports one.
         return Err(crate::info::no_stream(source));
     }
-    print_pass(
-        source,
-        &p,
+    Ok(Report {
+        name: source.name().to_string(),
+        pass: Box::new(p),
         sync_errors,
         skipped,
-        started.elapsed().as_secs_f64(),
-        json,
-    );
-    let clean = is_clean(&p, sync_errors, skipped);
-    if !json {
-        println!(
-            "Result:            {}",
-            if clean { "CLEAN" } else { "PROBLEMS" }
+        elapsed: started.elapsed().as_secs_f64(),
+    })
+}
+
+impl Report {
+    /// Whether every frame decodes, every CRC checks and nothing was skipped:
+    /// the verdict of `verify`.
+    #[must_use]
+    pub fn clean(&self) -> bool {
+        is_clean(&self.pass, self.sync_errors, self.skipped)
+    }
+
+    /// The report as `--json` prints it, or `None` when no frame of the
+    /// stream decoded.
+    #[must_use]
+    pub fn json(&self) -> Option<Value> {
+        pass_json(
+            &self.name,
+            &self.pass,
+            self.sync_errors,
+            self.skipped,
+            self.elapsed,
+        )
+    }
+
+    /// Prints the report on stdout, as JSON or as text.
+    pub fn print(&self, json: bool) {
+        print_pass(
+            &self.name,
+            &self.pass,
+            self.sync_errors,
+            self.skipped,
+            self.elapsed,
+            json,
         );
     }
-    Ok(clean)
+
+    /// What a delivery of the stream has to answer for: the faults of the
+    /// pass, in the form a delivery reports them.
+    #[must_use]
+    pub fn findings(&self) -> Findings {
+        findings(&self.pass, self.sync_errors, self.skipped)
+    }
+
+    /// Prints the line that closes the text of `verify`.
+    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
+    pub fn print_verdict(&self) {
+        println!(
+            "Result:            {}",
+            if self.clean() { "CLEAN" } else { "PROBLEMS" }
+        );
+    }
 }
 
 /// The checks of `verify` over an AC-3 or E-AC-3 stream: its verdict and the
@@ -1612,14 +1676,24 @@ pub fn decode(source: &Source, output: &Path, opts: &DecodeOptions) -> Result<bo
     if matches!(opts.format, Format::Damf | Format::Adm) {
         bail!("object output of E-AC-3 JOC streams is not implemented yet");
     }
+    let mut file = crate::decode::PcmFile::create(output, opts.format == Format::Wav)?;
+    let report = decode_into(source, opts, &mut file, &mut std::io::stderr())?;
+    report.print(false);
+    Ok(report.findings().report_clean())
+}
+
+/// Decodes the programme of an AC-3 or E-AC-3 stream into `sink`, as 32-bit
+/// float samples, and prints nothing. What the decode has to say while it
+/// runs goes to `remarks`, a line at a time.
+pub fn decode_into(
+    source: &Source,
+    opts: &DecodeOptions,
+    sink: &mut dyn crate::decode::PcmSink,
+    remarks: &mut dyn Write,
+) -> Result<Report> {
     let started = Instant::now();
-    let file = File::create(output).with_context(|| format!("creating {}", output.display()))?;
-    // the WAVE header waits for the first frame, which says what it holds
-    let mut out = Some(BufWriter::with_capacity(4 << 20, file));
-    let mut wav_out: Option<crate::decode::WavOut> = None;
     let mut header_written = false;
     let mut order: Vec<usize> = Vec::new();
-    let wav = opts.format == Format::Wav;
     let (p, sync_errors, skipped) = pass(
         source,
         Options {
@@ -1632,15 +1706,18 @@ pub fn decode(source: &Source, output: &Path, opts: &DecodeOptions) -> Result<bo
             if !header_written {
                 order = output_order(&chans, opts.order);
                 let ordered: Vec<ChannelLoc> = order.iter().map(|&i| chans[i]).collect();
-                let spec = crate::decode::WavSpec {
+                let (mask, warning) = channel_mask(&ordered);
+                if let Some(warning) = warning {
+                    writeln!(remarks, "{warning}")?;
+                }
+                // the WAVE header waits for the first frame, which says what
+                // the file holds
+                sink.begin(crate::decode::WavSpec {
                     channels: chans.len() as u16,
                     rate: frame.core().header.sample_rate,
-                    mask: channel_mask(&ordered),
+                    mask,
                     sample: crate::decode::WavSample::Float32,
-                };
-                if wav && let Some(raw) = out.take() {
-                    wav_out = Some(crate::decode::WavOut::create(raw, spec)?);
-                }
+                })?;
                 header_written = true;
             }
             let n = frame.samples();
@@ -1651,37 +1728,25 @@ pub fn decode(source: &Source, output: &Path, opts: &DecodeOptions) -> Result<bo
                     buf.extend_from_slice(&c[i].to_le_bytes());
                 }
             }
-            match (&mut wav_out, &mut out) {
-                (Some(w), _) => w.write(&buf)?,
-                (None, Some(o)) => o.write_all(&buf)?,
-                (None, None) => unreachable!("the output stays open until the pass ends"),
-            }
+            sink.write(&buf)?;
             Ok(())
         },
     )?;
     if p.independent + p.dependent == 0 {
         // No whole syncframe: nothing to deliver and nothing to judge, which is
         // an unusable input (exit 2) and not a faulty run, as in a TrueHD decode.
-        drop(wav_out);
-        drop(out);
-        let _ = std::fs::remove_file(output);
+        sink.nothing();
         return Err(crate::info::no_stream(source));
     }
     // a WAVE file an error drops on the way here closes itself
-    if let Some(w) = wav_out {
-        w.finish()?;
-    } else if let Some(mut o) = out {
-        o.flush()?;
-    }
-    print_pass(
-        source,
-        &p,
+    sink.finish()?;
+    Ok(Report {
+        name: source.name().to_string(),
+        pass: Box::new(p),
         sync_errors,
         skipped,
-        started.elapsed().as_secs_f64(),
-        false,
-    );
-    Ok(findings(&p, sync_errors, skipped).report_clean())
+        elapsed: started.elapsed().as_secs_f64(),
+    })
 }
 
 /// Options of `compare` for AC-3 family streams.
@@ -1708,6 +1773,7 @@ pub struct CompareOptions {
 /// it. `part` selects within the group, 0 being the independent substream, so
 /// `--part 1` reads the dependent substream of a 7.1 stream, which is the only
 /// way to check a `bsi` path by hand.
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
 pub fn blocks(source: &Source, index: u64, part: usize, detail: bool) -> Result<()> {
     let mut group = 0u64;
     let mut in_group = 0usize;
@@ -1812,6 +1878,11 @@ struct ChannelStats {
 
 /// `oadec compare` for AC-3 family streams against a 32-bit float
 /// little-endian reference (for example FFmpeg with `-drc_scale 0`).
+#[allow(
+    clippy::print_stderr,
+    clippy::print_stdout,
+    reason = "printing is what this one is for"
+)]
 pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Result<bool> {
     let started = Instant::now();
     let file = File::open(reference).with_context(|| format!("opening {}", reference.display()))?;
@@ -1930,7 +2001,7 @@ pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Resu
             );
         }
     }
-    print_pass(source, &p, sync_errors, skipped, elapsed, false);
+    print_pass(source.name(), &p, sync_errors, skipped, elapsed, false);
     let clean = findings(&p, sync_errors, skipped).report_clean();
     // drain the rest of the reference to learn its length
     let mut tail = [0u8; 1 << 16];

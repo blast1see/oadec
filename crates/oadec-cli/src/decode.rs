@@ -3,7 +3,7 @@
 
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
@@ -240,7 +240,10 @@ impl Session {
 
     /// Decodes one access unit; `None` for a dropped duplicate or one before the
     /// requested start.
-    pub fn decode(&mut self, unit: &Unit) -> Result<Option<Frame<'_>>> {
+    ///
+    /// A decode that was asked to start part way says where it began, once,
+    /// in a line to `remarks`.
+    pub fn decode(&mut self, unit: &Unit, remarks: &mut dyn Write) -> Result<Option<Frame<'_>>> {
         if self.decoder.is_none() {
             let (au, cfg) = AccessUnit::parse(&unit.bytes, self.skip_config.as_ref())?;
             self.skip_config = Some(cfg);
@@ -275,10 +278,11 @@ impl Session {
                 // counter beside it: one field is where the decode began, and a
                 // second expression for the same thing is one nothing checks.
                 let at = self.started_at_sample.unwrap_or_default();
-                eprintln!(
+                writeln!(
+                    remarks,
                     "starting at sample {at} ({:.3} s), the first major sync at or after --start",
                     at as f64 / f64::from(config.sampling_frequency)
-                );
+                )?;
             }
             let mut decoder = Decoder::new(ms, self.presentation)?;
             decoder.keep_duplicates(self.keep_duplicates);
@@ -405,6 +409,39 @@ impl Session {
             .map(|&i| channel_name(&self.labels, i))
             .collect()
     }
+
+    /// What the session decoded so far, for the summary a command prints.
+    #[must_use]
+    pub fn summary(&self) -> Summary {
+        Summary {
+            stats: self.stats().cloned(),
+            sampling_frequency: self.sampling_frequency,
+            channels: self.order.len(),
+            duplicates_dropped: self.duplicates_dropped,
+            clipped: self.clipped,
+            concealment: self.concealment.clone(),
+            labels: self.output_labels(),
+        }
+    }
+}
+
+/// What a session decoded: the counters of its decoder and its own.
+#[derive(Debug, Clone)]
+pub struct Summary {
+    /// The decoder's counters, or `None` when nothing was decoded.
+    pub stats: Option<DecodeStats>,
+    /// Sampling frequency in Hz.
+    pub sampling_frequency: u32,
+    /// Channels of the output.
+    pub channels: usize,
+    /// Access units dropped as duplicates.
+    pub duplicates_dropped: u64,
+    /// Samples a 24-bit writer had to saturate.
+    pub clipped: u64,
+    /// What concealment did.
+    pub concealment: Concealment,
+    /// Labels of the output channels, in the order written.
+    pub labels: Vec<String>,
 }
 
 /// The name of stream channel `index` in a summary: its label, or `objN` for
@@ -519,6 +556,7 @@ pub fn truehd_findings(
 }
 
 /// Says what concealment did, on stderr.
+#[allow(clippy::print_stderr, reason = "printing is what this one is for")]
 pub fn print_concealment(c: &Concealment, sampling_frequency: u32) {
     let ms = |samples: u64| samples as f64 * 1000.0 / f64::from(sampling_frequency.max(1));
     if c.units > 0 {
@@ -559,8 +597,9 @@ pub fn note_concealment(c: &Concealment, f: &mut Findings) {
 }
 
 /// Prints the decoder summary to stderr.
-pub fn print_summary(session: &Session, elapsed: f64) {
-    let Some(stats) = session.stats() else {
+#[allow(clippy::print_stderr, reason = "printing is what this one is for")]
+pub fn print_summary(session: &Summary, elapsed: f64) {
+    let Some(stats) = &session.stats else {
         eprintln!("nothing decoded");
         return;
     };
@@ -569,7 +608,7 @@ pub fn print_summary(session: &Session, elapsed: f64) {
         "decoded {} access units, {} samples x {} channels ({}), {} dropped duplicates",
         stats.units,
         stats.samples,
-        session.order.len(),
+        session.channels,
         format_duration(seconds),
         session.duplicates_dropped
     );
@@ -587,7 +626,7 @@ pub fn print_summary(session: &Session, elapsed: f64) {
     if let Some(p) = &stats.first_problem {
         eprintln!("first problem: {p}");
     }
-    eprintln!("channels: {}", session.output_labels().join(" "));
+    eprintln!("channels: {}", session.labels.join(" "));
     eprintln!(
         "speed: {elapsed:.2} s ({:.0}x realtime)",
         seconds / elapsed.max(1e-9)
@@ -770,6 +809,7 @@ impl ConfigStop {
     }
 
     /// Says where the output ends.
+    #[allow(clippy::print_stderr, reason = "printing is what this one is for")]
     pub fn print(&self, samples: u64) {
         eprintln!(
             "stopped at access unit {} (byte {}): {} changed at a major sync; {samples} samples written",
@@ -789,7 +829,137 @@ impl ConfigStop {
     }
 }
 
-/// Where `run` writes the samples.
+/// What the samples of a decode are written to.
+///
+/// A decode calls `begin` once, when its first frame says what the samples
+/// are, then `write` for every frame, and `finish` when every sample is in. A
+/// stream that held nothing to decode gets `nothing` and none of the others.
+pub trait PcmSink {
+    /// Whether the output states which channel each of its channels is, as a
+    /// WAVE file does and headerless samples do not.
+    fn states_the_channels(&self) -> bool;
+
+    /// The first frame is here, and `spec` says what the samples are.
+    ///
+    /// # Errors
+    /// What writing gives.
+    fn begin(&mut self, spec: WavSpec) -> std::io::Result<()>;
+
+    /// Samples of every channel in turn, in the format `begin` was given.
+    ///
+    /// # Errors
+    /// What writing gives.
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<()>;
+
+    /// Every sample is in.
+    ///
+    /// # Errors
+    /// What writing gives.
+    fn finish(&mut self) -> std::io::Result<()>;
+
+    /// The stream held nothing to decode: there is no output to keep.
+    fn nothing(&mut self);
+}
+
+/// A file of samples: headerless, or a WAVE file.
+#[derive(Debug)]
+pub struct PcmFile {
+    path: PathBuf,
+    wav: bool,
+    out: Option<Output>,
+}
+
+impl PcmFile {
+    /// Creates the file. A WAVE header waits for the first frame, which says
+    /// what the file holds.
+    ///
+    /// # Errors
+    /// When the file cannot be created.
+    pub fn create(path: &Path, wav: bool) -> Result<Self> {
+        let file = File::create(path).with_context(|| format!("creating {}", path.display()))?;
+        Ok(Self {
+            path: path.to_path_buf(),
+            wav,
+            out: Some(Output::Raw(BufWriter::with_capacity(4 << 20, file))),
+        })
+    }
+}
+
+impl PcmSink for PcmFile {
+    fn states_the_channels(&self) -> bool {
+        self.wav
+    }
+
+    fn begin(&mut self, spec: WavSpec) -> std::io::Result<()> {
+        if self.wav
+            && let Some(Output::Raw(raw)) = self.out.take()
+        {
+            self.out = Some(Output::Wav(WavOut::create(raw, spec)?));
+        }
+        Ok(())
+    }
+
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+        match self.out.as_mut() {
+            Some(Output::Wav(w)) => w.write(bytes),
+            Some(Output::Raw(w)) => w.write_all(bytes),
+            None => unreachable!("the output stays open until the pass ends"),
+        }
+    }
+
+    fn finish(&mut self) -> std::io::Result<()> {
+        match self.out.take() {
+            Some(Output::Wav(w)) => {
+                w.finish()?;
+            }
+            Some(Output::Raw(mut w)) => w.flush()?,
+            None => {}
+        }
+        Ok(())
+    }
+
+    fn nothing(&mut self) {
+        drop(self.out.take());
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+/// Samples kept in memory, as the bytes a headerless file would hold.
+#[derive(Debug, Default)]
+pub struct PcmBytes {
+    /// What the samples are, once the first frame has said.
+    pub spec: Option<WavSpec>,
+    /// The samples.
+    pub bytes: Vec<u8>,
+}
+
+impl PcmSink for PcmBytes {
+    fn states_the_channels(&self) -> bool {
+        false
+    }
+
+    fn begin(&mut self, spec: WavSpec) -> std::io::Result<()> {
+        self.spec = Some(spec);
+        Ok(())
+    }
+
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+        self.bytes.extend_from_slice(bytes);
+        Ok(())
+    }
+
+    fn finish(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+
+    fn nothing(&mut self) {
+        self.spec = None;
+        self.bytes.clear();
+    }
+}
+
+/// Where a [`PcmFile`] writes.
+#[derive(Debug)]
 enum Output {
     /// Headerless PCM, or a WAVE file whose header waits for the first frame.
     Raw(BufWriter<File>),
@@ -837,15 +1007,67 @@ fn default_presentation(source: &Source) -> usize {
         .unwrap_or(2)
 }
 
+/// What a decode of a TrueHD presentation did, with the checks of `verify`
+/// that ran beside it still to be heard.
+#[derive(Debug)]
+pub struct Decoded {
+    summary: Summary,
+    stopped: Option<ConfigStop>,
+    samples: u64,
+    elapsed: f64,
+    pass: input::PassSummary,
+    check: crate::verify::StreamChecking,
+}
+
+impl Decoded {
+    /// Says on stderr what was decoded, and where the output ends if it ends
+    /// early.
+    pub fn print_summary(&self) {
+        if let Some(stop) = &self.stopped {
+            stop.print(self.samples);
+        }
+        print_summary(&self.summary, self.elapsed);
+    }
+
+    /// Waits for the checks of `verify` and gives everything that was found
+    /// wrong, by them and by the decode.
+    ///
+    /// # Errors
+    /// When the checks could not read the stream.
+    pub fn findings(self) -> Result<Findings> {
+        let stream = crate::verify::join_stream_check(self.check)?;
+        let mut f = truehd_findings(&self.pass, self.summary.stats.as_ref(), &stream);
+        f.note(self.summary.clipped, "samples clipped to 24 bits");
+        note_concealment(&self.summary.concealment, &mut f);
+        if let Some(stop) = &self.stopped {
+            stop.note(&mut f);
+        }
+        Ok(f)
+    }
+}
+
 /// Runs the command.
 pub fn run(source: &Source, output: &Path, opts: &Options) -> Result<bool> {
+    let mut file = PcmFile::create(output, opts.format == Format::Wav)?;
+    let decoded = decode(source, opts, &mut file, &mut std::io::stderr())?;
+    decoded.print_summary();
+    Ok(decoded.findings()?.report_clean())
+}
+
+/// Decodes a presentation of a TrueHD stream into `sink` and prints nothing.
+/// What a decode has to say while it runs, a line at a time, goes to
+/// `remarks`.
+pub fn decode(
+    source: &Source,
+    opts: &Options,
+    sink: &mut dyn PcmSink,
+    remarks: &mut dyn Write,
+) -> Result<Decoded> {
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own, beside the
     // decode: a presentation reads only its substreams, and only some outputs
     // parse the object metadata
     let check = crate::verify::spawn_stream_check(source);
-    let file = File::create(output).with_context(|| format!("creating {}", output.display()))?;
-    let mut out = Some(Output::Raw(BufWriter::with_capacity(4 << 20, file)));
     let presentation = opts
         .presentation
         .unwrap_or_else(|| default_presentation(source));
@@ -867,7 +1089,7 @@ pub fn run(source: &Source, output: &Path, opts: &Options) -> Result<bool> {
             return Ok(());
         }
         let index = session.stats().map_or(0, |s| s.units);
-        let frame = match session.decode(&unit) {
+        let frame = match session.decode(&unit, remarks) {
             Ok(Some(frame)) => frame,
             Ok(None) => return Ok(()),
             Err(e) => {
@@ -882,38 +1104,30 @@ pub fn run(source: &Source, output: &Path, opts: &Options) -> Result<bool> {
         };
         if !output_started {
             output_started = true;
-            if opts.format == Format::Wav
-                && let Some(Output::Raw(raw)) = out.take()
+            if sink.states_the_channels()
+                && let Some(warning) = frame.mask_warning
             {
-                if let Some(warning) = frame.mask_warning {
-                    eprintln!("warning: {warning}");
-                }
-                let spec = WavSpec {
-                    channels: frame.channels as u16,
-                    rate: frame.sampling_frequency,
-                    mask: frame.channel_mask,
-                    sample: WavSample::Int24,
-                };
-                out = Some(Output::Wav(WavOut::create(raw, spec)?));
+                writeln!(remarks, "warning: {warning}")?;
             }
+            sink.begin(WavSpec {
+                channels: frame.channels as u16,
+                rate: frame.sampling_frequency,
+                mask: frame.channel_mask,
+                sample: WavSample::Int24,
+            })?;
         }
         buf.clear();
         buf.resize(frame.lead_silence * frame.order.len() * 3, 0);
         let clipped = pack_24le(frame.pcm, frame.order, &mut buf);
         samples += (frame.lead_silence + frame.pcm.len()) as u64;
         session.clipped += clipped;
-        match out.as_mut() {
-            Some(Output::Wav(w)) => w.write(&buf)?,
-            Some(Output::Raw(w)) => w.write_all(&buf)?,
-            None => unreachable!("the output stays open until the pass ends"),
-        }
+        sink.write(&buf)?;
         Ok(())
     })?;
     if session.stats().is_none() {
         // Nothing framed as TrueHD: there is no output to deliver and nothing
         // to judge, which is an unusable input (exit 2), not a clean run.
-        drop(out);
-        let _ = std::fs::remove_file(output);
+        sink.nothing();
         // ... unless the file was fine and the start was simply never reached,
         // which is a different complaint and names a different fix.
         if let Some(complaint) = session.start_never_reached() {
@@ -921,25 +1135,15 @@ pub fn run(source: &Source, output: &Path, opts: &Options) -> Result<bool> {
         }
         return Err(crate::info::no_stream(source));
     }
-    match out {
-        Some(Output::Wav(w)) => {
-            w.finish()?;
-        }
-        Some(Output::Raw(mut w)) => w.flush()?,
-        None => {}
-    }
-    if let Some(stop) = &stopped {
-        stop.print(samples);
-    }
-    print_summary(&session, started.elapsed().as_secs_f64());
-    let stream = crate::verify::join_stream_check(check)?;
-    let mut f = truehd_findings(&pass, session.stats(), &stream);
-    f.note(session.clipped, "samples clipped to 24 bits");
-    note_concealment(&session.concealment, &mut f);
-    if let Some(stop) = &stopped {
-        stop.note(&mut f);
-    }
-    Ok(f.report_clean())
+    sink.finish()?;
+    Ok(Decoded {
+        summary: session.summary(),
+        stopped,
+        samples,
+        elapsed: started.elapsed().as_secs_f64(),
+        pass,
+        check,
+    })
 }
 
 #[cfg(test)]

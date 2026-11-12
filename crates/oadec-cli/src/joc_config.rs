@@ -24,6 +24,9 @@
 //! The parser reports all three, so the field can be reached and rewritten
 //! without moving a single other bit; only the frame check has to be redone.
 
+// A command that prints as it goes and is not offered as a call.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;

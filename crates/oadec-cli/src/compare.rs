@@ -1,6 +1,9 @@
 //! `oadec compare`: decode a presentation and compare it sample by sample with
 //! a reference PCM file produced by another decoder.
 
+// A command that prints as it goes and is not offered as a call.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
@@ -154,7 +157,7 @@ pub fn run(source: &Source, reference: &Path, opts: &Options) -> Result<bool> {
         if reference_short {
             return Ok(());
         }
-        let Some(frame) = session.decode(&unit)? else {
+        let Some(frame) = session.decode(&unit, &mut std::io::stderr())? else {
             return Ok(());
         };
         channels = frame.channels;
@@ -188,7 +191,7 @@ pub fn run(source: &Source, reference: &Path, opts: &Options) -> Result<bool> {
         return Err(crate::info::no_stream(source));
     }
     let elapsed = started.elapsed().as_secs_f64();
-    print_summary(&session, elapsed);
+    print_summary(&session.summary(), elapsed);
     let rate = f64::from(session.sampling_frequency.max(1));
     println!(
         "compared {} samples x {} channels ({}) with the reference",

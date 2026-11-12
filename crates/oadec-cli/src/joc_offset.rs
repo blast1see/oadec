@@ -21,6 +21,9 @@
 //! the field can be reached without decoding any of it; only the frame check
 //! has to be redone.
 
+// A command that prints as it goes and is not offered as a call.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;

@@ -346,6 +346,7 @@ impl OamdSummary {
     }
 }
 
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
 fn dump_payload(unit_word: &str, unit_index: u64, container_offset: Option<u32>, oamd: &Oamd) {
     println!(
         "{unit_word} {unit_index}: OAMD v{} {} objects, container sample offset {:?}, {} elements, padding {} bits",
@@ -446,6 +447,7 @@ fn dump_payload(unit_word: &str, unit_index: u64, container_offset: Option<u32>,
 /// Reads every Object Audio Metadata payload of one container into the
 /// summary, and into the dump while it has room; returns whether the container
 /// carried one.
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
 fn take_container(
     summary: &mut OamdSummary,
     index: u64,
@@ -636,9 +638,27 @@ fn walk_eac3(source: &Source, opts: &Options, dumped: &mut usize) -> Result<Oamd
     Ok(summary)
 }
 
+/// What `oamd` found: the summary of its walk, the verdict of `verify` on the
+/// same stream, and its own.
+#[derive(Debug)]
+pub struct Report {
+    summary: OamdSummary,
+    stream: crate::verify::StreamCheck,
+    elapsed: f64,
+    clean: bool,
+}
+
 /// Runs the command; returns `true` when every unit was read and every payload
 /// parsed cleanly.
 pub fn run(source: &Source, opts: &Options) -> Result<bool> {
+    let report = report(source, opts)?;
+    report.print(opts.json)?;
+    Ok(report.clean())
+}
+
+/// Walks the stream and judges it. Nothing is printed, but for what `--dump`
+/// asks to see while the walk goes.
+pub fn report(source: &Source, opts: &Options) -> Result<Report> {
     let eac3 = crate::eac3::is_eac3(source).unwrap_or(false);
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own; run it
@@ -674,13 +694,46 @@ pub fn run(source: &Source, opts: &Options) -> Result<bool> {
         && summary.skipped_bytes == 0
         && summary.trailing_bytes == 0
         && summary.crc_failures == 0;
-    if opts.json {
-        let mut value = serde_json::to_value(&summary)?;
-        value["verify"] = serde_json::to_value(&stream)?;
-        value["clean"] = serde_json::json!(clean);
-        value["seconds"] = serde_json::json!(elapsed);
-        println!("{}", serde_json::to_string_pretty(&value)?);
-    } else {
+    Ok(Report {
+        summary,
+        stream,
+        elapsed,
+        clean,
+    })
+}
+
+impl Report {
+    /// Whether every unit was read, every payload parsed cleanly and `verify`
+    /// calls the stream clean.
+    #[must_use]
+    pub fn clean(&self) -> bool {
+        self.clean
+    }
+
+    /// The report as `oamd --json` prints it.
+    ///
+    /// # Errors
+    /// When a part of the report does not serialise, which none does.
+    pub fn json(&self) -> Result<serde_json::Value> {
+        let mut value = serde_json::to_value(&self.summary)?;
+        value["verify"] = serde_json::to_value(&self.stream)?;
+        value["clean"] = serde_json::json!(self.clean);
+        value["seconds"] = serde_json::json!(self.elapsed);
+        Ok(value)
+    }
+
+    /// Prints the report on stdout, as JSON or as text.
+    ///
+    /// # Errors
+    /// As [`Report::json`].
+    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
+    pub fn print(&self, json: bool) -> Result<()> {
+        if json {
+            println!("{}", serde_json::to_string_pretty(&self.json()?)?);
+            return Ok(());
+        }
+        let (summary, stream) = (&self.summary, &self.stream);
+        let (elapsed, clean) = (self.elapsed, self.clean);
         println!(
             "OAMD payloads:     {} in {} of {} {}s; {} parse errors, {} non-zero paddings, {} long paddings, {} size mismatches",
             summary.payloads,
@@ -781,8 +834,8 @@ pub fn run(source: &Source, opts: &Options) -> Result<bool> {
             "Result:            {}",
             if clean { "CLEAN" } else { "PROBLEMS" }
         );
+        Ok(())
     }
-    Ok(clean)
 }
 
 #[cfg(test)]

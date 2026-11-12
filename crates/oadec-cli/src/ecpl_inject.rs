@@ -23,6 +23,9 @@
 //! the amplitude, angle and chaos paths of the decoder, so they walk through
 //! their ranges deterministically.
 
+// A command that prints as it goes and is not offered as a call.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;

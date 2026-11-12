@@ -5,7 +5,16 @@
 
 // the `verify --json` report is one big `json!` literal
 #![recursion_limit = "256"]
+// What a command finds is a value, and printing it is a step of its own. A
+// function that prints says so, with an `allow` of its own; no other can,
+// which is what lets `api` promise that a call says nothing.
+#![deny(clippy::print_stdout, clippy::print_stderr)]
+// Whatever a call takes or hands back, its caller can write the type of: one
+// that is reachable from outside the crate and has no path there is a
+// warning, and the lints of this repository let none through.
+#![warn(unnameable_types)]
 
+pub mod api;
 mod au_dump;
 mod author;
 mod catalog;
@@ -42,7 +51,7 @@ use crate::decode::{Format, OnError, Order};
 use crate::eac3_objects::{JocLowBand, JocOverrides, JocPhase};
 use crate::integrity::Verdict;
 use crate::source::Source;
-use oadec_truehd::{Severity, Tally};
+use oadec_truehd::Severity;
 
 /// Object-audio decoder engine for Dolby TrueHD Atmos and E-AC-3 JOC streams.
 #[derive(Debug, Parser)]
@@ -445,6 +454,7 @@ const EXIT_NONCONFORMANT: u8 = 7;
 ///
 /// A command line that does not parse ends the process itself, with the usage
 /// message and exit code 2, as it always has.
+#[allow(clippy::print_stderr, reason = "printing is what this one is for")]
 pub fn run<I, T>(args: I) -> ExitCode
 where
     I: IntoIterator<Item = T>,
@@ -452,18 +462,9 @@ where
 {
     let cli = Cli::parse_from(args);
     let result = match cli.command {
-        Command::Info { file, json } => {
-            let source = Source::file(&file);
-            eac3::is_eac3(&source)
-                .and_then(|is| {
-                    if is {
-                        eac3::info(&source, json)
-                    } else {
-                        info::run(&source, json)
-                    }
-                })
-                .map(|()| ExitCode::SUCCESS)
-        }
+        Command::Info { file, json } => api::info(&Source::file(&file))
+            .and_then(|report| report.print(json))
+            .map(|()| ExitCode::SUCCESS),
         Command::Verify {
             file,
             json,
@@ -473,61 +474,28 @@ where
             trace_fifo,
             require_disc,
             census,
-        } => {
-            let source = Source::file(&file);
-            eac3::is_eac3(&source)
-                .and_then(|is| {
-                    if is {
-                        if census {
-                            return Err(anyhow::anyhow!(
-                                "--census counts the TrueHD syntax; the report of an AC-3 or \
-                                 E-AC-3 stream names its coding tools as it is"
-                            ));
-                        }
-                        if fail_on.is_some()
-                            || max_per_rule.is_some()
-                            || trace_fifo.is_some()
-                            || !require_disc.is_empty()
-                        {
-                            // An option that reads as applied while changing
-                            // nothing is the defect named below: E-AC-3 checks
-                            // have no rule catalog yet.
-                            return Err(anyhow::anyhow!(
-                                "--fail-on, --max-per-rule, --trace-fifo and --require-disc \
-                                 apply to a TrueHD stream; the E-AC-3 checks have no rule \
-                                 catalog yet"
-                            ));
-                        }
-                        eac3::verify(&source, json)
-                    } else {
-                        verify::run(
-                            &source,
-                            &verify::Options {
-                                json,
-                                decode,
-                                fail_on: fail_on
-                                    .as_deref()
-                                    .and_then(Severity::from_name)
-                                    .unwrap_or(Severity::Error),
-                                max_per_rule: max_per_rule.unwrap_or(Tally::DEFAULT_MAX_PER_RULE),
-                                trace_fifo,
-                                require_disc: require_disc
-                                    .iter()
-                                    .filter_map(|d| oadec_truehd::disc::Disc::from_id(d))
-                                    .collect(),
-                                census,
-                            },
-                        )
-                    }
-                })
-                .map(|clean| {
-                    if clean {
-                        ExitCode::SUCCESS
-                    } else {
-                        ExitCode::from(EXIT_NONCONFORMANT)
-                    }
-                })
-        }
+        } => api::verify(
+            &Source::file(&file),
+            &api::VerifyOptions {
+                decode,
+                fail_on: fail_on.as_deref().and_then(Severity::from_name),
+                max_per_rule,
+                trace_fifo,
+                require_disc: require_disc
+                    .iter()
+                    .filter_map(|d| oadec_truehd::disc::Disc::from_id(d))
+                    .collect(),
+                census,
+            },
+        )
+        .and_then(|report| report.print(json).map(|()| report.clean()))
+        .map(|clean| {
+            if clean {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(EXIT_NONCONFORMANT)
+            }
+        }),
         Command::Emdf { file, json, dump } => {
             emdf::run(&Source::file(&file), &emdf::Options { json, dump }).map(|clean| {
                 if clean {
@@ -595,18 +563,12 @@ where
             {
                 // A measurement override that reaches no JOC reconstruction would
                 // be read as applied while changing nothing.
-                Err(anyhow::anyhow!(
-                    "--joc-lag, --joc-low-band and --joc-phase measure the JOC object \
-                     decode: they apply to an E-AC-3 stream with --format damf or adm"
-                ))
+                Err(anyhow::anyhow!(api::JOC_MEASURES_EAC3_OBJECTS))
             } else if on_error.is_some() && eac3::is_eac3(&source).unwrap_or(false) {
                 // The E-AC-3 decoder has its own way with a bad frame; an
                 // option that reads as applied while changing nothing is the
                 // defect named below.
-                Err(anyhow::anyhow!(
-                    "--on-error chooses what a TrueHD decode does with an access unit it \
-                     cannot read; it does not apply to an E-AC-3 stream"
-                ))
+                Err(anyhow::anyhow!(api::ON_ERROR_IS_TRUEHD))
             } else if start.is_some()
                 && (eac3::is_eac3(&source).unwrap_or(false)
                     || matches!(format, Format::Damf | Format::Adm))
@@ -618,11 +580,7 @@ where
                 // carries enhanced coupling, a held frame and a pre-noise queue
                 // across frames, and the object writers walk the whole programme
                 // to build one metadata timeline.
-                Err(anyhow::anyhow!(
-                    "--start begins a TrueHD decode at a major sync, which is exact because a \
-                     restart header re-initialises every substream: it applies to a TrueHD \
-                     stream with --format pcm or wav"
-                ))
+                Err(anyhow::anyhow!(api::START_IS_TRUEHD_SAMPLES))
             } else if eac3::is_eac3(&source).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
             {
@@ -665,8 +623,8 @@ where
                                 tpnp: !no_tpnp,
                                 ecpl_full: ecpl_spec,
                             },
-                            // refused above for E-AC-3; never read there
-                            on_error: OnError::Stop,
+                            // refused above for E-AC-3
+                            on_error: None,
                         },
                     )
                 }
@@ -708,7 +666,7 @@ where
                         // TrueHD carries no E-AC-3 core.
                         core: oadec_eac3::Options::default(),
                         joc: JocOverrides::default(),
-                        on_error: on_error.unwrap_or(OnError::Conceal),
+                        on_error,
                     },
                 )
             } else {

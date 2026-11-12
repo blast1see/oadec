@@ -94,20 +94,35 @@ impl Findings {
     }
 
     /// Prints the verdict to stderr and returns it.
+    pub fn report(&self) -> Verdict {
+        self.print();
+        self.verdict()
+    }
+
+    /// The verdict, with nothing said.
+    #[must_use]
+    pub fn verdict(&self) -> Verdict {
+        if !self.is_clean() {
+            Verdict::Faulty
+        } else if self.lossy {
+            Verdict::Lossy
+        } else {
+            Verdict::Clean
+        }
+    }
+
+    /// Says on stderr what the verdict rests on.
     ///
     /// Nothing is printed on a clean decode: a clean run should be quiet.
-    pub fn report(&self) -> Verdict {
+    #[allow(clippy::print_stderr, reason = "printing is what this one is for")]
+    pub fn print(&self) {
         if self.lossy {
             eprintln!(
                 "the output was written and does not carry the whole programme; see the lines above"
             );
         }
         if self.is_clean() {
-            return if self.lossy {
-                Verdict::Lossy
-            } else {
-                Verdict::Clean
-            };
+            return;
         }
         eprintln!("integrity: {}", self.entries.join(", "));
         if let Some(first) = &self.first {
@@ -116,7 +131,6 @@ impl Findings {
         eprintln!(
             "the output was written and is not trustworthy; `oadec verify` reports the same faults"
         );
-        Verdict::Faulty
     }
 }
 
@@ -142,6 +156,9 @@ mod tests {
         assert_eq!(f.report(), Verdict::Lossy);
         f.note(1, "CRC failures");
         assert_eq!(f.report(), Verdict::Faulty);
+        // and the verdict is the same one when nothing is said
+        assert_eq!(f.verdict(), Verdict::Faulty);
+        assert_eq!(Findings::default().verdict(), Verdict::Clean);
         assert_eq!(Verdict::Clean.exit_code(), 0);
         assert_eq!(Verdict::Lossy.exit_code(), 4);
         assert_eq!(Verdict::Faulty.exit_code(), 7);

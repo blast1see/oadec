@@ -1,7 +1,7 @@
 //! `oadec decode --format damf|adm`: the object presentation and its metadata
 //! as a Dolby Atmos Master Format set or an ADM BWF file.
 
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -19,7 +19,7 @@ use serde_json::json;
 
 /// `--isf`: what to do with intermediate-spatial-format elements.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum IsfArg {
+pub(crate) enum IsfArg {
     /// Refuse the decode: DAMF and the ADM profile cannot represent them.
     Error,
     /// Write the beds and dynamic objects without them (a declared loss, exit 4).
@@ -37,7 +37,7 @@ impl From<IsfArg> for IsfPolicy {
 
 /// `--adm-interpolation`: how ADM interpolation lengths are written.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum InterpolationArg {
+pub(crate) enum InterpolationArg {
     /// The Dolby Atmos master ADM profile: 0 then 250 samples (the default).
     Profile,
     /// The source ramps (BS.2076, outside the profile; refuses the Dolby origin tag).
@@ -89,6 +89,7 @@ pub(crate) fn check_interpolation(
 }
 
 /// Says on stderr when the ADM file is outside the profile.
+#[allow(clippy::print_stderr, reason = "printing is what this one is for")]
 pub(crate) fn note_non_profile(opts: &Options) {
     if opts.adm && opts.interpolation == Interpolation::Real {
         eprintln!(
@@ -126,11 +127,13 @@ impl WarpArg {
     }
 }
 
-/// What `--warp-mode stream` does when it has no mode to keep.
-pub(crate) fn note_no_warp_mode(why: &str) {
-    eprintln!(
+/// What `--warp-mode stream` does when it has no mode to keep, in a line to
+/// `remarks`.
+pub(crate) fn note_no_warp_mode(why: &str, remarks: &mut dyn Write) -> io::Result<()> {
+    writeln!(
+        remarks,
         "note: {why}, so the output names none and an encoder will assume warping; give --warp-mode a mode to choose"
-    );
+    )
 }
 
 /// Opens the output for a stream that declares `declared`, with the warp mode
@@ -193,8 +196,36 @@ pub struct Options {
     pub interpolation: Interpolation,
     /// The warp mode the output names, if it is asked to name one.
     pub warp: Option<WarpArg>,
-    /// TrueHD: what to do with an access unit that cannot be read.
-    pub on_error: crate::decode::OnError,
+    /// TrueHD: what to do with an access unit that cannot be read; `None`
+    /// for the default, which is to conceal it. An E-AC-3 decode has its own
+    /// way with a bad frame, and is not to be handed one.
+    pub on_error: Option<crate::decode::OnError>,
+}
+
+impl Default for Options {
+    /// What `decode --format damf` does when it is given no option.
+    fn default() -> Self {
+        Self {
+            clip_gain: true,
+            flat_quadrature: false,
+            sparse_as_printed: false,
+            steep_as_printed: false,
+            core: oadec_eac3::Options::default(),
+            joc: crate::eac3_objects::JocOverrides::default(),
+            keep_duplicates: false,
+            bed_conform: true,
+            all_events: false,
+            adm: false,
+            dolby_origin_tag: false,
+            loss_report: None,
+            isf: IsfPolicy::Error,
+            allow_non_profile_rate: false,
+            fps: "24".to_string(),
+            interpolation: Interpolation::Profile,
+            warp: None,
+            on_error: None,
+        }
+    }
 }
 
 /// The message of a refused ISF programme, with the way out.
@@ -204,20 +235,25 @@ fn isf_hint(count: usize, isf_type: &str) -> String {
     )
 }
 
-/// Prints the loss ledger of an output, one line per class, and writes it as
-/// JSON when a path was given. Quiet when nothing was lost.
+/// Prints the loss ledger of an output on stderr, one line per class. Quiet
+/// when nothing was lost.
+#[allow(clippy::print_stderr, reason = "printing is what this one is for")]
+pub(crate) fn print_losses(target: &str, losses: &LossLedger) {
+    for line in losses.lines(target) {
+        eprintln!("{line}");
+    }
+}
+
+/// Writes the loss ledger of an output as JSON when a path was given.
 /// `overrides` are the measurement overrides the run was given (see
 /// `eac3_objects::JocOverrides`); the report always carries the list, empty
 /// when there were none.
-pub(crate) fn report_losses(
+pub(crate) fn write_loss_report(
     target: &str,
     losses: &LossLedger,
     path: Option<&Path>,
     overrides: &[serde_json::Value],
 ) -> Result<()> {
-    for line in losses.lines(target) {
-        eprintln!("{line}");
-    }
     if let Some(p) = path {
         let kinds: Vec<serde_json::Value> = losses
             .iter()
@@ -339,6 +375,7 @@ impl Drop for Sink {
 }
 
 /// What a closed sink reports.
+#[derive(Debug)]
 pub(crate) struct SinkSummary {
     pub(crate) frames: u64,
     pub(crate) channels: usize,
@@ -465,8 +502,129 @@ impl Sink {
     }
 }
 
+/// What a decode of the object presentation of a TrueHD stream wrote, with
+/// the checks of `verify` that ran beside it still to be heard.
+#[derive(Debug)]
+pub struct Written {
+    opts: Options,
+    stopped: Option<ConfigStop>,
+    emitted: u64,
+    session: crate::decode::Summary,
+    elapsed: f64,
+    sink: SinkSummary,
+    payloads: u64,
+    restatements: u64,
+    out_of_order: u64,
+    units_with_payloads: u64,
+    payload_errors: u64,
+    first_payload_error: Option<String>,
+    losses: LossLedger,
+    pass: input::PassSummary,
+    check: crate::verify::StreamChecking,
+}
+
+impl Written {
+    fn target(&self) -> &'static str {
+        if self.opts.adm { "adm" } else { "damf" }
+    }
+
+    /// Says on stderr what was decoded and written, and what the output
+    /// could not carry.
+    #[allow(clippy::print_stderr, reason = "printing is what this one is for")]
+    pub fn print_summary(&self) {
+        if let Some(stop) = &self.stopped {
+            stop.print(self.emitted);
+        }
+        print_summary(&self.session, self.elapsed);
+        eprintln!(
+            "{}: {} frames x {} channels ({}) in {}{}",
+            if self.opts.adm { "ADM BWF" } else { "DAMF" },
+            self.sink.frames,
+            self.sink.channels,
+            format_duration(
+                self.sink.frames as f64 / f64::from(self.session.sampling_frequency.max(1))
+            ),
+            self.sink
+                .paths
+                .last()
+                .map_or_else(String::new, |p| p.display().to_string()),
+            self.sink.note
+        );
+        note_non_profile(&self.opts);
+        eprintln!(
+            "metadata: {} payloads in {} access units, {} events ({} restating payloads, {} out-of-order events), {} payload errors",
+            self.payloads,
+            self.units_with_payloads,
+            self.sink.events,
+            self.restatements,
+            self.out_of_order,
+            self.payload_errors
+        );
+        if let Some(e) = &self.first_payload_error {
+            eprintln!("first payload error: {e}");
+        }
+        if let Some(s) = &self.session.stats
+            && s.valid_branches + s.invalid_branches + s.duplicates > 0
+        {
+            eprintln!(
+                "timing: {} input timing jumps, {} seamless branches, {} restarts, {} duplicates dropped",
+                s.input_jumps, s.valid_branches, s.invalid_branches, s.duplicates
+            );
+        }
+        print_losses(self.target(), &self.losses);
+    }
+
+    /// Writes the loss ledger as JSON where the options ask for it.
+    ///
+    /// # Errors
+    /// When the file cannot be written.
+    pub fn write_loss_report(&self) -> Result<()> {
+        write_loss_report(
+            self.target(),
+            &self.losses,
+            self.opts.loss_report.as_deref(),
+            &[],
+        )
+    }
+
+    /// Waits for the checks of `verify` and gives everything that was found
+    /// wrong or lost, by them and by the decode.
+    ///
+    /// # Errors
+    /// When the checks could not read the stream.
+    pub fn findings(self) -> Result<crate::integrity::Findings> {
+        let stream = crate::verify::join_stream_check(self.check)?;
+        let mut f =
+            crate::decode::truehd_findings(&self.pass, self.session.stats.as_ref(), &stream);
+        f.note(self.payload_errors, "metadata payload errors");
+        crate::decode::note_concealment(&self.session.concealment, &mut f);
+        if let Some(stop) = &self.stopped {
+            stop.note(&mut f);
+        }
+        f.first_problem(self.first_payload_error.as_deref());
+        f.note_losses(&self.losses);
+        Ok(f)
+    }
+}
+
 /// Runs the object output; `base` is the output path without extension.
 pub fn run(source: &Source, base: &Path, opts: &Options) -> Result<Verdict> {
+    let written = write(source, base, opts, &mut io::stderr())?;
+    written.print_summary();
+    written.write_loss_report()?;
+    Ok(written.findings()?.report())
+}
+
+/// Decodes the object presentation of a TrueHD stream into a DAMF set or an
+/// ADM BWF file at `base`, the output path without extension, and prints
+/// nothing. What the decode has to say while it runs goes to `remarks`, a
+/// line at a time.
+pub fn write(
+    source: &Source,
+    base: &Path,
+    opts: &Options,
+    remarks: &mut dyn Write,
+) -> Result<Written> {
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own, beside the
     // decode: a presentation reads only its substreams, and only some outputs
@@ -484,7 +642,8 @@ pub fn run(source: &Source, base: &Path, opts: &Options) -> Result<Verdict> {
     std::fs::create_dir_all(dir)?;
 
     let mut session = Session::new(3, opts.keep_duplicates, Order::Stream);
-    session.on_error(opts.on_error);
+    let on_error = opts.on_error.unwrap_or(crate::decode::OnError::Conceal);
+    session.on_error(on_error);
     let mut timeline = Timeline::new(opts.all_events);
     let mut sink: Option<Sink> = None;
     let mut config: Option<StreamConfig> = None;
@@ -512,7 +671,7 @@ pub fn run(source: &Source, base: &Path, opts: &Options) -> Result<Verdict> {
                 config = Some(cfg);
                 Some(au)
             }
-            Err(_) if sink.is_some() && opts.on_error == crate::decode::OnError::Conceal => None,
+            Err(_) if sink.is_some() && on_error == crate::decode::OnError::Conceal => None,
             Err(e) => return Err(e.into()),
         };
         let rate = config.as_ref().map_or(0, |c| c.sampling_frequency);
@@ -524,7 +683,10 @@ pub fn run(source: &Source, base: &Path, opts: &Options) -> Result<Verdict> {
             // No TrueHD stream measured carries a trim element, so nothing is read
             // here and the note says so; if one ever does, the timeline counts it.
             if opts.warp == Some(WarpArg::Stream) {
-                note_no_warp_mode("no TrueHD stream measured has declared a warp mode");
+                note_no_warp_mode(
+                    "no TrueHD stream measured has declared a warp mode",
+                    remarks,
+                )?;
             }
             sink = Some(open_sink(
                 dir,
@@ -539,7 +701,7 @@ pub fn run(source: &Source, base: &Path, opts: &Options) -> Result<Verdict> {
         }
         let w = sink.as_mut().expect("sink created above");
 
-        let frame = match session.decode(&unit) {
+        let frame = match session.decode(&unit, remarks) {
             Ok(Some(frame)) => frame,
             Ok(None) => return Ok(()), // duplicate: its audio and metadata are dropped
             Err(e) => {
@@ -583,13 +745,14 @@ pub fn run(source: &Source, base: &Path, opts: &Options) -> Result<Verdict> {
                             && Program::from_oamd(&oamd) != *ps
                         {
                             program_mismatch = true;
-                            eprintln!(
+                            writeln!(
+                                remarks,
                                 "warning: access unit {unit_index}: the OAMD program ({} bed channels, {} objects) differs from the major sync ({} bed channels, {} objects)",
                                 Program::from_oamd(&oamd).bed_channels().len(),
                                 oamd.program.dynamic_objects,
                                 ps.bed_channels().len(),
                                 ps.dynamic_objects
-                            );
+                            )?;
                         }
                         let offset = u64::from(p.config.sample_offset.unwrap_or(0));
                         let mut io_error = None;
@@ -636,62 +799,25 @@ pub fn run(source: &Source, base: &Path, opts: &Options) -> Result<Verdict> {
         bail!("no access units found");
     };
     let summary = sink.finish(timeline.events)?;
-    if let Some(stop) = &stopped {
-        stop.print(emitted);
-    }
-    let elapsed = started.elapsed().as_secs_f64();
-    print_summary(&session, elapsed);
-    eprintln!(
-        "{}: {} frames x {} channels ({}) in {}{}",
-        if opts.adm { "ADM BWF" } else { "DAMF" },
-        summary.frames,
-        summary.channels,
-        format_duration(summary.frames as f64 / f64::from(session.sampling_frequency.max(1))),
-        summary
-            .paths
-            .last()
-            .map_or_else(String::new, |p| p.display().to_string()),
-        summary.note
-    );
-    note_non_profile(opts);
-    eprintln!(
-        "metadata: {} payloads in {} access units, {} events ({} restating payloads, {} out-of-order events), {} payload errors",
-        timeline.payloads,
-        units_with_payloads,
-        summary.events,
-        timeline.restatements,
-        timeline.out_of_order,
-        payload_errors
-    );
-    if let Some(e) = &first_payload_error {
-        eprintln!("first payload error: {e}");
-    }
-    if let Some(s) = session.stats()
-        && s.valid_branches + s.invalid_branches + s.duplicates > 0
-    {
-        eprintln!(
-            "timing: {} input timing jumps, {} seamless branches, {} restarts, {} duplicates dropped",
-            s.input_jumps, s.valid_branches, s.invalid_branches, s.duplicates
-        );
-    }
     let mut losses = timeline.losses.clone();
     losses.merge(&summary.losses);
-    report_losses(
-        if opts.adm { "adm" } else { "damf" },
-        &losses,
-        opts.loss_report.as_deref(),
-        &[],
-    )?;
-    let stream = crate::verify::join_stream_check(check)?;
-    let mut f = crate::decode::truehd_findings(&pass, session.stats(), &stream);
-    f.note(payload_errors, "metadata payload errors");
-    crate::decode::note_concealment(&session.concealment, &mut f);
-    if let Some(stop) = &stopped {
-        stop.note(&mut f);
-    }
-    f.first_problem(first_payload_error.as_deref());
-    f.note_losses(&losses);
-    Ok(f.report())
+    Ok(Written {
+        opts: opts.clone(),
+        stopped,
+        emitted,
+        session: session.summary(),
+        elapsed: started.elapsed().as_secs_f64(),
+        sink: summary,
+        payloads: timeline.payloads,
+        restatements: timeline.restatements,
+        out_of_order: timeline.out_of_order,
+        units_with_payloads,
+        payload_errors,
+        first_payload_error,
+        losses,
+        pass,
+        check,
+    })
 }
 
 #[cfg(test)]
@@ -774,7 +900,7 @@ mod tests {
             fps: "24".to_string(),
             interpolation: Interpolation::Profile,
             warp: None,
-            on_error: crate::decode::OnError::Stop,
+            on_error: Some(crate::decode::OnError::Stop),
         }
     }
 
