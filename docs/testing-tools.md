@@ -187,6 +187,60 @@ On a sound stream a repair changes no byte. That is its test: the fixtures in
 `cargo test`, and every stream of the work directory by hand
 (`docs/audit/evidence/engine-round-2026-11/09-checksum-repair.json`).
 
+# The commands as calls
+
+Asking a command about a stream took a process and a file: start `oadec`,
+read what it printed, read its exit code. `oadec_cli::api` is the commands
+without the command line. Each function does what a command does and hands
+back what it found; none prints, and none ends the process.
+
+| The call | The command | What it hands back |
+|---|---|---|
+| `api::info(&source)` | `info` | the report; `json()` is what `--json` prints |
+| `api::verify(&source, &options)` | `verify` | the report, and `clean()`: exit code 0, where anything else is 7 |
+| `api::oamd(&source)`, `api::emdf(&source)` | `oamd`, `emdf` | the report and `clean()` |
+| `api::decode_pcm(&source, &options, &mut sink, &mut remarks)` | `decode --format pcm` and `wav` | the samples, in the sink; `findings()?.verdict()` is the exit code |
+| `api::decode_objects(&source, base, &options, &mut remarks)` | `decode --format damf` and `adm` | the files, at `base`; `findings()?.verdict()` is the exit code |
+
+A stream is a `Source`: `Source::file(path)`, or `Source::memory(name,
+bytes)` for one that never was a file. Samples go into a `PcmSink`.
+`PcmFile` is the file the command writes, raw or under a WAVE header, and
+`PcmBytes` keeps them in memory with what the header would have said. The
+object outputs are files whoever asks, because a DAMF set and an ADM file are
+closed by going back over what was written. What a decode says while it runs
+goes to `remarks`, a line at a time: `std::io::stderr()` to hear it as the
+command says it, `std::io::sink()` not to.
+
+```rust
+use oadec_cli::api::{self, PcmBytes, PcmOptions, Source, VerifyOptions};
+
+let source = Source::memory("changed.thd", bytes);
+let clean = api::verify(&source, &VerifyOptions::default())?.clean();
+let mut samples = PcmBytes::default();
+let verdict = api::decode_pcm(&source, &PcmOptions::default(), &mut samples, &mut std::io::sink())?
+    .findings()?
+    .verdict();
+```
+
+What the command line refuses of an option that does not apply, the call that
+takes the option refuses in the same words: `fail_on` or `start` for an AC-3
+stream, the JOC measurement overrides for a TrueHD one. The values a call
+hands back have methods that print (`print`, `print_summary`); the command
+line is the calls, or the functions under them, and those methods, one after
+the other, which is what keeps the two from drifting apart.
+
+`tests/api.rs` holds every call to its command, on every fixture and for a
+file and for the same bytes in memory: the report field for field, the
+verdict against the exit code, every delivery byte for byte, each refusal
+word for word. That nothing is printed is tested the only way it can be,
+from outside: the test runs itself again as a process of its own, makes
+every call there, on the fixtures and on copies of them with bytes changed
+and with their second half cut off, and reads what that process wrote.
+
+Which functions print is not left to the reader. The crate denies clippy's
+`print_stdout` and `print_stderr`, and a function that prints carries an
+`allow` that says so; the lint run in CI lets no other through.
+
 # Streams written from a recipe
 
 `crates/oadec-synth` writes TrueHD and MLP streams from recipes: a layout, a

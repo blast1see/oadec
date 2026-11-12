@@ -1,0 +1,325 @@
+{
+ "question": "With every command split into a function that hands back what it found and a method that prints it, and the commands offered as calls that print nothing, does the command line still print and write what it did, at the cost it did? And do the calls say what the commands say?",
+ "method": "Each command of `crates/oadec-cli` was one function that walked the stream and printed as it went. Each is now a function that returns a value (`verify::report`, `eac3::report`, `info::report`, `emdf::report`, `oamd::report`, `decode::decode`, `eac3::decode_into`, `damf::write`, `eac3_objects::write`) and a method of the value that prints. A decode to samples writes into a `PcmSink`, and what it says while it runs goes to a writer it is handed. `oadec_cli::api` offers the commands as calls. Two release binaries (`cargo build --release --locked -p oadec-cli`): main before the change and the change. `tools/old_new.py --decode-all`, as `19-reports-compared.json` left it, ran both over every stream of the work directory and the fixtures: the four reports as text and with `--json`, what each printed on stdout and on stderr, their exit codes, and every delivery (PCM of each presentation, the programme and the core of AC-3 and E-AC-3, a WAVE file, DAMF, ADM), the bytes and the lines printed beside them. `tools/bench.py --compare` measured both, five runs a command, on the longest streams of each kind. The media suite and the media regression ran on the change. The mutations are every entry of `tools/mutants.py` whose file is under `crates/oadec-cli`, run with every test of the workspace on a clean tree of the change.",
+ "binaries": {
+  "main before the change": "7a26c68b70fdceea4ee479a4ccd0b1c3030bf42b79364cf3bc20d782f99e7871",
+  "the change": "3fedb1e4671bdb43a957fc81cedd37946626efaeef83348a499f2e304dae037a"
+ },
+ "result": {
+  "the_command_line": {
+   "the_transcripts": "unchanged: every report as text and as JSON and every delivery of the ten fixtures, as `19-reports-compared.json` recorded them from the binary of main",
+   "the_125_streams": {
+    "streams": 125,
+    "streams_changed": 0,
+    "fields_added": [],
+    "lines_added": [],
+    "reports": {
+     "info": {
+      "runs": 125,
+      "lines_compared": 2003,
+      "fields_compared": 0,
+      "exit_codes": {
+       "0": 125
+      }
+     },
+     "info --json": {
+      "runs": 125,
+      "lines_compared": 0,
+      "fields_compared": 19910,
+      "exit_codes": {
+       "0": 125
+      }
+     },
+     "verify": {
+      "runs": 125,
+      "lines_compared": 2405,
+      "fields_compared": 0,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "verify --json": {
+      "runs": 125,
+      "lines_compared": 0,
+      "fields_compared": 19831,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "emdf": {
+      "runs": 125,
+      "lines_compared": 1471,
+      "fields_compared": 0,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "emdf --json": {
+      "runs": 125,
+      "lines_compared": 0,
+      "fields_compared": 5507,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "oamd": {
+      "runs": 125,
+      "lines_compared": 2357,
+      "fields_compared": 0,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "oamd --json": {
+      "runs": 125,
+      "lines_compared": 0,
+      "fields_compared": 5368,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     }
+    },
+    "lines_of_reports_compared": 8236,
+    "fields_of_reports_compared": 50616,
+    "deliveries": {
+     "pcm -p N (TrueHD and MLP, presentations 0 to 3)": {
+      "runs": 220,
+      "wrote_output": 202,
+      "bytes_compared": 30402893100,
+      "lines_compared": 1036,
+      "exit_codes": {
+       "0": 198,
+       "2": 18,
+       "7": 4
+      }
+     },
+     "pcm (AC-3 and E-AC-3, the programme)": {
+      "runs": 70,
+      "wrote_output": 70,
+      "bytes_compared": 4058892288,
+      "lines_compared": 1095,
+      "exit_codes": {
+       "0": 61,
+       "7": 9
+      }
+     },
+     "pcm --core-only (AC-3 and E-AC-3)": {
+      "runs": 70,
+      "wrote_output": 70,
+      "bytes_compared": 3823884288,
+      "lines_compared": 1095,
+      "exit_codes": {
+       "0": 61,
+       "7": 9
+      }
+     },
+     "wav (what `decode` writes when it is not told which, under a WAVE header)": {
+      "runs": 125,
+      "wrote_output": 125,
+      "bytes_compared": 12782303788,
+      "lines_compared": 1372,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "damf": {
+      "runs": 125,
+      "wrote_output": 64,
+      "bytes_compared": 26139214573,
+      "lines_compared": 486,
+      "exit_codes": {
+       "0": 56,
+       "2": 61,
+       "7": 8
+      }
+     },
+     "adm": {
+      "runs": 125,
+      "wrote_output": 64,
+      "bytes_compared": 26155503004,
+      "lines_compared": 557,
+      "exit_codes": {
+       "0": 56,
+       "2": 61,
+       "7": 8
+      }
+     }
+    },
+    "lines_beside_deliveries_compared": 5641,
+    "bytes_compared_in_all": 103362691041
+   },
+   "speed": {
+    "machine": {
+     "processor": "Intel(R) Core(TM) i7-14700K",
+     "logical_processors": 28,
+     "system": "Windows 11"
+    },
+    "runs_a_command": 5,
+    "streams": 17,
+    "commands_measured": 83,
+    "wall_time_of_the_change_over_main": {
+     "least": 0.982,
+     "median": 0.999,
+     "most": 1.036
+    },
+    "processor_time_of_the_change_over_main": {
+     "least": 0.9,
+     "median": 1.0,
+     "most": 1.067
+    },
+    "verdicts_of_the_tool_on_wall_time": {
+     "same": 82,
+     "slower": 1
+    },
+    "verdicts_of_the_tool_on_processor_time": {
+     "faster": 5,
+     "same": 77,
+     "slower": 1
+    },
+    "the_wall_times_it_does_not_call_the_same": [
+     {
+      "kind": "ac3",
+      "command": "verify",
+      "verdict": "slower",
+      "ratio": 1.036,
+      "main_s": 0.1057,
+      "the_change_s": 0.1095
+     }
+    ],
+    "note": "processor time is read in steps of 1/64 s, so a command of a third of a second moves by 5 % with one step"
+   },
+   "media": {
+    "the_media_suite": {
+     "passed": 28,
+     "failed": 0
+    },
+    "the_media_regression": {
+     "steps": 8,
+     "passed": 8,
+     "line": "all media checks passed"
+    }
+   }
+  },
+  "the_calls": {
+   "tests": "`crates/oadec-cli/tests/api.rs`, nine tests, on the ten fixtures",
+   "reports": "`api::info`, `api::verify` (with and without `decode`), `api::oamd` and `api::emdf` hand back the JSON the command prints with `--json`, field for field, and `clean()` is the exit code; for a file and for the same bytes in memory",
+   "samples": "`api::decode_pcm` into memory is the file `decode --format pcm` writes, for every presentation a stream carries and for the two orders of the channels, and its verdict is the exit code; a presentation the stream does not carry is refused by both in one sentence. Into a `PcmFile` it is the WAVE file the command writes, and what it remarks is what the command says first",
+   "objects": "`api::decode_objects` writes the files `decode --format damf` and `adm` write, byte for byte, and what it remarks is what the command says first",
+   "refusals": "each in the words of the command: `census`, `fail_on`, `max_per_rule`, `trace_fifo` and `require_disc` for an AC-3 family stream; `start` and `on_error` for a decode of one to samples; the JOC measurement overrides for the object decode of a TrueHD stream; `on_error` for the object decode of an E-AC-3 one; source ramps with the Dolby origin tag; a file that is no stream. A refusal writes no file",
+   "nothing_printed": "one test runs itself again as a process of its own, makes every call there on each fixture as it is, with three of its bytes changed, and cut off in its middle (the object decodes as DAMF, as ADM and as ADM outside the profile), and reads what that process wrote: nothing on stderr, and on stdout the lines of the test harness alone. With one call made to list a payload the test fails",
+   "which_functions_print": "the crate denies `clippy::print_stdout` and `clippy::print_stderr`; a function that prints carries an `allow` that says so, and nine modules that are a printing command and nothing else carry one at their head",
+   "names": "the crate warns of `unnameable_types`, and the lints of the repository let no warning through: every type a call takes or hands back has a path from outside"
+  },
+  "mutations": {
+   "count": 47,
+   "survive": [],
+   "of_them_written_for_this_change": 14,
+   "the_ones_written_for_this_change": [
+    {
+     "mutation": "a declared loss put before a fault in the verdict of a delivery",
+     "caught_by": [
+      "integrity::tests::a_declared_loss_is_lossy_and_a_fault_wins"
+     ]
+    },
+    {
+     "mutation": "a report of verify said to be clean whatever it found",
+     "caught_by": [
+      "a_dvd_audio_stream_says_what_it_is"
+     ]
+    },
+    {
+     "mutation": "a WAVE file written without its header",
+     "caught_by": [
+      "each_output_names_the_rate_the_stream_declares"
+     ]
+    },
+    {
+     "mutation": "a decode that held nothing leaving its empty file behind",
+     "caught_by": [
+      "a_file_without_a_whole_syncframe_is_refused_by_every_decode_format"
+     ]
+    },
+    {
+     "mutation": "the warning for a channel mask not passed on by a decode",
+     "caught_by": [
+      "a_wave_file_and_the_remarks_of_a_decode_are_the_commands"
+     ]
+    },
+    {
+     "mutation": "the options of the TrueHD checks let through for an AC-3 family stream",
+     "caught_by": [
+      "a_call_refuses_what_the_command_refuses_in_its_words"
+     ]
+    },
+    {
+     "mutation": "one of the options of the TrueHD checks let through for an AC-3 family stream",
+     "caught_by": [
+      "a_call_refuses_what_the_command_refuses_in_its_words"
+     ]
+    },
+    {
+     "mutation": "the verdict line left off the text of verify for an AC-3 family stream",
+     "caught_by": [
+      "authored_scene_ec3"
+     ]
+    },
+    {
+     "mutation": "a call that decodes in the order of the stream whatever it is asked",
+     "caught_by": [
+      "decode_pcm_writes_the_bytes_the_command_writes",
+      "the_order_of_the_channels_is_the_one_asked_for"
+     ]
+    },
+    {
+     "mutation": "the text of a walk over access units printed for one over syncframes",
+     "caught_by": [
+      "authored_scene_ec3",
+      "authored_scene_mlp",
+      "mlp_41_48k"
+     ]
+    },
+    {
+     "mutation": "the loss report of a TrueHD object decode not written",
+     "caught_by": [
+      "the_truehd_fixture_decodes_to_agreeing_damf_and_adm_outputs"
+     ]
+    },
+    {
+     "mutation": "a call that lists a payload in full as it walks",
+     "caught_by": [
+      "the_calls_print_nothing"
+     ]
+    },
+    {
+     "mutation": "the JOC measurement overrides let through for a TrueHD stream",
+     "caught_by": [
+      "a_call_refuses_what_the_command_refuses_in_its_words"
+     ]
+    },
+    {
+     "mutation": "what a TrueHD decode does with a bad unit let through for an E-AC-3 object decode",
+     "caught_by": [
+      "a_call_refuses_what_the_command_refuses_in_its_words"
+     ]
+    }
+   ],
+   "note": "the mutation of the text of `emdf` survived the tests as they were before `19-reports-compared.json`: nothing held that text. The transcripts hold it now"
+  },
+  "left_as_it_was": "`--core-only`, `--no-dither`, `--no-tpnp` and `--ecpl-spec` on a TrueHD stream, and `--no-clip-gain`, `--flat-quadrature`, `--sparse-as-printed` and `--steep-as-printed` on one decoded to objects, are not refused by the command line: they change nothing and the command exits 0. The calls do as the command line does. An option that reads as applied while changing nothing is what this repository calls a defect elsewhere, and refusing these would change exit codes, so it is not done in a change that is to change none.",
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 580 passed, 28 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "reading": "Nothing the command line prints or writes moved. Over 125 streams the binary before and the binary after print the same four reports, 8 236 lines and 50 616 fields of them, the same 5 641 lines beside their deliveries and the same 103 362 691 041 bytes in them, with the same exit codes, and the median command takes 0.999 of the wall time it took. What is new is that the same code can be asked without a process: a call hands back the report the command prints, field for field, and the verdict the command exits with, from a file or from bytes in memory, refuses what the command refuses in its words, and prints nothing, which a process that makes every call shows from outside. Of 47 mutations of the crate, 14 of them written for this change, none survives."
+}
