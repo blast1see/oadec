@@ -14,6 +14,9 @@
 //! taking whichever one parses reproduces the two streams exactly. On a
 //! five-gigabyte dump it left no byte over.
 
+// A command that prints as it goes and is not offered as a call.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::Path;

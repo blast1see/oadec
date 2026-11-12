@@ -80,7 +80,8 @@ fn lossless_checks(source: &Source, ms: &MajorSync) -> Result<LosslessChecks> {
             if error.is_some() {
                 continue;
             }
-            match session.decode(&unit) {
+            // no start is asked for here, so a session has nothing to remark
+            match session.decode(&unit, &mut std::io::sink()) {
                 // counted with the rule every writer clamps by, so the count
                 // is the one `decode` reports for the same presentation
                 Ok(Some(frame)) => {
@@ -223,8 +224,6 @@ impl Drop for StreamChecking {
 /// How `verify` judges a TrueHD stream and how much of what it found it lists.
 #[derive(Debug, Clone)]
 pub struct Options {
-    /// Machine-readable JSON instead of text.
-    pub json: bool,
     /// Decode every presentation and evaluate the lossless check words.
     pub decode: bool,
     /// The lightest severity that fails the run.
@@ -243,7 +242,6 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
-            json: false,
             decode: false,
             fail_on: Severity::Error,
             max_per_rule: Tally::DEFAULT_MAX_PER_RULE,
@@ -442,6 +440,7 @@ fn buffer_json(scan: &scan::Scan) -> Value {
 }
 
 /// The `Buffer:` lines of the text report.
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
 fn print_buffer(scan: &scan::Scan) {
     let (Some(m), Some(cfg)) = (&scan.fifo, &scan.config) else {
         return;
@@ -517,6 +516,7 @@ fn disc_json(rows: Option<&[Row; 3]>, required: &[Disc]) -> Value {
 }
 
 /// The `Disc:` lines of the text report: the verdicts, then each reason once.
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
 fn print_disc(rows: Option<&[Row; 3]>, required: &[Disc]) {
     let Some(rows) = rows else {
         return;
@@ -701,6 +701,7 @@ fn region_text(scan: &scan::Scan, r: &Region) -> String {
 /// finding, then one line per rule that fired, at most six of them, the
 /// heaviest first, so the last lines of the report keep the summary and the
 /// verdict.
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
 fn print_diagnostics(scan: &scan::Scan, fail_on: Severity) {
     let d = &scan.diag.tally;
     if d.is_empty() {
@@ -795,12 +796,31 @@ fn print_diagnostics(scan: &scan::Scan, fail_on: Severity) {
     }
 }
 
-/// Runs the command; returns `true` when the stream is clean. With `decode`,
-/// every presentation the stream carries is decoded as well and its lossless
-/// checks join the verdict.
-pub fn run(source: &Source, opts: &Options) -> Result<bool> {
+/// What `verify` found in a TrueHD stream: everything its report says, and
+/// the verdict.
+#[derive(Debug)]
+pub struct Report {
+    // on the heap: a scan is large, and a report is handed from frame to frame
+    scan: Box<scan::Scan>,
+    checks: Option<LosslessChecks>,
+    discs: Option<[Row; 3]>,
+    elapsed: f64,
+    clean: bool,
+    fail_on: Severity,
+    require_disc: Vec<Disc>,
+    census: bool,
+}
+
+/// Reads the stream and judges it, and prints nothing. With `decode`, every
+/// presentation the stream carries is decoded as well and its lossless checks
+/// join the verdict.
+pub fn report(source: &Source, opts: &Options) -> Result<Report> {
     let started = Instant::now();
-    let mut scan = scan::scan_keeping(source, opts.max_per_rule, opts.trace_fifo.is_some())?;
+    let mut scan = Box::new(scan::scan_keeping(
+        source,
+        opts.max_per_rule,
+        opts.trace_fifo.is_some(),
+    )?);
     if let (Some(out), Some(layouts)) = (&opts.trace_fifo, &scan.layouts) {
         write_trace(out, layouts)?;
     }
@@ -843,21 +863,71 @@ pub fn run(source: &Source, opts: &Options) -> Result<bool> {
                     })),
         "the rule verdict and the counter verdict disagree"
     );
-    let speed = scan.duration_seconds().map(|d| d / elapsed.max(1e-9));
-    if opts.json {
-        let mut value = serde_json::to_value(&scan)?;
-        value["lossless_checks"] = serde_json::to_value(&checks)?;
-        value["diagnostics"] = diagnostics_json(&scan, opts.fail_on);
-        value["buffer"] = buffer_json(&scan);
-        value["disc"] = disc_json(discs.as_ref(), &opts.require_disc);
-        if opts.census {
-            value["census"] = crate::census::json(&scan.census, carried_substreams(&scan));
+    Ok(Report {
+        scan,
+        checks,
+        discs,
+        elapsed,
+        clean,
+        fail_on: opts.fail_on,
+        require_disc: opts.require_disc.clone(),
+        census: opts.census,
+    })
+}
+
+impl Report {
+    /// Whether the stream is clean.
+    #[must_use]
+    pub fn clean(&self) -> bool {
+        self.clean
+    }
+
+    /// How fast the stream was read against its own duration.
+    fn speed(&self) -> Option<f64> {
+        self.scan
+            .duration_seconds()
+            .map(|d| d / self.elapsed.max(1e-9))
+    }
+
+    /// The report as `verify --json` prints it.
+    ///
+    /// # Errors
+    /// When a part of the report does not serialise, which none does.
+    pub fn json(&self) -> Result<Value> {
+        let scan: &scan::Scan = &self.scan;
+        let mut value = serde_json::to_value(scan)?;
+        value["lossless_checks"] = serde_json::to_value(&self.checks)?;
+        value["diagnostics"] = diagnostics_json(scan, self.fail_on);
+        value["buffer"] = buffer_json(scan);
+        value["disc"] = disc_json(self.discs.as_ref(), &self.require_disc);
+        if self.census {
+            value["census"] = crate::census::json(&scan.census, carried_substreams(scan));
         }
-        value["clean"] = serde_json::json!(clean);
-        value["seconds"] = serde_json::json!(elapsed);
-        value["realtime_factor"] = serde_json::json!(speed);
-        println!("{}", serde_json::to_string_pretty(&value)?);
-    } else {
+        value["clean"] = serde_json::json!(self.clean);
+        value["seconds"] = serde_json::json!(self.elapsed);
+        value["realtime_factor"] = serde_json::json!(self.speed());
+        Ok(value)
+    }
+
+    /// Prints the report on stdout, as JSON or as text.
+    ///
+    /// # Errors
+    /// As [`Report::json`].
+    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
+    pub fn print(&self, json: bool) -> Result<()> {
+        if json {
+            println!("{}", serde_json::to_string_pretty(&self.json()?)?);
+            return Ok(());
+        }
+        self.print_text();
+        Ok(())
+    }
+
+    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
+    fn print_text(&self) {
+        let scan: &scan::Scan = &self.scan;
+        let (checks, discs, clean) = (&self.checks, &self.discs, self.clean);
+        let (elapsed, speed) = (self.elapsed, self.speed());
         println!("File:              {}", scan.file);
         println!(
             "Access units:      {} ({} major syncs, {} bytes)",
@@ -951,7 +1021,7 @@ pub fn run(source: &Source, opts: &Options) -> Result<bool> {
                 scan.coverage.join(", ")
             }
         );
-        if let Some(c) = &checks {
+        if let Some(c) = checks {
             println!(
                 "Lossless checks:   {} evaluated, {} failed, {} skipped",
                 c.evaluated, c.failed, c.skipped
@@ -1004,14 +1074,14 @@ pub fn run(source: &Source, opts: &Options) -> Result<bool> {
                 b.data_rate
             );
         }
-        print_buffer(&scan);
-        print_disc(discs.as_ref(), &opts.require_disc);
-        print_diagnostics(&scan, opts.fail_on);
+        print_buffer(scan);
+        print_disc(discs.as_ref(), &self.require_disc);
+        print_diagnostics(scan, self.fail_on);
         if let Some(err) = &scan.first_error {
             println!("First error:       {err}");
         }
-        if opts.census {
-            for (i, line) in crate::census::lines(&scan.census, carried_substreams(&scan))
+        if self.census {
+            for (i, line) in crate::census::lines(&scan.census, carried_substreams(scan))
                 .iter()
                 .enumerate()
             {
@@ -1028,7 +1098,6 @@ pub fn run(source: &Source, opts: &Options) -> Result<bool> {
             if clean { "CLEAN" } else { "NON-CONFORMANT" }
         );
     }
-    Ok(clean)
 }
 
 #[cfg(test)]

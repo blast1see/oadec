@@ -2,6 +2,9 @@
 //! each part sits in the file -- the place a finding of `verify` points to,
 //! opened up.
 
+// A command that prints as it goes and is not offered as a call.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use anyhow::{Result, anyhow};
 use oadec_emdf::container;
 use oadec_truehd::{AccessUnit, ExtraKind, ParserState, SampleBuffer, Segment, StreamConfig};

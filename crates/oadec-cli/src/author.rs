@@ -17,6 +17,9 @@
 //! spatial coding is free to renumber objects, and an object that can be
 //! recognised from its audio survives that.
 
+// A command that prints as it goes and is not offered as a call.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;

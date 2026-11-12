@@ -1,6 +1,9 @@
 //! `oadec rules`: the checks `verify` makes on a TrueHD stream, with the
 //! severity each carries by default and the source each rests on.
 
+// A command that prints as it goes and is not offered as a call.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use anyhow::{Result, anyhow};
 use oadec_truehd::{Provenance, RuleId};
 use serde_json::{Value, json};

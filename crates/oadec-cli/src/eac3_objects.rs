@@ -10,6 +10,7 @@
 
 use std::collections::VecDeque;
 use std::fmt;
+use std::io::Write;
 use std::path::Path;
 use std::time::Instant;
 
@@ -299,6 +300,10 @@ fn carries(dmx_config: u8, channels: usize, flat: bool, overrides: &JocOverrides
 }
 
 impl Pipeline {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the pipeline has this many inputs"
+    )]
     fn new(
         joc: &JocHeader,
         program: &Program,
@@ -307,6 +312,7 @@ impl Pipeline {
         flat_quadrature: bool,
         steep: SteepReading,
         overrides: &JocOverrides,
+        remarks: &mut dyn Write,
     ) -> Result<Self> {
         let mut joc_inputs = vec![usize::MAX; joc.num_channels];
         for (coded, loc) in chans.iter().enumerate() {
@@ -350,10 +356,11 @@ impl Pipeline {
             );
         }
         if next_object < joc.num_objects {
-            eprintln!(
+            writeln!(
+                remarks,
                 "warning: the stream carries {} JOC objects, the program uses {}",
                 joc.num_objects, next_object
-            );
+            )?;
         }
         let elements = sources.len();
         let carry = carries(joc.dmx_config, joc.num_channels, flat_quadrature, overrides);
@@ -694,9 +701,125 @@ impl Tally {
     }
 }
 
+/// What a decode of the objects of an E-AC-3 JOC stream wrote.
+#[derive(Debug)]
+pub struct Written {
+    opts: Options,
+    rate: u32,
+    sink: crate::damf::SinkSummary,
+    elapsed: f64,
+    payloads: u64,
+    restatements: u64,
+    out_of_order: u64,
+    tally: Tally,
+    frames_without_joc: u64,
+    frames_without_oamd: u64,
+    splices: u64,
+    seq_gaps: u64,
+    frames: u64,
+    rows_written: u64,
+    losses: LossLedger,
+    stats: oadec_eac3::ProgramStats,
+}
+
+impl Written {
+    fn target(&self) -> &'static str {
+        if self.opts.adm { "adm" } else { "damf" }
+    }
+
+    /// Says on stderr what was decoded and written, and what the output
+    /// could not carry.
+    #[allow(clippy::print_stderr, reason = "printing is what this one is for")]
+    pub fn print_summary(&self) {
+        let (summary, tally, rate, elapsed) = (&self.sink, &self.tally, self.rate, self.elapsed);
+        eprintln!(
+            "{}: {} frames x {} channels ({}) in {}{}",
+            if self.opts.adm { "ADM BWF" } else { "DAMF" },
+            summary.frames,
+            summary.channels,
+            format_duration(summary.frames as f64 / f64::from(rate.max(1))),
+            summary
+                .paths
+                .last()
+                .map_or_else(String::new, |p| p.display().to_string()),
+            summary.note
+        );
+        crate::damf::note_non_profile(&self.opts);
+        eprintln!(
+            "metadata: {} payloads, {} events ({} restating payloads, {} out-of-order events), {} payload errors; {} frames without JOC, {} without OAMD",
+            self.payloads,
+            summary.events,
+            self.restatements,
+            self.out_of_order,
+            tally.payload_errors,
+            self.frames_without_joc,
+            self.frames_without_oamd
+        );
+        if self.splices > 0 || self.seq_gaps > 0 {
+            eprintln!(
+                "splices: {} frames restarted the sequence counter, {} did not follow the previous one",
+                self.splices, self.seq_gaps
+            );
+        }
+        eprintln!(
+            "core: {} frames decoded, {} decode errors, {:.2} s ({:.0}x realtime)",
+            self.frames,
+            tally.decode_errors,
+            elapsed,
+            if elapsed > 0.0 {
+                self.rows_written as f64 / f64::from(rate) / elapsed
+            } else {
+                0.0
+            }
+        );
+        if let Some(group) = tally.first_tail {
+            eprintln!(
+                "out of spec: {} frames ending inside the frame tail, the first in group {group}; decoded as FFmpeg and Dolby decode them, which is not an integrity fault (`oadec verify` reports it)",
+                tally.tail_overruns
+            );
+        }
+        crate::damf::print_losses(self.target(), &self.losses);
+    }
+
+    /// Writes the loss ledger as JSON where the options ask for it.
+    ///
+    /// # Errors
+    /// When the file cannot be written.
+    pub fn write_loss_report(&self) -> Result<()> {
+        crate::damf::write_loss_report(
+            self.target(),
+            &self.losses,
+            self.opts.loss_report.as_deref(),
+            &self.opts.joc.json(),
+        )
+    }
+
+    /// Everything that was found wrong or lost.
+    #[must_use]
+    pub fn findings(&self) -> Findings {
+        self.tally.findings(&self.stats, &self.losses)
+    }
+}
+
 /// Runs the object output for an E-AC-3 JOC stream; `base` is the output path
 /// without extension.
 pub fn run(source: &crate::source::Source, base: &Path, opts: &Options) -> Result<Verdict> {
+    let written = write(source, base, opts, &mut std::io::stderr())?;
+    written.print_summary();
+    written.write_loss_report()?;
+    Ok(written.findings().report())
+}
+
+/// Decodes the objects of an E-AC-3 JOC stream into a DAMF set or an ADM BWF
+/// file at `base`, the output path without extension, and prints nothing.
+/// What the decode has to say while it runs goes to `remarks`, a line at a
+/// time.
+pub fn write(
+    source: &crate::source::Source,
+    base: &Path,
+    opts: &Options,
+    remarks: &mut dyn Write,
+) -> Result<Written> {
     let started = Instant::now();
     let dir = base
         .parent()
@@ -709,7 +832,7 @@ pub fn run(source: &crate::source::Source, base: &Path, opts: &Options) -> Resul
         .to_string();
     std::fs::create_dir_all(dir)?;
     if let Some(line) = opts.joc.line() {
-        eprintln!("{line}");
+        writeln!(remarks, "{line}")?;
     }
 
     let mut decoder = ProgramDecoder::new(opts.core);
@@ -810,9 +933,13 @@ pub fn run(source: &crate::source::Source, base: &Path, opts: &Options) -> Resul
                     SteepReading::Measured
                 },
                 &opts.joc,
+                remarks,
             )?);
             if opts.warp == Some(WarpArg::Stream) && declared_warp(o).is_none() {
-                note_no_warp_mode("the first payload of this stream declares no warp mode");
+                note_no_warp_mode(
+                    "the first payload of this stream declares no warp mode",
+                    remarks,
+                )?;
             }
             sink = Some(open_sink(
                 dir,
@@ -836,14 +963,15 @@ pub fn run(source: &crate::source::Source, base: &Path, opts: &Options) -> Resul
                 None => "clip gain not read (the first JOC payload has a reserved extension)"
                     .to_string(),
             };
-            eprintln!(
+            writeln!(
+                remarks,
                 "program: {} bed channels, {} dynamic objects, {} JOC objects over {} downmix channels (config {}), {clip}",
                 p.bed_channels().len(),
                 p.dynamic_objects,
                 header.num_objects,
                 header.num_channels,
                 header.dmx_config,
-            );
+            )?;
             program = Some(p);
         }
         let pl = pipeline.as_mut().expect("created above");
@@ -853,7 +981,10 @@ pub fn run(source: &crate::source::Source, base: &Path, opts: &Options) -> Resul
             if let Some(p) = &program
                 && Program::from_oamd(o) != *p
             {
-                eprintln!("warning: frame {frame_index}: the program changed; keeping the first");
+                writeln!(
+                    remarks,
+                    "warning: frame {frame_index}: the program changed; keeping the first"
+                )?;
             }
             let (base, offset) = if frame_start >= DECODER_DELAY as u64 {
                 (frame_start - DECODER_DELAY as u64, u64::from(*smploffst))
@@ -926,62 +1057,26 @@ pub fn run(source: &crate::source::Source, base: &Path, opts: &Options) -> Resul
         rows_written += remaining as u64;
     }
     let summary = sink.finish(timeline.events)?;
-    let elapsed = started.elapsed().as_secs_f64();
-    eprintln!(
-        "{}: {} frames x {} channels ({}) in {}{}",
-        if opts.adm { "ADM BWF" } else { "DAMF" },
-        summary.frames,
-        summary.channels,
-        format_duration(summary.frames as f64 / f64::from(rate.max(1))),
-        summary
-            .paths
-            .last()
-            .map_or_else(String::new, |p| p.display().to_string()),
-        summary.note
-    );
-    crate::damf::note_non_profile(opts);
-    eprintln!(
-        "metadata: {} payloads, {} events ({} restating payloads, {} out-of-order events), {} payload errors; {} frames without JOC, {} without OAMD",
-        timeline.payloads,
-        summary.events,
-        timeline.restatements,
-        timeline.out_of_order,
-        tally.payload_errors,
-        frames_without_joc,
-        frames_without_oamd
-    );
-    if pl.splices > 0 || pl.seq_gaps > 0 {
-        eprintln!(
-            "splices: {} frames restarted the sequence counter, {} did not follow the previous one",
-            pl.splices, pl.seq_gaps
-        );
-    }
-    eprintln!(
-        "core: {} frames decoded, {} decode errors, {:.2} s ({:.0}x realtime)",
-        pl.frames,
-        tally.decode_errors,
-        elapsed,
-        if elapsed > 0.0 {
-            rows_written as f64 / f64::from(rate) / elapsed
-        } else {
-            0.0
-        }
-    );
-    if let Some(group) = tally.first_tail {
-        eprintln!(
-            "out of spec: {} frames ending inside the frame tail, the first in group {group}; decoded as FFmpeg and Dolby decode them, which is not an integrity fault (`oadec verify` reports it)",
-            tally.tail_overruns
-        );
-    }
     let mut losses = timeline.losses.clone();
     losses.merge(&summary.losses);
-    crate::damf::report_losses(
-        if opts.adm { "adm" } else { "damf" },
-        &losses,
-        opts.loss_report.as_deref(),
-        &opts.joc.json(),
-    )?;
-    Ok(tally.findings(&stats, &losses).report())
+    Ok(Written {
+        opts: opts.clone(),
+        rate,
+        sink: summary,
+        elapsed: started.elapsed().as_secs_f64(),
+        payloads: timeline.payloads,
+        restatements: timeline.restatements,
+        out_of_order: timeline.out_of_order,
+        tally,
+        frames_without_joc,
+        frames_without_oamd,
+        splices: pl.splices,
+        seq_gaps: pl.seq_gaps,
+        frames: pl.frames,
+        rows_written,
+        losses,
+        stats,
+    })
 }
 
 #[cfg(test)]

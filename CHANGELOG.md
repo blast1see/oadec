@@ -8,6 +8,28 @@ Semantic Versioning.
 
 ### Added
 
+- **The commands as calls: `oadec_cli::api`.** A test that changed a stream
+  and asked two commands about it had to start a process for each question
+  and read the answer back out of what was printed. `api::info`,
+  `api::verify`, `api::oamd`, `api::emdf`, `api::decode_pcm` and
+  `api::decode_objects` do what the commands do and hand back what they
+  found: the report, whose `json()` is what `--json` prints; whether the
+  stream is clean; the findings of a decode, whose verdict is the exit code.
+  A stream comes as a `Source`, a file or bytes in memory. A decode to
+  samples writes into a `PcmSink`: `PcmFile` is the file the command writes,
+  and `PcmBytes` keeps the samples in memory with what a WAVE header would
+  have said of them. The object outputs stay files, because a DAMF set and
+  an ADM file are closed by going back over what was written. What a decode
+  says while it runs, such as the warning for a channel a WAVE mask cannot
+  name, goes line by line to a writer the caller hands in. What the command
+  line refuses of an option that does not apply, the call that takes the
+  option refuses in the same words. And a call prints nothing. The tests
+  hold every call to its command on every fixture: the report field for
+  field, the verdict, the bytes of every delivery, the refusals word for
+  word, a file against the same bytes in memory. One test runs itself again
+  as a process of its own, makes every call there on the fixtures and on
+  damaged copies of them, and reads what that process wrote: nothing
+  (`docs/testing-tools.md`, `docs/audit/evidence/engine-round-2026-11/20-reports-and-calls.json`).
 - **AC-3 frames whose delta bit allocation moves the masking curve, and the
   first AC-3 stream in the tests.** No stream examined applies a delta bit
   allocation and no fixture was an AC-3 stream, so the delta stood on unit
@@ -284,6 +306,22 @@ Semantic Versioning.
 
 ### Changed
 
+- **A command finds, then prints.** Each command was a function that walked
+  the stream and printed as it went, so what it had found could only be read
+  back out of its output. Each is now a function that hands back a value and
+  a method of the value that prints it: the reports of `info`, `verify`,
+  `emdf` and `oamd`, the summary of a decode to samples, and what an object
+  decode wrote and lost. The command line is those with the printing after.
+  The crate denies `clippy::print_stdout` and `clippy::print_stderr`, and a
+  function that prints carries an `allow` that says so, so that printing
+  cannot come back into a function that computes without a line that owns
+  up to it; and every type a call takes or hands back can be named from
+  outside (`unnameable_types`). Nothing a command prints or writes changes.
+  The transcripts hold, text and JSON, and over 125 streams the binary
+  before and the binary after give the same exit codes, the same four
+  reports line for line and field for field, the same lines beside every
+  delivery and the same 103 GB of delivered bytes, at the same speed
+  (`docs/audit/evidence/engine-round-2026-11/20-reports-and-calls.json`).
 - **The comparison of two binaries reads every report, and the transcripts
   hold every report as text.** `tools/old_new.py` ran `verify` as text and as
   JSON and `info --json`. It did not run `emdf` or `oamd` at all, nor read the

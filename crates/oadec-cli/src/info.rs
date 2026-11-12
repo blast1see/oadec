@@ -32,6 +32,7 @@ fn format_duration(seconds: f64) -> String {
     format!("{h}:{m:02}:{s:02}.{ms:03}")
 }
 
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
 fn print_presentations(ms: &MajorSync) {
     let map = ms.presentation_map();
     if ms.is_fbb() {
@@ -101,6 +102,7 @@ fn print_presentations(ms: &MajorSync) {
     }
 }
 
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
 fn print_text(scan: &Scan) {
     println!(
         "File:             {} ({} bytes)",
@@ -277,14 +279,30 @@ pub(crate) fn no_stream(source: &Source) -> anyhow::Error {
     )
 }
 
-/// Runs the command.
-pub fn run(source: &Source, json: bool) -> Result<()> {
-    let scan = scan::scan(source)?;
+/// What `info` reads of a TrueHD stream.
+#[derive(Debug)]
+pub struct Report {
+    // on the heap: a scan is large, and a report is handed from frame to frame
+    scan: Box<Scan>,
+}
+
+/// Scans the stream and prints nothing.
+pub fn report(source: &Source) -> Result<Report> {
+    let scan = Box::new(scan::scan(source)?);
     if scan.units == 0 {
         return Err(no_stream(source));
     }
-    if json {
-        let mut value = serde_json::to_value(&scan)?;
+    Ok(Report { scan })
+}
+
+impl Report {
+    /// The report as `info --json` prints it.
+    ///
+    /// # Errors
+    /// When a part of the report does not serialise, which none does.
+    pub fn json(&self) -> Result<serde_json::Value> {
+        let scan: &Scan = &self.scan;
+        let mut value = serde_json::to_value(scan)?;
         // `substreams` below is the declared count, which replaces the scan's
         // per-substream statistics under the same key; they stay reachable here.
         value["substream_stats"] = value["substreams"].clone();
@@ -304,16 +322,16 @@ pub fn run(source: &Source, json: bool) -> Result<()> {
             value["has_16ch_presentation"] = serde_json::json!(ms.has_16ch_presentation());
             value["presentations"] =
                 serde_json::json!((0..4)
-                .map(|i| {
-                    let chans = ChannelLabel::presentation(ms, i);
-                    serde_json::json!({
-                        "index": i,
-                        "substream_mask": map.mask(i),
-                        "kind": kind_text(map.kind(i)),
-                        "channels": chans.iter().map(ToString::to_string).collect::<Vec<_>>(),
-                    })
+            .map(|i| {
+                let chans = ChannelLabel::presentation(ms, i);
+                serde_json::json!({
+                    "index": i,
+                    "substream_mask": map.mask(i),
+                    "kind": kind_text(map.kind(i)),
+                    "channels": chans.iter().map(ToString::to_string).collect::<Vec<_>>(),
                 })
-                .collect::<Vec<_>>());
+            })
+            .collect::<Vec<_>>());
             // The channel meaning proper. `info` has printed these since it was
             // written and `--json` has not carried them, which makes a sweep
             // over a library blind to exactly the fields a differential wants.
@@ -349,9 +367,20 @@ pub fn run(source: &Source, json: bool) -> Result<()> {
                 "mix_level": x.sixteench_mix_level,
             })));
         }
-        println!("{}", serde_json::to_string_pretty(&value)?);
-    } else {
-        print_text(&scan);
+        Ok(value)
     }
-    Ok(())
+
+    /// Prints the report on stdout, as JSON or as text.
+    ///
+    /// # Errors
+    /// As [`Report::json`].
+    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
+    pub fn print(&self, json: bool) -> Result<()> {
+        if json {
+            println!("{}", serde_json::to_string_pretty(&self.json()?)?);
+        } else {
+            print_text(&self.scan);
+        }
+        Ok(())
+    }
 }

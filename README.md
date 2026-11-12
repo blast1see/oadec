@@ -143,6 +143,11 @@ comes from a measurement that can be repeated:
   samples. A seeded run over the fixtures is part of `cargo test`, and
   libFuzzer runs the same targets every week
   ([`docs/testing-tools.md`](docs/testing-tools.md)).
+- **Without a process.** `oadec_cli::api` is the commands as calls: a test
+  hands a stream over, in a file or in memory, and gets back the report the
+  command prints and the verdict it exits with, from the code that gives
+  them on the command line, with nothing printed. The tests hold every call
+  to its command ([`docs/testing-tools.md`](docs/testing-tools.md)).
 - **Cost.** `tools/bench.py` measures the wall time, the processor time and
   the memory of every command from outside the process, with FFmpeg and
   truehdd on the same streams for scale. The baseline and what it says are in

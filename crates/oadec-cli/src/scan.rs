@@ -127,6 +127,7 @@ impl Failures {
 }
 
 /// The line `verify` and `info` print for elements whose declared size is not theirs.
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
 pub(crate) fn print_stale_sizes(count: u64) {
     if count > 0 {
         println!(

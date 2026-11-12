@@ -249,6 +249,7 @@ fn take_programme_payload(s: &mut EmdfSummary, id: u32, data: &[u8]) {
 }
 
 /// The lines the text report adds, once there is something to say.
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
 fn print_programme_payloads(s: &EmdfSummary) {
     let l = &s.loudness;
     if l.payloads > 0 {
@@ -587,7 +588,8 @@ fn take_oamd_timing(
 /// Event times are not derived here. They are the position of a frame start
 /// plus the offsets inside the payload, and an access unit's sample position is
 /// what `oadec oamd` reports for a TrueHD stream.
-fn run_truehd(source: &Source, opts: &Options) -> Result<bool> {
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
+fn report_truehd(source: &Source, opts: &Options) -> Result<Report> {
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own; run it
     // beside the walk instead of after it
@@ -751,48 +753,13 @@ fn run_truehd(source: &Source, opts: &Options) -> Result<bool> {
         && s.unparsed_frames == 0
         && s.container_errors == 0
         && s.oamd_errors == 0;
-    if opts.json {
-        let mut value = serde_json::to_value(&s)?;
-        value["verify"] = serde_json::to_value(&stream)?;
-        value["clean"] = serde_json::json!(clean);
-        value["seconds"] = serde_json::json!(elapsed);
-        println!("{}", serde_json::to_string_pretty(&value)?);
-    } else {
-        println!(
-            "Access units:      {}, {} bytes, {} sync errors, {} bytes skipped, {} unparsed",
-            s.frames, s.bytes, s.sync_errors, s.skipped_bytes, s.unparsed_frames
-        );
-        println!(
-            "EMDF:              {} access units with containers, {} containers, {} container errors, payload ids {:?}",
-            s.frames_with_emdf, s.containers, s.container_errors, s.payload_ids
-        );
-        print_programme_payloads(&s);
-        println!(
-            "OAMD:              {} payloads ({} errors), {} JOC payloads",
-            s.oamd_payloads, s.oamd_errors, s.joc_payloads
-        );
-        println!("smploffst:         {:?}", s.oamd_smploffst);
-        println!("Sample offsets:    {:?}", s.oamd_sample_offsets);
-        println!("Block offsets:     {:?}", s.oamd_block_offsets);
-        println!("Ramp durations:    {:?}", s.oamd_ramps);
-        println!(
-            "Verify:            {}",
-            if stream.clean {
-                "clean"
-            } else {
-                "non-conformant"
-            }
-        );
-        if let Some(e) = &s.first_error {
-            println!("First problem:     {e}");
-        }
-        println!("Speed:             {elapsed:.2} s");
-        println!(
-            "Result:            {}",
-            if clean { "CLEAN" } else { "PROBLEMS" }
-        );
-    }
-    Ok(clean)
+    Ok(Report {
+        summary: s,
+        stream,
+        elapsed,
+        clean,
+        truehd: true,
+    })
 }
 
 /// Bytes as hex, for a dump that is read by eye and diffed between streams.
@@ -804,13 +771,35 @@ fn hex(bytes: &[u8]) -> String {
         .join(" ")
 }
 
+/// What `emdf` found: the summary of its walk, the verdict of `verify` on the
+/// same stream, and its own.
+#[derive(Debug)]
+pub struct Report {
+    summary: EmdfSummary,
+    stream: crate::verify::StreamCheck,
+    elapsed: f64,
+    clean: bool,
+    /// The containers were in the extra data of TrueHD access units, and not
+    /// in the skip fields of syncframes.
+    truehd: bool,
+}
+
 /// Runs the command; returns `true` when every container and payload parsed.
 pub fn run(source: &Source, opts: &Options) -> Result<bool> {
+    let report = report(source, opts)?;
+    report.print(opts.json)?;
+    Ok(report.clean())
+}
+
+/// Walks the stream and judges it. Nothing is printed, but for what `--dump`
+/// asks to see while the walk goes.
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
+pub fn report(source: &Source, opts: &Options) -> Result<Report> {
     // The containers are in the skip fields of an E-AC-3 frame and in the extra
     // data of a TrueHD access unit. Both walks find the same containers and
     // report the same things about them; only the place differs.
     if !crate::eac3::is_eac3(source).unwrap_or(false) {
-        return run_truehd(source, opts);
+        return report_truehd(source, opts);
     }
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own; run it
@@ -959,13 +948,56 @@ pub fn run(source: &Source, opts: &Options) -> Result<bool> {
         && s.unparsed_frames == 0
         && s.container_errors == 0
         && s.oamd_errors == 0;
-    if opts.json {
-        let mut value = serde_json::to_value(&s)?;
-        value["verify"] = serde_json::to_value(&stream)?;
-        value["clean"] = serde_json::json!(clean);
-        value["seconds"] = serde_json::json!(elapsed);
-        println!("{}", serde_json::to_string_pretty(&value)?);
-    } else {
+    Ok(Report {
+        summary: s,
+        stream,
+        elapsed,
+        clean,
+        truehd: false,
+    })
+}
+
+impl Report {
+    /// Whether every container and payload parsed and `verify` calls the
+    /// stream clean.
+    #[must_use]
+    pub fn clean(&self) -> bool {
+        self.clean
+    }
+
+    /// The report as `emdf --json` prints it.
+    ///
+    /// # Errors
+    /// When a part of the report does not serialise, which none does.
+    pub fn json(&self) -> Result<serde_json::Value> {
+        let mut value = serde_json::to_value(&self.summary)?;
+        value["verify"] = serde_json::to_value(&self.stream)?;
+        value["clean"] = serde_json::json!(self.clean);
+        value["seconds"] = serde_json::json!(self.elapsed);
+        Ok(value)
+    }
+
+    /// Prints the report on stdout, as JSON or as text.
+    ///
+    /// # Errors
+    /// As [`Report::json`].
+    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
+    pub fn print(&self, json: bool) -> Result<()> {
+        if json {
+            println!("{}", serde_json::to_string_pretty(&self.json()?)?);
+        } else if self.truehd {
+            self.print_truehd();
+        } else {
+            self.print_syncframes();
+        }
+        Ok(())
+    }
+
+    /// The text of a walk over the skip fields of syncframes.
+    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
+    fn print_syncframes(&self) {
+        let (s, stream) = (&self.summary, &self.stream);
+        let (elapsed, clean) = (self.elapsed, self.clean);
         println!(
             "Frames:            {} ({} independent, {} dependent), {} bytes, {} sync errors, {} bytes skipped, {} CRC failures, {} unparsed",
             s.frames,
@@ -981,7 +1013,7 @@ pub fn run(source: &Source, opts: &Options) -> Result<bool> {
             "EMDF:              {} frames with containers, {} containers, {} container errors, payload ids {:?}",
             s.frames_with_emdf, s.containers, s.container_errors, s.payload_ids
         );
-        print_programme_payloads(&s);
+        print_programme_payloads(s);
         println!(
             "OAMD:              {} payloads ({} errors), {} JOC payloads",
             s.oamd_payloads, s.oamd_errors, s.joc_payloads
@@ -1013,7 +1045,46 @@ pub fn run(source: &Source, opts: &Options) -> Result<bool> {
             if clean { "CLEAN" } else { "PROBLEMS" }
         );
     }
-    Ok(clean)
+
+    /// The text of a walk over the extra data of TrueHD access units.
+    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
+    fn print_truehd(&self) {
+        let (s, stream) = (&self.summary, &self.stream);
+        let (elapsed, clean) = (self.elapsed, self.clean);
+        println!(
+            "Access units:      {}, {} bytes, {} sync errors, {} bytes skipped, {} unparsed",
+            s.frames, s.bytes, s.sync_errors, s.skipped_bytes, s.unparsed_frames
+        );
+        println!(
+            "EMDF:              {} access units with containers, {} containers, {} container errors, payload ids {:?}",
+            s.frames_with_emdf, s.containers, s.container_errors, s.payload_ids
+        );
+        print_programme_payloads(s);
+        println!(
+            "OAMD:              {} payloads ({} errors), {} JOC payloads",
+            s.oamd_payloads, s.oamd_errors, s.joc_payloads
+        );
+        println!("smploffst:         {:?}", s.oamd_smploffst);
+        println!("Sample offsets:    {:?}", s.oamd_sample_offsets);
+        println!("Block offsets:     {:?}", s.oamd_block_offsets);
+        println!("Ramp durations:    {:?}", s.oamd_ramps);
+        println!(
+            "Verify:            {}",
+            if stream.clean {
+                "clean"
+            } else {
+                "non-conformant"
+            }
+        );
+        if let Some(e) = &s.first_error {
+            println!("First problem:     {e}");
+        }
+        println!("Speed:             {elapsed:.2} s");
+        println!(
+            "Result:            {}",
+            if clean { "CLEAN" } else { "PROBLEMS" }
+        );
+    }
 }
 
 #[cfg(test)]
