@@ -239,3 +239,22 @@ beginning `probe-`, and `synth_accept.py` puts them in front of the same
 decoders and records what each did in `specs/probes.tsv`. A probe needs no
 confirmation and gets none: it is a question. The tests hold the record to
 the streams, and the commands to what they do with each today.
+
+The crate writes AC-3 frames as well, for delta bit allocation (`docs/eac3.md`,
+*Delta bit allocation, on frames written for it*). Their names begin `ac3-`,
+and `probe-ac3-` for the probes.
+
+```sh
+cargo run -p oadec-synth -- write ac3-delta a.ac3 a.f32       # the stream, and its samples as 32-bit float
+cargo run -p oadec-synth -- ac3-digests                       # every AC-3 stream: digest, rate, frames
+cargo test -p oadec-synth --test ac3                          # the writer against the decoder, and the record
+```
+
+Nothing about AC-3 is lossless, so `synth_accept.py` judges these by a
+signal-to-noise ratio and not by a digest: a decoder has given the samples of
+a stream when every channel of what it wrote is within 80 dB of them, at no
+delay or at the 32 samples Dolby's decoder adds. Two decoders read AC-3 from
+outside, FFmpeg's and Dolby's, and a reference needs both. `--record` writes
+`specs/ac3.tsv` with the other two files, a line a stream, references and
+probes together; the samples themselves are not in it, because the writer
+works them out afresh and the tests compare this decoder's with those.

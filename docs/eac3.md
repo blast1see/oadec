@@ -268,3 +268,143 @@ So the frame is out of spec but perfectly decodable. Refusing it threw away
 now decoded and counted separately, and `verify` still reports the file as
 non-conformant. Found by sweeping 1 368 tracks out of 361 films; it was one of
 two failures, and the only one that was ours.
+
+## Delta bit allocation, on frames written for it
+
+Delta bit allocation (clause 6.2.2.6) lets an encoder move the masking curve
+of a channel by 6 to 24 dB, up or down, over segments of the fifty bands the
+bit allocation works in, and so put bits where its own model of hearing wants
+them. A block says one of three things of each channel in two bits
+(`deltbae`): new segments follow, the state of the block before goes on, or
+there is none.
+
+No stream examined does it. The fields are in 221 of 1 345 library tracks,
+every one of them AC-3, and each time they say "none"; Dolby's own encoder
+writes nothing else
+(`audit/evidence/verification-upgrade-2026-11/13-delta-allocation.json`). So
+the path stood on unit tests of two functions, and no decoder had been asked
+to agree with it. Nor was any fixture an AC-3 stream: nothing in the tests
+decoded an AC-3 frame from its sync word to its samples.
+
+`crates/oadec-synth` writes such frames, and not as an encoder would: there is
+no transform in it and no model of hearing. A block is told its exponents and
+what every mantissa is to be. The bit allocation of clause 6.2.2 is worked out
+a second time, the delta included, from tables the tests hold equal to the
+decoder's, and each mantissa is quantised to the quantiser its pointer names.
+What a decoder has to make of a frame is then known twice. Exactly, as
+exponents, pointers and transform coefficients, which the tests compare with
+what the frame parser read. And as samples, to the accuracy of floating
+point, through the inverse transform of clause 6.9.4 written from its
+definition: a sum of 256 cosines for each sample, windowed and overlapped.
+The part of the syntax written is narrow: `bsid` 8, two channels, no
+coupling, no rematrixing, long blocks, exponents sent one by one (D15) or
+reused, no dither.
+
+The mantissas are what makes such a frame a test. The width of a mantissa
+follows from the bit allocation, so a decoder that moved the curve otherwise
+than the writer did reads other bits from the first pointer that differs, and
+has lost the rest of the block.
+
+### The references
+
+Eight streams, whose names begin `ac3-` (`oadec-synth list`):
+
+| Stream | What it carries |
+|---|---|
+| `ac3-plain` | no delta; every quantiser from no bits to sixteen |
+| `ac3-delta` | every state a block can leave a channel in: new segments, the same again, none, a block that says nothing, on two channels out of step |
+| `ac3-delta-codes` | each of the eight codes of a segment, from 24 dB down to 24 dB up |
+| `ac3-delta-no-length` | segments of no length: every field of the tool, and no band moved |
+| `ac3-delta-eight-segments` | eight segments a channel, the most a block sends, the last ending at the fiftieth band and one beginning at an offset of 31, over channels of the widest bandwidth |
+| `ac3-delta-silent-first-block` | a frame whose first block says nothing, after a frame that ended with a delta in force: there is none (clause 4.4.3.47) |
+| `ac3-delta-44100`, `ac3-delta-32000` | the states again at the other two sampling rates, where the hearing threshold under the curve and the size of a frame are others |
+
+FFmpeg's decoder and Dolby's give the samples of every one, and so does this
+decoder. That is the first time an applied delta has been compared with
+anything. Dolby's is the `dlbac3dec` element of the Dolby Reference Player,
+run as a program on a file; a second front end to the same engine is within
+165 dB of the element on every stream the element decodes.
+`tools/synth_accept.py` records what the two
+decoders made of each stream in `crates/oadec-synth/specs/ac3.tsv`, and the
+tests hold the streams to the record.
+
+Agreement is a signal-to-noise ratio here, since nothing about AC-3 is
+lossless, and the tool asks for 80 dB on every channel. That is far from both
+sides. A decoder that took one mantissa at another width is under 20 dB, and
+at about 0 dB when it happens in every frame. One that read every mantissa is
+as near as its arithmetic: this decoder at 152 dB of the writer's samples,
+which is what 32-bit float leaves (written to a file, its samples are the
+writer's bit for bit), FFmpeg's at 138 to 139 dB, and Dolby's between 103 and
+138 dB.
+
+The spread of Dolby's has one cause, and rounding found it. Its decoder holds
+the levels of the five symmetric quantisers, the thirds, fifths, sevenths,
+elevenths and fifteenths of tables 6.19 to 6.23, to fifteen fractional bits.
+Against the writer's samples with those levels rounded so, it is at 138,5 to
+138,9 dB on every channel of every reference; against the fractions it is
+nearest where the fewest mantissas are that coarse, and by the arithmetic a
+stream with no others would leave it at 96 dB. This decoder keeps the
+fractions, as FFmpeg's does.
+
+### The questions
+
+Seven more streams, `probe-ac3-…`, are frames the standard forbids, or leaves
+to be read two ways, or frames nobody can read. What each decoder made of
+them:
+
+| The frame | FFmpeg's decoder | Dolby's decoder | This decoder |
+|---|---|---|---|
+| The delta is laid out in the mantissas and the fields say "none" | other samples | decodes no frame | decodes no frame |
+| "Reuse" after "none" in one frame | applies the segments sent before the "none" | "none" goes on | applies the segments |
+| "Reuse" in the first block of a frame | applies the segments of the frame before | does not decode the frame | applies nothing |
+| The reserved code of `deltbae` | gives the frame up | goes on with no delta | goes on with no delta |
+| A segment that runs past the fiftieth band | gives the frame up | does not decode the frame | applies the part within the bands |
+
+The first is the control: nobody can read mantissas laid out for a curve the
+frame keeps to itself, and nobody does.
+
+*"Reuse" after "none".* The pseudo code of clause 6.2.2.6 applies the stored
+segments whenever the code is 0 or 1, and FFmpeg's decoder and this one do as
+it says. Table 4.11 calls code 0 "reuse previous state", and the state before
+is "none": Dolby's decoder reads it so. It gives the samples of the frames
+laid out with the delta off (`probe-ac3-reuse-after-none-kept`) and decodes
+none of the frames laid out with it on. No stream examined has the sequence,
+so nothing real hangs on it. This decoder reads it as the pseudo code does,
+and which of the two it should follow is open.
+
+*"Reuse" in a first block.* Clause 4.4.3.49 forbids it and so does not say
+what it would mean. Three decoders, three readings. The probe has two
+layouts, one for FFmpeg's reading and one for this decoder's
+(`…-first-block-empty`), and their mantissas differ. Dolby's decoder writes
+the same bytes for both: it turns such a frame away before it comes to the
+mantissas.
+
+*The reserved code.* Clause 4.4.3.48 says of the coupling channel's field,
+whose table the channels' field shares, that a decoder should not decode
+audio and should mute. FFmpeg's decoder does that. Dolby's does not, and
+neither does this one.
+
+*A segment past the last band.* The pseudo code has no bound and would write
+past its array. The two outside decoders agree that such a frame is not to be
+decoded.
+
+For the last three `verify` has no rule yet: laid out as this decoder reads
+them, it finds the streams clean and `decode` writes their samples with exit
+code 0. The tests hold the commands to exactly that, so that the rules, when
+they are written, change it on purpose.
+
+### What it gave the tests
+
+Eighteen mutations of the AC-3 path went into `tools/mutants.py`: eleven of
+the delta (its codes, where a segment begins and ends, whose segments are
+whose, what a block that says nothing leaves in force) and seven of the rest
+of an AC-3 frame (the span of `crc1`, the fields of a block, the dither flag,
+the hearing threshold and the frame size at the other sampling rates).
+Fifteen of them survived the tests as they were. None survives now, and
+the tests over the written streams catch all eighteen by themselves.
+
+Not written: the delta of the coupling channel (`cpldeltbae`), which needs
+coupling; E-AC-3 frames, which switch the fields on with `dbaflde`; more than
+two channels, an LFE, grouped exponents (D25 and D45), short blocks and
+rematrixing. Measured:
+`audit/evidence/engine-round-2026-11/16-synthetic-ac3-delta.json`.
