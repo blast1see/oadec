@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/oadec-bits",
+    "crates/oadec-diag",
     "crates/oadec-emdf",
     "crates/oadec-truehd",
     "crates/oadec-eac3",
@@ -23,6 +24,7 @@ authors = ["blast1see"]
 
 [workspace.dependencies]
 oadec-bits = { path = "crates/oadec-bits" }
+oadec-diag = { path = "crates/oadec-diag" }
 oadec-emdf = { path = "crates/oadec-emdf" }
 oadec-truehd = { path = "crates/oadec-truehd" }
 oadec-eac3 = { path = "crates/oadec-eac3" }

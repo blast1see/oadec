@@ -384,7 +384,7 @@ MUTANTS = [
      '    failures.bump(rule, 1);',
      ''),
     ('a listing limit that caps the count as well',
-     'crates/oadec-truehd/src/diag.rs',
+     'crates/oadec-diag/src/tally.rs',
      '                t.count += 1;',
      '                if limit == 0 || t.listed.len() < limit {\n                    t.count += 1;\n                }'),
     ('any restart ends the damage of every substream',
@@ -659,6 +659,19 @@ MUTANTS = [
      'crates/oadec-fuzz/src/parity.rs',
      '        !NOT_OF_A_DELIVERY.contains(&name.as_str()) && count.as_u64() != Some(0)',
      '        count.as_u64() != Some(0)'),
+    # --- what every catalog keeps (crates/oadec-diag) -----------------------
+    ('a name two rules share passing the catalog',
+     'crates/oadec-diag/src/rule.rs',
+     '        if !names.insert(id) {',
+     '        if !names.insert(id) && id.is_empty() {'),
+    ('a rule that fails a stream on the word of another tool alone passing the catalog',
+     'crates/oadec-diag/src/rule.rs',
+     '        if !independent && info.severity > Severity::Warning {',
+     '        if !independent && info.severity > Severity::Error {'),
+    ('a run passing with a finding at the threshold it fails at',
+     'crates/oadec-diag/src/tally.rs',
+     '        self.worst().is_none_or(|w| w < fail_on)',
+     '        self.worst().is_none_or(|w| w <= fail_on)'),
     # --- AC-3 frames written whole (crates/oadec-synth) ----------------------
     # No fixture is an AC-3 stream, and no stream of a library applies a delta
     # bit allocation: until `oadec-synth` wrote frames that do, nothing decoded

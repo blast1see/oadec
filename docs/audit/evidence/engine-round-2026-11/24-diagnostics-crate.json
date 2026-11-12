@@ -1,0 +1,83 @@
+{
+ "question": "Does moving what a finding is out of the TrueHD crate change anything a command says or writes?",
+ "method": "`Severity`, `Location`, `Provenance`, `RuleInfo`, the tally of a pass and the macro that writes a catalog of rules moved from `crates/oadec-truehd` to a crate of their own, `crates/oadec-diag`, which depends on nothing. The tally is generic over the rules it counts (`Tally<R: Rule>`), and the TrueHD crate names it for its own catalog under the names it had. A script outside the repository ran `oadec rules` every way it can be run with the binary of main before the change and with the change: the list, `--json`, `--markdown`, each of the rules by name as text and as JSON, and a name that is no rule; it compared stdout, stderr and exit codes byte for byte. `tools/old_new.py --decode-all` compared the two binaries over the streams of the work directory and the fixtures.",
+ "binaries": {
+  "main before the change": "c9b8726f609517deafc4715ccaef2b84f9afa97aedeaf2627e5f2f2083093928",
+  "the change": "15c3222e7393853dd1acb71429aa9a25fc800a132db2b5d55087a080f4f5c91f"
+ },
+ "result": {
+  "the_rules_command": {
+   "rules": 47,
+   "calls": 98,
+   "calls_that_differ": [],
+   "bytes_compared": 74348,
+   "exit_codes": {
+    "0": 97,
+    "2": 1
+   }
+  },
+  "a_stream_that_exists": {
+   "streams": 125,
+   "bytes_of_the_streams": 4060173690,
+   "streams_changed": 0,
+   "fields_added": [],
+   "lines_added": [],
+   "lines_of_reports_compared": 8236,
+   "fields_of_reports_compared": 50896,
+   "bytes_of_deliveries_compared": 103362691041,
+   "the_media_suite": {
+    "passed": 28,
+    "failed": 0
+   }
+  },
+  "the_tests": {
+   "of_the_crate": "twelve unit tests, one of them on a catalog with everything wrong that a catalog can have wrong (a name used twice, a counter two rules claim, a name without a domain, a name that is not lowercase words, an error on the word of another tool alone) and the others on a catalog of three rules written for them; a documentation test writes a catalog with the macro from outside the crate",
+   "of_the_truehd_catalog": "the tests it had, and one that holds it to `oadec_diag::faults`",
+   "the_transcripts": "unchanged: the golden text of `rules` and of every report holds"
+  },
+  "mutations": {
+   "count": 5,
+   "survive": [],
+   "each": [
+    {
+     "mutation": "a listing limit that caps the count as well",
+     "caught_by": [
+      "a_listing_limit_never_changes_a_count"
+     ]
+    },
+    {
+     "mutation": "a payload the programme cannot take demoted to a warning",
+     "caught_by": [
+      "a_payload_an_object_output_cannot_take_is_a_fault_to_every_command"
+     ]
+    },
+    {
+     "mutation": "a name two rules share passing the catalog",
+     "caught_by": [
+      "rule::tests::an_unsound_catalog_is_told_each_thing_that_is_wrong_with_it"
+     ]
+    },
+    {
+     "mutation": "a rule that fails a stream on the word of another tool alone passing the catalog",
+     "caught_by": [
+      "rule::tests::an_unsound_catalog_is_told_each_thing_that_is_wrong_with_it"
+     ]
+    },
+    {
+     "mutation": "a run passing with a finding at the threshold it fails at",
+     "caught_by": [
+      "the_calls_print_nothing"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 612 passed, 28 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "reading": "Nothing. `oadec rules` is byte for byte what it was in each of 98 forms, 74 348 bytes, and over 125 streams the binary before and the binary after give the same 8 236 lines and 50 896 fields of reports and the same 103 362 691 041 bytes of deliveries."
+}

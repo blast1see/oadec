@@ -333,6 +333,21 @@ Semantic Versioning.
 
 ### Changed
 
+- **What a finding is, is a crate of its own.** `Severity`, `Location`,
+  `Provenance`, `RuleInfo`, the tally of a pass and the macro that writes a
+  catalog of rules lived in `oadec-truehd`, where the first catalog was
+  written. They are `oadec-diag` now, which depends on nothing and knows no
+  format: a catalog is an enumeration in the crate that reads the format,
+  `Tally<R>` counts the findings of any catalog, and `faults` holds every
+  catalog to what the TrueHD one was held to, a name used once, a counter
+  for one rule, and no rule heavier than its source carries. The TrueHD
+  catalog keeps its 47 rules under their names, and the paths that reached
+  it reach it still: `oadec_truehd::{RuleId, Tally, Finding, RuleTally,
+  Severity, Location, Provenance, RuleInfo}` are the same types. Nothing a
+  command prints changes: `oadec rules` in every form is byte for byte what
+  it was, and over 125 streams the reports and the deliveries are the same
+  (`docs/audit/evidence/engine-round-2026-11/24-diagnostics-crate.json`). The
+  catalog of the AC-3 family is written on this next.
 - **A command finds, then prints.** Each command was a function that walked
   the stream and printed as it went, so what it had found could only be read
   back out of its output. Each is now a function that hands back a value and
