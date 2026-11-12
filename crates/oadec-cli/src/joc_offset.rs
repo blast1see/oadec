@@ -73,7 +73,8 @@ pub fn run(path: &Path, out: &Path, offset: u8) -> Result<()> {
     let mut noise = Noise::default();
     let mut fields = 0u64;
     let mut frames_touched = 0u64;
-    let (frames, sync_errors, skipped) = for_each_frame(path, |_offset, bytes, header| {
+    let source = crate::source::Source::file(path);
+    let (frames, sync_errors, skipped) = for_each_frame(&source, |_offset, bytes, header| {
         let mut frame = bytes.to_vec();
         if header.syntax == Syntax::Eac3 {
             let opts = FrameOptions {

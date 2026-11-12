@@ -284,7 +284,8 @@ pub fn run(path: &Path, out: &Path, shape: Shape) -> Result<()> {
     let mut noise = Noise::default();
     let mut converted = 0u64;
     let mut copied = 0u64;
-    let (frames, sync_errors, skipped) = for_each_frame(path, |_offset, bytes, header| {
+    let source = crate::source::Source::file(path);
+    let (frames, sync_errors, skipped) = for_each_frame(&source, |_offset, bytes, header| {
         if header.syntax != Syntax::Eac3
             || header.stream_type == StreamType::Dependent
             || header.substream_id != 0

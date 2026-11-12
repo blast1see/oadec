@@ -56,6 +56,7 @@ impl From<InterpolationArg> for Interpolation {
 use crate::decode::{ConfigStop, Format, Order, Session, format_duration, print_summary};
 use crate::input;
 use crate::integrity::Verdict;
+use crate::source::Source;
 
 /// The object formats always decode the object presentation (3); a
 /// `--presentation` that says otherwise used to be accepted and ignored.
@@ -465,12 +466,12 @@ impl Sink {
 }
 
 /// Runs the object output; `base` is the output path without extension.
-pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
+pub fn run(source: &Source, base: &Path, opts: &Options) -> Result<Verdict> {
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own, beside the
     // decode: a presentation reads only its substreams, and only some outputs
     // parse the object metadata
-    let check = crate::verify::spawn_stream_check(path);
+    let check = crate::verify::spawn_stream_check(source);
     let dir = base
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
@@ -497,7 +498,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
 
     let mut stopped: Option<ConfigStop> = None;
 
-    let pass = input::for_each_unit(path, |unit| {
+    let pass = input::for_each_unit(source, |unit| {
         if stopped.is_some() {
             // the rest is still framed, so the verdict covers the whole file
             return Ok(());

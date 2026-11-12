@@ -1,11 +1,11 @@
-//! Streaming input: feeds a file through the TrueHD extractor without loading it whole.
+//! Streaming input: feeds a stream through the TrueHD extractor without loading it whole.
 
-use std::fs::File;
 use std::io::Read;
-use std::path::Path;
 
 use anyhow::{Context, Result};
 use oadec_truehd::{ExtractStats, Extractor, Gap, Unit};
+
+use crate::source::Source;
 
 /// Size of the read buffer.
 const CHUNK: usize = 4 << 20;
@@ -23,13 +23,15 @@ pub struct PassSummary {
     pub file_bytes: u64,
 }
 
-/// Calls `on_unit` for every access unit of `path`.
+/// Calls `on_unit` for every access unit of `source`.
 pub fn for_each_unit(
-    path: &Path,
+    source: &Source,
     mut on_unit: impl FnMut(Unit) -> Result<()>,
 ) -> Result<PassSummary> {
-    let mut file = File::open(path).with_context(|| format!("opening {}", path.display()))?;
-    let file_bytes = file.metadata().map(|m| m.len()).unwrap_or(0);
+    let mut file = source
+        .open()
+        .with_context(|| format!("opening {}", source.name()))?;
+    let file_bytes = source.size().unwrap_or(0);
     // Drawn only on a terminal; a pipeline, a log and a test see nothing.
     let mut progress = crate::progress::Progress::new("reading", file_bytes);
     let mut extractor = Extractor::new();
@@ -37,7 +39,7 @@ pub fn for_each_unit(
     loop {
         let n = file
             .read(&mut buf)
-            .with_context(|| format!("reading {}", path.display()))?;
+            .with_context(|| format!("reading {}", source.name()))?;
         if n == 0 {
             break;
         }

@@ -10,9 +10,9 @@
 //! `oadec oamd`, which reads the same containers for what the objects carry.
 
 use std::collections::BTreeMap;
-use std::path::Path;
 use std::time::Instant;
 
+use crate::source::Source;
 use anyhow::{Context, Result};
 use oadec_eac3::StreamType;
 use oadec_eac3::frame::{Frame, Noise, Options as FrameOptions};
@@ -446,12 +446,12 @@ struct SubstreamContainers {
 /// in which `info` decodes 1171 frames and finds no sync error, it counted 902
 /// frames and 902 sync errors.
 pub(crate) fn for_each_container(
-    path: &Path,
+    source: &Source,
     mut on_container: impl FnMut(&Site, ContainerResult),
 ) -> Result<Walk> {
-    let bytes = std::fs::metadata(path)
-        .with_context(|| format!("opening {}", path.display()))?
-        .len();
+    let bytes = source
+        .size()
+        .with_context(|| format!("opening {}", source.name()))?;
     let mut walk = Walk {
         bytes,
         ..Walk::default()
@@ -460,7 +460,7 @@ pub(crate) fn for_each_container(
     let mut sample_pos: u64 = 0; // first sample of the current independent frame
     let mut substreams: BTreeMap<(bool, u8), SubstreamContainers> = BTreeMap::new();
     let mut last_frame_len: u64 = 0;
-    let (_, sync_errors, skipped) = crate::eac3::for_each_frame(path, |_, frame, header| {
+    let (_, sync_errors, skipped) = crate::eac3::for_each_frame(source, |_, frame, header| {
         walk.frames += 1;
         let dependent = header.stream_type == StreamType::Dependent;
         if dependent {
@@ -518,7 +518,7 @@ pub(crate) fn for_each_container(
         }
         Ok(())
     })
-    .with_context(|| format!("reading {}", path.display()))?;
+    .with_context(|| format!("reading {}", source.name()))?;
     walk.sync_errors = sync_errors;
     walk.skipped_bytes = skipped;
     // A substream carries EMDF when a container opens in it, or when its frames
@@ -587,15 +587,15 @@ fn take_oamd_timing(
 /// Event times are not derived here. They are the position of a frame start
 /// plus the offsets inside the payload, and an access unit's sample position is
 /// what `oadec oamd` reports for a TrueHD stream.
-fn run_truehd(path: &Path, opts: &Options) -> Result<bool> {
+fn run_truehd(source: &Source, opts: &Options) -> Result<bool> {
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own; run it
     // beside the walk instead of after it
-    let check = crate::verify::spawn_stream_check(path);
+    let check = crate::verify::spawn_stream_check(source);
     let mut s = EmdfSummary::default();
     let mut dumped = 0usize;
     let mut config: Option<oadec_truehd::StreamConfig> = None;
-    let pass = crate::input::for_each_unit(path, |unit| {
+    let pass = crate::input::for_each_unit(source, |unit| {
         let index = s.frames;
         s.frames += 1;
         let (au, cfg) = match oadec_truehd::AccessUnit::parse(&unit.bytes, config.as_ref()) {
@@ -727,9 +727,9 @@ fn run_truehd(path: &Path, opts: &Options) -> Result<bool> {
         Ok(())
     })?;
     if s.frames == 0 {
-        return Err(crate::info::no_stream(path));
+        return Err(crate::info::no_stream(source));
     }
-    s.bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+    s.bytes = source.size().unwrap_or(0);
     s.sync_errors = pass.stats.resyncs;
     s.skipped_bytes = pass.stats.skipped_bytes;
     if s.first_error.is_none() && s.skipped_bytes > 0 {
@@ -805,20 +805,20 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 /// Runs the command; returns `true` when every container and payload parsed.
-pub fn run(path: &Path, opts: &Options) -> Result<bool> {
+pub fn run(source: &Source, opts: &Options) -> Result<bool> {
     // The containers are in the skip fields of an E-AC-3 frame and in the extra
     // data of a TrueHD access unit. Both walks find the same containers and
     // report the same things about them; only the place differs.
-    if !crate::eac3::is_eac3(path).unwrap_or(false) {
-        return run_truehd(path, opts);
+    if !crate::eac3::is_eac3(source).unwrap_or(false) {
+        return run_truehd(source, opts);
     }
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own; run it
     // beside the walk instead of after it
-    let check = crate::verify::spawn_stream_check(path);
+    let check = crate::verify::spawn_stream_check(source);
     let mut s = EmdfSummary::default();
     let mut dumped = 0usize;
-    let walk = for_each_container(path, |site, c| {
+    let walk = for_each_container(source, |site, c| {
         let &Site {
             frame_index,
             sample_pos,
@@ -920,7 +920,7 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         }
     })?;
     if walk.frames == 0 {
-        return Err(crate::info::no_stream(path));
+        return Err(crate::info::no_stream(source));
     }
     s.frames = walk.frames;
     s.independent_frames = walk.independent_frames;
@@ -1054,15 +1054,12 @@ mod tests {
         frame
     }
 
-    /// Walks `bytes` as a file, and frames the same file the way `info` and
-    /// `verify` do: (frames, sync errors, skipped bytes).
+    /// Walks `bytes` as a stream, and frames the same stream the way `info`
+    /// and `verify` do: (frames, sync errors, skipped bytes).
     fn walk_and_verify(tag: &str, bytes: &[u8]) -> (Walk, (u64, u64, u64)) {
-        let path =
-            std::env::temp_dir().join(format!("oadec-emdf-walk-{tag}-{}.ac3", std::process::id()));
-        std::fs::write(&path, bytes).unwrap();
-        let walk = for_each_container(&path, |_, _| {}).unwrap();
-        let verifier = crate::eac3::for_each_frame(&path, |_, _, _| Ok(())).unwrap();
-        std::fs::remove_file(&path).unwrap();
+        let source = Source::memory(tag, bytes.to_vec());
+        let walk = for_each_container(&source, |_, _| {}).unwrap();
+        let verifier = crate::eac3::for_each_frame(&source, |_, _, _| Ok(())).unwrap();
         (walk, verifier)
     }
 

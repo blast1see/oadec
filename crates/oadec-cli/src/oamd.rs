@@ -7,7 +7,6 @@
 //! standing where an access unit stands.
 
 use std::collections::BTreeMap;
-use std::path::Path;
 use std::time::Instant;
 
 use anyhow::Result;
@@ -16,6 +15,7 @@ use oadec_emdf::oamd::{Distance, Element, Gain, Oamd, Status, TrimConfig};
 use oadec_truehd::{AccessUnit, ExtraKind, StreamConfig};
 use serde::Serialize;
 
+use crate::source::Source;
 use crate::{emdf, input};
 
 /// Options of the command.
@@ -495,10 +495,10 @@ fn take_container(
 ///
 /// A unit whose metadata cannot be read is counted, not skipped: a report that
 /// leaves it out without a word reads like a stream that carries less.
-fn walk_truehd(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSummary> {
+fn walk_truehd(source: &Source, opts: &Options, dumped: &mut usize) -> Result<OamdSummary> {
     let mut summary = OamdSummary::new("access unit");
     let mut config: Option<StreamConfig> = None;
-    let pass = input::for_each_unit(path, |unit| {
+    let pass = input::for_each_unit(source, |unit| {
         let index = summary.units;
         summary.units += 1;
         let (au, cfg) = match AccessUnit::parse(&unit.bytes, config.as_ref()) {
@@ -585,11 +585,11 @@ fn walk_truehd(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSu
 /// AC-3 and E-AC-3: the payloads ride in the EMDF containers of the skip
 /// fields, and every syncframe of the walk is a unit. The walk is the one
 /// `emdf` makes, and what it could not read is judged as `emdf` judges it.
-fn walk_eac3(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSummary> {
+fn walk_eac3(source: &Source, opts: &Options, dumped: &mut usize) -> Result<OamdSummary> {
     let mut summary = OamdSummary::new("frame");
     // a frame can hold more than one container and is counted once
     let mut last_with_oamd: Option<u64> = None;
-    let walk = emdf::for_each_container(path, |site, c| {
+    let walk = emdf::for_each_container(source, |site, c| {
         // a container that does not open is counted once per frame by the walk,
         // in the words `emdf` uses, and only in a stream that carries EMDF
         let Ok(c) = c else {
@@ -638,20 +638,20 @@ fn walk_eac3(path: &Path, opts: &Options, dumped: &mut usize) -> Result<OamdSumm
 
 /// Runs the command; returns `true` when every unit was read and every payload
 /// parsed cleanly.
-pub fn run(path: &Path, opts: &Options) -> Result<bool> {
-    let eac3 = crate::eac3::is_eac3(path).unwrap_or(false);
+pub fn run(source: &Source, opts: &Options) -> Result<bool> {
+    let eac3 = crate::eac3::is_eac3(source).unwrap_or(false);
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own; run it
     // beside the walk instead of after it
-    let check = crate::verify::spawn_stream_check(path);
+    let check = crate::verify::spawn_stream_check(source);
     let mut dumped = 0usize;
     let mut summary = if eac3 {
-        walk_eac3(path, opts, &mut dumped)?
+        walk_eac3(source, opts, &mut dumped)?
     } else {
-        walk_truehd(path, opts, &mut dumped)?
+        walk_truehd(source, opts, &mut dumped)?
     };
     if summary.units == 0 {
-        return Err(crate::info::no_stream(path));
+        return Err(crate::info::no_stream(source));
     }
     // what the walk does not read, the audio of either codec and on E-AC-3 the
     // JOC payloads, the payload configuration and the complexity index,

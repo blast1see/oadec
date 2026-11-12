@@ -696,7 +696,7 @@ impl Tally {
 
 /// Runs the object output for an E-AC-3 JOC stream; `base` is the output path
 /// without extension.
-pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
+pub fn run(source: &crate::source::Source, base: &Path, opts: &Options) -> Result<Verdict> {
     let started = Instant::now();
     let dir = base
         .parent()
@@ -888,7 +888,7 @@ pub fn run(path: &Path, base: &Path, opts: &Options) -> Result<Verdict> {
         Ok(())
     };
 
-    let (_, sync_errors, skipped) = for_each_frame(path, |_offset, bytes, header| {
+    let (_, sync_errors, skipped) = for_each_frame(source, |_offset, bytes, header| {
         decoder.push(bytes, header)?;
         while let Some(frame) = decoder.pop() {
             handle(&frame)?;

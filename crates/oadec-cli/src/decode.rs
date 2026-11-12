@@ -12,6 +12,7 @@ use oadec_truehd::{AccessUnit, ChannelLabel, DecodeStats, Decoder, Unit};
 
 use crate::input;
 use crate::integrity::Findings;
+use crate::source::Source;
 
 /// Output container.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -814,9 +815,9 @@ fn pack_24le(pcm: &[[i32; 16]], order: &[usize], buf: &mut Vec<u8>) -> u64 {
 /// The presentation a decode takes when none is named: the 8-channel one
 /// of a TrueHD stream, as it always has been, and the widest one a DVD-Audio
 /// (FBB) stream carries, which has no 8-channel presentation.
-fn default_presentation(path: &Path) -> usize {
+fn default_presentation(source: &Source) -> usize {
     let mut head = Vec::new();
-    if let Ok(f) = File::open(path) {
+    if let Ok(f) = source.open() {
         use std::io::Read as _;
         let _ = f.take(1 << 20).read_to_end(&mut head);
     }
@@ -837,17 +838,17 @@ fn default_presentation(path: &Path) -> usize {
 }
 
 /// Runs the command.
-pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
+pub fn run(source: &Source, output: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own, beside the
     // decode: a presentation reads only its substreams, and only some outputs
     // parse the object metadata
-    let check = crate::verify::spawn_stream_check(path);
+    let check = crate::verify::spawn_stream_check(source);
     let file = File::create(output).with_context(|| format!("creating {}", output.display()))?;
     let mut out = Some(Output::Raw(BufWriter::with_capacity(4 << 20, file)));
     let presentation = opts
         .presentation
-        .unwrap_or_else(|| default_presentation(path));
+        .unwrap_or_else(|| default_presentation(source));
     let mut session = Session::new(presentation, opts.keep_duplicates, opts.order);
     session.on_error(opts.on_error);
     if let Some(seconds) = opts.start {
@@ -860,7 +861,7 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
     let mut samples: u64 = 0;
     let mut stopped: Option<ConfigStop> = None;
     let mut buf = Vec::with_capacity(160 * 16 * 3);
-    let pass = input::for_each_unit(path, |unit| {
+    let pass = input::for_each_unit(source, |unit| {
         if stopped.is_some() {
             // the rest is still framed, so the verdict covers the whole file
             return Ok(());
@@ -918,7 +919,7 @@ pub fn run(path: &Path, output: &Path, opts: &Options) -> Result<bool> {
         if let Some(complaint) = session.start_never_reached() {
             bail!("{complaint}");
         }
-        return Err(crate::info::no_stream(path));
+        return Err(crate::info::no_stream(source));
     }
     match out {
         Some(Output::Wav(w)) => {

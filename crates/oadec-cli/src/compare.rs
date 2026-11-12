@@ -11,6 +11,7 @@ use clap::ValueEnum;
 
 use crate::decode::{Order, Session, format_duration, print_summary};
 use crate::input;
+use crate::source::Source;
 
 /// Sample format of the reference file (interleaved).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -134,12 +135,12 @@ impl RefReader {
 }
 
 /// Runs the command; returns `true` when every sample matched and the lengths agree.
-pub fn run(path: &Path, reference: &Path, opts: &Options) -> Result<bool> {
+pub fn run(source: &Source, reference: &Path, opts: &Options) -> Result<bool> {
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own, beside the
     // decode: a presentation reads only its substreams, and only some outputs
     // parse the object metadata
-    let check = crate::verify::spawn_stream_check(path);
+    let check = crate::verify::spawn_stream_check(source);
     let mut reference = RefReader::open(reference, opts.format, opts.skip)?;
     let mut session = Session::new(opts.presentation, opts.keep_duplicates, opts.order);
     let mut compared: u64 = 0;
@@ -149,7 +150,7 @@ pub fn run(path: &Path, reference: &Path, opts: &Options) -> Result<bool> {
     let mut reference_short = false;
     let mut sample_index: u64 = 0;
     let mut channels = 0usize;
-    let pass = input::for_each_unit(path, |unit| {
+    let pass = input::for_each_unit(source, |unit| {
         if reference_short {
             return Ok(());
         }
@@ -184,7 +185,7 @@ pub fn run(path: &Path, reference: &Path, opts: &Options) -> Result<bool> {
     if session.stats().is_none() {
         // Nothing framed: the file is not a stream to judge but an unsupported
         // input, exit 2, as it is for every command that reports one.
-        return Err(crate::info::no_stream(path));
+        return Err(crate::info::no_stream(source));
     }
     let elapsed = started.elapsed().as_secs_f64();
     print_summary(&session, elapsed);
