@@ -542,6 +542,30 @@ exit 0
   "units": 120
 }
 
+$ oadec verify --decode tests/fixtures/mlp-quad-48k.mlp
+exit 0
+[stdout]
+File:              tests/fixtures/mlp-quad-48k.mlp
+Access units:      120 (8 major syncs, 9314 bytes)
+Header parity:     0 failures
+Major sync CRC:    0 failures, 0 bad signatures
+Framing:           0 errors, 0 configuration changes
+Extra data:        0 header parity failures, 0 truncated, 0 Evolution parity failures, 0 non-zero padding, 0 container errors
+Sync:              0 resyncs, 0 skipped bytes, 0 trailing bytes
+Substream 0:       120 segments (0 skipped), 8 restart headers [0x31EA x8], channels 0..=3 (matrix 3), error_protect false
+                   128 blocks (max 2 per segment, 0 protected), 0 matrixing (0 interpolated), up to 0 matrices, 120 CRC segments, 0 terminated (0 with zero samples)
+Substream checks:  0 parse errors, 0 block bit-count mismatches, 0 parity failures, 0 CRC failures, 0 end-pointer mismatches, 0 sample-count mismatches, 0 restart flag mismatches, 0 bad terminators, 0 unexpected tails
+Coding tools:      fir, huffman-1, huffman-2, huffman-offset, quantiser-step, output-shift
+Lossless checks:   7 evaluated, 0 failed, 0 skipped
+Timing:            0 input timing jumps, 0 output timing jumps, 0 valid seamless branches, 0 invalid branches, 0 duplicate candidates, 0 peak rate changes
+Buffer:            delay up to 40 samples (0.8 ms, au 0); delivery up to 2.381 Mbit/s (au 0)
+                   substream depth 284/60000 bytes; decoders p0 324, p1 324; stream 324/120000 bytes
+Disc:              BD no, HD DVD no, DVD-A yes
+                   Blu-ray carries the FBA syntax; this stream is not FBA
+                   HD DVD takes an FBB stream with both its two- and its six-channel presentations; this one has one
+Speed:             <masked>
+Result:            CLEAN
+
 $ oadec verify --json --decode tests/fixtures/mlp-quad-48k.mlp
 exit 0
 [stdout]
@@ -826,6 +850,20 @@ exit 0
   "units": 120
 }
 
+$ oadec emdf tests/fixtures/mlp-quad-48k.mlp
+exit 0
+[stdout]
+Access units:      120, 9314 bytes, 0 sync errors, 0 bytes skipped, 0 unparsed
+EMDF:              0 access units with containers, 0 containers, 0 container errors, payload ids {}
+OAMD:              0 payloads (0 errors), 0 JOC payloads
+smploffst:         {}
+Sample offsets:    {}
+Block offsets:     {}
+Ramp durations:    {}
+Verify:            clean
+Speed:             <masked>
+Result:            CLEAN
+
 $ oadec emdf --json tests/fixtures/mlp-quad-48k.mlp
 exit 0
 [stdout]
@@ -902,6 +940,28 @@ exit 0
     "first_problem": null
   }
 }
+
+$ oadec oamd tests/fixtures/mlp-quad-48k.mlp
+exit 0
+[stdout]
+OAMD payloads:     0 in 0 of 120 access units; 0 parse errors, 0 non-zero paddings, 0 long paddings, 0 size mismatches
+Unread:            0 sync errors, 0 bytes skipped, 0 trailing bytes, 0 CRC failures, 0 unparsed access units, 0 containers that did not open, 0 extra-data faults
+Verify:            clean
+Object counts:     {}
+Element ids:       {}
+Blocks/payload:    {}
+Container offsets: {}
+Sample offsets:    {}
+Block offsets:     {}
+Ramp durations:    {}
+Statuses:          basic {} render {}
+Updates:           0 inactive, 0 differential positions, 0 screen-referenced, 0 snapped, 0 with table data
+Gain and size:     0 non-unity gains {}, 0 mutes, 0 non-zero sizes
+Distances:         {}
+Zone constraints:  {}
+Elements:          0 payloads with trim, 0 with extended object data, 0 with unknown ids
+Speed:             <masked>
+Result:            CLEAN
 
 $ oadec oamd --json tests/fixtures/mlp-quad-48k.mlp
 exit 0
@@ -1056,4 +1116,14 @@ exit 2
 [stderr]
 error: presentation 3 is not available
 [file] p3.pcm: 0 bytes, FNV-1a 64 0xcbf29ce484222325
+
+$ oadec decode tests/fixtures/mlp-quad-48k.mlp --format wav -o <out>/default.wav
+exit 0
+[stderr]
+decoded 120 access units, 4800 samples x 4 channels (0:00:00.100), 0 dropped duplicates
+lossless checks: 7 performed, 0 failed; max_bits violations: 0; segment problems: 0
+channels: L R Lb Rb
+speed: <masked>
+done
+[file] default.wav: 57704 bytes, FNV-1a 64 0x36e33fcb1e6609b0
 

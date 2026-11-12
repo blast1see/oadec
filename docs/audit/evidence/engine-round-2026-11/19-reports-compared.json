@@ -1,0 +1,363 @@
+{
+ "question": "Would a change to the text `emdf`, `oamd` or `info` print, to the JSON of the first two, or to what a decode says beside the bytes it writes, have passed the comparison of two binaries and the transcripts? And did the changes that were merged on the word of that comparison move any of it?",
+ "method": "`tools/old_new.py` ran `verify` as text and with `--json`, and `info --json`; with `--decode-all` it hashed what every delivery wrote. `crates/oadec-cli/tests/transcripts.rs` held `info` and `verify` as text and as JSON, and `verify --decode`, `emdf` and `oamd` as JSON alone. The tool now runs the four reports, `info`, `verify`, `emdf` and `oamd`, each as text and with `--json`, compares what both binaries printed on stdout and on stderr line by line (the time a run took and the directory it wrote to left out), and does the same with what each delivery printed; the transcripts record `verify --decode`, `emdf` and `oamd` as text too. For a control, a copy of main was built with one label changed in the text of `emdf` and one in the text of `oamd` (`Sample offsets:` and `Object counts:`, each short of its last letter), and compared with main over the ten fixtures by the tool as it was and by the tool as it is. The new sections of the transcripts were recorded with the binary of main, whose sources this change does not touch. Then the binaries either side of each change merged since the tool last grew were compared again, over every stream of the work directory and the fixtures, with `--decode-all`.",
+ "result": {
+  "what_the_two_gates_did_not_read": {
+   "tools/old_new.py": [
+    "`emdf` and `oamd`, as text or as JSON",
+    "the text of `info`",
+    "what a decode prints on stdout and stderr",
+    "what a report prints on stderr"
+   ],
+   "the transcripts": [
+    "the text of `emdf`",
+    "the text of `oamd`",
+    "the text of `verify --decode`"
+   ]
+  },
+  "the_control": {
+   "the_copy": "main with `Sample offsets:` printed as `Sample offset:` by `emdf` and `Object counts:` as `Object count:` by `oamd`",
+   "binaries": {
+    "main": "125eab50492711577792b6edfa0b5c0aa906154eac645e8e60f056c109629e4e",
+    "the copy": "c5ac30d7993e953cddc123db52fb754a1cfc7bb9043d47dbed06b56d8fb18980"
+   },
+   "the_tool_as_it_was": {
+    "streams": 10,
+    "streams_changed": 0
+   },
+   "the_tool_as_it_is": {
+    "streams": 10,
+    "streams_changed": 10,
+    "what_it_names": [
+     "emdf: text on stdout",
+     "oamd: text on stdout"
+    ],
+    "on_every_stream": true
+   }
+  },
+  "the_transcripts": {
+   "files": 10,
+   "lines_added": 786,
+   "lines_changed_or_removed": 0,
+   "recorded_with": "the binary built from the sources of main, which this change leaves as they are"
+  },
+  "the_changes_compared_again": {
+   "how a command reads its stream (17-input-sources-old-new.json)": {
+    "binaries": {
+     "main before the change": "a51173c4bd1e4da88093957adfd6d36bed4e9501c3cc9d692e4c4a90c0056152",
+     "main at the merge of the change": "125eab50492711577792b6edfa0b5c0aa906154eac645e8e60f056c109629e4e"
+    },
+    "streams": 125,
+    "streams_changed": 0,
+    "fields_added": [],
+    "lines_added": [],
+    "reports": {
+     "info": {
+      "runs": 125,
+      "lines_compared": 2003,
+      "fields_compared": 0,
+      "exit_codes": {
+       "0": 125
+      }
+     },
+     "info --json": {
+      "runs": 125,
+      "lines_compared": 0,
+      "fields_compared": 19910,
+      "exit_codes": {
+       "0": 125
+      }
+     },
+     "verify": {
+      "runs": 125,
+      "lines_compared": 2405,
+      "fields_compared": 0,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "verify --json": {
+      "runs": 125,
+      "lines_compared": 0,
+      "fields_compared": 19831,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "emdf": {
+      "runs": 125,
+      "lines_compared": 1471,
+      "fields_compared": 0,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "emdf --json": {
+      "runs": 125,
+      "lines_compared": 0,
+      "fields_compared": 5507,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "oamd": {
+      "runs": 125,
+      "lines_compared": 2357,
+      "fields_compared": 0,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "oamd --json": {
+      "runs": 125,
+      "lines_compared": 0,
+      "fields_compared": 5368,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     }
+    },
+    "lines_of_reports_compared": 8236,
+    "fields_of_reports_compared": 50616,
+    "deliveries": {
+     "pcm -p N (TrueHD and MLP, presentations 0 to 3)": {
+      "runs": 220,
+      "wrote_output": 202,
+      "bytes_compared": 30402893100,
+      "lines_compared": 1036,
+      "exit_codes": {
+       "0": 198,
+       "2": 18,
+       "7": 4
+      }
+     },
+     "pcm (AC-3 and E-AC-3, the programme)": {
+      "runs": 70,
+      "wrote_output": 70,
+      "bytes_compared": 4058892288,
+      "lines_compared": 1095,
+      "exit_codes": {
+       "0": 61,
+       "7": 9
+      }
+     },
+     "pcm --core-only (AC-3 and E-AC-3)": {
+      "runs": 70,
+      "wrote_output": 70,
+      "bytes_compared": 3823884288,
+      "lines_compared": 1095,
+      "exit_codes": {
+       "0": 61,
+       "7": 9
+      }
+     },
+     "wav (what `decode` writes when it is not told which, under a WAVE header)": {
+      "runs": 125,
+      "wrote_output": 125,
+      "bytes_compared": 12782303788,
+      "lines_compared": 1372,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "damf": {
+      "runs": 125,
+      "wrote_output": 64,
+      "bytes_compared": 26139214573,
+      "lines_compared": 486,
+      "exit_codes": {
+       "0": 56,
+       "2": 61,
+       "7": 8
+      }
+     },
+     "adm": {
+      "runs": 125,
+      "wrote_output": 64,
+      "bytes_compared": 26155503004,
+      "lines_compared": 557,
+      "exit_codes": {
+       "0": 56,
+       "2": 61,
+       "7": 8
+      }
+     }
+    },
+    "lines_beside_deliveries_compared": 5641,
+    "bytes_of_deliveries_compared": 103362691041,
+    "note": "the binary after is a build of main at the merge of the change, whose tree is the tree of the branch; it is another build of the sources of the binary `17-input-sources-old-new.json` names as the change, and a build is not the same bytes twice"
+   },
+   "a \"reuse\" after a \"none\" (18-reuse-keeps-none.json)": {
+    "binaries": {
+     "main before the change": "125eab50492711577792b6edfa0b5c0aa906154eac645e8e60f056c109629e4e",
+     "the change": "7a26c68b70fdceea4ee479a4ccd0b1c3030bf42b79364cf3bc20d782f99e7871"
+    },
+    "streams": 125,
+    "streams_changed": 0,
+    "fields_added": [],
+    "lines_added": [],
+    "reports": {
+     "info": {
+      "runs": 125,
+      "lines_compared": 2003,
+      "fields_compared": 0,
+      "exit_codes": {
+       "0": 125
+      }
+     },
+     "info --json": {
+      "runs": 125,
+      "lines_compared": 0,
+      "fields_compared": 19910,
+      "exit_codes": {
+       "0": 125
+      }
+     },
+     "verify": {
+      "runs": 125,
+      "lines_compared": 2405,
+      "fields_compared": 0,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "verify --json": {
+      "runs": 125,
+      "lines_compared": 0,
+      "fields_compared": 19831,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "emdf": {
+      "runs": 125,
+      "lines_compared": 1471,
+      "fields_compared": 0,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "emdf --json": {
+      "runs": 125,
+      "lines_compared": 0,
+      "fields_compared": 5507,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "oamd": {
+      "runs": 125,
+      "lines_compared": 2357,
+      "fields_compared": 0,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "oamd --json": {
+      "runs": 125,
+      "lines_compared": 0,
+      "fields_compared": 5368,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     }
+    },
+    "lines_of_reports_compared": 8236,
+    "fields_of_reports_compared": 50616,
+    "deliveries": {
+     "pcm -p N (TrueHD and MLP, presentations 0 to 3)": {
+      "runs": 220,
+      "wrote_output": 202,
+      "bytes_compared": 30402893100,
+      "lines_compared": 1036,
+      "exit_codes": {
+       "0": 198,
+       "2": 18,
+       "7": 4
+      }
+     },
+     "pcm (AC-3 and E-AC-3, the programme)": {
+      "runs": 70,
+      "wrote_output": 70,
+      "bytes_compared": 4058892288,
+      "lines_compared": 1095,
+      "exit_codes": {
+       "0": 61,
+       "7": 9
+      }
+     },
+     "pcm --core-only (AC-3 and E-AC-3)": {
+      "runs": 70,
+      "wrote_output": 70,
+      "bytes_compared": 3823884288,
+      "lines_compared": 1095,
+      "exit_codes": {
+       "0": 61,
+       "7": 9
+      }
+     },
+     "wav (what `decode` writes when it is not told which, under a WAVE header)": {
+      "runs": 125,
+      "wrote_output": 125,
+      "bytes_compared": 12782303788,
+      "lines_compared": 1372,
+      "exit_codes": {
+       "0": 115,
+       "7": 10
+      }
+     },
+     "damf": {
+      "runs": 125,
+      "wrote_output": 64,
+      "bytes_compared": 26139214573,
+      "lines_compared": 486,
+      "exit_codes": {
+       "0": 56,
+       "2": 61,
+       "7": 8
+      }
+     },
+     "adm": {
+      "runs": 125,
+      "wrote_output": 64,
+      "bytes_compared": 26155503004,
+      "lines_compared": 557,
+      "exit_codes": {
+       "0": 56,
+       "2": 61,
+       "7": 8
+      }
+     }
+    },
+    "lines_beside_deliveries_compared": 5641,
+    "bytes_of_deliveries_compared": 103362691041
+   }
+  },
+  "the_sentence_put_right": {
+   "file": "17-input-sources-old-new.json",
+   "it_said": "that the comparison ran `info --json`, `verify --json`, `emdf --json` and `oamd --json`",
+   "what_ran": "`verify` as text and with `--json`, and `info --json`",
+   "what_is_known_now": "the binary before that change and a build of main at its merge print the same four reports, as text and as JSON, and the same lines beside every delivery, over the same 125 streams"
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 571 passed, 28 ignored (the media suite)",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "reading": "It would have passed. The tool called a binary that prints two reports otherwise the same as main, on ten streams of ten, and names both lines on every one now. Nothing that was merged in the meantime had moved what the tool did not read: over 125 streams the two binaries either side of the change to how a command reads its stream print the same 8 236 lines and 50 616 fields of reports and the same 5 641 lines beside 103 362 691 041 bytes of deliveries; and so do the two either side of the change to a \"reuse\" after a \"none\". So the sentence that claimed the two metadata reports had been compared was wrong when it was written and is true of the binaries now. The transcripts hold the three texts they did not, 786 lines recorded from an unchanged binary. What this leaves unread: the hidden commands and the ones that rewrite a stream, which the tool does not run."
+}

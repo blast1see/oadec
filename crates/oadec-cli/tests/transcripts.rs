@@ -10,9 +10,10 @@
 //! The run time and the speed are masked, and so is the directory the outputs
 //! were written to. Audio that comes out of integer arithmetic (TrueHD and
 //! MLP) is recorded by length and digest. Audio that comes out of floating
-//! point (the objects of an E-AC-3 stream) is recorded by length alone: its
-//! last bit belongs to the platform's mathematics library, not to this
-//! repository.
+//! point (the samples and the objects of an E-AC-3 stream) is recorded by
+//! length alone: its last bit belongs to the platform's mathematics library,
+//! not to this repository. So is an ADM file, which names the version of the
+//! tool that wrote it.
 //!
 //! After a change that is meant to move a report:
 //!
@@ -43,14 +44,19 @@ const STREAMS: [&str; 10] = [
     "truehd-51-88k.thd",
 ];
 
-/// The reporting commands: the arguments that go before the stream.
-const REPORTS: [&[&str]; 8] = [
+/// The reporting commands: the arguments that go before the stream. Each
+/// report is recorded as the text a person reads and as the JSON a program
+/// does: the two are printed by different code.
+const REPORTS: [&[&str]; 11] = [
     &["info"],
     &["info", "--json"],
     &["verify"],
     &["verify", "--json"],
+    &["verify", "--decode"],
     &["verify", "--json", "--decode"],
+    &["emdf"],
     &["emdf", "--json"],
+    &["oamd"],
     &["oamd", "--json"],
     &["au", "--index", "0", "--json"],
 ];
@@ -87,11 +93,12 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 }
 
 /// Replaces `<seconds> s (<factor>x realtime)` with the mask, wherever a line
-/// carries it.
+/// carries it, and the `<seconds> s` that is all a `Speed:` line has when the
+/// command decoded nothing.
 fn mask_speed(line: &str) -> String {
     const TAIL: &str = "x realtime)";
     let Some(tail) = line.find(TAIL) else {
-        return line.to_string();
+        return mask_seconds(line);
     };
     let Some(mid) = line[..tail].rfind(" s (") else {
         return line.to_string();
@@ -100,6 +107,19 @@ fn mask_speed(line: &str) -> String {
         .rfind(|c: char| !(c.is_ascii_digit() || c == '.'))
         .map_or(0, |i| i + 1);
     format!("{}{MASK}{}", &line[..start], &line[tail + TAIL.len()..])
+}
+
+/// `Speed:             0.02 s` with the mask where the seconds are.
+fn mask_seconds(line: &str) -> String {
+    let seconds = line
+        .strip_prefix("Speed:")
+        .map(str::trim_start)
+        .and_then(|value| value.strip_suffix(" s"))
+        .filter(|s| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit() || b == b'.'));
+    match seconds {
+        Some(seconds) => format!("{}{MASK}", &line[..line.len() - seconds.len() - 2]),
+        None => line.to_string(),
+    }
 }
 
 fn mask_json(value: &mut Value) {
@@ -253,6 +273,55 @@ fn transcript(stream: &str) -> String {
             file_line(&mut t, &target, true);
             t.push('\n');
         }
+        // the default presentation again, under a header that names its channels
+        let target = out.join("default.wav");
+        section(
+            &mut t,
+            &[
+                "decode",
+                &path,
+                "--format",
+                "wav",
+                "-o",
+                target.to_str().unwrap(),
+            ],
+            Some(&out),
+        );
+        file_line(&mut t, &target, true);
+        t.push('\n');
+    } else {
+        // the programme and its core: floating point, so by length
+        for (name, core) in [("programme.pcm", false), ("core.pcm", true)] {
+            let target = out.join(name);
+            let mut args = vec!["decode", path.as_str(), "--format", "pcm"];
+            if core {
+                args.push("--core-only");
+            }
+            args.extend(["-o", target.to_str().unwrap()]);
+            section(&mut t, &args, Some(&out));
+            file_line(&mut t, &target, false);
+            t.push('\n');
+        }
+    }
+    if stream == "authored-scene.mlp" {
+        // sixteen channels, most of them objects a WAVE mask has no bit for
+        let target = out.join("objects.wav");
+        section(
+            &mut t,
+            &[
+                "decode",
+                &path,
+                "-p",
+                "3",
+                "--format",
+                "wav",
+                "-o",
+                target.to_str().unwrap(),
+            ],
+            Some(&out),
+        );
+        file_line(&mut t, &target, true);
+        t.push('\n');
     }
     if stream.starts_with("authored-scene") {
         // the object formats take a base name and add their own extensions
@@ -272,6 +341,23 @@ fn transcript(stream: &str) -> String {
         file_text(&mut t, &out.join("scene.atmos"));
         file_text(&mut t, &out.join("scene.atmos.metadata"));
         file_line(&mut t, &out.join("scene.atmos.audio"), is_truehd(stream));
+        t.push('\n');
+        // the same programme as an ADM file, which names the version of the
+        // tool that wrote it: by length
+        let base = out.join("adm");
+        section(
+            &mut t,
+            &[
+                "decode",
+                &path,
+                "--format",
+                "adm",
+                "-o",
+                base.to_str().unwrap(),
+            ],
+            Some(&out),
+        );
+        file_line(&mut t, &out.join("adm.wav"), false);
         t.push('\n');
     }
     std::fs::remove_dir_all(&out).ok();
@@ -409,4 +495,18 @@ fn the_speed_mask_takes_the_numbers_and_leaves_the_rest() {
         mask_speed("Duration:          0:00:02.016 (96768 samples)"),
         "Duration:          0:00:02.016 (96768 samples)"
     );
+    // a command that decodes nothing has seconds and no speed to name
+    assert_eq!(
+        mask_speed("Speed:             0.02 s"),
+        format!("Speed:             {MASK}")
+    );
+    // and only that line is taken for one
+    for line in [
+        "Speed:             none s",
+        "Speed:             s",
+        "Sample offsets:    {0: 26} s",
+        "speed: 0.02 s",
+    ] {
+        assert_eq!(mask_speed(line), line);
+    }
 }

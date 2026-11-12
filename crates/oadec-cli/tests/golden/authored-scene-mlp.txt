@@ -695,6 +695,36 @@ exit 0
   "units": 2400
 }
 
+$ oadec verify --decode tests/fixtures/authored-scene.mlp
+exit 0
+[stdout]
+File:              tests/fixtures/authored-scene.mlp
+Access units:      2400 (22 major syncs, 546456 bytes)
+Header parity:     0 failures
+Major sync CRC:    0 failures, 0 bad signatures
+Framing:           0 errors, 0 configuration changes
+Extra data:        0 header parity failures, 0 truncated, 0 Evolution parity failures, 0 non-zero padding, 0 container errors
+Object metadata:   63 payloads parsed, 0 errors; 0 non-unity gains {}, 0 mutes, 0 non-zero sizes
+Sync:              0 resyncs, 0 skipped bytes, 0 trailing bytes
+Substream 0:       2400 segments (0 skipped), 22 restart headers [0x31EA x22], channels 0..=1 (matrix 1), error_protect false
+                   2422 blocks (max 2 per segment, 0 protected), 26 matrixing (0 interpolated), up to 2 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
+Substream 1:       2400 segments (0 skipped), 22 restart headers [0x31EB x22], channels 2..=5 (matrix 5), error_protect false
+                   2422 blocks (max 2 per segment, 0 protected), 30 matrixing (0 interpolated), up to 6 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
+Substream 2:       2400 segments (0 skipped), 22 restart headers [0x31EB x22], channels 6..=7 (matrix 7), error_protect false
+                   2422 blocks (max 2 per segment, 0 protected), 44 matrixing (0 interpolated), up to 8 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
+Substream 3:       2400 segments (0 skipped), 22 restart headers [0x31EC x22], channels 8..=11 (matrix 11), error_protect false
+                   2422 blocks (max 2 per segment, 0 protected), 143 matrixing (124 interpolated), up to 9 matrices, 2400 CRC segments, 1 terminated (1 with zero samples)
+Substream checks:  0 parse errors, 0 block bit-count mismatches, 0 parity failures, 0 CRC failures, 0 end-pointer mismatches, 0 sample-count mismatches, 0 restart flag mismatches, 0 bad terminators, 0 unexpected tails
+Coding tools:      fir, iir, fir-with-iir, iir-states, coefficient-shift, huffman-1, huffman-2, huffman-3, huffman-offset, output-shift, matrixing, lsb-bypass, dither-scale, matrix-shift-code, matrix-interpolation, channel-reassignment, hires-output-timing, drc-update
+Lossless checks:   84 evaluated, 0 failed, 0 skipped
+Timing:            0 input timing jumps, 0 output timing jumps, 0 valid seamless branches, 0 invalid branches, 0 duplicate candidates, 0 peak rate changes
+Buffer:            delay up to 3580 samples (74.6 ms, au 1128); delivery up to 2.850 Mbit/s (au 1259)
+                   substream depth 7594/30000, 9782/60000, 4334/30000, 8984/60000 bytes; decoders p0 8188, p1 18116, p2 22596, p3 27160; stream 27160/120000 bytes
+Disc:              BD yes, HD DVD yes, DVD-A no
+                   DVD-Audio carries the FBB syntax; this stream is FBA
+Speed:             <masked>
+Result:            CLEAN
+
 $ oadec verify --json --decode tests/fixtures/authored-scene.mlp
 exit 0
 [stdout]
@@ -1079,6 +1109,20 @@ exit 0
   "units": 2400
 }
 
+$ oadec emdf tests/fixtures/authored-scene.mlp
+exit 0
+[stdout]
+Access units:      2400, 546456 bytes, 0 sync errors, 0 bytes skipped, 0 unparsed
+EMDF:              63 access units with containers, 63 containers, 0 container errors, payload ids {11: 63}
+OAMD:              63 payloads (0 errors), 0 JOC payloads
+smploffst:         {0: 63}
+Sample offsets:    {0: 26, 8: 12, 16: 13, 24: 12}
+Block offsets:     {0: 50, 1: 13}
+Ramp durations:    {768: 1, 1536: 62}
+Verify:            clean
+Speed:             <masked>
+Result:            CLEAN
+
 $ oadec emdf --json tests/fixtures/authored-scene.mlp
 exit 0
 [stdout]
@@ -1178,6 +1222,29 @@ exit 0
     "first_problem": null
   }
 }
+
+$ oadec oamd tests/fixtures/authored-scene.mlp
+exit 0
+[stdout]
+OAMD payloads:     63 in 63 of 2400 access units; 0 parse errors, 0 non-zero paddings, 0 long paddings, 0 size mismatches
+Unread:            0 sync errors, 0 bytes skipped, 0 trailing bytes, 0 CRC failures, 0 unparsed access units, 0 containers that did not open, 0 extra-data faults
+Verify:            clean
+Program:           dyn_only true beds [["LFE"]] isf None dynamic objects 11 (12 objects), 0 changes
+Object counts:     {12: 63}
+Element ids:       {1: 63}
+Blocks/payload:    {1: 63}
+Container offsets: {0: 63}
+Sample offsets:    {0: 26, 8: 12, 16: 13, 24: 12}
+Block offsets:     {0: 50, 1: 13}
+Ramp durations:    {768: 1, 1536: 62}
+Statuses:          basic {"full": 756} render {"default": 63, "full": 693}
+Updates:           0 inactive, 0 differential positions, 0 screen-referenced, 0 snapped, 0 with table data
+Gain and size:     0 non-unity gains {}, 0 mutes, 0 non-zero sizes
+Distances:         {"unspecified": 693}
+Zone constraints:  {0: 693}
+Elements:          0 payloads with trim, 0 with extended object data, 0 with unknown ids
+Speed:             <masked>
+Result:            CLEAN
 
 $ oadec oamd --json tests/fixtures/authored-scene.mlp
 exit 0
@@ -1548,6 +1615,27 @@ speed: <masked>
 done
 [file] p3.pcm: 3456000 bytes, FNV-1a 64 0xe4a2354114b48b79
 
+$ oadec decode tests/fixtures/authored-scene.mlp --format wav -o <out>/default.wav
+exit 0
+[stderr]
+decoded 2400 access units, 96000 samples x 8 channels (0:00:02.000), 0 dropped duplicates
+lossless checks: 21 performed, 0 failed; max_bits violations: 0; segment problems: 0
+channels: L R C LFE Lb Rb Ls Rs
+speed: <masked>
+done
+[file] default.wav: 2304104 bytes, FNV-1a 64 0x7d0ed7aef0817be4
+
+$ oadec decode tests/fixtures/authored-scene.mlp -p 3 --format wav -o <out>/objects.wav
+exit 0
+[stderr]
+warning: WAVE has no channel mask bit for obj1, obj2, obj3, obj4, obj5, obj6, obj7, obj8, obj9, obj10, obj11; writing an unassigned mask
+decoded 2400 access units, 96000 samples x 12 channels (0:00:02.000), 0 dropped duplicates
+lossless checks: 21 performed, 0 failed; max_bits violations: 0; segment problems: 0
+channels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11
+speed: <masked>
+done
+[file] objects.wav: 3456104 bytes, FNV-1a 64 0x6dc3d60812664fd5
+
 $ oadec decode tests/fixtures/authored-scene.mlp --format damf -o <out>/scene
 exit 0
 [stderr]
@@ -1888,4 +1976,17 @@ events:
     samplePos: 95232
     rampLength: 768
 [file] scene.atmos.audio: 6048068 bytes, FNV-1a 64 0x4146ba35076be9d0
+
+$ oadec decode tests/fixtures/authored-scene.mlp --format adm -o <out>/adm
+exit 0
+[stderr]
+decoded 2400 access units, 96000 samples x 12 channels (0:00:02.000), 0 dropped duplicates
+lossless checks: 21 performed, 0 failed; max_bits violations: 0; segment problems: 0
+channels: LFE obj1 obj2 obj3 obj4 obj5 obj6 obj7 obj8 obj9 obj10 obj11
+speed: <masked>
+ADM BWF: 96000 frames x 21 channels (0:00:02.000) in <out>/adm.wav, 24 object blocks, 6090390 bytes
+metadata: 63 payloads in 63 access units, 36 events (0 restating payloads, 0 out-of-order events), 0 payload errors
+adm: profile reductions: 13 interpolation lengths replaced by 250 samples (1536 x12, 768 x1)
+done
+[file] adm.wav: 6090390 bytes
 

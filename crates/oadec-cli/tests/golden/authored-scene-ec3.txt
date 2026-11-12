@@ -375,6 +375,27 @@ exit 0
   "transients": []
 }
 
+$ oadec verify --decode tests/fixtures/authored-scene.ec3
+exit 0
+[stdout]
+File:              tests/fixtures/authored-scene.ec3
+Stream:            E-AC-3 bsid 16, 48000 Hz, 6 blocks/frame, 448 kbit/s
+Channels:          6 (acmod 7 + LFE): L C R Ls Rs LFE
+Frames:            63 decoded (63 independent, 0 dependent in the file), 0 sync errors, 0 bytes skipped
+Duration:          0:00:02.016 (96768 samples)
+Substreams:        type 0 id 0: 63
+Dialnorm:          -26 dB x63
+JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
+Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
+EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
+Metadata:          63 OAMD payloads (0 errors), 63 JOC payloads
+JOC parse:         63 ok, 0 errors, 0 reserved extensions, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 63}; objects per payload {15: 63}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 63}
+JOC objects:       bands {12: 945}; 0 sparse, 945 dense, 0 absent; 0 with two data points, 15 steep, 945 fine-quantized
+OAMD gain/size:    0 non-unity gains {}, 0 mutes, 0 non-zero sizes
+Integrity:         0 decode errors, 0 CRC failures, 0 frames ending inside the frame tail
+Speed:             <masked>
+Result:            CLEAN
+
 $ oadec verify --json --decode tests/fixtures/authored-scene.ec3
 exit 0
 [stdout]
@@ -543,6 +564,24 @@ exit 0
   "transients": []
 }
 
+$ oadec emdf tests/fixtures/authored-scene.ec3
+exit 0
+[stdout]
+Frames:            63 (63 independent, 0 dependent), 112896 bytes, 0 sync errors, 0 bytes skipped, 0 CRC failures, 0 unparsed
+EMDF:              63 frames with containers, 63 containers, 0 container errors, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
+Loudness:          63 payloads (0 unreadable, 0 of the wrong size), measured by {"ATSC A/85": 63}, relative gated {"-26.5": 1} LUFS, speech gated {} LUFS, true peak Some(-20.0)..Some(-20.0) dBTP
+Programme:         63 payloads (0 unreadable, 0 of the wrong size), DRC profile line {"none": 63}, RF {"none": 63}, 90 degree phase shift {"yes": 63}, surround attenuation {"no": 63}, LFE filter {"yes": 63}
+OAMD:              63 payloads (0 errors), 63 JOC payloads
+smploffst:         {0: 63}
+Sample offsets:    {0: 63}
+Block offsets:     {0: 63}
+Ramp durations:    {1536: 63}
+Event time mod 1536: {0: 63}
+Event times:       [0, 1536, 3072, 4608, 6144, 7680, 9216, 10752, 12288, 13824, 15360, 16896, 18432, 19968, 21504, 23040, 24576, 26112, 27648, 29184, 30720, 32256, 33792, 35328] ...
+Verify:            clean
+Speed:             <masked>
+Result:            CLEAN
+
 $ oadec emdf --json tests/fixtures/authored-scene.ec3
 exit 0
 [stdout]
@@ -663,6 +702,30 @@ exit 0
   }
 }
 
+$ oadec oamd tests/fixtures/authored-scene.ec3
+exit 0
+[stdout]
+OAMD payloads:     63 in 63 of 63 frames; 0 parse errors, 0 non-zero paddings, 0 long paddings, 0 size mismatches
+Unread:            0 sync errors, 0 bytes skipped, 0 trailing bytes, 0 CRC failures, 0 unparsed frames, 0 containers that did not open, 0 extra-data faults
+Verify:            clean
+Program:           dyn_only true beds [["LFE"]] isf None dynamic objects 15 (16 objects), 0 changes
+Object counts:     {16: 63}
+Element ids:       {1: 63, 2: 63}
+Blocks/payload:    {1: 63}
+Container offsets: {0: 63}
+Sample offsets:    {0: 63}
+Block offsets:     {0: 63}
+Ramp durations:    {1536: 63}
+Statuses:          basic {"full": 1008} render {"default": 63, "full": 945}
+Updates:           0 inactive, 0 differential positions, 0 screen-referenced, 0 snapped, 0 with table data
+Gain and size:     0 non-unity gains {}, 0 mutes, 0 non-zero sizes
+Distances:         {"unspecified": 945}
+Zone constraints:  {0: 945}
+Elements:          63 payloads with trim, 0 with extended object data, 0 with unknown ids
+Trim:              warp modes {1: 63}, global modes {0: 63}, configurations {}, per-object disables 0
+Speed:             <masked>
+Result:            CLEAN
+
 $ oadec oamd --json tests/fixtures/authored-scene.ec3
 exit 0
 [stdout]
@@ -764,6 +827,52 @@ $ oadec au --index 0 --json tests/fixtures/authored-scene.ec3
 exit 2
 [stderr]
 error: the stream has 0 access units; there is no access unit 0
+
+$ oadec decode tests/fixtures/authored-scene.ec3 --format pcm -o <out>/programme.pcm
+exit 0
+[stdout]
+File:              tests/fixtures/authored-scene.ec3
+Stream:            E-AC-3 bsid 16, 48000 Hz, 6 blocks/frame, 448 kbit/s
+Channels:          6 (acmod 7 + LFE): L C R Ls Rs LFE
+Frames:            63 decoded (63 independent, 0 dependent in the file), 0 sync errors, 0 bytes skipped
+Duration:          0:00:02.016 (96768 samples)
+Substreams:        type 0 id 0: 63
+Dialnorm:          -26 dB x63
+JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
+Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
+EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
+Metadata:          63 OAMD payloads (0 errors), 63 JOC payloads
+JOC parse:         63 ok, 0 errors, 0 reserved extensions, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 63}; objects per payload {15: 63}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 63}
+JOC objects:       bands {12: 945}; 0 sparse, 945 dense, 0 absent; 0 with two data points, 15 steep, 945 fine-quantized
+OAMD gain/size:    0 non-unity gains {}, 0 mutes, 0 non-zero sizes
+Integrity:         0 decode errors, 0 CRC failures, 0 frames ending inside the frame tail
+Speed:             <masked>
+[stderr]
+done
+[file] programme.pcm: 2322432 bytes
+
+$ oadec decode tests/fixtures/authored-scene.ec3 --format pcm --core-only -o <out>/core.pcm
+exit 0
+[stdout]
+File:              tests/fixtures/authored-scene.ec3
+Stream:            E-AC-3 bsid 16, 48000 Hz, 6 blocks/frame, 448 kbit/s
+Channels:          6 (acmod 7 + LFE): L C R Ls Rs LFE
+Frames:            63 decoded (63 independent, 0 dependent in the file), 0 sync errors, 0 bytes skipped
+Duration:          0:00:02.016 (96768 samples)
+Substreams:        type 0 id 0: 63
+Dialnorm:          -26 dB x63
+JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
+Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
+EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
+Metadata:          63 OAMD payloads (0 errors), 63 JOC payloads
+JOC parse:         63 ok, 0 errors, 0 reserved extensions, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 63}; objects per payload {15: 63}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 63}
+JOC objects:       bands {12: 945}; 0 sparse, 945 dense, 0 absent; 0 with two data points, 15 steep, 945 fine-quantized
+OAMD gain/size:    0 non-unity gains {}, 0 mutes, 0 non-zero sizes
+Integrity:         0 decode errors, 0 CRC failures, 0 frames ending inside the frame tail
+Speed:             <masked>
+[stderr]
+done
+[file] core.pcm: 2322432 bytes
 
 $ oadec decode tests/fixtures/authored-scene.ec3 --format damf -o <out>/scene
 exit 0
@@ -1157,4 +1266,15 @@ events:
     samplePos: 94976
     pos: [0.9032258, 0, 0]
 [file] scene.atmos.audio: 7238468 bytes
+
+$ oadec decode tests/fixtures/authored-scene.ec3 --format adm -o <out>/adm
+exit 0
+[stderr]
+program: 1 bed channels, 15 dynamic objects, 15 JOC objects over 5 downmix channels (config 3), clip gain 1.000 (applied)
+ADM BWF: 96512 frames x 25 channels (0:00:02.011) in <out>/adm.wav, 32 object blocks, 7289806 bytes
+metadata: 63 payloads, 33 events (0 restating payloads, 0 out-of-order events), 0 payload errors; 0 frames without JOC, 0 without OAMD
+core: 63 frames decoded, 0 decode errors, <masked>
+adm: profile reductions: 17 interpolation lengths replaced by 250 samples (1536 x17)
+done
+[file] adm.wav: 7289806 bytes
 

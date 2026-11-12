@@ -32,16 +32,19 @@ Real-media tests remain ignored unless explicitly requested as described in
 `crates/oadec-cli/tests/transcripts.rs` runs every reporting command (`info`,
 `verify`, `verify --decode`, `emdf`, `oamd`, `au`, `rules`) and every delivery
 over each stream under `tests/fixtures` and holds the exit code, what was
-printed and what was written to `tests/golden/<fixture>.txt`. The tests that
+printed and what was written to `tests/golden/<fixture>.txt`. A report is
+recorded twice, as the text a person reads and as the JSON a program does,
+because the two are printed by different code. The tests that
 assert single fields say that a field is right; the transcripts say that
 nothing else moved, which is what a change that only moves code, a new
 toolchain or a dependency update has to show.
 
 What differs from run to run is masked: the run time, the speed, the directory
 the outputs went to and the tool's own version. Audio that comes out of integer
-arithmetic (TrueHD and MLP) is recorded by length and digest. The object audio
-of an E-AC-3 stream comes out of floating point and is recorded by length
-alone.
+arithmetic (TrueHD and MLP) is recorded by length and digest. The samples and
+the object audio of an E-AC-3 stream come out of floating point and are
+recorded by length alone, and so is an ADM file, which names the version of
+the tool that wrote it.
 
 ```sh
 cargo test -p oadec-cli --test transcripts --locked
@@ -71,11 +74,20 @@ python tools/mutants.py --out mutants.json
 
 # The old and the new binary
 
-`tools/old_new.py` runs two binaries over the same streams and names every
-exit code, JSON field and line of `verify` that differs. With `--decode-all` it
-also compares every delivery byte for byte: the PCM of each presentation, the
-DAMF set and the ADM file. The summary counts what each kind of delivery
-compared, because two commands that both wrote nothing also agree.
+`tools/old_new.py` runs two binaries over the same streams and names what
+differs: the exit code, every field of the JSON and every line of the text of
+the four reports (`info`, `verify`, `emdf`, `oamd`), on stdout and on stderr.
+With `--decode-all` it also compares every delivery byte for byte, the PCM of
+each presentation, a WAVE file, the DAMF set and the ADM file, and the lines
+the decode printed while it wrote them. A field or a line only the new binary
+has is listed and not judged; one the old binary had and the new one changed,
+dropped or moved is a change. The time a run took and the directory it wrote
+to are left out. The summary counts what each command compared, lines, fields
+and bytes, because two commands that both said nothing also agree.
+
+The tool is a gate, and a gate is tested like anything else: give it a binary
+that is known to print something else and see that it says so
+(`docs/audit/evidence/engine-round-2026-11/19-reports-compared.json`).
 
 ```sh
 python tools/old_new.py --old old/oadec --new target/release/oadec \
