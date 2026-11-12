@@ -659,6 +659,15 @@ MUTANTS = [
      'crates/oadec-fuzz/src/parity.rs',
      '        !NOT_OF_A_DELIVERY.contains(&name.as_str()) && count.as_u64() != Some(0)',
      '        count.as_u64() != Some(0)'),
+    # --- a repair that leaves nothing for a second one --------------------------
+    ('a restart CRC written into the bytes that close its segment',
+     'crates/oadec-truehd/src/repair.rs',
+     '                    if trailer.is_some_and(|at| site.bit + 8 > at * 8) {',
+     '                    if trailer.is_some_and(|at| site.bit + 8 > at * 8 + 16) {'),
+    ('a restart CRC that begins before the trailer and ends in it written all the same',
+     'crates/oadec-truehd/src/repair.rs',
+     '                    if trailer.is_some_and(|at| site.bit + 8 > at * 8) {',
+     '                    if trailer.is_some_and(|at| site.bit >= at * 8) {'),
     # --- what every catalog keeps (crates/oadec-diag) -----------------------
     ('a name two rules share passing the catalog',
      'crates/oadec-diag/src/rule.rs',
