@@ -210,3 +210,28 @@ fn what_verify_counts_and_a_delivery_does_not_leaves_every_decode_clean() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// What the policy lets a metadata report say that `verify` does not: `oamd`
+/// counts the padding of an element that is not zero or is longer than a
+/// byte. `verify` has no rule for it and every decode is clean.
+#[test]
+fn what_a_metadata_report_counts_and_verify_does_not_leaves_the_stream_clean() {
+    let dir = temp("padding");
+    let stream = found("truehd-payload-long-padding.bin");
+    let row = row(&stream, &dir);
+    assert_eq!(codes(&row), [0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0], "{row:?}");
+    let oamd = oadec(&["oamd", &stream]);
+    let said = text(&oamd.stdout);
+    assert!(
+        said.contains("1 non-zero paddings, 1 long paddings"),
+        "{said}"
+    );
+    assert!(said.contains("element 1 padded by 255 bits"), "{said}");
+    // the report itself says what `verify` makes of the stream
+    assert!(
+        said.lines()
+            .any(|line| line.starts_with("Verify:") && line.trim_end().ends_with("clean")),
+        "{said}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}

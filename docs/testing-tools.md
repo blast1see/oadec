@@ -292,10 +292,27 @@ that is most changes to a short run, because the lossless check of a restart
 interval is in the restart header after it and the end of a stream has none.
 It is why the campaign puts the checksums right, and it is not detection.
 
-`crates/oadec-cli/tests/found` keeps the streams a campaign turned up, with a
-test that holds every command to what it says of each: two that the commands
-told two stories of, and three that show what the policy lets one command say
-and another not.
+A campaign can only say what it happened on. `examples/flips.rs` goes through
+all of what is one bit away from the streams the campaign starts from: every
+bit of every one of them is changed in turn, the checksums are put right,
+every command is asked and the answers are held to the same clauses. That is
+two million streams and half an hour of every core of a workstation, so it
+is a tool and not a test:
+
+```sh
+cargo run --release -p oadec-fuzz --example flips -- crates/oadec-cli/tests/fixtures tally.json [directory]
+```
+
+Its tally is where a thing the policy allows and a random change seldom
+makes gets counted. A metadata report that finds a fault in a stream `verify`
+calls clean did not come up once in the rounds of the campaign; a few bits in
+ten thousand of a stream that carries objects make one, and with a directory
+the first stream of each such kind is written there.
+
+`crates/oadec-cli/tests/found` keeps the streams these turned up, with a test
+that holds every command to what it says of each: two that the commands told
+two stories of, and four that show what the policy lets one command say and
+another not.
 
 # Streams written from a recipe
 

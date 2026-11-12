@@ -318,10 +318,11 @@ fn the_commands_agree_on_every_changed_stream() {
     }
 }
 
-/// The streams earlier campaigns turned up are kept beside the fixtures. What
-/// the commands say of each hangs together, and the ones that show what the
-/// policy lets a command say that another does not still show it: without
-/// the first of them, the exception in `check` would be held by nothing.
+/// The streams earlier campaigns turned up, and the one that changing every
+/// bit in turn did, are kept beside the fixtures. What the commands say of
+/// each hangs together, and the ones that show what the policy lets a command
+/// say that another does not still show it: without the first of them, the
+/// exception in `check` would be held by nothing.
 #[test]
 fn the_streams_a_campaign_found_still_hold() {
     let dir = Path::new(concat!(
@@ -365,11 +366,19 @@ fn the_streams_a_campaign_found_still_hold() {
                 assert_eq!(said.verify, Said::Faulty, "{name}");
                 assert!(said.deliveries().all(|d| d == Said::Refused), "{name}");
             }
+            // what a metadata report alone counts: nothing else finds a fault
+            "truehd-payload-long-padding.bin" => {
+                assert_eq!(said.oamd, Said::Faulty, "{name}");
+                assert_eq!(said.verify, Said::Clean, "{name}");
+                assert_eq!(said.verify_decode, Said::Clean, "{name}");
+                assert_eq!(said.emdf, Said::Clean, "{name}");
+                assert!(said.deliveries().all(|d| d == Said::Clean), "{name}");
+            }
             other => panic!("{other} is a found stream this test says nothing of"),
         }
     }
     std::fs::remove_dir_all(&scratch).ok();
-    assert_eq!(seen, 5);
+    assert_eq!(seen, 6);
 }
 
 /// A round is the same stream every time, and another seed gives others.
