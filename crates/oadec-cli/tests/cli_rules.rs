@@ -321,22 +321,41 @@ fn the_catalog_names_every_rule_and_refuses_an_unknown_one() {
     assert_eq!(String::from_utf8_lossy(&md.stdout), committed);
 }
 
-/// The checks of the AC-3 family are named now, and the options that move a
-/// verdict by rule are not wired to them yet, so they are refused there
-/// rather than read as applied while changing nothing.
+/// The options that move a verdict by rule are the AC-3 family's as they are
+/// a TrueHD stream's. The two that are about the decoder buffer and the disc
+/// formats of a TrueHD stream are refused there, rather than read as applied
+/// while changing nothing.
 #[test]
-fn the_rule_options_are_refused_on_eac3() {
+fn the_buffer_and_disc_options_are_refused_on_eac3_and_the_rule_options_taken() {
     let ec3 = fixture("authored-scene.ec3");
     let ec3 = ec3.to_str().unwrap();
     assert_eq!(oadec(&["verify", ec3]).status.code(), Some(0));
+    // the checks of the family are rules: the threshold and the listing
+    // limit are theirs as they are a TrueHD stream's
     for flag in [
         ["--fail-on", "error"],
+        ["--fail-on", "info"],
         ["--max-per-rule", "3"],
+    ] {
+        let out = oadec(&["verify", flag[0], flag[1], ec3]);
+        assert_eq!(out.status.code(), Some(0), "{flag:?}");
+    }
+    let fifo = std::env::temp_dir().join(format!("oadec-rules-fifo-{}.csv", std::process::id()));
+    for flag in [
         ["--require-disc", "bd"],
+        ["--trace-fifo", fifo.to_str().unwrap()],
     ] {
         let out = oadec(&["verify", flag[0], flag[1], ec3]);
         assert_eq!(out.status.code(), Some(2), "{flag:?}");
+        let said = String::from_utf8_lossy(&out.stderr).into_owned();
+        assert!(
+            said.contains(
+                "--trace-fifo and --require-disc are about the decoder buffer and the disc formats"
+            ),
+            "{said}"
+        );
     }
+    assert!(!fifo.exists());
 }
 
 /// Every run says how the stream fits each disc format; `--require-disc`

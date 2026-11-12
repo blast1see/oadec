@@ -1025,3 +1025,71 @@ fn a_finding_names_its_rule_and_its_frame() {
 
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// `--max-per-rule` changes how many findings of a rule are listed in full,
+/// and no count: five frames whose CRC fails are five findings whatever is
+/// listed of them.
+#[test]
+fn the_listing_limit_changes_what_is_listed_and_no_count() {
+    let dir = temp("listing");
+    let mut stream = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let offsets = frame_offsets(&stream);
+    for frame in [4, 9, 14, 19, 24] {
+        stream[offsets[frame + 1] - 1] ^= 0x10;
+    }
+    let file = dir.join("five.ec3");
+    std::fs::write(&file, &stream).unwrap();
+    let path = file.to_str().unwrap();
+    let report = |args: &[&str]| -> Value {
+        let mut all = vec!["verify", "--json"];
+        all.extend_from_slice(args);
+        all.push(path);
+        let out = oadec(&all);
+        assert_eq!(out.status.code(), Some(7), "{args:?}");
+        serde_json::from_slice(&out.stdout).expect("JSON")
+    };
+    for (args, listed) in [
+        (&[][..], 5),
+        (&["--max-per-rule", "2"][..], 2),
+        (&["--max-per-rule", "0"][..], 5),
+        (&["--max-per-rule", "1"][..], 1),
+    ] {
+        let report = report(args);
+        let rule = fired(&report, "frame.crc");
+        assert_eq!(rule["count"], 5, "{args:?}");
+        assert_eq!(rule["listed"], listed, "{args:?}");
+        assert_eq!(rule["suppressed"], 5 - listed, "{args:?}");
+        assert_eq!(
+            (&rule["first"]["frame"], &rule["last"]["frame"]),
+            (&4.into(), &24.into())
+        );
+        let findings = report["diagnostics"]["findings"].as_array().unwrap();
+        assert_eq!(
+            findings.iter().filter(|f| f["rule"] == "frame.crc").count(),
+            listed as usize,
+            "{args:?}"
+        );
+        assert_eq!(report["failures"]["crc_failures"], 5);
+        the_rules_are_the_counters(&report);
+    }
+    assert_eq!(report(&[])["diagnostics"]["max_per_rule"], 20);
+    assert_eq!(
+        report(&["--max-per-rule", "2"])["diagnostics"]["max_per_rule"],
+        2
+    );
+    let text = oadec(&["verify", "--max-per-rule", "2", path]);
+    let said = String::from_utf8_lossy(&text.stdout).into_owned();
+    assert!(
+        said.contains("frame.crc: 2 listed, 3 more not listed (--max-per-rule), last at frame 24"),
+        "{said}"
+    );
+    // two findings of the rule in full, whatever else of the report says CRC
+    assert_eq!(
+        said.lines()
+            .filter(|l| l.contains(" frame.crc ") && l.ends_with("CRC failure"))
+            .count(),
+        2,
+        "{said}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}

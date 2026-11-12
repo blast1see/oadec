@@ -53,8 +53,9 @@ pub(crate) const CENSUS_IS_TRUEHD: &str = "--census counts the TrueHD syntax; th
      or E-AC-3 stream names its coding tools as it is";
 
 /// What the options of the TrueHD checks on an AC-3 family stream are told.
-pub(crate) const RULES_ARE_TRUEHD: &str = "--fail-on, --max-per-rule, --trace-fifo and --require-disc \
-     apply to a TrueHD stream; the E-AC-3 checks have no rule catalog yet";
+pub(crate) const BUFFER_AND_DISC_ARE_TRUEHD: &str = "--trace-fifo and --require-disc are about the \
+     decoder buffer and the disc formats of a TrueHD stream; they do not apply to an AC-3 or \
+     E-AC-3 stream";
 
 /// What `--on-error` on an AC-3 family stream is told.
 pub(crate) const ON_ERROR_IS_TRUEHD: &str = "--on-error chooses what a TrueHD decode does with an \
@@ -207,16 +208,19 @@ pub fn verify(source: &Source, options: &VerifyOptions) -> Result<Verified> {
         if options.census {
             return Err(anyhow!(CENSUS_IS_TRUEHD));
         }
-        if options.fail_on.is_some()
-            || options.max_per_rule.is_some()
-            || options.trace_fifo.is_some()
-            || !options.require_disc.is_empty()
-        {
+        if options.trace_fifo.is_some() || !options.require_disc.is_empty() {
             // An option that reads as applied while changing nothing is a
-            // defect: the E-AC-3 checks have no rule catalog yet.
-            return Err(anyhow!(RULES_ARE_TRUEHD));
+            // defect: a stream of this family has no buffer model and is of
+            // no disc format the checks know.
+            return Err(anyhow!(BUFFER_AND_DISC_ARE_TRUEHD));
         }
-        return Ok(Verified::Ac3(eac3::report(source)?));
+        return Ok(Verified::Ac3(eac3::report_with(
+            source,
+            &eac3::ReportOptions {
+                fail_on: options.fail_on.unwrap_or(Severity::Error),
+                max_per_rule: options.max_per_rule.unwrap_or(Tally::DEFAULT_MAX_PER_RULE),
+            },
+        )?));
     }
     Ok(Verified::TrueHd(verify::report(
         source,

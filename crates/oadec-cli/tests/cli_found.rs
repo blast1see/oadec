@@ -235,3 +235,91 @@ fn what_a_metadata_report_counts_and_verify_does_not_leaves_the_stream_clean() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A rule that warns fails a stream only where the threshold is lowered to
+/// it. An element of a stale size is counted and named, and at the threshold
+/// `verify` has when it is given none every command calls the stream clean;
+/// `--fail-on warning` exits 7 on the same bytes, and `--fail-on fatal` on a
+/// stream whose findings are errors exits 0.
+#[test]
+fn a_warning_fails_a_stream_of_the_ac3_family_only_below_the_default_threshold() {
+    let dir = temp("threshold");
+    let stream = found("eac3-element-of-a-stale-size.bin");
+    let row = row(&stream, &dir);
+    assert_eq!(codes(&row), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "{row:?}");
+
+    let json = |args: &[&str]| -> (Option<i32>, serde_json::Value) {
+        let out = oadec(args);
+        let report = serde_json::from_slice(&out.stdout)
+            .unwrap_or_else(|e| panic!("{args:?} wrote no JSON ({e}): {}", text(&out.stderr)));
+        (out.status.code(), report)
+    };
+    let (code, report) = json(&["verify", "--json", &stream]);
+    assert_eq!(code, Some(0));
+    assert_eq!(report["clean"], true);
+    assert_eq!(report["failures"]["oamd_stale_sizes"], 1);
+    let d = &report["diagnostics"];
+    assert_eq!(
+        (&d["fail_on"], &d["worst"]),
+        (&"error".into(), &"warning".into())
+    );
+    assert_eq!(d["rules"][0]["id"], "oamd.stale_size");
+    assert_eq!(d["rules"][0]["delivery"], false);
+    assert_eq!(d["counts"]["warning"], 1);
+
+    // the same bytes, with the threshold at the warning
+    for threshold in ["warning", "info"] {
+        let (code, report) = json(&["verify", "--json", "--fail-on", threshold, &stream]);
+        assert_eq!(code, Some(7), "{threshold}");
+        assert_eq!(report["clean"], false, "{threshold}");
+        assert_eq!(report["diagnostics"]["fail_on"], threshold);
+        // a threshold moves the verdict and no count
+        assert_eq!(report["failures"]["oamd_stale_sizes"], 1);
+        assert_eq!(report["diagnostics"]["rules"][0]["count"], 1);
+    }
+    let said = oadec(&["verify", "--fail-on", "warning", &stream]);
+    assert_eq!(said.status.code(), Some(7));
+    let said = text(&said.stdout);
+    assert!(
+        said.lines().any(|l| l.starts_with("Findings:")
+            && l.contains("warning")
+            && l.contains("oamd.stale_size")
+            && l.contains("frame 0")),
+        "{said}"
+    );
+    assert!(
+        said.lines()
+            .any(|l| l.starts_with("Rules:") && l.ends_with("(fail on warning)")),
+        "{said}"
+    );
+    assert!(said.trim_end().ends_with("PROBLEMS"), "{said}");
+    // and at the default the same report closes clean
+    let said = text(&oadec(&["verify", &stream]).stdout);
+    assert!(
+        said.lines()
+            .any(|l| l.starts_with("Rules:") && l.ends_with("(fail on error)")),
+        "{said}"
+    );
+    assert!(said.trim_end().ends_with("CLEAN"), "{said}");
+
+    // a threshold above every finding passes a stream that fails at the default
+    let faulty = found("eac3-payload-without-object-element.bin");
+    assert_eq!(oadec(&["verify", &faulty]).status.code(), Some(7));
+    let (code, report) = json(&["verify", "--json", "--fail-on", "fatal", &faulty]);
+    assert_eq!(code, Some(0));
+    assert_eq!(report["clean"], true);
+    assert_eq!(report["diagnostics"]["worst"], "error");
+    assert_eq!(report["failures"]["oamd_unusable"], 1);
+    // a decode is given no threshold and keeps its verdict
+    let out = dir.join("out.pcm");
+    let decode = oadec(&[
+        "decode",
+        &faulty,
+        "--format",
+        "pcm",
+        "-o",
+        out.to_str().unwrap(),
+    ]);
+    assert_eq!(decode.status.code(), Some(7));
+    std::fs::remove_dir_all(&dir).ok();
+}

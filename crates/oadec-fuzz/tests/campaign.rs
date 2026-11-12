@@ -374,11 +374,17 @@ fn the_streams_a_campaign_found_still_hold() {
                 assert_eq!(said.emdf, Said::Clean, "{name}");
                 assert!(said.deliveries().all(|d| d == Said::Clean), "{name}");
             }
+            // a warning: counted, and a fault to no command
+            "eac3-element-of-a-stale-size.bin" => {
+                assert_eq!(said.verify, Said::Clean, "{name}");
+                assert_eq!(said.oamd, Said::Clean, "{name}");
+                assert!(said.deliveries().all(|d| d == Said::Clean), "{name}");
+            }
             other => panic!("{other} is a found stream this test says nothing of"),
         }
     }
     std::fs::remove_dir_all(&scratch).ok();
-    assert_eq!(seen, 6);
+    assert_eq!(seen, 7);
 }
 
 /// A round is the same stream every time, and another seed gives others.
