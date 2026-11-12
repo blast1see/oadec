@@ -109,6 +109,7 @@ impl Seeds {
         }
         self.push("truehd_unit", run.clone());
         self.push("truehd_unit_repaired", run.clone());
+        self.push("verdict_parity", run.clone());
         self.push("truehd_extract", [&[READ][..], &run].concat());
         if let Ok((first, _)) = AccessUnit::parse(&units[start].bytes, None)
             && let Some(sync) = &first.major_sync
@@ -156,7 +157,8 @@ impl Seeds {
             }
             run.extend_from_slice(frame);
         }
-        self.push("eac3_program", run);
+        self.push("eac3_program", run.clone());
+        self.push("verdict_parity", run);
 
         let mut containers = Vec::new();
         for frame in &frames {
@@ -193,6 +195,44 @@ impl Seeds {
         }
     }
 
+    /// Adds the streams `oadec-synth` writes from its recipes and its probes,
+    /// each cut to a run, for the target that takes whole streams and asks
+    /// every command about them. They carry syntax no fixture does: matrices
+    /// of every kind, substreams that say different things of one channel,
+    /// frames whose delta bit allocation is in force, and what a standard
+    /// forbids or says twice.
+    pub fn add_written(&mut self) {
+        let truehd = oadec_synth::RECIPES
+            .iter()
+            .chain(oadec_synth::PROBES.iter().map(|probe| &probe.recipe));
+        for recipe in truehd {
+            let Ok(stream) = recipe.make().stream() else {
+                continue;
+            };
+            let mut run = Vec::new();
+            for unit in units_of(&stream.bytes).iter().take(RUN_UNITS) {
+                if !run.is_empty() && run.len() + unit.bytes.len() > RUN_BYTES {
+                    break;
+                }
+                run.extend_from_slice(&unit.bytes);
+            }
+            self.push("verdict_parity", run);
+        }
+        let ac3 = oadec_synth::AC3_RECIPES
+            .iter()
+            .chain(oadec_synth::AC3_PROBES.iter().map(|probe| &probe.recipe));
+        for recipe in ac3 {
+            let (layout, frames) = recipe.make();
+            let Ok(stream) = oadec_synth::ac3::write_ac3(&layout, &frames) else {
+                continue;
+            };
+            let whole = RUN_BYTES / stream.frame_bytes.max(1);
+            let run = stream.bytes[..(whole.max(1) * stream.frame_bytes).min(stream.bytes.len())]
+                .to_vec();
+            self.push("verdict_parity", run);
+        }
+    }
+
     /// Cuts every stream of a directory, told by its extension, in the order
     /// of the names.
     pub fn from_dir(dir: &Path) -> io::Result<Self> {
@@ -208,6 +248,7 @@ impl Seeds {
                 _ => {}
             }
         }
+        seeds.add_written();
         Ok(seeds)
     }
 
@@ -373,7 +414,7 @@ mod tests {
         assert_eq!(spread((0..3).collect(), 6), [0, 1, 2]);
         assert_eq!(spread((0..100).collect(), 2), [0, 99]);
         assert_eq!(spread((0..5).collect(), 1), [0]);
-        assert_eq!(spread(Vec::<u8>::new(), 3), []);
+        assert_eq!(spread(Vec::<u8>::new(), 3), Vec::<u8>::new());
     }
 
     #[test]

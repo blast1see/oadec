@@ -55,6 +55,7 @@ jobs:
           - joc_params
           - eac3_frame
           - eac3_program
+          - verdict_parity
     steps:
       - uses: actions/checkout@v4
       # rust-toolchain.toml names the toolchain the seeds are cut with

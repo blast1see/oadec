@@ -18,6 +18,7 @@
 //!   written down.
 
 pub mod mutate;
+pub mod parity;
 pub mod seeds;
 pub mod targets;
 
@@ -25,7 +26,7 @@ pub mod targets;
 pub type Target = (&'static str, fn(&[u8]));
 
 /// Every target, by the name its libFuzzer wrapper and its seeds go by.
-pub const TARGETS: [Target; 10] = [
+pub const TARGETS: [Target; 11] = [
     ("truehd_extract", targets::truehd_extract),
     ("truehd_unit", targets::truehd_unit),
     ("truehd_unit_repaired", targets::truehd_unit_repaired),
@@ -36,4 +37,5 @@ pub const TARGETS: [Target; 10] = [
     ("joc_params", targets::joc_params),
     ("eac3_frame", targets::eac3_frame),
     ("eac3_program", targets::eac3_program),
+    ("verdict_parity", targets::verdict_parity),
 ];

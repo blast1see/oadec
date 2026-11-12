@@ -10,10 +10,12 @@ authors.workspace = true
 publish = false
 
 [dependencies]
+oadec-cli = { path = "../oadec-cli" }
 oadec-emdf.workspace = true
 oadec-truehd.workspace = true
 oadec-eac3.workspace = true
 oadec-joc.workspace = true
+oadec-synth.workspace = true
 
 [lints]
 workspace = true

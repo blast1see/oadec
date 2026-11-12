@@ -643,6 +643,22 @@ MUTANTS = [
      'crates/oadec-cli/src/info.rs',
      '            Some(error) if scan.major_syncs > 0 => {',
      '            Some(error) if scan.major_syncs > 1 => {'),
+    ('a delivery let clear what verify found',
+     'crates/oadec-fuzz/src/parity.rs',
+     '            return fail("a delivery clears what verify found");',
+     '            let _ = fail("a delivery clears what verify found");'),
+    ('a faulty delivery let stand beside a clean verify --decode',
+     'crates/oadec-fuzz/src/parity.rs',
+     '        return fail("a delivery is faulty and verify --decode is clean");',
+     '        let _ = fail("a delivery is faulty and verify --decode is clean");'),
+    ('one report let find a stream where another finds none',
+     'crates/oadec-fuzz/src/parity.rs',
+     '        if refusing != reports.len() {',
+     '        if refusing > reports.len() {'),
+    ('every counter of verify taken for a fault of a delivery',
+     'crates/oadec-fuzz/src/parity.rs',
+     '        !NOT_OF_A_DELIVERY.contains(&name.as_str()) && count.as_u64() != Some(0)',
+     '        count.as_u64() != Some(0)'),
     # --- AC-3 frames written whole (crates/oadec-synth) ----------------------
     # No fixture is an AC-3 stream, and no stream of a library applies a delta
     # bit allocation: until `oadec-synth` wrote frames that do, nothing decoded

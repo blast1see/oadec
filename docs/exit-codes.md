@@ -66,6 +66,14 @@ Audio Metadata, changes neither the audio nor the metadata a decode delivers:
 `verify` counts both and exits 7, and a decode of the same file keeps its
 verdict.
 
+The list is one list. `verify` once read it and `decode` re-derived a
+narrower one; then the object outputs counted a payload they could not use
+that `verify` never looked at, and exited 7 on a stream `verify` called clean
+while saying that `verify` reports the same faults. What keeps it one list is
+not care: `crates/oadec-fuzz` changes the streams of the repository at random,
+puts each to every command, and holds their answers to the sentences of this
+page ([`testing-tools.md`](testing-tools.md)).
+
 ## What a fault does
 
 The output is still written. Throwing away audio that decodes is the wrong

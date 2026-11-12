@@ -395,9 +395,11 @@ dependencies = [
 name = "oadec-fuzz"
 version = "0.8.0"
 dependencies = [
+ "oadec-cli",
  "oadec-eac3",
  "oadec-emdf",
  "oadec-joc",
+ "oadec-synth",
  "oadec-truehd",
 ]
 

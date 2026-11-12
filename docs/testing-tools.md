@@ -249,6 +249,54 @@ Which functions print is not left to the reader. The crate denies clippy's
 `print_stdout` and `print_stderr`, and a function that prints carries an
 `allow` that says so; the lint run in CI lets no other through.
 
+# One verdict on the same bytes
+
+Every command that delivers audio or metadata is to decide between clean and
+faulty with the list of faults `verify` uses
+([`exit-codes.md`](exit-codes.md)). That sentence has been false more than
+once, each time in a stream nobody had put to two commands, and each time it
+was found by accident. `oadec_fuzz::parity` puts it to the test on purpose: a
+stream goes to every command that reads one, through the calls above, and
+`check` holds what they said to the policy, clause by clause:
+
+- what holds no stream holds none for any command: the reports refuse it
+  together, and nothing is delivered from it;
+- a fault `verify` finds is a fault to `verify --decode`, to `emdf` and
+  `oamd`, and to every delivery, which is faulty or was not made. The three
+  things the policy keeps out of the verdict of a delivery are the exception,
+  for a delivery alone;
+- a fault of a delivery is one `verify --decode` finds;
+- `--decode` adds to `verify` what a decode shows and nothing else;
+- a declared loss is of the object outputs alone.
+
+It runs three ways, like every target of the crate. `verdict_parity` is a
+target among the others, with a libFuzzer wrapper and a place in the weekly
+run. `tests/campaign.rs` is the seeded campaign: seeded changes to runs of
+the fixtures and to the streams `oadec-synth` writes, three in four with
+their checksums put right so that the parsers behind them see the change,
+each put to every command, the object outputs among them. A stream that
+breaks a clause is left in a file, to be replayed, and any round can be made
+again from its numbers and looked at:
+
+```sh
+cargo test -p oadec-fuzz --test campaign --locked            # 3 000 rounds, with every cargo test
+OADEC_CAMPAIGN_ITERS=200000 cargo test --release -p oadec-fuzz --test campaign -- --nocapture
+cargo run -p oadec-fuzz --example replay -- verdict_parity <file>
+cargo run -p oadec-fuzz --example round -- crates/oadec-cli/tests/fixtures <seed> <round> [file]
+```
+
+The campaign also counts what it does not claim: how often each set of
+answers came, and how often a changed stream went through every command
+without a word and decoded to other samples. With the checksums put right
+that is most changes to a short run, because the lossless check of a restart
+interval is in the restart header after it and the end of a stream has none.
+It is why the campaign puts the checksums right, and it is not detection.
+
+`crates/oadec-cli/tests/found` keeps the streams a campaign turned up, with a
+test that holds every command to what it says of each: two that the commands
+told two stories of, and three that show what the policy lets one command say
+and another not.
+
 # Streams written from a recipe
 
 `crates/oadec-synth` writes TrueHD and MLP streams from recipes: a layout, a
