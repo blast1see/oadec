@@ -32,13 +32,14 @@ Semantic Versioning.
 - **Seven AC-3 probes: what three decoders do where the standard forbids a
   thing or says it twice.** "Reuse" after "none" in one frame: the pseudo
   code of clause 6.2.2.6 applies the stored segments again, as FFmpeg's
-  decoder and this one do, and Dolby's keeps "none", which is how the table
-  of the field puts it. "Reuse" in a first block, which clause 4.4.3.49
-  forbids: FFmpeg's applies the segments of the frame before, Dolby's does
-  not decode the frame, this one applies nothing. The reserved code:
-  FFmpeg's gives the frame up, which is what clause 4.4.3.48 asks where the
-  coupling channel has it, and Dolby's and this one go on with no delta. A
-  segment that runs past the fiftieth band:
+  decoder does, and Dolby's keeps "none", which is how the table of the
+  field puts it; this decoder read it as the pseudo code has it when the
+  probes were written and keeps "none" since (under *Changed*). "Reuse" in a
+  first block, which clause 4.4.3.49 forbids: FFmpeg's applies the segments
+  of the frame before, Dolby's does not decode the frame, this one applies
+  nothing. The reserved code: FFmpeg's gives the frame up, which is what
+  clause 4.4.3.48 asks where the coupling channel has it, and Dolby's and
+  this one go on with no delta. A segment that runs past the fiftieth band:
   neither outside decoder decodes the frame, and this one applies the part
   within the bands. `verify` has no rule for the last three yet, and the
   tests hold the commands to what they do with each today. On the way,
@@ -283,6 +284,20 @@ Semantic Versioning.
 
 ### Changed
 
+- **A "reuse" after a "none" keeps "none".** The two bits a block sends of a
+  channel's delta bit allocation say new segments, none, or "reuse previous
+  state" (table 4.11). After a "none" the pseudo code of clause 6.2.2.6 can
+  be read to apply the segments sent before it again, and this decoder did,
+  as FFmpeg's does. Dolby's decoder keeps the state, which after a "none" is
+  none: of the frames written to ask it, it decodes the ones laid out that
+  way and none of the ones laid out the other. This decoder does the same
+  now, and the two probes change places: it gives the samples of
+  `probe-ac3-reuse-after-none-kept` and no longer reads
+  `probe-ac3-reuse-after-none`. No stream examined has the sequence, none of
+  them applying a delta at all, and over 125 streams the binary before and
+  the binary after give the same exit codes, the same reports of `verify`
+  and `info` and the same 90.6 GB of delivered bytes
+  (`docs/audit/evidence/engine-round-2026-11/18-reuse-keeps-none.json`).
 - **A command reads its stream from a source: a file, or bytes in memory.**
   Every function that read the input took a path and opened it itself, so a
   stream that was already in memory had no way in but a temporary file or a

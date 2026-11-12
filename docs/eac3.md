@@ -355,7 +355,7 @@ them:
 | The frame | FFmpeg's decoder | Dolby's decoder | This decoder |
 |---|---|---|---|
 | The delta is laid out in the mantissas and the fields say "none" | other samples | decodes no frame | decodes no frame |
-| "Reuse" after "none" in one frame | applies the segments sent before the "none" | "none" goes on | applies the segments |
+| "Reuse" after "none" in one frame | applies the segments sent before the "none" | "none" goes on | "none" goes on |
 | "Reuse" in the first block of a frame | applies the segments of the frame before | does not decode the frame | applies nothing |
 | The reserved code of `deltbae` | gives the frame up | goes on with no delta | goes on with no delta |
 | A segment that runs past the fiftieth band | gives the frame up | does not decode the frame | applies the part within the bands |
@@ -364,13 +364,18 @@ The first is the control: nobody can read mantissas laid out for a curve the
 frame keeps to itself, and nobody does.
 
 *"Reuse" after "none".* The pseudo code of clause 6.2.2.6 applies the stored
-segments whenever the code is 0 or 1, and FFmpeg's decoder and this one do as
-it says. Table 4.11 calls code 0 "reuse previous state", and the state before
-is "none": Dolby's decoder reads it so. It gives the samples of the frames
-laid out with the delta off (`probe-ac3-reuse-after-none-kept`) and decodes
-none of the frames laid out with it on. No stream examined has the sequence,
-so nothing real hangs on it. This decoder reads it as the pseudo code does,
-and which of the two it should follow is open.
+segments whenever the code is 0 or 1, and FFmpeg's decoder does as it says.
+Table 4.11 calls code 0 "reuse previous state", and the state before is
+"none": Dolby's decoder reads it so. It gives the samples of the frames laid
+out with the delta off (`probe-ac3-reuse-after-none-kept`) and decodes none
+of the frames laid out with it on. This decoder read the sequence as the
+pseudo code has it until the frames had been put to Dolby's. It keeps the
+state now: for each channel it holds whether a delta is in force, apart from
+the code the block sent, and a "reuse" leaves that as it was. It gives the
+samples Dolby's decoder gives and refuses the frames Dolby's refuses. No
+stream examined has the sequence, none of them applying a delta at all, and
+over the corpus the binary before and the binary after write the same bytes
+(`audit/evidence/engine-round-2026-11/18-reuse-keeps-none.json`).
 
 *"Reuse" in a first block.* Clause 4.4.3.49 forbids it and so does not say
 what it would mean. Three decoders, three readings. The probe has two
