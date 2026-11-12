@@ -8,6 +8,26 @@ Semantic Versioning.
 
 ### Added
 
+- **The checks of an AC-3 or E-AC-3 stream have names.** Every check `verify`
+  makes on a stream of the AC-3 family was a counter, and what a counter
+  meant was said where it was printed. Each is a rule now, as the checks of a
+  TrueHD stream are: 26 of them in `crates/oadec-eac3/src/rules.rs`, with a
+  stable name (`frame.crc`, `emdf.missing_container`, `program.misaligned`),
+  the severity a failure carries, the clause or the measurement it rests on,
+  and the counter of `verify --json` it was. A rule of this family also says
+  whether a failure is a fault of what a decode delivers: a frame that ends
+  inside its tail, a payload configuration outside the table and a complexity
+  index that disagrees fail `verify` and leave a decode its verdict, and the
+  catalog says so rule by rule. A finding is filed where it was found, the
+  frame group or the byte, so the JSON report has the `diagnostics` object a
+  TrueHD report has and the text report the `Findings:` and `Rules:` blocks,
+  on a stream in which something was found; `oadec rules` lists both
+  catalogs, and `docs/conformance-rules.md` has both. No verdict and no exit
+  code moves: the counters still decide, and a debug build stops at a rule
+  that fired another number of times than its counter counted, which over
+  the tests, the campaign and 70 streams of the corpus none did
+  (`docs/audit/evidence/engine-round-2026-11/26-ac3-rules.json`). `--fail-on`
+  and `--max-per-rule` are still TrueHD's.
 - **A campaign that puts every changed stream to every command.**
   `oadec_fuzz::parity` asks `info`, `verify`, `verify --decode`, `oamd`,
   `emdf` and every decode about the same bytes, through the calls of

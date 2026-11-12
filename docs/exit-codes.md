@@ -66,6 +66,11 @@ Audio Metadata, changes neither the audio nor the metadata a decode delivers:
 `verify` counts both and exits 7, and a decode of the same file keeps its
 verdict.
 
+Each of these is a rule with a name, and the catalog says of every rule of
+the AC-3 family which side of that line it is on: `oadec rules <name>` prints
+`Delivery:`, `verify --json` carries `delivery` beside every rule that fired,
+and [`conformance-rules.md`](conformance-rules.md) has a column for it.
+
 The list is one list. `verify` once read it and `decode` re-derived a
 narrower one; then the object outputs counted a payload they could not use
 that `verify` never looked at, and exited 7 on a stream `verify` called clean

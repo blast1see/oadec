@@ -1,0 +1,320 @@
+{
+ "question": "Can the checks `verify` makes on an AC-3 or E-AC-3 stream be named, sourced and placed as the checks of a TrueHD stream are, without one verdict or one exit code moving?",
+ "method": "Every check of the pass over an AC-3 family stream was a counter. Each is a rule of a catalog now (`crates/oadec-eac3/src/rules.rs`, written with `oadec_diag::catalog!`): a name, a severity, the clause or the measurement it rests on, the counter of `verify --json` it was, and whether a failure is a fault of what a decode delivers. The pass files a finding with every counter it raises, at the frame group or, for what belongs to no frame, at the byte. The verdict is left to the counters, and the two are held to each other: at the end of a pass a debug build compares, rule by rule, how much was filed with what the counter counted, and the verdict of the findings with the verdict of the counters, and stops where they differ. A log of which rules a pass of the test suite made fire was taken before this change had tests of its own. The campaign of the verdict-parity target ran in a debug build. A script outside the repository ran `verify --json` with the release binary over the AC-3 family streams of the work directory and held every rule that fired to its counter, and every counter that was not zero to having a rule. `tools/old_new.py --decode-all` compared the binary of main before the change with the change.",
+ "binaries": {
+  "main before the change": "95b3facd018f7cc14ffe82c253eb0c91274c46719ef9604d822ff26b75dbaaeb",
+  "the change": "1dbfb78a0842c56401c4b2da5bcf20412ff8e916582bc08fcb172d69962379a9"
+ },
+ "result": {
+  "the_catalog": {
+   "rules": 26,
+   "by_severity": {
+    "error": 25,
+    "warning": 1
+   },
+   "no_fault_of_a_delivery": [
+    "bsi.complexity_index",
+    "emdf.payload_config",
+    "frame.tail_overrun",
+    "oamd.stale_size",
+    "substream.tail_overrun"
+   ],
+   "rules_of_both_catalogs_the_command_lists": 73
+  },
+  "what_the_tests_reached_before": {
+   "rules_a_pass_of_the_tests_made_fire": 12,
+   "rules_no_pass_made_fire": [
+    "frame.tail_overrun",
+    "oamd.stale_size",
+    "program.dependent_dropped",
+    "program.duplicate_frame",
+    "program.layout_change",
+    "program.location",
+    "program.misaligned",
+    "program.missing_frame",
+    "program.orphan_dependent",
+    "program.over_capacity",
+    "program.stalled_substream",
+    "substream.crc",
+    "substream.decode",
+    "substream.tail_overrun"
+   ],
+   "note": "the pass was reached by streams that fail a frame, a CRC, a sync word or a payload; none of the committed streams has a dependent substream, a frame that ends inside its tail or an element of a stale size. Each of those has a unit test of its filing now, on a decoded frame of the fixture or on the counters of a programme, and the media suite holds the rules to the counters on the real streams it reads"
+  },
+  "the_campaign_in_a_debug_build": {
+   "seed": 0,
+   "rounds": 200000,
+   "rounds_on_a_stream_of_the_AC_3_family": 37121,
+   "passes_stopped_by_a_rule_and_a_counter_that_differ": 0,
+   "clauses_broken": 0
+  },
+  "the_corpus": {
+   "streams_of_the_AC_3_family": 70,
+   "frames": 123948,
+   "exit_codes": {
+    "0": 61,
+    "7": 9
+   },
+   "streams_in_which_a_rule_fired": 9,
+   "streams_in_which_a_rule_and_its_counter_differ": 0,
+   "rules_that_fired": {
+    "frame.skipped": {
+     "streams": 9,
+     "findings": 9,
+     "magnitude": 14528,
+     "severity": "error",
+     "a_fault_of_a_delivery": true
+    }
+   },
+   "note": "the nine streams that fail are clips cut inside a syncframe: the bytes of the last, incomplete frame are skipped. No other rule fires on the corpus"
+  },
+  "a_stream_that_exists": {
+   "streams": 125,
+   "bytes_of_the_streams": 4060173690,
+   "streams_changed": 0,
+   "fields_added": [
+    "info: diagnostics",
+    "verify: diagnostics"
+   ],
+   "lines_added": [
+    "decode (pcm --core-only): Findings",
+    "decode (pcm --core-only): Rules",
+    "decode (pcm --core-only): error frame.skipped 1x @0x2DBE00",
+    "decode (pcm --core-only): error frame.skipped 1x @0x2DC000",
+    "decode (pcm --core-only): error frame.skipped 1x @0x2DC600",
+    "decode (pcm): Findings",
+    "decode (pcm): Rules",
+    "decode (pcm): error frame.skipped 1x @0x2DBE00",
+    "decode (pcm): error frame.skipped 1x @0x2DC000",
+    "decode (pcm): error frame.skipped 1x @0x2DC600",
+    "decode (wav): Findings",
+    "decode (wav): Rules",
+    "decode (wav): error frame.skipped 1x @0x2DBE00",
+    "decode (wav): error frame.skipped 1x @0x2DC000",
+    "decode (wav): error frame.skipped 1x @0x2DC600",
+    "info: Findings",
+    "info: Rules",
+    "info: error frame.skipped 1x @0x2DBE00",
+    "info: error frame.skipped 1x @0x2DC000",
+    "info: error frame.skipped 1x @0x2DC600",
+    "verify: Findings",
+    "verify: Rules",
+    "verify: error frame.skipped 1x @0x2DBE00",
+    "verify: error frame.skipped 1x @0x2DC000",
+    "verify: error frame.skipped 1x @0x2DC600"
+   ],
+   "lines_of_reports_compared": 8236,
+   "fields_of_reports_compared": 50896,
+   "bytes_of_deliveries_compared": 103362691041,
+   "the_media_suite": {
+    "passed": 28,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "mutations": {
+   "count": 30,
+   "survive": [],
+   "each": [
+    {
+     "mutation": "the missing container, the statistics not counting a frame without skip fields",
+     "caught_by": [
+      "eac3::tests::a_frame_without_a_container_is_filed_only_where_the_stream_carries_emdf",
+      "eac3::tests::a_frame_without_skip_fields_loses_a_container_where_emdf_is_declared"
+     ]
+    },
+    {
+     "mutation": "a payload the programme cannot take demoted to a warning",
+     "caught_by": [
+      "a_payload_an_object_output_cannot_take_is_a_fault_to_every_command"
+     ]
+    },
+    {
+     "mutation": "a refused payload left out of what a decode of an E-AC-3 stream found",
+     "caught_by": [
+      "a_payload_an_object_output_cannot_take_is_a_fault_to_every_command"
+     ]
+    },
+    {
+     "mutation": "a frame CRC failure filed with no weight",
+     "caught_by": [
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group"
+     ]
+    },
+    {
+     "mutation": "a dependent frame that ends inside its tail filed with no weight",
+     "caught_by": [
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group"
+     ]
+    },
+    {
+     "mutation": "a misaligned frame and an unreadable channel map filed as each other",
+     "caught_by": [
+      "eac3::tests::what_the_programme_counts_is_filed_under_its_rule_where_it_was_counted"
+     ]
+    },
+    {
+     "mutation": "a frame without a container filed in a stream that carries no EMDF",
+     "caught_by": [
+      "eac3::tests::a_frame_without_a_container_is_filed_only_where_the_stream_carries_emdf"
+     ]
+    },
+    {
+     "mutation": "an Object Audio Metadata payload that will not parse filed with no weight",
+     "caught_by": [
+      "the_commands_agree_on_every_changed_stream"
+     ]
+    },
+    {
+     "mutation": "a JOC payload that will not parse filed with no weight",
+     "caught_by": [
+      "a_joc_payload_that_cannot_be_read_fails_the_metadata_commands_as_it_fails_verify"
+     ]
+    },
+    {
+     "mutation": "a rule held to the counter of another",
+     "caught_by": [
+      "eac3::tests::every_rule_is_held_to_its_counter"
+     ]
+    },
+    {
+     "mutation": "a dropped dependent substream no longer makes a stream unclean",
+     "caught_by": [
+      "eac3::tests::a_tail_overrun_alone_fails_verify_and_not_a_delivery",
+      "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean",
+      "eac3::tests::every_rule_is_held_to_its_counter"
+     ]
+    },
+    {
+     "mutation": "verify not making the refusals of an object output on an E-AC-3 stream",
+     "caught_by": [
+      "a_finding_names_its_rule_and_its_frame"
+     ]
+    },
+    {
+     "mutation": "a sync error filed with no weight",
+     "caught_by": [
+      "the_calls_print_nothing"
+     ]
+    },
+    {
+     "mutation": "a frame that ends inside its tail filed with no weight",
+     "caught_by": [
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group"
+     ]
+    },
+    {
+     "mutation": "a repeated frame and a stalled substream filed as each other",
+     "caught_by": [
+      "eac3::tests::what_the_programme_counts_is_filed_under_its_rule_where_it_was_counted"
+     ]
+    },
+    {
+     "mutation": "a payload configuration outside the table filed with no weight",
+     "caught_by": [
+      "a_payload_configuration_outside_table_56_is_non_conformant"
+     ]
+    },
+    {
+     "mutation": "a payload the programme cannot take filed with no weight",
+     "caught_by": [
+      "a_finding_names_its_rule_and_its_frame"
+     ]
+    },
+    {
+     "mutation": "a reserved JOC extension filed with no weight",
+     "caught_by": [
+      "a_reserved_joc_extension_is_named_and_the_matrices_held"
+     ]
+    },
+    {
+     "mutation": "the time of a finding counted in frames",
+     "caught_by": [
+      "a_finding_names_its_rule_and_its_frame"
+     ]
+    },
+    {
+     "mutation": "an E-AC-3 pass that is told to stop goes on",
+     "caught_by": [
+      "verify::tests::a_check_on_its_thread_stops_when_its_flag_is_set",
+      "verify::tests::a_check_told_to_stop_gives_the_stream_up_at_once"
+     ]
+    },
+    {
+     "mutation": "a refused payload left out of the verdict of an E-AC-3 stream",
+     "caught_by": [
+      "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean",
+      "eac3::tests::every_rule_is_held_to_its_counter"
+     ]
+    },
+    {
+     "mutation": "a run of skipped bytes filed as one",
+     "caught_by": [
+      "the_calls_print_nothing"
+     ]
+    },
+    {
+     "mutation": "a CRC failure of a dependent substream filed with no weight",
+     "caught_by": [
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group"
+     ]
+    },
+    {
+     "mutation": "what the programme counts filed under the rule next to it",
+     "caught_by": [
+      "eac3::tests::what_the_programme_counts_is_filed_under_its_rule_where_it_was_counted"
+     ]
+    },
+    {
+     "mutation": "what the programme counts filed again every time it is looked at",
+     "caught_by": [
+      "eac3::tests::what_the_programme_counts_is_filed_under_its_rule_where_it_was_counted"
+     ]
+    },
+    {
+     "mutation": "a complexity index that disagrees filed with no weight",
+     "caught_by": [
+      "a_complexity_index_that_disagrees_with_the_oamd_is_non_conformant",
+      "a_finding_names_its_rule_and_its_frame"
+     ]
+    },
+    {
+     "mutation": "a stale element size filed with no weight",
+     "caught_by": [
+      "eac3::tests::a_stale_element_size_is_a_warning_filed_at_its_frame"
+     ]
+    },
+    {
+     "mutation": "a JOC payload of the wrong size filed with no weight",
+     "caught_by": [
+      "the_commands_agree_on_every_changed_stream"
+     ]
+    },
+    {
+     "mutation": "a complexity index that disagrees called a fault of a delivery",
+     "caught_by": [
+      "a_finding_names_its_rule_and_its_frame"
+     ]
+    },
+    {
+     "mutation": "a dependent frame that would not decode filed as the independent substream's",
+     "caught_by": [
+      "eac3::tests::what_the_programme_counts_is_filed_under_its_rule_where_it_was_counted"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 626 passed, 28 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  },
+  "not_done_here": "the options that move a verdict by rule, `--fail-on` and `--max-per-rule`, are still refused on a stream of this family; the damage regions of a TrueHD report have no counterpart; and no rule is new: the catalog names what was counted"
+ },
+ "reading": "Yes. The 26 counters of the pass are 26 rules, and nothing a stream is judged by moves: over 125 streams the binary before and the binary after give the same exit codes, the same 8 236 lines and 50 896 fields of reports and the same 103 362 691 041 bytes of deliveries, with a `diagnostics` object added to the reports of the AC-3 family and, in the nine streams that fail, the lines that say where. A rule fired as often as its counter counted in every pass of the test suite, in 37 121 rounds of the campaign on streams of the family and in each of the 70 streams of the corpus. Before this change no test made 14 of the 26 checks fire in a pass at all."
+}
