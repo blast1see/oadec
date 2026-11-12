@@ -1,0 +1,136 @@
+{
+ "question": "A repair of the checksums of a stream is to leave nothing for a second repair to do. libFuzzer found an input where a second repair still reported a change. What is it, is it put right, and does putting it right change what a repair writes?",
+ "method": "The `fuzz` workflow ran on the pull request that moved the diagnostics into a crate of their own, because that pull request touched the lock file of the fuzz workspace. Its target `truehd_unit_repaired` asserts that a second repair changes nothing and reports nothing. The input it stopped on was replayed with `examples/replay.rs`, cut to its first access unit, and the repair was read: for a segment, the parse says where the CRC of each restart header is and what it has to be, the CRCs are written, and then the parity byte and the CRC-8 that close the segment; in a segment the parse cannot read to its end, those two are written where the directory has them, in the last two bytes. A script outside the repository ran the hidden `oadec repair` twice on the kept unit with the binary of main before the change and with the change, and over every stream of the work directory and the fixtures once with each. A unit test cuts the first segment of the first unit of each of the nine TrueHD and MLP fixtures to every length shorter than its own and repairs each twice.",
+ "binaries": {
+  "main before the change": "15c3222e7393853dd1acb71429aa9a25fc800a132db2b5d55087a080f4f5c91f",
+  "the change": "95b3facd018f7cc14ffe82c253eb0c91274c46719ef9604d822ff26b75dbaaeb"
+ },
+ "result": {
+  "what_the_fuzzer_did": {
+   "target": "truehd_unit_repaired",
+   "seconds_it_was_given": 90,
+   "inputs_executed_before_it_stopped": 86021,
+   "what_it_said": "a second repair changed something: one restart CRC and one segment trailer",
+   "bytes_of_its_input": 1545,
+   "sha256_of_its_input": "ecc864d9ea2ea2b89214844627573396874d90eaf11c761267398d3878355c8f"
+  },
+  "the_unit_kept": {
+   "file": "crates/oadec-fuzz/found/truehd_unit_repaired/restart-crc-in-the-trailer.bin",
+   "bytes": 852,
+   "sha256": "c0b2e5cba89bb346b4406d6a30053c981f98bc1406c83f02e9d5987440c20919",
+   "what_it_is": "the first access unit of the fixture `authored-scene.mlp` with the end pointer of its first substream set to nine words. The segment is eighteen bytes. The restart header of its block ends with its CRC in the eight bits from bit 127, of which seven lie in the last two bytes of the segment, where the trailer goes; what follows the header runs out of bits at bit 143 of 144, so the segment cannot be read to its end"
+  },
+  "what_was_wrong": "the repair wrote the CRC of the restart header and then the trailer over seven bits of it. The bytes settled after one repair, with the trailer right and the CRC wrong; every further repair wrote the CRC again, wrote the same trailer back over it, and counted one of each as changed. No byte was different after the second repair: what was wrong was that a repair which leaves a stream as it found it said it had changed it",
+  "the_rule_now": "where a segment has a trailer, the CRC of a restart header that reaches into the bytes of the trailer is not written. The two cannot both hold, and the directory says what those bytes are",
+  "the_kept_unit_repaired_twice": {
+   "main_before_the_change": {
+    "the_first_repair_wrote": {
+     "extra data check nibble": 1,
+     "header check nibble": 1,
+     "major sync CRC": 1,
+     "segment parity and CRC": 4
+    },
+    "the_second_repair_wrote": {
+     "restart header CRC": 1,
+     "segment parity and CRC": 1
+    },
+    "units_the_second_repair_said_it_changed": 1,
+    "the_second_repair_changed_a_byte": false,
+    "sha256_after_the_first_repair": "547b0ef2f11247bea37579b235bc9a61f59c35cc9d4a4e72afa68db33b076566"
+   },
+   "the_change": {
+    "the_first_repair_wrote": {
+     "extra data check nibble": 1,
+     "header check nibble": 1,
+     "major sync CRC": 1,
+     "segment parity and CRC": 4
+    },
+    "the_second_repair_wrote": {},
+    "units_the_second_repair_said_it_changed": 0,
+    "the_second_repair_changed_a_byte": false,
+    "sha256_after_the_first_repair": "547b0ef2f11247bea37579b235bc9a61f59c35cc9d4a4e72afa68db33b076566"
+   },
+   "the_first_repair_writes_the_same_bytes_either_way": true
+  },
+  "a_segment_cut_to_every_length": {
+   "fixtures": 9,
+   "units_cut_and_repaired_twice": 1175,
+   "of_them_with_a_restart_crc_in_the_trailer": 7,
+   "second_repairs_that_changed_or_reported_anything": 0,
+   "without_the_rule": "the test fails at the first such unit, `authored-scene.mlp` cut to 9 words, which is the unit the fuzzer found"
+  },
+  "a_stream_that_exists": {
+   "streams": 125,
+   "bytes_of_the_streams": 4060173690,
+   "the_two_binaries_wrote_the_same": 125,
+   "the_two_binaries_said_the_same": 125,
+   "came_out_of_a_repair_as_it_went_in": 125,
+   "note": "no command that reads a stream uses the repair: `oadec repair`, the two fuzz targets that repair first, the campaign and the scan of single bits do"
+  },
+  "what_repairs_first_and_ran_again": {
+   "the_seeded_run": "truehd_unit_repaired and truehd_decode_repaired, 300 000 rounds each, and the kept input put to its target: passed",
+   "the_campaign": {
+    "seed": 0,
+    "rounds": 200000,
+    "clauses_broken": 0,
+    "panics": 0,
+    "kinds_of_answers": 31,
+    "every_command_clean": 27517
+   }
+  },
+  "mutations": {
+   "count": 6,
+   "survive": [],
+   "each": [
+    {
+     "mutation": "the CRC of a major sync computed over the CRC as well",
+     "caught_by": [
+      "a_changed_field_is_taken_at_its_word_after_a_repair",
+      "a_sound_stream_comes_out_byte_for_byte"
+     ]
+    },
+    {
+     "mutation": "the check nibble of a unit computed over its header alone",
+     "caught_by": [
+      "a_changed_field_is_taken_at_its_word_after_a_repair",
+      "a_sound_stream_comes_out_byte_for_byte"
+     ]
+    },
+    {
+     "mutation": "the parity that closes a segment written without its constant",
+     "caught_by": [
+      "a_changed_field_is_taken_at_its_word_after_a_repair",
+      "a_sound_stream_comes_out_byte_for_byte"
+     ]
+    },
+    {
+     "mutation": "a repair writing into the frame it wraps",
+     "caught_by": [
+      "a_sound_stream_comes_out_byte_for_byte"
+     ]
+    },
+    {
+     "mutation": "a restart CRC written into the bytes that close its segment",
+     "caught_by": [
+      "the_inputs_a_fuzzer_found_still_hold"
+     ]
+    },
+    {
+     "mutation": "a restart CRC that begins before the trailer and ends in it written all the same",
+     "caught_by": [
+      "the_inputs_a_fuzzer_found_still_hold"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 615 passed, 28 ignored (the media suite)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  },
+  "not_claimed": "that no other input makes a second repair report a change. The argument for the rule is that every other checksum a repair writes is computed from bytes no later write of the same repair touches, and the scan of cut segments and the fuzz targets hold it to that; a fuzzer found this one after eighty seconds, and may find another"
+ },
+ "reading": "The input is a segment so short that the restart header inside it runs into the two bytes that close it, so that two checksums claim the same bits. The repair wrote one over the other and reported a change on every run, though after the first no byte moved. The trailer has those bytes now. The kept unit comes out of a first repair byte for byte as it did, and a second one writes nothing and says so; 1 175 units with their first segment cut to every length are repaired in one go; and over 125 streams, 4 060 173 690 bytes, the binary before and the binary after write the same, which for every one of them is the stream as it went in."
+}

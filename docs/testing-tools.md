@@ -166,7 +166,9 @@ that finds something new says nothing about the change in front of it.
 
 What a fuzzer finds becomes a unit test of the code it was found in and, where
 it is a rule, a mutation in `tools/mutants.py`. The fuzzers find; the suite
-keeps.
+keeps. The input itself is kept too, cut to what it takes, under
+`crates/oadec-fuzz/found/<target>/`, and the seeded run puts every one of them
+to its target again (`found/README.md` says what each is).
 
 # Putting checksums right
 
@@ -194,6 +196,14 @@ the protection it had.
 On a sound stream a repair changes no byte. That is its test: the fixtures in
 `cargo test`, and every stream of the work directory by hand
 (`docs/audit/evidence/engine-round-2026-11/09-checksum-repair.json`).
+
+And a repair that has been made leaves nothing for a second one to do,
+whatever the stream. That took a rule for the one place where two checksums
+claim the same bits: a restart header that runs into the two bytes that close
+its segment has its CRC where the trailer is written, and those bytes are the
+trailer's. libFuzzer found the unit that showed it. A test now cuts the first
+segment of every fixture unit to every length and repairs each twice
+(`docs/audit/evidence/engine-round-2026-11/25-a-second-repair.json`).
 
 # The commands as calls
 
