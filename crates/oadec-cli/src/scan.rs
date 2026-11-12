@@ -285,6 +285,9 @@ pub struct Scan {
     /// to be held to.
     #[serde(skip)]
     program_from_sync: Option<oadec_spatial::Program>,
+    /// What an object decode asks of every payload, asked here too.
+    #[serde(skip)]
+    payloads: oadec_spatial::PayloadCheck,
     /// What each unit puts into the decoder buffer, kept when asked for.
     #[serde(skip)]
     pub layouts: Option<Vec<oadec_truehd::buffer::UnitLayout>>,
@@ -456,6 +459,7 @@ impl Scan {
             diag: Diagnostics::new(max_per_rule),
             branches_judged: 0,
             program_from_sync: None,
+            payloads: oadec_spatial::PayloadCheck::default(),
             layouts: None,
             fifo: None,
         }
@@ -729,6 +733,20 @@ impl Scan {
                                         match oadec_emdf::oamd::Oamd::parse(&p.data) {
                                             Ok(oamd) => {
                                                 self.extra.oamd_ok += 1;
+                                                // A payload that parses is not yet one an
+                                                // object output can use, and what it cannot
+                                                // use it counts against what it delivers.
+                                                if let Err(e) = self.payloads.take(&oamd) {
+                                                    self.diag.add(
+                                                        RuleId::EvoOamdUnusable,
+                                                        at_extra,
+                                                        1,
+                                                        || e.to_string(),
+                                                    );
+                                                    note_first(&mut self.first_error, || {
+                                                        format!("access unit {index}: {e}")
+                                                    });
+                                                }
                                                 if let Some(ps) = &self.program_from_sync {
                                                     let from_oamd =
                                                         oadec_spatial::Program::from_oamd(&oamd);

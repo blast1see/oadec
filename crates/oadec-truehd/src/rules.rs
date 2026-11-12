@@ -426,6 +426,14 @@ catalog! {
         summary: "the object metadata describes another bed or object count than the major sync declares",
         provenance: [spec(DOLBY_HL, "4.3"), spec(TS_103_420, "clause 5"), measured(CENSUS)],
     },
+    /// A payload the object programme cannot take.
+    EvoOamdUnusable {
+        id: "evo.oamd_unusable",
+        severity: Error,
+        legacy: None,
+        summary: "an Object Audio Metadata payload has no object element, or describes other beds or another number of objects than the first payload of the stream: an object output can make nothing of it and says so",
+        provenance: [measured(MATRIX)],
+    },
     /// The reserved primary protection length.
     EvoProtectionReserved {
         id: "evo.protection_reserved",

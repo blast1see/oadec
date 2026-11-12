@@ -11,6 +11,8 @@ use oadec_truehd::{
     Unit,
 };
 
+pub use crate::parity::verdict_parity;
+
 /// The most samples one access unit decodes to, at 192 kHz.
 const MAX_SAMPLES_PER_UNIT: usize = 160;
 /// Access units one input may put through the unit parser.

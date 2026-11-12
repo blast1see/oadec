@@ -92,3 +92,10 @@ path = "fuzz_targets/eac3_program.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "verdict_parity"
+path = "fuzz_targets/verdict_parity.rs"
+test = false
+doc = false
+bench = false

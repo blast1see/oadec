@@ -108,6 +108,7 @@ targets!(
     joc_params,
     eac3_frame,
     eac3_program,
+    verdict_parity,
 );
 
 /// A target added to the crate and not to the list above would never run.

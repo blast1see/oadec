@@ -3,7 +3,9 @@
 
 use std::collections::BTreeMap;
 
-use oadec_emdf::oamd::{BedChannel, Distance, Element, Gain, Oamd, ObjectInfoBlock, TrimConfig};
+use oadec_emdf::oamd::{
+    BedChannel, Distance, Element, Gain, Oamd, ObjectElement, ObjectInfoBlock, TrimConfig,
+};
 use thiserror::Error;
 
 use crate::loss::{LossKind, LossLedger};
@@ -17,6 +19,57 @@ pub enum ProgramError {
     /// A payload has no object element.
     #[error("payload without an object element")]
     NoObjectElement,
+}
+
+/// Judges `oamd` as the next payload of a programme and gives its object
+/// element. `first` is the programme the first payload described, and is set
+/// by it.
+///
+/// # Errors
+/// When the payload describes other beds or objects than the first one did,
+/// and when it has no object element: either way nothing can be made of it.
+pub fn take_payload<'a>(
+    first: &mut Option<Program>,
+    oamd: &'a Oamd,
+) -> Result<&'a ObjectElement, ProgramError> {
+    let program = Program::from_oamd(oamd);
+    match first {
+        None => *first = Some(program),
+        Some(p) if *p != program => {
+            return Err(ProgramError::ProgramChanged(format!(
+                "{} beds / {} objects became {} beds / {} objects",
+                p.beds.len(),
+                p.dynamic_objects,
+                program.beds.len(),
+                program.dynamic_objects
+            )));
+        }
+        Some(_) => {}
+    }
+    oamd.object_element().ok_or(ProgramError::NoObjectElement)
+}
+
+/// What a programme asks of each of its payloads before anything is made of
+/// one, for a command that judges a stream and writes nothing.
+///
+/// An object decode puts every payload on a [`Timeline`], which refuses one
+/// without an object element and one that describes another programme than
+/// the first did, and counts each refusal as a fault of what it delivers. A
+/// command that only reads has no timeline, and has to make the same
+/// refusals to say the same of the stream.
+#[derive(Debug, Clone, Default)]
+pub struct PayloadCheck {
+    program: Option<Program>,
+}
+
+impl PayloadCheck {
+    /// Judges `oamd`, the next payload of the programme.
+    ///
+    /// # Errors
+    /// What [`take_payload`] gives.
+    pub fn take(&mut self, oamd: &Oamd) -> Result<(), ProgramError> {
+        take_payload(&mut self.program, oamd).map(|_| ())
+    }
 }
 
 /// Samples per `block_offset_factor` step (ETSI TS 103 420 clause 5.3.2).
@@ -427,23 +480,9 @@ impl Timeline {
         mut emit: impl FnMut(&Event),
     ) -> Result<usize, ProgramError> {
         self.payloads += 1;
+        let objects = take_payload(&mut self.program, oamd)?;
+        // the programme of this payload, which is the programme of the first
         let program = Program::from_oamd(oamd);
-        match &self.program {
-            None => self.program = Some(program.clone()),
-            Some(p) if *p != program => {
-                return Err(ProgramError::ProgramChanged(format!(
-                    "{} beds / {} objects became {} beds / {} objects",
-                    p.beds.len(),
-                    p.dynamic_objects,
-                    program.beds.len(),
-                    program.dynamic_objects
-                )));
-            }
-            _ => {}
-        }
-        let Some(objects) = oamd.object_element() else {
-            return Err(ProgramError::NoObjectElement);
-        };
         let ext = oamd.extended_object_element();
         let trim = oamd.trim_element();
         let object_count = objects.objects.len();
@@ -713,6 +752,61 @@ mod tests {
                 "base {base}, container {container}, sample_offset {so}, block_offset_factor {bof}"
             );
         }
+    }
+
+    /// What a programme refuses a payload for, and that a command which only
+    /// reads is told what a command which writes is told.
+    #[test]
+    fn a_payload_is_refused_without_an_object_element_and_for_another_programme() {
+        let first = one_update(0, 0);
+        let mut bare = one_update(0, 0);
+        bare.elements.clear();
+        // two objects, where the first payload described one
+        let mut other = one_update(0, 0);
+        other.program.dynamic_objects = 2;
+
+        let mut check = PayloadCheck::default();
+        assert!(check.take(&first).is_ok());
+        assert!(check.take(&first).is_ok(), "the same programme again");
+        assert!(matches!(
+            check.take(&bare),
+            Err(ProgramError::NoObjectElement)
+        ));
+        assert!(matches!(
+            check.take(&other),
+            Err(ProgramError::ProgramChanged(_))
+        ));
+        // the programme is the first payload's, whatever was refused since
+        assert!(check.take(&first).is_ok());
+
+        // a timeline refuses what the check refuses, and makes no event of it
+        let mut timeline = Timeline::new(true);
+        let mut events = 0;
+        timeline
+            .push(&first, 0, 0, |_| events += 1)
+            .expect("the first payload is taken");
+        let made = events;
+        assert!(matches!(
+            timeline.push(&bare, 1536, 0, |_| events += 1),
+            Err(ProgramError::NoObjectElement)
+        ));
+        assert!(matches!(
+            timeline.push(&other, 3072, 0, |_| events += 1),
+            Err(ProgramError::ProgramChanged(_))
+        ));
+        assert_eq!(events, made);
+
+        // a first payload that is refused has still said what the programme is
+        let mut check = PayloadCheck::default();
+        assert!(matches!(
+            check.take(&bare),
+            Err(ProgramError::NoObjectElement)
+        ));
+        assert!(matches!(
+            check.take(&other),
+            Err(ProgramError::ProgramChanged(_))
+        ));
+        assert!(check.take(&first).is_ok());
     }
 
     /// A payload whose trim element declares this warp mode.

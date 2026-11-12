@@ -1,0 +1,607 @@
+{
+ "question": "Do the commands say of the same bytes what the policy of the exit codes has them say, whatever the bytes? Where they did not, is it put right, and does putting it right change the verdict of any stream that exists?",
+ "method": "`oadec_fuzz::parity` puts one stream to every command that reads one, through the calls of `oadec_cli::api`: `info`, `verify`, `verify --decode`, `oamd`, `emdf`, `decode` to samples of presentations 0 to 3 (or of the programme and the core of an AC-3 family stream), and `decode` to a DAMF set and to an ADM file. `check` holds the answers to `docs/exit-codes.md`, clause by clause. Beside the campaign, `examples/flips.rs` changes every bit of each of its streams in turn, puts the checksums right and asks the same. The campaign (`crates/oadec-fuzz/tests/campaign.rs`) takes 86 short streams, runs of the ten fixtures and of the 76 streams `oadec-synth` writes, changes one with the seeded mutations of the crate, puts its checksums right in three rounds of four, and asks. Before anything was changed, a tally of 60 000 rounds over the fixture runs alone showed what the commands said as they were. The object outputs put every Object Audio Metadata payload on a timeline, which refuses one without an object element and one of another programme than the first; `verify` now makes the same refusals through `oadec_spatial::PayloadCheck`, which is the check the timeline makes. `oamd --json` counted the payloads of every stream of the work directory that would be refused. `tools/old_new.py --decode-all` compared the binary of main before the change with the change.",
+ "binaries": {
+  "main before the change": "b3e69006a2533f9461087444a63baa1ad6597497d43a05407e70b9537f862855",
+  "the change": "c9b8726f609517deafc4715ccaef2b84f9afa97aedeaf2627e5f2f2083093928"
+ },
+ "result": {
+  "the_commands_as_they_were": {
+   "rounds": 60000,
+   "streams_changed": 10,
+   "rounds_an_object_decode_was_faulty_and_verify_with_decode_clean": 3,
+   "their_answers": [
+    {
+     "rounds": 1,
+     "first_round": 20179,
+     "answers": "ac3 info c verify c decode c oamd F emdf c pcm cc objects FF"
+    },
+    {
+     "rounds": 1,
+     "first_round": 34150,
+     "answers": "thd info c verify c decode c oamd F emdf c pcm cccc objects FF"
+    },
+    {
+     "rounds": 1,
+     "first_round": 12673,
+     "answers": "thd info c verify c decode c oamd c emdf c pcm cccc objects FF"
+    }
+   ],
+   "what_it_was": "in each the stream has a payload that parses and has no object element. `decode --format damf` and `adm` exited 7 and said that `oadec verify` reports the same faults; `verify`, `verify --decode` and, where the payload had no other blemish, `oamd` exited 0"
+  },
+  "the_streams_kept": {
+   "eac3-complexity-index-mismatch.bin": {
+    "sha256": "54707d274a30ecd0b0680616e836bed93f67f214ef7365dcea1417ee3685f370",
+    "bytes": 7168,
+    "commands": [
+     "info",
+     "verify",
+     "verify --decode",
+     "oamd",
+     "emdf",
+     "decode -p 0",
+     "decode -p 1",
+     "decode -p 2",
+     "decode -p 3",
+     "decode --format damf",
+     "decode --format adm"
+    ],
+    "exit_codes_before": "0 7 7 7 7 0 0 0 0 0 0",
+    "exit_codes_now": "0 7 7 7 7 0 0 0 0 0 0",
+    "changed": [],
+    "info_says_before": null,
+    "info_says_now": null,
+    "verify_says_now": "frame 3: complexity_index_type_a 17 differs from the OAMD object total 16 (clause 8.3)",
+    "the_object_decode_said_verify_reports_the_same_faults": false
+   },
+   "eac3-payload-without-object-element.bin": {
+    "sha256": "73ccd7edc3b975ff9d72a784658f1c15772431810219477d36c5caa46411d584",
+    "bytes": 7168,
+    "commands": [
+     "info",
+     "verify",
+     "verify --decode",
+     "oamd",
+     "emdf",
+     "decode -p 0",
+     "decode -p 1",
+     "decode -p 2",
+     "decode -p 3",
+     "decode --format damf",
+     "decode --format adm"
+    ],
+    "exit_codes_before": "0 0 0 7 0 0 0 0 0 7 7",
+    "exit_codes_now": "0 7 7 7 7 7 7 7 7 7 7",
+    "changed": [
+     "decode -p 0",
+     "decode -p 1",
+     "decode -p 2",
+     "decode -p 3",
+     "emdf",
+     "verify",
+     "verify --decode"
+    ],
+    "info_says_before": null,
+    "info_says_now": null,
+    "verify_says_now": "frame 1: OAMD: payload without an object element",
+    "the_object_decode_said_verify_reports_the_same_faults": true
+   },
+   "truehd-major-sync-unreadable.bin": {
+    "sha256": "36e2e71bd484af090f085508a53e5de2137478f1823983ad398cd86c44f50fcf",
+    "bytes": 432,
+    "commands": [
+     "info",
+     "verify",
+     "verify --decode",
+     "oamd",
+     "emdf",
+     "decode -p 0",
+     "decode -p 1",
+     "decode -p 2",
+     "decode -p 3",
+     "decode --format damf",
+     "decode --format adm"
+    ],
+    "exit_codes_before": "0 7 7 7 7 2 2 2 2 2 2",
+    "exit_codes_now": "0 7 7 7 7 2 2 2 2 2 2",
+    "changed": [],
+    "info_says_before": "No major sync found: not a Dolby TrueHD stream.",
+    "info_says_now": "No major sync could be read: access unit 0 at byte 0: reserved sampling frequency code 6",
+    "verify_says_now": "access unit 0 at byte 0: reserved sampling frequency code 6",
+    "the_object_decode_said_verify_reports_the_same_faults": false
+   },
+   "truehd-payload-long-padding.bin": {
+    "sha256": "c3acbaa97cf624c0cd53ebf79b64207b26c5e9f5b859d5c1001167779e1dcfae",
+    "bytes": 1944,
+    "commands": [
+     "info",
+     "verify",
+     "verify --decode",
+     "oamd",
+     "emdf",
+     "decode -p 0",
+     "decode -p 1",
+     "decode -p 2",
+     "decode -p 3",
+     "decode --format damf",
+     "decode --format adm"
+    ],
+    "exit_codes_before": "0 0 0 7 0 0 0 0 0 0 0",
+    "exit_codes_now": "0 0 0 7 0 0 0 0 0 0 0",
+    "changed": [],
+    "info_says_before": null,
+    "info_says_now": null,
+    "verify_says_now": null,
+    "the_object_decode_said_verify_reports_the_same_faults": false
+   },
+   "truehd-payload-without-object-element.bin": {
+    "sha256": "c5abf9821f7fec8bc08d042472d2c0fab5c33244f1cc7df090e33b9eacb73048",
+    "bytes": 1944,
+    "commands": [
+     "info",
+     "verify",
+     "verify --decode",
+     "oamd",
+     "emdf",
+     "decode -p 0",
+     "decode -p 1",
+     "decode -p 2",
+     "decode -p 3",
+     "decode --format damf",
+     "decode --format adm"
+    ],
+    "exit_codes_before": "0 0 0 0 0 0 0 0 0 7 7",
+    "exit_codes_now": "0 7 7 7 7 7 7 7 7 7 7",
+    "changed": [
+     "decode -p 0",
+     "decode -p 1",
+     "decode -p 2",
+     "decode -p 3",
+     "emdf",
+     "oamd",
+     "verify",
+     "verify --decode"
+    ],
+    "info_says_before": null,
+    "info_says_now": null,
+    "verify_says_now": "access unit 0: payload without an object element",
+    "the_object_decode_said_verify_reports_the_same_faults": true
+   },
+   "truehd-presentation-over-missing-substream.bin": {
+    "sha256": "c4a3cb1996f1a93817169f2809da3d9211be911f9c1a1519b816204adbd0b758",
+    "bytes": 1012,
+    "commands": [
+     "info",
+     "verify",
+     "verify --decode",
+     "oamd",
+     "emdf",
+     "decode -p 0",
+     "decode -p 1",
+     "decode -p 2",
+     "decode -p 3",
+     "decode --format damf",
+     "decode --format adm"
+    ],
+    "exit_codes_before": "0 0 7 0 0 0 2 2 2 2 2",
+    "exit_codes_now": "0 0 7 0 0 0 2 2 2 2 2",
+    "changed": [],
+    "info_says_before": null,
+    "info_says_now": null,
+    "verify_says_now": null,
+    "the_object_decode_said_verify_reports_the_same_faults": false
+   }
+  },
+  "payloads_a_timeline_would_refuse_in_the_corpus": {
+   "binary_sha256": "3fedb1e4671bdb43a957fc81cedd37946626efaeef83348a499f2e304dae037a",
+   "streams": 125,
+   "streams_that_gave_no_report": 0,
+   "streams_with_object_metadata": 64,
+   "payloads": 261064,
+   "payloads_without_an_object_element": 0,
+   "changes_of_the_programme": 0,
+   "streams_with_either": 0
+  },
+  "the_campaign": {
+   "the_first_seed": {
+    "seed": 0,
+    "rounds": 200000,
+    "streams_changed": 86,
+    "clauses_broken": 0,
+    "panics": 0,
+    "kinds_of_answers": 31,
+    "every_command_clean": 27517,
+    "clean_and_not_the_seed": 27094,
+    "clean_with_other_samples": {
+     "TrueHD and MLP": 20993,
+     "the AC-3 family": 3911
+    },
+    "a_metadata_report_stricter_than_verify": 0,
+    "an_object_output_refused_where_every_report_is_clean": 0,
+    "slowest_round_ms": 4818,
+    "the_answers_that_came_most": [
+     {
+      "answers": "thd info c verify F decode F oamd F emdf F pcm FFF- objects --",
+      "rounds": 111308
+     },
+     {
+      "answers": "ac3 info c verify F decode F oamd F emdf F pcm FF objects --",
+      "rounds": 25345
+     },
+     {
+      "answers": "thd info c verify c decode c oamd c emdf c pcm ccc- objects --",
+      "rounds": 19966
+     },
+     {
+      "answers": "thd info c verify F decode F oamd F emdf F pcm FF-- objects --",
+      "rounds": 14467
+     },
+     {
+      "answers": "thd info - verify - decode - oamd - emdf - pcm ---- objects --",
+      "rounds": 10016
+     },
+     {
+      "answers": "ac3 info c verify c decode c oamd c emdf c pcm cc objects --",
+      "rounds": 5343
+     },
+     {
+      "answers": "ac3 info - verify - decode - oamd - emdf - pcm -- objects --",
+      "rounds": 4295
+     },
+     {
+      "answers": "thd info c verify F decode F oamd F emdf F pcm ---- objects --",
+      "rounds": 2678
+     },
+     {
+      "answers": "ac3 info c verify F decode F oamd F emdf F pcm FF objects FF",
+      "rounds": 1898
+     },
+     {
+      "answers": "thd info c verify F decode F oamd F emdf F pcm FFFF objects FF",
+      "rounds": 1830
+     },
+     {
+      "answers": "thd info c verify c decode c oamd c emdf c pcm cc-- objects --",
+      "rounds": 1820
+     },
+     {
+      "answers": "thd info c verify c decode F oamd c emdf c pcm FFF- objects --",
+      "rounds": 327
+     }
+    ]
+   },
+   "another_seed": {
+    "seed": 1,
+    "rounds": 200000,
+    "streams_changed": 86,
+    "clauses_broken": 0,
+    "panics": 0,
+    "kinds_of_answers": 30,
+    "every_command_clean": 27293,
+    "clean_and_not_the_seed": 26857,
+    "clean_with_other_samples": {
+     "TrueHD and MLP": 20820,
+     "the AC-3 family": 3802
+    },
+    "a_metadata_report_stricter_than_verify": 0,
+    "an_object_output_refused_where_every_report_is_clean": 0,
+    "slowest_round_ms": 5975,
+    "the_answers_that_came_most": [
+     {
+      "answers": "thd info c verify F decode F oamd F emdf F pcm FFF- objects --",
+      "rounds": 111405
+     },
+     {
+      "answers": "ac3 info c verify F decode F oamd F emdf F pcm FF objects --",
+      "rounds": 25301
+     },
+     {
+      "answers": "thd info c verify c decode c oamd c emdf c pcm ccc- objects --",
+      "rounds": 19842
+     },
+     {
+      "answers": "thd info c verify F decode F oamd F emdf F pcm FF-- objects --",
+      "rounds": 14494
+     },
+     {
+      "answers": "thd info - verify - decode - oamd - emdf - pcm ---- objects --",
+      "rounds": 9950
+     },
+     {
+      "answers": "ac3 info c verify c decode c oamd c emdf c pcm cc objects --",
+      "rounds": 5318
+     },
+     {
+      "answers": "ac3 info - verify - decode - oamd - emdf - pcm -- objects --",
+      "rounds": 4471
+     },
+     {
+      "answers": "thd info c verify F decode F oamd F emdf F pcm ---- objects --",
+      "rounds": 2733
+     },
+     {
+      "answers": "thd info c verify F decode F oamd F emdf F pcm FFFF objects FF",
+      "rounds": 1889
+     },
+     {
+      "answers": "ac3 info c verify F decode F oamd F emdf F pcm FF objects FF",
+      "rounds": 1858
+     },
+     {
+      "answers": "thd info c verify c decode c oamd c emdf c pcm cc-- objects --",
+      "rounds": 1764
+     },
+     {
+      "answers": "thd info c verify c decode F oamd c emdf c pcm FFF- objects --",
+      "rounds": 302
+     }
+    ]
+   }
+  },
+  "every_bit_of_every_stream": {
+   "streams": 86,
+   "bits_changed_one_at_a_time": 2194352,
+   "clauses_broken": 0,
+   "panics": 0,
+   "kinds_of_answers": 39
+  },
+  "counted_and_not_claimed": {
+   "a_change_no_command_noticed": "with the checksums put right, a change to the samples is caught by the lossless check of its restart interval, which the restart header after it carries. The streams of the campaign are a few access units long and most changes fall after their last restart header, which nothing but the parity and the CRC of a segment covers. So most rounds that every command called clean decode to other samples than their seed. An AC-3 family stream has no check but its CRCs at all. This is what putting the checksums right gives away, and not a disagreement between commands",
+   "a_metadata_report_stricter_than_verify": {
+    "what": "the policy lets `oamd` and `emdf` find a fault in the metadata they read where `verify` finds none: `oamd` counts padding that is not zero or longer than a byte",
+    "rounds_of_the_first_60000_as_the_commands_were": 5,
+    "rounds_of_the_400000_now": 0,
+    "single_bits_that_make_one": 38,
+    "in_the_streams": [
+     {
+      "bytes": 7168,
+      "bits_changed": 57344,
+      "bits_that_make_one": 24
+     },
+     {
+      "bytes": 1944,
+      "bits_changed": 15552,
+      "bits_that_make_one": 14
+     }
+    ],
+    "note": "the campaign did not happen on one after the change, which says how seldom a random change makes one and nothing else: going through every bit finds them, in the two streams that carry objects, and one is kept"
+   },
+   "the_slowest_round": "the two seeds ran while a comparison of two binaries over the corpus was writing beside them, so the slowest round of each is the machine and not the round; a round that takes a minute fails the campaign",
+   "what_verify_counts_and_a_delivery_does_not": "a frame that ends inside its own tail, an EMDF payload configuration outside the table and a complexity index that disagrees with the object total: `verify` exits 7 and a decode keeps its verdict. One of the kept streams shows it",
+   "what_verify_has_no_rule_for": [
+    "a major sync that declares a presentation over substreams the stream does not have: clean to `verify`, a fault to `verify --decode`, which cannot start the presentation, and refused by `decode`. One of the kept streams shows it",
+    "a 16-channel presentation that declares a reserved intermediate spatial format index: clean to `verify` and refused by the object outputs"
+   ]
+  },
+  "a_stream_that_exists": {
+   "streams": 125,
+   "streams_changed": 0,
+   "fields_added": [
+    "info: failures.missing_containers",
+    "info: failures.oamd_unusable",
+    "verify: failures.missing_containers",
+    "verify: failures.oamd_unusable"
+   ],
+   "lines_added": [],
+   "lines_of_reports_compared": 8236,
+   "fields_of_reports_compared": 50616,
+   "bytes_of_deliveries_compared": 103362691041,
+   "the_media_suite": {
+    "passed": 28,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "mutations": {
+   "count": 31,
+   "survive": [],
+   "each": [
+    {
+     "mutation": "the warp mode an output without one reads as, normal instead of warping",
+     "caught_by": [
+      "the_joc_fixture_decodes_to_agreeing_damf_and_adm_outputs"
+     ]
+    },
+    {
+     "mutation": "a warp mode loss counted per payload, not per change",
+     "caught_by": [
+      "warp_mode_reaches_the_damf_header_and_the_adm_dbmd"
+     ]
+    },
+    {
+     "mutation": "the warp codes, Pro Logic IIx and Lo/Ro swapped",
+     "caught_by": [
+      "warp_mode_reaches_the_damf_header_and_the_adm_dbmd"
+     ]
+    },
+    {
+     "mutation": "the warp name of Lo/Ro, the Conversion Tool option instead of the DAMF value",
+     "caught_by": [
+      "warp_mode_reaches_the_damf_header_and_the_adm_dbmd"
+     ]
+    },
+    {
+     "mutation": "the block-offset step, 32 -> 31",
+     "caught_by": [
+      "authored_scene_mlp"
+     ]
+    },
+    {
+     "mutation": "the DAMF y coordinate, front and back swapped",
+     "caught_by": [
+      "authored_scene_ec3",
+      "authored_scene_mlp"
+     ]
+    },
+    {
+     "mutation": "a payload of another programme taken as one of the first",
+     "caught_by": [
+      "program::tests::a_payload_is_refused_without_an_object_element_and_for_another_programme"
+     ]
+    },
+    {
+     "mutation": "a payload without an object element taken by a command that only reads",
+     "caught_by": [
+      "a_payload_an_object_output_cannot_take_is_a_fault_to_every_command"
+     ]
+    },
+    {
+     "mutation": "a payload the programme cannot take demoted to a warning",
+     "caught_by": [
+      "a_payload_an_object_output_cannot_take_is_a_fault_to_every_command"
+     ]
+    },
+    {
+     "mutation": "info calling a major sync it could not read no major sync",
+     "caught_by": [
+      "a_major_sync_that_cannot_be_read_is_said_to_be_that"
+     ]
+    },
+    {
+     "mutation": "a delivery let clear what verify found",
+     "caught_by": [
+      "parity::tests::each_clause_refuses_what_breaks_it"
+     ]
+    },
+    {
+     "mutation": "a faulty delivery let stand beside a clean verify --decode",
+     "caught_by": [
+      "parity::tests::each_clause_refuses_what_breaks_it"
+     ]
+    },
+    {
+     "mutation": "one report let find a stream where another finds none",
+     "caught_by": [
+      "parity::tests::each_clause_refuses_what_breaks_it"
+     ]
+    },
+    {
+     "mutation": "every counter of verify taken for a fault of a delivery",
+     "caught_by": [
+      "the_streams_a_campaign_found_still_hold"
+     ]
+    },
+    {
+     "mutation": "the missing container, the statistics not counting a frame without skip fields",
+     "caught_by": [
+      "eac3::tests::a_frame_without_skip_fields_loses_a_container_where_emdf_is_declared"
+     ]
+    },
+    {
+     "mutation": "a dropped dependent substream no longer makes a stream unclean",
+     "caught_by": [
+      "eac3::tests::a_tail_overrun_alone_fails_verify_and_not_a_delivery",
+      "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean",
+      "eac3::tests::skip_fields_that_carry_no_emdf_are_not_a_fault"
+     ]
+    },
+    {
+     "mutation": "the TrueHD verdict stops reading a counter",
+     "caught_by": [
+      "scan::tests::every_counter_in_the_truehd_verdict_can_make_a_stream_unclean"
+     ]
+    },
+    {
+     "mutation": "a finding that bumps no counter",
+     "caught_by": [
+      "a_segment_that_fails_its_check_is_silence_too",
+      "a_unit_that_cannot_be_read_is_silence_in_its_place"
+     ]
+    },
+    {
+     "mutation": "a restart in a faulted segment ends its own damage",
+     "caught_by": [
+      "a_fault_in_a_restart_segment_lasts_until_the_next_restart"
+     ]
+    },
+    {
+     "mutation": "an Evolution frame longer than its container passes unseen",
+     "caught_by": [
+      "an_evolution_frame_longer_than_its_container_fails_the_stream"
+     ]
+    },
+    {
+     "mutation": "bytes after the extra data pass unseen",
+     "caught_by": [
+      "bytes_after_the_extra_data_fail_the_stream"
+     ]
+    },
+    {
+     "mutation": "the clip a branch joins may not open with two major syncs",
+     "caught_by": [
+      "scan::tests::two_major_syncs_in_a_row_open_a_bitstream_and_nothing_else"
+     ]
+    },
+    {
+     "mutation": "the reserved primary protection length passes unseen",
+     "caught_by": [
+      "a_reserved_protection_length_is_reported"
+     ]
+    },
+    {
+     "mutation": "a TrueHD scan that is told to stop goes on",
+     "caught_by": [
+      "verify::tests::a_check_on_its_thread_stops_when_its_flag_is_set",
+      "verify::tests::a_check_told_to_stop_gives_the_stream_up_at_once"
+     ]
+    },
+    {
+     "mutation": "an E-AC-3 pass that is told to stop goes on",
+     "caught_by": [
+      "verify::tests::a_check_on_its_thread_stops_when_its_flag_is_set",
+      "verify::tests::a_check_told_to_stop_gives_the_stream_up_at_once"
+     ]
+    },
+    {
+     "mutation": "verify not making the refusals of an object output on a TrueHD stream",
+     "caught_by": [
+      "a_payload_an_object_output_cannot_take_is_a_fault_to_every_command"
+     ]
+    },
+    {
+     "mutation": "verify not making the refusals of an object output on an E-AC-3 stream",
+     "caught_by": [
+      "a_payload_an_object_output_cannot_take_is_a_fault_to_every_command"
+     ]
+    },
+    {
+     "mutation": "a refused payload left out of the verdict of an E-AC-3 stream",
+     "caught_by": [
+      "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean"
+     ]
+    },
+    {
+     "mutation": "a refused payload left out of what a decode of an E-AC-3 stream found",
+     "caught_by": [
+      "a_payload_an_object_output_cannot_take_is_a_fault_to_every_command"
+     ]
+    },
+    {
+     "mutation": "the census files every block under substream 0",
+     "caught_by": [
+      "the_census_agrees_with_the_counters_verify_already_kept",
+      "the_census_says_what_the_fixtures_are_known_to_carry"
+     ]
+    },
+    {
+     "mutation": "the coding tools of a TrueHD stream left out of the report",
+     "caught_by": [
+      "the_census_says_what_the_fixtures_are_known_to_carry",
+      "the_coding_tools_are_reported_with_and_without_the_census"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 602 passed, 28 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "reading": "They did not, in one place. An object decode counted a payload it could not use against what it delivered, and `verify` never asked: three rounds of the first 60 000 gave a stream that `decode --format damf` exited 7 on, saying that `oadec verify` reports the same faults, and that `verify` called clean. `verify` makes the refusals of the object outputs now, and every other command takes its verdict as before. No stream of the corpus has such a payload, 261 064 payloads in 64 streams, and over 125 streams the binary before and the binary after give the same reports but for the two fields that were added and the same 103 362 691 041 bytes of deliveries. With that put right, 400 000 rounds over 86 streams, two seeds, end without a panic and without a clause broken, and so does every one of the 2 194 352 streams that are one bit away from those 86. What was seen besides is counted and not claimed: what the policy lets one command say and another not, two things `verify` has no rule for, and how much of a changed stream goes through every command once its checksums are put right."
+}

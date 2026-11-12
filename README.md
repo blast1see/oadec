@@ -147,6 +147,11 @@ comes from a measurement that can be repeated:
   samples. A seeded run over the fixtures is part of `cargo test`, and
   libFuzzer runs the same targets every week
   ([`docs/testing-tools.md`](docs/testing-tools.md)).
+- **One verdict.** Every command is to judge a stream by the faults `verify`
+  finds, and has not always. `crates/oadec-fuzz` changes the streams of the
+  repository at random, asks every command about each, and holds the answers
+  to the policy of the exit codes; what it turned up is fixed and kept as
+  test streams ([`docs/testing-tools.md`](docs/testing-tools.md)).
 - **Without a process.** `oadec_cli::api` is the commands as calls: a test
   hands a stream over, in a file or in memory, and gets back the report the
   command prints and the verdict it exits with, from the code that gives

@@ -30,6 +30,10 @@ Anything that makes the delivered output untrustworthy:
 - an Object Audio Metadata or JOC payload that would not parse or whose
   declared size was wrong, or a JOC payload whose `joc_ext_config_idx` is
   reserved (the matrices of the previous frame are held in its place);
+- an Object Audio Metadata payload that parses and that an object output can
+  make nothing of: one without an object element, or one that describes
+  other beds or another number of objects than the first payload of the
+  stream did;
 - in a substream that carries EMDF, an E-AC-3 frame whose skip fields hold no
   container that opens, whether it is erased, broken, or declares a length its
   syntax disagrees with;
@@ -61,6 +65,14 @@ And an EMDF payload configuration outside TS 103 420 Table 56, or a
 Audio Metadata, changes neither the audio nor the metadata a decode delivers:
 `verify` counts both and exits 7, and a decode of the same file keeps its
 verdict.
+
+The list is one list. `verify` once read it and `decode` re-derived a
+narrower one; then the object outputs counted a payload they could not use
+that `verify` never looked at, and exited 7 on a stream `verify` called clean
+while saying that `verify` reports the same faults. What keeps it one list is
+not care: `crates/oadec-fuzz` changes the streams of the repository at random,
+puts each to every command, and holds their answers to the sentences of this
+page ([`testing-tools.md`](testing-tools.md)).
 
 ## What a fault does
 
