@@ -8,6 +8,20 @@ Semantic Versioning.
 
 ### Added
 
+- **A campaign that puts every changed stream to every command.**
+  `oadec_fuzz::parity` asks `info`, `verify`, `verify --decode`, `oamd`,
+  `emdf` and every decode about the same bytes, through the calls of
+  `oadec_cli::api`, and holds their answers to the policy of the exit codes
+  clause by clause. It is a fuzz target like the others (`verdict_parity`,
+  with its libFuzzer wrapper) and a seeded campaign in `cargo test`, over
+  runs of the fixtures and the streams `oadec-synth` writes, with the
+  checksums put right after three changes in four. It found the two faults
+  under *Fixed* in its first sixty thousand rounds; with them fixed, 400 000
+  rounds over two seeds end without a panic and without a clause broken.
+  Beside it, `examples/flips.rs` changes every bit of each of those streams
+  in turn and asks the same: 2 194 352 streams, and no clause broken. The streams they
+  turned up are kept in `crates/oadec-cli/tests/found`, with what every
+  command says of each (`docs/testing-tools.md`, `docs/audit/evidence/engine-round-2026-11/22-verdict-parity.json`).
 - **A stream on standard input.** `info`, `verify`, `emdf`, `oamd`, `decode`,
   `compare` and `au` take `-` where they take a file and read the stream
   from standard input, so a track can go from its container to a verdict
