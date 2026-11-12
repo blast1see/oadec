@@ -422,7 +422,7 @@ pub const AC3_PROBES: &[Ac3Probe] = &[
             offsets: OFFSETS,
             said: reuse_after_none,
         },
-        read: Read::Samples,
+        read: Read::Otherwise,
     },
     Ac3Probe {
         recipe: Ac3Recipe {
@@ -436,7 +436,7 @@ pub const AC3_PROBES: &[Ac3Probe] = &[
             offsets: OFFSETS,
             said: reuse_after_none,
         },
-        read: Read::Otherwise,
+        read: Read::Samples,
     },
     Ac3Probe {
         recipe: Ac3Recipe {

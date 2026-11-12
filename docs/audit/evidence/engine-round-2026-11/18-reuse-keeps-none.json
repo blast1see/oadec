@@ -1,0 +1,403 @@
+{
+ "question": "After a \"none\", is a \"reuse\" of a channel's delta bit allocation read as Dolby's decoder reads it, and does reading it so move anything else?",
+ "method": "The decoder of `crates/oadec-eac3` applied the delta segments of a channel whenever the last `deltbae` it read of the channel was 0 or 1. It now keeps, for each channel, whether a delta is in force: new segments (1) put one in force, \"perform no delta\" (2) and the reserved code (3) take it out, and \"reuse previous state\" (0) leaves it as it was (`delta_in_force` in `src/frame.rs`). Two release binaries (`cargo build --release --locked -p oadec-cli`): main before the change and the change. `tools/synth_accept.py --only ac3` wrote the fifteen AC-3 streams of `oadec-synth` and decoded each with FFmpeg, with the dlbac3dec element of the Dolby Reference Player and with the change, as in `16-synthetic-ac3-delta.json`, whose run is the \"before\" here: the streams are the same bytes. `tools/old_new.py --decode-all` ran both binaries over every stream of the work directory and the fixtures: `verify` as text and as JSON, `info --json`, their exit codes, and every delivery (PCM of each presentation, the programme and the core of AC-3 and E-AC-3, DAMF, ADM), compared byte for byte; it does not run `emdf` or `oamd`, which do not decode. The media suite and the media regression ran on the change. The mutations are the entries of `tools/mutants.py` whose name has \"delta\" or \"reuse\" in it, run with every test of the workspace on a clean tree of the change.",
+ "binaries": {
+  "main before the change": "125eab50492711577792b6edfa0b5c0aa906154eac645e8e60f056c109629e4e",
+  "the change": "7a26c68b70fdceea4ee479a4ccd0b1c3030bf42b79364cf3bc20d782f99e7871"
+ },
+ "decoders": {
+  "ffmpeg": "2026-10-12-git-615b07170e",
+  "dolby": "the dlbac3dec element of the Dolby Reference Player, as a black box"
+ },
+ "result": {
+  "the_two_probes": {
+   "probe-ac3-reuse-after-none": {
+    "sha256": "99afdccece0ccaf047605c2b02e57c24a8f44d56e8d276500c13a231804f5e71",
+    "what": "new segments in block 0, code 2 in block 1, code 0 in block 2, on both channels of every frame; the mantissas of blocks 2 to 5 laid out with the segments of block 0 applied",
+    "ffmpeg": {
+     "verdict": "gave the samples",
+     "snr_db_left_and_right": [
+      139.0,
+      139.1
+     ],
+     "delay": 0
+    },
+    "dolby": {
+     "verdict": "wrote nothing"
+    },
+    "this_decoder_before": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    },
+    "this_decoder_now": {
+     "decode": "wrote nothing",
+     "decode_exit": 7,
+     "verify_exit": 7,
+     "it_said": "8 frames failed to decode; first problem: 15-level mantissa code 15"
+    }
+   },
+   "probe-ac3-reuse-after-none-kept": {
+    "sha256": "922dfb07389920afc6f25a9ae1a07e2d7263f6c85b269308b79cdb4770dd3a50",
+    "what": "the same fields; the mantissas of blocks 2 to 5 laid out with no delta",
+    "ffmpeg": {
+     "verdict": "gave others",
+     "snr_db_left_and_right": [
+      -16.8,
+      -29.8
+     ],
+     "delay": 32
+    },
+    "dolby": {
+     "verdict": "gave the samples",
+     "snr_db_left_and_right": [
+      137.5,
+      128.3
+     ],
+     "delay": 32
+    },
+    "this_decoder_before": {
+     "decode": "wrote nothing",
+     "decode_exit": 7,
+     "verify_exit": 7,
+     "it_said": "8 frames failed to decode; first problem: 7-level mantissa code 7"
+    },
+    "this_decoder_now": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    }
+   }
+  },
+  "the_thirteen_other_written_streams": {
+   "streams": 13,
+   "this_decoder": "does with each what it did before: the same verdict of `decode`, the same exit codes of `decode` and `verify`, the same samples",
+   "the_two_outside_decoders": "gave what they gave in `16-synthetic-ac3-delta.json`, to the tenth of a decibel, on all fifteen",
+   "each": {
+    "ac3-plain": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    },
+    "ac3-delta": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    },
+    "ac3-delta-codes": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    },
+    "ac3-delta-no-length": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    },
+    "ac3-delta-eight-segments": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    },
+    "ac3-delta-silent-first-block": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    },
+    "ac3-delta-44100": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    },
+    "ac3-delta-32000": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    },
+    "probe-ac3-delta-unsaid": {
+     "decode": "wrote nothing",
+     "decode_exit": 7,
+     "verify_exit": 7,
+     "it_said": "8 frames failed to decode; first problem: 7-level mantissa code 7"
+    },
+    "probe-ac3-reuse-in-first-block": {
+     "decode": "gave others",
+     "decode_exit": 7,
+     "verify_exit": 7,
+     "it_said": "4 frames failed to decode; first problem: 7-level mantissa code 7"
+    },
+    "probe-ac3-reuse-in-first-block-empty": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    },
+    "probe-ac3-delta-reserved": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    },
+    "probe-ac3-delta-past-the-bands": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    }
+   }
+  },
+  "the_125_streams": {
+   "streams": 125,
+   "streams_changed": 0,
+   "fields_added": [],
+   "deliveries": {
+    "pcm -p N (TrueHD and MLP, presentations 0 to 3)": {
+     "runs": 220,
+     "wrote_output": 202,
+     "bytes_compared": 30402893100,
+     "exit_codes": {
+      "0": 198,
+      "2": 18,
+      "7": 4
+     }
+    },
+    "pcm (AC-3 and E-AC-3, the programme)": {
+     "runs": 70,
+     "wrote_output": 70,
+     "bytes_compared": 4058892288,
+     "exit_codes": {
+      "0": 61,
+      "7": 9
+     }
+    },
+    "pcm --core-only (AC-3 and E-AC-3)": {
+     "runs": 70,
+     "wrote_output": 70,
+     "bytes_compared": 3823884288,
+     "exit_codes": {
+      "0": 61,
+      "7": 9
+     }
+    },
+    "damf": {
+     "runs": 125,
+     "wrote_output": 64,
+     "bytes_compared": 26139214573,
+     "exit_codes": {
+      "0": 56,
+      "2": 61,
+      "7": 8
+     }
+    },
+    "adm": {
+     "runs": 125,
+     "wrote_output": 64,
+     "bytes_compared": 26155503004,
+     "exit_codes": {
+      "0": 56,
+      "2": 61,
+      "7": 8
+     }
+    }
+   },
+   "bytes_compared_in_all": 90580387253
+  },
+  "media": {
+   "the_media_suite": {
+    "passed": 28,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8,
+    "line": "all media checks passed"
+   }
+  },
+  "unit_tests": "two in `frame.rs`: every code against both states before it, with the sequences new, none, reuse and new, reuse, none, reuse spelled out; and the masking curve of a channel, which the segments reach while a delta is in force and not after a \"none\" whatever code follows",
+  "mutations": {
+   "count": 16,
+   "survive": [],
+   "each": [
+    {
+     "mutation": "delta bit allocation segments left out of the bit allocation",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "a reused delta allocation (deltbae 0) treated as none",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "delta allocation counted where a block only carries the fields",
+     "caught_by": [
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "a delta code of 4 read as no change, where it is 6 dB up",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "a delta of 3 dB a step, where it is 6",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "a delta segment placed from the first band, not from the end of the one before",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "a delta segment one band longer than its length",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "the last band out of reach of a delta segment",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "the delta segments of every channel read into the first",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "the delta segments of the first channel applied to every channel",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "the number of delta segments read without the one it is short of",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "the length of a delta segment read in front of its offset",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "the reserved delta code read as a reuse",
+     "caught_by": [
+      "the_commands_on_the_ac3_probes"
+     ]
+    },
+    {
+     "mutation": "a reuse after a none applies the segments sent before the none",
+     "caught_by": [
+      "the_commands_on_the_ac3_probes"
+     ]
+    },
+    {
+     "mutation": "the delta in force for a channel not kept from block to block",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "a block that says nothing of the delta drops the one in force",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    }
+   ],
+   "note": "`caught_by` names the first tests to fail, three at most",
+   "the_one_that_had_to_move": "`a block that says nothing of the delta drops the one in force` set the code the decoder kept to \"none\". With the state held apart from the code that changes no sample, and on the first run over the change it survived. It drops the state now, and is caught."
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 571 passed, 28 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "181 mutations, the text of every one is in its file"
+  },
+  "not_measured": "the delta of the coupling channel (`cpldeltbae`), which goes through the same function and needs coupling the writer does not write; E-AC-3 frames, which switch the fields on with `dbaflde`. What Dolby's decoder does was seen from outside only: it decodes the frames laid out with no delta from the \"none\" on and none of the frames laid out the other way. The probes hold one order of the codes: new, none, reuse, and three blocks that say nothing. A second \"reuse\" after it and a \"reuse\" after the reserved code were not written."
+ },
+ "reading": "The two probes change places and nothing else moves. This decoder gives the samples of the frames laid out with no delta after the \"none\", bit for bit the writer's, as Dolby's decoder gives them (137.5 and 128.3 dB), and decodes none of the frames laid out with the segments applied again, which Dolby's decoder does not decode either; FFmpeg's decoder reads the sequence the other way and is left as the odd one out. The thirteen other written streams decode as they did. No stream of the corpus has the sequence, none of them applying a delta at all: over 125 streams the binary before and the binary after give the same reports of `verify` and `info`, the same exit codes and the same 90 580 387 253 bytes of deliveries. Of the mutations of the delta path every one is caught, the two written for the state among them: a \"reuse\" that applies the segments sent before a \"none\", and a state that is not kept from block to block."
+}

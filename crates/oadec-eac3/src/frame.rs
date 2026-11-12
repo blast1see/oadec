@@ -432,6 +432,9 @@ struct Parser<'a> {
     cplsleak: u8,
     deltbae: [u8; NCH],
     dba: [DeltaBa; NCH],
+    /// Whether a delta bit allocation is in force for each slot, which is
+    /// not what its last `deltbae` says: see [`delta_in_force`].
+    dba_in_force: [bool; NCH],
     bap: [[u8; N]; NCH],
     /// AHT: the six blocks of pre-IDCT mantissas per channel slot.
     pre_mant: Vec<Vec<[f64; N]>>,
@@ -546,6 +549,7 @@ impl<'a> Parser<'a> {
             cplsleak: 0,
             deltbae: [2; NCH],
             dba: Default::default(),
+            dba_in_force: [false; NCH],
             bap: [[0; N]; NCH],
             pre_mant: Vec::new(),
             out_blocks: Vec::with_capacity(usize::from(h.blocks)),
@@ -1247,9 +1251,11 @@ impl<'a> Parser<'a> {
         if (!eac3 || self.dbaflde) && self.bit()? {
             if cplinu {
                 self.deltbae[CPL] = self.bits(2)? as u8;
+                self.dba_in_force[CPL] = delta_in_force(self.deltbae[CPL], self.dba_in_force[CPL]);
             }
             for ch in 0..nf {
                 self.deltbae[ch] = self.bits(2)? as u8;
+                self.dba_in_force[ch] = delta_in_force(self.deltbae[ch], self.dba_in_force[ch]);
             }
             if cplinu && self.deltbae[CPL] == 1 {
                 self.dba[CPL] = self.read_dba()?;
@@ -1634,11 +1640,7 @@ impl<'a> Parser<'a> {
     }
 
     fn allocate(&mut self, slot: usize, start: usize, end: usize, leak: Option<(i32, i32)>) {
-        let dba = if self.deltbae[slot] == 0 || self.deltbae[slot] == 1 {
-            Some(&self.dba[slot])
-        } else {
-            None
-        };
+        let dba = self.dba_in_force[slot].then_some(&self.dba[slot]);
         // Carrying the fields is not using the tool: with `deltbae` 2
         // ("perform no delta") on every channel the mask is untouched, and a
         // stream can say so in every block. The tool is used when a segment
@@ -2009,6 +2011,27 @@ impl<'a> Parser<'a> {
     }
 }
 
+/// Whether a delta bit allocation is in force for a channel once a block has
+/// said `code` of it (`deltbae`, table 4.11), given whether one was in force
+/// before.
+///
+/// New segments (1) are applied and "perform no delta" (2) applies none. A 0
+/// is "reuse previous state", and the state before may be either: after a
+/// "none" it is none. The pseudo code of clause 6.2.2.6 can be read
+/// otherwise, since it applies the segments it has whenever the code is 0 or
+/// 1, and FFmpeg's decoder reads it so. Dolby's decoder keeps the state: of
+/// frames that say new, none, reuse it decodes the ones whose mantissas are
+/// laid out with no delta from the "none" on, and none of the ones laid out
+/// the other way. No stream examined has the sequence. The reserved code (3)
+/// is read as none, which is also what Dolby's decoder does with it.
+fn delta_in_force(code: u8, before: bool) -> bool {
+    match code {
+        1 => true,
+        0 => before,
+        _ => false,
+    }
+}
+
 fn hth_index(h: &FrameHeader) -> usize {
     usize::from(h.fscod2.unwrap_or(h.fscod)).min(2)
 }
@@ -2277,13 +2300,40 @@ mod tests {
         assert!(mean.abs() < 0.1);
     }
 
-    /// Clause 6.2.2.6 applies the segments a channel's `deltbae` points at:
-    /// 1 (new segments) and 0 (reuse the last ones) reach the masking curve,
-    /// 2 ("perform no delta") does not. The coverage names the tool only when
+    /// What each code of `deltbae` leaves in force. A "reuse" keeps the state
+    /// of the block before, whichever it was: after new segments they go on,
+    /// and after "none" there is still none.
+    #[test]
+    fn a_reuse_keeps_the_state_of_the_block_before() {
+        // new segments apply, whatever was before
+        assert!(delta_in_force(1, false));
+        assert!(delta_in_force(1, true));
+        // "none" applies none
+        assert!(!delta_in_force(2, true));
+        assert!(!delta_in_force(2, false));
+        // "reuse" keeps what there was
+        assert!(delta_in_force(0, true));
+        assert!(!delta_in_force(0, false));
+        // the reserved code is read as none
+        assert!(!delta_in_force(3, true));
+        assert!(!delta_in_force(3, false));
+        // new, none, reuse: none; new, reuse, reuse: the segments
+        let after = |codes: &[u8]| {
+            codes
+                .iter()
+                .fold(false, |on, &code| delta_in_force(code, on))
+        };
+        assert!(!after(&[1, 2, 0]));
+        assert!(after(&[1, 0, 0]));
+        assert!(!after(&[0]), "a frame begins with none in force");
+    }
+
+    /// Clause 6.2.2.6 applies the segments of a channel while a delta is in
+    /// force for it, and not otherwise. The coverage names the tool only when
     /// a segment of some length reaches the curve, because a stream can send
     /// the fields in every block and never a delta.
     #[test]
-    fn delta_segments_reach_the_mask_only_when_deltbae_says_so() {
+    fn delta_segments_reach_the_mask_only_while_a_delta_is_in_force() {
         let h = FrameHeader {
             syntax: Syntax::Ac3,
             stream_type: StreamType::Independent,
@@ -2331,13 +2381,13 @@ mod tests {
         let without = expected(None);
         assert_ne!(with, without, "the segment has to move the allocation");
 
-        for (deltbae, applied) in [(1u8, true), (0, true), (2, false)] {
-            p.deltbae[0] = deltbae;
+        for applied in [true, false] {
+            p.dba_in_force[0] = applied;
             p.coverage = Coverage::default();
             p.allocate(0, 0, 253, None);
             let bap = if applied { with } else { without };
-            assert_eq!(p.bap[0], bap, "deltbae {deltbae}");
-            assert_eq!(p.coverage.delta_allocation, applied, "deltbae {deltbae}");
+            assert_eq!(p.bap[0], bap, "in force: {applied}");
+            assert_eq!(p.coverage.delta_allocation, applied, "in force: {applied}");
         }
 
         // a segment of no length leaves the mask and the coverage alone
@@ -2346,7 +2396,7 @@ mod tests {
             lengths: vec![0],
             values: vec![1],
         };
-        p.deltbae[0] = 1;
+        p.dba_in_force[0] = true;
         p.coverage = Coverage::default();
         p.allocate(0, 0, 253, None);
         assert_eq!(p.bap[0], without);
