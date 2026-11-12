@@ -36,9 +36,16 @@ compared. The outputs are large; `--tmp` says where they go.
 What differs between two runs of the same binary is left out: the fields
 `seconds` and `realtime_factor`, the seconds and the speed a line names, and
 the directory a delivery was written to. The summary counts what each command
-compared, because two commands that both printed nothing also agree. The exit
-code of this tool is 0 when nothing changed, 1 when something did, 2 on a
-usage error.
+compared, because two commands that both printed nothing also agree.
+
+Two binaries that are both told of a file that is not there also agree, to the
+line. So a stream is looked at before the first command and after the last
+one, and one that was not there either time, or that was another size or
+written at another time by the end, is a change of its own: what was compared
+was not that stream. The summary counts the bytes of the streams.
+
+The exit code of this tool is 0 when nothing changed, 1 when something did, 2
+on a usage error.
 """
 
 import argparse
@@ -80,6 +87,29 @@ def run(exe, args, timeout):
     r = subprocess.run([exe, *args], capture_output=True, timeout=timeout,
                        stdin=subprocess.DEVNULL)
     return r.returncode, r.stdout.decode('utf-8', 'replace'), r.stderr.decode('utf-8', 'replace')
+
+
+def seen(stream):
+    """The size of a stream and when it was last written, or None when it is
+    not there to be read."""
+    try:
+        st = os.stat(stream)
+    except OSError:
+        return None
+    return {'bytes': st.st_size, 'written_ns': st.st_mtime_ns}
+
+
+def held(before, after):
+    """What became of a stream between the first command and the last, as the
+    changes to report: none when it was there both times and the same."""
+    if before is None or after is None:
+        when = 'before the first command' if before is None else 'after the last command'
+        return [{'command': 'every command', 'what': 'the stream was not there to be read',
+                 'detail': f'not there {when}'}]
+    if before != after:
+        return [{'command': 'every command', 'what': 'the stream changed while it was compared',
+                 'before': before, 'after': after}]
+    return []
 
 
 def walk(old, new, path=''):
@@ -246,8 +276,15 @@ def delivery_kind(name):
 
 
 def compare_one(args, stream):
-    rec = {'stream': str(stream), 'changes': [], 'added_fields': [], 'added_lines': [],
-           'reports': [], 'deliveries': []}
+    before = seen(stream)
+    rec = {'stream': str(stream), 'bytes': before['bytes'] if before else 0, 'changes': [],
+           'added_fields': [], 'added_lines': [], 'reports': [], 'deliveries': []}
+    compare_commands(args, stream, rec)
+    rec['changes'] += held(before, seen(stream))
+    return rec
+
+
+def compare_commands(args, stream, rec):
     s = str(stream)
     for report, closes in REPORTS.items():
         for name, cmd in ((report, [report, s]), (f'{report} --json', [report, '--json', s])):
@@ -299,7 +336,6 @@ def compare_one(args, stream):
             if outs[0][1] != outs[1][1]:
                 rec['changes'].append({'command': 'decode -p 2', 'what': 'output bytes',
                                        'old': outs[0][1], 'new': outs[1][1]})
-    return rec
 
 
 def main():
@@ -353,13 +389,15 @@ def main():
     # machine, the digest says which binaries they were.
     summary = {'old': os.path.basename(args.old), 'old_sha256': sha256(args.old),
                'new': os.path.basename(args.new), 'new_sha256': sha256(args.new),
-               'streams': len(recs), 'streams_changed': len(changed),
+               'streams': len(recs), 'stream_bytes': sum(r['bytes'] for r in recs),
+               'streams_changed': len(changed),
                'fields_added': added, 'lines_added': added_lines, 'reports': reports,
                'deliveries': kinds, 'changed': changed}
     if args.out:
         Path(args.out).write_text(json.dumps(summary, indent=1), encoding='utf-8')
     print(f'{len(recs)} streams, {len(changed)} changed; fields added: {", ".join(added) or "none"}; '
           f'lines added: {", ".join(added_lines) or "none"}')
+    print(f'  the streams: {summary["stream_bytes"]} bytes')
     for name, k in reports.items():
         print(f'  {name}: {k["runs"]} runs, {k["lines"]} lines and {k["fields"]} fields compared, '
               f'exit codes {k["exit_codes"]}')
