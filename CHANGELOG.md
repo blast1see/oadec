@@ -8,6 +8,19 @@ Semantic Versioning.
 
 ### Added
 
+- **A stream on standard input.** `info`, `verify`, `emdf`, `oamd`, `decode`,
+  `compare` and `au` take `-` where they take a file and read the stream
+  from standard input, so a track can go from its container to a verdict
+  without a file in between: `ffmpeg -i film.mkv -map 0:a:0 -c copy -f truehd
+  - | oadec verify -`. A command reads its stream more than once and a pipe
+  can be read once, so the stream is taken into memory whole before the
+  command starts, in the pieces it arrives in and without a copy, and a
+  report calls it `<stdin>`. A terminal on standard input is refused in a
+  sentence, not waited on. For every fixture the reports, the exit codes and
+  the deliveries of a stream piped in are the ones of its file, and so are
+  the reports and the decoded samples of each of the 125 streams of the
+  corpus. It costs the size of the stream in memory and no more than 20 MiB
+  beside it (`docs/audit/evidence/engine-round-2026-11/21-standard-input.json`).
 - **The commands as calls: `oadec_cli::api`.** A test that changed a stream
   and asked two commands about it had to start a process for each question
   and read the answer back out of what was printed. `api::info`,

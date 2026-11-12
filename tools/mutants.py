@@ -589,6 +589,27 @@ MUTANTS = [
      'crates/oadec-cli/src/api.rs',
      '            || !options.require_disc.is_empty()',
      '            || false'),
+    # --- a stream on standard input -------------------------------------------
+    ('a dash taken for the name of a file',
+     'crates/oadec-cli/src/source.rs',
+     '        if path.as_os_str() == STDIN {',
+     '        if false {'),
+    ('a stream on standard input named by the dash that asked for it',
+     'crates/oadec-cli/src/source.rs',
+     'Self::read_whole(STDIN_NAME, stdin.lock())',
+     'Self::read_whole(STDIN, stdin.lock())'),
+    ('the last piece of a stream read to its end left out',
+     'crates/oadec-cli/src/source.rs',
+     '        if !piece.is_empty() {\n            out.push(piece.into_boxed_slice());',
+     '        if whole {\n            out.push(piece.into_boxed_slice());'),
+    ('a stream in pieces read on from where the piece before was left',
+     'crates/oadec-cli/src/source.rs',
+     '                self.piece += 1;\n                self.at = 0;',
+     '                self.piece += 1;'),
+    ('the size of a stream in pieces taken from its first piece',
+     'crates/oadec-cli/src/source.rs',
+     'pieces.iter().map(|p| p.len() as u64).sum()',
+     'pieces.first().map_or(0, |p| p.len() as u64)'),
     # --- AC-3 frames written whole (crates/oadec-synth) ----------------------
     # No fixture is an AC-3 stream, and no stream of a library applies a delta
     # bit allocation: until `oadec-synth` wrote frames that do, nothing decoded

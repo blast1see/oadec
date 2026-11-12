@@ -65,7 +65,8 @@ struct Cli {
 enum Command {
     /// Print what a stream declares about itself.
     Info {
-        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary stream.
+        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary
+        /// stream, or `-` to read one from standard input.
         file: PathBuf,
         /// Machine-readable JSON instead of text.
         #[arg(long)]
@@ -73,7 +74,8 @@ enum Command {
     },
     /// Check the integrity of every access unit or frame and report the failure counts.
     Verify {
-        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary stream.
+        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary
+        /// stream, or `-` to read one from standard input.
         file: PathBuf,
         /// Machine-readable JSON instead of text.
         #[arg(long)]
@@ -114,7 +116,8 @@ enum Command {
     /// Print one access unit of a TrueHD stream field by field, with where each
     /// part sits in the file: the place a finding of verify points to, opened up.
     Au {
-        /// Raw TrueHD (.thd/.mlp) elementary stream.
+        /// Raw TrueHD (.thd/.mlp) elementary stream, or `-` to read one from
+        /// standard input.
         file: PathBuf,
         /// Index of the access unit, counted from 0 as verify counts them.
         #[arg(long)]
@@ -137,7 +140,8 @@ enum Command {
     },
     /// Walk an AC-3, E-AC-3 or TrueHD stream, find the EMDF containers and report the metadata timing.
     Emdf {
-        /// Raw AC-3, E-AC-3 (.ac3/.ec3/.eac3) or TrueHD (.thd/.mlp) elementary stream.
+        /// Raw AC-3, E-AC-3 (.ac3/.ec3/.eac3) or TrueHD (.thd/.mlp) elementary
+        /// stream, or `-` to read one from standard input.
         file: PathBuf,
         /// Machine-readable JSON instead of text.
         #[arg(long)]
@@ -148,7 +152,8 @@ enum Command {
     },
     /// Parse every Object Audio Metadata payload and report what it carries.
     Oamd {
-        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary stream.
+        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary
+        /// stream, or `-` to read one from standard input.
         file: PathBuf,
         /// Machine-readable JSON instead of text.
         #[arg(long)]
@@ -160,7 +165,8 @@ enum Command {
     /// Decode a TrueHD presentation (24-bit PCM) or an E-AC-3 stream (32-bit float), or
     /// write the object program as a DAMF set or ADM BWF file.
     Decode {
-        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary stream.
+        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary
+        /// stream, or `-` to read one from standard input.
         file: PathBuf,
         /// Output file.
         #[arg(short, long)]
@@ -295,7 +301,8 @@ enum Command {
     /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
     /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
     Compare {
-        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary stream.
+        /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary
+        /// stream, or `-` to read one from standard input.
         file: PathBuf,
         /// Reference PCM file (headerless, interleaved).
         #[arg(short, long)]
@@ -342,7 +349,8 @@ enum Command {
     /// Print the side information of one E-AC-3 frame, block by block.
     #[command(hide = true)]
     Eac3Blocks {
-        /// Raw E-AC-3 (.ec3/.eac3/.ac3) elementary stream.
+        /// Raw E-AC-3 (.ec3/.eac3/.ac3) elementary stream, or `-` to read one
+        /// from standard input.
         file: PathBuf,
         /// Index of the frame group (an independent substream and the
         /// dependent substreams that follow it), counted from 0.
@@ -449,6 +457,12 @@ enum Command {
 /// Exit code when a verification finds non-conformance.
 const EXIT_NONCONFORMANT: u8 = 7;
 
+/// The stream a command line names: a file, or standard input for `-`, which
+/// is read to its end here, before the command starts.
+fn stream_named(file: &std::path::Path) -> anyhow::Result<Source> {
+    Ok(Source::named(file)?)
+}
+
 /// Runs the command line `args` spells, the program's own name first, and
 /// returns the exit code the process is to end with.
 ///
@@ -462,7 +476,8 @@ where
 {
     let cli = Cli::parse_from(args);
     let result = match cli.command {
-        Command::Info { file, json } => api::info(&Source::file(&file))
+        Command::Info { file, json } => stream_named(&file)
+            .and_then(|source| api::info(&source))
             .and_then(|report| report.print(json))
             .map(|()| ExitCode::SUCCESS),
         Command::Verify {
@@ -474,46 +489,49 @@ where
             trace_fifo,
             require_disc,
             census,
-        } => api::verify(
-            &Source::file(&file),
-            &api::VerifyOptions {
-                decode,
-                fail_on: fail_on.as_deref().and_then(Severity::from_name),
-                max_per_rule,
-                trace_fifo,
-                require_disc: require_disc
-                    .iter()
-                    .filter_map(|d| oadec_truehd::disc::Disc::from_id(d))
-                    .collect(),
-                census,
-            },
-        )
-        .and_then(|report| report.print(json).map(|()| report.clean()))
-        .map(|clean| {
-            if clean {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::from(EXIT_NONCONFORMANT)
-            }
-        }),
-        Command::Emdf { file, json, dump } => {
-            emdf::run(&Source::file(&file), &emdf::Options { json, dump }).map(|clean| {
+        } => stream_named(&file)
+            .and_then(|source| {
+                api::verify(
+                    &source,
+                    &api::VerifyOptions {
+                        decode,
+                        fail_on: fail_on.as_deref().and_then(Severity::from_name),
+                        max_per_rule,
+                        trace_fifo,
+                        require_disc: require_disc
+                            .iter()
+                            .filter_map(|d| oadec_truehd::disc::Disc::from_id(d))
+                            .collect(),
+                        census,
+                    },
+                )
+            })
+            .and_then(|report| report.print(json).map(|()| report.clean()))
+            .map(|clean| {
                 if clean {
                     ExitCode::SUCCESS
                 } else {
                     ExitCode::from(EXIT_NONCONFORMANT)
                 }
-            })
-        }
-        Command::Oamd { file, json, dump } => {
-            oamd::run(&Source::file(&file), &oamd::Options { json, dump }).map(|clean| {
+            }),
+        Command::Emdf { file, json, dump } => stream_named(&file)
+            .and_then(|source| emdf::run(&source, &emdf::Options { json, dump }))
+            .map(|clean| {
                 if clean {
                     ExitCode::SUCCESS
                 } else {
                     ExitCode::from(EXIT_NONCONFORMANT)
                 }
-            })
-        }
+            }),
+        Command::Oamd { file, json, dump } => stream_named(&file)
+            .and_then(|source| oamd::run(&source, &oamd::Options { json, dump }))
+            .map(|clean| {
+                if clean {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::from(EXIT_NONCONFORMANT)
+                }
+            }),
         Command::Decode {
             file,
             output,
@@ -544,57 +562,105 @@ where
             joc_low_band,
             joc_phase,
         } => {
-            let source = Source::file(&file);
-            let verdict = if let Err(e) =
-                damf::check_presentation(format, presentation).and_then(|()| {
+            let verdict = stream_named(&file).and_then(|source| {
+                if let Err(e) = damf::check_presentation(format, presentation).and_then(|()| {
                     damf::check_interpolation(adm_interpolation.into(), dolby_origin_tag)
                 }) {
-                Err(e)
-            } else if warp_mode.is_some() && !matches!(format, Format::Damf | Format::Adm) {
-                // Samples have nowhere to say it, and an option that reads as
-                // applied while changing nothing is the defect named below.
-                Err(anyhow::anyhow!(
-                    "--warp-mode names a warp mode in an object output: it applies to \
-                     --format damf or adm"
-                ))
-            } else if (joc_lag.is_some() || joc_low_band.is_some() || joc_phase.is_some())
-                && !(eac3::is_eac3(&source).unwrap_or(false)
-                    && matches!(format, Format::Damf | Format::Adm))
-            {
-                // A measurement override that reaches no JOC reconstruction would
-                // be read as applied while changing nothing.
-                Err(anyhow::anyhow!(api::JOC_MEASURES_EAC3_OBJECTS))
-            } else if on_error.is_some() && eac3::is_eac3(&source).unwrap_or(false) {
-                // The E-AC-3 decoder has its own way with a bad frame; an
-                // option that reads as applied while changing nothing is the
-                // defect named below.
-                Err(anyhow::anyhow!(api::ON_ERROR_IS_TRUEHD))
-            } else if start.is_some()
-                && (eac3::is_eac3(&source).unwrap_or(false)
-                    || matches!(format, Format::Damf | Format::Adm))
-            {
-                // An option that reads as applied while changing nothing is the
-                // defect this round fixed for the measurement overrides. A start
-                // is exact only where a restart header re-initialises the
-                // decoder, which is the TrueHD sample output: an E-AC-3 decoder
-                // carries enhanced coupling, a held frame and a pre-noise queue
-                // across frames, and the object writers walk the whole programme
-                // to build one metadata timeline.
-                Err(anyhow::anyhow!(api::START_IS_TRUEHD_SAMPLES))
-            } else if eac3::is_eac3(&source).unwrap_or(false)
-                && matches!(format, Format::Damf | Format::Adm)
-            {
-                if core_only {
-                    // The object programme is the whole programme and the JOC
-                    // downmix needs every channel of it, so the two cannot be
-                    // asked for together.
+                    Err(e)
+                } else if warp_mode.is_some() && !matches!(format, Format::Damf | Format::Adm) {
+                    // Samples have nowhere to say it, and an option that reads as
+                    // applied while changing nothing is the defect named below.
                     Err(anyhow::anyhow!(
-                        "--core-only writes the 5.1-compatible channels of the independent \
+                        "--warp-mode names a warp mode in an object output: it applies to \
+                     --format damf or adm"
+                    ))
+                } else if (joc_lag.is_some() || joc_low_band.is_some() || joc_phase.is_some())
+                    && !(eac3::is_eac3(&source).unwrap_or(false)
+                        && matches!(format, Format::Damf | Format::Adm))
+                {
+                    // A measurement override that reaches no JOC reconstruction would
+                    // be read as applied while changing nothing.
+                    Err(anyhow::anyhow!(api::JOC_MEASURES_EAC3_OBJECTS))
+                } else if on_error.is_some() && eac3::is_eac3(&source).unwrap_or(false) {
+                    // The E-AC-3 decoder has its own way with a bad frame; an
+                    // option that reads as applied while changing nothing is the
+                    // defect named below.
+                    Err(anyhow::anyhow!(api::ON_ERROR_IS_TRUEHD))
+                } else if start.is_some()
+                    && (eac3::is_eac3(&source).unwrap_or(false)
+                        || matches!(format, Format::Damf | Format::Adm))
+                {
+                    // An option that reads as applied while changing nothing is the
+                    // defect this round fixed for the measurement overrides. A start
+                    // is exact only where a restart header re-initialises the
+                    // decoder, which is the TrueHD sample output: an E-AC-3 decoder
+                    // carries enhanced coupling, a held frame and a pre-noise queue
+                    // across frames, and the object writers walk the whole programme
+                    // to build one metadata timeline.
+                    Err(anyhow::anyhow!(api::START_IS_TRUEHD_SAMPLES))
+                } else if eac3::is_eac3(&source).unwrap_or(false)
+                    && matches!(format, Format::Damf | Format::Adm)
+                {
+                    if core_only {
+                        // The object programme is the whole programme and the JOC
+                        // downmix needs every channel of it, so the two cannot be
+                        // asked for together.
+                        Err(anyhow::anyhow!(
+                            "--core-only writes the 5.1-compatible channels of the independent \
                          substream, which is not an object programme; drop it, or ask for \
                          --format wav or pcm"
-                    ))
-                } else {
-                    eac3_objects::run(
+                        ))
+                    } else {
+                        eac3_objects::run(
+                            &source,
+                            &output,
+                            &damf::Options {
+                                keep_duplicates,
+                                bed_conform: !no_bed_conform,
+                                all_events,
+                                adm: format == Format::Adm,
+                                dolby_origin_tag,
+                                loss_report: loss_report.clone(),
+                                isf: isf.into(),
+                                allow_non_profile_rate: adm_allow_non_profile_rate,
+                                fps: fps.clone(),
+                                interpolation: adm_interpolation.into(),
+                                warp: warp_mode,
+                                clip_gain: !no_clip_gain,
+                                flat_quadrature,
+                                sparse_as_printed,
+                                steep_as_printed,
+                                joc: JocOverrides {
+                                    lag: joc_lag,
+                                    low_band: joc_low_band,
+                                    phase: joc_phase,
+                                },
+                                core: oadec_eac3::Options {
+                                    dither: !no_dither,
+                                    tpnp: !no_tpnp,
+                                    ecpl_full: ecpl_spec,
+                                },
+                                // refused above for E-AC-3
+                                on_error: None,
+                            },
+                        )
+                    }
+                } else if eac3::is_eac3(&source).unwrap_or(false) {
+                    eac3::decode(
+                        &source,
+                        &output,
+                        &eac3::DecodeOptions {
+                            format,
+                            order,
+                            core_only,
+                            dither: !no_dither,
+                            tpnp: !no_tpnp,
+                            ecpl_full: ecpl_spec,
+                        },
+                    )
+                    .map(Verdict::from_clean)
+                } else if matches!(format, Format::Damf | Format::Adm) {
+                    damf::run(
                         &source,
                         &output,
                         &damf::Options {
@@ -609,81 +675,33 @@ where
                             fps: fps.clone(),
                             interpolation: adm_interpolation.into(),
                             warp: warp_mode,
-                            clip_gain: !no_clip_gain,
-                            flat_quadrature,
-                            sparse_as_printed,
-                            steep_as_printed,
-                            joc: JocOverrides {
-                                lag: joc_lag,
-                                low_band: joc_low_band,
-                                phase: joc_phase,
-                            },
-                            core: oadec_eac3::Options {
-                                dither: !no_dither,
-                                tpnp: !no_tpnp,
-                                ecpl_full: ecpl_spec,
-                            },
-                            // refused above for E-AC-3
-                            on_error: None,
+                            // TrueHD carries no JOC, so neither of these apply.
+                            clip_gain: false,
+                            flat_quadrature: false,
+                            sparse_as_printed: false,
+                            steep_as_printed: false,
+                            // TrueHD carries no E-AC-3 core.
+                            core: oadec_eac3::Options::default(),
+                            joc: JocOverrides::default(),
+                            on_error,
                         },
                     )
+                } else {
+                    decode::run(
+                        &source,
+                        &output,
+                        &decode::Options {
+                            presentation,
+                            format,
+                            order,
+                            keep_duplicates,
+                            start,
+                            on_error: on_error.unwrap_or(OnError::Conceal),
+                        },
+                    )
+                    .map(Verdict::from_clean)
                 }
-            } else if eac3::is_eac3(&source).unwrap_or(false) {
-                eac3::decode(
-                    &source,
-                    &output,
-                    &eac3::DecodeOptions {
-                        format,
-                        order,
-                        core_only,
-                        dither: !no_dither,
-                        tpnp: !no_tpnp,
-                        ecpl_full: ecpl_spec,
-                    },
-                )
-                .map(Verdict::from_clean)
-            } else if matches!(format, Format::Damf | Format::Adm) {
-                damf::run(
-                    &source,
-                    &output,
-                    &damf::Options {
-                        keep_duplicates,
-                        bed_conform: !no_bed_conform,
-                        all_events,
-                        adm: format == Format::Adm,
-                        dolby_origin_tag,
-                        loss_report: loss_report.clone(),
-                        isf: isf.into(),
-                        allow_non_profile_rate: adm_allow_non_profile_rate,
-                        fps: fps.clone(),
-                        interpolation: adm_interpolation.into(),
-                        warp: warp_mode,
-                        // TrueHD carries no JOC, so neither of these apply.
-                        clip_gain: false,
-                        flat_quadrature: false,
-                        sparse_as_printed: false,
-                        steep_as_printed: false,
-                        // TrueHD carries no E-AC-3 core.
-                        core: oadec_eac3::Options::default(),
-                        joc: JocOverrides::default(),
-                        on_error,
-                    },
-                )
-            } else {
-                decode::run(
-                    &source,
-                    &output,
-                    &decode::Options {
-                        presentation,
-                        format,
-                        order,
-                        keep_duplicates,
-                        start,
-                        on_error: on_error.unwrap_or(OnError::Conceal),
-                    },
-                )
-                .map(Verdict::from_clean)
-            };
+            });
             verdict.map(|verdict| {
                 // Said once, here, where every decode path's verdict becomes an
                 // exit code -- TrueHD and E-AC-3, samples and objects -- and only
@@ -711,36 +729,37 @@ where
             ecpl_spec,
             worst,
         } => {
-            let source = Source::file(&file);
-            let equal = if eac3::is_eac3(&source).unwrap_or(false) {
-                eac3::compare(
-                    &source,
-                    &reference,
-                    &eac3::CompareOptions {
-                        order,
-                        tpnp: !no_tpnp,
-                        ecpl_full: ecpl_spec,
-                        report,
-                        skip: reference_skip,
-                        core_only,
-                        dither: !no_dither,
-                        worst,
-                    },
-                )
-            } else {
-                compare::run(
-                    &source,
-                    &reference,
-                    &compare::Options {
-                        presentation,
-                        format: reference_format,
-                        order,
-                        keep_duplicates,
-                        report,
-                        skip: reference_skip,
-                    },
-                )
-            };
+            let equal = stream_named(&file).and_then(|source| {
+                if eac3::is_eac3(&source).unwrap_or(false) {
+                    eac3::compare(
+                        &source,
+                        &reference,
+                        &eac3::CompareOptions {
+                            order,
+                            tpnp: !no_tpnp,
+                            ecpl_full: ecpl_spec,
+                            report,
+                            skip: reference_skip,
+                            core_only,
+                            dither: !no_dither,
+                            worst,
+                        },
+                    )
+                } else {
+                    compare::run(
+                        &source,
+                        &reference,
+                        &compare::Options {
+                            presentation,
+                            format: reference_format,
+                            order,
+                            keep_duplicates,
+                            report,
+                            skip: reference_skip,
+                        },
+                    )
+                }
+            });
             equal.map(|equal| {
                 if equal {
                     ExitCode::SUCCESS
@@ -749,9 +768,9 @@ where
                 }
             })
         }
-        Command::Au { file, index, json } => {
-            au_dump::run(&Source::file(&file), index, json).map(|()| ExitCode::SUCCESS)
-        }
+        Command::Au { file, index, json } => stream_named(&file)
+            .and_then(|source| au_dump::run(&source, index, json))
+            .map(|()| ExitCode::SUCCESS),
         Command::Rules { id, json, markdown } => {
             catalog::run(id.as_deref(), json, markdown).map(|()| ExitCode::SUCCESS)
         }
@@ -760,7 +779,9 @@ where
             frame,
             part,
             detail,
-        } => eac3::blocks(&Source::file(&file), frame, part, detail).map(|()| ExitCode::SUCCESS),
+        } => stream_named(&file)
+            .and_then(|source| eac3::blocks(&source, frame, part, detail))
+            .map(|()| ExitCode::SUCCESS),
         Command::AtmosAuthor { scene, output } => {
             author::run(&scene, &output).map(|()| ExitCode::SUCCESS)
         }

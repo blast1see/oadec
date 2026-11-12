@@ -142,6 +142,14 @@ time, because it decodes them one after another.
 spreads in the table, 35 and 8 per cent, are object files of TrueHD streams;
 every figure that is the decoder's alone repeats to within three per cent.
 
+**A stream on standard input costs its own size in memory.** A command reads
+its stream more than once, so a pipe is read to its end first and held.
+`verify` of the longest stream there is, 2.6 GB, holds 18 MiB reading the file
+and 2 506 MiB with the stream piped in, which is the stream and 18 MiB, and
+takes 19.7 s against 18.6; of five streams none took more than 20 MiB beside
+its own size
+(`docs/audit/evidence/engine-round-2026-11/21-standard-input.json`).
+
 So the order of work for speed is the AC-3 core first, then the filter banks
 of the object path, then the presentations of `verify --decode` side by side.
 Each of those is a change that has to show its figure with `--compare`

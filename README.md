@@ -66,10 +66,14 @@ oadec emdf    film.thd --dump 1                  # and of a TrueHD access unit, 
 oadec info    film.ec3                            # E-AC-3: frames, coding tools, JOC statistics
 oadec decode  film.ec3 --format damf -o out/film  # JOC objects + metadata as a DAMF set
 oadec compare film.ec3 -r ref.f32                 # against a 32-bit float reference (FFmpeg)
+ffmpeg -i film.mkv -map 0:a:0 -c copy -f truehd - | oadec verify -   # a stream from a pipe
 ```
 
 `film.thd` is a raw TrueHD elementary stream, for example extracted with
-mkvextract. Every check `verify` makes on TrueHD is a named rule with a default
+mkvextract. Where a command reads a stream, `-` is standard input, so a track
+can go from its container to a verdict without a file in between; the stream
+is held in memory for as long as the command runs, because a command reads
+its stream more than once and a pipe can be read once. Every check `verify` makes on TrueHD is a named rule with a default
 severity and a source (a public specification, a measurement, or another
 implementation), listed in [`docs/conformance-rules.md`](docs/conformance-rules.md);
 a finding says where it is (access unit, byte and bit, substream, time), and the
