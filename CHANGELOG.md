@@ -284,6 +284,29 @@ Semantic Versioning.
 
 ### Changed
 
+- **The comparison of two binaries reads every report, and the transcripts
+  hold every report as text.** `tools/old_new.py` ran `verify` as text and as
+  JSON and `info --json`. It did not run `emdf` or `oamd` at all, nor read the
+  text of `info`, nor what a decode prints beside the bytes it writes; and
+  the transcripts held `emdf`, `oamd` and `verify --decode` as JSON alone. So
+  a change that moved a line of those texts would have passed both, on the
+  fixtures and on the corpus: a copy of this decoder with one label changed
+  in each of the two metadata reports was "0 changed" to the tool. The tool
+  now runs the four reports as text and with `--json` and names every line,
+  on stdout or stderr, that the old binary printed and the new one does not
+  print in the same place, and does the same with what each delivery
+  printed; its summary counts the lines and fields each command compared.
+  The changed copy is "10 of 10 changed" to it. The transcripts record the
+  text of `emdf`, `oamd` and `verify --decode`, and the deliveries they left
+  out: a WAVE file, the samples of an AC-3 family stream and of its core, and
+  an ADM file. That is 786 lines more, recorded from a binary whose sources
+  are untouched, and none changed. The tool compares a WAVE file of every
+  stream too. One sentence of `17-input-sources-old-new.json` said the
+  comparison had run `emdf --json` and `oamd --json`; it had not, and the
+  sentence now says what ran. The binaries either side of the two changes
+  merged on the word of the tool as it was were compared again with the tool
+  as it is, and nothing differs
+  (`docs/audit/evidence/engine-round-2026-11/19-reports-compared.json`).
 - **A "reuse" after a "none" keeps "none".** The two bits a block sends of a
   channel's delta bit allocation say new segments, none, or "reuse previous
   state" (table 4.11). After a "none" the pseudo code of clause 6.2.2.6 can
