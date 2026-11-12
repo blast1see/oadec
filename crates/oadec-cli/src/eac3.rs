@@ -19,10 +19,13 @@ use serde_json::{Value, json};
 
 use crate::decode::{Format, Order, format_duration};
 use crate::integrity::Findings;
+use crate::source::Source;
 
 /// Whether the file starts with an AC-3 family sync word.
-pub fn is_eac3(path: &Path) -> Result<bool> {
-    let mut f = File::open(path).with_context(|| format!("opening {}", path.display()))?;
+pub fn is_eac3(source: &Source) -> Result<bool> {
+    let mut f = source
+        .open()
+        .with_context(|| format!("opening {}", source.name()))?;
     let mut head = vec![0u8; SNIFF_BYTES];
     let n = f.read(&mut head)?;
     head.truncate(n);
@@ -72,12 +75,12 @@ fn truehd_start(head: &[u8]) -> Option<usize> {
 /// Streams the syncframes of a file: `on_frame(offset, bytes, header)`.
 /// Returns `(frames, sync_errors, skipped_bytes)`.
 pub(crate) fn for_each_frame(
-    path: &Path,
+    source: &Source,
     mut on_frame: impl FnMut(u64, &[u8], &FrameHeader) -> Result<()>,
 ) -> Result<(u64, u64, u64)> {
-    let file_bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+    let file_bytes = source.size().unwrap_or(0);
     let mut progress = crate::progress::Progress::new("reading", file_bytes);
-    let mut file = BufReader::with_capacity(4 << 20, File::open(path)?);
+    let mut file = BufReader::with_capacity(4 << 20, source.open()?);
     let mut buf: Vec<u8> = Vec::with_capacity(8 << 20);
     let mut base: u64 = 0; // file offset of buf[0]
     let mut frames = 0u64;
@@ -731,13 +734,27 @@ fn account_sub(sub: &mut SubStats, index: u64, part: &oadec_eac3::Part) {
 /// substreams that follow it, and collects statistics; `on_pcm` receives the
 /// merged frame groups in order.
 fn pass(
-    path: &Path,
+    source: &Source,
     opts: Options,
+    on_pcm: impl FnMut(&ProgramFrame) -> Result<()>,
+) -> Result<(Pass, u64, u64)> {
+    pass_while(source, opts, &|| true, on_pcm)
+}
+
+/// [`pass`], given up with an error at the first syncframe at which `go_on`
+/// says no.
+fn pass_while(
+    source: &Source,
+    opts: Options,
+    go_on: &dyn Fn() -> bool,
     mut on_pcm: impl FnMut(&ProgramFrame) -> Result<()>,
 ) -> Result<(Pass, u64, u64)> {
     let mut dec = ProgramDecoder::new(opts);
     let mut p = Pass::default();
-    let (frames, sync_errors, skipped) = for_each_frame(path, |_offset, bytes, header| {
+    let (frames, sync_errors, skipped) = for_each_frame(source, |_offset, bytes, header| {
+        if !go_on() {
+            bail!("the pass was given up");
+        }
         let key = (header.stream_type as u8, header.substream_id);
         *p.substreams.entry(key).or_default() += 1;
         match header.stream_type {
@@ -1107,9 +1124,9 @@ fn findings(p: &Pass, sync_errors: u64, skipped: u64) -> Findings {
     f
 }
 
-fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64, json: bool) {
+fn print_pass(source: &Source, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64, json: bool) {
     let Some((h, bsi)) = &p.first else {
-        eprintln!("{}: no decodable frames", path.display());
+        eprintln!("{}: no decodable frames", source.name());
         return;
     };
     let names = p.layout.as_ref().map_or_else(
@@ -1129,7 +1146,7 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
             .map(|(k, v)| (k.to_string(), Value::from(*v)))
             .collect();
         let report = json!({
-            "file": path.display().to_string(),
+            "file": source.name().to_string(),
             "syntax": syntax_name(h),
             "sample_rate": h.sample_rate,
             "channels": names,
@@ -1262,7 +1279,7 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
         println!("{report}");
         return;
     }
-    println!("File:              {}", path.display());
+    println!("File:              {}", source.name());
     println!(
         "Stream:            {} bsid {}, {} Hz, {} blocks/frame, {} kbit/s",
         syntax_name(h),
@@ -1517,16 +1534,16 @@ fn print_pass(path: &Path, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f6
 
 /// `oadec info` for an AC-3 family stream (decodes everything to gather the
 /// coverage and metadata statistics).
-pub fn info(path: &Path, json: bool) -> Result<()> {
+pub fn info(source: &Source, json: bool) -> Result<()> {
     let started = Instant::now();
-    let (p, sync_errors, skipped) = pass(path, Options::default(), |_| Ok(()))?;
+    let (p, sync_errors, skipped) = pass(source, Options::default(), |_| Ok(()))?;
     if p.independent + p.dependent == 0 {
         // A sync word opened the file and no whole syncframe followed: a report
         // of nothing reads like a clean stream that holds nothing.
-        return Err(crate::info::no_stream(path));
+        return Err(crate::info::no_stream(source));
     }
     print_pass(
-        path,
+        source,
         &p,
         sync_errors,
         skipped,
@@ -1537,16 +1554,16 @@ pub fn info(path: &Path, json: bool) -> Result<()> {
 }
 
 /// `oadec verify`: every frame decodes, every CRC checks, no sync errors.
-pub fn verify(path: &Path, json: bool) -> Result<bool> {
+pub fn verify(source: &Source, json: bool) -> Result<bool> {
     let started = Instant::now();
-    let (p, sync_errors, skipped) = pass(path, Options::default(), |_| Ok(()))?;
+    let (p, sync_errors, skipped) = pass(source, Options::default(), |_| Ok(()))?;
     if p.independent + p.dependent == 0 {
         // Nothing framed: the file is not a stream to judge but an unsupported
         // input, exit 2, as it is for every command that reports one.
-        return Err(crate::info::no_stream(path));
+        return Err(crate::info::no_stream(source));
     }
     print_pass(
-        path,
+        source,
         &p,
         sync_errors,
         skipped,
@@ -1564,9 +1581,13 @@ pub fn verify(path: &Path, json: bool) -> Result<bool> {
 }
 
 /// The checks of `verify` over an AC-3 or E-AC-3 stream: its verdict and the
-/// first problem its report names.
-pub fn stream_check(path: &Path) -> Result<crate::verify::StreamCheck> {
-    let (p, sync_errors, skipped) = pass(path, Options::default(), |_| Ok(()))?;
+/// first problem its report names. Given up with an error at the first
+/// syncframe at which `go_on` says no.
+pub fn stream_check(
+    source: &Source,
+    go_on: &dyn Fn() -> bool,
+) -> Result<crate::verify::StreamCheck> {
+    let (p, sync_errors, skipped) = pass_while(source, Options::default(), go_on, |_| Ok(()))?;
     Ok(crate::verify::StreamCheck {
         clean: is_clean(&p, sync_errors, skipped),
         first_problem: p.first_error.clone().or_else(|| p.emdf.first_error.clone()),
@@ -1587,7 +1608,7 @@ pub struct DecodeOptions {
 
 /// `oadec decode` for AC-3 family streams: 32-bit float samples, as raw
 /// little-endian PCM or as WAVE.
-pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> {
+pub fn decode(source: &Source, output: &Path, opts: &DecodeOptions) -> Result<bool> {
     if matches!(opts.format, Format::Damf | Format::Adm) {
         bail!("object output of E-AC-3 JOC streams is not implemented yet");
     }
@@ -1600,7 +1621,7 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> 
     let mut order: Vec<usize> = Vec::new();
     let wav = opts.format == Format::Wav;
     let (p, sync_errors, skipped) = pass(
-        path,
+        source,
         Options {
             dither: opts.dither,
             tpnp: opts.tpnp,
@@ -1644,7 +1665,7 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> 
         drop(wav_out);
         drop(out);
         let _ = std::fs::remove_file(output);
-        return Err(crate::info::no_stream(path));
+        return Err(crate::info::no_stream(source));
     }
     // a WAVE file an error drops on the way here closes itself
     if let Some(w) = wav_out {
@@ -1653,7 +1674,7 @@ pub fn decode(path: &Path, output: &Path, opts: &DecodeOptions) -> Result<bool> 
         o.flush()?;
     }
     print_pass(
-        path,
+        source,
         &p,
         sync_errors,
         skipped,
@@ -1687,12 +1708,12 @@ pub struct CompareOptions {
 /// it. `part` selects within the group, 0 being the independent substream, so
 /// `--part 1` reads the dependent substream of a 7.1 stream, which is the only
 /// way to check a `bsi` path by hand.
-pub fn blocks(path: &Path, index: u64, part: usize, detail: bool) -> Result<()> {
+pub fn blocks(source: &Source, index: u64, part: usize, detail: bool) -> Result<()> {
     let mut group = 0u64;
     let mut in_group = 0usize;
     let mut started = false;
     let mut found = false;
-    for_each_frame(path, |offset, bytes, header| {
+    for_each_frame(source, |offset, bytes, header| {
         if found {
             return Ok(());
         }
@@ -1791,7 +1812,7 @@ struct ChannelStats {
 
 /// `oadec compare` for AC-3 family streams against a 32-bit float
 /// little-endian reference (for example FFmpeg with `-drc_scale 0`).
-pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<bool> {
+pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Result<bool> {
     let started = Instant::now();
     let file = File::open(reference).with_context(|| format!("opening {}", reference.display()))?;
     let mut reader = BufReader::with_capacity(4 << 20, file);
@@ -1809,7 +1830,7 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
     let mut frame_index: u64 = 0;
     let mut worst_list: Vec<(f64, u64, usize, usize)> = Vec::new();
     let (p, sync_errors, skipped) = pass(
-        path,
+        source,
         Options {
             dither: opts.dither,
             tpnp: opts.tpnp,
@@ -1896,7 +1917,7 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
     if p.independent + p.dependent == 0 {
         // Nothing framed: the file is not a stream to judge but an unsupported
         // input, exit 2, as it is for every command that reports one.
-        return Err(crate::info::no_stream(path));
+        return Err(crate::info::no_stream(source));
     }
     let elapsed = started.elapsed().as_secs_f64();
     if opts.worst > 0 {
@@ -1909,7 +1930,7 @@ pub fn compare(path: &Path, reference: &Path, opts: &CompareOptions) -> Result<b
             );
         }
     }
-    print_pass(path, &p, sync_errors, skipped, elapsed, false);
+    print_pass(source, &p, sync_errors, skipped, elapsed, false);
     let clean = findings(&p, sync_errors, skipped).report_clean();
     // drain the rest of the reference to learn its length
     let mut tail = [0u8; 1 << 16];

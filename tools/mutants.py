@@ -511,6 +511,27 @@ MUTANTS = [
      'crates/oadec-eac3/src/frame.rs',
      'if dba.is_some_and(|d| d.lengths.iter().any(|&l| l > 0)) {',
      'if dba.is_some() {'),
+    # --- where a command reads from, and the check beside it -----------------
+    ('a check that is dropped is not told to stop',
+     'crates/oadec-cli/src/verify.rs',
+     '            self.given_up.store(true, Ordering::Relaxed);\n',
+     ''),
+    ('the check on a thread of its own never looks at its flag',
+     'crates/oadec-cli/src/verify.rs',
+     'stream_check(&source, &|| !flag.load(Ordering::Relaxed))',
+     'stream_check(&source, &|| flag.load(Ordering::Relaxed) || true)'),
+    ('a TrueHD scan that is told to stop goes on',
+     'crates/oadec-cli/src/scan.rs',
+     '        if !go_on() {\n            anyhow::bail!("the scan was given up");\n        }\n',
+     ''),
+    ('an E-AC-3 pass that is told to stop goes on',
+     'crates/oadec-cli/src/eac3.rs',
+     '        if !go_on() {\n            bail!("the pass was given up");\n        }\n',
+     ''),
+    ('bytes in memory said to have no size',
+     'crates/oadec-cli/src/source.rs',
+     'From::Memory(bytes) => bytes.len() as u64,',
+     'From::Memory(_) => 0,'),
     # --- AC-3 frames written whole (crates/oadec-synth) ----------------------
     # No fixture is an AC-3 stream, and no stream of a library applies a delta
     # bit allocation: until `oadec-synth` wrote frames that do, nothing decoded

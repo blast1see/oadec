@@ -27,6 +27,7 @@ mod progress;
 mod protection;
 mod repair;
 mod scan;
+pub mod source;
 mod thd_demux;
 mod verify;
 
@@ -40,6 +41,7 @@ use crate::damf::{InterpolationArg, IsfArg, WarpArg};
 use crate::decode::{Format, OnError, Order};
 use crate::eac3_objects::{JocLowBand, JocOverrides, JocPhase};
 use crate::integrity::Verdict;
+use crate::source::Source;
 use oadec_truehd::{Severity, Tally};
 
 /// Object-audio decoder engine for Dolby TrueHD Atmos and E-AC-3 JOC streams.
@@ -449,27 +451,31 @@ where
     T: Into<std::ffi::OsString> + Clone,
 {
     let cli = Cli::parse_from(args);
-    let result =
-        match cli.command {
-            Command::Info { file, json } => eac3::is_eac3(&file)
+    let result = match cli.command {
+        Command::Info { file, json } => {
+            let source = Source::file(&file);
+            eac3::is_eac3(&source)
                 .and_then(|is| {
                     if is {
-                        eac3::info(&file, json)
+                        eac3::info(&source, json)
                     } else {
-                        info::run(&file, json)
+                        info::run(&source, json)
                     }
                 })
-                .map(|()| ExitCode::SUCCESS),
-            Command::Verify {
-                file,
-                json,
-                decode,
-                fail_on,
-                max_per_rule,
-                trace_fifo,
-                require_disc,
-                census,
-            } => eac3::is_eac3(&file)
+                .map(|()| ExitCode::SUCCESS)
+        }
+        Command::Verify {
+            file,
+            json,
+            decode,
+            fail_on,
+            max_per_rule,
+            trace_fifo,
+            require_disc,
+            census,
+        } => {
+            let source = Source::file(&file);
+            eac3::is_eac3(&source)
                 .and_then(|is| {
                     if is {
                         if census {
@@ -492,10 +498,10 @@ where
                                  catalog yet"
                             ));
                         }
-                        eac3::verify(&file, json)
+                        eac3::verify(&source, json)
                     } else {
                         verify::run(
-                            &file,
+                            &source,
                             &verify::Options {
                                 json,
                                 decode,
@@ -520,55 +526,61 @@ where
                     } else {
                         ExitCode::from(EXIT_NONCONFORMANT)
                     }
-                }),
-            Command::Emdf { file, json, dump } => emdf::run(&file, &emdf::Options { json, dump })
-                .map(|clean| {
-                    if clean {
-                        ExitCode::SUCCESS
-                    } else {
-                        ExitCode::from(EXIT_NONCONFORMANT)
-                    }
-                }),
-            Command::Oamd { file, json, dump } => oamd::run(&file, &oamd::Options { json, dump })
-                .map(|clean| {
-                    if clean {
-                        ExitCode::SUCCESS
-                    } else {
-                        ExitCode::from(EXIT_NONCONFORMANT)
-                    }
-                }),
-            Command::Decode {
-                file,
-                output,
-                presentation,
-                format,
-                order,
-                keep_duplicates,
-                on_error,
-                start,
-                no_bed_conform,
-                all_events,
-                dolby_origin_tag,
-                loss_report,
-                isf,
-                adm_allow_non_profile_rate,
-                fps,
-                adm_interpolation,
-                warp_mode,
-                core_only,
-                no_dither,
-                no_tpnp,
-                ecpl_spec,
-                no_clip_gain,
-                flat_quadrature,
-                sparse_as_printed,
-                steep_as_printed,
-                joc_lag,
-                joc_low_band,
-                joc_phase,
-            } => if let Err(e) = damf::check_presentation(format, presentation).and_then(|()| {
-                damf::check_interpolation(adm_interpolation.into(), dolby_origin_tag)
-            }) {
+                })
+        }
+        Command::Emdf { file, json, dump } => {
+            emdf::run(&Source::file(&file), &emdf::Options { json, dump }).map(|clean| {
+                if clean {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::from(EXIT_NONCONFORMANT)
+                }
+            })
+        }
+        Command::Oamd { file, json, dump } => {
+            oamd::run(&Source::file(&file), &oamd::Options { json, dump }).map(|clean| {
+                if clean {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::from(EXIT_NONCONFORMANT)
+                }
+            })
+        }
+        Command::Decode {
+            file,
+            output,
+            presentation,
+            format,
+            order,
+            keep_duplicates,
+            on_error,
+            start,
+            no_bed_conform,
+            all_events,
+            dolby_origin_tag,
+            loss_report,
+            isf,
+            adm_allow_non_profile_rate,
+            fps,
+            adm_interpolation,
+            warp_mode,
+            core_only,
+            no_dither,
+            no_tpnp,
+            ecpl_spec,
+            no_clip_gain,
+            flat_quadrature,
+            sparse_as_printed,
+            steep_as_printed,
+            joc_lag,
+            joc_low_band,
+            joc_phase,
+        } => {
+            let source = Source::file(&file);
+            let verdict = if let Err(e) =
+                damf::check_presentation(format, presentation).and_then(|()| {
+                    damf::check_interpolation(adm_interpolation.into(), dolby_origin_tag)
+                }) {
                 Err(e)
             } else if warp_mode.is_some() && !matches!(format, Format::Damf | Format::Adm) {
                 // Samples have nowhere to say it, and an option that reads as
@@ -578,7 +590,7 @@ where
                      --format damf or adm"
                 ))
             } else if (joc_lag.is_some() || joc_low_band.is_some() || joc_phase.is_some())
-                && !(eac3::is_eac3(&file).unwrap_or(false)
+                && !(eac3::is_eac3(&source).unwrap_or(false)
                     && matches!(format, Format::Damf | Format::Adm))
             {
                 // A measurement override that reaches no JOC reconstruction would
@@ -587,7 +599,7 @@ where
                     "--joc-lag, --joc-low-band and --joc-phase measure the JOC object \
                      decode: they apply to an E-AC-3 stream with --format damf or adm"
                 ))
-            } else if on_error.is_some() && eac3::is_eac3(&file).unwrap_or(false) {
+            } else if on_error.is_some() && eac3::is_eac3(&source).unwrap_or(false) {
                 // The E-AC-3 decoder has its own way with a bad frame; an
                 // option that reads as applied while changing nothing is the
                 // defect named below.
@@ -596,7 +608,7 @@ where
                      cannot read; it does not apply to an E-AC-3 stream"
                 ))
             } else if start.is_some()
-                && (eac3::is_eac3(&file).unwrap_or(false)
+                && (eac3::is_eac3(&source).unwrap_or(false)
                     || matches!(format, Format::Damf | Format::Adm))
             {
                 // An option that reads as applied while changing nothing is the
@@ -611,7 +623,7 @@ where
                      restart header re-initialises every substream: it applies to a TrueHD \
                      stream with --format pcm or wav"
                 ))
-            } else if eac3::is_eac3(&file).unwrap_or(false)
+            } else if eac3::is_eac3(&source).unwrap_or(false)
                 && matches!(format, Format::Damf | Format::Adm)
             {
                 if core_only {
@@ -625,7 +637,7 @@ where
                     ))
                 } else {
                     eac3_objects::run(
-                        &file,
+                        &source,
                         &output,
                         &damf::Options {
                             keep_duplicates,
@@ -658,9 +670,9 @@ where
                         },
                     )
                 }
-            } else if eac3::is_eac3(&file).unwrap_or(false) {
+            } else if eac3::is_eac3(&source).unwrap_or(false) {
                 eac3::decode(
-                    &file,
+                    &source,
                     &output,
                     &eac3::DecodeOptions {
                         format,
@@ -674,7 +686,7 @@ where
                 .map(Verdict::from_clean)
             } else if matches!(format, Format::Damf | Format::Adm) {
                 damf::run(
-                    &file,
+                    &source,
                     &output,
                     &damf::Options {
                         keep_duplicates,
@@ -701,7 +713,7 @@ where
                 )
             } else {
                 decode::run(
-                    &file,
+                    &source,
                     &output,
                     &decode::Options {
                         presentation,
@@ -713,8 +725,8 @@ where
                     },
                 )
                 .map(Verdict::from_clean)
-            }
-            .map(|verdict| {
+            };
+            verdict.map(|verdict| {
                 // Said once, here, where every decode path's verdict becomes an
                 // exit code -- TrueHD and E-AC-3, samples and objects -- and only
                 // for a run that ended clean. A decode that wrote its output and
@@ -724,24 +736,27 @@ where
                     eprintln!("done");
                 }
                 ExitCode::from(verdict.exit_code())
-            }),
-            Command::Compare {
-                file,
-                reference,
-                presentation,
-                reference_format,
-                order,
-                keep_duplicates,
-                report,
-                reference_skip,
-                core_only,
-                no_dither,
-                no_tpnp,
-                ecpl_spec,
-                worst,
-            } => if eac3::is_eac3(&file).unwrap_or(false) {
+            })
+        }
+        Command::Compare {
+            file,
+            reference,
+            presentation,
+            reference_format,
+            order,
+            keep_duplicates,
+            report,
+            reference_skip,
+            core_only,
+            no_dither,
+            no_tpnp,
+            ecpl_spec,
+            worst,
+        } => {
+            let source = Source::file(&file);
+            let equal = if eac3::is_eac3(&source).unwrap_or(false) {
                 eac3::compare(
-                    &file,
+                    &source,
                     &reference,
                     &eac3::CompareOptions {
                         order,
@@ -756,7 +771,7 @@ where
                 )
             } else {
                 compare::run(
-                    &file,
+                    &source,
                     &reference,
                     &compare::Options {
                         presentation,
@@ -767,64 +782,65 @@ where
                         skip: reference_skip,
                     },
                 )
-            }
-            .map(|equal| {
+            };
+            equal.map(|equal| {
                 if equal {
                     ExitCode::SUCCESS
                 } else {
                     ExitCode::from(EXIT_NONCONFORMANT)
                 }
-            }),
-            Command::Au { file, index, json } => {
-                au_dump::run(&file, index, json).map(|()| ExitCode::SUCCESS)
-            }
-            Command::Rules { id, json, markdown } => {
-                catalog::run(id.as_deref(), json, markdown).map(|()| ExitCode::SUCCESS)
-            }
-            Command::Eac3Blocks {
-                file,
-                frame,
-                part,
-                detail,
-            } => eac3::blocks(&file, frame, part, detail).map(|()| ExitCode::SUCCESS),
-            Command::AtmosAuthor { scene, output } => {
-                author::run(&scene, &output).map(|()| ExitCode::SUCCESS)
-            }
-            Command::ThdDemux { file, output, core } => {
-                thd_demux::run(&file, &output, core.as_deref()).map(|()| ExitCode::SUCCESS)
-            }
-            Command::Eac3EcplInject {
-                file,
-                output,
+            })
+        }
+        Command::Au { file, index, json } => {
+            au_dump::run(&Source::file(&file), index, json).map(|()| ExitCode::SUCCESS)
+        }
+        Command::Rules { id, json, markdown } => {
+            catalog::run(id.as_deref(), json, markdown).map(|()| ExitCode::SUCCESS)
+        }
+        Command::Eac3Blocks {
+            file,
+            frame,
+            part,
+            detail,
+        } => eac3::blocks(&Source::file(&file), frame, part, detail).map(|()| ExitCode::SUCCESS),
+        Command::AtmosAuthor { scene, output } => {
+            author::run(&scene, &output).map(|()| ExitCode::SUCCESS)
+        }
+        Command::ThdDemux { file, output, core } => {
+            thd_demux::run(&file, &output, core.as_deref()).map(|()| ExitCode::SUCCESS)
+        }
+        Command::Eac3EcplInject {
+            file,
+            output,
+            chaos,
+            flat_angle,
+            flat_amp,
+            interp,
+        } => ecpl_inject::run(
+            &file,
+            &output,
+            ecpl_inject::Shape {
                 chaos,
                 flat_angle,
                 flat_amp,
                 interp,
-            } => ecpl_inject::run(
-                &file,
-                &output,
-                ecpl_inject::Shape {
-                    chaos,
-                    flat_angle,
-                    flat_amp,
-                    interp,
-                },
-            )
-            .map(|()| ExitCode::SUCCESS),
-            Command::Eac3JocConfig {
-                file,
-                output,
-                dmx_config,
-            } => joc_config::run(&file, &output, dmx_config).map(|()| ExitCode::SUCCESS),
-            Command::Eac3JocOffset {
-                file,
-                output,
-                offset_ts_bits,
-            } => joc_offset::run(&file, &output, offset_ts_bits).map(|()| ExitCode::SUCCESS),
-            Command::Repair { file, output, json } => {
-                repair::run(&file, &output, json).map(|()| ExitCode::SUCCESS)
-            }
-        };
+            },
+        )
+        .map(|()| ExitCode::SUCCESS),
+        Command::Eac3JocConfig {
+            file,
+            output,
+            dmx_config,
+        } => joc_config::run(&file, &output, dmx_config).map(|()| ExitCode::SUCCESS),
+        Command::Eac3JocOffset {
+            file,
+            output,
+            offset_ts_bits,
+        } => joc_offset::run(&file, &output, offset_ts_bits).map(|()| ExitCode::SUCCESS),
+        Command::Repair { file, output, json } => {
+            repair::run(&file, &output, json).map(|()| ExitCode::SUCCESS)
+        }
+    };
     match result {
         Ok(code) => code,
         Err(err) => {

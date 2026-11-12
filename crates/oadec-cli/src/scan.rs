@@ -1,7 +1,6 @@
 //! One pass over a TrueHD stream collecting what `info` and `verify` report.
 
 use std::collections::BTreeMap;
-use std::path::Path;
 
 use anyhow::Result;
 use oadec_emdf::container;
@@ -14,6 +13,7 @@ use oadec_truehd::{
 use serde::Serialize;
 
 use crate::input::{self, PassSummary};
+use crate::source::Source;
 
 /// Integrity counters (all should be zero for a conformant stream).
 #[derive(Debug, Clone, Copy, Default, Serialize)]
@@ -424,9 +424,9 @@ fn note_first(slot: &mut Option<String>, message: impl FnOnce() -> String) {
 }
 
 impl Scan {
-    fn new(path: &Path, max_per_rule: usize) -> Self {
+    fn new(source: &Source, max_per_rule: usize) -> Self {
         Self {
-            file: path.display().to_string(),
+            file: source.name().to_string(),
             file_bytes: 0,
             units: 0,
             major_syncs: 0,
@@ -1231,25 +1231,39 @@ impl Scan {
 
 /// Scans a whole file, listing up to [`Tally::DEFAULT_MAX_PER_RULE`] findings
 /// of each rule in full.
-pub fn scan(path: &Path) -> Result<Scan> {
-    scan_with(path, Tally::DEFAULT_MAX_PER_RULE)
+pub fn scan(source: &Source) -> Result<Scan> {
+    scan_with(source, Tally::DEFAULT_MAX_PER_RULE)
 }
 
 /// Scans a whole file, listing up to `max_per_rule` findings of each rule in
 /// full (0 lists all). The limit never changes a count or a verdict.
-pub fn scan_with(path: &Path, max_per_rule: usize) -> Result<Scan> {
-    scan_keeping(path, max_per_rule, false)
+pub fn scan_with(source: &Source, max_per_rule: usize) -> Result<Scan> {
+    scan_keeping(source, max_per_rule, false)
 }
 
 /// Like [`scan_with`], also keeping what every unit puts into the decoder
 /// buffer when `keep_layouts` is set.
-pub fn scan_keeping(path: &Path, max_per_rule: usize, keep_layouts: bool) -> Result<Scan> {
-    let mut scan = Scan::new(path, max_per_rule);
+pub fn scan_keeping(source: &Source, max_per_rule: usize, keep_layouts: bool) -> Result<Scan> {
+    scan_while(source, max_per_rule, keep_layouts, &|| true)
+}
+
+/// [`scan_keeping`], given up with an error at the first access unit at which
+/// `go_on` says no.
+pub fn scan_while(
+    source: &Source,
+    max_per_rule: usize,
+    keep_layouts: bool,
+    go_on: &dyn Fn() -> bool,
+) -> Result<Scan> {
+    let mut scan = Scan::new(source, max_per_rule);
     if keep_layouts {
         scan.layouts = Some(Vec::new());
     }
     let mut since_major_sync = 0u64;
-    let summary = input::for_each_unit(path, |unit| {
+    let summary = input::for_each_unit(source, |unit| {
+        if !go_on() {
+            anyhow::bail!("the scan was given up");
+        }
         scan.take_unit(&unit, &mut since_major_sync);
         Ok(())
     })?;

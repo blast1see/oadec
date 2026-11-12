@@ -2,14 +2,13 @@
 //! each part sits in the file -- the place a finding of `verify` points to,
 //! opened up.
 
-use std::path::Path;
-
 use anyhow::{Result, anyhow};
 use oadec_emdf::container;
 use oadec_truehd::{AccessUnit, ExtraKind, ParserState, SampleBuffer, Segment, StreamConfig};
 use serde_json::{Value, json};
 
 use crate::input;
+use crate::source::Source;
 
 /// The walk stops once the unit is described; this is how it says so.
 #[derive(Debug)]
@@ -235,13 +234,13 @@ fn print_text(v: &Value) {
 }
 
 /// Runs the command.
-pub fn run(path: &Path, index: u64, json_out: bool) -> Result<()> {
+pub fn run(source: &Source, index: u64, json_out: bool) -> Result<()> {
     let mut config: Option<StreamConfig> = None;
     let mut parser: Option<ParserState> = None;
     let mut buffer = Box::<SampleBuffer>::default();
     let mut seen = 0u64;
     let mut found = None;
-    let walk = input::for_each_unit(path, |unit| {
+    let walk = input::for_each_unit(source, |unit| {
         let i = seen;
         seen += 1;
         if i == index {

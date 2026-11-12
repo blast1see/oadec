@@ -1,12 +1,11 @@
 //! `oadec info`: what the stream declares about itself.
 
-use std::path::Path;
-
 use anyhow::Result;
 use oadec_truehd::sync::FbbFormat;
 use oadec_truehd::{ChannelLabel, MajorSync, PresentationKind};
 
 use crate::scan::{self, Scan};
+use crate::source::Source;
 
 fn labels(v: &[ChannelLabel]) -> String {
     v.iter()
@@ -271,18 +270,18 @@ fn print_text(scan: &Scan) {
 /// megabyte of random bytes and exited 0, and `oamd` reported "0 in 0 of 0
 /// access units". A file that is not a stream is an unsupported input, exit 2
 /// (`docs/exit-codes.md`).
-pub(crate) fn no_stream(path: &Path) -> anyhow::Error {
+pub(crate) fn no_stream(source: &Source) -> anyhow::Error {
     anyhow::anyhow!(
         "no TrueHD access unit or E-AC-3 syncframe found in {}",
-        path.display()
+        source.name()
     )
 }
 
 /// Runs the command.
-pub fn run(path: &Path, json: bool) -> Result<()> {
-    let scan = scan::scan(path)?;
+pub fn run(source: &Source, json: bool) -> Result<()> {
+    let scan = scan::scan(source)?;
     if scan.units == 0 {
-        return Err(no_stream(path));
+        return Err(no_stream(source));
     }
     if json {
         let mut value = serde_json::to_value(&scan)?;

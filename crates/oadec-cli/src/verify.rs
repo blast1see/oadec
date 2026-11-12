@@ -1,6 +1,8 @@
 //! `oadec verify`: integrity counters over a whole stream.
 
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use anyhow::Result;
@@ -13,6 +15,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use crate::decode::{Order, Session};
+use crate::source::Source;
 use crate::{input, scan};
 
 /// The lossless check words one presentation's decode evaluated.
@@ -66,13 +69,13 @@ impl LosslessChecks {
 /// only by a decode, and only for the one presentation that decode asked for.
 /// A presentation that is a copy of another is not decoded twice: its samples,
 /// and so its checks, are the other one's.
-fn lossless_checks(path: &Path, ms: &MajorSync) -> Result<LosslessChecks> {
+fn lossless_checks(source: &Source, ms: &MajorSync) -> Result<LosslessChecks> {
     let config = StreamConfig::from_major_sync(ms)?;
     let mut sessions: Vec<(usize, Session, Option<String>, u64)> = (0..MAX_PRESENTATIONS)
         .filter(|&p| config.presentations.is_carried(p))
         .map(|p| (p, Session::new(p, false, Order::Stream), None, 0))
         .collect();
-    input::for_each_unit(path, |unit| {
+    input::for_each_unit(source, |unit| {
         for (_, session, error, clipped) in &mut sessions {
             if error.is_some() {
                 continue;
@@ -142,12 +145,13 @@ pub struct StreamCheck {
 }
 
 /// Runs the checks of `verify` (without `--decode`) over a stream of either
-/// codec.
-pub fn stream_check(path: &Path) -> Result<StreamCheck> {
-    if crate::eac3::is_eac3(path)? {
-        return crate::eac3::stream_check(path);
+/// codec. Given up with an error at the first access unit or syncframe at
+/// which `go_on` says no.
+fn stream_check(source: &Source, go_on: &dyn Fn() -> bool) -> Result<StreamCheck> {
+    if crate::eac3::is_eac3(source)? {
+        return crate::eac3::stream_check(source, go_on);
     }
-    let scan = scan::scan(path)?;
+    let scan = scan::scan_while(source, Tally::DEFAULT_MAX_PER_RULE, false, go_on)?;
     // the default verdict of `verify`: every counter it has always read, and
     // the rules without a counter that fail a stream by default
     Ok(StreamCheck {
@@ -162,20 +166,58 @@ pub fn stream_check(path: &Path) -> Result<StreamCheck> {
     })
 }
 
-/// Starts [`stream_check`] on a thread of its own, for a command that reads the
-/// same stream in a pass of its own meanwhile.
-pub fn spawn_stream_check(path: &Path) -> std::thread::JoinHandle<Result<StreamCheck>> {
-    let path = path.to_path_buf();
-    std::thread::spawn(move || stream_check(&path))
+/// The checks of `verify` going over a stream on a thread of their own, for a
+/// command that reads the same stream in a pass of its own meanwhile.
+///
+/// The thread does not outlive this value. A command that ends early on an
+/// error of its own drops it, and the check is then told to stop, which it
+/// does at its next access unit or syncframe, and is waited for. Until this
+/// held the thread it was left to run on behind a command that had returned,
+/// which ended with the process and so was harmless only in a process.
+#[derive(Debug)]
+pub struct StreamChecking {
+    thread: Option<std::thread::JoinHandle<Result<StreamCheck>>>,
+    given_up: Arc<AtomicBool>,
+}
+
+/// Starts the checks of `verify` on a thread of their own.
+pub fn spawn_stream_check(source: &Source) -> StreamChecking {
+    spawn_under(source, Arc::new(AtomicBool::new(false)))
+}
+
+/// Starts the checks on a thread that gives the stream up once `given_up`
+/// is set.
+fn spawn_under(source: &Source, given_up: Arc<AtomicBool>) -> StreamChecking {
+    let source = source.clone();
+    let flag = Arc::clone(&given_up);
+    StreamChecking {
+        thread: Some(std::thread::spawn(move || {
+            stream_check(&source, &|| !flag.load(Ordering::Relaxed))
+        })),
+        given_up,
+    }
 }
 
 /// The verdict of a check started with [`spawn_stream_check`].
-pub fn join_stream_check(
-    check: std::thread::JoinHandle<Result<StreamCheck>>,
-) -> Result<StreamCheck> {
-    check
+pub fn join_stream_check(mut check: StreamChecking) -> Result<StreamCheck> {
+    let thread = check
+        .thread
+        .take()
+        .expect("the thread is there until it is joined");
+    thread
         .join()
         .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+}
+
+impl Drop for StreamChecking {
+    fn drop(&mut self) {
+        if let Some(thread) = self.thread.take() {
+            self.given_up.store(true, Ordering::Relaxed);
+            // Nobody is left to hear its verdict, or a panic of its own:
+            // the command is already on its way out with an error.
+            let _ = thread.join();
+        }
+    }
 }
 
 /// How `verify` judges a TrueHD stream and how much of what it found it lists.
@@ -756,19 +798,19 @@ fn print_diagnostics(scan: &scan::Scan, fail_on: Severity) {
 /// Runs the command; returns `true` when the stream is clean. With `decode`,
 /// every presentation the stream carries is decoded as well and its lossless
 /// checks join the verdict.
-pub fn run(path: &Path, opts: &Options) -> Result<bool> {
+pub fn run(source: &Source, opts: &Options) -> Result<bool> {
     let started = Instant::now();
-    let mut scan = scan::scan_keeping(path, opts.max_per_rule, opts.trace_fifo.is_some())?;
+    let mut scan = scan::scan_keeping(source, opts.max_per_rule, opts.trace_fifo.is_some())?;
     if let (Some(out), Some(layouts)) = (&opts.trace_fifo, &scan.layouts) {
         write_trace(out, layouts)?;
     }
     if scan.units == 0 {
         // Nothing framed: the file is not a stream to judge but an unsupported
         // input, exit 2, as it is for every command that reports one.
-        return Err(crate::info::no_stream(path));
+        return Err(crate::info::no_stream(source));
     }
     let checks = match (&scan.first_major_sync, opts.decode) {
-        (Some(ms), true) => Some(lossless_checks(path, ms)?),
+        (Some(ms), true) => Some(lossless_checks(source, ms)?),
         (None, true) => Some(LosslessChecks::default()),
         (_, false) => None,
     };
@@ -987,4 +1029,115 @@ pub fn run(path: &Path, opts: &Options) -> Result<bool> {
         );
     }
     Ok(clean)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fixture(name: &str) -> Source {
+        Source::file(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests")
+                .join("fixtures")
+                .join(name),
+        )
+    }
+
+    /// The same bytes, held in memory under the name of the file.
+    fn in_memory(file: &Source) -> Source {
+        let mut bytes = Vec::new();
+        std::io::Read::read_to_end(&mut file.open().expect("opened"), &mut bytes).expect("read");
+        Source::memory(file.name(), bytes)
+    }
+
+    /// One stream of each syntax the commands read.
+    const STREAMS: [&str; 4] = [
+        "truehd-20-44k.thd",
+        "mlp-51-96k.mlp",
+        "authored-scene.mlp",
+        "authored-scene.ec3",
+    ];
+
+    fn said(check: &StreamCheck) -> Value {
+        serde_json::to_value(check).expect("a value")
+    }
+
+    /// A stream read from memory is the stream read from its file: the checks
+    /// say the same of both, and the report of a scan is the same text.
+    #[test]
+    fn a_stream_in_memory_is_checked_as_its_file_is() {
+        for name in STREAMS {
+            let file = fixture(name);
+            let memory = in_memory(&file);
+            let of_file = stream_check(&file, &|| true).expect("checked");
+            let of_memory = stream_check(&memory, &|| true).expect("checked");
+            assert_eq!(said(&of_file), said(&of_memory), "{name}");
+            if name.ends_with(".ec3") {
+                continue;
+            }
+            let report = |source: &Source| {
+                serde_json::to_string(&scan::scan(source).expect("scanned")).expect("a report")
+            };
+            assert_eq!(report(&file), report(&memory), "{name}");
+        }
+    }
+
+    /// A check that is told to stop gives the stream up at the first access
+    /// unit or syncframe it comes to.
+    #[test]
+    fn a_check_told_to_stop_gives_the_stream_up_at_once() {
+        for name in STREAMS {
+            let asked = std::cell::Cell::new(0u32);
+            let stopped = stream_check(&fixture(name), &|| {
+                asked.set(asked.get() + 1);
+                false
+            });
+            let error = stopped.expect_err("given up");
+            assert_eq!(asked.get(), 1, "{name}");
+            assert!(
+                format!("{error:#}").contains("given up"),
+                "{name}: {error:#}"
+            );
+        }
+    }
+
+    /// On a thread of its own the check gives the verdict it gives here.
+    #[test]
+    fn a_check_that_is_joined_gives_the_verdict_of_the_check() {
+        for name in STREAMS {
+            let source = fixture(name);
+            let here = stream_check(&source, &|| true).expect("checked");
+            let there = join_stream_check(spawn_stream_check(&source)).expect("checked");
+            assert_eq!(said(&here), said(&there), "{name}");
+        }
+    }
+
+    /// The thread reads the flag its handle holds: one started under a flag
+    /// that is already set gives the stream up without a verdict.
+    #[test]
+    fn a_check_on_its_thread_stops_when_its_flag_is_set() {
+        for name in STREAMS {
+            let check = spawn_under(&fixture(name), Arc::new(AtomicBool::new(true)));
+            let error = join_stream_check(check).expect_err("given up");
+            assert!(
+                format!("{error:#}").contains("given up"),
+                "{name}: {error:#}"
+            );
+        }
+    }
+
+    /// The thread of a check does not outlive its handle: one that is dropped
+    /// is told to stop and waited for.
+    #[test]
+    fn a_check_that_is_dropped_is_stopped_and_waited_for() {
+        for name in STREAMS {
+            let check = spawn_stream_check(&in_memory(&fixture(name)));
+            let given_up = Arc::clone(&check.given_up);
+            drop(check);
+            assert!(given_up.load(Ordering::Relaxed), "{name}: told to stop");
+            // the thread held the other handle on the flag, and it has ended
+            assert_eq!(Arc::strong_count(&given_up), 1, "{name}");
+        }
+    }
 }
