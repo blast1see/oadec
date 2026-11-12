@@ -619,8 +619,8 @@ fn what_the_decoders_did_with_each_ac3_probe() {
 }
 
 /// What this decoder makes of each probe today. It reads "reuse" after
-/// "none" as the pseudo code has it, with FFmpeg's decoder and against
-/// Dolby's; a "reuse" in a first block as neither of them does, with no
+/// "none" as the table of the field has it, with Dolby's decoder and against
+/// FFmpeg's; a "reuse" in a first block as neither of them does, with no
 /// segments to apply; the reserved code as no delta, with Dolby's; and of a
 /// segment past the last band the part that is within the bands, where both
 /// of the others give the frame up.
