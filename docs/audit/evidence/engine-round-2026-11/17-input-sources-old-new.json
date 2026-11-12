@@ -1,0 +1,164 @@
+{
+ "question": "Does reading the stream from a source that opens again, a file or bytes in memory, and holding the check that runs beside a command by a value that stops and joins its thread, change anything the tool reports, delivers or costs?",
+ "method": "Every function of `crates/oadec-cli` that reads the input took a path; it takes a `Source` now (`src/source.rs`), which is a file or bytes in memory and opens at its beginning as often as it is asked. The dispatcher makes one of the file a command names. The thread on which the checks of `verify` run beside a command is held by a value that sets a flag and joins the thread when it is dropped, and the scan and the pass on that thread ask the flag at every access unit and syncframe. Two release binaries (`cargo build --release --locked -p oadec-cli`): main before the change and the change. `tools/old_new.py --decode-all` ran both over every stream of the work directory and the fixtures: `info --json`, `verify --json`, `emdf --json`, `oamd --json`, their exit codes, and every delivery (PCM of each presentation, the programme and the core of AC-3 and E-AC-3, DAMF, ADM), compared byte for byte. `tools/bench.py --compare` measured both, five runs a command, on the longest streams of each kind. The media suite and the media regression ran on the change.",
+ "binaries": {
+  "main before the change": "a51173c4bd1e4da88093957adfd6d36bed4e9501c3cc9d692e4c4a90c0056152",
+  "the change": "78096f7e1ed86b998951e0f204cf71621943fac5fd7563a66603ab9c55b4f988"
+ },
+ "result": {
+  "the_125_streams": {
+   "streams": 125,
+   "streams_changed": 0,
+   "fields_added": [],
+   "deliveries": {
+    "pcm -p N (TrueHD and MLP, presentations 0 to 3)": {
+     "runs": 220,
+     "wrote_output": 202,
+     "bytes_compared": 30402893100,
+     "exit_codes": {
+      "0": 198,
+      "2": 18,
+      "7": 4
+     }
+    },
+    "pcm (AC-3 and E-AC-3, the programme)": {
+     "runs": 70,
+     "wrote_output": 70,
+     "bytes_compared": 4058892288,
+     "exit_codes": {
+      "0": 61,
+      "7": 9
+     }
+    },
+    "pcm --core-only (AC-3 and E-AC-3)": {
+     "runs": 70,
+     "wrote_output": 70,
+     "bytes_compared": 3823884288,
+     "exit_codes": {
+      "0": 61,
+      "7": 9
+     }
+    },
+    "damf": {
+     "runs": 125,
+     "wrote_output": 64,
+     "bytes_compared": 26139214573,
+     "exit_codes": {
+      "0": 56,
+      "2": 61,
+      "7": 8
+     }
+    },
+    "adm": {
+     "runs": 125,
+     "wrote_output": 64,
+     "bytes_compared": 26155503004,
+     "exit_codes": {
+      "0": 56,
+      "2": 61,
+      "7": 8
+     }
+    }
+   },
+   "bytes_compared_in_all": 90580387253
+  },
+  "speed": {
+   "machine": {
+    "processor": "Intel(R) Core(TM) i7-14700K",
+    "logical_processors": 28,
+    "system": "Windows 11"
+   },
+   "runs_a_command": 5,
+   "streams": 17,
+   "commands_measured": 83,
+   "wall_time_of_the_change_over_main": {
+    "least": 0.971,
+    "median": 1.002,
+    "most": 1.03
+   },
+   "processor_time_of_the_change_over_main": {
+    "least": 0.875,
+    "median": 1.0,
+    "most": 1.154
+   },
+   "verdicts_of_the_tool_on_wall_time": {
+    "same": 82,
+    "slower": 1
+   },
+   "verdicts_of_the_tool_on_processor_time": {
+    "faster": 6,
+    "same": 71,
+    "slower": 6
+   },
+   "the_wall_times_it_does_not_call_the_same": [
+    {
+     "kind": "truehd-objects-14ch",
+     "command": "decode adm",
+     "ratio": 1.022,
+     "main_s": 0.7933,
+     "the_change_s": 0.8108
+    }
+   ],
+   "note": "processor time is read in steps of 1/64 s, so a command of a third of a second moves by 5 % with one step; the verdicts on it fall on both sides alike"
+  },
+  "media": {
+   "the_media_suite": {
+    "passed": 28,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8,
+    "line": "all media checks passed"
+   }
+  },
+  "bytes_in_memory": "unit tests of the crate read four fixtures, one of each syntax, from memory and from the file: the checks of `verify` say the same of both, and the report of a TrueHD scan is the same text",
+  "the_check_beside_a_command": "unit tests: a check told to stop gives the stream up at the first access unit or syncframe; one started under a flag that is set gives no verdict; one that is dropped has its flag set and its thread ended; one that is joined gives the verdict the check gives where it is called",
+  "mutations": {
+   "count": 5,
+   "survive": [],
+   "each": [
+    {
+     "mutation": "a check that is dropped is not told to stop",
+     "caught_by": [
+      "verify::tests::a_check_that_is_dropped_is_stopped_and_waited_for"
+     ]
+    },
+    {
+     "mutation": "the check on a thread of its own never looks at its flag",
+     "caught_by": [
+      "verify::tests::a_check_on_its_thread_stops_when_its_flag_is_set"
+     ]
+    },
+    {
+     "mutation": "a TrueHD scan that is told to stop goes on",
+     "caught_by": [
+      "verify::tests::a_check_on_its_thread_stops_when_its_flag_is_set",
+      "verify::tests::a_check_told_to_stop_gives_the_stream_up_at_once"
+     ]
+    },
+    {
+     "mutation": "an E-AC-3 pass that is told to stop goes on",
+     "caught_by": [
+      "verify::tests::a_check_on_its_thread_stops_when_its_flag_is_set",
+      "verify::tests::a_check_told_to_stop_gives_the_stream_up_at_once"
+     ]
+    },
+    {
+     "mutation": "bytes in memory said to have no size",
+     "caught_by": [
+      "source::tests::bytes_in_memory_open_at_their_beginning_every_time",
+      "verify::tests::a_stream_in_memory_is_checked_as_its_file_is"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; the transcripts among them, unchanged",
+   "python tools/mutants.py --check": "179 mutations, the text of every one is in its file"
+  }
+ },
+ "reading": "Nothing a command prints or writes moved: 125 streams, none changed, 90 580 387 253 bytes of deliveries the same, at the same speed (the median command took 1.002 of the wall time it took before). What changed is what can be handed in: a stream in memory is read as its file is, which the tests of the crate now do without a temporary file, and the thread that checks a stream beside a command ends with the command. That was harmless in a process, where a command that failed early took the thread down with it; it is what lets the next change call the commands from inside a test, again and again, without leaving a thread behind each time."
+}

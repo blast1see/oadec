@@ -283,6 +283,24 @@ Semantic Versioning.
 
 ### Changed
 
+- **A command reads its stream from a source: a file, or bytes in memory.**
+  Every function that read the input took a path and opened it itself, so a
+  stream that was already in memory had no way in but a temporary file or a
+  child process. `oadec_cli::source::Source` is a file or bytes in memory,
+  and opens at its beginning as often as it is asked, which a command needs:
+  it looks at the first bytes to tell the codecs apart, runs the checks of
+  `verify` beside its own pass, and `verify --decode` decodes after it
+  scans. The readers and the commands over them take one, and the dispatcher
+  makes one of the file a command names; messages and reports name it as
+  they named the path. The checks that run beside a command on a thread of
+  their own are held by a value that stops the thread and waits for it when
+  it is dropped: a command that ended early on an error of its own used to
+  leave that thread running, which only the end of the process made
+  harmless. Nothing a command prints or writes changes. The transcripts
+  hold, and over 125 streams the binary before and the binary after give the
+  same exit codes, the same reports and the same 90.6 GB of delivered bytes,
+  at the same speed
+  (`docs/audit/evidence/engine-round-2026-11/17-input-sources-old-new.json`).
 - **A matrix of a `0x31EB` substream that sends a bypassed bit is not cut to
   the quantiser step either.** The entry under this one changed a `0x31EA`
   substream and left the other two kinds, which could not be put to Dolby's
