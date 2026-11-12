@@ -35,10 +35,12 @@ notes in our own words: [`docs/truehd.md`](docs/truehd.md),
 [`docs/oamd.md`](docs/oamd.md), [`docs/eac3.md`](docs/eac3.md),
 [`docs/joc.md`](docs/joc.md). Every coding tool the corpus exercises is decoded,
 including three nothing else decodes: enhanced coupling, transient pre-noise
-processing and the JOC clip gain. Two syntax elements are implemented but
-untested for want of material and of an oracle: the enhanced-coupling angle
-and chaos terms, and delta bit allocation, which no stream examined applies
-(their rows in the [conformance matrix](docs/audit/conformance-matrix.md)).
+processing and the JOC clip gain. One syntax element is implemented but
+untested for want of an oracle: the enhanced-coupling angle and chaos terms
+(its row in the [conformance matrix](docs/audit/conformance-matrix.md)).
+Delta bit allocation, which no stream examined applies, is tested on frames
+written for it, which FFmpeg's decoder and Dolby's read as this one does
+([`docs/eac3.md`](docs/eac3.md)).
 Design and milestones:
 [`docs/superpowers/specs/2026-09-06-oadec-design.md`](docs/superpowers/specs/2026-09-06-oadec-design.md).
 
@@ -154,7 +156,11 @@ comes from a measurement that can be repeated:
   restart header, where FFmpeg's decoder stands alone, and what a matrix does
   with a bypassed bit over a quantiser step, where Dolby's decoder parts from
   the two public ones and this decoder follows Dolby's
-  ([`docs/truehd.md`](docs/truehd.md)).
+  ([`docs/truehd.md`](docs/truehd.md)). It writes AC-3 frames as well, for
+  delta bit allocation, which no stream examined applies: FFmpeg's decoder
+  and Dolby's give the samples of all eight, and seven more streams show
+  what each decoder does where the standard forbids a thing or says it twice
+  ([`docs/eac3.md`](docs/eac3.md)).
 
 The real-media suite is opt-in. Point `OADEC_MEDIA` at a work directory
 that holds the streams and references and run:

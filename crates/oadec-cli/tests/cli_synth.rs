@@ -4,10 +4,17 @@
 //! has nothing to say of any of them, `decode` writes the samples of every
 //! presentation, and the coding tools `verify` names are the ones the recipe
 //! was written to carry.
+//!
+//! The AC-3 streams of the crate come after: their samples are known to the
+//! accuracy of floating point, FFmpeg's decoder and Dolby's have given them
+//! (`crates/oadec-synth/specs/ac3.tsv`), and `decode` is held to them by a
+//! signal-to-noise ratio.
 
 use std::path::PathBuf;
 use std::process::{Command, Output};
 
+use oadec_synth::ac3::{Ac3Stream, BLOCKS, CHANNELS, COEFFICIENTS};
+use oadec_synth::ac3_recipe::{AC3_PROBES, AC3_RECIPES, Ac3Recipe, Read};
 use oadec_synth::pcm_bytes;
 use oadec_synth::recipe::{RECIPES, Recipe};
 
@@ -278,6 +285,214 @@ fn the_commands_on_the_probes() {
             assert_eq!(code, Some(exit), "{name}, presentation {index}: {said}");
             assert!(&wrote == pcm, "{name}, presentation {index}: other samples");
         }
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+// The AC-3 streams.
+
+/// An AC-3 stream of the crate written into a directory: where it is, and
+/// what the writer says it comes to.
+fn written_ac3(recipe: &Ac3Recipe, dir: &std::path::Path) -> (String, Ac3Stream) {
+    let stream = recipe
+        .stream()
+        .unwrap_or_else(|e| panic!("{}: {e}", recipe.name));
+    let path = dir.join(format!("{}.ac3", recipe.name));
+    std::fs::write(&path, &stream.bytes).unwrap();
+    (path.to_str().unwrap().to_string(), stream)
+}
+
+/// The sampling rate and the samples, by channel, of a WAVE file of 32-bit
+/// float, which is what `decode` writes of an AC-3 stream.
+fn float_wave(path: &std::path::Path) -> Option<(u32, Vec<Vec<f32>>)> {
+    let bytes = std::fs::read(path).ok()?;
+    if bytes.get(..4)? != b"RIFF" || bytes.get(8..12)? != b"WAVE" {
+        return None;
+    }
+    let u32_at = |at: usize| Some(u32::from_le_bytes(bytes.get(at..at + 4)?.try_into().ok()?));
+    let u16_at = |at: usize| Some(u16::from_le_bytes(bytes.get(at..at + 2)?.try_into().ok()?));
+    let (mut at, mut format) = (12, None);
+    loop {
+        let (id, len) = (bytes.get(at..at + 4)?, u32_at(at + 4)? as usize);
+        let body = at + 8;
+        match id {
+            b"fmt " => format = Some((u16_at(body + 2)?, u32_at(body + 4)?, u16_at(body + 14)?)),
+            b"data" => {
+                let (channels, rate, bits) = format?;
+                assert_eq!(bits, 32, "bits a sample");
+                let channels = usize::from(channels);
+                let mut out = vec![Vec::new(); channels];
+                let samples = bytes.get(body..body + len)?.as_chunks::<4>().0;
+                for (n, sample) in samples.iter().enumerate() {
+                    out[n % channels].push(f32::from_le_bytes(*sample));
+                }
+                return Some((rate, out));
+            }
+            _ => {}
+        }
+        at = body + len + len % 2;
+    }
+}
+
+/// Whether `got` is the samples the writer says a stream comes to: every
+/// channel of it, to 120 dB of signal to noise.
+fn is_the_samples(stream: &Ac3Stream, got: &[Vec<f32>]) -> bool {
+    let want = stream.samples();
+    got.len() == CHANNELS
+        && (0..CHANNELS).all(|ch| {
+            let signal: f64 = want[ch].iter().map(|x| x * x).sum();
+            let noise: f64 = want[ch]
+                .iter()
+                .zip(&got[ch])
+                .map(|(x, &y)| (x - f64::from(y)).powi(2))
+                .sum();
+            got[ch].len() == want[ch].len() && 10.0 * (signal / noise).log10() > 120.0
+        })
+}
+
+/// Frames in which a segment of a delta bit allocation reaches the masking
+/// curve, as the writer laid them out.
+fn frames_with_a_delta(stream: &Ac3Stream) -> usize {
+    stream
+        .frames
+        .iter()
+        .filter(|blocks| blocks.iter().any(|block| block.reached.contains(&true)))
+        .count()
+}
+
+/// The coding tools `verify` names for a stream, and the frames it counts a
+/// delta bit allocation in.
+fn delta_as_verify_counts_it(report: &serde_json::Value) -> (Vec<&str>, u64) {
+    let tools = report["coverage"]
+        .as_array()
+        .expect("coverage is a list")
+        .iter()
+        .map(|tool| tool.as_str().expect("a name"))
+        .collect();
+    (tools, report["dba_frames"].as_u64().expect("a count"))
+}
+
+#[test]
+fn verify_has_nothing_to_say_of_any_ac3_recipe() {
+    let dir = temp("ac3-verify");
+    for recipe in AC3_RECIPES {
+        let name = recipe.name;
+        let (layout, _) = recipe.make();
+        let (path, stream) = written_ac3(recipe, &dir);
+        let out = oadec(&["verify", "--json", &path]);
+        assert_eq!(out.status.code(), Some(0), "{name}: {}", text(&out.stderr));
+        let report = json(&out);
+        assert_eq!(report["clean"], true, "{name}");
+        assert_eq!(report["syntax"], "AC-3", "{name}");
+        assert_eq!(report["bsid"], 8, "{name}");
+        assert_eq!(report["sample_rate"], layout.rate, "{name}");
+        assert_eq!(report["channels"], serde_json::json!(["L", "R"]), "{name}");
+        assert_eq!(report["frames"], stream.frames.len(), "{name}");
+        assert_eq!(
+            report["samples"],
+            stream.frames.len() * BLOCKS * COEFFICIENTS,
+            "{name}"
+        );
+        assert!(report["first_error"].is_null(), "{name}");
+        for (what, count) in report["failures"].as_object().expect("failures is a map") {
+            assert_eq!(count, 0, "{name}: {what}");
+        }
+        // The tool is named where the writer laid a delta out, in as many
+        // frames. Two streams go without the name: the one without the
+        // fields, and the one whose fields are all there and whose segments
+        // have no length.
+        let reached = frames_with_a_delta(&stream);
+        let (tools, frames) = delta_as_verify_counts_it(&report);
+        assert_eq!(frames, reached as u64, "{name}");
+        let without = matches!(name, "ac3-plain" | "ac3-delta-no-length");
+        assert_eq!(reached == 0, without, "{name}");
+        let named: &[&str] = if reached == 0 {
+            &[]
+        } else {
+            &["delta-allocation"]
+        };
+        assert_eq!(tools, named, "{name}");
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn decode_writes_the_samples_of_every_ac3_recipe() {
+    let dir = temp("ac3-decode");
+    for recipe in AC3_RECIPES {
+        let name = recipe.name;
+        let (layout, _) = recipe.make();
+        let (path, stream) = written_ac3(recipe, &dir);
+        let out_path = dir.join(format!("{name}.wav"));
+        let out = oadec(&[
+            "decode",
+            "--format",
+            "wav",
+            "-o",
+            out_path.to_str().unwrap(),
+            &path,
+        ]);
+        assert_eq!(out.status.code(), Some(0), "{name}: {}", text(&out.stderr));
+        let (rate, got) = float_wave(&out_path).unwrap_or_else(|| panic!("{name}: no WAVE file"));
+        assert_eq!(rate, layout.rate, "{name}");
+        assert!(is_the_samples(&stream, &got), "{name}: other samples");
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// The AC-3 probes are frames the standard forbids, or leaves to be read two
+/// ways, or frames nobody can read. This is what the commands do with each
+/// today. Where the decoder reads a probe as it was laid out, `verify` finds
+/// nothing and `decode` writes its samples: there is no rule yet for a
+/// "reuse" in a first block, for the reserved code, or for a segment past
+/// the last band, though the standard has no such frame. Where it reads the
+/// mantissas at other widths it runs into a code no quantiser has, sooner or
+/// later, and both commands end in 7.
+#[test]
+fn the_commands_on_the_ac3_probes() {
+    let dir = temp("ac3-probes");
+    for probe in AC3_PROBES {
+        let name = probe.recipe.name;
+        let (path, stream) = written_ac3(&probe.recipe, &dir);
+        let reads = probe.read == Read::Samples;
+        let exit = if reads { 0 } else { 7 };
+
+        let out = oadec(&["verify", "--json", &path]);
+        assert_eq!(
+            out.status.code(),
+            Some(exit),
+            "{name}: {}",
+            text(&out.stderr)
+        );
+        if reads {
+            let report = json(&out);
+            assert_eq!(report["clean"], true, "{name}");
+            assert_eq!(report["frames"], stream.frames.len(), "{name}");
+            let (_, frames) = delta_as_verify_counts_it(&report);
+            assert_eq!(frames, frames_with_a_delta(&stream) as u64, "{name}");
+        }
+
+        let out_path = dir.join(format!("{name}.wav"));
+        let out = oadec(&[
+            "decode",
+            "--format",
+            "wav",
+            "-o",
+            out_path.to_str().unwrap(),
+            &path,
+        ]);
+        assert_eq!(
+            out.status.code(),
+            Some(exit),
+            "{name}: {}",
+            text(&out.stderr)
+        );
+        let got = float_wave(&out_path).map(|(_, samples)| samples);
+        assert_eq!(
+            got.is_some_and(|got| is_the_samples(&stream, &got)),
+            reads,
+            "{name}"
+        );
     }
     std::fs::remove_dir_all(&dir).ok();
 }

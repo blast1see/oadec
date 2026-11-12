@@ -1,0 +1,1524 @@
+{
+ "question": "Does this decoder read a delta bit allocation that moves the masking curve as other decoders read it, and what does each do with the delta fields the standard forbids, reserves or describes twice?",
+ "method": "crates/oadec-synth was given a writer of AC-3 syncframes: bsid 8, two channels, no coupling, long blocks, exponents sent one by one or reused, dithflag 0. A block is told its exponents and what each mantissa is to be; the bit allocation of clause 6.2.2 of ETSI TS 102 366 is worked out a second time, with the delta of clause 6.2.2.6, from tables a test holds equal to the decoder's; each mantissa is quantised to the quantiser its pointer names. The samples a stream comes to are the inverse transform of clause 6.9.4 written from its definition, in double precision. tools/synth_accept.py wrote every stream with `oadec-synth all` and decoded each with FFmpeg (`-drc_scale 0 -f ac3`, to 32-bit float), with the dlbac3dec element of the Dolby Reference Player (`drc-suppress=true out-ch-config=0`, to 32-bit float) and with `oadec decode --format wav`, each as a program on a file, and compared what it wrote with the writer's samples channel by channel as a signal-to-noise ratio, at no delay and at 32 samples. A decoder gave the samples when both channels were over 80 dB. A second front end to Dolby's decoder, the engine the Plex transcoder drives, was run on the same streams by a script outside the repository. The mutations are entries of tools/mutants.py, run with every test of the workspace against the tree of main and against this one, and against this one with only `cargo test -p oadec-synth --test ac3` and `cargo test -p oadec-cli --test cli_synth`.",
+ "decoders": {
+  "ffmpeg": "2026-10-12-git-615b07170e",
+  "dolby": "the dlbac3dec element of the Dolby Reference Player, as a black box",
+  "the_second_front_end": "the Dolby engine the Plex transcoder drives for AC-3, as a black box"
+ },
+ "result": {
+  "the_references": {
+   "streams": 8,
+   "given_by_ffmpeg": 8,
+   "given_by_dolby": 8,
+   "given_by_this_decoder": 8,
+   "verify_clean": 8,
+   "this_decoder_in_double_precision": "every exponent, bit allocation pointer and transform coefficient of every block as the writer has it (`tests/ac3.rs`), and the samples within 151.8 to 152.0 dB of the writer's on every channel of every stream, which is what the 32-bit float it hands on leaves",
+   "each": {
+    "ac3-plain": {
+     "sha256": "e56b81b493ffe04a3b858c7279a3ebbb3c2ba4e387997b8621b549cff971ae3a",
+     "rate": 48000,
+     "frames": 8,
+     "bytes": 20480,
+     "ffmpeg": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       139.0,
+       139.2
+      ],
+      "delay": 0
+     },
+     "dolby": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       137.6,
+       133.5
+      ],
+      "delay": 32
+     },
+     "the_second_front_end": {
+      "against_the_writers_samples_db": [
+       137.5,
+       133.4
+      ],
+      "against_what_the_players_element_wrote_db": [
+       166.6,
+       164.8
+      ]
+     },
+     "this_decoder": {
+      "decode": "gave the samples",
+      "decode_exit": 0,
+      "verify_exit": 0,
+      "snr_db_left_and_right": [
+       "the same 32-bit floats",
+       "the same 32-bit floats"
+      ]
+     }
+    },
+    "ac3-delta": {
+     "sha256": "ad36bbefd8ecc612f57fc99f4e66ff7f76d35d6161099ee9055b516559243ff3",
+     "rate": 48000,
+     "frames": 8,
+     "bytes": 20480,
+     "ffmpeg": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       139.0,
+       139.0
+      ],
+      "delay": 0
+     },
+     "dolby": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       134.9,
+       124.1
+      ],
+      "delay": 32
+     },
+     "the_second_front_end": {
+      "against_the_writers_samples_db": [
+       134.9,
+       124.1
+      ],
+      "against_what_the_players_element_wrote_db": [
+       166.5,
+       164.7
+      ]
+     },
+     "this_decoder": {
+      "decode": "gave the samples",
+      "decode_exit": 0,
+      "verify_exit": 0,
+      "snr_db_left_and_right": [
+       "the same 32-bit floats",
+       "the same 32-bit floats"
+      ]
+     }
+    },
+    "ac3-delta-codes": {
+     "sha256": "24c3ccf96f4f57647125ee061c8b26cc8ddd453afcef0678abe761ec79d709aa",
+     "rate": 48000,
+     "frames": 8,
+     "bytes": 20480,
+     "ffmpeg": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       138.9,
+       139.2
+      ],
+      "delay": 0
+     },
+     "dolby": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       133.9,
+       133.5
+      ],
+      "delay": 32
+     },
+     "the_second_front_end": {
+      "against_the_writers_samples_db": [
+       133.9,
+       133.4
+      ],
+      "against_what_the_players_element_wrote_db": [
+       166.8,
+       164.8
+      ]
+     },
+     "this_decoder": {
+      "decode": "gave the samples",
+      "decode_exit": 0,
+      "verify_exit": 0,
+      "snr_db_left_and_right": [
+       "the same 32-bit floats",
+       "the same 32-bit floats"
+      ]
+     }
+    },
+    "ac3-delta-no-length": {
+     "sha256": "ce43dba35bfd49076aa24f1c136a65a7b7567829f86c4b6b31f52f80ff8ab55d",
+     "rate": 48000,
+     "frames": 8,
+     "bytes": 20480,
+     "ffmpeg": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       139.0,
+       139.2
+      ],
+      "delay": 0
+     },
+     "dolby": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       137.6,
+       133.5
+      ],
+      "delay": 32
+     },
+     "the_second_front_end": {
+      "against_the_writers_samples_db": [
+       137.5,
+       133.4
+      ],
+      "against_what_the_players_element_wrote_db": [
+       166.6,
+       164.8
+      ]
+     },
+     "this_decoder": {
+      "decode": "gave the samples",
+      "decode_exit": 0,
+      "verify_exit": 0,
+      "snr_db_left_and_right": [
+       "the same 32-bit floats",
+       "the same 32-bit floats"
+      ]
+     }
+    },
+    "ac3-delta-eight-segments": {
+     "sha256": "96140cdf36891d58281d5d93a5c28a8ee2c97d374c55ba710aca63f33b5c3a08",
+     "rate": 48000,
+     "frames": 8,
+     "bytes": 20480,
+     "ffmpeg": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       138.6,
+       138.4
+      ],
+      "delay": 0
+     },
+     "dolby": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       107.9,
+       103.3
+      ],
+      "delay": 32
+     },
+     "the_second_front_end": {
+      "against_the_writers_samples_db": [
+       107.9,
+       103.3
+      ],
+      "against_what_the_players_element_wrote_db": [
+       169.0,
+       166.5
+      ]
+     },
+     "this_decoder": {
+      "decode": "gave the samples",
+      "decode_exit": 0,
+      "verify_exit": 0,
+      "snr_db_left_and_right": [
+       "the same 32-bit floats",
+       "the same 32-bit floats"
+      ]
+     }
+    },
+    "ac3-delta-silent-first-block": {
+     "sha256": "fe60b4a58ac310bd26330fb4b782e65cbff231d37d7b632c4fe5fb151f803e6c",
+     "rate": 48000,
+     "frames": 8,
+     "bytes": 20480,
+     "ffmpeg": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       139.1,
+       139.2
+      ],
+      "delay": 0
+     },
+     "dolby": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       137.6,
+       123.7
+      ],
+      "delay": 32
+     },
+     "the_second_front_end": {
+      "against_the_writers_samples_db": [
+       137.6,
+       123.7
+      ],
+      "against_what_the_players_element_wrote_db": [
+       166.5,
+       164.8
+      ]
+     },
+     "this_decoder": {
+      "decode": "gave the samples",
+      "decode_exit": 0,
+      "verify_exit": 0,
+      "snr_db_left_and_right": [
+       "the same 32-bit floats",
+       "the same 32-bit floats"
+      ]
+     }
+    },
+    "ac3-delta-44100": {
+     "sha256": "0542ee22ad6b8cc02e87e29abb97c040568ef8b699c435e984f7d33f2baf5967",
+     "rate": 44100,
+     "frames": 8,
+     "bytes": 22288,
+     "ffmpeg": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       138.9,
+       139.0
+      ],
+      "delay": 0
+     },
+     "dolby": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       134.9,
+       124.1
+      ],
+      "delay": 32
+     },
+     "the_second_front_end": {
+      "against_the_writers_samples_db": [
+       134.9,
+       124.1
+      ],
+      "against_what_the_players_element_wrote_db": [
+       166.5,
+       164.8
+      ]
+     },
+     "this_decoder": {
+      "decode": "gave the samples",
+      "decode_exit": 0,
+      "verify_exit": 0,
+      "snr_db_left_and_right": [
+       "the same 32-bit floats",
+       "the same 32-bit floats"
+      ]
+     }
+    },
+    "ac3-delta-32000": {
+     "sha256": "d48edf8330f0a0fc09398c20000c34b81a2c50cea5cb27324054db761533a4ca",
+     "rate": 32000,
+     "frames": 8,
+     "bytes": 30720,
+     "ffmpeg": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       138.9,
+       139.1
+      ],
+      "delay": 0
+     },
+     "dolby": {
+      "verdict": "gave the samples",
+      "snr_db_left_and_right": [
+       134.9,
+       124.1
+      ],
+      "delay": 32
+     },
+     "the_second_front_end": {
+      "against_the_writers_samples_db": [
+       134.9,
+       124.1
+      ],
+      "against_what_the_players_element_wrote_db": [
+       166.4,
+       164.8
+      ]
+     },
+     "this_decoder": {
+      "decode": "gave the samples",
+      "decode_exit": 0,
+      "verify_exit": 0,
+      "snr_db_left_and_right": [
+       "the same 32-bit floats",
+       "the same 32-bit floats"
+      ]
+     }
+    }
+   }
+  },
+  "how_near_a_decoder_that_read_every_mantissa_is": {
+   "ffmpeg_db": [
+    138.4,
+    139.2
+   ],
+   "dolby_db": [
+    103.3,
+    137.6
+   ],
+   "dolby_against_the_writers_samples_with_the_levels_of_the_symmetric_quantisers_rounded_to_15_fractional_bits_db": [
+    138.5,
+    138.9
+   ],
+   "the_second_front_end_against_the_players_element_db": [
+    164.7,
+    169.0
+   ],
+   "how": "the writer's coefficients were worked out again with the level of every mantissa on a pointer of 1 to 5 held to 14, 15, 16, 19 and 23 fractional bits, rounded, and to 15 truncated, and the samples of each compared with what the two decoders wrote",
+   "by_stream_and_holding": {
+    "ac3-plain": {
+     "dolby": {
+      "exact": [
+       137.6,
+       133.5
+      ],
+      "q14": [
+       134.5,
+       126.5
+      ],
+      "q15": [
+       138.6,
+       138.8
+      ],
+      "q15t": [
+       137.1,
+       131.2
+      ],
+      "q16": [
+       137.0,
+       132.0
+      ],
+      "q19": [
+       137.6,
+       133.7
+      ],
+      "q23": [
+       137.6,
+       133.5
+      ]
+     },
+     "ffmpeg": {
+      "exact": [
+       139.0,
+       139.2
+      ],
+      "q14": [
+       136.0,
+       128.7
+      ],
+      "q15": [
+       137.9,
+       133.6
+      ],
+      "q15t": [
+       137.3,
+       131.6
+      ],
+      "q16": [
+       138.7,
+       137.0
+      ],
+      "q19": [
+       139.0,
+       139.1
+      ],
+      "q23": [
+       139.0,
+       139.2
+      ]
+     }
+    },
+    "ac3-delta": {
+     "dolby": {
+      "exact": [
+       134.9,
+       124.1
+      ],
+      "q14": [
+       129.2,
+       115.0
+      ],
+      "q15": [
+       138.6,
+       138.6
+      ],
+      "q15t": [
+       133.7,
+       118.2
+      ],
+      "q16": [
+       133.8,
+       122.4
+      ],
+      "q19": [
+       135.2,
+       124.2
+      ],
+      "q23": [
+       134.9,
+       124.1
+      ]
+     },
+     "ffmpeg": {
+      "exact": [
+       139.0,
+       139.0
+      ],
+      "q14": [
+       131.6,
+       117.4
+      ],
+      "q15": [
+       134.9,
+       124.1
+      ],
+      "q15t": [
+       132.9,
+       120.0
+      ],
+      "q16": [
+       138.1,
+       128.6
+      ],
+      "q19": [
+       138.9,
+       138.7
+      ],
+      "q23": [
+       139.0,
+       139.0
+      ]
+     }
+    },
+    "ac3-delta-codes": {
+     "dolby": {
+      "exact": [
+       133.9,
+       133.5
+      ],
+      "q14": [
+       127.4,
+       126.5
+      ],
+      "q15": [
+       138.7,
+       138.8
+      ],
+      "q15t": [
+       133.0,
+       131.2
+      ],
+      "q16": [
+       132.6,
+       132.0
+      ],
+      "q19": [
+       134.3,
+       133.7
+      ],
+      "q23": [
+       133.9,
+       133.5
+      ]
+     },
+     "ffmpeg": {
+      "exact": [
+       138.9,
+       139.2
+      ],
+      "q14": [
+       129.6,
+       128.7
+      ],
+      "q15": [
+       133.9,
+       133.6
+      ],
+      "q15t": [
+       131.7,
+       131.6
+      ],
+      "q16": [
+       137.1,
+       137.0
+      ],
+      "q19": [
+       138.8,
+       139.1
+      ],
+      "q23": [
+       138.9,
+       139.2
+      ]
+     }
+    },
+    "ac3-delta-no-length": {
+     "dolby": {
+      "exact": [
+       137.6,
+       133.5
+      ],
+      "q14": [
+       134.5,
+       126.5
+      ],
+      "q15": [
+       138.6,
+       138.8
+      ],
+      "q15t": [
+       137.1,
+       131.2
+      ],
+      "q16": [
+       137.0,
+       132.0
+      ],
+      "q19": [
+       137.6,
+       133.7
+      ],
+      "q23": [
+       137.6,
+       133.5
+      ]
+     },
+     "ffmpeg": {
+      "exact": [
+       139.0,
+       139.2
+      ],
+      "q14": [
+       136.0,
+       128.7
+      ],
+      "q15": [
+       137.9,
+       133.6
+      ],
+      "q15t": [
+       137.3,
+       131.6
+      ],
+      "q16": [
+       138.7,
+       137.0
+      ],
+      "q19": [
+       139.0,
+       139.1
+      ],
+      "q23": [
+       139.0,
+       139.2
+      ]
+     }
+    },
+    "ac3-delta-eight-segments": {
+     "dolby": {
+      "exact": [
+       107.9,
+       103.3
+      ],
+      "q14": [
+       99.6,
+       94.6
+      ],
+      "q15": [
+       138.6,
+       138.5
+      ],
+      "q15t": [
+       102.5,
+       98.7
+      ],
+      "q16": [
+       106.0,
+       100.7
+      ],
+      "q19": [
+       108.2,
+       103.5
+      ],
+      "q23": [
+       107.9,
+       103.3
+      ]
+     },
+     "ffmpeg": {
+      "exact": [
+       138.6,
+       138.4
+      ],
+      "q14": [
+       101.7,
+       96.8
+      ],
+      "q15": [
+       107.9,
+       103.3
+      ],
+      "q15t": [
+       103.8,
+       99.7
+      ],
+      "q16": [
+       113.5,
+       108.6
+      ],
+      "q19": [
+       131.9,
+       127.3
+      ],
+      "q23": [
+       138.7,
+       138.7
+      ]
+     }
+    },
+    "ac3-delta-silent-first-block": {
+     "dolby": {
+      "exact": [
+       137.6,
+       123.7
+      ],
+      "q14": [
+       134.4,
+       116.5
+      ],
+      "q15": [
+       138.6,
+       138.9
+      ],
+      "q15t": [
+       137.0,
+       121.7
+      ],
+      "q16": [
+       137.1,
+       121.1
+      ],
+      "q19": [
+       137.7,
+       124.1
+      ],
+      "q23": [
+       137.6,
+       123.7
+      ]
+     },
+     "ffmpeg": {
+      "exact": [
+       139.1,
+       139.2
+      ],
+      "q14": [
+       136.0,
+       119.4
+      ],
+      "q15": [
+       137.9,
+       123.7
+      ],
+      "q15t": [
+       137.3,
+       121.4
+      ],
+      "q16": [
+       138.8,
+       129.1
+      ],
+      "q19": [
+       139.1,
+       138.6
+      ],
+      "q23": [
+       139.1,
+       139.1
+      ]
+     }
+    },
+    "ac3-delta-44100": {
+     "dolby": {
+      "exact": [
+       134.9,
+       124.1
+      ],
+      "q14": [
+       129.2,
+       115.0
+      ],
+      "q15": [
+       138.7,
+       138.6
+      ],
+      "q15t": [
+       133.8,
+       118.2
+      ],
+      "q16": [
+       133.8,
+       122.4
+      ],
+      "q19": [
+       135.2,
+       124.2
+      ],
+      "q23": [
+       134.9,
+       124.1
+      ]
+     },
+     "ffmpeg": {
+      "exact": [
+       138.9,
+       139.0
+      ],
+      "q14": [
+       131.5,
+       117.4
+      ],
+      "q15": [
+       134.9,
+       124.1
+      ],
+      "q15t": [
+       132.9,
+       120.0
+      ],
+      "q16": [
+       138.0,
+       128.6
+      ],
+      "q19": [
+       138.9,
+       138.6
+      ],
+      "q23": [
+       138.9,
+       139.0
+      ]
+     }
+    },
+    "ac3-delta-32000": {
+     "dolby": {
+      "exact": [
+       134.9,
+       124.1
+      ],
+      "q14": [
+       129.2,
+       115.0
+      ],
+      "q15": [
+       138.6,
+       138.6
+      ],
+      "q15t": [
+       133.7,
+       118.2
+      ],
+      "q16": [
+       133.8,
+       122.4
+      ],
+      "q19": [
+       135.2,
+       124.2
+      ],
+      "q23": [
+       134.9,
+       124.1
+      ]
+     },
+     "ffmpeg": {
+      "exact": [
+       138.9,
+       139.1
+      ],
+      "q14": [
+       131.6,
+       117.4
+      ],
+      "q15": [
+       134.9,
+       124.1
+      ],
+      "q15t": [
+       132.9,
+       120.0
+      ],
+      "q16": [
+       138.0,
+       128.6
+      ],
+      "q19": [
+       138.9,
+       138.8
+      ],
+      "q23": [
+       138.9,
+       139.1
+      ]
+     }
+    }
+   },
+   "by_band_and_block_on_the_stream_whose_channels_have_every_band": [
+    {
+     "stream": "ac3-delta-eight-segments",
+     "decoder": "dolby",
+     "delay": 32,
+     "samples_compared": 12032,
+     "channels": [
+      {
+       "snr_db": 107.9,
+       "peak_of_the_difference": 5.09e-07,
+       "peak_of_the_samples": 0.0739,
+       "snr_db_by_band": {
+        "0-3000 Hz": 140.0,
+        "3000-6000 Hz": 123.4,
+        "6000-12000 Hz": 115.4,
+        "12000-16000 Hz": 113.6,
+        "16000-20000 Hz": 106.3,
+        "20000-24000 Hz": 102.8
+       },
+       "snr_db_of_the_worst_block": 101.6,
+       "snr_db_of_the_best_block": 140.0
+      },
+      {
+       "snr_db": 103.3,
+       "peak_of_the_difference": 9.56e-07,
+       "peak_of_the_samples": 0.0882,
+       "snr_db_by_band": {
+        "0-3000 Hz": 132.8,
+        "3000-6000 Hz": 110.5,
+        "6000-12000 Hz": 105.3,
+        "12000-16000 Hz": 98.3,
+        "16000-20000 Hz": 101.7,
+        "20000-24000 Hz": 99.3
+       },
+       "snr_db_of_the_worst_block": 96.5,
+       "snr_db_of_the_best_block": 138.5
+      }
+     ]
+    },
+    {
+     "stream": "ac3-delta-eight-segments",
+     "decoder": "ffmpeg",
+     "delay": 0,
+     "samples_compared": 12288,
+     "channels": [
+      {
+       "snr_db": 138.6,
+       "peak_of_the_difference": 1.49e-08,
+       "peak_of_the_samples": 0.0739,
+       "snr_db_by_band": {
+        "0-3000 Hz": 142.5,
+        "3000-6000 Hz": 136.9,
+        "6000-12000 Hz": 136.7,
+        "12000-16000 Hz": 138.3,
+        "16000-20000 Hz": 139.5,
+        "20000-24000 Hz": 136.8
+       },
+       "snr_db_of_the_worst_block": 137.4,
+       "snr_db_of_the_best_block": 140.9
+      },
+      {
+       "snr_db": 138.4,
+       "peak_of_the_difference": 1.49e-08,
+       "peak_of_the_samples": 0.0882,
+       "snr_db_by_band": {
+        "0-3000 Hz": 140.5,
+        "3000-6000 Hz": 137.7,
+        "6000-12000 Hz": 138.8,
+        "12000-16000 Hz": 137.4,
+        "16000-20000 Hz": 138.1,
+        "20000-24000 Hz": 137.1
+       },
+       "snr_db_of_the_worst_block": 135.7,
+       "snr_db_of_the_best_block": 141.5
+      }
+     ]
+    }
+   ],
+   "by_the_arithmetic": "the levels of each of the five quantisers held to 15 fractional bits are 96.3 dB from the fractions, all levels weighed alike"
+  },
+  "a_decoder_that_did_not": {
+   "verdicts_of_gave_others_among_the_probes": 8,
+   "their_channels_db": [
+    -29.8,
+    0.6
+   ]
+  },
+  "the_probes": {
+   "probe-ac3-delta-unsaid": {
+    "sha256": "7e0d98479e79e08bfb3250c4f233d2c183a48b879c1f0a058adaedd8d79a06db",
+    "rate": 48000,
+    "frames": 8,
+    "bytes": 20480,
+    "what": "the states of `ac3-delta` laid out in the mantissas, with every `deltbae` written as 2",
+    "ffmpeg": {
+     "verdict": "gave others",
+     "snr_db_left_and_right": [
+      -3.6,
+      -2.7
+     ],
+     "delay": 32,
+     "it_said": "expacc 126 is out-of-range; error decoding the audio block"
+    },
+    "dolby": {
+     "verdict": "wrote nothing",
+     "it_said": "No valid frames decoded before end of stream"
+    },
+    "the_second_front_end": {
+     "against_the_writers_samples_db": [
+      0.0,
+      0.0
+     ],
+     "the_players_element": "wrote nothing"
+    },
+    "this_decoder": {
+     "decode": "wrote nothing",
+     "decode_exit": 7,
+     "verify_exit": 7,
+     "it_said": "8 frames failed to decode; first problem: 7-level mantissa code 7"
+    }
+   },
+   "probe-ac3-reuse-after-none": {
+    "sha256": "99afdccece0ccaf047605c2b02e57c24a8f44d56e8d276500c13a231804f5e71",
+    "rate": 48000,
+    "frames": 8,
+    "bytes": 20480,
+    "what": "new segments in block 0, code 2 in block 1, code 0 in block 2, on both channels of every frame; the mantissas of blocks 2 to 5 laid out with the segments of block 0 applied",
+    "ffmpeg": {
+     "verdict": "gave the samples",
+     "snr_db_left_and_right": [
+      139.0,
+      139.1
+     ],
+     "delay": 0
+    },
+    "dolby": {
+     "verdict": "wrote nothing",
+     "it_said": "No valid frames decoded before end of stream"
+    },
+    "the_second_front_end": {
+     "against_the_writers_samples_db": [
+      -2.6,
+      -17.9
+     ],
+     "the_players_element": "wrote nothing"
+    },
+    "this_decoder": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    }
+   },
+   "probe-ac3-reuse-after-none-kept": {
+    "sha256": "922dfb07389920afc6f25a9ae1a07e2d7263f6c85b269308b79cdb4770dd3a50",
+    "rate": 48000,
+    "frames": 8,
+    "bytes": 20480,
+    "what": "the same fields; the mantissas of blocks 2 to 5 laid out with no delta",
+    "ffmpeg": {
+     "verdict": "gave others",
+     "snr_db_left_and_right": [
+      -16.8,
+      -29.8
+     ],
+     "delay": 32,
+     "it_said": "expacc 125 is out-of-range; exponent -2 is out-of-range; error decoding the audio block"
+    },
+    "dolby": {
+     "verdict": "gave the samples",
+     "snr_db_left_and_right": [
+      137.5,
+      128.3
+     ],
+     "delay": 32
+    },
+    "the_second_front_end": {
+     "against_the_writers_samples_db": [
+      137.5,
+      128.3
+     ],
+     "against_what_the_players_element_wrote_db": [
+      166.6,
+      164.9
+     ]
+    },
+    "this_decoder": {
+     "decode": "wrote nothing",
+     "decode_exit": 7,
+     "verify_exit": 7,
+     "it_said": "8 frames failed to decode; first problem: 7-level mantissa code 7"
+    }
+   },
+   "probe-ac3-reuse-in-first-block": {
+    "sha256": "b134145a493b8da0b665e846310c987912a6d4c15fcbcc821a92be78963a964b",
+    "rate": 48000,
+    "frames": 8,
+    "bytes": 20480,
+    "what": "new segments in block 0 of every even frame and code 0 in block 0 of every odd one; the odd frames laid out with the segments of the frame before applied",
+    "ffmpeg": {
+     "verdict": "gave the samples",
+     "snr_db_left_and_right": [
+      138.9,
+      139.1
+     ],
+     "delay": 0
+    },
+    "dolby": {
+     "verdict": "gave others",
+     "snr_db_left_and_right": [
+      0.6,
+      -0.4
+     ],
+     "delay": 32
+    },
+    "the_second_front_end": {
+     "against_the_writers_samples_db": [
+      0.6,
+      -0.4
+     ],
+     "against_what_the_players_element_wrote_db": [
+      165.2,
+      166.3
+     ]
+    },
+    "this_decoder": {
+     "decode": "gave others",
+     "decode_exit": 7,
+     "verify_exit": 7,
+     "snr_db_left_and_right": [
+      -1.8,
+      -2.4
+     ],
+     "samples_written": 6144,
+     "of": 12288,
+     "it_said": "4 frames failed to decode; first problem: 7-level mantissa code 7"
+    }
+   },
+   "probe-ac3-reuse-in-first-block-empty": {
+    "sha256": "8540aef748f09ae4ddbeab3c5a381efa37043d751b484d3074b5a3da170ad3b7",
+    "rate": 48000,
+    "frames": 8,
+    "bytes": 20480,
+    "what": "the same fields; the odd frames laid out with no delta",
+    "ffmpeg": {
+     "verdict": "gave others",
+     "snr_db_left_and_right": [
+      -0.4,
+      -0.1
+     ],
+     "delay": 0,
+     "it_said": "expacc 125 is out-of-range; bandwidth code = 61 > 60; error decoding the audio block"
+    },
+    "dolby": {
+     "verdict": "gave others",
+     "snr_db_left_and_right": [
+      0.6,
+      -0.4
+     ],
+     "delay": 32
+    },
+    "the_second_front_end": {
+     "against_the_writers_samples_db": [
+      0.6,
+      -0.4
+     ],
+     "against_what_the_players_element_wrote_db": [
+      165.2,
+      166.3
+     ]
+    },
+    "this_decoder": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    }
+   },
+   "probe-ac3-delta-reserved": {
+    "sha256": "dcf0cbe1dc785c7d215078d468d3f3b6068707d1fc1ba3636ef73041379b192c",
+    "rate": 48000,
+    "frames": 8,
+    "bytes": 20480,
+    "what": "new segments in block 0 and code 3 in block 1, on both channels of every frame; blocks 1 to 5 laid out with no delta",
+    "ffmpeg": {
+     "verdict": "gave others",
+     "snr_db_left_and_right": [
+      -3.0,
+      -2.2
+     ],
+     "delay": 0,
+     "it_said": "delta bit allocation strategy reserved; error decoding the audio block"
+    },
+    "dolby": {
+     "verdict": "gave the samples",
+     "snr_db_left_and_right": [
+      137.5,
+      128.3
+     ],
+     "delay": 32
+    },
+    "the_second_front_end": {
+     "against_the_writers_samples_db": [
+      137.5,
+      128.3
+     ],
+     "against_what_the_players_element_wrote_db": [
+      166.6,
+      164.9
+     ]
+    },
+    "this_decoder": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    }
+   },
+   "probe-ac3-delta-past-the-bands": {
+    "sha256": "1be245737ac67f101d1bf0007d5de31a59946d07d983a0af7eae0ef9666b35f1",
+    "rate": 48000,
+    "frames": 8,
+    "bytes": 20480,
+    "what": "on the left channel of every frame a segment from band 44 that is 15 bands long; laid out with bands 44 to 49 moved",
+    "ffmpeg": {
+     "verdict": "gave others",
+     "snr_db_left_and_right": [
+      0.0,
+      0.0
+     ],
+     "delay": 32,
+     "it_said": "error in bit allocation; error decoding the audio block"
+    },
+    "dolby": {
+     "verdict": "wrote nothing",
+     "it_said": "No valid frames decoded before end of stream"
+    },
+    "the_second_front_end": {
+     "against_the_writers_samples_db": [
+      0.0,
+      0.0
+     ],
+     "the_players_element": "wrote nothing"
+    },
+    "this_decoder": {
+     "decode": "gave the samples",
+     "decode_exit": 0,
+     "verify_exit": 0,
+     "snr_db_left_and_right": [
+      "the same 32-bit floats",
+      "the same 32-bit floats"
+     ]
+    }
+   }
+  },
+  "both_layouts_of_a_reuse_in_a_first_block": "the player's element writes the same bytes for `probe-ac3-reuse-in-first-block` and `probe-ac3-reuse-in-first-block-empty`, whose odd frames carry other mantissas, and so does the second front end; frame by frame its samples are the writer's in frame 0 (137 dB) and at -3 to 12 dB after it",
+  "what_the_standard_says": {
+   "clause 4.4.3.47": "a block whose `deltbaie` is 0 keeps the delta of the block before, but for the first block of a frame, where there is then none",
+   "Table 4.11": "code 0 is \"reuse previous state\", 1 \"new info follows\", 2 \"perform no delta alloc\", 3 reserved",
+   "clause 4.4.3.48": "of the coupling channel's code: on the reserved state a decoder should not decode audio and should mute",
+   "clause 4.4.3.49": "the code of a channel is not to be 0 in block 0",
+   "clause 6.2.2.6": "the pseudo code applies the segments whenever the code is 0 or 1, and has no bound on the band a segment reaches"
+  },
+  "mutations": {
+   "count": 18,
+   "survived_the_tests_before": [
+    "a delta code of 4 read as no change, where it is 6 dB up",
+    "a delta of 3 dB a step, where it is 6",
+    "a delta segment placed from the first band, not from the end of the one before",
+    "the last band out of reach of a delta segment",
+    "the delta segments of every channel read into the first",
+    "the delta segments of the first channel applied to every channel",
+    "the number of delta segments read without the one it is short of",
+    "the length of a delta segment read in front of its offset",
+    "the reserved delta code read as a reuse",
+    "a block that says nothing of the delta drops the one in force",
+    "the exponent strategy of an AC-3 channel read as one bit",
+    "the fine SNR offset of an AC-3 channel read behind its fast gain",
+    "the dither flag of a channel read upside down",
+    "the hearing threshold of 48 kHz at every rate",
+    "the size of an AC-3 frame read in the column of 48 kHz at every rate"
+   ],
+   "survive_now": [],
+   "survive_the_tests_over_the_written_streams_alone": [],
+   "the_three_of_the_delta_that_were_there": {
+    "delta bit allocation segments left out of the bit allocation": "caught by the tests over the written streams alone",
+    "a reused delta allocation (deltbae 0) treated as none": "caught by the tests over the written streams alone",
+    "delta allocation counted where a block only carries the fields": "caught by the tests over the written streams alone"
+   },
+   "each": [
+    {
+     "mutation": "a delta code of 4 read as no change, where it is 6 dB up",
+     "file": "crates/oadec-eac3/src/bitalloc.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 7
+    },
+    {
+     "mutation": "a delta of 3 dB a step, where it is 6",
+     "file": "crates/oadec-eac3/src/bitalloc.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 7
+    },
+    {
+     "mutation": "a delta segment placed from the first band, not from the end of the one before",
+     "file": "crates/oadec-eac3/src/bitalloc.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 7
+    },
+    {
+     "mutation": "a delta segment one band longer than its length",
+     "file": "crates/oadec-eac3/src/bitalloc.rs",
+     "caught_by_the_tests_before": true,
+     "by": [
+      "frame::tests::delta_segments_reach_the_mask_only_when_deltbae_says_so"
+     ],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 7
+    },
+    {
+     "mutation": "the last band out of reach of a delta segment",
+     "file": "crates/oadec-eac3/src/bitalloc.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 3
+    },
+    {
+     "mutation": "the delta segments of every channel read into the first",
+     "file": "crates/oadec-eac3/src/frame.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 7
+    },
+    {
+     "mutation": "the delta segments of the first channel applied to every channel",
+     "file": "crates/oadec-eac3/src/frame.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 7
+    },
+    {
+     "mutation": "the number of delta segments read without the one it is short of",
+     "file": "crates/oadec-eac3/src/frame.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 7
+    },
+    {
+     "mutation": "the length of a delta segment read in front of its offset",
+     "file": "crates/oadec-eac3/src/frame.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 7
+    },
+    {
+     "mutation": "the reserved delta code read as a reuse",
+     "file": "crates/oadec-eac3/src/frame.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "the_commands_on_the_ac3_probes"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 2
+    },
+    {
+     "mutation": "a block that says nothing of the delta drops the one in force",
+     "file": "crates/oadec-eac3/src/frame.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 7
+    },
+    {
+     "mutation": "crc1 of an AC-3 frame taken over half of the frame, not five eighths",
+     "file": "crates/oadec-eac3/src/frame.rs",
+     "caught_by_the_tests_before": true,
+     "by": [
+      "repair::tests::an_ac3_frame_passes_both_checks_once_fixed",
+      "repair::tests::each_word_is_fixed_when_only_it_is_wrong"
+     ],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 7
+    },
+    {
+     "mutation": "the exponent strategy of an AC-3 channel read as one bit",
+     "file": "crates/oadec-eac3/src/frame.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 8
+    },
+    {
+     "mutation": "the fine SNR offset of an AC-3 channel read behind its fast gain",
+     "file": "crates/oadec-eac3/src/frame.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 8
+    },
+    {
+     "mutation": "the slow gain and the dB per bit of an AC-3 block swapped",
+     "file": "crates/oadec-eac3/src/frame.rs",
+     "caught_by_the_tests_before": true,
+     "by": [
+      "a_clean_eac3_decode_says_it_is_done",
+      "a_complexity_index_that_disagrees_with_the_oamd_is_non_conformant",
+      "a_container_whose_declared_length_disagrees_with_its_syntax_does_not_open"
+     ],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "the_joc_fixture_decodes_to_agreeing_damf_and_adm_outputs",
+      "warp_mode_reaches_the_damf_header_and_the_adm_dbmd"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 8
+    },
+    {
+     "mutation": "the dither flag of a channel read upside down",
+     "file": "crates/oadec-eac3/src/frame.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 4
+    },
+    {
+     "mutation": "the hearing threshold of 48 kHz at every rate",
+     "file": "crates/oadec-eac3/src/bitalloc.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 3
+    },
+    {
+     "mutation": "the size of an AC-3 frame read in the column of 48 kHz at every rate",
+     "file": "crates/oadec-eac3/src/header.rs",
+     "caught_by_the_tests_before": false,
+     "by": [],
+     "caught_now": true,
+     "the_first_tests_to_fail_now": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ],
+     "caught_by_the_tests_over_the_written_streams_alone": true,
+     "of_them_fail": 3
+    }
+   ]
+  },
+  "the_decoder": "unchanged: `git diff --stat origin/main` is empty for every crate but oadec-synth and for the sources of the command line, so no stream decodes otherwise than it did",
+  "not_measured": "the delta of the coupling channel (`cpldeltbae`), which needs coupling the writer does not write; E-AC-3 frames, which switch the fields on with `dbaflde`; more than two channels, an LFE, grouped exponents, short blocks and rematrixing. What Dolby's decoder does with a \"reuse\" after \"none\" was seen from outside only: it decodes the frames laid out with no delta and none of the frames laid out with one."
+ },
+ "reading": "All 8 references decode in FFmpeg's decoder and in Dolby's to the samples the writer says they come to, and in this decoder to every coefficient: an applied delta bit allocation is read the same way by three decoders, at three sampling rates, with one to eight segments up to the last band. A stream that keeps its delta to itself decodes in none of them, so the agreement is about the delta and not about the frames around it. The distance of Dolby's decoder from the writer, 103 to 138 dB, is the precision of five tables and nothing else: with the levels of the symmetric quantisers rounded to fifteen fractional bits it is at 138.5 dB or over everywhere. Where the standard can be read two ways the decoders part: after a \"none\", a \"reuse\" applies the stored segments in FFmpeg's decoder and in this one, as the pseudo code has it, and keeps \"none\" in Dolby's, as the table of the field has it. No stream examined has the sequence. Three more things have no rule in `verify` and decode without a word: a \"reuse\" in a first block, the reserved code and a segment past the last band. Each is refused or given up by at least one of the two outside decoders. Of 18 mutations of the AC-3 path, 15 survived the tests as they were, 0 survive now, and the tests over the written streams catch every one by themselves."
+}

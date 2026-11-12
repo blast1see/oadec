@@ -30,6 +30,26 @@ centre, LFE, side pair, back pair: FFmpeg and Dolby's decoder write eight
 channels with the back pair in front of the side pair, and theirs are put
 back first.
 
+The crate writes AC-3 streams too, about delta bit allocation. Those are not
+lossless, so no decoder gives a writer's samples bit for bit: each is judged
+by the signal-to-noise ratio of what it writes against the samples the writer
+says the stream comes to, channel by channel, and gives them when every
+channel is over 80 dB. That is a question of reading and not of arithmetic,
+and the two are far apart. A decoder that took one mantissa at another width
+than the writer laid it out at has lost the rest of the block: it is under
+20 dB, and at about 0 dB when it happens in every frame. A decoder that read
+every mantissa is as near as its arithmetic: FFmpeg's is at 138 to 139 dB,
+and Dolby's between 103 and 138 dB, because it holds the levels of the five
+symmetric quantisers (thirds, fifths, sevenths, elevenths, fifteenths) to
+fifteen fractional bits: against the writer's samples with the levels
+rounded so, it is at 138 dB on every recipe. That costs it nothing where a
+mantissa has bits enough for a plain quantiser, and by the arithmetic leaves
+it at 96 dB on a stream that had no others. Two decoders from outside read
+AC-3 here, FFmpeg's (`-drc_scale 0`) and Dolby's (the
+`dlbac3dec` element, which delays its output by 32 samples), and an AC-3
+recipe is confirmed when both give its samples. They are recorded in
+`crates/oadec-synth/specs/ac3.tsv`, the probes with them.
+
     cargo build --release -p oadec-synth -p oadec-cli
     python tools/synth_accept.py --out oadec-work/synth
     python tools/synth_accept.py --out oadec-work/synth --record
@@ -48,11 +68,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
 import subprocess
 import sys
+from array import array
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -67,6 +89,27 @@ PLAYER = Path(os.environ.get("DOLBY_REFERENCE_PLAYER")
               or Path(os.environ.get("ProgramFiles", "")) / "Dolby" / "Dolby Reference Player")
 GST = PLAYER / f"gst-launch-1.0{EXE}"
 DIGESTS = ROOT / "crates" / "oadec-synth" / "specs" / "digests.tsv"
+AC3 = ROOT / "crates" / "oadec-synth" / "specs" / "ac3.tsv"
+AC3_HEADER = """\
+# What the decoders made of the AC-3 streams of `oadec-synth`.
+#
+# Written by `tools/synth_accept.py --record` and by nothing else. A line is a
+# stream: its name, `reference` or `probe`, the SHA-256 of the stream, the
+# decoders that gave the samples the writer says it comes to (every channel
+# over 80 dB of signal to noise against them), the ones that gave others,
+# and the ones that would not read it (`-` for none). The decoders are
+# FFmpeg's and Dolby's. A reference is here because both gave its samples; a
+# probe is a question, and its lists say what each decoder does and not what
+# is right.
+"""
+# What a decoder has to reach on every channel to have given the samples of
+# an AC-3 stream, in dB of signal to noise: under what the coarsest
+# arithmetic of the two leaves (about 96 dB, see above) and far over what a
+# misread block does (under 20 dB). And the delays at which a decoder's
+# output is looked for: none, and the 32 samples Dolby's adds.
+AC3_AGREES_DB = 80.0
+AC3_DELAYS = (0, 32)
+AC3_OUTSIDE = ("ffmpeg", "dolby")
 PROBES = ROOT / "crates" / "oadec-synth" / "specs" / "probes.tsv"
 PROBES_HEADER = """\
 # What the decoders did with the probes of `oadec-synth`.
@@ -236,6 +279,80 @@ def by_oadec(oadec: str, stream: Path, r: dict, want: bytes, work: Path) -> dict
     return result
 
 
+def ac3_snr(want: bytes, got: bytes, delay: int) -> list[float]:
+    """Signal to noise in dB of each of two channels of 32-bit float `got`,
+    read `delay` samples in, against `want`."""
+    w = array("f")
+    w.frombytes(want[:len(want) // 8 * 8])
+    g = array("f")
+    g.frombytes(got[:len(got) // 8 * 8])
+    out = []
+    for ch in range(2):
+        a, b = w[ch::2], g[ch::2][delay:]
+        n = min(len(a), len(b))
+        signal = sum(x * x for x in a[:n])
+        noise = sum((x - y) * (x - y) for x, y in zip(a[:n], b[:n]))
+        if n == 0 or signal == 0:
+            out.append(-999.0)
+        elif noise == 0:
+            out.append(999.0)
+        else:
+            out.append(round(10 * math.log10(signal / noise), 1))
+    return out
+
+
+def ac3_judged(got: bytes | None, want: bytes, said: str, code: int) -> dict:
+    """What a decoder made of an AC-3 stream, against the writer's samples."""
+    said = said[-400:]
+    if got is None or len(got) < 8:
+        return {"verdict": "refused", "exit": code, "said": said}
+    snr, delay = max((ac3_snr(want, got, delay), delay) for delay in AC3_DELAYS)
+    verdict = "target" if min(snr) >= AC3_AGREES_DB else "differs"
+    out = {"verdict": verdict, "exit": code, "snr_db": snr, "delay": delay,
+           "samples_written": len(got) // 8, "samples_expected": len(want) // 8}
+    if said and verdict != "target":
+        out["said"] = said
+    return out
+
+
+def ac3_by_ffmpeg(stream: Path, want: bytes, work: Path) -> dict:
+    out = work / (stream.stem + ".ffmpeg.f32")
+    out.unlink(missing_ok=True)
+    code, said = run(["ffmpeg", "-v", "warning", "-nostdin", "-drc_scale", "0", "-f", "ac3", "-i", stream,
+                      "-f", "f32le", "-c:a", "pcm_f32le", "-y", out])
+    got = out.read_bytes() if code == 0 and out.is_file() else None
+    return ac3_judged(got, want, said, code)
+
+
+def ac3_by_dolby(stream: Path, want: bytes, work: Path) -> dict:
+    out = work / (stream.stem + ".dolby.f32")
+    out.unlink(missing_ok=True)
+    env = dict(os.environ)
+    env["GST_PLUGIN_PATH"] = str(PLAYER / "gst-plugins")
+    env["PATH"] = str(PLAYER) + os.pathsep + env.get("PATH", "")
+    code, said = run([GST, "-q", "filesrc", f"location={stream.as_posix()}", "!", "dlbac3parse", "!",
+                      "dlbac3dec", "drc-suppress=true", "out-ch-config=0", "!",
+                      "audio/x-raw,format=F32LE", "!", "filesink", f"location={out.as_posix()}"], env=env)
+    got = out.read_bytes() if code == 0 and out.is_file() else None
+    return ac3_judged(got, want, said, code)
+
+
+def ac3_by_oadec(oadec: str, stream: Path, want: bytes, work: Path) -> dict:
+    out = work / (stream.stem + ".oadec.wav")
+    out.unlink(missing_ok=True)
+    code, said = run([oadec, "decode", "--format", "wav", "-o", out, stream])
+    got = None
+    if out.is_file():
+        wav = out.read_bytes()
+        at = wav.find(b"data")
+        if at >= 0:
+            got = wav[at + 8:at + 8 + int.from_bytes(wav[at + 4:at + 8], "little")]
+    result = ac3_judged(got, want, "" if code == 0 else said, code)
+    vcode, _ = run([oadec, "verify", stream])
+    result["verify_exit"] = vcode
+    return result
+
+
 def version(cmd) -> str:
     try:
         code, said = run(cmd, timeout=60)
@@ -284,8 +401,6 @@ def main() -> int:
                         "probe": kind == "probe"})
     if args.only:
         recipes = [r for r in recipes if re.search(args.only, r["recipe"])]
-        if not recipes:
-            raise SystemExit(f"no recipe matches {args.only!r}")
         if args.record:
             raise SystemExit("--record is for all the recipes or none")
 
@@ -316,13 +431,53 @@ def main() -> int:
         mark = "?? " if r["probe"] else "ok " if r["confirmed"] else "NO "
         print(f"{mark} {r['name']:<36} {marks}  {own}")
 
+    # The AC-3 streams: FFmpeg's decoder and Dolby's, by signal to noise
+    # against the samples the writer says each stream comes to.
+    code, said = run([args.synth, "ac3-digests"])
+    if code != 0:
+        raise SystemExit(f"oadec-synth ac3-digests: {said}")
+    ac3 = []
+    for line in said.splitlines():
+        name, stream_sha, rate, frames, kind, read = line.split("\t")
+        ac3.append({"name": name, "stream_sha256": stream_sha, "rate": int(rate), "frames": int(frames),
+                    "probe": kind == "probe", "this_decoder_is_to_give": read})
+    if args.only:
+        ac3 = [r for r in ac3 if re.search(args.only, r["name"])]
+        if not recipes and not ac3:
+            raise SystemExit(f"no recipe matches {args.only!r}")
+    for r in ac3:
+        stream = streams / (r["name"] + ".ac3")
+        if sha256(stream) != r["stream_sha256"]:
+            raise SystemExit(f"{r['name']}: the file is not what `ac3-digests` names")
+        want = (streams / (r["name"] + ".f32")).read_bytes()
+        r["bytes"] = stream.stat().st_size
+        r["decoders"] = {
+            "ffmpeg": ac3_by_ffmpeg(stream, want, work),
+            "dolby": ac3_by_dolby(stream, want, work) if dolby
+            else {"verdict": "absent", "said": "the Dolby Reference Player is not installed"},
+        }
+        r["oadec"] = ac3_by_oadec(oadec, stream, want, work)
+        r["gave_the_samples"] = [d for d in AC3_OUTSIDE if r["decoders"][d]["verdict"] == "target"]
+        r["gave_others"] = [d for d in AC3_OUTSIDE if r["decoders"][d]["verdict"] == "differs"]
+        r["refused"] = [d for d in AC3_OUTSIDE if r["decoders"][d]["verdict"] == "refused"]
+        r["confirmed"] = len(r["gave_the_samples"]) >= 2
+        if not r["confirmed"] and not r["probe"]:
+            unconfirmed.append(r["name"])
+
+        def shown(d):
+            snr = d.get("snr_db")
+            return d["verdict"] + (f" {min(snr):.0f} dB" if snr else "")
+        marks = " ".join(f"{d}:{shown(r['decoders'][d])}" for d in AC3_OUTSIDE)
+        mark = "?? " if r["probe"] else "ok " if r["confirmed"] else "NO "
+        print(f"{mark} {r['name']:<36} {marks}  oadec:{shown(r['oadec'])} verify:{r['oadec']['verify_exit']}")
+
     probes = [r for r in recipes if r["probe"]]
     recipes = [r for r in recipes if not r["probe"]]
     summary = {
         "versions": {
             "ffmpeg": version(["ffmpeg", "-version"]),
             "truehdd": version(["truehdd", "--version"]),
-            "dolby": "the dlbtruehddec element of the Dolby Reference Player" if dolby else "absent",
+            "dolby": "the dlbtruehddec and dlbac3dec elements of the Dolby Reference Player" if dolby else "absent",
             "oadec": version([oadec, "--version"]),
         },
         # a recipe is a stream; a stream of several substreams has several presentations
@@ -338,10 +493,15 @@ def main() -> int:
         "oadec_without_a_finding": sum(1 for r in recipes if r["oadec"].get("rules") == []),
         "probes": len({r["recipe"] for r in probes}),
         "presentations_of_probes": len(probes),
+        "ac3_recipes": sum(1 for r in ac3 if not r["probe"]),
+        "ac3_confirmed": sum(1 for r in ac3 if not r["probe"] and r["confirmed"]),
+        "ac3_probes": sum(1 for r in ac3 if r["probe"]),
+        "ac3_this_decoder_gave_the_samples": sum(1 for r in ac3 if r["oadec"]["verdict"] == "target"),
     }
     print(json.dumps(summary, indent=1))
     if args.json:
-        args.json.write_text(json.dumps({"summary": summary, "recipes": recipes, "probes": probes}, indent=1)
+        args.json.write_text(json.dumps({"summary": summary, "recipes": recipes, "probes": probes,
+                                         "ac3": ac3}, indent=1)
                              + "\n", encoding="utf-8", newline="\n")
     if args.record:
         if unconfirmed:
@@ -363,6 +523,13 @@ def main() -> int:
         PROBES.write_text("".join(lines), encoding="utf-8", newline="\n")
         print(f"recorded {len(probes)} presentations of {summary['probes']} probes in "
               f"{PROBES.relative_to(ROOT).as_posix()}")
+        lines = [AC3_HEADER]
+        for r in ac3:
+            lines.append("\t".join([r["name"], "probe" if r["probe"] else "reference", r["stream_sha256"],
+                                    ",".join(r["gave_the_samples"]) or "-", ",".join(r["gave_others"]) or "-",
+                                    ",".join(r["refused"]) or "-"]) + "\n")
+        AC3.write_text("".join(lines), encoding="utf-8", newline="\n")
+        print(f"recorded {len(ac3)} AC-3 streams in {AC3.relative_to(ROOT).as_posix()}")
     return 1 if unconfirmed else 0
 
 

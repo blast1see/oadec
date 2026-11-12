@@ -1,0 +1,25 @@
+# What the decoders made of the AC-3 streams of `oadec-synth`.
+#
+# Written by `tools/synth_accept.py --record` and by nothing else. A line is a
+# stream: its name, `reference` or `probe`, the SHA-256 of the stream, the
+# decoders that gave the samples the writer says it comes to (every channel
+# over 80 dB of signal to noise against them), the ones that gave others,
+# and the ones that would not read it (`-` for none). The decoders are
+# FFmpeg's and Dolby's. A reference is here because both gave its samples; a
+# probe is a question, and its lists say what each decoder does and not what
+# is right.
+ac3-plain	reference	e56b81b493ffe04a3b858c7279a3ebbb3c2ba4e387997b8621b549cff971ae3a	ffmpeg,dolby	-	-
+ac3-delta	reference	ad36bbefd8ecc612f57fc99f4e66ff7f76d35d6161099ee9055b516559243ff3	ffmpeg,dolby	-	-
+ac3-delta-codes	reference	24c3ccf96f4f57647125ee061c8b26cc8ddd453afcef0678abe761ec79d709aa	ffmpeg,dolby	-	-
+ac3-delta-no-length	reference	ce43dba35bfd49076aa24f1c136a65a7b7567829f86c4b6b31f52f80ff8ab55d	ffmpeg,dolby	-	-
+ac3-delta-eight-segments	reference	96140cdf36891d58281d5d93a5c28a8ee2c97d374c55ba710aca63f33b5c3a08	ffmpeg,dolby	-	-
+ac3-delta-silent-first-block	reference	fe60b4a58ac310bd26330fb4b782e65cbff231d37d7b632c4fe5fb151f803e6c	ffmpeg,dolby	-	-
+ac3-delta-44100	reference	0542ee22ad6b8cc02e87e29abb97c040568ef8b699c435e984f7d33f2baf5967	ffmpeg,dolby	-	-
+ac3-delta-32000	reference	d48edf8330f0a0fc09398c20000c34b81a2c50cea5cb27324054db761533a4ca	ffmpeg,dolby	-	-
+probe-ac3-delta-unsaid	probe	7e0d98479e79e08bfb3250c4f233d2c183a48b879c1f0a058adaedd8d79a06db	-	ffmpeg	dolby
+probe-ac3-reuse-after-none	probe	99afdccece0ccaf047605c2b02e57c24a8f44d56e8d276500c13a231804f5e71	ffmpeg	-	dolby
+probe-ac3-reuse-after-none-kept	probe	922dfb07389920afc6f25a9ae1a07e2d7263f6c85b269308b79cdb4770dd3a50	dolby	ffmpeg	-
+probe-ac3-reuse-in-first-block	probe	b134145a493b8da0b665e846310c987912a6d4c15fcbcc821a92be78963a964b	ffmpeg	dolby	-
+probe-ac3-reuse-in-first-block-empty	probe	8540aef748f09ae4ddbeab3c5a381efa37043d751b484d3074b5a3da170ad3b7	-	ffmpeg,dolby	-
+probe-ac3-delta-reserved	probe	dcf0cbe1dc785c7d215078d468d3f3b6068707d1fc1ba3636ef73041379b192c	dolby	ffmpeg	-
+probe-ac3-delta-past-the-bands	probe	1be245737ac67f101d1bf0007d5de31a59946d07d983a0af7eae0ef9666b35f1	-	ffmpeg	dolby

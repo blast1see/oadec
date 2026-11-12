@@ -8,6 +8,44 @@ Semantic Versioning.
 
 ### Added
 
+- **AC-3 frames whose delta bit allocation moves the masking curve, and the
+  first AC-3 stream in the tests.** No stream examined applies a delta bit
+  allocation and no fixture was an AC-3 stream, so the delta stood on unit
+  tests of two functions and nothing decoded an AC-3 frame from its sync word
+  to its samples. `oadec-synth` writes such frames now (`bsid` 8, two
+  channels, no coupling): a block is told its exponents and what every
+  mantissa is to be, the bit allocation of clause 6.2.2 is worked out a
+  second time with the delta in it, and what a decoder has to make of the
+  frame is known exactly as coefficients and, through an inverse transform
+  written from its definition, as samples. Eight references: every state a
+  block can leave a channel in, each code of a segment, segments of no
+  length, eight segments up to the last band over channels of the widest
+  bandwidth, a first block that says nothing, and the three sampling rates.
+  FFmpeg's decoder and Dolby's give the samples of every one, as this decoder
+  does (`docs/audit/evidence/engine-round-2026-11/16-synthetic-ac3-delta.json`).
+  `tools/synth_accept.py` judges AC-3 by signal to noise and records the
+  streams in `crates/oadec-synth/specs/ac3.tsv`; `oadec-synth write ac3-delta
+  <stream> <samples>` gives a stream with its samples as 32-bit float, and
+  `ac3-digests` lists them. Of eighteen mutations of the AC-3 path that went
+  into `tools/mutants.py`, fifteen survived the tests as they were; none
+  does now.
+- **Seven AC-3 probes: what three decoders do where the standard forbids a
+  thing or says it twice.** "Reuse" after "none" in one frame: the pseudo
+  code of clause 6.2.2.6 applies the stored segments again, as FFmpeg's
+  decoder and this one do, and Dolby's keeps "none", which is how the table
+  of the field puts it. "Reuse" in a first block, which clause 4.4.3.49
+  forbids: FFmpeg's applies the segments of the frame before, Dolby's does
+  not decode the frame, this one applies nothing. The reserved code:
+  FFmpeg's gives the frame up, which is what clause 4.4.3.48 asks where the
+  coupling channel has it, and Dolby's and this one go on with no delta. A
+  segment that runs past the fiftieth band:
+  neither outside decoder decodes the frame, and this one applies the part
+  within the bands. `verify` has no rule for the last three yet, and the
+  tests hold the commands to what they do with each today. On the way,
+  Dolby's decoder turned out to hold the levels of the five symmetric
+  quantisers to fifteen fractional bits, which is all that separates its
+  samples from the writer's (`docs/eac3.md`, *Delta bit allocation, on frames
+  written for it*).
 - **Streams of two and three substreams, and a reference for every
   presentation.** `oadec-synth` writes a second substream that brings the
   channels to six and a third that brings them to eight, each with matrices
