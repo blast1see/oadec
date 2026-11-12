@@ -89,6 +89,14 @@ The tool is a gate, and a gate is tested like anything else: give it a binary
 that is known to print something else and see that it says so
 (`docs/audit/evidence/engine-round-2026-11/19-reports-compared.json`).
 
+Two binaries that are both told of a file that is not there agree to the
+line. So the tool looks at every stream before its first command and after
+its last, and one that was not there either time, or that was another size or
+written at another time by the end, is a change of its own: what was compared
+was not that stream, and the exit code says so. The summary counts the bytes
+of the streams, which is a number the corpus can be held to
+(`docs/audit/evidence/engine-round-2026-11/23-a-stream-that-is-gone.json`).
+
 ```sh
 python tools/old_new.py --old old/oadec --new target/release/oadec \
     --decode-all --tmp <a directory with room> --out old-new.json <streams or directories>

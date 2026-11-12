@@ -1,0 +1,50 @@
+{
+ "question": "Does the comparison of two binaries say so when a stream it was to compare them over is not there to be read, or changes while it is compared?",
+ "method": "Two binaries that are both told of a file that is not there print the same refusal and exit with the same code, so `tools/old_new.py` counted such a stream as one more agreement. It happened in this round: a comparison was reading the fixtures from a checkout that was removed while it ran. That run was thrown away and made again from a checkout that stays, and the evidence of the round has held the exit codes of `info` to the number of streams since. The tool now looks at every stream before its first command and after its last (`seen`, `held`) and reports one that was not there either time, or that was another size or written at another time by the end, as a change of its own. A control outside the repository made three copies of the ten fixtures: one left alone, one whose every file is deleted when the first command reaches the first of them, and one in which a byte is added to each file as the first command reaches it. Both sides of the comparison were one binary of main behind a wrapper that did the deleting and the adding, so whatever the tool reported was about the streams and not about the decoder. The control ran the tool as it was and the tool as it is over the three copies, without `--decode`, one stream at a time, and then both over three copies nobody touched with the binary itself on both sides.",
+ "result": {
+  "streams_in_each_copy": 10,
+  "ten_streams_deleted_and_ten_grown_by_a_byte": {
+   "the_tool_as_it_was": {
+    "exit_code": 0,
+    "first_line": "30 streams, 0 changed; fields added: none; lines added: none",
+    "streams": 30,
+    "streams_changed": 0,
+    "what_it_reported": {}
+   },
+   "the_tool_as_it_is": {
+    "exit_code": 1,
+    "first_line": "30 streams, 20 changed; fields added: none; lines added: none",
+    "streams": 30,
+    "streams_changed": 20,
+    "what_it_reported": {
+     "gone": {
+      "the stream was not there to be read: not there after the last command": 1,
+      "the stream was not there to be read: not there before the first command": 9
+     },
+     "grows": {
+      "the stream changed while it was compared": 10
+     }
+    }
+   },
+   "exit_codes_of_info_on_both_sides": {
+    "0": 20,
+    "2": 10
+   }
+  },
+  "streams_nobody_touched": {
+   "bytes_of_the_streams": 2584248,
+   "the_tool_as_it_was": {
+    "exit_code": 0,
+    "first_line": "30 streams, 0 changed; fields added: none; lines added: none"
+   },
+   "the_tool_as_it_is": {
+    "exit_code": 0,
+    "first_line": "30 streams, 0 changed; fields added: none; lines added: none",
+    "stream_bytes": 2584248
+   },
+   "the_two_count_the_same_lines_and_fields": true
+  },
+  "not_covered": "a stream that is replaced by another of the same size without its time of writing moving, and one that goes and comes back between two looks: the tool does not read the streams itself, which for a corpus is gigabytes for every run"
+ },
+ "reading": "It did not, and it does now. With 10 of 30 streams deleted under it and 10 more grown by a byte, the tool as it was ended on \"30 streams, 0 changed\" at exit 0; the tool as it is names all 20 and exits 1. Over streams nobody touches the two count the same lines and fields and both exit 0, and the new one adds the bytes of the streams to its summary, 2584248 here, which is three times the ten fixtures."
+}

@@ -461,6 +461,17 @@ Semantic Versioning.
 
 ### Fixed
 
+- **The comparison of two binaries counted a stream that was gone as an
+  agreement.** Two binaries that are both told of a file that is not there
+  print the same refusal and exit alike, so `tools/old_new.py` took such a
+  stream for one more that had not changed: a comparison reading its fixtures
+  from a checkout that was removed under it would have ended on "0 changed".
+  The tool looks at every stream before its first command and after its last
+  now, and one that was not there, or that was another size or written at
+  another time by the end, is a change of its own. With ten of thirty streams
+  deleted under it and ten more grown by a byte, the tool as it was exited 0
+  and the tool as it is names all twenty
+  (`docs/audit/evidence/engine-round-2026-11/23-a-stream-that-is-gone.json`).
 - **The media regression failed its ADM step in a checkout that had never
   built the writer harness.** The step runs a Cargo project of its own and
   the script did not build it, so the missing binary read as a result of the
