@@ -8,6 +8,20 @@ Semantic Versioning.
 
 ### Added
 
+- **`--fail-on` and `--max-per-rule` on an AC-3 or E-AC-3 stream.** The two
+  options that go with named rules were refused on a stream of the AC-3
+  family while its checks were counters. They are taken now. At `error`, the
+  threshold `verify` has when it is given none, the counters decide as they
+  always did; at any other the worst finding does: `--fail-on warning` exits 7
+  on a stream whose one finding is an element of a stale size, which every
+  command calls clean by default, and `--fail-on fatal` exits 0 on a stream
+  with errors, since no rule of the family is fatal. `--max-per-rule` changes
+  how many findings of a rule are listed in full, and no count. The report
+  names the threshold its verdict has. A decode is given no threshold and
+  keeps its verdict. `--require-disc` and `--trace-fifo` are about a TrueHD
+  stream and are still refused, in a sentence that says so. A stream whose
+  only finding is such a warning is kept with the streams the campaign found
+  (`docs/audit/evidence/engine-round-2026-11/27-ac3-threshold.json`).
 - **The checks of an AC-3 or E-AC-3 stream have names.** Every check `verify`
   makes on a stream of the AC-3 family was a counter, and what a counter
   meant was said where it was printed. Each is a rule now, as the checks of a
@@ -26,8 +40,7 @@ Semantic Versioning.
   code moves: the counters still decide, and a debug build stops at a rule
   that fired another number of times than its counter counted, which over
   the tests, the campaign and 70 streams of the corpus none did
-  (`docs/audit/evidence/engine-round-2026-11/26-ac3-rules.json`). `--fail-on`
-  and `--max-per-rule` are still TrueHD's.
+  (`docs/audit/evidence/engine-round-2026-11/26-ac3-rules.json`).
 - **A campaign that puts every changed stream to every command.**
   `oadec_fuzz::parity` asks `info`, `verify`, `verify --decode`, `oamd`,
   `emdf` and every decode about the same bytes, through the calls of

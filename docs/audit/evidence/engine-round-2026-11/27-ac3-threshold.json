@@ -1,0 +1,449 @@
+{
+ "question": "Do `--fail-on` and `--max-per-rule` do on a stream of the AC-3 family what they do on a TrueHD stream, and does taking them change anything for a run that gives neither?",
+ "method": "The checks of the family have been rules since the change before this one, and the two options were still refused there. `verify` takes them now. At `error`, the threshold it has when it is given none, the verdict is read from the counters as it always was; at any other threshold it is the worst finding against the threshold. The limit of the listing reaches the tally the pass files its findings in. A script outside the repository ran `verify --json` with the release binary at every threshold over the three kept streams of the family and the fixture, and with every limit over the fixture with the CRC word of five frames changed. The stream whose only finding is a warning was found by changing each bit of the first frame of the fixture in turn, putting the CRC right and asking `verify`. `tools/old_new.py --decode-all` compared the binary of main before the change with the change, neither run given an option.",
+ "binaries": {
+  "main before the change": "1dbfb78a0842c56401c4b2da5bcf20412ff8e916582bc08fcb172d69962379a9",
+  "the change": "767cd592c1c520b372b0dfa43fa4362901e7d2523edf7dadd69fcba972f157d2"
+ },
+ "result": {
+  "the_verdict_at_every_threshold": {
+   "eac3-complexity-index-mismatch.bin": {
+    "worst": "error",
+    "rules": [
+     "bsi.complexity_index"
+    ],
+    "no threshold given": {
+     "exit": 7,
+     "clean": false
+    },
+    "--fail-on info": {
+     "exit": 7,
+     "clean": false
+    },
+    "--fail-on warning": {
+     "exit": 7,
+     "clean": false
+    },
+    "--fail-on error": {
+     "exit": 7,
+     "clean": false
+    },
+    "--fail-on fatal": {
+     "exit": 0,
+     "clean": true
+    }
+   },
+   "eac3-element-of-a-stale-size.bin": {
+    "worst": "warning",
+    "rules": [
+     "oamd.stale_size"
+    ],
+    "no threshold given": {
+     "exit": 0,
+     "clean": true
+    },
+    "--fail-on info": {
+     "exit": 7,
+     "clean": false
+    },
+    "--fail-on warning": {
+     "exit": 7,
+     "clean": false
+    },
+    "--fail-on error": {
+     "exit": 0,
+     "clean": true
+    },
+    "--fail-on fatal": {
+     "exit": 0,
+     "clean": true
+    }
+   },
+   "eac3-payload-without-object-element.bin": {
+    "worst": "error",
+    "rules": [
+     "oamd.unusable"
+    ],
+    "no threshold given": {
+     "exit": 7,
+     "clean": false
+    },
+    "--fail-on info": {
+     "exit": 7,
+     "clean": false
+    },
+    "--fail-on warning": {
+     "exit": 7,
+     "clean": false
+    },
+    "--fail-on error": {
+     "exit": 7,
+     "clean": false
+    },
+    "--fail-on fatal": {
+     "exit": 0,
+     "clean": true
+    }
+   },
+   "authored-scene.ec3": {
+    "worst": null,
+    "rules": [],
+    "no threshold given": {
+     "exit": 0,
+     "clean": true
+    },
+    "--fail-on info": {
+     "exit": 0,
+     "clean": true
+    },
+    "--fail-on warning": {
+     "exit": 0,
+     "clean": true
+    },
+    "--fail-on error": {
+     "exit": 0,
+     "clean": true
+    },
+    "--fail-on fatal": {
+     "exit": 0,
+     "clean": true
+    }
+   }
+  },
+  "what_a_limit_lists": {
+   "no limit given": {
+    "exit": 7,
+    "count": 5,
+    "listed": 5,
+    "suppressed": 0,
+    "crc_failures": 5,
+    "max_per_rule": 20
+   },
+   "--max-per-rule 0": {
+    "exit": 7,
+    "count": 5,
+    "listed": 5,
+    "suppressed": 0,
+    "crc_failures": 5,
+    "max_per_rule": 0
+   },
+   "--max-per-rule 1": {
+    "exit": 7,
+    "count": 5,
+    "listed": 1,
+    "suppressed": 4,
+    "crc_failures": 5,
+    "max_per_rule": 1
+   },
+   "--max-per-rule 2": {
+    "exit": 7,
+    "count": 5,
+    "listed": 2,
+    "suppressed": 3,
+    "crc_failures": 5,
+    "max_per_rule": 2
+   },
+   "--max-per-rule 20": {
+    "exit": 7,
+    "count": 5,
+    "listed": 5,
+    "suppressed": 0,
+    "crc_failures": 5,
+    "max_per_rule": 20
+   }
+  },
+  "still_refused_on_a_stream_of_the_family": {
+   "--require-disc": {
+    "exit": 2,
+    "says": "error: --trace-fifo and --require-disc are about the decoder buffer and the disc formats of a TrueHD stream; they do not apply to an AC-3 or E-AC-3 stream"
+   },
+   "--trace-fifo": {
+    "exit": 2,
+    "says": "error: --trace-fifo and --require-disc are about the decoder buffer and the disc formats of a TrueHD stream; they do not apply to an AC-3 or E-AC-3 stream"
+   }
+  },
+  "a_run_that_gives_neither_option": {
+   "streams": 125,
+   "bytes_of_the_streams": 4060173690,
+   "streams_changed": 0,
+   "fields_added": [],
+   "lines_added": [],
+   "lines_of_reports_compared": 8290,
+   "fields_of_reports_compared": 52448,
+   "bytes_of_deliveries_compared": 103362691041,
+   "the_media_suite": {
+    "passed": 28,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "mutations": {
+   "count": 40,
+   "survive": [],
+   "each": [
+    {
+     "mutation": "the missing container, the statistics not counting a frame without skip fields",
+     "caught_by": [
+      "eac3::tests::a_frame_without_a_container_is_filed_only_where_the_stream_carries_emdf",
+      "eac3::tests::a_frame_without_skip_fields_loses_a_container_where_emdf_is_declared"
+     ]
+    },
+    {
+     "mutation": "an E-AC-3 pass that is told to stop goes on",
+     "caught_by": [
+      "verify::tests::a_check_on_its_thread_stops_when_its_flag_is_set",
+      "verify::tests::a_check_told_to_stop_gives_the_stream_up_at_once"
+     ]
+    },
+    {
+     "mutation": "a call that decodes in the order of the stream whatever it is asked",
+     "caught_by": [
+      "decode_pcm_writes_the_bytes_the_command_writes",
+      "the_order_of_the_channels_is_the_one_asked_for"
+     ]
+    },
+    {
+     "mutation": "what a TrueHD decode does with a bad unit let through for an E-AC-3 object decode",
+     "caught_by": [
+      "a_call_refuses_what_the_command_refuses_in_its_words"
+     ]
+    },
+    {
+     "mutation": "a refused payload left out of the verdict of an E-AC-3 stream",
+     "caught_by": [
+      "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean",
+      "eac3::tests::every_rule_is_held_to_its_counter"
+     ]
+    },
+    {
+     "mutation": "a run of skipped bytes filed as one",
+     "caught_by": [
+      "the_calls_print_nothing"
+     ]
+    },
+    {
+     "mutation": "a CRC failure of a dependent substream filed with no weight",
+     "caught_by": [
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group"
+     ]
+    },
+    {
+     "mutation": "what the programme counts filed under the rule next to it",
+     "caught_by": [
+      "eac3::tests::what_the_programme_counts_is_filed_under_its_rule_where_it_was_counted"
+     ]
+    },
+    {
+     "mutation": "what the programme counts filed again every time it is looked at",
+     "caught_by": [
+      "eac3::tests::what_the_programme_counts_is_filed_under_its_rule_where_it_was_counted"
+     ]
+    },
+    {
+     "mutation": "a complexity index that disagrees filed with no weight",
+     "caught_by": [
+      "a_complexity_index_that_disagrees_with_the_oamd_is_non_conformant",
+      "a_finding_names_its_rule_and_its_frame"
+     ]
+    },
+    {
+     "mutation": "a stale element size filed with no weight",
+     "caught_by": [
+      "eac3::tests::a_stale_element_size_is_a_warning_filed_at_its_frame"
+     ]
+    },
+    {
+     "mutation": "a JOC payload of the wrong size filed with no weight",
+     "caught_by": [
+      "the_commands_agree_on_every_changed_stream"
+     ]
+    },
+    {
+     "mutation": "the threshold of verify ignored on a stream of the AC-3 family",
+     "caught_by": [
+      "a_warning_fails_a_stream_of_the_ac3_family_only_below_the_default_threshold"
+     ]
+    },
+    {
+     "mutation": "the threshold of a call not reaching the report of an AC-3 family stream",
+     "caught_by": [
+      "a_warning_fails_a_stream_of_the_ac3_family_only_below_the_default_threshold"
+     ]
+    },
+    {
+     "mutation": "a dropped dependent substream no longer makes a stream unclean",
+     "caught_by": [
+      "eac3::tests::a_tail_overrun_alone_fails_verify_and_not_a_delivery",
+      "eac3::tests::every_input_to_the_verdict_can_make_a_stream_unclean",
+      "eac3::tests::every_rule_is_held_to_its_counter"
+     ]
+    },
+    {
+     "mutation": "the options of the TrueHD checks let through for an AC-3 family stream",
+     "caught_by": [
+      "a_call_refuses_what_the_command_refuses_in_its_words"
+     ]
+    },
+    {
+     "mutation": "a call that lists a payload in full as it walks",
+     "caught_by": [
+      "the_calls_print_nothing"
+     ]
+    },
+    {
+     "mutation": "one of the options of the TrueHD checks let through for an AC-3 family stream",
+     "caught_by": [
+      "a_call_refuses_what_the_command_refuses_in_its_words"
+     ]
+    },
+    {
+     "mutation": "a refused payload left out of what a decode of an E-AC-3 stream found",
+     "caught_by": [
+      "a_payload_an_object_output_cannot_take_is_a_fault_to_every_command",
+      "a_warning_fails_a_stream_of_the_ac3_family_only_below_the_default_threshold"
+     ]
+    },
+    {
+     "mutation": "a frame CRC failure filed with no weight",
+     "caught_by": [
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group"
+     ]
+    },
+    {
+     "mutation": "a dependent frame that ends inside its tail filed with no weight",
+     "caught_by": [
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group"
+     ]
+    },
+    {
+     "mutation": "a misaligned frame and an unreadable channel map filed as each other",
+     "caught_by": [
+      "eac3::tests::what_the_programme_counts_is_filed_under_its_rule_where_it_was_counted"
+     ]
+    },
+    {
+     "mutation": "a frame without a container filed in a stream that carries no EMDF",
+     "caught_by": [
+      "eac3::tests::a_frame_without_a_container_is_filed_only_where_the_stream_carries_emdf"
+     ]
+    },
+    {
+     "mutation": "an Object Audio Metadata payload that will not parse filed with no weight",
+     "caught_by": [
+      "the_commands_agree_on_every_changed_stream"
+     ]
+    },
+    {
+     "mutation": "a JOC payload that will not parse filed with no weight",
+     "caught_by": [
+      "a_joc_payload_that_cannot_be_read_fails_the_metadata_commands_as_it_fails_verify"
+     ]
+    },
+    {
+     "mutation": "a rule held to the counter of another",
+     "caught_by": [
+      "eac3::tests::every_rule_is_held_to_its_counter"
+     ]
+    },
+    {
+     "mutation": "the listing limit not reaching the pass over a stream of the AC-3 family",
+     "caught_by": [
+      "the_listing_limit_changes_what_is_listed_and_no_count"
+     ]
+    },
+    {
+     "mutation": "the default threshold of verify raised to fatal",
+     "caught_by": [
+      "a_complexity_index_that_disagrees_with_the_oamd_is_non_conformant",
+      "a_container_whose_declared_length_disagrees_with_its_syntax_does_not_open",
+      "a_finding_names_its_rule_and_its_frame"
+     ]
+    },
+    {
+     "mutation": "the verdict line left off the text of verify for an AC-3 family stream",
+     "caught_by": [
+      "a_finding_names_its_rule_and_its_frame"
+     ]
+    },
+    {
+     "mutation": "the JOC measurement overrides let through for a TrueHD stream",
+     "caught_by": [
+      "a_call_refuses_what_the_command_refuses_in_its_words"
+     ]
+    },
+    {
+     "mutation": "verify not making the refusals of an object output on an E-AC-3 stream",
+     "caught_by": [
+      "a_finding_names_its_rule_and_its_frame"
+     ]
+    },
+    {
+     "mutation": "a sync error filed with no weight",
+     "caught_by": [
+      "the_calls_print_nothing"
+     ]
+    },
+    {
+     "mutation": "a frame that ends inside its tail filed with no weight",
+     "caught_by": [
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group"
+     ]
+    },
+    {
+     "mutation": "a dependent frame that would not decode filed as the independent substream's",
+     "caught_by": [
+      "eac3::tests::what_the_programme_counts_is_filed_under_its_rule_where_it_was_counted"
+     ]
+    },
+    {
+     "mutation": "a repeated frame and a stalled substream filed as each other",
+     "caught_by": [
+      "eac3::tests::what_the_programme_counts_is_filed_under_its_rule_where_it_was_counted"
+     ]
+    },
+    {
+     "mutation": "a payload configuration outside the table filed with no weight",
+     "caught_by": [
+      "a_payload_configuration_outside_table_56_is_non_conformant"
+     ]
+    },
+    {
+     "mutation": "a payload the programme cannot take filed with no weight",
+     "caught_by": [
+      "a_finding_names_its_rule_and_its_frame"
+     ]
+    },
+    {
+     "mutation": "a reserved JOC extension filed with no weight",
+     "caught_by": [
+      "a_reserved_joc_extension_is_named_and_the_matrices_held"
+     ]
+    },
+    {
+     "mutation": "the time of a finding counted in frames",
+     "caught_by": [
+      "a_finding_names_its_rule_and_its_frame"
+     ]
+    },
+    {
+     "mutation": "a report of the AC-3 family naming another threshold than its verdict has",
+     "caught_by": [
+      "a_warning_fails_a_stream_of_the_ac3_family_only_below_the_default_threshold"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 628 passed, 28 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  },
+  "what_follows_from_the_catalog_and_is_said": "no rule of the family is fatal, so `--fail-on fatal` passes every stream that has a frame; and one rule is below `error`, so `--fail-on warning` fails nothing but what `error` fails and a stale element size"
+ },
+ "reading": "They do. A stream whose only finding is a warning exits 0 with no threshold given and 7 at `warning`; a stream with errors exits 7 with none given and 0 at `fatal`; with none given and at `error` every stream is judged alike; and no threshold or limit moves a count. Five findings of a rule are five whatever is listed of them. For a run that gives neither option nothing moves: over 125 streams the same 8 290 lines and 52 448 fields of reports and the same 103 362 691 041 bytes of deliveries, with no line and no field added."
+}
