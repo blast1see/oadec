@@ -3,6 +3,7 @@ exit 0
 [stdout]
 [
   {
+    "format": "truehd",
     "id": "au.framing",
     "legacy_counter": "framing_errors",
     "provenance": [
@@ -20,6 +21,7 @@ exit 0
     "summary": "the access unit cannot be framed: its length, its major sync, its directory or an end pointer"
   },
   {
+    "format": "truehd",
     "id": "au.header_parity",
     "legacy_counter": "header_parity",
     "provenance": [
@@ -37,6 +39,7 @@ exit 0
     "summary": "the check nibble does not fold the access-unit header and directory to 0xF"
   },
   {
+    "format": "truehd",
     "id": "au.restart_flag",
     "legacy_counter": "restart_flag",
     "provenance": [
@@ -50,6 +53,7 @@ exit 0
     "summary": "a directory restart_nonexistent flag contradicts its segment"
   },
   {
+    "format": "truehd",
     "id": "sync.crc",
     "legacy_counter": "major_sync_crc",
     "provenance": [
@@ -67,6 +71,7 @@ exit 0
     "summary": "a major sync fails its CRC-16"
   },
   {
+    "format": "truehd",
     "id": "sync.signature",
     "legacy_counter": "major_sync_signature",
     "provenance": [
@@ -80,6 +85,7 @@ exit 0
     "summary": "a major sync's signature is not 0xB752"
   },
   {
+    "format": "truehd",
     "id": "sync.resync",
     "legacy_counter": "resyncs",
     "provenance": [
@@ -92,6 +98,7 @@ exit 0
     "summary": "sync was lost and found again at a later major sync; the units between are gone"
   },
   {
+    "format": "truehd",
     "id": "sync.skipped_bytes",
     "legacy_counter": "skipped_bytes",
     "provenance": [
@@ -108,6 +115,7 @@ exit 0
     "summary": "bytes that belong to no access unit were skipped (the magnitude is the byte count)"
   },
   {
+    "format": "truehd",
     "id": "sync.trailing_bytes",
     "legacy_counter": "trailing_bytes",
     "provenance": [
@@ -120,6 +128,7 @@ exit 0
     "summary": "bytes after the last access unit do not make one: a stream cut inside a unit (the magnitude is the byte count)"
   },
   {
+    "format": "truehd",
     "id": "sync.foreign_pattern",
     "legacy_counter": null,
     "provenance": [
@@ -137,6 +146,7 @@ exit 0
     "summary": "the DVD-Audio (FBB) sync pattern met inside a TrueHD stream and passed over"
   },
   {
+    "format": "truehd",
     "id": "config.changed",
     "legacy_counter": "config_changes",
     "provenance": [
@@ -149,6 +159,7 @@ exit 0
     "summary": "a major sync changes the format, the substreams or the rate the first one declared"
   },
   {
+    "format": "truehd",
     "id": "extra.header_parity",
     "legacy_counter": "extra_header_parity",
     "provenance": [
@@ -162,6 +173,7 @@ exit 0
     "summary": "the length check nibble of the extra data does not fold to 0xF"
   },
   {
+    "format": "truehd",
     "id": "extra.truncated",
     "legacy_counter": "extra_truncated",
     "provenance": [
@@ -175,6 +187,7 @@ exit 0
     "summary": "the extra data declares more words than the access unit holds"
   },
   {
+    "format": "truehd",
     "id": "extra.parity",
     "legacy_counter": "extra_evolution_parity",
     "provenance": [
@@ -192,6 +205,7 @@ exit 0
     "summary": "the parity byte of an Evolution block does not match"
   },
   {
+    "format": "truehd",
     "id": "extra.padding",
     "legacy_counter": "extra_padding_nonzero",
     "provenance": [
@@ -204,6 +218,7 @@ exit 0
     "summary": "padding in the extra data is not zero"
   },
   {
+    "format": "truehd",
     "id": "evo.container",
     "legacy_counter": "evolution_container_errors",
     "provenance": [
@@ -221,6 +236,7 @@ exit 0
     "summary": "an Evolution frame does not open as an EMDF container"
   },
   {
+    "format": "truehd",
     "id": "evo.oamd",
     "legacy_counter": "oamd_errors",
     "provenance": [
@@ -238,6 +254,7 @@ exit 0
     "summary": "an Object Audio Metadata payload does not parse"
   },
   {
+    "format": "truehd",
     "id": "segment.syntax",
     "legacy_counter": "substream_errors",
     "provenance": [
@@ -255,6 +272,7 @@ exit 0
     "summary": "a substream segment does not parse (restart header and its CRC, block header, filters, samples); the substream is read again from its next restart"
   },
   {
+    "format": "truehd",
     "id": "segment.parity",
     "legacy_counter": "segment_parity",
     "provenance": [
@@ -272,6 +290,7 @@ exit 0
     "summary": "a segment's parity byte does not match"
   },
   {
+    "format": "truehd",
     "id": "segment.crc",
     "legacy_counter": "segment_crc",
     "provenance": [
@@ -289,6 +308,7 @@ exit 0
     "summary": "a segment's CRC-8 does not match"
   },
   {
+    "format": "truehd",
     "id": "segment.end_pointer",
     "legacy_counter": "segment_end",
     "provenance": [
@@ -302,6 +322,7 @@ exit 0
     "summary": "a segment does not end where its end pointer says"
   },
   {
+    "format": "truehd",
     "id": "segment.sample_count",
     "legacy_counter": "sample_count",
     "provenance": [
@@ -314,6 +335,7 @@ exit 0
     "summary": "the blocks of a segment do not add up to one access unit of samples"
   },
   {
+    "format": "truehd",
     "id": "segment.terminator",
     "legacy_counter": "terminator_tail",
     "provenance": [
@@ -327,6 +349,7 @@ exit 0
     "summary": "a termination word ends in neither 0x1234 nor a zero-sample count"
   },
   {
+    "format": "truehd",
     "id": "segment.unexpected_tail",
     "legacy_counter": "unexpected_tail",
     "provenance": [
@@ -344,6 +367,7 @@ exit 0
     "summary": "a segment has room for a termination word and holds something else"
   },
   {
+    "format": "truehd",
     "id": "block.data_bits",
     "legacy_counter": "block_data_bits",
     "provenance": [
@@ -356,6 +380,7 @@ exit 0
     "summary": "a block's coded size differs from its block_data_bits"
   },
   {
+    "format": "truehd",
     "id": "timing.invalid_branch",
     "legacy_counter": "invalid_branches",
     "provenance": [
@@ -373,6 +398,7 @@ exit 0
     "summary": "a timing jump that is not a valid seamless branch; the stream restarts there"
   },
   {
+    "format": "truehd",
     "id": "sync.major_sync_interval",
     "legacy_counter": null,
     "provenance": [
@@ -390,6 +416,7 @@ exit 0
     "summary": "more than 128 access units since the last major sync"
   },
   {
+    "format": "truehd",
     "id": "sync.major_sync_spacing",
     "legacy_counter": null,
     "provenance": [
@@ -407,6 +434,7 @@ exit 0
     "summary": "fewer than eight access units since the last major sync, other than at the start of the stream or at a branch"
   },
   {
+    "format": "truehd",
     "id": "au.sync_emulation",
     "legacy_counter": null,
     "provenance": [
@@ -424,6 +452,7 @@ exit 0
     "summary": "the directory of a minor-sync unit begins with 0xF872, which an encoder must avoid"
   },
   {
+    "format": "truehd",
     "id": "segment.block_count",
     "legacy_counter": null,
     "provenance": [
@@ -441,6 +470,7 @@ exit 0
     "summary": "more blocks in a segment than its restart sync word allows: 4 for 0x31EA, 2 for 0x31EB and 0x31EC"
   },
   {
+    "format": "truehd",
     "id": "segment.zero_samples",
     "legacy_counter": null,
     "provenance": [
@@ -458,6 +488,7 @@ exit 0
     "summary": "a termination word claims a whole access unit or more of added samples"
   },
   {
+    "format": "truehd",
     "id": "timing.output_timing_disagree",
     "legacy_counter": null,
     "provenance": [
@@ -475,6 +506,7 @@ exit 0
     "summary": "the restart headers of one access unit disagree on output_timing"
   },
   {
+    "format": "truehd",
     "id": "extra.trailing_bytes",
     "legacy_counter": null,
     "provenance": [
@@ -492,6 +524,7 @@ exit 0
     "summary": "bytes after the extra-data block that its length does not cover, inside the access unit"
   },
   {
+    "format": "truehd",
     "id": "evo.length_mismatch",
     "legacy_counter": null,
     "provenance": [
@@ -504,6 +537,7 @@ exit 0
     "summary": "an Evolution frame's declared length is not the length its container's syntax takes"
   },
   {
+    "format": "truehd",
     "id": "evo.program_mismatch",
     "legacy_counter": null,
     "provenance": [
@@ -526,6 +560,7 @@ exit 0
     "summary": "the object metadata describes another bed or object count than the major sync declares"
   },
   {
+    "format": "truehd",
     "id": "evo.oamd_unusable",
     "legacy_counter": null,
     "provenance": [
@@ -538,6 +573,7 @@ exit 0
     "summary": "an Object Audio Metadata payload has no object element, or describes other beds or another number of objects than the first payload of the stream: an object output can make nothing of it and says so"
   },
   {
+    "format": "truehd",
     "id": "evo.protection_reserved",
     "legacy_counter": null,
     "provenance": [
@@ -555,6 +591,7 @@ exit 0
     "summary": "an Evolution container codes its primary protection length as 00, which ETSI TS 102 366 reserves"
   },
   {
+    "format": "truehd",
     "id": "buffer.substream_depth",
     "legacy_counter": null,
     "provenance": [
@@ -567,6 +604,7 @@ exit 0
     "summary": "a substream fills the decoder buffer beyond 15 000 bytes for each channel its restart header spans"
   },
   {
+    "format": "truehd",
     "id": "buffer.stream_depth",
     "legacy_counter": null,
     "provenance": [
@@ -584,6 +622,7 @@ exit 0
     "summary": "the stream fills the decoder buffer beyond the 120 000 bytes every decoder has"
   },
   {
+    "format": "truehd",
     "id": "buffer.latency_over_75ms",
     "legacy_counter": null,
     "provenance": [
@@ -600,6 +639,7 @@ exit 0
     "summary": "an access unit waits more than 75 ms in the decoder buffer before its output"
   },
   {
+    "format": "truehd",
     "id": "buffer.latency_under_frame",
     "legacy_counter": null,
     "provenance": [
@@ -616,6 +656,7 @@ exit 0
     "summary": "an access unit arrives less than one frame before its output"
   },
   {
+    "format": "truehd",
     "id": "rate.over_declared_peak",
     "legacy_counter": null,
     "provenance": [
@@ -633,6 +674,7 @@ exit 0
     "summary": "an access unit is delivered faster than the peak data rate its major sync declares"
   },
   {
+    "format": "truehd",
     "id": "rate.over_ceiling",
     "legacy_counter": null,
     "provenance": [
@@ -650,6 +692,7 @@ exit 0
     "summary": "an access unit is delivered faster than 18 Mbit/s"
   },
   {
+    "format": "truehd",
     "id": "disc.required",
     "legacy_counter": null,
     "provenance": [
@@ -676,6 +719,7 @@ exit 0
     "summary": "verify --require-disc: the stream does not fit a disc format the run requires, or its fit cannot be judged"
   },
   {
+    "format": "truehd",
     "id": "decode.lossless_check",
     "legacy_counter": null,
     "provenance": [
@@ -688,6 +732,7 @@ exit 0
     "summary": "verify --decode: a restart header's lossless check word disagrees with the decoded samples"
   },
   {
+    "format": "truehd",
     "id": "decode.stopped",
     "legacy_counter": null,
     "provenance": [
@@ -700,6 +745,7 @@ exit 0
     "summary": "verify --decode: a presentation's decode stopped before the end of the stream"
   },
   {
+    "format": "truehd",
     "id": "decode.max_bits",
     "legacy_counter": null,
     "provenance": [
@@ -712,6 +758,7 @@ exit 0
     "summary": "verify --decode: decoded samples need more bits than their restart header's max_bits allows"
   },
   {
+    "format": "truehd",
     "id": "decode.clipped",
     "legacy_counter": null,
     "provenance": [
@@ -722,6 +769,499 @@ exit 0
     ],
     "severity": "error",
     "summary": "verify --decode: decoded samples beyond 24 bits, which every writer can only clamp"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "frame.sync",
+    "legacy_counter": "sync_errors",
+    "provenance": [
+      {
+        "clause": "4.3.1, E.1.2.2",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a place where a syncframe has to start and none does: no sync word, a header that cannot be read, or a frame that the next sync word does not follow"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "frame.skipped",
+    "legacy_counter": "skipped_bytes",
+    "provenance": [
+      {
+        "clause": "4.3.1, E.1.2.2",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "bytes of the stream that belong to no syncframe, passed over to find the next or left at the end"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "frame.decode",
+    "legacy_counter": "decode_errors",
+    "provenance": [
+      {
+        "clause": "4.3, E.1.2",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a syncframe of the independent substream whose syntax cannot be decoded"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "frame.crc",
+    "legacy_counter": "crc_failures",
+    "provenance": [
+      {
+        "clause": "6.10.1",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "the CRC-16 over a syncframe of the independent substream does not hold"
+  },
+  {
+    "delivery": false,
+    "format": "ac3",
+    "id": "frame.tail_overrun",
+    "legacy_counter": "tail_overruns",
+    "provenance": [
+      {
+        "clause": "4.4.4",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "the audio blocks of a syncframe end inside the eighteen bits that close it; the frame decodes, and a decode keeps its verdict"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "substream.decode",
+    "legacy_counter": "substream_decode_errors",
+    "provenance": [
+      {
+        "clause": "E.1.2, E.1.3.1.2",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a syncframe of a dependent substream whose syntax cannot be decoded"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "substream.crc",
+    "legacy_counter": "substream_crc_failures",
+    "provenance": [
+      {
+        "clause": "6.10.1",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "the CRC-16 over a syncframe of a dependent substream does not hold"
+  },
+  {
+    "delivery": false,
+    "format": "ac3",
+    "id": "substream.tail_overrun",
+    "legacy_counter": "substream_tail_overruns",
+    "provenance": [
+      {
+        "clause": "4.4.4",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "the audio blocks of a syncframe of a dependent substream end inside the eighteen bits that close it; a decode keeps its verdict"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "program.dependent_dropped",
+    "legacy_counter": "dependent_dropped",
+    "provenance": [
+      {
+        "clause": "E.2.8.2",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a frame of a dependent substream whose channels did not reach the programme, for whatever reason"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "program.orphan_dependent",
+    "legacy_counter": "orphan_dependents",
+    "provenance": [
+      {
+        "clause": "E.2.8.2",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a frame of a dependent substream with no independent substream before it to belong to"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "program.misaligned",
+    "legacy_counter": "misaligned_substreams",
+    "provenance": [
+      {
+        "clause": "E.1.3.1.2",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a frame of a dependent substream whose block count or sample rate is not that of its independent substream"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "program.location",
+    "legacy_counter": "location_errors",
+    "provenance": [
+      {
+        "clause": "E.1.3.1.7, E.1.3.1.8, Table E.1.4",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a frame of a dependent substream whose custom channel map cannot be read"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "program.over_capacity",
+    "legacy_counter": "channels_over_capacity",
+    "provenance": [
+      {
+        "clause": "E.2.8.2",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a channel past the sixteen a programme may carry, which was dropped"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "program.layout_change",
+    "legacy_counter": "layout_changes",
+    "provenance": [
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a frame group whose channels are not the channels the programme began with"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "program.duplicate_frame",
+    "legacy_counter": "duplicate_substream_frames",
+    "provenance": [
+      {
+        "clause": "E.1.3.1.2",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a frame of a substream that already had a frame in its group; only the first reaches the decoder"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "program.stalled_substream",
+    "legacy_counter": "stalled_substreams",
+    "provenance": [
+      {
+        "clause": "E.1.3.1.2",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a substream that stopped supplying frames and was flushed so that the groups after it could be delivered"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "program.missing_frame",
+    "legacy_counter": "missing_substream_frames",
+    "provenance": [
+      {
+        "clause": "E.1.3.1.2",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a frame group delivered without the frame of one of its substreams, which never came out of its decoder"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "emdf.missing_container",
+    "legacy_counter": "missing_containers",
+    "provenance": [
+      {
+        "clause": "8.2, 8.3.1",
+        "doc": "ETSI TS 103 420 V1.2.1",
+        "kind": "spec"
+      },
+      {
+        "clause": "H.1",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "in a substream that carries EMDF, a syncframe whose skip fields hold no container that opens: erased, broken, or of a length its syntax disagrees with"
+  },
+  {
+    "delivery": false,
+    "format": "ac3",
+    "id": "emdf.payload_config",
+    "legacy_counter": "payload_config_violations",
+    "provenance": [
+      {
+        "clause": "Table 56",
+        "doc": "ETSI TS 103 420 V1.2.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a field of the configuration of an Object Audio Metadata or JOC payload outside what the table fixes; a decode keeps its verdict"
+  },
+  {
+    "delivery": false,
+    "format": "ac3",
+    "id": "bsi.complexity_index",
+    "legacy_counter": "complexity_mismatches",
+    "provenance": [
+      {
+        "clause": "8.3.2.2",
+        "doc": "ETSI TS 103 420 V1.2.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "complexity_index_type_a is not the total of beds and objects the Object Audio Metadata declares, or is more than 16; a decode keeps its verdict"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "oamd.parse",
+    "legacy_counter": "oamd_errors",
+    "provenance": [
+      {
+        "clause": "clause 5",
+        "doc": "ETSI TS 103 420 V1.2.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "an Object Audio Metadata payload that cannot be parsed"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "oamd.unusable",
+    "legacy_counter": "oamd_unusable",
+    "provenance": [
+      {
+        "evidence": "docs/audit/evidence/engine-round-2026-11/22-verdict-parity.json",
+        "kind": "measured"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "an Object Audio Metadata payload that parses and has no object element, or describes other beds or another number of objects than the first payload of the stream: an object output can make nothing of it and says so"
+  },
+  {
+    "delivery": false,
+    "format": "ac3",
+    "id": "oamd.stale_size",
+    "legacy_counter": "oamd_stale_sizes",
+    "provenance": [
+      {
+        "clause": "clause 5",
+        "doc": "ETSI TS 103 420 V1.2.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "warning",
+    "summary": "an element of an Object Audio Metadata payload whose declared size is not the size its syntax takes; counted, and no verdict rests on it"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "joc.parse",
+    "legacy_counter": "joc_errors",
+    "provenance": [
+      {
+        "clause": "clause 6",
+        "doc": "ETSI TS 103 420 V1.2.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a JOC payload that cannot be parsed"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "joc.reserved_ext_config",
+    "legacy_counter": "joc_reserved_ext_config",
+    "provenance": [
+      {
+        "clause": "Table 49",
+        "doc": "ETSI TS 103 420 V1.2.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a JOC payload whose joc_ext_config_idx is reserved: what follows cannot be read, and the matrices of the frame before are held in its place"
+  },
+  {
+    "delivery": true,
+    "format": "ac3",
+    "id": "joc.size_mismatch",
+    "legacy_counter": "joc_size_mismatches",
+    "provenance": [
+      {
+        "clause": "clause 6",
+        "doc": "ETSI TS 103 420 V1.2.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/conformance-matrix.md",
+        "kind": "measured"
+      }
+    ],
+    "severity": "error",
+    "summary": "a JOC payload whose declared size is not the size its syntax takes"
   }
 ]
 
@@ -790,3 +1330,40 @@ most, and fails a stream only when asked to with `--fail-on warning`.
 | `decode.stopped` | fatal | verify --decode: a presentation's decode stopped before the end of the stream | measured: `docs/audit/conformance-matrix.md` | -- |
 | `decode.max_bits` | error | verify --decode: decoded samples need more bits than their restart header's max_bits allows | measured: `docs/audit/conformance-matrix.md` | -- |
 | `decode.clipped` | error | verify --decode: decoded samples beyond 24 bits, which every writer can only clamp | measured: `docs/audit/conformance-matrix.md` | -- |
+
+## AC-3 and E-AC-3
+
+Every check `oadec verify` makes on an AC-3 or E-AC-3 stream. This part is
+generated from `crates/oadec-eac3/src/rules.rs`. The last column says
+whether a failure is a fault of what a decode delivers: `verify` fails a
+stream for the others too, and a decode of the same stream keeps its
+verdict (`docs/exit-codes.md`).
+
+| Rule | Default | What a failure means | Source | Counter | A fault of a delivery |
+|---|---|---|---|---|---|
+| `frame.sync` | error | a place where a syncframe has to start and none does: no sync word, a header that cannot be read, or a frame that the next sync word does not follow | ETSI TS 102 366 V1.4.1, 4.3.1, E.1.2.2; measured: `docs/audit/conformance-matrix.md` | `sync_errors` | yes |
+| `frame.skipped` | error | bytes of the stream that belong to no syncframe, passed over to find the next or left at the end | ETSI TS 102 366 V1.4.1, 4.3.1, E.1.2.2; measured: `docs/audit/conformance-matrix.md` | `skipped_bytes` | yes |
+| `frame.decode` | error | a syncframe of the independent substream whose syntax cannot be decoded | ETSI TS 102 366 V1.4.1, 4.3, E.1.2; measured: `docs/audit/conformance-matrix.md` | `decode_errors` | yes |
+| `frame.crc` | error | the CRC-16 over a syncframe of the independent substream does not hold | ETSI TS 102 366 V1.4.1, 6.10.1; measured: `docs/audit/conformance-matrix.md` | `crc_failures` | yes |
+| `frame.tail_overrun` | error | the audio blocks of a syncframe end inside the eighteen bits that close it; the frame decodes, and a decode keeps its verdict | ETSI TS 102 366 V1.4.1, 4.4.4; measured: `docs/audit/conformance-matrix.md` | `tail_overruns` | no |
+| `substream.decode` | error | a syncframe of a dependent substream whose syntax cannot be decoded | ETSI TS 102 366 V1.4.1, E.1.2, E.1.3.1.2; measured: `docs/audit/conformance-matrix.md` | `substream_decode_errors` | yes |
+| `substream.crc` | error | the CRC-16 over a syncframe of a dependent substream does not hold | ETSI TS 102 366 V1.4.1, 6.10.1; measured: `docs/audit/conformance-matrix.md` | `substream_crc_failures` | yes |
+| `substream.tail_overrun` | error | the audio blocks of a syncframe of a dependent substream end inside the eighteen bits that close it; a decode keeps its verdict | ETSI TS 102 366 V1.4.1, 4.4.4; measured: `docs/audit/conformance-matrix.md` | `substream_tail_overruns` | no |
+| `program.dependent_dropped` | error | a frame of a dependent substream whose channels did not reach the programme, for whatever reason | ETSI TS 102 366 V1.4.1, E.2.8.2; measured: `docs/audit/conformance-matrix.md` | `dependent_dropped` | yes |
+| `program.orphan_dependent` | error | a frame of a dependent substream with no independent substream before it to belong to | ETSI TS 102 366 V1.4.1, E.2.8.2; measured: `docs/audit/conformance-matrix.md` | `orphan_dependents` | yes |
+| `program.misaligned` | error | a frame of a dependent substream whose block count or sample rate is not that of its independent substream | ETSI TS 102 366 V1.4.1, E.1.3.1.2; measured: `docs/audit/conformance-matrix.md` | `misaligned_substreams` | yes |
+| `program.location` | error | a frame of a dependent substream whose custom channel map cannot be read | ETSI TS 102 366 V1.4.1, E.1.3.1.7, E.1.3.1.8, Table E.1.4; measured: `docs/audit/conformance-matrix.md` | `location_errors` | yes |
+| `program.over_capacity` | error | a channel past the sixteen a programme may carry, which was dropped | ETSI TS 102 366 V1.4.1, E.2.8.2; measured: `docs/audit/conformance-matrix.md` | `channels_over_capacity` | yes |
+| `program.layout_change` | error | a frame group whose channels are not the channels the programme began with | measured: `docs/audit/conformance-matrix.md` | `layout_changes` | yes |
+| `program.duplicate_frame` | error | a frame of a substream that already had a frame in its group; only the first reaches the decoder | ETSI TS 102 366 V1.4.1, E.1.3.1.2; measured: `docs/audit/conformance-matrix.md` | `duplicate_substream_frames` | yes |
+| `program.stalled_substream` | error | a substream that stopped supplying frames and was flushed so that the groups after it could be delivered | ETSI TS 102 366 V1.4.1, E.1.3.1.2; measured: `docs/audit/conformance-matrix.md` | `stalled_substreams` | yes |
+| `program.missing_frame` | error | a frame group delivered without the frame of one of its substreams, which never came out of its decoder | ETSI TS 102 366 V1.4.1, E.1.3.1.2; measured: `docs/audit/conformance-matrix.md` | `missing_substream_frames` | yes |
+| `emdf.missing_container` | error | in a substream that carries EMDF, a syncframe whose skip fields hold no container that opens: erased, broken, or of a length its syntax disagrees with | ETSI TS 103 420 V1.2.1, 8.2, 8.3.1; ETSI TS 102 366 V1.4.1, H.1; measured: `docs/audit/conformance-matrix.md` | `missing_containers` | yes |
+| `emdf.payload_config` | error | a field of the configuration of an Object Audio Metadata or JOC payload outside what the table fixes; a decode keeps its verdict | ETSI TS 103 420 V1.2.1, Table 56; measured: `docs/audit/conformance-matrix.md` | `payload_config_violations` | no |
+| `bsi.complexity_index` | error | complexity_index_type_a is not the total of beds and objects the Object Audio Metadata declares, or is more than 16; a decode keeps its verdict | ETSI TS 103 420 V1.2.1, 8.3.2.2; measured: `docs/audit/conformance-matrix.md` | `complexity_mismatches` | no |
+| `oamd.parse` | error | an Object Audio Metadata payload that cannot be parsed | ETSI TS 103 420 V1.2.1, clause 5; measured: `docs/audit/conformance-matrix.md` | `oamd_errors` | yes |
+| `oamd.unusable` | error | an Object Audio Metadata payload that parses and has no object element, or describes other beds or another number of objects than the first payload of the stream: an object output can make nothing of it and says so | measured: `docs/audit/evidence/engine-round-2026-11/22-verdict-parity.json`; measured: `docs/audit/conformance-matrix.md` | `oamd_unusable` | yes |
+| `oamd.stale_size` | warning | an element of an Object Audio Metadata payload whose declared size is not the size its syntax takes; counted, and no verdict rests on it | ETSI TS 103 420 V1.2.1, clause 5; measured: `docs/audit/conformance-matrix.md` | `oamd_stale_sizes` | no |
+| `joc.parse` | error | a JOC payload that cannot be parsed | ETSI TS 103 420 V1.2.1, clause 6; measured: `docs/audit/conformance-matrix.md` | `joc_errors` | yes |
+| `joc.reserved_ext_config` | error | a JOC payload whose joc_ext_config_idx is reserved: what follows cannot be read, and the matrices of the frame before are held in its place | ETSI TS 103 420 V1.2.1, Table 49; measured: `docs/audit/conformance-matrix.md` | `joc_reserved_ext_config` | yes |
+| `joc.size_mismatch` | error | a JOC payload whose declared size is not the size its syntax takes | ETSI TS 103 420 V1.2.1, clause 6; measured: `docs/audit/conformance-matrix.md` | `joc_size_mismatches` | yes |

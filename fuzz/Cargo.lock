@@ -212,6 +212,7 @@ dependencies = [
  "anyhow",
  "clap",
  "oadec-bits",
+ "oadec-diag",
  "oadec-eac3",
  "oadec-emdf",
  "oadec-joc",
@@ -231,6 +232,7 @@ version = "0.8.0"
 dependencies = [
  "log",
  "oadec-bits",
+ "oadec-diag",
  "oadec-emdf",
  "thiserror",
 ]

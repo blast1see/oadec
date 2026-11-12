@@ -530,21 +530,18 @@ mod tests {
         }
     }
 
-    /// `docs/conformance-rules.md` is the catalog rendered. Run the test with
-    /// `OADEC_BLESS=1` to write it.
+    /// `docs/conformance-rules.md` opens with the catalog rendered; the
+    /// catalog of the AC-3 family follows it, and a test of that crate holds
+    /// the rest. `oadec rules --markdown` writes the whole document.
     #[test]
     fn the_rules_document_is_the_catalog() {
         let path = repo_root().join("docs").join("conformance-rules.md");
-        let rendered = markdown();
-        if std::env::var_os("OADEC_BLESS").is_some() {
-            std::fs::write(&path, &rendered).unwrap();
-        }
         let on_disk = std::fs::read_to_string(&path)
             .unwrap_or_default()
             .replace("\r\n", "\n");
-        assert_eq!(
-            on_disk, rendered,
-            "docs/conformance-rules.md is not the catalog; run the test with OADEC_BLESS=1"
+        assert!(
+            on_disk.starts_with(&markdown()),
+            "docs/conformance-rules.md is not the catalog: write it again with `oadec rules --markdown`"
         );
     }
 }

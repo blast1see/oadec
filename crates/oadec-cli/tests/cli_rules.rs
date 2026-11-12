@@ -266,13 +266,47 @@ fn the_catalog_names_every_rule_and_refuses_an_unknown_one() {
     let out = oadec(&["rules"]);
     assert_eq!(out.status.code(), Some(0));
     let text = String::from_utf8_lossy(&out.stdout).into_owned();
-    assert_eq!(text.lines().count(), RuleId::ALL.len());
+    // the TrueHD catalog, then the catalog of the AC-3 family
+    let ac3 = oadec_eac3::RuleId::ALL;
+    assert_eq!(text.lines().count(), RuleId::ALL.len() + ac3.len());
     for rule in RuleId::ALL {
         assert!(text.contains(rule.info().id), "{}", rule.info().id);
     }
+    for (rule, line) in ac3.iter().zip(text.lines().skip(RuleId::ALL.len())) {
+        assert!(line.starts_with(rule.info().id), "{line}");
+    }
     let one = oadec(&["rules", "segment.crc"]);
     assert_eq!(one.status.code(), Some(0));
-    assert!(String::from_utf8_lossy(&one.stdout).contains("Severity:  error"));
+    let said = String::from_utf8_lossy(&one.stdout).into_owned();
+    assert!(said.contains("Severity:  error") && !said.contains("Delivery:"));
+    // a rule of the AC-3 family says whether it is a fault of a delivery
+    for (id, delivery) in [
+        ("frame.crc", "a fault of what a decode delivers"),
+        ("frame.tail_overrun", "a decode keeps its verdict"),
+    ] {
+        let one = oadec(&["rules", id]);
+        assert_eq!(one.status.code(), Some(0), "{id}");
+        let said = String::from_utf8_lossy(&one.stdout).into_owned();
+        assert!(said.contains("Severity:  error"), "{said}");
+        assert!(
+            said.lines()
+                .any(|l| l.starts_with("Delivery:") && l.contains(delivery)),
+            "{said}"
+        );
+    }
+    let listed = oadec(&["rules", "--json"]);
+    let listed: Value = serde_json::from_slice(&listed.stdout).expect("JSON");
+    let formats: Vec<&str> = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["format"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        formats.iter().filter(|f| **f == "truehd").count(),
+        RuleId::ALL.len()
+    );
+    assert_eq!(formats.iter().filter(|f| **f == "ac3").count(), ac3.len());
     assert_eq!(oadec(&["rules", "no.such_rule"]).status.code(), Some(2));
     let md = oadec(&["rules", "--markdown"]);
     let committed = std::fs::read_to_string(
@@ -287,8 +321,9 @@ fn the_catalog_names_every_rule_and_refuses_an_unknown_one() {
     assert_eq!(String::from_utf8_lossy(&md.stdout), committed);
 }
 
-/// The E-AC-3 checks have no catalog yet, so the rule options are refused
-/// there rather than read as applied while changing nothing.
+/// The checks of the AC-3 family are named now, and the options that move a
+/// verdict by rule are not wired to them yet, so they are refused there
+/// rather than read as applied while changing nothing.
 #[test]
 fn the_rule_options_are_refused_on_eac3() {
     let ec3 = fixture("authored-scene.ec3");

@@ -60,3 +60,40 @@ most, and fails a stream only when asked to with `--fail-on warning`.
 | `decode.stopped` | fatal | verify --decode: a presentation's decode stopped before the end of the stream | measured: `docs/audit/conformance-matrix.md` | -- |
 | `decode.max_bits` | error | verify --decode: decoded samples need more bits than their restart header's max_bits allows | measured: `docs/audit/conformance-matrix.md` | -- |
 | `decode.clipped` | error | verify --decode: decoded samples beyond 24 bits, which every writer can only clamp | measured: `docs/audit/conformance-matrix.md` | -- |
+
+## AC-3 and E-AC-3
+
+Every check `oadec verify` makes on an AC-3 or E-AC-3 stream. This part is
+generated from `crates/oadec-eac3/src/rules.rs`. The last column says
+whether a failure is a fault of what a decode delivers: `verify` fails a
+stream for the others too, and a decode of the same stream keeps its
+verdict (`docs/exit-codes.md`).
+
+| Rule | Default | What a failure means | Source | Counter | A fault of a delivery |
+|---|---|---|---|---|---|
+| `frame.sync` | error | a place where a syncframe has to start and none does: no sync word, a header that cannot be read, or a frame that the next sync word does not follow | ETSI TS 102 366 V1.4.1, 4.3.1, E.1.2.2; measured: `docs/audit/conformance-matrix.md` | `sync_errors` | yes |
+| `frame.skipped` | error | bytes of the stream that belong to no syncframe, passed over to find the next or left at the end | ETSI TS 102 366 V1.4.1, 4.3.1, E.1.2.2; measured: `docs/audit/conformance-matrix.md` | `skipped_bytes` | yes |
+| `frame.decode` | error | a syncframe of the independent substream whose syntax cannot be decoded | ETSI TS 102 366 V1.4.1, 4.3, E.1.2; measured: `docs/audit/conformance-matrix.md` | `decode_errors` | yes |
+| `frame.crc` | error | the CRC-16 over a syncframe of the independent substream does not hold | ETSI TS 102 366 V1.4.1, 6.10.1; measured: `docs/audit/conformance-matrix.md` | `crc_failures` | yes |
+| `frame.tail_overrun` | error | the audio blocks of a syncframe end inside the eighteen bits that close it; the frame decodes, and a decode keeps its verdict | ETSI TS 102 366 V1.4.1, 4.4.4; measured: `docs/audit/conformance-matrix.md` | `tail_overruns` | no |
+| `substream.decode` | error | a syncframe of a dependent substream whose syntax cannot be decoded | ETSI TS 102 366 V1.4.1, E.1.2, E.1.3.1.2; measured: `docs/audit/conformance-matrix.md` | `substream_decode_errors` | yes |
+| `substream.crc` | error | the CRC-16 over a syncframe of a dependent substream does not hold | ETSI TS 102 366 V1.4.1, 6.10.1; measured: `docs/audit/conformance-matrix.md` | `substream_crc_failures` | yes |
+| `substream.tail_overrun` | error | the audio blocks of a syncframe of a dependent substream end inside the eighteen bits that close it; a decode keeps its verdict | ETSI TS 102 366 V1.4.1, 4.4.4; measured: `docs/audit/conformance-matrix.md` | `substream_tail_overruns` | no |
+| `program.dependent_dropped` | error | a frame of a dependent substream whose channels did not reach the programme, for whatever reason | ETSI TS 102 366 V1.4.1, E.2.8.2; measured: `docs/audit/conformance-matrix.md` | `dependent_dropped` | yes |
+| `program.orphan_dependent` | error | a frame of a dependent substream with no independent substream before it to belong to | ETSI TS 102 366 V1.4.1, E.2.8.2; measured: `docs/audit/conformance-matrix.md` | `orphan_dependents` | yes |
+| `program.misaligned` | error | a frame of a dependent substream whose block count or sample rate is not that of its independent substream | ETSI TS 102 366 V1.4.1, E.1.3.1.2; measured: `docs/audit/conformance-matrix.md` | `misaligned_substreams` | yes |
+| `program.location` | error | a frame of a dependent substream whose custom channel map cannot be read | ETSI TS 102 366 V1.4.1, E.1.3.1.7, E.1.3.1.8, Table E.1.4; measured: `docs/audit/conformance-matrix.md` | `location_errors` | yes |
+| `program.over_capacity` | error | a channel past the sixteen a programme may carry, which was dropped | ETSI TS 102 366 V1.4.1, E.2.8.2; measured: `docs/audit/conformance-matrix.md` | `channels_over_capacity` | yes |
+| `program.layout_change` | error | a frame group whose channels are not the channels the programme began with | measured: `docs/audit/conformance-matrix.md` | `layout_changes` | yes |
+| `program.duplicate_frame` | error | a frame of a substream that already had a frame in its group; only the first reaches the decoder | ETSI TS 102 366 V1.4.1, E.1.3.1.2; measured: `docs/audit/conformance-matrix.md` | `duplicate_substream_frames` | yes |
+| `program.stalled_substream` | error | a substream that stopped supplying frames and was flushed so that the groups after it could be delivered | ETSI TS 102 366 V1.4.1, E.1.3.1.2; measured: `docs/audit/conformance-matrix.md` | `stalled_substreams` | yes |
+| `program.missing_frame` | error | a frame group delivered without the frame of one of its substreams, which never came out of its decoder | ETSI TS 102 366 V1.4.1, E.1.3.1.2; measured: `docs/audit/conformance-matrix.md` | `missing_substream_frames` | yes |
+| `emdf.missing_container` | error | in a substream that carries EMDF, a syncframe whose skip fields hold no container that opens: erased, broken, or of a length its syntax disagrees with | ETSI TS 103 420 V1.2.1, 8.2, 8.3.1; ETSI TS 102 366 V1.4.1, H.1; measured: `docs/audit/conformance-matrix.md` | `missing_containers` | yes |
+| `emdf.payload_config` | error | a field of the configuration of an Object Audio Metadata or JOC payload outside what the table fixes; a decode keeps its verdict | ETSI TS 103 420 V1.2.1, Table 56; measured: `docs/audit/conformance-matrix.md` | `payload_config_violations` | no |
+| `bsi.complexity_index` | error | complexity_index_type_a is not the total of beds and objects the Object Audio Metadata declares, or is more than 16; a decode keeps its verdict | ETSI TS 103 420 V1.2.1, 8.3.2.2; measured: `docs/audit/conformance-matrix.md` | `complexity_mismatches` | no |
+| `oamd.parse` | error | an Object Audio Metadata payload that cannot be parsed | ETSI TS 103 420 V1.2.1, clause 5; measured: `docs/audit/conformance-matrix.md` | `oamd_errors` | yes |
+| `oamd.unusable` | error | an Object Audio Metadata payload that parses and has no object element, or describes other beds or another number of objects than the first payload of the stream: an object output can make nothing of it and says so | measured: `docs/audit/evidence/engine-round-2026-11/22-verdict-parity.json`; measured: `docs/audit/conformance-matrix.md` | `oamd_unusable` | yes |
+| `oamd.stale_size` | warning | an element of an Object Audio Metadata payload whose declared size is not the size its syntax takes; counted, and no verdict rests on it | ETSI TS 103 420 V1.2.1, clause 5; measured: `docs/audit/conformance-matrix.md` | `oamd_stale_sizes` | no |
+| `joc.parse` | error | a JOC payload that cannot be parsed | ETSI TS 103 420 V1.2.1, clause 6; measured: `docs/audit/conformance-matrix.md` | `joc_errors` | yes |
+| `joc.reserved_ext_config` | error | a JOC payload whose joc_ext_config_idx is reserved: what follows cannot be read, and the matrices of the frame before are held in its place | ETSI TS 103 420 V1.2.1, Table 49; measured: `docs/audit/conformance-matrix.md` | `joc_reserved_ext_config` | yes |
+| `joc.size_mismatch` | error | a JOC payload whose declared size is not the size its syntax takes | ETSI TS 103 420 V1.2.1, clause 6; measured: `docs/audit/conformance-matrix.md` | `joc_size_mismatches` | yes |
