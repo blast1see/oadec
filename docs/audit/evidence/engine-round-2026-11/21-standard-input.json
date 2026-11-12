@@ -1,0 +1,194 @@
+{
+ "question": "Is a stream on standard input the stream in its file, to every command that reads one? What does holding it in memory cost? And does taking `-` change anything for a stream that is a file?",
+ "method": "Where a command line names its stream, `-` is standard input (`Source::named`). A command reads its stream more than once and a pipe can be read once, so standard input is read to its end before the command starts, sixteen mebibytes at a time, and kept in the pieces it was read in; a reader over the pieces gives them back as often as they are asked for, and nothing is copied. The script `stdin_corpus.py`, outside the repository, ran `info --json`, `verify --json`, `emdf --json` and `oamd --json` on every stream of the work directory and the fixtures as a file and as a pipe, and compared exit codes, what was printed on stderr and the reports field for field, with the time a run took left out and the name of the stream made the same; it ran `decode --format pcm` both ways and compared the samples. On the five largest streams, with nothing else running, it read the wall time, the processor time and the peak resident memory of `verify` both ways from the system. `tools/old_new.py --decode-all` compared the binary of main before the change with the change over the same streams, read as files.",
+ "binaries": {
+  "main before the change": "3fedb1e4671bdb43a957fc81cedd37946626efaeef83348a499f2e304dae037a",
+  "the change": "b3e69006a2533f9461087444a63baa1ad6597497d43a05407e70b9537f862855"
+ },
+ "result": {
+  "a_pipe_against_its_file": {
+   "streams": 125,
+   "streams_that_differ": 0,
+   "bytes_piped_for_each_command": 4060173690,
+   "commands_piped_for_each_stream": [
+    "info --json",
+    "verify --json",
+    "emdf --json",
+    "oamd --json",
+    "decode --format pcm"
+   ],
+   "reports_that_named_the_pipe": 250,
+   "exit_codes_of_verify": {
+    "0": 115,
+    "7": 10
+   },
+   "streams_decoded": 125,
+   "bytes_of_samples_compared": 12782290788
+  },
+  "what_it_costs": {
+   "the_five_largest_streams": [
+    {
+     "bytes": 2608566196,
+     "verify_of_the_file": {
+      "wall_s": 18.582,
+      "processor_s": 18.438,
+      "peak_resident_bytes": 18755584
+     },
+     "verify_of_the_pipe": {
+      "wall_s": 19.695,
+      "processor_s": 18.578,
+      "peak_resident_bytes": 2627866624
+     },
+     "memory_of_the_pipe_over_the_stream": 1.007
+    },
+    {
+     "bytes": 50000000,
+     "verify_of_the_file": {
+      "wall_s": 0.39,
+      "processor_s": 0.375,
+      "peak_resident_bytes": 18743296
+     },
+     "verify_of_the_pipe": {
+      "wall_s": 0.411,
+      "processor_s": 0.406,
+      "peak_resident_bytes": 68657152
+     },
+     "memory_of_the_pipe_over_the_stream": 1.373
+    },
+    {
+     "bytes": 47308740,
+     "verify_of_the_file": {
+      "wall_s": 0.322,
+      "processor_s": 0.312,
+      "peak_resident_bytes": 18714624
+     },
+     "verify_of_the_pipe": {
+      "wall_s": 0.346,
+      "processor_s": 0.328,
+      "peak_resident_bytes": 65949696
+     },
+     "memory_of_the_pipe_over_the_stream": 1.394
+    },
+    {
+     "bytes": 39841014,
+     "verify_of_the_file": {
+      "wall_s": 0.271,
+      "processor_s": 0.266,
+      "peak_resident_bytes": 18747392
+     },
+     "verify_of_the_pipe": {
+      "wall_s": 0.288,
+      "processor_s": 0.266,
+      "peak_resident_bytes": 58486784
+     },
+     "memory_of_the_pipe_over_the_stream": 1.468
+    },
+    {
+     "bytes": 35020252,
+     "verify_of_the_file": {
+      "wall_s": 0.289,
+      "processor_s": 0.281,
+      "peak_resident_bytes": 18694144
+     },
+     "verify_of_the_pipe": {
+      "wall_s": 0.301,
+      "processor_s": 0.266,
+      "peak_resident_bytes": 55730176
+     },
+     "memory_of_the_pipe_over_the_stream": 1.591
+    }
+   ],
+   "the_most_a_pipe_took_over_the_size_of_its_stream_bytes": 20709924,
+   "note": "a stream piped in is in memory once: the peak of the process is the stream and what the command takes for a file, and the last piece asked for, sixteen mebibytes, before it is cut to what arrived"
+  },
+  "the_tests": {
+   "the_pieces": "four unit tests of `source.rs`: a stream read a few bytes at a time into pieces of seven lengths is cut where the pieces end and nowhere else; a reader over pieces gives the bytes back into buffers that end inside a piece, at its end and past it, and a short read is the end and nothing else; what a reader gives is a source like any other, opened twice and from a second thread; a dash names standard input and nothing that merely has a dash does",
+   "the_commands": "five tests of `tests/cli_stdin.rs`, on the ten fixtures through a pipe: the four reports as text and as JSON and `verify --decode`, `decode` to PCM, WAVE, DAMF and ADM byte for byte, `au`, `compare` and `eac3-blocks`; a pipe that gives nothing or no stream is refused by the name `<stdin>` and leaves no file; a stream of 40 MiB, three pieces, comes through whole",
+   "not_tested": "the refusal of a terminal on standard input: a test has none to offer"
+  },
+  "a_stream_that_is_a_file": {
+   "streams": 125,
+   "streams_changed": 0,
+   "fields_added": [],
+   "lines_added": [],
+   "lines_of_reports_compared": 8236,
+   "fields_of_reports_compared": 50616,
+   "bytes_of_deliveries_compared": 103362691041,
+   "the_media_suite": {
+    "passed": 28,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "mutations": {
+   "count": 8,
+   "survive": [],
+   "each": [
+    {
+     "mutation": "--warp-mode accepted on a sample output",
+     "caught_by": [
+      "warp_mode_reaches_the_damf_header_and_the_adm_dbmd"
+     ]
+    },
+    {
+     "mutation": "--start accepted on E-AC-3 and the object outputs instead of refused",
+     "caught_by": [
+      "a_call_refuses_what_the_command_refuses_in_its_words"
+     ]
+    },
+    {
+     "mutation": "bytes in memory said to have no size",
+     "caught_by": [
+      "source::tests::bytes_in_memory_open_at_their_beginning_every_time",
+      "verify::tests::a_stream_in_memory_is_checked_as_its_file_is"
+     ]
+    },
+    {
+     "mutation": "a dash taken for the name of a file",
+     "caught_by": [
+      "a_decode_of_a_stream_piped_in_writes_what_the_decode_of_its_file_writes",
+      "a_long_stream_comes_through_a_pipe_whole",
+      "a_pipe_that_holds_no_stream_is_refused_by_name"
+     ]
+    },
+    {
+     "mutation": "a stream on standard input named by the dash that asked for it",
+     "caught_by": [
+      "a_pipe_that_holds_no_stream_is_refused_by_name",
+      "a_report_of_a_stream_piped_in_is_the_report_of_its_file"
+     ]
+    },
+    {
+     "mutation": "the last piece of a stream read to its end left out",
+     "caught_by": [
+      "source::tests::a_stream_in_pieces_reads_as_the_bytes_it_was",
+      "source::tests::a_stream_read_to_its_end_is_cut_where_the_pieces_end_and_nowhere_else",
+      "source::tests::what_a_reader_gives_until_it_ends_is_a_source_like_any_other"
+     ]
+    },
+    {
+     "mutation": "a stream in pieces read on from where the piece before was left",
+     "caught_by": [
+      "source::tests::a_stream_in_pieces_reads_as_the_bytes_it_was"
+     ]
+    },
+    {
+     "mutation": "the size of a stream in pieces taken from its first piece",
+     "caught_by": [
+      "source::tests::a_stream_in_pieces_reads_as_the_bytes_it_was"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 589 passed, 28 ignored (the media suite, which ran apart)",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "reading": "A stream piped in is the stream in its file: over 125 streams, 4 060 173 690 bytes of them piped once for each of five commands, the four reports say the same field for field, the exit codes are the same and the 12 782 290 788 bytes of samples are the same. It costs the memory of the stream and no more than 20 MiB beside it. For a stream that is a file nothing moves: the same 8 236 lines and 50 616 fields of reports and the same 103 362 691 041 bytes of deliveries as before."
+}
