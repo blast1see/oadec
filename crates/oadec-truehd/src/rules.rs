@@ -8,7 +8,8 @@
 //! below holds the catalog to that, and `docs/conformance-rules.md` is the
 //! catalog rendered (a second test keeps the two equal).
 
-use crate::diag::Severity;
+pub use oadec_diag::{Provenance, RuleInfo};
+use oadec_diag::{measured, secondary, spec};
 
 /// Dolby's public high-level description of the FBA bitstream.
 pub const DOLBY_HL: &str = "Dolby TrueHD (MLP) High-Level Bitstream Description (2018)";
@@ -38,122 +39,9 @@ const PROTECTION: &str =
 const FIFO: &str = "docs/audit/evidence/verification-upgrade-2026-11/06-fifo-model.json";
 const DISC: &str = "docs/audit/evidence/verification-upgrade-2026-11/07-disc-formats.json";
 
-/// Where a rule comes from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Provenance {
-    /// A public specification: the document and the clause.
-    Spec {
-        /// The document.
-        doc: &'static str,
-        /// The clause or clauses.
-        clause: &'static str,
-    },
-    /// Measured on real streams; the evidence, a path in the repository.
-    Measured {
-        /// The evidence file.
-        evidence: &'static str,
-    },
-    /// Stated by another implementation or tool, confirmed by neither of the
-    /// above.
-    Secondary {
-        /// Who states it.
-        source: &'static str,
-    },
-}
-
-impl Provenance {
-    /// A short name for the kind of source.
-    #[must_use]
-    pub const fn kind(&self) -> &'static str {
-        match self {
-            Self::Spec { .. } => "spec",
-            Self::Measured { .. } => "measured",
-            Self::Secondary { .. } => "secondary",
-        }
-    }
-}
-
-impl core::fmt::Display for Provenance {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::Spec { doc, clause } => write!(f, "{doc}, {clause}"),
-            Self::Measured { evidence } => write!(f, "measured: {evidence}"),
-            Self::Secondary { source } => write!(f, "secondary: {source}"),
-        }
-    }
-}
-
-const fn spec(doc: &'static str, clause: &'static str) -> Provenance {
-    Provenance::Spec { doc, clause }
-}
-
-const fn measured(evidence: &'static str) -> Provenance {
-    Provenance::Measured { evidence }
-}
-
-#[allow(dead_code)]
-const fn secondary(source: &'static str) -> Provenance {
-    Provenance::Secondary { source }
-}
-
-/// What the catalog says about one rule.
-#[derive(Debug, PartialEq, Eq)]
-pub struct RuleInfo {
-    /// The stable name, `domain.rule`.
-    pub id: &'static str,
-    /// The severity of a failure by default.
-    pub severity: Severity,
-    /// The counter of `verify --json` that counted this rule before it had a
-    /// name, if it had one.
-    pub legacy_counter: Option<&'static str>,
-    /// One line on what a failure means.
-    pub summary: &'static str,
-    /// What the rule rests on.
-    pub provenance: &'static [Provenance],
-}
-
-macro_rules! catalog {
-    ($(
-        $(#[doc = $doc:literal])*
-        $variant:ident {
-            id: $id:literal,
-            severity: $sev:ident,
-            legacy: $legacy:expr,
-            summary: $summary:literal,
-            provenance: [$($prov:expr),+ $(,)?] $(,)?
-        }
-    ),+ $(,)?) => {
-        /// A check `verify` makes on a TrueHD stream.
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        pub enum RuleId {
-            $( $(#[doc = $doc])* $variant, )+
-        }
-
-        impl RuleId {
-            /// Every rule, in catalog order.
-            pub const ALL: &'static [RuleId] = &[ $( RuleId::$variant, )+ ];
-
-            /// What the catalog says about this rule.
-            #[must_use]
-            pub fn info(self) -> &'static RuleInfo {
-                match self {
-                    $( RuleId::$variant => {
-                        static INFO: RuleInfo = RuleInfo {
-                            id: $id,
-                            severity: Severity::$sev,
-                            legacy_counter: $legacy,
-                            summary: $summary,
-                            provenance: &[$($prov),+],
-                        };
-                        &INFO
-                    } )+
-                }
-            }
-        }
-    };
-}
-
-catalog! {
+oadec_diag::catalog! {
+    /// A check `verify` makes on a TrueHD stream.
+    pub enum RuleId;
     /// The access unit could not be framed.
     AuFraming {
         id: "au.framing",
@@ -532,23 +420,6 @@ catalog! {
     },
 }
 
-impl RuleId {
-    /// The rule named `id`.
-    #[must_use]
-    pub fn from_id(id: &str) -> Option<Self> {
-        Self::ALL.iter().copied().find(|r| r.info().id == id)
-    }
-
-    /// The rule that counts under the legacy counter `name`.
-    #[must_use]
-    pub fn from_legacy_counter(name: &str) -> Option<Self> {
-        Self::ALL
-            .iter()
-            .copied()
-            .find(|r| r.info().legacy_counter == Some(name))
-    }
-}
-
 /// The catalog as the Markdown of `docs/conformance-rules.md`.
 #[must_use]
 pub fn markdown() -> String {
@@ -569,29 +440,7 @@ pub fn markdown() -> String {
          | Rule | Default | What a failure means | Source | Counter |\n\
          |---|---|---|---|---|\n",
     );
-    for rule in RuleId::ALL {
-        let info = rule.info();
-        let sources = info
-            .provenance
-            .iter()
-            .map(|p| match p {
-                Provenance::Measured { evidence } => format!("measured: `{evidence}`"),
-                other => other.to_string(),
-            })
-            .collect::<Vec<_>>()
-            .join("; ");
-        let counter = info
-            .legacy_counter
-            .map_or_else(|| "--".to_string(), |c| format!("`{c}`"));
-        out.push_str(&format!(
-            "| `{}` | {} | {} | {} | {} |\n",
-            info.id,
-            info.severity.name(),
-            info.summary,
-            sources,
-            counter
-        ));
-    }
+    out.push_str(&oadec_diag::markdown_rows::<RuleId>());
     out
 }
 
@@ -599,6 +448,14 @@ pub fn markdown() -> String {
 mod tests {
     use super::*;
     use std::path::Path;
+
+    use crate::diag::Severity;
+
+    /// What `oadec-diag` holds every catalog to, held here to this one.
+    #[test]
+    fn the_catalog_has_none_of_the_faults_of_a_catalog() {
+        assert_eq!(oadec_diag::faults::<RuleId>(), Vec::<String>::new());
+    }
 
     fn repo_root() -> &'static Path {
         Path::new(env!("CARGO_MANIFEST_DIR"))

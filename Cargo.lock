@@ -374,6 +374,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "oadec-diag"
+version = "0.8.0"
+
+[[package]]
 name = "oadec-eac3"
 version = "0.8.0"
 dependencies = [
@@ -435,6 +439,7 @@ version = "0.8.0"
 dependencies = [
  "log",
  "oadec-bits",
+ "oadec-diag",
  "oadec-emdf",
  "thiserror",
 ]

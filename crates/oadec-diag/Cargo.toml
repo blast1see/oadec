@@ -1,0 +1,15 @@
+[package]
+name = "oadec-diag"
+description = "Findings, severities and rule catalogs shared by the verifiers of the oadec decoders"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+
+[lints]
+workspace = true
