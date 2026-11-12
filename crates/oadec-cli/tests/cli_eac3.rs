@@ -836,3 +836,192 @@ fn a_clean_eac3_decode_says_it_is_done() {
     }
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// Where each syncframe of `stream` begins.
+fn frame_offsets(stream: &[u8]) -> Vec<usize> {
+    let mut at = 0;
+    let mut out = Vec::new();
+    while at + 8 <= stream.len() {
+        let header = FrameHeader::parse(&stream[at..]).expect("a syncframe");
+        out.push(at);
+        at += header.frame_bytes;
+    }
+    out
+}
+
+/// The rule of `id` in the `diagnostics` of a report, which has to be there.
+fn fired<'a>(report: &'a Value, id: &str) -> &'a Value {
+    report["diagnostics"]["rules"]
+        .as_array()
+        .expect("the rules that fired")
+        .iter()
+        .find(|rule| rule["id"] == id)
+        .unwrap_or_else(|| panic!("{id} did not fire: {}", report["diagnostics"]))
+}
+
+/// A rule and its counter are one fact told twice, and the report tells it
+/// twice: every rule that fired is counted under its counter as often as it
+/// fired, and every counter that is not zero has its rule.
+fn the_rules_are_the_counters(report: &Value) {
+    let rules = report["diagnostics"]["rules"].as_array().unwrap();
+    for rule in rules {
+        let counter = rule["legacy_counter"].as_str().expect("a counter");
+        assert_eq!(
+            report["failures"][counter], rule["magnitude"],
+            "{}: {}",
+            rule["id"], report["failures"]
+        );
+    }
+    for (counter, count) in report["failures"].as_object().unwrap() {
+        if count.as_u64() != Some(0) {
+            assert!(
+                rules
+                    .iter()
+                    .any(|rule| rule["legacy_counter"] == counter.as_str()),
+                "{counter} counts {count} and no rule fired"
+            );
+        }
+    }
+}
+
+/// The findings of a pass over an AC-3 family stream name the rule, say
+/// where, and say whether a decode fails on it; a stream nothing is found in
+/// has none, and its report is the report it was.
+#[test]
+fn a_finding_names_its_rule_and_its_frame() {
+    let dir = temp("findings");
+    let clean = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let offsets = frame_offsets(&clean);
+
+    // nothing found: no rule, no worst severity, and no block in the text
+    let (code, report) = verify_json(&fixture("authored-scene.ec3"));
+    assert_eq!(code, Some(0));
+    let d = &report["diagnostics"];
+    assert_eq!(d["schema"], 1);
+    assert_eq!(d["rules"], serde_json::json!([]), "{d}");
+    assert_eq!(d["findings"], serde_json::json!([]));
+    assert!(d["worst"].is_null() && d["fail_on"] == "error");
+    the_rules_are_the_counters(&report);
+    let text = oadec(&["verify", fixture("authored-scene.ec3").to_str().unwrap()]);
+    let said = String::from_utf8_lossy(&text.stdout).into_owned();
+    assert!(
+        !said.contains("Findings:") && !said.contains("Rules:"),
+        "{said}"
+    );
+
+    // a bit in the middle of frame 10 changed: the frame will not decode,
+    // and the finding is where the syncframe is
+    let mut broken = clean.clone();
+    broken[offsets[10] + 200] ^= 0x10;
+    let file = dir.join("decode.ec3");
+    std::fs::write(&file, &broken).unwrap();
+    let (code, report) = verify_json(&file);
+    assert_eq!(code, Some(7));
+    let rule = fired(&report, "frame.decode");
+    assert_eq!(rule["first"]["offset"], offsets[10], "{rule}");
+    assert_eq!(rule["delivery"], true);
+    the_rules_are_the_counters(&report);
+
+    // a bit of the CRC word of frame 10 changed: the CRC of that frame, at
+    // that frame
+    let mut crc = clean.clone();
+    crc[offsets[11] - 1] ^= 0x10;
+    let file = dir.join("crc.ec3");
+    std::fs::write(&file, &crc).unwrap();
+    let (code, report) = verify_json(&file);
+    assert_eq!(code, Some(7));
+    let rule = fired(&report, "frame.crc");
+    assert_eq!(rule["severity"], "error");
+    assert_eq!(rule["delivery"], true);
+    assert_eq!(rule["count"], 1);
+    assert_eq!(rule["first"]["frame"], 10, "{rule}");
+    // six blocks of 256 samples at 48 kHz
+    let seconds = rule["first"]["seconds"].as_f64().unwrap();
+    assert!((seconds - 10.0 * 0.032).abs() < 1e-9, "{seconds}");
+    assert_eq!(rule["first_message"], "CRC failure");
+    assert_eq!(report["diagnostics"]["worst"], "error");
+    assert!(
+        report["diagnostics"]["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["rule"] == "frame.crc" && f["frame"] == 10)
+    );
+    the_rules_are_the_counters(&report);
+    let text = oadec(&["verify", file.to_str().unwrap()]);
+    let said = String::from_utf8_lossy(&text.stdout).into_owned();
+    assert!(
+        said.lines().any(|l| l.starts_with("Findings:")
+            && l.contains("frame.crc")
+            && l.contains("frame 10")
+            && l.contains("CRC failure")),
+        "{said}"
+    );
+    assert!(
+        said.lines()
+            .any(|l| l.starts_with("Rules:") && l.contains("(fail on error)")),
+        "{said}"
+    );
+    // the report still closes as it did
+    let lines: Vec<&str> = said.lines().collect();
+    assert!(
+        lines[lines.len() - 1].starts_with("Result:")
+            && lines[lines.len() - 2].starts_with("Speed:")
+    );
+
+    // Five bytes that are no syncframe in front of frame 3. The walk takes a
+    // frame only when a sync word follows it, so frame 2 goes with them: the
+    // sync error is where frame 2 begins, and what is skipped is that frame
+    // and the five bytes.
+    let mut gap = clean[..offsets[3]].to_vec();
+    gap.extend_from_slice(&[0xFF; 5]);
+    gap.extend_from_slice(&clean[offsets[3]..]);
+    let file = dir.join("gap.ec3");
+    std::fs::write(&file, &gap).unwrap();
+    let (code, report) = verify_json(&file);
+    assert_eq!(code, Some(7));
+    let skipped = fired(&report, "frame.skipped");
+    assert_eq!(
+        skipped["magnitude"],
+        offsets[3] - offsets[2] + 5,
+        "{skipped}"
+    );
+    assert_eq!(skipped["first"]["offset"], offsets[2]);
+    assert!(skipped["first"]["frame"].is_null());
+    // two sync errors: no sync word after frame 2, and the search from there
+    let sync = fired(&report, "frame.sync");
+    assert_eq!(sync["count"], 2, "{sync}");
+    assert_eq!(sync["first"]["offset"], offsets[2]);
+    assert_eq!(sync["last"]["offset"], offsets[2] + 1);
+    the_rules_are_the_counters(&report);
+
+    // what verify counts and a decode does not says so, rule by rule
+    let found = |name: &str| {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("found")
+            .join(name)
+    };
+    let (code, report) = verify_json(&found("eac3-complexity-index-mismatch.bin"));
+    assert_eq!(code, Some(7));
+    let rule = fired(&report, "bsi.complexity_index");
+    assert_eq!(rule["delivery"], false, "{rule}");
+    assert!(
+        report["diagnostics"]["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["delivery"] == false),
+        "{}",
+        report["diagnostics"]
+    );
+    the_rules_are_the_counters(&report);
+    let (code, report) = verify_json(&found("eac3-payload-without-object-element.bin"));
+    assert_eq!(code, Some(7));
+    let rule = fired(&report, "oamd.unusable");
+    assert_eq!(rule["delivery"], true);
+    assert_eq!(rule["first"]["frame"], 1, "{rule}");
+    the_rules_are_the_counters(&report);
+
+    std::fs::remove_dir_all(&dir).ok();
+}

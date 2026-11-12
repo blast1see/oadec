@@ -62,9 +62,34 @@ fn verify_json(path: &Path) -> Value {
 }
 
 fn nonzero_failures(report: &Value) -> Vec<String> {
-    report["failures"]
-        .as_object()
-        .expect("failures object")
+    let failures = report["failures"].as_object().expect("failures object");
+    // A check of the AC-3 family is a rule and a counter, one fact told
+    // twice: wherever the counters of a real stream are read here, the rules
+    // that fired are held to them, and every counter that is not zero to
+    // having its rule.
+    if report["syntax"].is_string() {
+        let rules = report["diagnostics"]["rules"]
+            .as_array()
+            .expect("the rules that fired");
+        for rule in rules {
+            let counter = rule["legacy_counter"].as_str().expect("a counter");
+            assert_eq!(
+                failures[counter], rule["magnitude"],
+                "{}: {}",
+                rule["id"], report["failures"]
+            );
+        }
+        for (counter, count) in failures {
+            assert!(
+                count.as_u64() == Some(0)
+                    || rules
+                        .iter()
+                        .any(|rule| rule["legacy_counter"] == counter.as_str()),
+                "{counter} counts {count} and no rule fired"
+            );
+        }
+    }
+    failures
         .iter()
         .filter(|(_, v)| v.as_u64() != Some(0))
         .map(|(k, v)| format!("{k}={v}"))

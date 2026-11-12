@@ -350,7 +350,7 @@ fn record_lossless(diag: &mut Tally, checks: &LosslessChecks) {
 }
 
 /// `h:mm:ss.mmm` of a sample position.
-fn clock(seconds: f64) -> String {
+pub(crate) fn clock(seconds: f64) -> String {
     let ms = (seconds * 1000.0).round() as u64;
     format!(
         "{}:{:02}:{:02}.{:03}",

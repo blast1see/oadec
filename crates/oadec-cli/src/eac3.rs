@@ -8,9 +8,10 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
+use oadec_diag::{Location, Provenance, Severity};
 use oadec_eac3::{
-    ChannelLoc, Coverage, Decoder, FrameHeader, Options, ProgramDecoder, ProgramFrame, Syntax,
-    find_sync,
+    ChannelLoc, Coverage, Decoder, FrameHeader, Options, ProgramDecoder, ProgramFrame, RuleId,
+    Syntax, find_sync,
 };
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::joc::{Joc, JocError, Slope, SparseReading};
@@ -20,6 +21,17 @@ use serde_json::{Value, json};
 use crate::decode::{Format, Order, format_duration};
 use crate::integrity::Findings;
 use crate::source::Source;
+
+/// The findings of a pass over an AC-3 family stream, by rule.
+type Diag = oadec_diag::Tally<RuleId>;
+
+/// The place of a finding in frame group `index`.
+fn frame_at(index: u64) -> Location {
+    Location {
+        unit: Some(index),
+        ..Location::default()
+    }
+}
 
 /// Whether the file starts with an AC-3 family sync word.
 pub fn is_eac3(source: &Source) -> Result<bool> {
@@ -76,7 +88,19 @@ fn truehd_start(head: &[u8]) -> Option<usize> {
 /// Returns `(frames, sync_errors, skipped_bytes)`.
 pub(crate) fn for_each_frame(
     source: &Source,
+    on_frame: impl FnMut(u64, &[u8], &FrameHeader) -> Result<()>,
+) -> Result<(u64, u64, u64)> {
+    for_each_frame_and_gap(source, on_frame, |_, _, _| {})
+}
+
+/// [`for_each_frame`], which also says where the stream was no syncframe:
+/// `on_gap(offset, sync_error, bytes)` is called for every sync error that is
+/// counted and for every run of bytes that is skipped, with the offset in the
+/// file it is at, so that the calls add up to the two totals returned.
+fn for_each_frame_and_gap(
+    source: &Source,
     mut on_frame: impl FnMut(u64, &[u8], &FrameHeader) -> Result<()>,
+    mut on_gap: impl FnMut(u64, bool, u64),
 ) -> Result<(u64, u64, u64)> {
     let file_bytes = source.size().unwrap_or(0);
     let mut progress = crate::progress::Progress::new("reading", file_bytes);
@@ -99,6 +123,7 @@ pub(crate) fn for_each_frame(
         }
         if buf.len() < 8 {
             if eof {
+                on_gap(base, false, buf.len() as u64);
                 skipped += buf.len() as u64;
                 break;
             }
@@ -106,6 +131,7 @@ pub(crate) fn for_each_frame(
         }
         progress.at(base);
         let Some(pos) = find_sync(&buf, 0) else {
+            on_gap(base, false, buf.len() as u64);
             skipped += buf.len() as u64;
             base += buf.len() as u64;
             buf.clear();
@@ -115,6 +141,7 @@ pub(crate) fn for_each_frame(
             continue;
         };
         if pos > 0 {
+            on_gap(base, true, pos as u64);
             sync_errors += 1;
             skipped += pos as u64;
             buf.drain(..pos);
@@ -124,6 +151,7 @@ pub(crate) fn for_each_frame(
         let header = match FrameHeader::parse(&buf) {
             Ok(h) => h,
             Err(_) => {
+                on_gap(base, true, 1);
                 sync_errors += 1;
                 skipped += 1;
                 buf.drain(..1);
@@ -133,6 +161,7 @@ pub(crate) fn for_each_frame(
         };
         if buf.len() < header.frame_bytes {
             if eof {
+                on_gap(base, false, buf.len() as u64);
                 skipped += buf.len() as u64;
                 break;
             }
@@ -150,6 +179,7 @@ pub(crate) fn for_each_frame(
             || buf.len() < header.frame_bytes + 2
             || buf[header.frame_bytes..header.frame_bytes + 2] == [0x0B, 0x77];
         if !next_ok {
+            on_gap(base, true, 1);
             sync_errors += 1;
             skipped += 1;
             buf.drain(..1);
@@ -258,6 +288,10 @@ struct EmdfStats {
     payload_ids: BTreeMap<u32, u64>,
     /// What an object decode asks of every payload, asked here too.
     payloads: oadec_spatial::PayloadCheck,
+    /// The frames whose skip fields held no container that opens. Whether
+    /// that is a fault is known at the end of the pass
+    /// (`missing_containers`), and the findings are filed then.
+    missing_frames: Vec<u64>,
     oamd_ok: u64,
     oamd_errors: u64,
     /// Payloads that parse and that an object output can make nothing of:
@@ -351,6 +385,19 @@ impl EmdfStats {
         }
     }
 
+    /// Files the frames that lost their container, at the end of the pass:
+    /// a frame whose skip fields held no container is a fault where the
+    /// stream carries EMDF, and whether it does is known only then.
+    fn file_missing(&self, diag: &mut Diag) {
+        if self.missing_containers() > 0 {
+            for &frame in &self.missing_frames {
+                diag.add(RuleId::EmdfMissingContainer, frame_at(frame), 1, || {
+                    "no EMDF container that opens in the skip fields".to_string()
+                });
+            }
+        }
+    }
+
     /// Records where a rare syntax branch occurred, up to a cap: the counts
     /// answer "does anything use this", the frame numbers answer "where do I
     /// cut a clip that does".
@@ -361,7 +408,14 @@ impl EmdfStats {
         }
     }
 
-    fn scan(&mut self, frame_index: u64, skip_fields: &[Vec<u8>], declares_emdf: bool) {
+    fn scan(
+        &mut self,
+        frame_index: u64,
+        skip_fields: &[Vec<u8>],
+        declares_emdf: bool,
+        diag: &mut Diag,
+    ) {
+        let at = frame_at(frame_index);
         self.last_clipgain = None;
         let total: usize = skip_fields.iter().map(Vec::len).sum();
         if total == 0 {
@@ -371,6 +425,7 @@ impl EmdfStats {
             // stream that carries no EMDF has lost nothing.
             if declares_emdf {
                 self.container_errors += 1;
+                self.missing_frames.push(frame_index);
                 self.first_missing.get_or_insert(frame_index);
             }
             return;
@@ -410,6 +465,9 @@ impl EmdfStats {
                         ));
                     }
                     self.payload_config_violations += violations.len() as u64;
+                    for v in &violations {
+                        diag.add(RuleId::EmdfPayloadConfig, at, 1, || v.clone());
+                    }
                     if self.first_error.is_none()
                         && let Some(v) = violations.first()
                     {
@@ -424,6 +482,12 @@ impl EmdfStats {
                                     self.joc_ok += 1;
                                     if !j.size_ok(p.data.len()) {
                                         self.joc_size_mismatch += 1;
+                                        diag.add(RuleId::JocSizeMismatch, at, 1, || {
+                                            format!(
+                                                "a JOC payload of {} bytes is not the size its syntax takes",
+                                                p.data.len()
+                                            )
+                                        });
                                     }
                                     if !j.padding_zero {
                                         self.joc_padding_nonzero += 1;
@@ -511,6 +575,9 @@ impl EmdfStats {
                                 }
                                 Err(JocError::ExtConfig(ext)) => {
                                     self.joc_reserved_ext += 1;
+                                    diag.add(RuleId::JocReservedExtConfig, at, 1, || {
+                                        format!("joc_ext_config_idx {ext} is reserved")
+                                    });
                                     if self.first_error.is_none() {
                                         self.first_error = Some(format!(
                                             "frame {frame_index}: joc_ext_config_idx {ext} is reserved"
@@ -519,6 +586,7 @@ impl EmdfStats {
                                 }
                                 Err(e) => {
                                     self.joc_errors += 1;
+                                    diag.add(RuleId::JocParse, at, 1, || e.to_string());
                                     if self.first_error.is_none() {
                                         self.first_error =
                                             Some(format!("frame {frame_index}: JOC: {e}"));
@@ -537,13 +605,21 @@ impl EmdfStats {
                                     // it against what it delivers.
                                     if let Err(e) = self.payloads.take(&oamd) {
                                         self.oamd_unusable += 1;
+                                        diag.add(RuleId::OamdUnusable, at, 1, || e.to_string());
                                         if self.first_error.is_none() {
                                             self.first_error =
                                                 Some(format!("frame {frame_index}: OAMD: {e}"));
                                         }
                                     }
-                                    self.oamd_stale_sizes +=
-                                        oamd.elements.iter().filter(|e| !e.size_ok).count() as u64;
+                                    for element in oamd.elements.iter().filter(|e| !e.size_ok) {
+                                        self.oamd_stale_sizes += 1;
+                                        diag.add(RuleId::OamdStaleSize, at, 1, || {
+                                            format!(
+                                                "element {} declares a size that is not its own",
+                                                element.id
+                                            )
+                                        });
+                                    }
                                     let program = &oamd.program;
                                     self.oamd_total.get_or_insert(
                                         program.bed_objects()
@@ -561,6 +637,7 @@ impl EmdfStats {
                                 }
                                 Err(e) => {
                                     self.oamd_errors += 1;
+                                    diag.add(RuleId::OamdParse, at, 1, || e.to_string());
                                     if self.first_error.is_none() {
                                         self.first_error =
                                             Some(format!("frame {frame_index}: OAMD: {e}"));
@@ -579,6 +656,7 @@ impl EmdfStats {
         }
         if !found {
             self.container_errors += 1;
+            self.missing_frames.push(frame_index);
             // a fault only if the stream turns out to carry EMDF, which is known
             // at the end of the pass (`missing_containers`)
             self.first_missing.get_or_insert(frame_index);
@@ -686,6 +764,9 @@ struct Pass {
     metadata_bsi: Option<oadec_eac3::Bsi>,
     coverage: Coverage,
     emdf: EmdfStats,
+    /// The findings of the pass by rule: every counter above that is a check
+    /// of `verify`, filed where it was raised.
+    diag: Diag,
     first: Option<(FrameHeader, oadec_eac3::Bsi)>,
     dialnorm: BTreeMap<u8, u64>,
     aht_frames: u64,
@@ -716,8 +797,9 @@ struct Pass {
 /// at, so the whole frame is misread, and the frame CRC will not catch it
 /// because the CRC is over the bytes and never touches the parse. Bit slack
 /// does catch it.
-fn account_sub(sub: &mut SubStats, index: u64, part: &oadec_eac3::Part) {
+fn account_sub(sub: &mut SubStats, index: u64, part: &oadec_eac3::Part, diag: &mut Diag) {
     let d = &part.decoded;
+    let at = frame_at(index).in_substream(usize::from(part.key.1));
     sub.frames += 1;
     if sub.header.is_none() {
         sub.header = Some(d.header.clone());
@@ -729,12 +811,16 @@ fn account_sub(sub: &mut SubStats, index: u64, part: &oadec_eac3::Part) {
     });
     if !d.crc_ok {
         sub.crc_failures += 1;
+        diag.add(RuleId::SubstreamCrc, at, 1, || "CRC failure".to_string());
         if sub.first_error.is_none() {
             sub.first_error = Some(format!("group {index}: CRC failure"));
         }
     }
     if d.tail_overrun {
         sub.tail_overruns += 1;
+        diag.add(RuleId::SubstreamTailOverrun, at, 1, || {
+            "the audio blocks end inside the frame tail".to_string()
+        });
         if sub.first_error.is_none() {
             sub.first_error = Some(format!(
                 "group {index}: the audio blocks end inside the frame tail"
@@ -773,26 +859,52 @@ fn pass_while(
 ) -> Result<(Pass, u64, u64)> {
     let mut dec = ProgramDecoder::new(opts);
     let mut p = Pass::default();
-    let (frames, sync_errors, skipped) = for_each_frame(source, |_offset, bytes, header| {
-        if !go_on() {
-            bail!("the pass was given up");
-        }
-        let key = (header.stream_type as u8, header.substream_id);
-        *p.substreams.entry(key).or_default() += 1;
-        match header.stream_type {
-            oadec_eac3::StreamType::Dependent => p.dependent += 1,
-            _ => p.independent += 1,
-        }
-        dec.push(bytes, header)?;
-        while let Some(frame) = dec.pop() {
-            account(&mut p, &frame, &mut on_pcm)?;
-        }
-        Ok(())
-    })?;
+    // The findings are filed from two places that are two closures: the walk
+    // over the bytes, and the frames it yields.
+    let diag = std::cell::RefCell::new(Diag::default());
+    let mut seen = ProgramSeen::default();
+    let (frames, sync_errors, skipped) = for_each_frame_and_gap(
+        source,
+        |offset, bytes, header| {
+            if !go_on() {
+                bail!("the pass was given up");
+            }
+            let key = (header.stream_type as u8, header.substream_id);
+            *p.substreams.entry(key).or_default() += 1;
+            match header.stream_type {
+                oadec_eac3::StreamType::Dependent => p.dependent += 1,
+                _ => p.independent += 1,
+            }
+            dec.push(bytes, header)?;
+            let diag = &mut *diag.borrow_mut();
+            while let Some(frame) = dec.pop() {
+                account(&mut p, &frame, &mut on_pcm, diag)?;
+            }
+            // what assembling the programme counted while it took this frame
+            seen.file(dec.stats(), Location::byte(offset), diag);
+            Ok(())
+        },
+        |offset, sync_error, bytes| {
+            let diag = &mut *diag.borrow_mut();
+            if sync_error {
+                diag.add(RuleId::FrameSync, Location::byte(offset), 1, || {
+                    "no syncframe starts here".to_string()
+                });
+            }
+            if bytes > 0 {
+                diag.add(RuleId::FrameSkipped, Location::byte(offset), bytes, || {
+                    let s = if bytes == 1 { "" } else { "s" };
+                    format!("{bytes} byte{s} that belong to no syncframe")
+                });
+            }
+        },
+    )?;
+    let mut diag = diag.into_inner();
     dec.finish()?;
     while let Some(frame) = dec.pop() {
-        account(&mut p, &frame, &mut on_pcm)?;
+        account(&mut p, &frame, &mut on_pcm, &mut diag)?;
     }
+    seen.file(dec.stats(), Location::default(), &mut diag);
     p.program = dec.stats().clone();
     p.layout = dec.layout().cloned();
     // decode errors of the independent substream are the ones that stop a
@@ -823,8 +935,164 @@ fn pass_while(
             "frame {frame}: no EMDF container in the skip fields"
         ));
     }
+    p.emdf.file_missing(&mut diag);
+    p.diag = diag;
+    // a rule and its counter are one fact told twice
+    debug_assert_eq!(disagreement(&p, sync_errors, skipped), None);
     let _ = frames;
     Ok((p, sync_errors, skipped))
+}
+
+/// What assembling the programme had counted the last time it was looked
+/// at, so that what it counts while it takes one frame is filed where that
+/// frame is.
+#[derive(Debug, Default)]
+struct ProgramSeen {
+    counts: [u64; 9],
+    decode_errors: BTreeMap<(u8, u8), u64>,
+}
+
+impl ProgramSeen {
+    /// The rules the counters of a programme are, in the order of `counts`,
+    /// and what a finding of each says.
+    const RULES: [(RuleId, &'static str); 9] = [
+        (
+            RuleId::ProgramDependentDropped,
+            "the channels of a dependent frame did not reach the programme",
+        ),
+        (
+            RuleId::ProgramOrphanDependent,
+            "a dependent frame with no independent substream before it",
+        ),
+        (
+            RuleId::ProgramMisaligned,
+            "a dependent frame of another block count or sample rate than its independent substream",
+        ),
+        (
+            RuleId::ProgramLocation,
+            "the channel map of a dependent frame cannot be read",
+        ),
+        (
+            RuleId::ProgramOverCapacity,
+            "a channel past the sixteen of a programme was dropped",
+        ),
+        (
+            RuleId::ProgramLayoutChange,
+            "the channels of the group are not the channels the programme began with",
+        ),
+        (
+            RuleId::ProgramDuplicateFrame,
+            "a second frame of a substream in one group",
+        ),
+        (
+            RuleId::ProgramStalledSubstream,
+            "a substream stopped supplying frames and was flushed",
+        ),
+        (
+            RuleId::ProgramMissingFrame,
+            "a group was delivered without the frame of one of its substreams",
+        ),
+    ];
+
+    fn counts(stats: &oadec_eac3::ProgramStats) -> [u64; 9] {
+        [
+            stats.dependent_dropped,
+            stats.orphan_dependents,
+            stats.misaligned,
+            stats.location_errors,
+            stats.over_capacity,
+            stats.layout_changes,
+            stats.duplicate_substream_frames,
+            stats.stalled_substreams,
+            stats.missing_substream_frames,
+        ]
+    }
+
+    /// Files what `stats` has counted since the last call, at `at`.
+    fn file(&mut self, stats: &oadec_eac3::ProgramStats, at: Location, diag: &mut Diag) {
+        let now = Self::counts(stats);
+        for (((rule, says), before), after) in Self::RULES.iter().zip(&mut self.counts).zip(now) {
+            for _ in *before..after {
+                diag.add(*rule, at, 1, || (*says).to_string());
+            }
+            *before = after;
+        }
+        for (key, &after) in &stats.decode_errors {
+            let before = self.decode_errors.entry(*key).or_default();
+            // a dependent substream's are told apart from the ones that stop
+            // a decode
+            let (rule, place) = if key.0 == 1 {
+                (RuleId::SubstreamDecode, at.in_substream(usize::from(key.1)))
+            } else {
+                (RuleId::FrameDecode, at)
+            };
+            for _ in *before..after {
+                diag.add(rule, place, 1, || "the frame would not decode".to_string());
+            }
+            *before = after;
+        }
+    }
+}
+
+/// Each rule of the catalog with the counter it is counted under, as the
+/// pass counted it.
+fn counters(p: &Pass, sync_errors: u64, skipped: u64) -> [(RuleId, u64); 26] {
+    let e = &p.emdf;
+    let subs = |of: fn(&SubStats) -> u64| p.subs.values().map(of).sum::<u64>();
+    [
+        (RuleId::FrameSync, sync_errors),
+        (RuleId::FrameSkipped, skipped),
+        (RuleId::FrameDecode, p.decode_errors),
+        (RuleId::FrameCrc, p.crc_failures),
+        (RuleId::FrameTailOverrun, p.tail_overruns),
+        (RuleId::SubstreamDecode, subs(|s| s.decode_errors)),
+        (RuleId::SubstreamCrc, subs(|s| s.crc_failures)),
+        (RuleId::SubstreamTailOverrun, subs(|s| s.tail_overruns)),
+        (RuleId::ProgramDependentDropped, p.program.dependent_dropped),
+        (RuleId::ProgramOrphanDependent, p.program.orphan_dependents),
+        (RuleId::ProgramMisaligned, p.program.misaligned),
+        (RuleId::ProgramLocation, p.program.location_errors),
+        (RuleId::ProgramOverCapacity, p.program.over_capacity),
+        (RuleId::ProgramLayoutChange, p.program.layout_changes),
+        (
+            RuleId::ProgramDuplicateFrame,
+            p.program.duplicate_substream_frames,
+        ),
+        (
+            RuleId::ProgramStalledSubstream,
+            p.program.stalled_substreams,
+        ),
+        (
+            RuleId::ProgramMissingFrame,
+            p.program.missing_substream_frames,
+        ),
+        (RuleId::EmdfMissingContainer, e.missing_containers()),
+        (RuleId::EmdfPayloadConfig, e.payload_config_violations),
+        (RuleId::BsiComplexityIndex, p.complexity_mismatches),
+        (RuleId::OamdParse, e.oamd_errors),
+        (RuleId::OamdUnusable, e.oamd_unusable),
+        (RuleId::OamdStaleSize, e.oamd_stale_sizes),
+        (RuleId::JocParse, e.joc_errors),
+        (RuleId::JocReservedExtConfig, e.joc_reserved_ext),
+        (RuleId::JocSizeMismatch, e.joc_size_mismatch),
+    ]
+}
+
+/// What is not the same in the findings and in the counters of a pass, if
+/// anything: a rule that fired another number of times than its counter
+/// counted, or a verdict the two do not share.
+fn disagreement(p: &Pass, sync_errors: u64, skipped: u64) -> Option<String> {
+    for (rule, counter) in counters(p, sync_errors, skipped) {
+        let filed = p.diag.get(rule).map_or(0, |t| t.magnitude);
+        if filed != counter {
+            return Some(format!(
+                "{}: findings of {filed} and a counter of {counter}",
+                rule.info().id
+            ));
+        }
+    }
+    (p.diag.passes(Severity::Error) != is_clean(p, sync_errors, skipped))
+        .then(|| "the findings and the counters give two verdicts".to_string())
 }
 
 /// Folds one decoded frame into the pass statistics.
@@ -832,12 +1100,13 @@ fn account(
     p: &mut Pass,
     frame: &ProgramFrame,
     on_pcm: &mut impl FnMut(&ProgramFrame) -> Result<()>,
+    diag: &mut Diag,
 ) -> Result<()> {
     let index = frame.index;
     let d = frame.core();
     p.frames += 1;
     for part in frame.parts.iter().skip(1) {
-        account_sub(p.subs.entry(part.key).or_default(), index, part);
+        account_sub(p.subs.entry(part.key).or_default(), index, part, diag);
     }
     if p.first.is_none() {
         p.first = Some((d.header.clone(), d.bsi.clone()));
@@ -866,6 +1135,9 @@ fn account(
     }
     if d.tail_overrun {
         p.tail_overruns += 1;
+        diag.add(RuleId::FrameTailOverrun, frame_at(index), 1, || {
+            "the audio blocks end inside the frame tail".to_string()
+        });
         if p.first_error.is_none() {
             p.first_error = Some(format!(
                 "frame {index}: the audio blocks end inside the frame tail"
@@ -874,6 +1146,9 @@ fn account(
     }
     if !d.crc_ok {
         p.crc_failures += 1;
+        diag.add(RuleId::FrameCrc, frame_at(index), 1, || {
+            "CRC failure".to_string()
+        });
         let problem = format!("frame {index}: CRC failure");
         if p.first_fault.is_none() {
             p.first_fault = Some(problem.clone());
@@ -897,6 +1172,7 @@ fn account(
         index,
         &frame.metadata_part().decoded.skip_fields,
         carries_emdf,
+        diag,
     );
     p.emdf.declares_joc |= declares_joc;
     if p.metadata_bsi.is_none() {
@@ -907,6 +1183,9 @@ fn account(
         && let Some(problem) = complexity_problem(complexity, total)
     {
         p.complexity_mismatches += 1;
+        diag.add(RuleId::BsiComplexityIndex, frame_at(index), 1, || {
+            problem.clone()
+        });
         if p.first_error.is_none() {
             p.first_error = Some(format!("frame {index}: {problem}"));
         }
@@ -1212,6 +1491,7 @@ fn pass_json(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64)
             "stalled_substreams": p.program.stalled_substreams,
             "missing_substream_frames": p.program.missing_substream_frames,
         },
+        "diagnostics": diagnostics_json(&p.diag, frame_seconds(h)),
         "program": program_parts(p, h),
         "other_program_frames": p.program.other_program_frames,
         "max_pending_groups": p.program.max_pending_groups,
@@ -1577,6 +1857,7 @@ fn print_pass(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64
         "Integrity:         {} decode errors, {} CRC failures, {} frames ending inside the frame tail",
         p.decode_errors, p.crc_failures, p.tail_overruns
     );
+    print_diagnostics(&p.diag, frame_seconds(h));
     if let Some(e) = p.first_error.as_ref().or(p.emdf.first_error.as_ref()) {
         println!("First problem:     {e}");
     }
@@ -1589,6 +1870,166 @@ fn print_pass(name: &str, p: &Pass, sync_errors: u64, skipped: u64, elapsed: f64
             0.0
         }
     );
+}
+
+/// How long one frame group of a stream that opens with `h` lasts.
+fn frame_seconds(h: &FrameHeader) -> f64 {
+    (h.blocks as f64) * (oadec_eac3::BLOCK_SAMPLES as f64) / f64::from(h.sample_rate)
+}
+
+/// The `diagnostics` object of the JSON report: the findings of the pass by
+/// rule, as `verify` writes them of a TrueHD stream. A finding names its
+/// frame group, or the offset in the file where it belongs to none.
+fn diagnostics_json(d: &Diag, frame_seconds: f64) -> Value {
+    let place = |at: &Location| {
+        json!({
+            "frame": at.unit,
+            "offset": at.offset,
+            "substream": at.substream,
+            "seconds": at.unit.map(|u| u as f64 * frame_seconds),
+        })
+    };
+    let rules: Vec<Value> = d
+        .iter()
+        .map(|(rule, t)| {
+            let info = rule.info();
+            json!({
+                "id": info.id,
+                "severity": info.severity.name(),
+                "delivery": rule.faults_a_delivery(),
+                "count": t.count,
+                "magnitude": t.magnitude,
+                "provenance": info.provenance.iter().map(Provenance::kind).collect::<Vec<_>>(),
+                "legacy_counter": info.legacy_counter,
+                "first": place(&t.first.at),
+                "first_message": t.first.message,
+                "last": place(&t.last),
+                "listed": t.listed.len(),
+                "suppressed": t.suppressed(),
+            })
+        })
+        .collect();
+    let findings: Vec<Value> = d
+        .iter()
+        .flat_map(|(_, t)| t.listed.iter())
+        .map(|f| {
+            let mut v = place(&f.at);
+            v["rule"] = json!(f.rule.info().id);
+            v["severity"] = json!(f.rule.info().severity.name());
+            v["magnitude"] = json!(f.magnitude);
+            v["message"] = json!(f.message);
+            v
+        })
+        .collect();
+    let counts: serde_json::Map<String, Value> = Severity::ALL
+        .iter()
+        .map(|s| (s.name().to_string(), json!(d.count_at(*s))))
+        .collect();
+    json!({
+        "schema": 1,
+        "fail_on": Severity::Error.name(),
+        "worst": d.worst().map(Severity::name),
+        "max_per_rule": d.max_per_rule(),
+        "counts": counts,
+        "rules": rules,
+        "findings": findings,
+    })
+}
+
+/// Where a finding is, as the text report says it.
+fn place_text(at: &Location, frame_seconds: f64) -> String {
+    let mut parts = Vec::new();
+    if let Some(frame) = at.unit {
+        parts.push(format!("frame {frame}"));
+    }
+    if let Some(offset) = at.offset {
+        parts.push(format!("@0x{offset:X}"));
+    }
+    if let Some(substream) = at.substream {
+        parts.push(format!("ss{substream}"));
+    }
+    if let Some(frame) = at.unit {
+        parts.push(crate::verify::clock(frame as f64 * frame_seconds));
+    }
+    if parts.is_empty() {
+        "--".to_string()
+    } else {
+        parts.join(" ")
+    }
+}
+
+/// The `Findings:` and `Rules:` blocks of the text report, as `verify` writes
+/// them of a TrueHD stream: every listed finding of a rule that can fail a
+/// stream, then one line per rule that fired, at most six of them, the
+/// heaviest first. A stream nothing was found in has neither.
+#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
+fn print_diagnostics(d: &Diag, frame_seconds: f64) {
+    if d.is_empty() {
+        return;
+    }
+    let mut first = true;
+    for (rule, t) in d.iter().filter(|(r, _)| r.info().severity > Severity::Info) {
+        for f in &t.listed {
+            println!(
+                "{}{:<8} {:<26} {}  {}",
+                if first {
+                    "Findings:          "
+                } else {
+                    "                   "
+                },
+                rule.info().severity.name(),
+                rule.info().id,
+                place_text(&f.at, frame_seconds),
+                f.message
+            );
+            first = false;
+        }
+        if t.suppressed() > 0 {
+            println!(
+                "                   {}: {} listed, {} more not listed, last at {}",
+                rule.info().id,
+                t.listed.len(),
+                t.suppressed(),
+                place_text(&t.last, frame_seconds)
+            );
+        }
+    }
+    let counts = Severity::ALL
+        .iter()
+        .rev()
+        .map(|s| format!("{} {}", d.count_at(*s), s.name()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    println!(
+        "Rules:             {counts} (fail on {})",
+        Severity::Error.name()
+    );
+    let mut fired: Vec<_> = d.iter().collect();
+    fired.sort_by_key(|(r, _)| core::cmp::Reverse(r.info().severity));
+    for (rule, t) in fired.iter().take(6) {
+        let span = if t.count > 1 {
+            format!(
+                "{} .. {}",
+                place_text(&t.first.at, frame_seconds),
+                place_text(&t.last, frame_seconds)
+            )
+        } else {
+            place_text(&t.first.at, frame_seconds)
+        };
+        println!(
+            "                   {:<8} {:<26} {:>6}x  {}",
+            rule.info().severity.name(),
+            rule.info().id,
+            t.count,
+            span
+        );
+    }
+    if fired.len() > 6 {
+        println!(
+            "                   and {} more rules (verify --json)",
+            fired.len() - 6
+        );
+    }
 }
 
 /// What a pass over an AC-3 or E-AC-3 stream found: the report `info` and
@@ -2112,7 +2553,7 @@ mod tests {
     #[test]
     fn a_frame_without_skip_fields_loses_a_container_where_emdf_is_declared() {
         let mut declared = EmdfStats::default();
-        declared.scan(7, &[], true);
+        declared.scan(7, &[], true, &mut Diag::default());
         assert_eq!(declared.container_errors, 1);
         assert_eq!(declared.first_missing, Some(7));
         assert_eq!(
@@ -2125,7 +2566,7 @@ mod tests {
         // AC-3 and E-AC-3 frames carry no skip field, and two AC-3 clips of
         // the corpus fill theirs with something else entirely.
         let mut plain = EmdfStats::default();
-        plain.scan(7, &[], false);
+        plain.scan(7, &[], false, &mut Diag::default());
         assert_eq!(plain.container_errors, 0);
         assert_eq!(plain.first_missing, None);
     }
@@ -2327,6 +2768,349 @@ mod tests {
         assert!(
             shown.contains("frame 22: CRC failure") && !shown.contains("frame tail"),
             "the delivery's first problem is not its first fault: {shown}"
+        );
+    }
+
+    /// The first frame group of the committed E-AC-3 fixture, decoded.
+    fn first_group() -> ProgramFrame {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/authored-scene.ec3"
+        );
+        let stream = std::fs::read(path).expect("the fixture");
+        let mut dec = ProgramDecoder::new(Options::default());
+        let mut at = 0;
+        loop {
+            let header = FrameHeader::parse(&stream[at..]).expect("a syncframe");
+            dec.push(&stream[at..at + header.frame_bytes], &header)
+                .expect("a frame that decodes");
+            if let Some(frame) = dec.pop() {
+                return frame;
+            }
+            at += header.frame_bytes;
+        }
+    }
+
+    /// The rules that fired, with how often. Each finding of these tests is
+    /// one event, so a rule weighs as much as it counts.
+    fn fired(diag: &Diag) -> Vec<(RuleId, u64)> {
+        diag.iter()
+            .map(|(rule, t)| {
+                assert_eq!(t.magnitude, t.count, "{rule:?}");
+                (rule, t.count)
+            })
+            .collect()
+    }
+
+    /// What assembling a programme counts is filed under the rule each
+    /// counter is, where the frame that raised it is, and once: a counter
+    /// that has not moved since it was last looked at files nothing.
+    #[test]
+    fn what_the_programme_counts_is_filed_under_its_rule_where_it_was_counted() {
+        type Raise = fn(&mut oadec_eac3::ProgramStats);
+        let counters: [(RuleId, Raise); 9] = [
+            (RuleId::ProgramDependentDropped, |s| {
+                s.dependent_dropped += 2
+            }),
+            (RuleId::ProgramOrphanDependent, |s| s.orphan_dependents += 2),
+            (RuleId::ProgramMisaligned, |s| s.misaligned += 2),
+            (RuleId::ProgramLocation, |s| s.location_errors += 2),
+            (RuleId::ProgramOverCapacity, |s| s.over_capacity += 2),
+            (RuleId::ProgramLayoutChange, |s| s.layout_changes += 2),
+            (RuleId::ProgramDuplicateFrame, |s| {
+                s.duplicate_substream_frames += 2
+            }),
+            (RuleId::ProgramStalledSubstream, |s| {
+                s.stalled_substreams += 2
+            }),
+            (RuleId::ProgramMissingFrame, |s| {
+                s.missing_substream_frames += 2
+            }),
+        ];
+        for (rule, raise) in counters {
+            let mut stats = oadec_eac3::ProgramStats::default();
+            let mut seen = ProgramSeen::default();
+            let mut diag = Diag::default();
+            seen.file(&stats, Location::byte(0), &mut diag);
+            assert!(diag.is_empty(), "{rule:?}: nothing was counted yet");
+            raise(&mut stats);
+            seen.file(&stats, Location::byte(4096), &mut diag);
+            assert_eq!(fired(&diag), [(rule, 2)], "{rule:?}");
+            assert_eq!(diag.get(rule).unwrap().first.at, Location::byte(4096));
+            // looked at again, the same count is no new finding
+            seen.file(&stats, Location::byte(8192), &mut diag);
+            assert_eq!(fired(&diag), [(rule, 2)], "{rule:?}");
+            raise(&mut stats);
+            seen.file(&stats, Location::byte(8192), &mut diag);
+            assert_eq!(fired(&diag), [(rule, 4)], "{rule:?}");
+            assert_eq!(diag.get(rule).unwrap().last, Location::byte(8192));
+        }
+
+        // A frame that would not decode: of the independent substream it is
+        // what stops a decode, of a dependent one it is that substream's.
+        let mut stats = oadec_eac3::ProgramStats::default();
+        let mut seen = ProgramSeen::default();
+        let mut diag = Diag::default();
+        stats.decode_errors.insert((0, 0), 1);
+        stats.decode_errors.insert((1, 3), 2);
+        seen.file(&stats, Location::byte(64), &mut diag);
+        assert_eq!(
+            fired(&diag),
+            [(RuleId::FrameDecode, 1), (RuleId::SubstreamDecode, 2)]
+        );
+        assert_eq!(
+            diag.get(RuleId::FrameDecode).unwrap().first.at,
+            Location::byte(64)
+        );
+        assert_eq!(
+            diag.get(RuleId::SubstreamDecode).unwrap().first.at,
+            Location::byte(64).in_substream(3)
+        );
+        seen.file(&stats, Location::byte(128), &mut diag);
+        assert_eq!(
+            fired(&diag),
+            [(RuleId::FrameDecode, 1), (RuleId::SubstreamDecode, 2)]
+        );
+    }
+
+    /// A rule and its counter are one fact told twice. Each of the 26 rules
+    /// is held to the counter it is counted under: a counter raised without
+    /// its finding is a disagreement, and so is a finding without its
+    /// counter, and with both there is none.
+    #[test]
+    fn every_rule_is_held_to_its_counter() {
+        type Raise = fn(&mut Pass);
+        let table: [(RuleId, Raise); 24] = [
+            (RuleId::FrameDecode, |p| p.decode_errors += 1),
+            (RuleId::FrameCrc, |p| p.crc_failures += 1),
+            (RuleId::FrameTailOverrun, |p| p.tail_overruns += 1),
+            (RuleId::SubstreamDecode, |p| {
+                p.subs.entry((1, 0)).or_default().decode_errors += 1
+            }),
+            (RuleId::SubstreamCrc, |p| {
+                p.subs.entry((1, 0)).or_default().crc_failures += 1
+            }),
+            (RuleId::SubstreamTailOverrun, |p| {
+                p.subs.entry((1, 0)).or_default().tail_overruns += 1
+            }),
+            (RuleId::ProgramDependentDropped, |p| {
+                p.program.dependent_dropped += 1
+            }),
+            (RuleId::ProgramOrphanDependent, |p| {
+                p.program.orphan_dependents += 1
+            }),
+            (RuleId::ProgramMisaligned, |p| p.program.misaligned += 1),
+            (RuleId::ProgramLocation, |p| p.program.location_errors += 1),
+            (RuleId::ProgramOverCapacity, |p| {
+                p.program.over_capacity += 1
+            }),
+            (RuleId::ProgramLayoutChange, |p| {
+                p.program.layout_changes += 1
+            }),
+            (RuleId::ProgramDuplicateFrame, |p| {
+                p.program.duplicate_substream_frames += 1
+            }),
+            (RuleId::ProgramStalledSubstream, |p| {
+                p.program.stalled_substreams += 1
+            }),
+            (RuleId::ProgramMissingFrame, |p| {
+                p.program.missing_substream_frames += 1
+            }),
+            (RuleId::EmdfMissingContainer, |p| {
+                p.emdf.containers = 1;
+                p.emdf.container_errors += 1
+            }),
+            (RuleId::EmdfPayloadConfig, |p| {
+                p.emdf.payload_config_violations += 1
+            }),
+            (RuleId::BsiComplexityIndex, |p| p.complexity_mismatches += 1),
+            (RuleId::OamdParse, |p| p.emdf.oamd_errors += 1),
+            (RuleId::OamdUnusable, |p| p.emdf.oamd_unusable += 1),
+            (RuleId::OamdStaleSize, |p| p.emdf.oamd_stale_sizes += 1),
+            (RuleId::JocParse, |p| p.emdf.joc_errors += 1),
+            (RuleId::JocReservedExtConfig, |p| {
+                p.emdf.joc_reserved_ext += 1
+            }),
+            (RuleId::JocSizeMismatch, |p| p.emdf.joc_size_mismatch += 1),
+        ];
+        assert_eq!(disagreement(&Pass::default(), 0, 0), None);
+        let mut held = vec![RuleId::FrameSync, RuleId::FrameSkipped];
+        for (rule, raise) in table {
+            let mut pass = Pass::default();
+            raise(&mut pass);
+            let said = disagreement(&pass, 0, 0).expect("a counter without its finding");
+            assert!(said.starts_with(rule.info().id), "{rule:?}: {said}");
+            pass.diag.add(rule, Location::default(), 1, String::new);
+            assert_eq!(disagreement(&pass, 0, 0), None, "{rule:?}");
+            // a finding more than the counter counted
+            pass.diag.add(rule, Location::default(), 1, String::new);
+            assert!(disagreement(&pass, 0, 0).is_some(), "{rule:?}");
+            held.push(rule);
+        }
+        // the two the walk over the bytes counts, the second by its bytes
+        let mut pass = Pass::default();
+        assert!(disagreement(&pass, 1, 0).unwrap().starts_with("frame.sync"));
+        pass.diag
+            .add(RuleId::FrameSync, Location::byte(0), 1, String::new);
+        assert_eq!(disagreement(&pass, 1, 0), None);
+        assert!(
+            disagreement(&pass, 1, 7)
+                .unwrap()
+                .starts_with("frame.skipped")
+        );
+        pass.diag
+            .add(RuleId::FrameSkipped, Location::byte(0), 7, String::new);
+        assert_eq!(disagreement(&pass, 1, 7), None);
+        // and that was every rule of the catalog
+        held.sort();
+        assert_eq!(held, RuleId::ALL);
+        // a rule that fails no stream leaves the verdict alone, and the
+        // counters agree: a warning is no disagreement
+        let mut pass = Pass::default();
+        pass.emdf.oamd_stale_sizes = 1;
+        pass.diag
+            .add(RuleId::OamdStaleSize, Location::default(), 1, String::new);
+        assert!(is_clean(&pass, 0, 0) && pass.diag.passes(Severity::Error));
+        assert_eq!(disagreement(&pass, 0, 0), None);
+    }
+
+    /// What a frame group shows of its frames is filed at that group: a CRC
+    /// that does not hold and blocks that end inside the tail, of the
+    /// independent substream and of a dependent one, which is told apart by
+    /// its substream.
+    #[test]
+    fn a_frame_and_a_dependent_frame_are_filed_at_their_group() {
+        let mut frame = first_group();
+        let index = frame.index;
+        let mut pass = Pass::default();
+        let mut diag = Diag::default();
+        account(&mut pass, &frame, &mut |_| Ok(()), &mut diag).unwrap();
+        assert!(diag.is_empty(), "the fixture is sound: {:?}", fired(&diag));
+
+        frame.parts[0].decoded.crc_ok = false;
+        frame.parts[0].decoded.tail_overrun = true;
+        let mut pass = Pass::default();
+        let mut diag = Diag::default();
+        account(&mut pass, &frame, &mut |_| Ok(()), &mut diag).unwrap();
+        assert_eq!(
+            fired(&diag),
+            [(RuleId::FrameCrc, 1), (RuleId::FrameTailOverrun, 1)]
+        );
+        assert_eq!((pass.crc_failures, pass.tail_overruns), (1, 1));
+        for rule in [RuleId::FrameCrc, RuleId::FrameTailOverrun] {
+            assert_eq!(diag.get(rule).unwrap().first.at, frame_at(index));
+        }
+
+        // the same two of a dependent substream, here substream 2
+        let part = oadec_eac3::Part {
+            key: (1, 2),
+            locations: Vec::new(),
+            lfe_implied: false,
+            decoded: frame.parts[0].decoded.clone(),
+        };
+        let mut sub = SubStats::default();
+        let mut diag = Diag::default();
+        account_sub(&mut sub, 41, &part, &mut diag);
+        assert_eq!(
+            fired(&diag),
+            [(RuleId::SubstreamCrc, 1), (RuleId::SubstreamTailOverrun, 1)]
+        );
+        assert_eq!((sub.crc_failures, sub.tail_overruns), (1, 1));
+        for rule in [RuleId::SubstreamCrc, RuleId::SubstreamTailOverrun] {
+            assert_eq!(
+                diag.get(rule).unwrap().first.at,
+                frame_at(41).in_substream(2)
+            );
+        }
+    }
+
+    /// A frame without a container is filed where the stream carries EMDF,
+    /// and nowhere else: skip fields may hold other things, and two AC-3
+    /// clips of the corpus fill theirs in some 1 100 frames without one
+    /// container.
+    #[test]
+    fn a_frame_without_a_container_is_filed_only_where_the_stream_carries_emdf() {
+        let mut stats = EmdfStats::default();
+        stats.scan(3, &[vec![0u8; 16]], false, &mut Diag::default());
+        stats.scan(9, &[vec![0u8; 16]], false, &mut Diag::default());
+        assert_eq!(stats.missing_frames, [3, 9]);
+        assert_eq!((stats.container_errors, stats.missing_containers()), (2, 0));
+        let mut diag = Diag::default();
+        stats.file_missing(&mut diag);
+        assert!(
+            diag.is_empty(),
+            "the stream carries no EMDF: {:?}",
+            fired(&diag)
+        );
+
+        // one container that opens anywhere in the stream, and they are faults
+        stats.containers = 1;
+        assert_eq!(stats.missing_containers(), 2);
+        stats.file_missing(&mut diag);
+        assert_eq!(fired(&diag), [(RuleId::EmdfMissingContainer, 2)]);
+        let filed = diag.get(RuleId::EmdfMissingContainer).unwrap();
+        assert_eq!((filed.first.at, filed.last), (frame_at(3), frame_at(9)));
+
+        // and so they are where the substream declares the extension and not
+        // one container opens
+        let mut declared = EmdfStats::default();
+        declared.scan(4, &[], true, &mut Diag::default());
+        declared.declares_joc = true;
+        let mut diag = Diag::default();
+        declared.file_missing(&mut diag);
+        assert_eq!(fired(&diag), [(RuleId::EmdfMissingContainer, 1)]);
+    }
+
+    /// An element of an Object Audio Metadata payload whose declared size is
+    /// not its own is counted and fails nothing. No stream of the tests has
+    /// one, so one is made: the bits of the first frame's skip fields are
+    /// changed one at a time until a payload parses with such an element and
+    /// nothing else wrong.
+    #[test]
+    fn a_stale_element_size_is_a_warning_filed_at_its_frame() {
+        let frame = first_group();
+        let fields = &frame.metadata_part().decoded.skip_fields;
+        let mut sound = EmdfStats::default();
+        let mut diag = Diag::default();
+        sound.scan(5, fields, true, &mut diag);
+        assert!(
+            diag.is_empty() && sound.oamd_ok == 1,
+            "the fixture is sound"
+        );
+
+        let bits: usize = fields.iter().map(|f| f.len() * 8).sum();
+        let mut made = 0;
+        for bit in 0..bits {
+            let mut changed = fields.clone();
+            let mut at = bit;
+            for field in &mut changed {
+                if at < field.len() * 8 {
+                    field[at / 8] ^= 0x80 >> (at % 8);
+                    break;
+                }
+                at -= field.len() * 8;
+            }
+            let mut stats = EmdfStats::default();
+            let mut diag = Diag::default();
+            stats.scan(5, &changed, true, &mut diag);
+            if stats.oamd_stale_sizes == 0 {
+                continue;
+            }
+            // whatever else the change did, the rule fired as often as the
+            // counter counted, at the frame
+            let filed = diag.get(RuleId::OamdStaleSize).expect("the rule");
+            assert_eq!(filed.count, stats.oamd_stale_sizes, "bit {bit}");
+            assert_eq!(filed.magnitude, stats.oamd_stale_sizes, "bit {bit}");
+            assert_eq!(filed.first.at, frame_at(5));
+            if fired(&diag).len() == 1 {
+                // and alone it fails nothing
+                assert!(diag.passes(Severity::Error) && !diag.passes(Severity::Warning));
+                made += 1;
+            }
+        }
+        assert!(
+            made > 0,
+            "no bit of the skip fields makes a stale size alone"
         );
     }
 }

@@ -18,6 +18,7 @@ pub mod header;
 pub mod imdct;
 pub mod program;
 pub mod repair;
+pub mod rules;
 pub mod tables;
 pub mod tpnp;
 pub mod vq;
@@ -34,3 +35,4 @@ pub use program::{
     MergeOutcome, Part, ProgramDecoder, ProgramFrame, ProgramLayout, ProgramStats, SubstreamKey,
     chanmap_locations, dependent_locations, independent_locations,
 };
+pub use rules::RuleId;
