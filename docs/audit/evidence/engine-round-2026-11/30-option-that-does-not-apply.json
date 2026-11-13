@@ -1,0 +1,405 @@
+{
+ "question": "What did `decode` and `compare` do with an option that had nothing to act on, and what do they do now?",
+ "method": "Every option of the two commands was put to the two fixtures of the repository, a TrueHD stream and an E-AC-3 stream with objects (`crates/oadec-cli/tests/fixtures/authored-scene.mlp` and `.ec3`), with every output it does not apply to. The binary of main before the change was run without the option and with it, and what the two runs wrote was compared byte for byte (for `compare`, what they printed, but for the line that times the run). The binary of the change was run with the option, and without it. `tools/old_new.py --decode-all` then put both binaries to the corpus with no such option given, which is every run a script that asks each stream for what applies to it makes. The corpus is media and is not in the repository; the cases below are reproducible from it.",
+ "binaries": {
+  "main before the change": "e90324ca2d783d7171cbe7f588536f380dba4cf75ae79e9e56d274a7d86130b2",
+  "the change": "114fdb5216e8050dc6a0880dd5822fb4a0bda0792fd19d9c807506f2eba6ec31"
+ },
+ "result": {
+  "cases": 77,
+  "before_the_change": {
+   "exit_0_with_the_option": 77,
+   "wrote_or_printed_what_the_run_without_the_option_did": 77,
+   "reading": "in every case the option was taken and changed nothing: the same exit code, and the same bytes in every file (a loss report asked for with a sample output was not written at all)"
+  },
+  "with_the_change": {
+   "exit_2_with_the_option": 77,
+   "files_written_by_a_refusal": 0,
+   "without_the_option_the_same_as_before": 77
+  },
+  "what_each_is_told": {
+   "--core-only, --no-dither, --no-tpnp and --ecpl-spec are about the decode of an AC-3 or E-AC-3 stream; they do not apply to a TrueHD stream": {
+    "cases": 12,
+    "commands": [
+     "oadec decode authored-scene.mlp -p 2 --format pcm --core-only -o out",
+     "oadec decode authored-scene.mlp --format damf --core-only -o out",
+     "oadec decode authored-scene.mlp -p 2 --format pcm --no-dither -o out",
+     "oadec decode authored-scene.mlp --format damf --no-dither -o out",
+     "oadec decode authored-scene.mlp -p 2 --format pcm --no-tpnp -o out",
+     "oadec decode authored-scene.mlp --format damf --no-tpnp -o out",
+     "oadec decode authored-scene.mlp -p 2 --format pcm --ecpl-spec -o out",
+     "oadec decode authored-scene.mlp --format damf --ecpl-spec -o out",
+     "oadec compare authored-scene.mlp -r reference --reference-format s24le --core-only",
+     "oadec compare authored-scene.mlp -r reference --reference-format s24le --no-dither",
+     "oadec compare authored-scene.mlp -r reference --reference-format s24le --no-tpnp",
+     "oadec compare authored-scene.mlp -r reference --reference-format s24le --ecpl-spec"
+    ]
+   },
+   "--no-clip-gain, --flat-quadrature, --sparse-as-printed and --steep-as-printed are about the JOC object decode: they apply to an E-AC-3 stream with --format damf or adm": {
+    "cases": 12,
+    "commands": [
+     "oadec decode authored-scene.mlp -p 2 --format pcm --no-clip-gain -o out",
+     "oadec decode authored-scene.mlp --format damf --no-clip-gain -o out",
+     "oadec decode authored-scene.mlp -p 2 --format pcm --flat-quadrature -o out",
+     "oadec decode authored-scene.mlp --format damf --flat-quadrature -o out",
+     "oadec decode authored-scene.mlp -p 2 --format pcm --sparse-as-printed -o out",
+     "oadec decode authored-scene.mlp --format damf --sparse-as-printed -o out",
+     "oadec decode authored-scene.mlp -p 2 --format pcm --steep-as-printed -o out",
+     "oadec decode authored-scene.mlp --format damf --steep-as-printed -o out",
+     "oadec decode authored-scene.ec3 --format pcm --no-clip-gain -o out",
+     "oadec decode authored-scene.ec3 --format pcm --flat-quadrature -o out",
+     "oadec decode authored-scene.ec3 --format pcm --sparse-as-printed -o out",
+     "oadec decode authored-scene.ec3 --format pcm --steep-as-printed -o out"
+    ]
+   },
+   "--presentation names one of the presentations of a TrueHD stream; an AC-3 or E-AC-3 stream has one programme, and --core-only writes the channels of its independent substream alone": {
+    "cases": 4,
+    "commands": [
+     "oadec decode authored-scene.ec3 --format pcm -p 0 -o out",
+     "oadec decode authored-scene.ec3 --format pcm -p 2 -o out",
+     "oadec compare authored-scene.ec3 -r reference --no-dither -p 0",
+     "oadec compare authored-scene.ec3 -r reference --no-dither -p 2"
+    ]
+   },
+   "--keep-duplicates keeps the access units a TrueHD stream flags as duplicates at a seamless branch; it does not apply to an AC-3 or E-AC-3 stream": {
+    "cases": 4,
+    "commands": [
+     "oadec decode authored-scene.ec3 --format pcm --keep-duplicates -o out",
+     "oadec decode authored-scene.ec3 --format damf --keep-duplicates -o out",
+     "oadec decode authored-scene.ec3 --format adm --keep-duplicates -o out",
+     "oadec compare authored-scene.ec3 -r reference --no-dither --keep-duplicates"
+    ]
+   },
+   "--no-bed-conform, --all-events, --loss-report, --isf, --fps, --dolby-origin-tag, --adm-allow-non-profile-rate and --adm-interpolation are about an object output: they apply to --format damf or adm": {
+    "cases": 22,
+    "commands": [
+     "oadec decode authored-scene.mlp --format wav --no-bed-conform -o out",
+     "oadec decode authored-scene.mlp --format wav --all-events -o out",
+     "oadec decode authored-scene.mlp --format wav --loss-report loss.json -o out",
+     "oadec decode authored-scene.mlp --format wav --isf drop -o out",
+     "oadec decode authored-scene.mlp --format wav --isf error -o out",
+     "oadec decode authored-scene.mlp --format wav --fps 25 -o out",
+     "oadec decode authored-scene.mlp --format wav --fps 24 -o out",
+     "oadec decode authored-scene.mlp --format wav --dolby-origin-tag -o out",
+     "oadec decode authored-scene.mlp --format wav --adm-allow-non-profile-rate -o out",
+     "oadec decode authored-scene.mlp --format wav --adm-interpolation real -o out",
+     "oadec decode authored-scene.mlp --format wav --adm-interpolation profile -o out",
+     "oadec decode authored-scene.ec3 --format wav --no-bed-conform -o out",
+     "oadec decode authored-scene.ec3 --format wav --all-events -o out",
+     "oadec decode authored-scene.ec3 --format wav --loss-report loss.json -o out",
+     "oadec decode authored-scene.ec3 --format wav --isf drop -o out",
+     "oadec decode authored-scene.ec3 --format wav --isf error -o out",
+     "oadec decode authored-scene.ec3 --format wav --fps 25 -o out",
+     "oadec decode authored-scene.ec3 --format wav --fps 24 -o out",
+     "oadec decode authored-scene.ec3 --format wav --dolby-origin-tag -o out",
+     "oadec decode authored-scene.ec3 --format wav --adm-allow-non-profile-rate -o out",
+     "oadec decode authored-scene.ec3 --format wav --adm-interpolation real -o out",
+     "oadec decode authored-scene.ec3 --format wav --adm-interpolation profile -o out"
+    ]
+   },
+   "--dolby-origin-tag, --adm-allow-non-profile-rate and --adm-interpolation are about an ADM BWF file: they apply to --format adm": {
+    "cases": 8,
+    "commands": [
+     "oadec decode authored-scene.mlp --format damf --dolby-origin-tag -o out",
+     "oadec decode authored-scene.mlp --format damf --adm-allow-non-profile-rate -o out",
+     "oadec decode authored-scene.mlp --format damf --adm-interpolation real -o out",
+     "oadec decode authored-scene.mlp --format damf --adm-interpolation profile -o out",
+     "oadec decode authored-scene.ec3 --format damf --dolby-origin-tag -o out",
+     "oadec decode authored-scene.ec3 --format damf --adm-allow-non-profile-rate -o out",
+     "oadec decode authored-scene.ec3 --format damf --adm-interpolation real -o out",
+     "oadec decode authored-scene.ec3 --format damf --adm-interpolation profile -o out"
+    ]
+   },
+   "--fps is the frame rate in the header of a DAMF set: it applies to --format damf": {
+    "cases": 4,
+    "commands": [
+     "oadec decode authored-scene.mlp --format adm --fps 25 -o out",
+     "oadec decode authored-scene.mlp --format adm --fps 24 -o out",
+     "oadec decode authored-scene.ec3 --format adm --fps 25 -o out",
+     "oadec decode authored-scene.ec3 --format adm --fps 24 -o out"
+    ]
+   },
+   "--order names the channel order of a sample output; an object output has the order of its format": {
+    "cases": 8,
+    "commands": [
+     "oadec decode authored-scene.mlp --format damf --order stream -o out",
+     "oadec decode authored-scene.mlp --format damf --order interchange -o out",
+     "oadec decode authored-scene.mlp --format adm --order stream -o out",
+     "oadec decode authored-scene.mlp --format adm --order interchange -o out",
+     "oadec decode authored-scene.ec3 --format damf --order stream -o out",
+     "oadec decode authored-scene.ec3 --format damf --order interchange -o out",
+     "oadec decode authored-scene.ec3 --format adm --order stream -o out",
+     "oadec decode authored-scene.ec3 --format adm --order interchange -o out"
+    ]
+   },
+   "--reference-format names the integer format of the reference of a TrueHD stream; the reference of an AC-3 or E-AC-3 stream is 32-bit float": {
+    "cases": 2,
+    "commands": [
+     "oadec compare authored-scene.ec3 -r reference --no-dither --reference-format s24le",
+     "oadec compare authored-scene.ec3 -r reference --no-dither --reference-format s32le"
+    ]
+   },
+   "--worst lists the blocks of an AC-3 or E-AC-3 stream that deviate most; a TrueHD comparison is exact and lists its mismatches (--report)": {
+    "cases": 1,
+    "commands": [
+     "oadec compare authored-scene.mlp -r reference --reference-format s24le --worst 3"
+    ]
+   }
+  },
+  "a_run_that_gives_none_of_them": {
+   "streams": 130,
+   "streams_changed": 0,
+   "fields_added": [],
+   "lines_added": [],
+   "lines_of_reports_compared": 8581,
+   "fields_of_reports_compared": 53941,
+   "bytes_of_deliveries_compared": 103722263017,
+   "the_media_suite": {
+    "passed": 30,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "mutations": {
+   "of_the_two_files_the_change_touches": 48,
+   "new_with_the_change": 37,
+   "survive": [],
+   "each_new_one": [
+    {
+     "mutation": "--isf with a sample output not counted among the options of an object output",
+     "caught_by": [
+      "an_option_of_an_object_output_is_refused_where_it_has_nowhere_to_go"
+     ]
+    },
+    {
+     "mutation": "the options of an ADM file with a sample output told they are about an ADM file",
+     "caught_by": [
+      "an_option_of_an_object_output_is_refused_where_it_has_nowhere_to_go"
+     ]
+    },
+    {
+     "mutation": "a frame rate let through with an ADM file",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_object_format_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "--ecpl-spec let through on a TrueHD decode",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "--steep-as-printed let through where there is no JOC decode",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "a presentation let through on a sample decode of the AC-3 family",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "the format of a reference refused for a TrueHD comparison and taken for the other",
+     "caught_by": [
+      "compare_refuses_an_option_of_a_truehd_comparison_on_eac3"
+     ]
+    },
+    {
+     "mutation": "a short list of the worst blocks let through on a TrueHD comparison",
+     "caught_by": [
+      "compare_refuses_an_option_of_the_ac3_family_on_truehd"
+     ]
+    },
+    {
+     "mutation": "a presentation let through by a call for a decode of the AC-3 family",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "the pre-noise switch let through by a call for a TrueHD decode",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "a frame rate refused by a call for a DAMF set and taken for an ADM file",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_object_format_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "the dither switch let through by a call for a TrueHD object decode",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "--fps with a sample output told it is about a DAMF set",
+     "caught_by": [
+      "an_option_of_an_object_output_is_refused_where_it_has_nowhere_to_go"
+     ]
+    },
+    {
+     "mutation": "the options of an ADM file let through with a DAMF set",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_object_format_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "a channel order let through with an object output",
+     "caught_by": [
+      "a_channel_order_is_refused_with_an_object_output"
+     ]
+    },
+    {
+     "mutation": "--core-only let through on a TrueHD decode",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "a reading of the JOC matrices let through for the samples of an E-AC-3 stream",
+     "caught_by": [
+      "an_option_with_nothing_to_act_on_is_refused_on_eac3"
+     ]
+    },
+    {
+     "mutation": "the object programme of an E-AC-3 stream refused when it is named",
+     "caught_by": [
+      "an_option_with_nothing_to_act_on_is_refused_on_eac3"
+     ]
+    },
+    {
+     "mutation": "kept duplicates let through on a comparison of the AC-3 family",
+     "caught_by": [
+      "compare_refuses_an_option_of_a_truehd_comparison_on_eac3"
+     ]
+    },
+    {
+     "mutation": "a TrueHD comparison told no presentation comparing the 5.1 one",
+     "caught_by": [
+      "compare_refuses_an_option_of_the_ac3_family_on_truehd"
+     ]
+    },
+    {
+     "mutation": "a call telling a presentation what kept duplicates are told",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "the options of the AC-3 family decoder let through by a call for a TrueHD decode",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "the interpolation not counted by a call among the options of an ADM file",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_object_format_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "the clip gain reading let through by a call for a TrueHD object decode",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "the options of an object output let through with a sample output",
+     "caught_by": [
+      "an_option_of_an_object_output_is_refused_where_it_has_nowhere_to_go"
+     ]
+    },
+    {
+     "mutation": "a loss report asked for with a sample output, and never written",
+     "caught_by": [
+      "an_option_of_an_object_output_is_refused_where_it_has_nowhere_to_go"
+     ]
+    },
+    {
+     "mutation": "an interpolation given at its default not counted as given",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_object_format_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "the options of the AC-3 family decoder let through on a TrueHD decode",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "the readings of the JOC matrices let through where there is no JOC decode",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "kept duplicates let through on a decode of the AC-3 family",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "a presentation let through on a comparison of the AC-3 family",
+     "caught_by": [
+      "compare_refuses_an_option_of_a_truehd_comparison_on_eac3"
+     ]
+    },
+    {
+     "mutation": "the options of the AC-3 family decoder let through on a TrueHD comparison",
+     "caught_by": [
+      "compare_refuses_an_option_of_the_ac3_family_on_truehd"
+     ]
+    },
+    {
+     "mutation": "a TrueHD comparison told no reference format reading 24-bit samples",
+     "caught_by": [
+      "compare_refuses_an_option_of_the_ac3_family_on_truehd"
+     ]
+    },
+    {
+     "mutation": "kept duplicates let through by a call for a sample decode of the AC-3 family",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "the options of an ADM file refused by a call for an ADM file and taken for a DAMF set",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_object_format_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "kept duplicates let through by a call for an object decode of the AC-3 family",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    },
+    {
+     "mutation": "the readings of the JOC matrices let through by a call for a TrueHD object decode",
+     "caught_by": [
+      "a_call_refuses_an_option_of_the_other_family_as_the_command_does"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 642 passed, 30 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  },
+  "what_is_left_as_it_was": "`verify --decode` on a stream of the AC-3 family: its `verify` decodes every frame with or without the option, so what the option asks for is done"
+ },
+ "reading": "They took it and did nothing with it: in all 77 cases the binary before the change exits 0 and writes, or prints, exactly what it does without the option. Each is refused now, exit 2, in a sentence that says where the option applies, and no refusal writes a file. Nothing moves for a run that gives none of them: over 130 streams of the corpus every report and every delivery of the two binaries is the same."
+}
