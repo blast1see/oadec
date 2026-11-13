@@ -181,6 +181,11 @@ def main() -> int:
                 "format": v.get("format") or v.get("syntax") or codec,
                 "coverage": v.get("coverage"),
                 "census": v.get("census"),
+                # the rules that fired and how often, and what the metadata
+                # containers declare of their protection (no word is read):
+                # what a severity is decided on is a count over a library
+                "rules": {x["id"]: x["count"] for x in (v.get("diagnostics") or {}).get("rules", [])},
+                "protection": (v.get("emdf") or v.get("extra") or {}).get("protection"),
                 "first_error": v.get("first_error"),
                 "objects": v.get("object_presentation") or v.get("joc") is not None,
                 # which JOC downmix configuration and how many objects: the

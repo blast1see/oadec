@@ -96,6 +96,7 @@ exit 0
     },
     "protected_frames": 63,
     "protection": {
+      "changes": 0,
       "containers": 63,
       "key_ids": {
         "0": 63
@@ -527,6 +528,7 @@ exit 0
     },
     "protected_frames": 63,
     "protection": {
+      "changes": 0,
       "containers": 63,
       "key_ids": {
         "0": 63
@@ -895,6 +897,7 @@ exit 0
     },
     "protected_frames": 63,
     "protection": {
+      "changes": 0,
       "containers": 63,
       "key_ids": {
         "0": 63
@@ -1198,6 +1201,7 @@ exit 0
     "upmix": {}
   },
   "protection": {
+    "changes": 0,
     "containers": 63,
     "key_ids": {
       "0": 63

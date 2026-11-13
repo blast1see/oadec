@@ -72,7 +72,10 @@ fn nonzero_failures(report: &Value) -> Vec<String> {
             .as_array()
             .expect("the rules that fired");
         for rule in rules {
-            let counter = rule["legacy_counter"].as_str().expect("a counter");
+            // a rule that came with its name is counted nowhere but in itself
+            let Some(counter) = rule["legacy_counter"].as_str() else {
+                continue;
+            };
             assert_eq!(
                 failures[counter], rule["magnitude"],
                 "{}: {}",

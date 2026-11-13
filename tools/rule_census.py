@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-"""Count every rule's findings over a corpus of TrueHD streams.
+"""Count every rule's findings over a corpus of streams.
 
 A rule's default severity is decided on what it finds in real material, not on
 what its unit test builds: a rule that fires on streams nobody doubts is a
 rule to weaken, and a rule that never fires on them is one that can be trusted
 to mean something. This runs `verify --json --max-per-rule 1` over every
 stream and reports, per rule, how many streams it fired on and how many
-findings it made, with the streams named.
+findings it made, with the streams named. A stream of either family is
+taken: TrueHD and MLP, AC-3 and E-AC-3. Beside the rules a row has what the
+metadata containers of the stream declare of their protection (key
+identifiers, versions, the lengths of the two words, and how often one
+container declares something else than the one before it; no word is read)
+and, for a stream with JOC, what its sequence counter did.
 
     python tools/rule_census.py --oadec target/release/oadec.exe \
         --out measure/census.json E:/work/thd E:/work/clips
@@ -22,7 +27,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-SUFFIXES = {'.thd', '.mlp', '.truehd'}
+SUFFIXES = {'.thd', '.mlp', '.truehd', '.ec3', '.eac3', '.eb3', '.ac3'}
 
 
 def streams(paths):
@@ -47,6 +52,7 @@ def one(exe, path, decode):
     except json.JSONDecodeError:
         return {'stream': path.name, 'exit': r.returncode, 'error': r.stderr.decode('utf-8', 'replace')[:300]}
     d = report.get('diagnostics', {})
+    joc = report.get('joc') or {}
     return {
         'stream': path.name,
         'exit': r.returncode,
@@ -54,6 +60,11 @@ def one(exe, path, decode):
         'rules': {x['id']: {'count': x['count'], 'magnitude': x['magnitude'],
                             'first': x['first_message']} for x in d.get('rules', [])},
         'regions': len(d.get('regions', [])),
+        # an AC-3 family report has it under `emdf`, a TrueHD report under
+        # `extra`, with its Evolution frames
+        'protection': (report.get('emdf') or report.get('extra') or {}).get('protection'),
+        'joc_sequence': {k: joc[k] for k in ('seq_count_first', 'seq_count_zero', 'seq_count_restarts',
+                                             'seq_count_gaps') if k in joc} or None,
     }
 
 

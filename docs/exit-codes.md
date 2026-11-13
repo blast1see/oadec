@@ -193,7 +193,14 @@ list above is a rule at `error` or `fatal`, so the default is the verdict
 `--fail-on warning` also fails on rules no public specification or
 measurement confirms, and on a stream of the AC-3 family on an element of an
 Object Audio Metadata payload that declares a stale size, which is counted and
-judges nothing by default; `--fail-on fatal` passes a stream whose only faults
+judges nothing by default. `--fail-on info` fails on anything that was found
+at all, and on a stream of the AC-3 family that includes what only says where
+the stream comes from: a JOC sequence counter that starts again or does not
+follow the one before it, and a metadata container that declares another
+syntax version, the reserved length of its primary word, or another key or
+word length than the container before it
+([`eac3.md`](eac3.md#what-a-metadata-container-declares-and-the-joc-sequence-counter)).
+`--fail-on fatal` passes a stream whose only faults
 left it readable, which for the AC-3 family is every stream that has a frame,
 since none of its rules is fatal. `--max-per-rule` changes what is listed and
 never a count or a verdict. `--require-disc` adds a finding under

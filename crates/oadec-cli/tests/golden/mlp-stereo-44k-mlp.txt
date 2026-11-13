@@ -75,6 +75,7 @@ exit 0
     "payload_ids": {},
     "protected_frames": 0,
     "protection": {
+      "changes": 0,
       "containers": 0,
       "key_ids": {},
       "primary_bytes": {},
@@ -411,6 +412,7 @@ exit 0
     "payload_ids": {},
     "protected_frames": 0,
     "protection": {
+      "changes": 0,
       "containers": 0,
       "key_ids": {},
       "primary_bytes": {},
@@ -710,6 +712,7 @@ exit 0
     "payload_ids": {},
     "protected_frames": 0,
     "protection": {
+      "changes": 0,
       "containers": 0,
       "key_ids": {},
       "primary_bytes": {},
@@ -936,6 +939,7 @@ exit 0
     "upmix": {}
   },
   "protection": {
+    "changes": 0,
     "containers": 0,
     "key_ids": {},
     "primary_bytes": {},

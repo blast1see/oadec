@@ -11,6 +11,7 @@ Dialnorm:          -26 dB x63
 JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
 Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
 EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
+Protection:        key_id 0 x63; primary word bytes 4 x63; secondary 1 x63
 Metadata:          63 OAMD payloads (0 errors), 63 JOC payloads
 JOC parse:         63 ok, 0 errors, 0 reserved extensions, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 63}; objects per payload {15: 63}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 63}
 JOC objects:       bands {12: 945}; 0 sparse, 945 dense, 0 absent; 0 with two data points, 15 steep, 945 fine-quantized
@@ -85,6 +86,23 @@ exit 0
       "14": 63,
       "2": 63
     },
+    "protection": {
+      "changes": 0,
+      "containers": 63,
+      "key_ids": {
+        "0": 63
+      },
+      "primary_bytes": {
+        "4": 63
+      },
+      "reserved_primary_code": 0,
+      "secondary_bytes": {
+        "1": 63
+      },
+      "versions": {
+        "0": 63
+      }
+    },
     "skip_bytes": 16942
   },
   "failures": {
@@ -157,6 +175,9 @@ exit 0
       ]
     },
     "reserved_ext_config": 0,
+    "seq_count_first": 0,
+    "seq_count_gaps": 0,
+    "seq_count_restarts": 0,
     "seq_count_zero": 1,
     "size_mismatches": 0,
     "sparse_and_steep_objects": 0,
@@ -215,6 +236,7 @@ Dialnorm:          -26 dB x63
 JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
 Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
 EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
+Protection:        key_id 0 x63; primary word bytes 4 x63; secondary 1 x63
 Metadata:          63 OAMD payloads (0 errors), 63 JOC payloads
 JOC parse:         63 ok, 0 errors, 0 reserved extensions, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 63}; objects per payload {15: 63}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 63}
 JOC objects:       bands {12: 945}; 0 sparse, 945 dense, 0 absent; 0 with two data points, 15 steep, 945 fine-quantized
@@ -290,6 +312,23 @@ exit 0
       "14": 63,
       "2": 63
     },
+    "protection": {
+      "changes": 0,
+      "containers": 63,
+      "key_ids": {
+        "0": 63
+      },
+      "primary_bytes": {
+        "4": 63
+      },
+      "reserved_primary_code": 0,
+      "secondary_bytes": {
+        "1": 63
+      },
+      "versions": {
+        "0": 63
+      }
+    },
     "skip_bytes": 16942
   },
   "failures": {
@@ -362,6 +401,9 @@ exit 0
       ]
     },
     "reserved_ext_config": 0,
+    "seq_count_first": 0,
+    "seq_count_gaps": 0,
+    "seq_count_restarts": 0,
     "seq_count_zero": 1,
     "size_mismatches": 0,
     "sparse_and_steep_objects": 0,
@@ -420,6 +462,7 @@ Dialnorm:          -26 dB x63
 JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
 Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
 EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
+Protection:        key_id 0 x63; primary word bytes 4 x63; secondary 1 x63
 Metadata:          63 OAMD payloads (0 errors), 63 JOC payloads
 JOC parse:         63 ok, 0 errors, 0 reserved extensions, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 63}; objects per payload {15: 63}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 63}
 JOC objects:       bands {12: 945}; 0 sparse, 945 dense, 0 absent; 0 with two data points, 15 steep, 945 fine-quantized
@@ -495,6 +538,23 @@ exit 0
       "14": 63,
       "2": 63
     },
+    "protection": {
+      "changes": 0,
+      "containers": 63,
+      "key_ids": {
+        "0": 63
+      },
+      "primary_bytes": {
+        "4": 63
+      },
+      "reserved_primary_code": 0,
+      "secondary_bytes": {
+        "1": 63
+      },
+      "versions": {
+        "0": 63
+      }
+    },
     "skip_bytes": 16942
   },
   "failures": {
@@ -567,6 +627,9 @@ exit 0
       ]
     },
     "reserved_ext_config": 0,
+    "seq_count_first": 0,
+    "seq_count_gaps": 0,
+    "seq_count_restarts": 0,
     "seq_count_zero": 1,
     "size_mismatches": 0,
     "sparse_and_steep_objects": 0,
@@ -725,6 +788,7 @@ exit 0
     "upmix": {}
   },
   "protection": {
+    "changes": 0,
     "containers": 63,
     "key_ids": {
       "0": 63
@@ -889,6 +953,7 @@ Dialnorm:          -26 dB x63
 JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
 Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
 EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
+Protection:        key_id 0 x63; primary word bytes 4 x63; secondary 1 x63
 Metadata:          63 OAMD payloads (0 errors), 63 JOC payloads
 JOC parse:         63 ok, 0 errors, 0 reserved extensions, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 63}; objects per payload {15: 63}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 63}
 JOC objects:       bands {12: 945}; 0 sparse, 945 dense, 0 absent; 0 with two data points, 15 steep, 945 fine-quantized
@@ -912,6 +977,7 @@ Dialnorm:          -26 dB x63
 JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
 Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
 EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
+Protection:        key_id 0 x63; primary word bytes 4 x63; secondary 1 x63
 Metadata:          63 OAMD payloads (0 errors), 63 JOC payloads
 JOC parse:         63 ok, 0 errors, 0 reserved extensions, 0 size mismatches, 0 non-zero paddings; dmx configs {3: 63}; objects per payload {15: 63}; seq_count 0 in 1 payloads; clipgain x1000 {1000: 63}
 JOC objects:       bands {12: 945}; 0 sparse, 945 dense, 0 absent; 0 with two data points, 15 steep, 945 fine-quantized

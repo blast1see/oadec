@@ -22,8 +22,10 @@ survived that is not expected to, one that is expected to survive was caught,
 or the text a mutation changes is no longer in its file. The last used to be
 printed as SKIP and counted as nothing, so code that moved took its mutations
 out of the run without a word; it is found before any test runs now, and
-`--check` looks for nothing else, which is quick enough for CI. 2: the tree is
-not clean, or the suite does not pass before any mutation.
+`--check` looks for nothing else, which is quick enough for CI. A mutation
+that does not build is in the first group as well: the compiler refused it,
+the run failed, and no test was asked anything, which used to read as caught.
+2: the tree is not clean, or the suite does not pass before any mutation.
 """
 
 import argparse
@@ -1394,6 +1396,108 @@ MUTANTS = [
      'crates/oadec-cli/src/api.rs',
      '        bail!(JOC_READINGS_ARE_EAC3_OBJECTS);',
      '        let _ = JOC_READINGS_ARE_EAC3_OBJECTS;'),
+    # --- what a container declares, and the JOC sequence counter --------------
+    # Five rules that count and fail nothing. What they count is what a
+    # container says of itself (no protection word is read) and what the
+    # counter of clause 6.3.3.3 of TS 103 420 does from payload to payload.
+    ('a change of key not among what a container declares',
+     'crates/oadec-cli/src/protection.rs',
+     '        let declared = (\n            c.key_id,',
+     '        let declared = (\n            0,'),
+    ('a change of the length of the primary word not among what a container declares',
+     'crates/oadec-cli/src/protection.rs',
+     '            c.protection.primary_code,\n            c.protection.secondary_code,\n        );',
+     '            0,\n            c.protection.secondary_code,\n        );'),
+    ('a change of the length of the secondary word not among what a container declares',
+     'crates/oadec-cli/src/protection.rs',
+     '            c.protection.secondary_code,\n        );\n        let changed',
+     '            0,\n        );\n        let changed'),
+    ('the first container of a stream counted as a change',
+     'crates/oadec-cli/src/protection.rs',
+     'self.last.is_some_and(|before| before != declared)',
+     'self.last.is_none_or(|before| before != declared)'),
+    ('a change counted and not said to the pass that files it',
+     'crates/oadec-cli/src/protection.rs',
+     '            self.changes += 1;\n        }\n        changed\n',
+     '            self.changes += 1;\n        }\n        false\n'),
+    ('the containers of version 0 counted as the ones of another version',
+     'crates/oadec-cli/src/protection.rs',
+     '.filter(|(version, _)| **version != 0)',
+     '.filter(|(version, _)| **version != 1)'),
+    ('the line of a stream whose containers change not saying so',
+     'crates/oadec-cli/src/protection.rs',
+     '            if self.changes > 0 {',
+     '            if self.changes > u64::MAX - 1 {'),
+    ('what the containers of the AC-3 family declare not counted',
+     'crates/oadec-cli/src/eac3.rs',
+     'let changed = self.protection.take(&c);',
+     'let changed = false;'),
+    ('a container of another syntax version not filed',
+     'crates/oadec-cli/src/eac3.rs',
+     '                    if c.version != 0 {\n                        diag.add(RuleId::EmdfSyntaxVersion',
+     '                    if false {\n                        diag.add(RuleId::EmdfSyntaxVersion'),
+    ('the reserved length filed for every container but the one that codes it',
+     'crates/oadec-cli/src/eac3.rs',
+     '                    if c.protection.primary_code == 0 {\n                        diag.add(RuleId::EmdfProtectionReserved',
+     '                    if c.protection.primary_code != 0 {\n                        diag.add(RuleId::EmdfProtectionReserved'),
+    ('a container that declares another key than the one before it not filed',
+     'crates/oadec-cli/src/eac3.rs',
+     '                    if changed {\n                        diag.add(RuleId::EmdfProtectionChanged',
+     '                    if false {\n                        diag.add(RuleId::EmdfProtectionChanged'),
+    ('a JOC counter that starts again filed as one that does not follow',
+     'crates/oadec-cli/src/eac3.rs',
+     '                                        Some(_) if j.seq_count == 0 => {',
+     '                                        Some(_) if false => {'),
+    ('a JOC counter that does not follow not filed',
+     'crates/oadec-cli/src/eac3.rs',
+     'if j.seq_count != Joc::seq_count_after(before) =>',
+     'if false && j.seq_count != Joc::seq_count_after(before) =>'),
+    ('the JOC counter of the payload before not kept',
+     'crates/oadec-cli/src/eac3.rs',
+     '                                    self.joc_seq_last = Some(j.seq_count);\n',
+     ''),
+    ('the first JOC counter of a stream reported as 0 whatever it is',
+     'crates/oadec-cli/src/eac3.rs',
+     'None => self.joc_seq_first = Some(j.seq_count),',
+     'None => self.joc_seq_first = Some(0),'),
+    ('the restarts of the JOC counter held to the count of its gaps',
+     'crates/oadec-cli/src/eac3.rs',
+     '        (RuleId::JocSequenceRestart, e.joc_seq_restarts),\n        (RuleId::JocSequenceGap, e.joc_seq_gaps),',
+     '        (RuleId::JocSequenceRestart, e.joc_seq_gaps),\n        (RuleId::JocSequenceGap, e.joc_seq_restarts),'),
+    ('the report naming the gaps of the JOC counter as its restarts',
+     'crates/oadec-cli/src/eac3.rs',
+     '"seq_count_restarts": e.joc_seq_restarts,',
+     '"seq_count_restarts": e.joc_seq_gaps,'),
+    ('the report naming the last JOC counter as the first',
+     'crates/oadec-cli/src/eac3.rs',
+     '"seq_count_first": e.joc_seq_first,',
+     '"seq_count_first": e.joc_seq_last,'),
+    ('a line about protection for a stream without a container',
+     'crates/oadec-cli/src/eac3.rs',
+     '    if p.emdf.protection.containers > 0 {',
+     '    if p.emdf.frames_with_skip < u64::MAX {'),
+    ('the JOC line of a stream that was spliced saying nothing of it',
+     'crates/oadec-cli/src/eac3.rs',
+     '            (0, 0) => String::new(),',
+     '            _ => String::new(),'),
+    ('the JOC counter after 1 023 taken to be 0',
+     'crates/oadec-emdf/src/joc.rs',
+     'if previous >= 1023 { 1 } else { previous + 1 }',
+     'if previous >= 1023 { 0 } else { previous + 1 }'),
+    ('the JOC counter starting again one frame late',
+     'crates/oadec-emdf/src/joc.rs',
+     'if previous >= 1023 { 1 } else { previous + 1 }',
+     'if previous > 1023 { 1 } else { previous + 1 }'),
+    ('the object decode following another counter than the clause has',
+     'crates/oadec-cli/src/eac3_objects.rs',
+     '&& j.seq_count != Joc::seq_count_after(prev)',
+     '&& j.seq_count != prev'),
+    ('a rule that came with its name weighing as a warning',
+     'crates/oadec-eac3/src/rules.rs',
+     '''        id: "joc.sequence_gap",
+        severity: Info,''',
+     '''        id: "joc.sequence_gap",
+        severity: Warning,'''),
 ]
 
 
@@ -1455,25 +1559,32 @@ for name, path, old, new in selected:
     src = open(path, encoding='utf-8').read()
     open(path, 'w', encoding='utf-8', newline='').write(src.replace(old, new, 1))
     r = run(['cargo', 'test', '--workspace', '--locked'])
-    caught = r.returncode != 0
+    # A mutation the compiler refuses fails the run before a test has run:
+    # that is a mutation written wrong, and says nothing of the suite.
+    built = 'could not compile' not in r.stderr
+    caught = r.returncode != 0 and built
     failing = sorted({ln.split()[1] for ln in r.stdout.splitlines()
                       if ln.startswith('test ') and ln.rstrip().endswith('FAILED')})
     subprocess.run(['git', 'checkout', '--', path], check=True)
-    rows.append({'mutation': name, 'applied': True, 'caught': caught,
+    rows.append({'mutation': name, 'applied': True, 'built': built, 'caught': caught,
                  'failing_tests': failing[:6], 'failing_count': len(failing)})
     expected = name in EXPECTED_SURVIVORS
     rows[-1]['expected_to_survive'] = expected
-    mark = 'caught' if caught else ('survived' if expected else 'SURVIVED')
+    mark = ('NO BUILD' if not built else
+            'caught' if caught else ('survived' if expected else 'SURVIVED'))
     print(f'  {mark:9s} {name}'
           f'{"  by " + ", ".join(failing[:3]) if failing else ""}'
           f'{f" (+{len(failing) - 3} more)" if len(failing) > 3 else ""}', flush=True)
 
 if _args.out:
     json.dump(rows, open(_args.out, 'w'), indent=1)
-survived = [r for r in rows if not r['caught']]
+unbuilt = [r for r in rows if not r['built']]
+survived = [r for r in rows if not r['caught'] and r['built']]
 holes = [r for r in survived if not r['expected_to_survive']]
 stale = [r for r in rows if r['caught'] and r['expected_to_survive']]
 print(f'\n{len(rows)} mutations, {len(survived)} survived, {len(holes)} of them unexpected')
+for r in unbuilt:
+    print('  does not build:', r['mutation'], '-- write it so that it compiles')
 for r in survived:
     why = EXPECTED_SURVIVORS.get(r['mutation'])
     print('  survived:', r['mutation'], f'(expected: {why})' if why else '(a hole in the suite)')
@@ -1482,4 +1593,4 @@ for r in stale:
           '-- take it out of EXPECTED_SURVIVORS')
 assert clean(), 'the tree was left dirty'
 print('tree clean')
-sys.exit(1 if holes or stale else 0)
+sys.exit(1 if holes or stale or unbuilt else 0)
