@@ -476,3 +476,75 @@ coupling; E-AC-3 frames, which switch the fields on with `dbaflde`; more than
 two channels, an LFE, grouped exponents (D25 and D45), short blocks and
 rematrixing. Measured:
 `audit/evidence/engine-round-2026-11/16-synthetic-ac3-delta.json`.
+
+## What a metadata container declares, and the JOC sequence counter
+
+An EMDF container says three things of itself, around its payloads: the
+version of its syntax (TS 102 366 clause H.2.2.2.2: 0 for the syntax of the
+annex), a key identifier (H.2.2.2.3: which key its protection words were
+computed with, the values "implementation dependent"), and the lengths of
+its two protection words (H.2.2.4.1 and H.2.2.4.2, where 00 for the primary
+length is reserved). The words are keyed and their computation is not public
+(H.2.2.4.3), so oadec does not check them, and nothing described here reads
+one. What a container *declares* is public syntax, and it is counted:
+`verify --json` has it as `emdf.protection` (`containers`, `key_ids`,
+`versions`, `primary_bytes`, `secondary_bytes`, `reserved_primary_code`, and
+`changes`, the containers that declare another key identifier or another
+length of a word than the container before them), the report in words has a
+`Protection:` line where the stream has a container, and three rules file
+what stands out, at its frame:
+
+| Rule | Fires on |
+|---|---|
+| `emdf.syntax_version` | a container whose version is not 0 |
+| `emdf.protection_reserved` | a container whose primary length is coded 00 |
+| `emdf.protection_changed` | a container that declares another key identifier, or another length of a word, than the container before it |
+
+The other thing a stream says of where it comes from is the sequence counter
+of its JOC payloads. TS 103 420 clause 6.3.3.3: it goes up by one with every
+frame, to 1 023, and starts again at 1; 0 is the first frame of a bitstream,
+or the first after a splice. The object decode has followed it for as long
+as it has reset the matrices at a splice. `verify` follows it too, and files:
+
+| Rule | Fires on |
+|---|---|
+| `joc.sequence_restart` | a payload after the first whose counter is 0 |
+| `joc.sequence_gap` | a payload whose counter is neither 0 nor the one after the counter of the payload before it |
+
+`verify --json` has `seq_count_first`, `seq_count_restarts` and
+`seq_count_gaps` in its `joc` object, beside `seq_count_zero`. The line the
+object decode prints (`splices: … restarted the sequence counter, … did not
+follow the previous one`) counts the same two things, and a test holds the
+two to each other on a stream put behind itself and on one with a frame
+taken out.
+
+All five are at `info`. They fail nothing but a `verify --fail-on info`, and
+a decode keeps its verdict. What each is worth is a question for a count of
+streams, which is what `info` is for until one has been made:
+
+- **The corpus**, 76 streams of the family, 46 of them with containers
+  (79 598 containers). Every stream declares one thing from its first
+  container to its last: key identifier 0 in 25 streams and 1 in 21, a
+  primary word of four bytes and a secondary of one, version 0. Of the 24
+  streams with JOC, 23 begin with a counter of 0 and one with 11, a track
+  that does not begin where its encoder began; none has a gap.
+- **A library**, the first minute of each of 1 260 tracks (755 AC-3 and 505
+  E-AC-3, of 347 titles), 370 of them with containers (688 011 containers).
+  The same: key identifier 1 on 226 tracks and 0 on 144, four bytes and one,
+  version 0; no track names two keys, and not one container declares anything
+  else than the container before it. Of 128 tracks with JOC the counter
+  starts again in three, and in none of them at a splice: each holds the
+  counter at 0 over its first frames (31, 47 and 375 of them, the longest
+  twelve seconds) and counts on from there. The head of the third is kept in
+  the corpus, where it is the one stream on which a rule of the five fires.
+  No counter fails to follow.
+
+So three of the five have never fired on a real stream, and would mark one
+whose containers changed hands; `joc.sequence_restart` fires on streams that
+are sound, where every frame of a lead-in says it is the first; and
+`joc.sequence_gap` has yet to be seen outside a stream with a frame taken
+out. A minute is the head of a track: what a whole one does at a seamless
+branch or a change of reel is not in this count, and is why none of the five
+is more than information yet.
+
+Measured: `audit/evidence/engine-round-2026-11/31-ac3-census-rules.json`.

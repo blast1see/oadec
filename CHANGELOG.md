@@ -8,6 +8,33 @@ Semantic Versioning.
 
 ### Added
 
+- **What a metadata container declares, and the JOC sequence counter, in
+  `verify`.** An EMDF container names the version of its syntax, a key
+  identifier and the lengths of its two protection words, and the JOC payload
+  of a frame carries a counter that goes up by one with every frame and is 0
+  where a bitstream begins or was spliced. `verify` on a stream of the AC-3
+  family counts both: `emdf.protection` in the JSON report, as a TrueHD
+  report has it for its Evolution frames, with a `Protection:` line in the
+  report in words, and `seq_count_first`, `seq_count_restarts` and
+  `seq_count_gaps` in `joc`. Five rules file what stands out, at its frame:
+  `emdf.syntax_version`, `emdf.protection_reserved`,
+  `emdf.protection_changed`, `joc.sequence_restart` and `joc.sequence_gap`.
+  They are the first rules of the family that were never a counter, and all
+  five are at `info`: they fail nothing but a `verify --fail-on info`. The
+  protection words themselves are not read, and the keyed check stays where
+  it was, out of reach. Both families also count the containers that declare
+  another key or word length than the container before them (`changes`).
+  Counted over the corpus and over the first minute of 1 260 library tracks:
+  of 79 598 containers in the one and 688 011 in the other not one declares
+  anything else than the one before it, two key identifiers are in use and a
+  stream has one of them, and the
+  counter starts again in three tracks of 128 with JOC, in each over a
+  lead-in whose every frame says it is the first; so three of the rules have
+  never fired on a real stream, one fires on streams that are sound, and one
+  has yet to be seen (`docs/eac3.md`,
+  `docs/audit/evidence/engine-round-2026-11/31-ac3-census-rules.json`).
+  `tools/rule_census.py` takes streams of both families, and a row of
+  `tools/sweep.py` has the rules that fired and what the containers declare.
 - **`--fail-on` and `--max-per-rule` on an AC-3 or E-AC-3 stream.** The two
   options that go with named rules were refused on a stream of the AC-3
   family while its checks were counters. They are taken now. At `error`, the
@@ -550,6 +577,13 @@ Semantic Versioning.
 
 ### Fixed
 
+- **`tools/mutants.py` took a mutation that does not build for one that was
+  caught.** A mutation the compiler refuses fails the run before a test has
+  run, and that the run failed was all the tool looked at: one of the
+  mutations written for the five rules above was caught that way, by no
+  test. Such a mutation is reported as `NO BUILD` and fails the run, as one
+  that survives does; the one that showed it is written so that it builds,
+  and a test catches it.
 - **A pre-noise correction was one block early, and faded along a straight
   line.** Transient pre-noise processing counts the transient from "the first
   decoded PCM sample contained in the audio frame". oadec counted from the

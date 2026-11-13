@@ -1262,6 +1262,101 @@ exit 0
     ],
     "severity": "error",
     "summary": "a JOC payload whose declared size is not the size its syntax takes"
+  },
+  {
+    "delivery": false,
+    "format": "ac3",
+    "id": "emdf.syntax_version",
+    "legacy_counter": null,
+    "provenance": [
+      {
+        "clause": "H.2.2.2.2",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/evidence/engine-round-2026-11/31-ac3-census-rules.json",
+        "kind": "measured"
+      }
+    ],
+    "severity": "info",
+    "summary": "an EMDF container declares a syntax version other than 0, the version of the syntax it is read by"
+  },
+  {
+    "delivery": false,
+    "format": "ac3",
+    "id": "emdf.protection_reserved",
+    "legacy_counter": null,
+    "provenance": [
+      {
+        "clause": "H.2.2.4.1, Table H.2.5",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/evidence/engine-round-2026-11/31-ac3-census-rules.json",
+        "kind": "measured"
+      }
+    ],
+    "severity": "info",
+    "summary": "an EMDF container codes its primary protection length as 00, which the table reserves"
+  },
+  {
+    "delivery": false,
+    "format": "ac3",
+    "id": "emdf.protection_changed",
+    "legacy_counter": null,
+    "provenance": [
+      {
+        "clause": "H.2.2.2.3, H.2.2.4",
+        "doc": "ETSI TS 102 366 V1.4.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/evidence/engine-round-2026-11/31-ac3-census-rules.json",
+        "kind": "measured"
+      }
+    ],
+    "severity": "info",
+    "summary": "an EMDF container declares another key identifier, or another length of a protection word, than the container before it: what is counted is what is declared, and no word is read"
+  },
+  {
+    "delivery": false,
+    "format": "ac3",
+    "id": "joc.sequence_restart",
+    "legacy_counter": null,
+    "provenance": [
+      {
+        "clause": "6.3.3.3",
+        "doc": "ETSI TS 103 420 V1.2.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/evidence/engine-round-2026-11/31-ac3-census-rules.json",
+        "kind": "measured"
+      }
+    ],
+    "severity": "info",
+    "summary": "a JOC payload after the first whose sequence counter is 0: the first frame after a splice"
+  },
+  {
+    "delivery": false,
+    "format": "ac3",
+    "id": "joc.sequence_gap",
+    "legacy_counter": null,
+    "provenance": [
+      {
+        "clause": "6.3.3.3",
+        "doc": "ETSI TS 103 420 V1.2.1",
+        "kind": "spec"
+      },
+      {
+        "evidence": "docs/audit/evidence/engine-round-2026-11/31-ac3-census-rules.json",
+        "kind": "measured"
+      }
+    ],
+    "severity": "info",
+    "summary": "a JOC payload whose sequence counter is neither 0 nor the one after the counter of the payload before it: frames are missing, repeated or out of order"
   }
 ]
 
@@ -1367,3 +1462,8 @@ verdict (`docs/exit-codes.md`).
 | `joc.parse` | error | a JOC payload that cannot be parsed | ETSI TS 103 420 V1.2.1, clause 6; measured: `docs/audit/conformance-matrix.md` | `joc_errors` | yes |
 | `joc.reserved_ext_config` | error | a JOC payload whose joc_ext_config_idx is reserved: what follows cannot be read, and the matrices of the frame before are held in its place | ETSI TS 103 420 V1.2.1, Table 49; measured: `docs/audit/conformance-matrix.md` | `joc_reserved_ext_config` | yes |
 | `joc.size_mismatch` | error | a JOC payload whose declared size is not the size its syntax takes | ETSI TS 103 420 V1.2.1, clause 6; measured: `docs/audit/conformance-matrix.md` | `joc_size_mismatches` | yes |
+| `emdf.syntax_version` | info | an EMDF container declares a syntax version other than 0, the version of the syntax it is read by | ETSI TS 102 366 V1.4.1, H.2.2.2.2; measured: `docs/audit/evidence/engine-round-2026-11/31-ac3-census-rules.json` | -- | no |
+| `emdf.protection_reserved` | info | an EMDF container codes its primary protection length as 00, which the table reserves | ETSI TS 102 366 V1.4.1, H.2.2.4.1, Table H.2.5; measured: `docs/audit/evidence/engine-round-2026-11/31-ac3-census-rules.json` | -- | no |
+| `emdf.protection_changed` | info | an EMDF container declares another key identifier, or another length of a protection word, than the container before it: what is counted is what is declared, and no word is read | ETSI TS 102 366 V1.4.1, H.2.2.2.3, H.2.2.4; measured: `docs/audit/evidence/engine-round-2026-11/31-ac3-census-rules.json` | -- | no |
+| `joc.sequence_restart` | info | a JOC payload after the first whose sequence counter is 0: the first frame after a splice | ETSI TS 103 420 V1.2.1, 6.3.3.3; measured: `docs/audit/evidence/engine-round-2026-11/31-ac3-census-rules.json` | -- | no |
+| `joc.sequence_gap` | info | a JOC payload whose sequence counter is neither 0 nor the one after the counter of the payload before it: frames are missing, repeated or out of order | ETSI TS 103 420 V1.2.1, 6.3.3.3; measured: `docs/audit/evidence/engine-round-2026-11/31-ac3-census-rules.json` | -- | no |

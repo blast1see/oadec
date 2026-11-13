@@ -1,0 +1,435 @@
+{
+ "question": "What do the metadata containers of a stream of the AC-3 family declare of themselves, what does the sequence counter of its JOC payloads do, and what is either worth as a rule?",
+ "method": "A container declares the version of its syntax, a key identifier and the lengths of two protection words (ETSI TS 102 366 clauses H.2.2.2.2, H.2.2.2.3, H.2.2.4.1 and H.2.2.4.2); the JOC payload of a frame carries a sequence counter (ETSI TS 103 420 clause 6.3.3.3). `verify` counts both and files five rules, all at `info`. The words themselves are keyed, their computation is not public, and nothing here reads one: what is counted is what is declared. `tools/rule_census.py` ran `verify --json` over the streams of the corpus; `tools/sweep.py` ran it over the first minute of every AC-3 and E-AC-3 track of a library. The streams are media and are not in the repository.",
+ "result": {
+  "the_corpus": {
+   "streams_of_the_family": 76,
+   "streams_with_containers": 46,
+   "containers": 79598,
+   "streams_by_key_identifier": {
+    "0": 25,
+    "1": 21
+   },
+   "streams_by_primary_word_bytes": {
+    "4": 46
+   },
+   "streams_by_secondary_word_bytes": {
+    "1": 46
+   },
+   "streams_by_version": {
+    "0": 46
+   },
+   "streams_that_name_two_keys": 0,
+   "containers_with_the_reserved_primary_length": 0,
+   "containers_declaring_another_key_or_length_than_the_one_before": 0,
+   "streams_with_joc": 24,
+   "of_them_beginning_with_a_counter_of_0": 23,
+   "payloads_with_a_counter_of_0": 398,
+   "restarts": 375,
+   "gaps": 0,
+   "what_each_rule_found": {
+    "emdf.syntax_version": {
+     "streams": 0,
+     "findings": 0
+    },
+    "emdf.protection_reserved": {
+     "streams": 0,
+     "findings": 0
+    },
+    "emdf.protection_changed": {
+     "streams": 0,
+     "findings": 0
+    },
+    "joc.sequence_restart": {
+     "streams": 1,
+     "findings": 375
+    },
+    "joc.sequence_gap": {
+     "streams": 0,
+     "findings": 0
+    }
+   }
+  },
+  "the_library": {
+   "what_was_read": "the first 60 seconds of each track, cut with `ffmpeg -c copy`",
+   "titles": 347,
+   "tracks": 1260,
+   "tracks_by_codec": {
+    "eac3": 505,
+    "ac3": 755
+   },
+   "tracks_not_clean": 1,
+   "tracks_with_containers": 370,
+   "containers": 688011,
+   "tracks_by_key_identifier": {
+    "0": 144,
+    "1": 226
+   },
+   "tracks_by_primary_word_bytes": {
+    "4": 370
+   },
+   "tracks_by_secondary_word_bytes": {
+    "1": 370
+   },
+   "tracks_by_version": {
+    "0": 370
+   },
+   "tracks_that_name_two_keys": 0,
+   "containers_with_the_reserved_primary_length": 0,
+   "containers_declaring_another_key_or_length_than_the_one_before": 0,
+   "what_each_rule_found": {
+    "emdf.syntax_version": {
+     "tracks": 0,
+     "findings": 0
+    },
+    "emdf.protection_reserved": {
+     "tracks": 0,
+     "findings": 0
+    },
+    "emdf.protection_changed": {
+     "tracks": 0,
+     "findings": 0
+    },
+    "joc.sequence_restart": {
+     "tracks": 3,
+     "findings": 453
+    },
+    "joc.sequence_gap": {
+     "tracks": 0,
+     "findings": 0
+    }
+   },
+   "restarts_in_the_minute_of_each_track_that_has_one": [
+    375,
+    47,
+    31
+   ],
+   "tracks_with_joc": 128,
+   "where_the_restarts_are": [
+    {
+     "frames_in_the_minute": 1875,
+     "the_first_counter": 0,
+     "restarts": 375,
+     "gaps": 0,
+     "runs_of_consecutive_frames_that_restart": [
+      [
+       1,
+       375
+      ]
+     ]
+    },
+    {
+     "frames_in_the_minute": 1875,
+     "the_first_counter": 0,
+     "restarts": 31,
+     "gaps": 0,
+     "runs_of_consecutive_frames_that_restart": [
+      [
+       1,
+       31
+      ]
+     ]
+    },
+    {
+     "frames_in_the_minute": 1875,
+     "the_first_counter": 0,
+     "restarts": 47,
+     "gaps": 0,
+     "runs_of_consecutive_frames_that_restart": [
+      [
+       1,
+       47
+      ]
+     ]
+    }
+   ],
+   "other_rules_that_fired": [
+    "frame.tail_overrun"
+   ]
+  },
+  "a_run_over_the_corpus_before_and_after": {
+   "streams": 131,
+   "streams_changed_in_more_than_what_is_added": 1,
+   "the_stream_that_changed": {
+    "stream": "joc-counter-restarts.ec3, the head of the library track the sweep found",
+    "what_changed": [
+     {
+      "command": "decode (pcm --core-only)",
+      "what": "text on stdout",
+      "path": ""
+     },
+     {
+      "command": "decode (pcm)",
+      "what": "text on stdout",
+      "path": ""
+     },
+     {
+      "command": "decode (wav)",
+      "what": "text on stdout",
+      "path": ""
+     },
+     {
+      "command": "info",
+      "what": "text on stdout",
+      "path": ""
+     },
+     {
+      "command": "info --json",
+      "what": "field",
+      "path": "diagnostics.counts.info"
+     },
+     {
+      "command": "info --json",
+      "what": "field",
+      "path": "diagnostics.findings[len]"
+     },
+     {
+      "command": "info --json",
+      "what": "field",
+      "path": "diagnostics.rules[len]"
+     },
+     {
+      "command": "info --json",
+      "what": "field",
+      "path": "diagnostics.worst"
+     },
+     {
+      "command": "verify",
+      "what": "text on stdout",
+      "path": ""
+     },
+     {
+      "command": "verify --json",
+      "what": "field",
+      "path": "diagnostics.counts.info"
+     },
+     {
+      "command": "verify --json",
+      "what": "field",
+      "path": "diagnostics.findings[len]"
+     },
+     {
+      "command": "verify --json",
+      "what": "field",
+      "path": "diagnostics.rules[len]"
+     },
+     {
+      "command": "verify --json",
+      "what": "field",
+      "path": "diagnostics.worst"
+     }
+    ],
+    "reading": "its line about the JOC payloads says how many counters started again, and the findings of its report are no longer none; its exit codes and its deliveries are the same"
+   },
+   "fields_added": [
+    "emdf: protection.changes",
+    "info: emdf.protection",
+    "info: extra.protection.changes",
+    "info: joc.seq_count_first",
+    "info: joc.seq_count_gaps",
+    "info: joc.seq_count_restarts",
+    "verify: emdf.protection",
+    "verify: extra.protection.changes",
+    "verify: joc.seq_count_first",
+    "verify: joc.seq_count_gaps",
+    "verify: joc.seq_count_restarts"
+   ],
+   "lines_added": [
+    "decode (pcm --core-only): Protection",
+    "decode (pcm): Protection",
+    "decode (wav): Protection",
+    "info: Protection",
+    "verify: Protection"
+   ],
+   "lines_of_reports_compared": 8647,
+   "fields_of_reports_compared": 54439,
+   "bytes_of_deliveries_compared": 104361687447,
+   "exit_codes_of_verify": {
+    "0": 121,
+    "7": 10
+   },
+   "the_media_suite": {
+    "passed": 30,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "mutations": {
+   "of_the_files_the_change_touches": 57,
+   "new_with_the_change": 24,
+   "survive": [],
+   "caught_by_a_test_that_failed": 57,
+   "each_new_one": [
+    {
+     "mutation": "a change of key not among what a container declares",
+     "caught_by": [
+      "eac3::tests::what_a_container_declares_of_itself_is_filed_at_its_frame",
+      "protection::tests::a_change_is_a_key_or_a_length_the_container_before_did_not_declare"
+     ]
+    },
+    {
+     "mutation": "the first container of a stream counted as a change",
+     "caught_by": [
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group",
+      "eac3::tests::a_stale_element_size_is_a_warning_filed_at_its_frame",
+      "eac3::tests::the_joc_sequence_counter_is_followed_from_payload_to_payload"
+     ]
+    },
+    {
+     "mutation": "the line of a stream whose containers change not saying so",
+     "caught_by": [
+      "protection::tests::a_change_is_a_key_or_a_length_the_container_before_did_not_declare"
+     ]
+    },
+    {
+     "mutation": "the reserved length filed for every container but the one that codes it",
+     "caught_by": [
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group",
+      "eac3::tests::a_stale_element_size_is_a_warning_filed_at_its_frame",
+      "eac3::tests::the_joc_sequence_counter_is_followed_from_payload_to_payload"
+     ]
+    },
+    {
+     "mutation": "a JOC counter that does not follow not filed",
+     "caught_by": [
+      "eac3::tests::the_joc_sequence_counter_is_followed_from_payload_to_payload"
+     ]
+    },
+    {
+     "mutation": "the restarts of the JOC counter held to the count of its gaps",
+     "caught_by": [
+      "eac3::tests::every_rule_is_held_to_its_counter",
+      "eac3::tests::the_joc_sequence_counter_is_followed_from_payload_to_payload"
+     ]
+    },
+    {
+     "mutation": "a line about protection for a stream without a container",
+     "caught_by": [
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "the JOC counter starting again one frame late",
+     "caught_by": [
+      "joc::tests::the_sequence_counter_counts_to_1023_and_starts_again_at_1"
+     ]
+    },
+    {
+     "mutation": "a change of the length of the primary word not among what a container declares",
+     "caught_by": [
+      "eac3::tests::what_a_container_declares_of_itself_is_filed_at_its_frame",
+      "protection::tests::a_change_is_a_key_or_a_length_the_container_before_did_not_declare"
+     ]
+    },
+    {
+     "mutation": "a change counted and not said to the pass that files it",
+     "caught_by": [
+      "eac3::tests::what_a_container_declares_of_itself_is_filed_at_its_frame",
+      "protection::tests::a_change_is_a_key_or_a_length_the_container_before_did_not_declare"
+     ]
+    },
+    {
+     "mutation": "what the containers of the AC-3 family declare not counted",
+     "caught_by": [
+      "eac3::tests::what_a_container_declares_of_itself_is_filed_at_its_frame"
+     ]
+    },
+    {
+     "mutation": "a container that declares another key than the one before it not filed",
+     "caught_by": [
+      "eac3::tests::what_a_container_declares_of_itself_is_filed_at_its_frame"
+     ]
+    },
+    {
+     "mutation": "the JOC counter of the payload before not kept",
+     "caught_by": [
+      "eac3::tests::the_joc_sequence_counter_is_followed_from_payload_to_payload"
+     ]
+    },
+    {
+     "mutation": "the report naming the gaps of the JOC counter as its restarts",
+     "caught_by": [
+      "a_splice_and_a_missing_frame_show_in_the_joc_sequence_counter"
+     ]
+    },
+    {
+     "mutation": "the JOC line of a stream that was spliced saying nothing of it",
+     "caught_by": [
+      "a_splice_and_a_missing_frame_show_in_the_joc_sequence_counter"
+     ]
+    },
+    {
+     "mutation": "the object decode following another counter than the clause has",
+     "caught_by": [
+      "a_splice_and_a_missing_frame_show_in_the_joc_sequence_counter"
+     ]
+    },
+    {
+     "mutation": "a change of the length of the secondary word not among what a container declares",
+     "caught_by": [
+      "protection::tests::a_change_is_a_key_or_a_length_the_container_before_did_not_declare"
+     ]
+    },
+    {
+     "mutation": "the containers of version 0 counted as the ones of another version",
+     "caught_by": [
+      "eac3::tests::every_rule_is_held_to_its_counter",
+      "eac3::tests::the_joc_sequence_counter_is_followed_from_payload_to_payload",
+      "eac3::tests::what_a_container_declares_of_itself_is_filed_at_its_frame"
+     ]
+    },
+    {
+     "mutation": "a container of another syntax version not filed",
+     "caught_by": [
+      "eac3::tests::what_a_container_declares_of_itself_is_filed_at_its_frame"
+     ]
+    },
+    {
+     "mutation": "a JOC counter that starts again filed as one that does not follow",
+     "caught_by": [
+      "eac3::tests::the_joc_sequence_counter_is_followed_from_payload_to_payload"
+     ]
+    },
+    {
+     "mutation": "the first JOC counter of a stream reported as 0 whatever it is",
+     "caught_by": [
+      "eac3::tests::the_joc_sequence_counter_is_followed_from_payload_to_payload"
+     ]
+    },
+    {
+     "mutation": "the report naming the last JOC counter as the first",
+     "caught_by": [
+      "a_splice_and_a_missing_frame_show_in_the_joc_sequence_counter"
+     ]
+    },
+    {
+     "mutation": "the JOC counter after 1 023 taken to be 0",
+     "caught_by": [
+      "joc::tests::the_sequence_counter_counts_to_1023_and_starts_again_at_1"
+     ]
+    },
+    {
+     "mutation": "a rule that came with its name weighing as a warning",
+     "caught_by": [
+      "eac3::tests::the_joc_sequence_counter_is_followed_from_payload_to_payload"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 650 passed, 30 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "binaries": {
+  "main before the change": "114fdb5216e8050dc6a0880dd5822fb4a0bda0792fd19d9c807506f2eba6ec31",
+  "the change": "7e86d93f5bc878d934564c31f73868087d326af24bbacbeeea689e0c6d02b583"
+ },
+ "reading": "Every stream declares one thing from its first container to its last: over 79598 containers of the corpus and 688011 of the library not one names another key identifier or another length of a word than the container before it, none codes the reserved length, and none is of another syntax version. Two key identifiers are in use, 0 and 1, and a stream has one of them. The sequence counter starts again in 3 of 1260 tracks of the library (128 of them with JOC), and where it does it is no splice: each of those tracks holds the counter at 0 over its first frames (31, 47, 375 of them) and counts on from there, in one run. The one stream of the corpus that restarts is the head of the one that holds it longest, kept for it. A counter that does not follow was found in 0 tracks. So the five stay at `info`: three have never fired on a real stream and would mark one that changed hands, one fires on streams that are sound, and one has yet to be seen. A minute of a track is its head; what a whole track does at a seamless branch or a reel change is not in this count."
+}

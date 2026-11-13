@@ -426,11 +426,10 @@ impl Pipeline {
                 if j.seq_count == 0 && self.frames > 0 {
                     self.joc.reset();
                     self.splices += 1;
-                } else if let Some(prev) = self.last_seq {
-                    let want = if prev >= 1023 { 1 } else { prev + 1 };
-                    if j.seq_count != want {
-                        self.seq_gaps += 1;
-                    }
+                } else if let Some(prev) = self.last_seq
+                    && j.seq_count != Joc::seq_count_after(prev)
+                {
+                    self.seq_gaps += 1;
                 }
                 self.last_seq = Some(j.seq_count);
                 self.joc.update(j, num_ts);

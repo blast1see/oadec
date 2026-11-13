@@ -360,6 +360,16 @@ struct EmdfStats {
     /// stream exercises a branch; these say where to cut a clip that does.
     joc_rare_frames: BTreeMap<&'static str, Vec<u64>>,
     joc_seq_zero: u64,
+    /// The sequence counter of the first JOC payload and of the last one, and
+    /// how many payloads after the first started again at 0 or did not follow
+    /// the one before them (TS 103 420 clause 6.3.3.3).
+    joc_seq_first: Option<u16>,
+    joc_seq_last: Option<u16>,
+    joc_seq_restarts: u64,
+    joc_seq_gaps: u64,
+    /// What the containers declare of their protection: a version, a key
+    /// identifier and the lengths of two words. The words are not read.
+    protection: crate::protection::ProtectionStats,
     joc_clipgain: BTreeMap<u32, u64>,
     /// Per clip gain bucket: the largest and the summed peak matrix
     /// coefficient, and how many payloads went in.
@@ -451,6 +461,31 @@ impl EmdfStats {
                 Ok((c, used)) => {
                     self.containers += 1;
                     found = true;
+                    // What the container declares of itself. None of it is a
+                    // fault of the stream; each says something of where the
+                    // stream comes from, and is counted until a count of
+                    // streams says what it is worth.
+                    let changed = self.protection.take(&c);
+                    if c.version != 0 {
+                        diag.add(RuleId::EmdfSyntaxVersion, at, 1, || {
+                            format!("emdf_version {}", c.version)
+                        });
+                    }
+                    if c.protection.primary_code == 0 {
+                        diag.add(RuleId::EmdfProtectionReserved, at, 1, || {
+                            "primary protection length coded 00".to_string()
+                        });
+                    }
+                    if changed {
+                        diag.add(RuleId::EmdfProtectionChanged, at, 1, || {
+                            format!(
+                                "key_id {}, protection words of {} and {} bytes",
+                                c.key_id,
+                                c.protection.primary.len(),
+                                c.protection.secondary.len()
+                            )
+                        });
+                    }
                     // TS 103 420 table 56 fixes most of the configuration of
                     // the OAMD and JOC payloads
                     let mut violations: Vec<String> = Vec::new();
@@ -517,6 +552,31 @@ impl EmdfStats {
                                         // between two of them needs.
                                         self.note_rare("seq-count-zero", frame_index);
                                     }
+                                    // the same clause: the counter goes up
+                                    // by one from frame to frame
+                                    match self.joc_seq_last {
+                                        None => self.joc_seq_first = Some(j.seq_count),
+                                        Some(_) if j.seq_count == 0 => {
+                                            self.joc_seq_restarts += 1;
+                                            diag.add(RuleId::JocSequenceRestart, at, 1, || {
+                                                "joc_seq_count 0 after the first payload"
+                                                    .to_string()
+                                            });
+                                        }
+                                        Some(before)
+                                            if j.seq_count != Joc::seq_count_after(before) =>
+                                        {
+                                            self.joc_seq_gaps += 1;
+                                            diag.add(RuleId::JocSequenceGap, at, 1, || {
+                                                format!(
+                                                    "joc_seq_count {} after {before}",
+                                                    j.seq_count
+                                                )
+                                            });
+                                        }
+                                        Some(_) => {}
+                                    }
+                                    self.joc_seq_last = Some(j.seq_count);
                                     for o in &j.objects {
                                         match o {
                                             None => self.joc_absent_objects += 1,
@@ -1048,7 +1108,7 @@ impl ProgramSeen {
 
 /// Each rule of the catalog with the counter it is counted under, as the
 /// pass counted it.
-fn counters(p: &Pass, sync_errors: u64, skipped: u64) -> [(RuleId, u64); 26] {
+fn counters(p: &Pass, sync_errors: u64, skipped: u64) -> [(RuleId, u64); 31] {
     let e = &p.emdf;
     let subs = |of: fn(&SubStats) -> u64| p.subs.values().map(of).sum::<u64>();
     [
@@ -1087,6 +1147,14 @@ fn counters(p: &Pass, sync_errors: u64, skipped: u64) -> [(RuleId, u64); 26] {
         (RuleId::JocParse, e.joc_errors),
         (RuleId::JocReservedExtConfig, e.joc_reserved_ext),
         (RuleId::JocSizeMismatch, e.joc_size_mismatch),
+        (RuleId::EmdfSyntaxVersion, e.protection.other_versions()),
+        (
+            RuleId::EmdfProtectionReserved,
+            e.protection.reserved_primary_code,
+        ),
+        (RuleId::EmdfProtectionChanged, e.protection.changes),
+        (RuleId::JocSequenceRestart, e.joc_seq_restarts),
+        (RuleId::JocSequenceGap, e.joc_seq_gaps),
     ]
 }
 
@@ -1562,6 +1630,7 @@ fn pass_json(
             "oamd_muted_updates": e.oamd_gain_size.muted,
             "oamd_sized_updates": e.oamd_gain_size.sized,
             "joc_payloads": e.joc,
+            "protection": e.protection,
         },
         "joc": (e.joc > 0).then(|| json!({
             "parsed": e.joc_ok,
@@ -1590,6 +1659,9 @@ fn pass_json(
                 .map(|(k, v)| (k.to_string(), Value::from(*v)))
                 .collect::<serde_json::Map<String, Value>>(),
             "seq_count_zero": e.joc_seq_zero,
+            "seq_count_first": e.joc_seq_first,
+            "seq_count_restarts": e.joc_seq_restarts,
+            "seq_count_gaps": e.joc_seq_gaps,
             // clause 6.3.3.2, x1000 so the ladder stays exact in JSON
             "clipgain_x1000": e.joc_clipgain.keys().collect::<Vec<_>>(),
             "clipgain_frames": e
@@ -1807,6 +1879,10 @@ fn print_pass(
         p.emdf.false_syncs,
         p.emdf.payload_ids
     );
+    if p.emdf.protection.containers > 0 {
+        // what the containers declare, as `info` says it of a TrueHD stream
+        println!("Protection:        {}", p.emdf.protection.summary());
+    }
     // said only where there is one, so that the line of every other stream
     // is the line it was
     let refused = match p.emdf.oamd_unusable {
@@ -1819,8 +1895,16 @@ fn print_pass(
     );
     if p.emdf.joc > 0 {
         let e = &p.emdf;
+        // said only where the counter did not simply count on, so that the
+        // line of every other stream is the line it was
+        let sequence = match (e.joc_seq_restarts, e.joc_seq_gaps) {
+            (0, 0) => String::new(),
+            (restarts, gaps) => format!(
+                " ({restarts} after the first, {gaps} payloads did not follow the one before)"
+            ),
+        };
         println!(
-            "JOC parse:         {} ok, {} errors, {} reserved extensions, {} size mismatches, {} non-zero paddings; dmx configs {:?}; objects per payload {:?}; seq_count 0 in {} payloads; clipgain x1000 {:?}",
+            "JOC parse:         {} ok, {} errors, {} reserved extensions, {} size mismatches, {} non-zero paddings; dmx configs {:?}; objects per payload {:?}; seq_count 0 in {} payloads{sequence}; clipgain x1000 {:?}",
             e.joc_ok,
             e.joc_errors,
             e.joc_reserved_ext,
@@ -2861,22 +2945,29 @@ mod tests {
 
     /// The first frame group of the committed E-AC-3 fixture, decoded.
     fn first_group() -> ProgramFrame {
+        first_groups(1).remove(0)
+    }
+
+    /// The first `n` frame groups of the committed E-AC-3 fixture, decoded.
+    fn first_groups(n: usize) -> Vec<ProgramFrame> {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/fixtures/authored-scene.ec3"
         );
         let stream = std::fs::read(path).expect("the fixture");
         let mut dec = ProgramDecoder::new(Options::default());
+        let mut groups = Vec::new();
         let mut at = 0;
-        loop {
+        while groups.len() < n {
             let header = FrameHeader::parse(&stream[at..]).expect("a syncframe");
             dec.push(&stream[at..at + header.frame_bytes], &header)
                 .expect("a frame that decodes");
             if let Some(frame) = dec.pop() {
-                return frame;
+                groups.push(frame);
             }
             at += header.frame_bytes;
         }
+        groups
     }
 
     /// The rules that fired, with how often. Each finding of these tests is
@@ -2968,7 +3059,7 @@ mod tests {
     #[test]
     fn every_rule_is_held_to_its_counter() {
         type Raise = fn(&mut Pass);
-        let table: [(RuleId, Raise); 24] = [
+        let table: [(RuleId, Raise); 29] = [
             (RuleId::FrameDecode, |p| p.decode_errors += 1),
             (RuleId::FrameCrc, |p| p.crc_failures += 1),
             (RuleId::FrameTailOverrun, |p| p.tail_overruns += 1),
@@ -3020,6 +3111,17 @@ mod tests {
                 p.emdf.joc_reserved_ext += 1
             }),
             (RuleId::JocSizeMismatch, |p| p.emdf.joc_size_mismatch += 1),
+            (RuleId::EmdfSyntaxVersion, |p| {
+                *p.emdf.protection.versions.entry(1).or_default() += 1
+            }),
+            (RuleId::EmdfProtectionReserved, |p| {
+                p.emdf.protection.reserved_primary_code += 1
+            }),
+            (RuleId::EmdfProtectionChanged, |p| {
+                p.emdf.protection.changes += 1
+            }),
+            (RuleId::JocSequenceRestart, |p| p.emdf.joc_seq_restarts += 1),
+            (RuleId::JocSequenceGap, |p| p.emdf.joc_seq_gaps += 1),
         ];
         assert_eq!(disagreement(&Pass::default(), 0, 0), None);
         let mut held = vec![RuleId::FrameSync, RuleId::FrameSkipped];
@@ -3147,6 +3249,168 @@ mod tests {
         let mut diag = Diag::default();
         declared.file_missing(&mut diag);
         assert_eq!(fired(&diag), [(RuleId::EmdfMissingContainer, 1)]);
+    }
+
+    /// What a container declares of itself is counted and filed at its frame,
+    /// and fails nothing: a syntax version other than 0, the reserved code
+    /// for the length of its primary word, and a key identifier or a length
+    /// of a word that the container before did not declare. No stream of the
+    /// tests has any of the three, so the containers are written by hand,
+    /// without a payload and with words of zeroes, which are never read.
+    #[test]
+    fn what_a_container_declares_of_itself_is_filed_at_its_frame() {
+        use crate::protection::bare_container;
+        let mut stats = EmdfStats::default();
+        let mut diag = Diag::default();
+        let mut scan = |frame: u64, version, key, primary, secondary| {
+            stats.scan(
+                frame,
+                &[bare_container(version, key, primary, secondary)],
+                false,
+                &mut diag,
+            );
+        };
+        // one key and one length throughout: nothing to say
+        scan(0, 0, 0, 1, 0);
+        scan(1, 0, 0, 1, 0);
+        // another key
+        scan(2, 0, 5, 1, 0);
+        scan(3, 0, 5, 1, 0);
+        // another version, and the first key again
+        scan(4, 1, 0, 1, 0);
+        // the reserved code, which is another length as well
+        scan(5, 0, 0, 0, 0);
+        assert_eq!(
+            fired(&diag),
+            [
+                (RuleId::EmdfSyntaxVersion, 1),
+                (RuleId::EmdfProtectionReserved, 1),
+                (RuleId::EmdfProtectionChanged, 3),
+            ]
+        );
+        let at = |rule| {
+            let filed = diag.get(rule).unwrap();
+            (filed.first.at, filed.last)
+        };
+        assert_eq!(at(RuleId::EmdfSyntaxVersion), (frame_at(4), frame_at(4)));
+        assert_eq!(
+            at(RuleId::EmdfProtectionReserved),
+            (frame_at(5), frame_at(5))
+        );
+        assert_eq!(
+            at(RuleId::EmdfProtectionChanged),
+            (frame_at(2), frame_at(5))
+        );
+        let p = &stats.protection;
+        assert_eq!(
+            (
+                p.containers,
+                p.other_versions(),
+                p.reserved_primary_code,
+                p.changes
+            ),
+            (6, 1, 1, 3)
+        );
+        assert_eq!(stats.containers, 6);
+        // counted, and no fault: each is information
+        assert!(diag.passes(Severity::Warning) && !diag.passes(Severity::Info));
+        let mut pass = Pass {
+            emdf: stats,
+            diag,
+            ..Pass::default()
+        };
+        assert!(is_clean(&pass, 0, 0));
+        assert_eq!(disagreement(&pass, 0, 0), None);
+        // a container the findings do not know of is a disagreement
+        pass.emdf.protection.changes += 1;
+        assert!(
+            disagreement(&pass, 0, 0)
+                .unwrap()
+                .starts_with("emdf.protection_changed")
+        );
+    }
+
+    /// The sequence counter of the JOC payloads is followed from one payload
+    /// to the next (TS 103 420 clause 6.3.3.3). A counter of 0 after the
+    /// first payload is the first frame after a splice; one that is neither
+    /// 0 nor the one after the counter before it says that frames are
+    /// missing, repeated or out of order. Both are counted and filed at the
+    /// frame, and fail nothing. The payloads are those of the fixture, put
+    /// to the pass in another order than the stream has them.
+    #[test]
+    fn the_joc_sequence_counter_is_followed_from_payload_to_payload() {
+        let groups = first_groups(4);
+        let fields = |i: usize| &groups[i].metadata_part().decoded.skip_fields;
+        // in the order of the stream there is nothing to file, and the
+        // stream starts where a bitstream starts
+        let mut stats = EmdfStats::default();
+        let mut diag = Diag::default();
+        for i in 0..4 {
+            stats.scan(i as u64, fields(i), true, &mut diag);
+        }
+        assert!(diag.is_empty(), "{:?}", fired(&diag));
+        assert_eq!(
+            (
+                stats.joc_seq_first,
+                stats.joc_seq_last,
+                stats.joc_seq_restarts,
+                stats.joc_seq_gaps
+            ),
+            (Some(0), Some(3), 0, 0)
+        );
+
+        // a stream cut out of the middle of another starts where it was
+        // cut, and there is nothing to file in that
+        let mut cut = EmdfStats::default();
+        let mut none = Diag::default();
+        cut.scan(0, fields(2), true, &mut none);
+        cut.scan(1, fields(3), true, &mut none);
+        assert!(none.is_empty(), "{:?}", fired(&none));
+        assert_eq!(
+            (
+                cut.joc_seq_first,
+                cut.joc_seq_last,
+                cut.joc_seq_restarts,
+                cut.joc_seq_gaps
+            ),
+            (Some(2), Some(3), 0, 0)
+        );
+
+        // the stream again behind itself: a splice
+        stats.scan(4, fields(0), true, &mut diag);
+        // 2 after 0: one frame is missing
+        stats.scan(5, fields(2), true, &mut diag);
+        // 2 after 2: a frame twice
+        stats.scan(6, fields(2), true, &mut diag);
+        // 3 after 2 follows
+        stats.scan(7, fields(3), true, &mut diag);
+        // 1 after 3: out of order
+        stats.scan(8, fields(1), true, &mut diag);
+        assert_eq!(
+            fired(&diag),
+            [(RuleId::JocSequenceRestart, 1), (RuleId::JocSequenceGap, 3)]
+        );
+        let restart = diag.get(RuleId::JocSequenceRestart).unwrap();
+        assert_eq!((restart.first.at, restart.last), (frame_at(4), frame_at(4)));
+        let gap = diag.get(RuleId::JocSequenceGap).unwrap();
+        assert_eq!((gap.first.at, gap.last), (frame_at(5), frame_at(8)));
+        assert_eq!(
+            (
+                stats.joc_seq_first,
+                stats.joc_seq_last,
+                stats.joc_seq_restarts,
+                stats.joc_seq_gaps,
+                stats.joc_seq_zero
+            ),
+            (Some(0), Some(1), 1, 3, 2)
+        );
+        assert!(diag.passes(Severity::Warning) && !diag.passes(Severity::Info));
+        let pass = Pass {
+            emdf: stats,
+            diag,
+            ..Pass::default()
+        };
+        assert_eq!(disagreement(&pass, 0, 0), None);
     }
 
     /// An element of an Object Audio Metadata payload whose declared size is

@@ -397,6 +397,15 @@ fn verify_has_nothing_to_say_of_any_ac3_recipe() {
         for (what, count) in report["failures"].as_object().expect("failures is a map") {
             assert_eq!(count, 0, "{name}: {what}");
         }
+        // A stream without a metadata container declares no protection, and
+        // the report in words has no line for one.
+        assert_eq!(report["emdf"]["protection"]["containers"], 0, "{name}");
+        assert!(report["joc"].is_null(), "{name}");
+        let said = text(&oadec(&["verify", &path]).stdout);
+        assert!(
+            said.contains("EMDF:") && !said.contains("Protection:"),
+            "{name}: {said}"
+        );
         // The tool is named where the writer laid a delta out, in as many
         // frames. Two streams go without the name: the one without the
         // fields, and the one whose fields are all there and whose segments

@@ -26,6 +26,7 @@ pub const TS_103_420: &str = "ETSI TS 103 420 V1.2.1";
 
 const MATRIX: &str = "docs/audit/conformance-matrix.md";
 const PARITY: &str = "docs/audit/evidence/engine-round-2026-11/22-verdict-parity.json";
+const CENSUS: &str = "docs/audit/evidence/engine-round-2026-11/31-ac3-census-rules.json";
 
 oadec_diag::catalog! {
     /// A check `verify` makes on a stream of the AC-3 family.
@@ -238,6 +239,46 @@ oadec_diag::catalog! {
         summary: "a JOC payload whose declared size is not the size its syntax takes",
         provenance: [spec(TS_103_420, "clause 6"), measured(MATRIX)],
     },
+    /// A container of another syntax version.
+    EmdfSyntaxVersion {
+        id: "emdf.syntax_version",
+        severity: Info,
+        legacy: None,
+        summary: "an EMDF container declares a syntax version other than 0, the version of the syntax it is read by",
+        provenance: [spec(TS_102_366, "H.2.2.2.2"), measured(CENSUS)],
+    },
+    /// The reserved primary protection length.
+    EmdfProtectionReserved {
+        id: "emdf.protection_reserved",
+        severity: Info,
+        legacy: None,
+        summary: "an EMDF container codes its primary protection length as 00, which the table reserves",
+        provenance: [spec(TS_102_366, "H.2.2.4.1, Table H.2.5"), measured(CENSUS)],
+    },
+    /// A container that declares another protection than the one before it.
+    EmdfProtectionChanged {
+        id: "emdf.protection_changed",
+        severity: Info,
+        legacy: None,
+        summary: "an EMDF container declares another key identifier, or another length of a protection word, than the container before it: what is counted is what is declared, and no word is read",
+        provenance: [spec(TS_102_366, "H.2.2.2.3, H.2.2.4"), measured(CENSUS)],
+    },
+    /// The JOC sequence counter starts again.
+    JocSequenceRestart {
+        id: "joc.sequence_restart",
+        severity: Info,
+        legacy: None,
+        summary: "a JOC payload after the first whose sequence counter is 0: the first frame after a splice",
+        provenance: [spec(TS_103_420, "6.3.3.3"), measured(CENSUS)],
+    },
+    /// The JOC sequence counter does not follow.
+    JocSequenceGap {
+        id: "joc.sequence_gap",
+        severity: Info,
+        legacy: None,
+        summary: "a JOC payload whose sequence counter is neither 0 nor the one after the counter of the payload before it: frames are missing, repeated or out of order",
+        provenance: [spec(TS_103_420, "6.3.3.3"), measured(CENSUS)],
+    },
 }
 
 impl RuleId {
@@ -309,11 +350,38 @@ mod tests {
     #[test]
     fn the_catalog_has_none_of_the_faults_of_a_catalog() {
         assert_eq!(oadec_diag::faults::<RuleId>(), Vec::<String>::new());
+        let mut named_first = Vec::new();
         for rule in RuleId::ALL {
             assert_eq!(RuleId::from_id(rule.info().id), Some(*rule));
-            // every check of the pass was a counter before it had a name
-            let counter = rule.info().legacy_counter.expect("a counter");
-            assert_eq!(RuleId::from_legacy_counter(counter), Some(*rule));
+            match rule.info().legacy_counter {
+                // a check that was a counter before it had a name
+                Some(counter) => assert_eq!(RuleId::from_legacy_counter(counter), Some(*rule)),
+                None => named_first.push(rule.info().id),
+            }
+        }
+        // the five that came with their names: what a container declares of
+        // its protection, and the sequence counter of the JOC payloads
+        assert_eq!(
+            named_first,
+            [
+                "emdf.syntax_version",
+                "emdf.protection_reserved",
+                "emdf.protection_changed",
+                "joc.sequence_restart",
+                "joc.sequence_gap",
+            ]
+        );
+    }
+
+    /// The five count what a stream is, and judge nothing until a count of
+    /// streams says what each is worth: none fails a stream by default, and
+    /// none is a warning yet.
+    #[test]
+    fn a_rule_that_came_with_its_name_is_information() {
+        for rule in RuleId::ALL {
+            if rule.info().legacy_counter.is_none() {
+                assert_eq!(rule.info().severity, Severity::Info, "{}", rule.info().id);
+            }
         }
     }
 
@@ -350,6 +418,11 @@ mod tests {
                 "emdf.payload_config",
                 "bsi.complexity_index",
                 "oamd.stale_size",
+                "emdf.syntax_version",
+                "emdf.protection_reserved",
+                "emdf.protection_changed",
+                "joc.sequence_restart",
+                "joc.sequence_gap",
             ]
         );
         for rule in RuleId::ALL {

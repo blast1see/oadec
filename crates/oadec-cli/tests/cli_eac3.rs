@@ -865,7 +865,10 @@ fn fired<'a>(report: &'a Value, id: &str) -> &'a Value {
 fn the_rules_are_the_counters(report: &Value) {
     let rules = report["diagnostics"]["rules"].as_array().unwrap();
     for rule in rules {
-        let counter = rule["legacy_counter"].as_str().expect("a counter");
+        // a rule that came with its name is counted nowhere but in itself
+        let Some(counter) = rule["legacy_counter"].as_str() else {
+            continue;
+        };
         assert_eq!(
             report["failures"][counter], rule["magnitude"],
             "{}: {}",
@@ -1219,5 +1222,262 @@ fn compare_refuses_an_option_of_a_truehd_comparison_on_eac3() {
         assert_eq!(out.status.code(), Some(2), "{option:?}: {said}");
         assert!(said.contains(says), "{option:?}: {said}");
     }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A stream put behind itself is two bitstreams, and the sequence counter of
+/// the JOC payloads starts again where the second begins (TS 103 420 clause
+/// 6.3.3.3). `verify` counts that, files it at the frame and fails nothing
+/// on it: a splice is no fault. `--fail-on info` fails on it, as on anything
+/// that was found, and a decode keeps its verdict. A stream with a frame
+/// taken out has a counter that does not follow the one before it.
+#[test]
+fn a_splice_and_a_missing_frame_show_in_the_joc_sequence_counter() {
+    let dir = temp("joc-sequence");
+    let stream = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let offsets = frame_offsets(&stream);
+
+    // the fixture is one bitstream, from its first frame
+    let (code, sound) = verify_json(&fixture("authored-scene.ec3"));
+    assert_eq!(code, Some(0));
+    let joc = &sound["joc"];
+    assert_eq!(joc["seq_count_first"], 0, "{joc}");
+    assert_eq!(
+        (
+            &joc["seq_count_zero"],
+            &joc["seq_count_restarts"],
+            &joc["seq_count_gaps"]
+        ),
+        (
+            &serde_json::json!(1),
+            &serde_json::json!(0),
+            &serde_json::json!(0)
+        )
+    );
+
+    let twice = dir.join("twice.ec3");
+    std::fs::write(&twice, [stream.as_slice(), stream.as_slice()].concat()).unwrap();
+    let (code, report) = verify_json(&twice);
+    assert_eq!(code, Some(0), "a splice is no fault");
+    let joc = &report["joc"];
+    assert_eq!(joc["seq_count_first"], 0, "{joc}");
+    assert_eq!(
+        (
+            &joc["seq_count_zero"],
+            &joc["seq_count_restarts"],
+            &joc["seq_count_gaps"]
+        ),
+        (
+            &serde_json::json!(2),
+            &serde_json::json!(1),
+            &serde_json::json!(0)
+        )
+    );
+    let rule = fired(&report, "joc.sequence_restart");
+    assert_eq!(rule["severity"], "info");
+    assert_eq!(rule["delivery"], false);
+    assert_eq!(
+        (&rule["count"], &rule["magnitude"]),
+        (&serde_json::json!(1), &serde_json::json!(1))
+    );
+    assert_eq!(rule["first"]["frame"], offsets.len(), "{rule}");
+    assert!(rule["legacy_counter"].is_null(), "{rule}");
+    assert_eq!(report["diagnostics"]["worst"], "info");
+    assert_eq!(report["diagnostics"]["rules"].as_array().unwrap().len(), 1);
+    the_rules_are_the_counters(&report);
+    let path = twice.to_str().unwrap();
+    let text = oadec(&["verify", path]);
+    assert_eq!(text.status.code(), Some(0));
+    let said = String::from_utf8_lossy(&text.stdout).into_owned();
+    assert!(
+        said.contains("seq_count 0 in 2 payloads (1 after the first, 0 payloads did not follow the one before)"),
+        "{said}"
+    );
+    assert!(
+        said.lines()
+            .any(|l| l.contains("joc.sequence_restart") && l.contains("info")),
+        "{said}"
+    );
+    assert_eq!(
+        oadec(&["verify", "--fail-on", "info", path]).status.code(),
+        Some(7)
+    );
+    assert_eq!(
+        oadec(&["verify", "--fail-on", "warning", path])
+            .status
+            .code(),
+        Some(0)
+    );
+    let decoded = oadec(&[
+        "decode",
+        path,
+        "--format",
+        "pcm",
+        "-o",
+        dir.join("twice.f32").to_str().unwrap(),
+    ]);
+    assert_eq!(decoded.status.code(), Some(0), "{}", stderr(&decoded));
+
+    // frame 10 taken out: 11 after 9
+    let cut = dir.join("cut.ec3");
+    std::fs::write(
+        &cut,
+        [&stream[..offsets[10]], &stream[offsets[11]..]].concat(),
+    )
+    .unwrap();
+    let (code, report) = verify_json(&cut);
+    assert_eq!(code, Some(0), "{}", report["diagnostics"]);
+    let joc = &report["joc"];
+    assert_eq!(
+        (
+            &joc["seq_count_zero"],
+            &joc["seq_count_restarts"],
+            &joc["seq_count_gaps"]
+        ),
+        (
+            &serde_json::json!(1),
+            &serde_json::json!(0),
+            &serde_json::json!(1)
+        )
+    );
+    let rule = fired(&report, "joc.sequence_gap");
+    assert_eq!(rule["severity"], "info");
+    assert_eq!(rule["first"]["frame"], 10, "{rule}");
+    assert_eq!(rule["first_message"], "joc_seq_count 11 after 9");
+    assert_eq!(report["diagnostics"]["rules"].as_array().unwrap().len(), 1);
+
+    // The object decode follows the same counter, to forget the matrices of
+    // before a splice, and says what it met: what `verify` files is what
+    // the decode counts.
+    for (file, says) in [
+        (fixture("authored-scene.ec3"), None),
+        (
+            twice,
+            Some(
+                "splices: 1 frames restarted the sequence counter, 0 did not follow the previous one",
+            ),
+        ),
+        (
+            cut,
+            Some(
+                "splices: 0 frames restarted the sequence counter, 1 did not follow the previous one",
+            ),
+        ),
+    ] {
+        let out = oadec(&[
+            "decode",
+            file.to_str().unwrap(),
+            "--format",
+            "damf",
+            "-o",
+            dir.join("objects").to_str().unwrap(),
+        ]);
+        let said = stderr(&out);
+        assert_eq!(out.status.code(), Some(0), "{}: {said}", file.display());
+        let line = said.lines().find(|l| l.starts_with("splices:"));
+        assert_eq!(line, says, "{}: {said}", file.display());
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// What the containers of a stream declare of their protection is in the
+/// report of `verify`: how many declare which key identifier and which
+/// lengths of the two words, and how many declare something else than the
+/// container before them. The words are not read. The fixture declares one
+/// thing throughout; a copy whose frame 10 names another key changes hands
+/// twice, into that frame and out of it, and a copy whose frame 10 names
+/// another syntax version is counted for that. Neither fails anything.
+#[test]
+fn what_the_containers_declare_of_their_protection_is_reported() {
+    let dir = temp("declared-protection");
+    let (code, sound) = verify_json(&fixture("authored-scene.ec3"));
+    assert_eq!(code, Some(0));
+    let frames = sound["frames"].as_u64().expect("a count of frames");
+    let p = &sound["emdf"]["protection"];
+    assert_eq!(p["containers"], frames, "{p}");
+    assert_eq!(p["key_ids"], serde_json::json!({ "0": frames }), "{p}");
+    assert_eq!(p["versions"], serde_json::json!({ "0": frames }), "{p}");
+    assert_eq!(
+        p["primary_bytes"],
+        serde_json::json!({ "4": frames }),
+        "{p}"
+    );
+    assert_eq!(
+        p["secondary_bytes"],
+        serde_json::json!({ "1": frames }),
+        "{p}"
+    );
+    assert_eq!(
+        (&p["reserved_primary_code"], &p["changes"]),
+        (&serde_json::json!(0), &serde_json::json!(0))
+    );
+    let text = oadec(&["verify", fixture("authored-scene.ec3").to_str().unwrap()]);
+    let said = String::from_utf8_lossy(&text.stdout).into_owned();
+    assert!(
+        said.lines().any(|l| l
+            == format!(
+                "Protection:        key_id 0 x{frames}; primary word bytes 4 x{frames}; secondary 1 x{frames}"
+            )),
+        "{said}"
+    );
+
+    // the key identifier is the three bits after the two of the version,
+    // which follow the length word
+    let other_key = with_frame_10_container(&dir, "key.ec3", |at, _| (at + 18, 3, 5));
+    let (code, report) = verify_json(&other_key);
+    assert_eq!(code, Some(0), "{}", report["diagnostics"]);
+    let p = &report["emdf"]["protection"];
+    assert_eq!(
+        p["key_ids"],
+        serde_json::json!({ "0": frames - 1, "5": 1 }),
+        "{p}"
+    );
+    assert_eq!(p["changes"], 2, "{p}");
+    let rule = fired(&report, "emdf.protection_changed");
+    assert_eq!(rule["severity"], "info");
+    assert_eq!(rule["delivery"], false);
+    assert_eq!(rule["count"], 2);
+    assert_eq!(
+        (&rule["first"]["frame"], &rule["last"]["frame"]),
+        (&serde_json::json!(10), &serde_json::json!(11)),
+        "{rule}"
+    );
+    assert_eq!(
+        rule["first_message"],
+        "key_id 5, protection words of 4 and 1 bytes"
+    );
+    assert_eq!(report["diagnostics"]["rules"].as_array().unwrap().len(), 1);
+    the_rules_are_the_counters(&report);
+    let path = other_key.to_str().unwrap();
+    let text = oadec(&["verify", path]);
+    let said = String::from_utf8_lossy(&text.stdout).into_owned();
+    assert!(
+        said.contains("; 2 declaring another key or length than the one before"),
+        "{said}"
+    );
+    assert_eq!(
+        oadec(&["verify", "--fail-on", "info", path]).status.code(),
+        Some(7)
+    );
+
+    let other_version = with_frame_10_container(&dir, "version.ec3", |at, _| (at + 16, 2, 1));
+    let (code, report) = verify_json(&other_version);
+    assert_eq!(code, Some(0), "{}", report["diagnostics"]);
+    let p = &report["emdf"]["protection"];
+    assert_eq!(
+        p["versions"],
+        serde_json::json!({ "0": frames - 1, "1": 1 }),
+        "{p}"
+    );
+    assert_eq!(
+        p["changes"], 0,
+        "a version is not what protects a container: {p}"
+    );
+    let rule = fired(&report, "emdf.syntax_version");
+    assert_eq!(rule["severity"], "info");
+    assert_eq!(rule["count"], 1);
+    assert_eq!(rule["first"]["frame"], 10, "{rule}");
+    assert_eq!(rule["first_message"], "emdf_version 1");
+    assert_eq!(report["diagnostics"]["rules"].as_array().unwrap().len(), 1);
     std::fs::remove_dir_all(&dir).ok();
 }

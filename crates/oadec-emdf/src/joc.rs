@@ -438,11 +438,30 @@ impl Joc {
     pub fn size_ok(&self, payload_len: usize) -> bool {
         self.bits_used == payload_len * 8
     }
+
+    /// The sequence counter of the frame after one whose counter is
+    /// `previous`: one more, and 1 after 1 023 (clause 6.3.3.3). A counter of
+    /// 0 is never the one after another; it is the first frame of a bitstream
+    /// or the first after a splice.
+    #[must_use]
+    pub fn seq_count_after(previous: u16) -> u16 {
+        if previous >= 1023 { 1 } else { previous + 1 }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Clause 6.3.3.3: the counter goes up by one with every frame, to
+    /// 1 023, and starts again at 1, not at 0.
+    #[test]
+    fn the_sequence_counter_counts_to_1023_and_starts_again_at_1() {
+        assert_eq!(Joc::seq_count_after(0), 1);
+        assert_eq!(Joc::seq_count_after(1), 2);
+        assert_eq!(Joc::seq_count_after(1022), 1023);
+        assert_eq!(Joc::seq_count_after(1023), 1);
+    }
 
     /// Encodes a value with a Huffman table by searching the tree.
     fn encode(table: &[[i16; 2]], value: u32) -> Vec<bool> {
