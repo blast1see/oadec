@@ -523,6 +523,27 @@ Semantic Versioning.
 
 ### Fixed
 
+- **Enhanced coupling from its lowest sub-band could not be read.** With
+  `ecplbegf` 0 the coupling channel begins at band 13 of the masking model and
+  the channels coupled into it end there, and the excitation function does two
+  things the pseudo-code of clause 6.2.2.4 does not print: the coupling
+  channel has the low-frequency compensation while its bands are below 22,
+  and the last band of a channel looks at no band after it, as the clause
+  says of the LFE channel alone. oadec had the clause as printed, the bit
+  allocation came out a bit wrong in some blocks, and the frame was lost: on
+  four streams of an encoder that couples this way at 64 kbit/s, 12 to 52
+  per cent of the frames ended in a mantissa code that does not exist, 870
+  of 2 879, and `verify` exited 7 on streams the Dolby decoder reads whole.
+  All 2 879 decode now, and below 1,2 kHz, where each channel codes its own
+  bins, a median frame of the streams that carry no transient is within
+  89 dB of the Dolby decode. Nothing made here had ever begun enhanced
+  coupling that low (`eac3-ecpl-inject` keeps the start of the coupling it
+  rewrites, bin 37 or later), and no stream of the corpus or of a library
+  uses the tool at all, so no other stream decodes differently: 125 streams
+  compared, none changed. Two blocks of those streams are unit tests, with
+  four mutations; `tools/band_compare.py` compares two decodes region by
+  region
+  (`docs/audit/evidence/engine-round-2026-11/28-coupling-from-the-lowest-band.json`).
 - **A second repair of a stream's checksums still reported a change.** A
   restart header that runs into the two bytes that close its segment has its
   CRC in bits the trailer is written over. `oadec_truehd::Repairer` wrote

@@ -387,7 +387,7 @@ enum Command {
         core: Option<PathBuf>,
     },
     /// Rewrite the standard coupling of an E-AC-3 stream as enhanced coupling,
-    /// which no encoder on hand will emit and no stream in the wild carries.
+    /// which few encoders write and no stream of a library carries.
     #[command(hide = true)]
     Eac3EcplInject {
         /// Raw E-AC-3 elementary stream that uses coupling.

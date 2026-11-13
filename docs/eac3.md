@@ -219,6 +219,45 @@ V1.4.1's count would desynchronise the block.
   written, and the bin indices are relative to the start of the region. Read
   as one array the band values would be overwritten before they are used.
 
+## The bit allocation where enhanced coupling begins at its lowest sub-band
+
+With `ecplbegf` 0 the coupling channel begins at bin 13, which is band 13 of
+the masking model, and the channels coupled into it end there. Standard
+coupling cannot begin below bin 37, and no channel of AC-3 but the LFE ends
+below band 22. So this is the one configuration that asks the excitation
+function of clause 6.2.2.4 two things, and the pseudo-code of the clause
+answers neither the way an encoder does:
+
+- **The coupling channel has the low-frequency compensation.** The clause
+  starts a coupling channel in the loop that has none (`begin = bndstrt`),
+  which is the same thing for one that begins at band 31 or later. One that
+  begins at band 13 is compensated like any other channel while its bands are
+  below 22: `calc_lowcomp` runs, from zero, and the excitation is
+  `max(fastleak - lowcomp, slowleak)`.
+- **The last band of a channel looks at no band after it.** `calc_lowcomp`
+  compares a band with the one after it. The clause leaves the comparison out
+  at the last band of the LFE channel; a channel that ends at band 13 leaves
+  it out at its last band as well.
+
+Neither is in a document. Both were found on the streams of an encoder that
+couples from the lowest sub-band at 64 kbit/s, stereo (MainConcept TotalCode
+Studio 5.3, its Dolby Digital Plus Professional encoder). Read as the clause
+prints it, 74 of the 626 frames of the first stream ended in a mantissa code
+that does not exist, in a group above its range or past the end of the frame,
+and the Dolby decoder read every one of them. With the first rule alone 28
+frames fail, with the second alone 48, with both none, and none of the 2 879
+frames of four streams: pink noise in level steps, two independent noises,
+tones with a sweep, and bursts. Below 1,2 kHz, where each channel codes its
+own bins, a frame of the two streams that carry no transient is then within
+89 dB of the Dolby decode at the median, the channel that carries the sweep
+within 68 dB; the two decodes have the same energy to 0,03 dB in every
+region, and what they differ by above is the dither of the bins that got no
+bits. `tools/band_compare.py` is the measurement, and
+`docs/audit/evidence/engine-round-2026-11/28-coupling-from-the-lowest-band.json`
+the record. The exponents and the parameters of two blocks of those streams
+are kept as tests, with the pointers their mantissas are packed with
+(`bitalloc::tests`).
+
 ## Transient pre-noise processing
 
 Both ETSI clause E.2.7.2 and ATSC clause E.3.7.2 give the same pseudo-code,
