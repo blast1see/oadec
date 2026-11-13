@@ -1,0 +1,153 @@
+{
+ "question": "Six loops looked for an EMDF container in the skip fields of a frame. Did they agree, and does one walk in their place change anything a command says or writes?",
+ "method": "The six were the pass of `verify`, the count of containers beside it, the object decode, the walk of `emdf` and `oamd`, and the two tools that rewrite a field of a JOC payload. They were read side by side. One walk, `oadec_emdf::container::candidates`, took their place, and each command kept its own reading of a place where the sync word stands and nothing opens. Then `tools/old_new.py --decode-all` put the binary of main and the binary of the change to the corpus, the campaign of evidence 22 put changed streams to every command, and the mutations of the six source files the change touches were run. The corpus is media and is not in the repository.",
+ "binaries": {
+  "main before the change": "7e86d93f5bc878d934564c31f73868087d326af24bbacbeeea689e0c6d02b583",
+  "the change": "fd9450baf52fcf831791f4b4ee5db41a7493caa50f2bdc29431b31bf3c403ec6"
+ },
+ "result": {
+  "how_the_six_differed": {
+   "the_step_past_a_sync_word_that_opens_nothing": {
+    "one byte": [
+     "the pass of verify",
+     "the count of containers",
+     "the walk of emdf and oamd",
+     "the two tools"
+    ],
+    "two bytes": [
+     "the object decode"
+    ],
+    "why_it_finds_the_same": "the byte after a sync word is the second byte of that word, 0x38, and the first of a sync word is 0x58: no sync word begins there"
+   },
+   "the_least_taken_for_a_candidate": {
+    "two bytes": [
+     "the count of containers"
+    ],
+    "four bytes": [
+     "the other five"
+    ],
+    "why_it_finds_the_same": "a container is a sync word, a length and what the length declares; fewer than four bytes open nothing, and that loop counted only what opens"
+   },
+   "the_step_over_a_container_that_opens": {
+    "the length it declares, and four bytes at least": [
+     "five of them"
+    ],
+    "the length it declares, and one byte at least": [
+     "the count of containers"
+    ],
+    "why_it_finds_the_same": "the three bytes after the first of a container are 0x38 and its length, which is below 0x5800 wherever the two steps differ"
+   },
+   "the_bytes_searched": {
+    "the skip fields of a frame end to end": [
+     "the pass of verify",
+     "the count of containers",
+     "the object decode",
+     "the walk of emdf and oamd"
+    ],
+    "each skip field by itself": [
+     "the two tools, which need the place of the field in the frame"
+    ]
+   }
+  },
+  "what_is_kept_as_it_was": "a container is stepped over by the length it declares, which counts neither the sync word nor itself, so the walk goes on four bytes before the end of the container; a test holds it. One sync word that opens nothing is counted in one stream of the corpus",
+  "a_run_over_the_corpus_before_and_after": {
+   "streams": 131,
+   "streams_changed": 0,
+   "fields_added": [],
+   "lines_added": [],
+   "lines_of_reports_compared": 8743,
+   "fields_of_reports_compared": 55962,
+   "bytes_of_deliveries_compared": 104361687447,
+   "the_media_suite": {
+    "passed": 30,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "the_campaign": {
+   "seed": 0,
+   "rounds": 200000,
+   "streams_changed": 86,
+   "clauses_broken": 0,
+   "panics": 0,
+   "kinds_of_answers": 31,
+   "every_command_clean": 27517,
+   "clean_and_not_the_seed": 27094,
+   "clean_with_other_samples": {
+    "TrueHD and MLP": 20993,
+    "the AC-3 family": 3911
+   },
+   "a_metadata_report_stricter_than_verify": 0,
+   "the_same_seed_on_main": {
+    "the_table_of_answers": "the same, kind for kind and count for count",
+    "kinds_of_answers": 31,
+    "rounds_in_the_table": 200000,
+    "what_differs": "the round that took longest and how long it took"
+   }
+  },
+  "mutations": {
+   "of_the_files_the_change_touches": 56,
+   "new_with_the_change": 7,
+   "survive": [],
+   "caught_by_a_test_that_failed": 56,
+   "each_new_one": [
+    {
+     "mutation": "the walk asking a sync word for less than a length",
+     "caught_by": [
+      "container::tests::the_walk_names_every_sync_word_and_what_opens_there"
+     ]
+    },
+    {
+     "mutation": "the tool that relabels the JOC downmix writing as if the skip field began the frame",
+     "caught_by": [
+      "the_tools_that_rewrite_a_joc_field_find_it_in_every_frame"
+     ]
+    },
+    {
+     "mutation": "the walk searching the payload of a container for another",
+     "caught_by": [
+      "authored_scene_ec3"
+     ]
+    },
+    {
+     "mutation": "the walk taking the first byte of the sync word for the word",
+     "caught_by": [
+      "container::tests::the_walk_does_not_search_a_payload",
+      "container::tests::the_walk_goes_on_four_bytes_before_the_end_of_a_container",
+      "container::tests::the_walk_names_every_sync_word_and_what_opens_there"
+     ]
+    },
+    {
+     "mutation": "the tool that moves the JOC switch offset writing as if the skip field began the frame",
+     "caught_by": [
+      "the_tools_that_rewrite_a_joc_field_find_it_in_every_frame"
+     ]
+    },
+    {
+     "mutation": "the walk stepping over a container to its last byte",
+     "caught_by": [
+      "container::tests::the_walk_goes_on_four_bytes_before_the_end_of_a_container"
+     ]
+    },
+    {
+     "mutation": "the walk reading the first skip field of a frame alone",
+     "caught_by": [
+      "eac3::tests::a_stale_element_size_is_a_warning_filed_at_its_frame",
+      "eac3::tests::the_joc_sequence_counter_is_followed_from_payload_to_payload"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 655 passed, 30 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "reading": "They agreed. Where they differed, in a step of one byte or two and in a least of two bytes or four, no stream can tell them apart, and over 131 streams of the corpus the binary with one walk says and writes what the binary with six did, to the byte; and of 200000 changed streams of the campaign every command says what it said on main. The two tools had no test but the media suite; they have one on the fixture now."
+}

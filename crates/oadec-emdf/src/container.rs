@@ -270,6 +270,71 @@ pub fn parse_evolution(bytes: &[u8]) -> Result<Container, ContainerError> {
     parse(&mut reader, Flavor::Evolution)
 }
 
+/// The bytes of a frame's skip fields, end to end: the run a walk for
+/// containers reads.
+#[must_use]
+pub fn joined(skip_fields: &[Vec<u8>]) -> Vec<u8> {
+    let mut data = Vec::with_capacity(skip_fields.iter().map(Vec::len).sum());
+    for field in skip_fields {
+        data.extend_from_slice(field);
+    }
+    data
+}
+
+/// Every place in `data` where the EMDF sync word stands, in order, with the
+/// container that opens there or the reason none does.
+///
+/// A frame carries one container (TS 103 420 clause 8.2), but its payloads
+/// and the fill after it may hold the sync word by chance, so a place where
+/// none opens is not by itself a broken container: what it means is for the
+/// caller, which knows whether a container opened before it.
+///
+/// A container that opens is stepped over by the length it declares, so a
+/// payload is never searched for a sync word, whatever it carries. That
+/// length counts neither the sync word nor itself, so the walk goes on four
+/// bytes before the end of the container, in the last bytes of its
+/// protection.
+///
+/// Every walk over skip fields is this one: the pass of `verify`, both
+/// decodes, the walks of `emdf` and `oamd`, and the tools that rewrite a
+/// field of a payload. They were six loops that agreed.
+#[must_use]
+pub fn candidates(data: &[u8]) -> Candidates<'_> {
+    Candidates { data, pos: 0 }
+}
+
+/// The walk of [`candidates`].
+#[derive(Debug, Clone)]
+pub struct Candidates<'a> {
+    data: &'a [u8],
+    pos: usize,
+}
+
+impl Iterator for Candidates<'_> {
+    /// Where the sync word stands, and the container with the length it
+    /// declares, as [`parse_emdf_with_sync`] gives them.
+    type Item = (usize, Result<(Container, usize), ContainerError>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let sync = EMDF_SYNCWORD.to_be_bytes();
+        // a sync word and a length are the least a container is
+        while self.pos + 4 <= self.data.len() {
+            let at = self.pos;
+            if self.data[at..at + 2] != sync {
+                self.pos += 1;
+                continue;
+            }
+            let read = parse_emdf_with_sync(&self.data[at..]);
+            self.pos += match &read {
+                Ok((_, declared)) => (*declared).max(4),
+                Err(_) => 1,
+            };
+            return Some((at, read));
+        }
+        None
+    }
+}
+
 /// Parses an EMDF container that starts with its sync word and byte length (the form
 /// found in an E-AC-3 skip field). Returns the container and the number of bytes the
 /// wrapper declared.
@@ -617,6 +682,124 @@ mod tests {
                 body.len()
             );
         }
+    }
+
+    /// A container as it stands in a skip field, with one payload of the
+    /// bytes given, which begin on a byte of the container, and an 8-bit
+    /// protection word; `tail` is the last byte, of which the first bit ends
+    /// the word and the rest is fill.
+    fn wrapped(payload: &[u8], tail: u8) -> Vec<u8> {
+        let mut body = BitWriter::default();
+        body.push(2, 0); // version
+        body.push(3, 0); // key_id
+        body.push(5, 11); // a payload
+        body.push(4, 0); // no sample offset, duration, group id or codec data
+        body.push(1, 1); // discard_unknown_payload: nothing else in the config
+        body.push(8, payload.len() as u64);
+        body.push(1, 0);
+        assert_eq!(body.len, 24, "the payload begins on a byte");
+        body.push_bytes(payload);
+        body.push(5, 0); // the end of the payloads
+        body.push(2, 1); // a primary word of 8 bits
+        body.push(2, 0); // no secondary word
+        body.push(7, 0x58); // the first seven bits of the word: the byte reads 0x58
+        body.push(8, u64::from(tail));
+        assert_eq!(body.len % 8, 0);
+        let mut w = BitWriter::default();
+        w.push(16, u64::from(EMDF_SYNCWORD));
+        w.push(16, body.bytes.len() as u64);
+        w.push_bytes(&body.bytes);
+        w.bytes
+    }
+
+    fn opened(data: &[u8]) -> Vec<(usize, bool)> {
+        candidates(data).map(|(at, c)| (at, c.is_ok())).collect()
+    }
+
+    /// The walk hands out every place the sync word stands, in order, with
+    /// what opens there: a sync word that is no container, a container, a
+    /// second one behind it, and nothing for bytes that cannot hold the
+    /// least a container is.
+    #[test]
+    fn the_walk_names_every_sync_word_and_what_opens_there() {
+        let first = wrapped(&[1, 2, 3], 0);
+        let second = wrapped(&[], 0);
+        let mut data = vec![0x00, 0x58, 0x00];
+        // a sync word whose length runs past the data
+        data.extend([0x58, 0x38, 0xff, 0xff]);
+        let at_first = data.len();
+        data.extend(&first);
+        data.push(0x00);
+        let at_second = data.len();
+        data.extend(&second);
+        // a sync word with nothing behind it to be a length
+        data.extend([0x58, 0x38, 0x00]);
+        assert_eq!(
+            opened(&data),
+            [(3, false), (at_first, true), (at_second, true)]
+        );
+        let mut walk = candidates(&data);
+        assert!(matches!(
+            walk.next(),
+            Some((3, Err(ContainerError::Malformed(_))))
+        ));
+        let (_, read) = walk.next().unwrap();
+        let (container, declared) = read.unwrap();
+        assert_eq!(declared + 4, first.len());
+        assert_eq!(container.payloads[0].data, [1, 2, 3]);
+        // nothing at all, and less than a sync word and a length
+        assert_eq!(opened(&[]), []);
+        assert_eq!(opened(&[0x58, 0x38, 0x00]), []);
+        assert_eq!(opened(&joined(&[])), []);
+    }
+
+    /// A payload is not searched: a container whose payload is the bytes of
+    /// another container is one container.
+    #[test]
+    fn the_walk_does_not_search_a_payload() {
+        let inner = wrapped(&[9], 0);
+        let outer = wrapped(&inner, 0);
+        // the inner one stands whole in the outer one's bytes
+        let at_inner = outer
+            .windows(inner.len())
+            .position(|w| w == inner)
+            .expect("the payload is on a byte");
+        assert_eq!(opened(&outer[at_inner..]), [(0, true)]);
+        assert_eq!(opened(&outer), [(0, true)]);
+        let mut data = outer.clone();
+        data.extend(&inner);
+        assert_eq!(opened(&data), [(0, true), (outer.len(), true)]);
+    }
+
+    /// The length a container declares counts neither the sync word nor
+    /// itself, and the walk steps by it: it goes on four bytes before the end
+    /// of the container. A sync word in the last two bytes of one is met
+    /// again, and opens nothing.
+    #[test]
+    fn the_walk_goes_on_four_bytes_before_the_end_of_a_container() {
+        // the word ends 0x58 and the fill is 0x38
+        let mut data = wrapped(&[], 0x38);
+        let end = data.len();
+        assert_eq!(data[end - 2..], [0x58, 0x38]);
+        data.extend([0x00, 0x00]);
+        assert_eq!(opened(&data), [(0, true), (end - 2, false)]);
+        // one byte earlier and it is behind the walk
+        let mut earlier = wrapped(&[0x58, 0x38], 0);
+        earlier.extend([0x00, 0x00]);
+        assert_eq!(opened(&earlier), [(0, true)]);
+    }
+
+    /// The skip fields of a frame are read end to end: a container that
+    /// begins in one field and ends in the next is found.
+    #[test]
+    fn the_fields_of_a_frame_are_one_run() {
+        let whole = wrapped(&[7, 7], 0);
+        let (head, tail) = whole.split_at(5);
+        let fields = vec![vec![0x00], head.to_vec(), tail.to_vec()];
+        let data = joined(&fields);
+        assert_eq!(data.len(), whole.len() + 1);
+        assert_eq!(opened(&data), [(1, true)]);
+        assert_eq!(opened(head), [(0, false)]);
     }
 
     #[test]

@@ -59,21 +59,13 @@ pub fn put_bits(buf: &mut [u8], at: usize, n: u32, value: u32) {
 /// carries a JOC payload.
 fn config_bit(frame: &Frame) -> Option<usize> {
     for (skip, &skip_bit) in frame.skip_fields.iter().zip(&frame.skip_bits) {
-        let mut i = 0usize;
-        while i + 4 <= skip.len() {
-            if skip[i] == 0x58
-                && skip[i + 1] == 0x38
-                && let Ok((c, used)) = container::parse_emdf_with_sync(&skip[i..])
-            {
-                for p in &c.payloads {
-                    if p.id == PAYLOAD_ID_JOC {
-                        return Some(skip_bit + 8 * i + p.data_bit);
-                    }
+        for (i, candidate) in container::candidates(skip) {
+            let Ok((c, _)) = candidate else { continue };
+            for p in &c.payloads {
+                if p.id == PAYLOAD_ID_JOC {
+                    return Some(skip_bit + 8 * i + p.data_bit);
                 }
-                i += used.max(4);
-                continue;
             }
-            i += 1;
         }
     }
     None
