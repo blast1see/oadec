@@ -1564,3 +1564,53 @@ fn the_tools_that_rewrite_a_joc_field_find_it_in_every_frame() {
     assert_eq!(after["emdf"], before["emdf"]);
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A decode reads nothing of the record of a block, so the decoder makes
+/// none unless it is asked. Two commands go by it: `eac3-blocks` prints it,
+/// with the exponents and the pointers of every channel under `--detail`,
+/// and `eac3-ecpl-inject` rewrites the coupling of a frame from it. Both ask
+/// for it, and say of the fixture what they said when every decode made it.
+#[test]
+fn the_commands_that_go_by_the_record_of_a_block_ask_for_it() {
+    let dir = temp("block-records");
+    let ec3 = fixture("authored-scene.ec3");
+    let name = ec3.to_str().unwrap();
+
+    let blocks = oadec(&["eac3-blocks", name, "--frame", "0", "--detail"]);
+    assert_eq!(blocks.status.code(), Some(0), "{}", stderr(&blocks));
+    let said = String::from_utf8(blocks.stdout).unwrap();
+    let starting = |with: &str| said.lines().filter(|l| l.starts_with(with)).count();
+    // six blocks, each with its record, and five channels and the LFE in each
+    assert_eq!(starting("block "), 6, "{said}");
+    assert_eq!(starting("  BlockInfo {"), 6, "{said}");
+    assert_eq!(starting("    exps ["), 36, "{said}");
+    assert_eq!(starting("    bap  ["), 36, "{said}");
+    // without `--detail` the record and not the two lists
+    let plain = oadec(&["eac3-blocks", name, "--frame", "0"]);
+    let said = String::from_utf8(plain.stdout).unwrap();
+    assert_eq!(
+        said.lines()
+            .filter(|l| l.starts_with("  BlockInfo {"))
+            .count(),
+        6
+    );
+    assert!(!said.contains("    exps ["), "{said}");
+
+    let out = dir.join("injected.ec3");
+    let inject = oadec(&["eac3-ecpl-inject", name, "-o", out.to_str().unwrap()]);
+    assert_eq!(inject.status.code(), Some(0), "{}", stderr(&inject));
+    let said = String::from_utf8(inject.stdout).unwrap();
+    assert!(
+        said.starts_with("enhanced coupling injected into 63 of 63 frames"),
+        "{said}"
+    );
+    // and what it wrote is a stream of the same frames, every one with
+    // enhanced coupling, that `verify` has nothing to say of
+    let verified = oadec(&["verify", "--json", out.to_str().unwrap()]);
+    assert_eq!(verified.status.code(), Some(0), "{}", stderr(&verified));
+    let report: serde_json::Value = serde_json::from_slice(&verified.stdout).unwrap();
+    assert_eq!(report["clean"], true, "{report}");
+    assert_eq!(report["frames"], 63);
+    assert_eq!(report["ecpl_frames"], 63);
+    std::fs::remove_dir_all(&dir).ok();
+}

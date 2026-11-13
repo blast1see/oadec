@@ -142,6 +142,11 @@ pub struct Options {
     /// chaos fields carry zeros or a full spread of values. See
     /// `docs/eac3.md`.
     pub ecpl_full: bool,
+    /// Keep the side information of every block ([`Block::info`]). A decode
+    /// reads none of it; the tools that inspect or rewrite a frame do. It is
+    /// some twenty vectors a block, so it is made only where it is asked
+    /// for.
+    pub block_info: bool,
 }
 
 impl Default for Options {
@@ -150,6 +155,7 @@ impl Default for Options {
             dither: true,
             tpnp: true,
             ecpl_full: false,
+            block_info: false,
         }
     }
 }
@@ -253,8 +259,9 @@ pub struct Block {
     pub coeffs: Vec<[f64; N]>,
     /// Block switch flag per full-bandwidth channel (the LFE never switches).
     pub blksw: Vec<bool>,
-    /// The side information the block was decoded with.
-    pub info: BlockInfo,
+    /// The side information the block was decoded with, where
+    /// [`Options::block_info`] asked for it.
+    pub info: Option<BlockInfo>,
     /// Enhanced coupling of this block. While it is `Some`, the coupled
     /// channels' `coeffs` are still zero over `start..end`: the synthesis
     /// needs the following block and runs in `crate::ecpl`.
@@ -1478,7 +1485,7 @@ impl<'a> Parser<'a> {
         if self.lfe {
             coeffs.push(coef[LFE]);
         }
-        let info = self.block_info(blk);
+        let info = self.opts.block_info.then(|| self.block_info(blk));
         self.out_blocks.push(Block {
             coeffs,
             blksw: self.blksw[..nf].to_vec(),

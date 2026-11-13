@@ -20,10 +20,12 @@ use oadec_synth::sha256;
 use oadec_synth::signal::Rng;
 
 /// No dither: a mantissa without bits is nought, in the decoder as in the
-/// writer.
+/// writer. And the record of every block, which holds the exponents and the
+/// pointers the tests hold a frame to.
 fn options() -> Options {
     Options {
         dither: false,
+        block_info: true,
         ..Options::default()
     }
 }
@@ -168,9 +170,10 @@ fn read_back_at(stream: &Ac3Stream, rate: u32) -> bool {
             for ch in 0..CHANNELS {
                 let n = coded.exponents[ch].len();
                 let at = format!("frame {f}, block {b}, channel {ch}");
-                assert_eq!(read.info.endmant[ch], n, "{at}");
-                assert_eq!(read.info.exps[ch][..n], coded.exponents[ch][..], "{at}");
-                assert_eq!(read.info.bap[ch][..n], coded.pointers[ch][..], "{at}");
+                let info = read.info.as_ref().expect("the record was asked for");
+                assert_eq!(info.endmant[ch], n, "{at}");
+                assert_eq!(info.exps[ch][..n], coded.exponents[ch][..], "{at}");
+                assert_eq!(info.bap[ch][..n], coded.pointers[ch][..], "{at}");
                 assert!(
                     read.coeffs[ch][..n] == coded.coefficients[ch][..],
                     "{at}: other coefficients"
@@ -252,8 +255,9 @@ fn a_delta_the_frame_does_not_state_cannot_be_read() {
             assert!(frame.crc_ok, "the frame itself is sound");
             assert!(!frame.coverage.delta_allocation);
             let first = &stream.frames[0][0];
+            let info = frame.blocks[0].info.as_ref().expect("asked for");
             assert!(
-                frame.blocks[0].info.bap[0][..133] != first.pointers[0][..],
+                info.bap[0][..133] != first.pointers[0][..],
                 "the pointers of the first block"
             );
             assert!(frame.blocks[0].coeffs[0][..133] != first.coefficients[0][..]);

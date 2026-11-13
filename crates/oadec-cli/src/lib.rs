@@ -694,6 +694,7 @@ where
                                     dither: !no_dither,
                                     tpnp: !no_tpnp,
                                     ecpl_full: ecpl_spec,
+                                    block_info: false,
                                 },
                                 // refused above for E-AC-3
                                 on_error: None,

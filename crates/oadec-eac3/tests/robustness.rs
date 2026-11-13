@@ -7,6 +7,16 @@
 
 use oadec_eac3::{Frame, FrameHeader, Noise, Options};
 
+/// The record of every block as well as the coefficients: the tools that
+/// print or rewrite a frame make it from whatever they are given, so it is
+/// held to not panicking with the rest.
+fn with_records() -> Options {
+    Options {
+        block_info: true,
+        ..Options::default()
+    }
+}
+
 /// xorshift64, so the cases are reproducible without a dependency.
 struct Rng(u64);
 
@@ -73,7 +83,7 @@ fn random_bodies_behind_a_valid_eac3_header_never_panic() {
     for _ in 0..20_000 {
         let words = 3 + rng.below(600);
         let frame = eac3_frame(&mut rng, words);
-        if Frame::parse(&frame, &mut noise, Options::default()).is_ok() {
+        if Frame::parse(&frame, &mut noise, with_records()).is_ok() {
             decoded += 1;
         }
     }
@@ -89,7 +99,7 @@ fn random_bodies_behind_a_valid_ac3_header_never_panic() {
     let mut decoded = 0;
     for _ in 0..10_000 {
         let frame = ac3_frame(&mut rng);
-        if Frame::parse(&frame, &mut noise, Options::default()).is_ok() {
+        if Frame::parse(&frame, &mut noise, with_records()).is_ok() {
             decoded += 1;
         }
     }
@@ -105,7 +115,7 @@ fn truncated_frames_are_an_error_not_a_panic() {
         let frame = eac3_frame(&mut rng, words);
         let cut = rng.below(frame.len() as u64) as usize;
         assert!(
-            Frame::parse(&frame[..cut], &mut noise, Options::default()).is_err(),
+            Frame::parse(&frame[..cut], &mut noise, with_records()).is_err(),
             "a truncated frame must not decode"
         );
     }
@@ -118,6 +128,6 @@ fn arbitrary_bytes_are_an_error_not_a_panic() {
     for _ in 0..5_000 {
         let len = 8 + rng.below(4000) as usize;
         let bytes: Vec<u8> = (0..len).map(|_| rng.byte()).collect();
-        let _ = Frame::parse(&bytes, &mut noise, Options::default());
+        let _ = Frame::parse(&bytes, &mut noise, with_records());
     }
 }
