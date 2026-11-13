@@ -289,8 +289,59 @@ fn every_eac3_stream_is_clean() {
     }
 }
 
-/// Enhanced coupling decodes end to end. No stream in the wild uses it, so the
-/// material is made by `oadec eac3-ecpl-inject` from a stream that does use
+/// Enhanced coupling as an encoder writes it. The four clips are stereo at
+/// 64 kbit/s, where the encoder couples from the lowest sub-band: the coupling
+/// channel begins at band 13 and the two channels end there, which nothing
+/// made here ever did, and the excitation function has to do two things the
+/// clause does not print (`oadec_eac3::bitalloc`). Read as printed, 12 to 52
+/// per cent of the frames of a clip end in a mantissa code that does not
+/// exist; the Dolby decoder reads every one.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn enhanced_coupling_from_an_encoder_decodes_clean() {
+    let media = media_dir();
+    for (name, frames) in [
+        ("ecpl-low-steps.ec3", 626u64),
+        ("ecpl-low-wide-noise.ec3", 751),
+        ("ecpl-low-tones.ec3", 751),
+        ("ecpl-low-bursts.ec3", 751),
+    ] {
+        let path = media.join("clips").join(name);
+        require(&path);
+        let report = verify_json(&path);
+        assert_eq!(
+            nonzero_failures(&report),
+            Vec::<String>::new(),
+            "{name} first error: {:?}",
+            report["first_error"]
+        );
+        assert_eq!(report["clean"], Value::Bool(true), "{name}");
+        // every frame of the file is decoded, not only the ones that parse
+        assert_eq!(
+            report["independent_frames"].as_u64(),
+            Some(frames),
+            "{name}"
+        );
+        assert_eq!(report["frames"].as_u64(), Some(frames), "{name}");
+        let tools = coverage_union(std::slice::from_ref(&report));
+        for tool in ["enhanced-coupling", "spectral-extension", "aht"] {
+            assert!(
+                tools.iter().any(|t| t == tool),
+                "{name} does not use {tool}: {tools:?}"
+            );
+        }
+        // nearly every frame is coupled; the few that are not have a block
+        // that switches coupling off around a transient
+        let coupled = report["ecpl_frames"].as_u64().unwrap_or(0);
+        assert!(
+            coupled + 8 >= frames,
+            "{name}: {coupled} of {frames} frames"
+        );
+    }
+}
+
+/// Enhanced coupling decodes end to end. No stream of a library uses it, so
+/// the material is made by `oadec eac3-ecpl-inject` from a stream that does use
 /// standard coupling; `tools/` and `docs/evidence` record the comparison with
 /// the two Dolby decoders. The check here is that the rewrite still produces a
 /// stream both the parser and the decoder accept, in either reading of the

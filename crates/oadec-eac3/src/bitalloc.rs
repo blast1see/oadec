@@ -163,44 +163,61 @@ pub fn compute(
     }
 
     // 6.2.2.4 excitation function
+    //
+    // Two things here are not in the pseudo-code of the clause. Both show only
+    // where enhanced coupling begins at its lowest sub-band: the coupling
+    // channel begins at band 13 then, and the channels coupled into it end
+    // there. The streams of an encoder that does this decode only with both,
+    // and then to what the Dolby decoder makes of them (`docs/eac3.md`).
+    //
+    // - The low-frequency compensation runs for the coupling channel as it
+    //   does for any other, while its bands are below 22. The clause starts
+    //   the coupling channel in the loop that has none, which is the same
+    //   thing for one that begins at band 31 or later, as every coupling
+    //   channel of standard coupling does.
+    // - The compensation looks at the band after the one it is at, and the
+    //   last band of a channel has none after it. The clause says so of the
+    //   LFE channel, the one channel of AC-3 that ends below band 22.
     let mut excite = [0i32; 50];
     let (mut fastleak, mut slowleak) = leak.unwrap_or((0, 0));
+    let mut lowcomp = 0;
+    let ahead = |bin: usize| bin + 1 < bndend;
     let begin = if bndstrt == 0 {
         // fbw and lfe channels
-        let mut lowcomp = 0;
         lowcomp = calc_lowcomp(lowcomp, bndpsd[0], bndpsd[1], 0);
         excite[0] = bndpsd[0] - fgain - lowcomp;
         lowcomp = calc_lowcomp(lowcomp, bndpsd[1], bndpsd[2], 1);
         excite[1] = bndpsd[1] - fgain - lowcomp;
         let mut b = 7;
         for bin in 2..7 {
-            if bndend != 7 || bin != 6 {
+            if ahead(bin) {
                 lowcomp = calc_lowcomp(lowcomp, bndpsd[bin], bndpsd[bin + 1], bin);
             }
             fastleak = bndpsd[bin] - fgain;
             slowleak = bndpsd[bin] - params.sgain;
             excite[bin] = fastleak - lowcomp;
-            if (bndend != 7 || bin != 6) && bndpsd[bin] <= bndpsd[bin + 1] {
+            if ahead(bin) && bndpsd[bin] <= bndpsd[bin + 1] {
                 b = bin + 1;
                 break;
             }
         }
-        for bin in b..bndend.min(22) {
-            if bndend != 7 || bin != 6 {
-                lowcomp = calc_lowcomp(lowcomp, bndpsd[bin], bndpsd[bin + 1], bin);
-            }
-            fastleak -= params.fdecay;
-            fastleak = fastleak.max(bndpsd[bin] - fgain);
-            slowleak -= params.sdecay;
-            slowleak = slowleak.max(bndpsd[bin] - params.sgain);
-            excite[bin] = (fastleak - lowcomp).max(slowleak);
-        }
-        22
+        b
     } else {
         // coupling channel
         bndstrt
     };
-    for bin in begin..bndend {
+    for bin in begin..bndend.min(22) {
+        if ahead(bin) {
+            lowcomp = calc_lowcomp(lowcomp, bndpsd[bin], bndpsd[bin + 1], bin);
+        }
+        fastleak -= params.fdecay;
+        fastleak = fastleak.max(bndpsd[bin] - fgain);
+        slowleak -= params.sdecay;
+        slowleak = slowleak.max(bndpsd[bin] - params.sgain);
+        excite[bin] = (fastleak - lowcomp).max(slowleak);
+    }
+    // from band 22 on the compensation has run out, whatever it was
+    for bin in begin.max(22)..bndend {
         fastleak -= params.fdecay;
         fastleak = fastleak.max(bndpsd[bin] - fgain);
         slowleak -= params.sdecay;
@@ -328,6 +345,116 @@ mod tests {
             &mut bap,
         );
         assert!(bap[..253].iter().all(|&b| b <= 19));
+    }
+
+    /// The allocation parameters of the two blocks below, as their stream
+    /// codes them: `sdcycod` 2, `fdcycod` 1, `sgaincod` 1, `floorcod` 7.
+    fn of_the_stream(dbpbcod: u8) -> AllocParams {
+        AllocParams::from_codes(2, 1, 1, dbpbcod, 7, 0)
+    }
+
+    /// A coupling channel that begins at band 13, as enhanced coupling from
+    /// its lowest sub-band makes it: the exponents and the parameters of one
+    /// block of an encoder's stream, and the pointers its mantissas are
+    /// packed with. Bands 16 and 17 are 12 dB apart, which sets the
+    /// low-frequency compensation, and the bands after them take more bits
+    /// for it. The clause runs no compensation for a coupling channel; read
+    /// that way the block ends in a mantissa code that does not exist.
+    #[test]
+    fn a_coupling_channel_that_begins_low_is_compensated_at_low_frequencies() {
+        #[rustfmt::skip]
+        let coded: [u8; 72] = [
+            14, 14, 14, 14, 12, 12, 12, 12, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,
+            13, 13, 13, 13, 13, 13, 12, 12, 12, 12, 13, 13, 13, 13, 14, 14, 14, 14,
+            13, 13, 13, 13, 14, 14, 14, 14, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,
+            13, 13, 13, 13, 13, 13, 14, 14, 14, 14, 14, 14, 14, 14, 13, 13, 13, 13,
+        ];
+        #[rustfmt::skip]
+        let packed: [u8; 72] = [
+            1, 1, 1, 1, 4, 4, 4, 5, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2,
+            2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 1, 1, 2, 2, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1,
+        ];
+        let mut exps = [0u8; 256];
+        exps[13..85].copy_from_slice(&coded);
+        let mut bap = [0u8; 256];
+        compute(
+            &of_the_stream(1),
+            13,
+            85,
+            &exps,
+            fast_gain(4),
+            snr_offset(10, 9),
+            Some(coupling_leak(0, 0)),
+            None,
+            false,
+            &mut bap,
+        );
+        assert_eq!(bap[13..85], packed);
+        // what the clause as printed gives for bands 17 to 21: 3, 3, 3, 3, 2
+        assert_eq!(bap[17..22], [4, 4, 4, 5, 3]);
+    }
+
+    /// A channel that ends at band 13, where enhanced coupling takes over
+    /// from its lowest sub-band: the exponents and the parameters of one
+    /// block of an encoder's stream, and the pointers its mantissas are
+    /// packed with. The compensation is still up at the last band, and it
+    /// looks at the band after the one it is at; the last band has none, and
+    /// reading a band of nothing there takes a step off the compensation and
+    /// a bit off the last mantissa.
+    #[test]
+    fn the_last_band_of_a_channel_looks_at_no_band_after_it() {
+        let coded: [u8; 13] = [5, 5, 5, 6, 6, 7, 5, 7, 6, 7, 7, 6, 8];
+        let packed: [u8; 13] = [4, 4, 4, 4, 4, 7, 7, 5, 7, 6, 6, 6, 3];
+        let mut exps = [0u8; 256];
+        exps[..13].copy_from_slice(&coded);
+        let mut bap = [0u8; 256];
+        compute(
+            &of_the_stream(3),
+            0,
+            13,
+            &exps,
+            fast_gain(4),
+            snr_offset(12, 3),
+            None,
+            None,
+            false,
+            &mut bap,
+        );
+        assert_eq!(bap[..13], packed);
+    }
+
+    /// The LFE channel is the channel the clause names: it ends at band 7, and
+    /// its last band is not looked past. Here the compensation is set at band
+    /// 4, by the 12 dB the spectrum rises into band 5, and is still whole at
+    /// band 6; were the band after that read as the nothing it is, a step
+    /// would come off it and the last mantissa would lose bits.
+    #[test]
+    fn the_last_band_of_the_lfe_channel_is_the_one_the_clause_names() {
+        for (coded, csnroffst, packed) in [
+            ([6u8, 6, 6, 6, 6, 4, 4], 15u8, [7u8, 7, 7, 7, 10, 10, 10]),
+            ([6, 6, 6, 6, 6, 4, 4], 20, [9, 9, 9, 9, 12, 12, 12]),
+            ([8, 8, 8, 8, 6, 6, 6], 20, [9, 9, 9, 12, 12, 12, 12]),
+            ([10, 10, 10, 8, 8, 8, 8], 22, [9, 9, 11, 13, 13, 13, 13]),
+        ] {
+            let mut exps = [24u8; 256];
+            exps[..7].copy_from_slice(&coded);
+            let mut bap = [0u8; 256];
+            compute(
+                &AllocParams::from_codes(2, 1, 1, 2, 7, 0),
+                0,
+                7,
+                &exps,
+                fast_gain(4),
+                snr_offset(csnroffst, 0),
+                None,
+                None,
+                false,
+                &mut bap,
+            );
+            assert_eq!(bap[..7], packed, "{coded:?} at {csnroffst}");
+        }
     }
 
     #[test]

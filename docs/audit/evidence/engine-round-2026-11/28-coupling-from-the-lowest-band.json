@@ -1,0 +1,1006 @@
+{
+ "question": "What does the bit allocation do where enhanced coupling begins at its lowest sub-band, so that the coupling channel begins at band 13 of the masking model and the channels coupled into it end there?",
+ "method": "No stream of the corpus or of a library uses enhanced coupling, and `oadec eac3-ecpl-inject` keeps the start of the coupling it rewrites, bin 37 or later. An encoder that writes the tool was found: MainConcept TotalCode Studio 5.3 (its Dolby Digital Plus Professional encoder, component 9.8.13), driven from its command line with a preset exported from its interface: E-AC-3, 48 kHz, 2/0, 64 kbit/s, dialogue normalisation -24, both compression profiles off. At that rate it couples from sub-band 0 (`ecplbegf` 0) in every frame and extends the spectrum above. Four signals were made with FFmpeg's `lavfi` sources, encoded, and the elementary stream taken out of the MP4 with `ffmpeg -c copy -f eac3`. Each stream was put to `verify --json` with four binaries: main before the change, the change, and the change with one rule taken out by the mutation of `tools/mutants.py` that names it. The Dolby decode is `gst-launch-1.0 filesrc ! dlbac3parse ! dlbac3dec drc-suppress=true out-ch-config=0 ! audio/x-raw,format=F32LE ! filesink` of Dolby Reference Player 3.2; `tools/band_compare.py --channels 2 --edges 1200 7950 12450` compares `oadec decode --format wav` with it in the three regions the streams code differently: the bins each channel codes itself (to 1 219 Hz), the coupling channel (to 7 969 Hz) and spectral extension (to 12 469 Hz). `tools/old_new.py --decode-all` compared the two binaries over the corpus, the four streams among it. The streams are media and are not in the repository; their digests are below.",
+ "binaries": {
+  "old": "767cd592c1c520b372b0dfa43fa4362901e7d2523edf7dadd69fcba972f157d2",
+  "new": "d09ad21412de39ebffe7a333edba4b397d5d9a8197a23eebe70fb17ddf8440c8",
+  "the first rule alone": "c537f2058368d0f111b274aa8fdd7ed3ca838fe92de104d7bb97534ec04cde28",
+  "the second rule alone": "5426c6c02b86b3133d7dabf7ab112fd4e2bf6e6d52f8e547cd0b6f1786e9e0fc"
+ },
+ "result": {
+  "the_two_rules": {
+   "the first": "the coupling channel has the low-frequency compensation while its bands are below 22: `calc_lowcomp` runs from zero and the excitation is `max(fastleak - lowcomp, slowleak)`",
+   "the second": "the last band of a channel looks at no band after it: `calc_lowcomp` is left out there, as clause 6.2.2.4 leaves it out for the last band of the LFE channel",
+   "where they show": "only with `ecplbegf` 0: the coupling channel begins at bin 13 (band 13) and the channels end there. With `ecplbegf` 1 it begins at bin 25, past band 22, as with every start of standard coupling, and both rules give what the clause prints"
+  },
+  "the_four_streams": {
+   "ecpl-low-steps.ec3": {
+    "signal": "pink noise, the two channels alike, 20 s, stepping between -57 and -23 dBFS every five seconds",
+    "made_with": "ffmpeg -f lavfi -i \"anoisesrc=color=pink:sample_rate=48000:duration=20:amplitude=0.5:seed=7\" -af \"volume='if(lt(mod(t,10),5),0.02,1.0)':eval=frame\" -ac 2 -c:a pcm_s24le",
+    "bytes": 160256,
+    "sha256": "f6429b24f1ab79c6143cabee6198053d4df6ee38558e71e214d913e0ed94423e",
+    "frames": 626,
+    "main_before_the_change": {
+     "exit": 7,
+     "frames_decoded": 552,
+     "failures": {
+      "decode_errors": 74,
+      "tail_overruns": 1
+     },
+     "first_error": "frame 368: the audio blocks end inside the frame tail"
+    },
+    "the_first_rule_alone": {
+     "exit": 7,
+     "frames_decoded": 598,
+     "failures": {
+      "decode_errors": 28
+     }
+    },
+    "the_second_rule_alone": {
+     "exit": 7,
+     "frames_decoded": 578,
+     "failures": {
+      "decode_errors": 48,
+      "tail_overruns": 1
+     }
+    },
+    "the_change": {
+     "exit": 0,
+     "clean": true,
+     "frames_decoded": 626,
+     "failures": {}
+    },
+    "coding_tools": [
+     "coupling",
+     "enhanced-coupling",
+     "spectral-extension",
+     "aht",
+     "transient-pre-noise",
+     "block-switching",
+     "dither",
+     "rematrixing"
+    ],
+    "frames_with": {
+     "ecpl_frames": 626,
+     "aht_frames": 592,
+     "spx_frames": 626,
+     "tpnp_frames": 2
+    },
+    "the_frames_main_lost_in_the_dolby_decode": {
+     "frames": 74,
+     "first": [
+      22,
+      24,
+      34,
+      37,
+      74,
+      91,
+      160,
+      161
+     ],
+     "quietest_dbfs": -66.9,
+     "against_the_frames_beside_them_db": {
+      "compared": 74,
+      "median": -0.3,
+      "lowest": -8.0,
+      "highest": 3.5
+     }
+    },
+    "against_the_dolby_decode": {
+     "samples": 961504,
+     "frames": 625,
+     "reference_delay_samples": 32,
+     "reference_gain": 0.44532,
+     "reference_gain_db": -7.03,
+     "regions": [
+      {
+       "from_hz": 0.0,
+       "to_hz": 1200.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -35.1,
+         "snr_db": 33.0,
+         "frame_median_db": 65.6,
+         "frame_5th_percentile_db": 28.2
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -35.1,
+         "snr_db": 33.1,
+         "frame_median_db": 56.6,
+         "frame_5th_percentile_db": 28.1
+        }
+       ]
+      },
+      {
+       "from_hz": 1200.0,
+       "to_hz": 7950.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -40.6,
+         "snr_db": 21.6,
+         "frame_median_db": 18.8,
+         "frame_5th_percentile_db": 13.2
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -40.6,
+         "snr_db": 21.5,
+         "frame_median_db": 19.4,
+         "frame_5th_percentile_db": 13.6
+        }
+       ]
+      },
+      {
+       "from_hz": 7950.0,
+       "to_hz": 12450.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -47.4,
+         "snr_db": -1.8,
+         "frame_median_db": -1.7,
+         "frame_5th_percentile_db": -2.5
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -47.4,
+         "snr_db": -1.8,
+         "frame_median_db": -1.7,
+         "frame_5th_percentile_db": -2.5
+        }
+       ]
+      },
+      {
+       "from_hz": 12450.0,
+       "to_hz": 24000.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -70.3,
+         "snr_db": -2.7,
+         "frame_median_db": -1.2,
+         "frame_5th_percentile_db": -6.8
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -70.3,
+         "snr_db": -2.5,
+         "frame_median_db": -3.2,
+         "frame_5th_percentile_db": -9.2
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "ecpl-low-wide-noise.ec3": {
+    "signal": "two independent pink noises, 24 s, under a slow envelope",
+    "made_with": "two `anoisesrc=color=pink:amplitude=0.6` of 24 s with seeds 11 and 12, joined to stereo, under `volume='0.15+0.85*abs(sin(2*PI*t/3))':eval=frame`",
+    "bytes": 192256,
+    "sha256": "c540dec62fcdb7128338a7307212fae96d5fb7173e3c4351e7c79d549a9e232d",
+    "frames": 751,
+    "main_before_the_change": {
+     "exit": 7,
+     "frames_decoded": 595,
+     "failures": {
+      "decode_errors": 156,
+      "tail_overruns": 3
+     },
+     "first_error": "frame 53: the audio blocks end inside the frame tail"
+    },
+    "the_first_rule_alone": {
+     "exit": 7,
+     "frames_decoded": 633,
+     "failures": {
+      "decode_errors": 118,
+      "tail_overruns": 2
+     }
+    },
+    "the_second_rule_alone": {
+     "exit": 7,
+     "frames_decoded": 699,
+     "failures": {
+      "decode_errors": 52,
+      "tail_overruns": 1
+     }
+    },
+    "the_change": {
+     "exit": 0,
+     "clean": true,
+     "frames_decoded": 751,
+     "failures": {}
+    },
+    "coding_tools": [
+     "coupling",
+     "enhanced-coupling",
+     "spectral-extension",
+     "aht",
+     "block-switching",
+     "dither"
+    ],
+    "frames_with": {
+     "ecpl_frames": 751,
+     "aht_frames": 749,
+     "spx_frames": 751,
+     "tpnp_frames": 0
+    },
+    "the_frames_main_lost_in_the_dolby_decode": {
+     "frames": 156,
+     "first": [
+      2,
+      3,
+      5,
+      21,
+      27,
+      31,
+      38,
+      45
+     ],
+     "quietest_dbfs": -45.3,
+     "against_the_frames_beside_them_db": {
+      "compared": 153,
+      "median": -0.3,
+      "lowest": -5.3,
+      "highest": 4.2
+     }
+    },
+    "against_the_dolby_decode": {
+     "samples": 1153504,
+     "frames": 750,
+     "reference_delay_samples": 32,
+     "reference_gain": 0.44544,
+     "reference_gain_db": -7.02,
+     "regions": [
+      {
+       "from_hz": 0.0,
+       "to_hz": 1200.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -30.2,
+         "snr_db": 77.3,
+         "frame_median_db": 89.2,
+         "frame_5th_percentile_db": 85.8
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -30.1,
+         "snr_db": 73.9,
+         "frame_median_db": 89.3,
+         "frame_5th_percentile_db": 85.4
+        }
+       ]
+      },
+      {
+       "from_hz": 1200.0,
+       "to_hz": 7950.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -35.9,
+         "snr_db": 26.0,
+         "frame_median_db": 27.2,
+         "frame_5th_percentile_db": 22.2
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -35.9,
+         "snr_db": 26.0,
+         "frame_median_db": 27.2,
+         "frame_5th_percentile_db": 22.2
+        }
+       ]
+      },
+      {
+       "from_hz": 7950.0,
+       "to_hz": 12450.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -42.8,
+         "snr_db": -1.8,
+         "frame_median_db": -1.8,
+         "frame_5th_percentile_db": -2.5
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -42.8,
+         "snr_db": -1.8,
+         "frame_median_db": -1.8,
+         "frame_5th_percentile_db": -2.5
+        }
+       ]
+      },
+      {
+       "from_hz": 12450.0,
+       "to_hz": 24000.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -65.6,
+         "snr_db": -2.4,
+         "frame_median_db": -2.6,
+         "frame_5th_percentile_db": -7.7
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -65.5,
+         "snr_db": -2.5,
+         "frame_median_db": -2.5,
+         "frame_5th_percentile_db": -7.6
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "ecpl-low-tones.ec3": {
+    "signal": "left: 220 Hz and 3 300 Hz with a little white noise; right: a sweep with the same noise; 24 s",
+    "made_with": "left: `sine` at 220 Hz and at 3 300 Hz with `anoisesrc=color=white:amplitude=0.05`, mixed at 0.4; right: `aevalsrc='0.5*sin(2*PI*(200+1500*t)*t)'` with the same noise, at 0.5; 24 s",
+    "bytes": 192256,
+    "sha256": "17bd5d3896bb60f454cb0927a6f27b04e76c866e21a767b38afb4e5a535b3923",
+    "frames": 751,
+    "main_before_the_change": {
+     "exit": 7,
+     "frames_decoded": 358,
+     "failures": {
+      "decode_errors": 393,
+      "tail_overruns": 6
+     },
+     "first_error": "frame 134: the audio blocks end inside the frame tail"
+    },
+    "the_first_rule_alone": {
+     "exit": 7,
+     "frames_decoded": 404,
+     "failures": {
+      "decode_errors": 347,
+      "tail_overruns": 5
+     }
+    },
+    "the_second_rule_alone": {
+     "exit": 7,
+     "frames_decoded": 648,
+     "failures": {
+      "decode_errors": 103
+     }
+    },
+    "the_change": {
+     "exit": 0,
+     "clean": true,
+     "frames_decoded": 751,
+     "failures": {}
+    },
+    "coding_tools": [
+     "coupling",
+     "enhanced-coupling",
+     "spectral-extension",
+     "aht",
+     "block-switching",
+     "dither",
+     "rematrixing"
+    ],
+    "frames_with": {
+     "ecpl_frames": 751,
+     "aht_frames": 745,
+     "spx_frames": 751,
+     "tpnp_frames": 0
+    },
+    "the_frames_main_lost_in_the_dolby_decode": {
+     "frames": 393,
+     "first": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+     ],
+     "quietest_dbfs": -36.3,
+     "against_the_frames_beside_them_db": {
+      "compared": 279,
+      "median": -0.0,
+      "lowest": -2.9,
+      "highest": 2.7
+     }
+    },
+    "against_the_dolby_decode": {
+     "samples": 1153504,
+     "frames": 750,
+     "reference_delay_samples": 32,
+     "reference_gain": 0.44544,
+     "reference_gain_db": -7.02,
+     "regions": [
+      {
+       "from_hz": 0.0,
+       "to_hz": 1200.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -36.0,
+         "snr_db": 65.2,
+         "frame_median_db": 88.8,
+         "frame_5th_percentile_db": 84.8
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -35.4,
+         "snr_db": 41.8,
+         "frame_median_db": 68.1,
+         "frame_5th_percentile_db": 53.3
+        }
+       ]
+      },
+      {
+       "from_hz": 1200.0,
+       "to_hz": 7950.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -35.9,
+         "snr_db": 21.6,
+         "frame_median_db": 22.5,
+         "frame_5th_percentile_db": 18.5
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -27.6,
+         "snr_db": 27.2,
+         "frame_median_db": 12.2,
+         "frame_5th_percentile_db": 8.6
+        }
+       ]
+      },
+      {
+       "from_hz": 7950.0,
+       "to_hz": 12450.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -55.4,
+         "snr_db": -1.7,
+         "frame_median_db": -1.7,
+         "frame_5th_percentile_db": -2.7
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -36.6,
+         "snr_db": 4.4,
+         "frame_median_db": -1.6,
+         "frame_5th_percentile_db": -2.6
+        }
+       ]
+      },
+      {
+       "from_hz": 12450.0,
+       "to_hz": 24000.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -76.3,
+         "snr_db": -2.0,
+         "frame_median_db": -1.9,
+         "frame_5th_percentile_db": -7.5
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -56.5,
+         "snr_db": 4.9,
+         "frame_median_db": -0.9,
+         "frame_5th_percentile_db": -6.4
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "ecpl-low-bursts.ec3": {
+    "signal": "brown noise, amplitude modulated at 3 Hz, the right channel the left inverted at 0,7, with a burst of 50 ms every two seconds; 24 s",
+    "made_with": "`anoisesrc=color=brown:amplitude=0.9:seed=5` of 24 s through `apulsator=hz=3:amount=1`, `pan=stereo|c0=c0|c1=-0.7*c0`, `volume='if(lt(mod(t,2),0.05),4,0.3)':eval=frame` and `alimiter=limit=0.9`",
+    "bytes": 192256,
+    "sha256": "4b75b98d2e3f44c291db83ce53cf8cf56c6753afbd4a974ad2389ab6fd852077",
+    "frames": 751,
+    "main_before_the_change": {
+     "exit": 7,
+     "frames_decoded": 504,
+     "failures": {
+      "decode_errors": 247,
+      "tail_overruns": 1
+     },
+     "first_error": "frame 658: the audio blocks end inside the frame tail"
+    },
+    "the_first_rule_alone": {
+     "exit": 7,
+     "frames_decoded": 585,
+     "failures": {
+      "decode_errors": 166
+     }
+    },
+    "the_second_rule_alone": {
+     "exit": 7,
+     "frames_decoded": 631,
+     "failures": {
+      "decode_errors": 120,
+      "tail_overruns": 1
+     }
+    },
+    "the_change": {
+     "exit": 0,
+     "clean": true,
+     "frames_decoded": 751,
+     "failures": {}
+    },
+    "coding_tools": [
+     "coupling",
+     "enhanced-coupling",
+     "spectral-extension",
+     "aht",
+     "transient-pre-noise",
+     "block-switching",
+     "dither",
+     "rematrixing"
+    ],
+    "frames_with": {
+     "ecpl_frames": 751,
+     "aht_frames": 407,
+     "spx_frames": 751,
+     "tpnp_frames": 9
+    },
+    "the_frames_main_lost_in_the_dolby_decode": {
+     "frames": 247,
+     "first": [
+      1,
+      2,
+      6,
+      9,
+      12,
+      19,
+      20,
+      22
+     ],
+     "quietest_dbfs": -68.1,
+     "against_the_frames_beside_them_db": {
+      "compared": 227,
+      "median": 0.8,
+      "lowest": -13.8,
+      "highest": 27.8
+     }
+    },
+    "against_the_dolby_decode": {
+     "samples": 1153504,
+     "frames": 750,
+     "reference_delay_samples": 32,
+     "reference_gain": 0.44544,
+     "reference_gain_db": -7.02,
+     "regions": [
+      {
+       "from_hz": 0.0,
+       "to_hz": 1200.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -31.0,
+         "snr_db": 30.5,
+         "frame_median_db": 67.0,
+         "frame_5th_percentile_db": 32.5
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -34.1,
+         "snr_db": 29.8,
+         "frame_median_db": 63.7,
+         "frame_5th_percentile_db": 27.8
+        }
+       ]
+      },
+      {
+       "from_hz": 1200.0,
+       "to_hz": 7950.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -42.3,
+         "snr_db": 14.8,
+         "frame_median_db": 19.8,
+         "frame_5th_percentile_db": 12.6
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -45.3,
+         "snr_db": 14.8,
+         "frame_median_db": 19.8,
+         "frame_5th_percentile_db": 12.7
+        }
+       ]
+      },
+      {
+       "from_hz": 7950.0,
+       "to_hz": 12450.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -54.4,
+         "snr_db": -1.9,
+         "frame_median_db": -1.8,
+         "frame_5th_percentile_db": -2.7
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -57.6,
+         "snr_db": -1.9,
+         "frame_median_db": -1.8,
+         "frame_5th_percentile_db": -2.7
+        }
+       ]
+      },
+      {
+       "from_hz": 12450.0,
+       "to_hz": 24000.0,
+       "channels": [
+        {
+         "channel": 0,
+         "reference_level_db": -78.8,
+         "snr_db": -3.1,
+         "frame_median_db": -2.7,
+         "frame_5th_percentile_db": -8.2
+        },
+        {
+         "channel": 1,
+         "reference_level_db": -81.3,
+         "snr_db": -3.5,
+         "frame_median_db": -3.3,
+         "frame_5th_percentile_db": -8.1
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "in_all": {
+   "frames": 2879,
+   "frames_main_lost": 870,
+   "frames_lost_with_the_first_rule_alone": 659,
+   "frames_lost_with_the_second_rule_alone": 323,
+   "frames_lost_with_both": 0
+  },
+  "the_same_encoder_at_other_rates": {
+   "what": "the two noises at four more stereo rates and six noises in 5.1 at four; not in the corpus",
+   "each": [
+    {
+     "channels": 2,
+     "bit_rate": 72000,
+     "frames": 751,
+     "sha256": "342f8ec737cf6f888737fd8bb72fb4faa6177aa337b9697777bd11a52781e9c5",
+     "frames_with_enhanced_coupling": 751,
+     "coverage": [
+      "coupling",
+      "enhanced-coupling",
+      "spectral-extension",
+      "aht",
+      "block-switching",
+      "dither"
+     ],
+     "old": {
+      "exit": 7,
+      "frames_decoded": 592,
+      "failures": {
+       "decode_errors": 159,
+       "tail_overruns": 2
+      }
+     },
+     "new": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     }
+    },
+    {
+     "channels": 2,
+     "bit_rate": 80000,
+     "frames": 751,
+     "sha256": "222ba5394fafbc148d8b0899eb6775abde957fc21466544623e816db03518c31",
+     "frames_with_enhanced_coupling": 751,
+     "coverage": [
+      "coupling",
+      "enhanced-coupling",
+      "spectral-extension",
+      "aht",
+      "block-switching",
+      "dither"
+     ],
+     "old": {
+      "exit": 7,
+      "frames_decoded": 574,
+      "failures": {
+       "decode_errors": 177,
+       "tail_overruns": 1
+      }
+     },
+     "new": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     }
+    },
+    {
+     "channels": 2,
+     "bit_rate": 96000,
+     "frames": 751,
+     "sha256": "146ebd0e2b151dfddfe65b34144f8d67a178d126a70d1b06cba374e0ab8b075c",
+     "frames_with_enhanced_coupling": 0,
+     "coverage": [
+      "coupling",
+      "spectral-extension",
+      "aht",
+      "block-switching",
+      "dither",
+      "rematrixing"
+     ],
+     "old": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     },
+     "new": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     }
+    },
+    {
+     "channels": 2,
+     "bit_rate": 128000,
+     "frames": 751,
+     "sha256": "d6f728cc881ce7febab828b0d6c09b8cac52f2cc50d8102d29d57a2335ba86c8",
+     "frames_with_enhanced_coupling": 0,
+     "coverage": [
+      "coupling",
+      "spectral-extension",
+      "aht",
+      "block-switching",
+      "dither",
+      "rematrixing"
+     ],
+     "old": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     },
+     "new": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     }
+    },
+    {
+     "channels": 6,
+     "bit_rate": 96000,
+     "frames": 751,
+     "sha256": "ad00abc719f64057768b3163caf3aca02fa4d0ae6837fc9ec3858c7e77800a7e",
+     "frames_with_enhanced_coupling": 0,
+     "coverage": [
+      "coupling",
+      "spectral-extension",
+      "aht",
+      "dither"
+     ],
+     "old": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     },
+     "new": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     }
+    },
+    {
+     "channels": 6,
+     "bit_rate": 128000,
+     "frames": 751,
+     "sha256": "450079ce61baa40d32ff1632cd437cd3331707c2f496c0c64d0537cd3e225f00",
+     "frames_with_enhanced_coupling": 0,
+     "coverage": [
+      "coupling",
+      "spectral-extension",
+      "aht",
+      "block-switching",
+      "dither"
+     ],
+     "old": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     },
+     "new": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     }
+    },
+    {
+     "channels": 6,
+     "bit_rate": 160000,
+     "frames": 751,
+     "sha256": "46b0271ee3a25b86756ef19a96ad6b4baa3ca311503c9365744d933f42bb184e",
+     "frames_with_enhanced_coupling": 0,
+     "coverage": [
+      "coupling",
+      "spectral-extension",
+      "aht",
+      "block-switching",
+      "dither"
+     ],
+     "old": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     },
+     "new": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     }
+    },
+    {
+     "channels": 6,
+     "bit_rate": 192000,
+     "frames": 751,
+     "sha256": "ff067f479b95cdc93aff31f1bcf2853f6c6d76179e94198d32a5cf90b958edd6",
+     "frames_with_enhanced_coupling": 0,
+     "coverage": [
+      "coupling",
+      "spectral-extension",
+      "aht",
+      "block-switching",
+      "dither"
+     ],
+     "old": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     },
+     "new": {
+      "exit": 0,
+      "frames_decoded": 751,
+      "failures": {}
+     }
+    }
+   ],
+   "reading": "the encoder couples this way in stereo up to 80 kbit/s and not from 96 kbit/s on or in 5.1; the streams it does not couple this way are read alike by both binaries"
+  },
+  "kept_as_unit_tests": "the exponents and the parameters of two blocks of the first stream, with the pointers their mantissas are packed with: a coupling channel in which bands 16 and 17 are 12 dB apart, and a channel whose compensation is still up at band 12 (`oadec_eac3::bitalloc::tests`)",
+  "the_rest_of_the_corpus": {
+   "streams": 129,
+   "bytes_of_the_streams": 4060910714,
+   "streams_changed": [
+    "ecpl-low-bursts.ec3",
+    "ecpl-low-steps.ec3",
+    "ecpl-low-tones.ec3",
+    "ecpl-low-wide-noise.ec3"
+   ],
+   "streams_unchanged": 125,
+   "fields_added": [],
+   "lines_added": [],
+   "lines_of_reports_compared": 8756,
+   "fields_of_reports_compared": 55120,
+   "bytes_of_deliveries_compared": 103436751233,
+   "the_media_suite": {
+    "passed": 29,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "mutations": {
+   "count": 12,
+   "survive": [],
+   "each": [
+    {
+     "mutation": "--warp-mode accepted on a sample output",
+     "caught_by": [
+      "warp_mode_reaches_the_damf_header_and_the_adm_dbmd"
+     ]
+    },
+    {
+     "mutation": "a delta code of 4 read as no change, where it is 6 dB up",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "a delta segment placed from the first band, not from the end of the one before",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "the last band out of reach of a delta segment",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "the last band of a channel looking at a band after it, unless the channel is the LFE",
+     "caught_by": [
+      "bitalloc::tests::the_last_band_of_a_channel_looks_at_no_band_after_it"
+     ]
+    },
+    {
+     "mutation": "the excitation of band 21 made a second time, without its compensation",
+     "caught_by": [
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group",
+      "eac3::tests::a_stale_element_size_is_a_warning_filed_at_its_frame"
+     ]
+    },
+    {
+     "mutation": "--start accepted on E-AC-3 and the object outputs instead of refused",
+     "caught_by": [
+      "a_call_refuses_what_the_command_refuses_in_its_words"
+     ]
+    },
+    {
+     "mutation": "a delta of 3 dB a step, where it is 6",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "a delta segment one band longer than its length",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "a coupling channel that begins low left without the low-frequency compensation, as the clause prints it",
+     "caught_by": [
+      "bitalloc::tests::a_coupling_channel_that_begins_low_is_compensated_at_low_frequencies"
+     ]
+    },
+    {
+     "mutation": "the last band of the LFE channel looking at a band after it",
+     "caught_by": [
+      "bitalloc::tests::the_last_band_of_the_lfe_channel_is_the_one_the_clause_names"
+     ]
+    },
+    {
+     "mutation": "the hearing threshold of 48 kHz at every rate",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 631 passed, 29 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  },
+  "what_is_not_claimed": [
+   "The two streams that carry transients disagree with the Dolby decode around each of them: below 1,2 kHz 30 to 33 dB over the whole stream against a median of 57 to 67 dB frame by frame. The pre-noise correction of the two decoders is not in the same place there. That is a finding of its own and no part of this change.",
+   "Agreement in the coupling region and above is bounded by what each decoder makes up for itself: the dither of a bin without bits and the noise spectral extension blends in. The energy of the two decodes is the same to 0,03 dB in every region of the two noise streams.",
+   "One encoder wrote the streams. The rules are what its streams need and what the Dolby decoder agrees with; no document states them."
+  ]
+ },
+ "reading": "Two things the pseudo-code of clause 6.2.2.4 does not print: the coupling channel has the low-frequency compensation while its bands are below 22, and the last band of a channel looks at no band after it. Read as the clause prints it, 870 of the 2 879 frames of four streams end in a mantissa code that does not exist, a group above its range or past the end of the frame, and the Dolby decode has ordinary audio in every one of them; with the first rule alone 659 are lost, with the second alone 323, with both none. Below 1,2 kHz, where each channel codes its own bins, a median frame of the two streams without a transient is then within 88.8 to 89.3 dB of the Dolby decode, the channel that carries a sweep within 68.1 dB. Nothing else moves: of 129 streams the four change and 125 do not, over 8 756 lines and 55 120 fields of reports and 103 436 751 233 bytes of deliveries."
+}

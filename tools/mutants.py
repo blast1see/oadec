@@ -817,6 +817,29 @@ MUTANTS = [
      'crates/oadec-eac3/src/bitalloc.rs',
      '                if band < 50 {\n                    mask[band] += delta;',
      '                if band < 49 {\n                    mask[band] += delta;'),
+    # --- enhanced coupling from its lowest sub-band --------------------------
+    # The coupling channel begins at band 13 then and the channels coupled
+    # into it end there, and the excitation function does two things the
+    # clause does not print. No stream of the corpus did this until an encoder
+    # was found that does; the two blocks the tests hold are its.
+    ('a coupling channel that begins low left without the low-frequency compensation, as the clause prints it',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''    for bin in begin..bndend.min(22) {
+        if ahead(bin) {''',
+     '''    for bin in begin..bndend.min(22) {
+        if ahead(bin) && leak.is_none() {'''),
+    ('the last band of a channel looking at a band after it, unless the channel is the LFE',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     'let ahead = |bin: usize| bin + 1 < bndend;',
+     'let ahead = |bin: usize| bndend != 7 || bin != 6;'),
+    ('the last band of the LFE channel looking at a band after it',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     'let ahead = |bin: usize| bin + 1 < bndend;',
+     'let ahead = |bin: usize| bndend != 13 || bin != 12;'),
+    ('the excitation of band 21 made a second time, without its compensation',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     'for bin in begin.max(22)..bndend {',
+     'for bin in begin.max(21)..bndend {'),
     ('the delta segments of every channel read into the first',
      'crates/oadec-eac3/src/frame.rs',
      'self.dba[ch] = self.read_dba()?;',
