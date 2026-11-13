@@ -240,9 +240,14 @@ let verdict = api::decode_pcm(&source, &PcmOptions::default(), &mut samples, &mu
     .verdict();
 ```
 
-What the command line refuses of an option that does not apply, the call that
-takes the option refuses in the same words: `fail_on` or `start` for an AC-3
-stream, the JOC measurement overrides for a TrueHD one. The values a call
+What the command line refuses of an option that does not apply
+([`exit-codes.md`](exit-codes.md#an-option-that-does-not-apply) has the
+list), the call that takes the option refuses in the same words: a start, a
+presentation or kept duplicates for an AC-3 stream, the options of the AC-3
+decoder and the readings of the JOC matrices for a TrueHD one, the options of
+one object format for the other. The command line refuses an option that was
+given; a call can tell one only by its value, and refuses it away from its
+default. The values a call
 hands back have methods that print (`print`, `print_summary`); the command
 line is the calls, or the functions under them, and those methods, one after
 the other, which is what keeps the two from drifting apart.

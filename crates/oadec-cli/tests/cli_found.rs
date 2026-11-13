@@ -50,17 +50,29 @@ fn row(stream: &str, dir: &Path) -> Vec<(String, Option<i32>)> {
         args.push(stream);
         row.push((command.join(" "), oadec(&args).status.code()));
     }
+    // The samples a stream delivers: each of the four presentations of a
+    // TrueHD stream, and of a stream of the AC-3 family its programme and
+    // the core of it. A presentation is refused on the second, and the core
+    // on the first: neither has what the option names.
     let pcm = dir.join("out.pcm");
-    for presentation in ["0", "1", "2", "3"] {
-        let out = oadec(&[
-            "decode",
-            stream,
-            "-p",
-            presentation,
-            "-o",
-            pcm.to_str().unwrap(),
-        ]);
-        row.push((format!("decode -p {presentation}"), out.status.code()));
+    let deliveries: &[&[&str]] = if of_the_ac3_family(stream) {
+        &[&[], &["--core-only"]]
+    } else {
+        &[&["-p", "0"], &["-p", "1"], &["-p", "2"], &["-p", "3"]]
+    };
+    for options in deliveries {
+        let mut args = vec!["decode", stream];
+        args.extend(options.iter());
+        args.extend(["-o", pcm.to_str().unwrap()]);
+        row.push((
+            ["decode"]
+                .iter()
+                .chain(options.iter())
+                .copied()
+                .collect::<Vec<_>>()
+                .join(" "),
+            oadec(&args).status.code(),
+        ));
     }
     let base = dir.join("scene");
     for format in ["damf", "adm"] {
@@ -75,6 +87,14 @@ fn row(stream: &str, dir: &Path) -> Vec<(String, Option<i32>)> {
         row.push((format!("decode --format {format}"), out.status.code()));
     }
     row
+}
+
+/// The kept streams say which family they are of in their names.
+fn of_the_ac3_family(stream: &str) -> bool {
+    Path::new(stream)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with("eac3-"))
 }
 
 fn codes(row: &[(String, Option<i32>)]) -> Vec<i32> {
@@ -102,12 +122,12 @@ fn a_payload_an_object_output_cannot_take_is_a_fault_to_every_command() {
     ] {
         let stream = found(name);
         let row = row(&stream, &dir);
-        // `info` reads what the stream declares and judges nothing
-        assert_eq!(
-            codes(&row),
-            [0, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],
-            "{name}: {row:?}"
-        );
+        // `info` reads what the stream declares and judges nothing; every
+        // other report and every delivery, however many the stream has
+        let codes = codes(&row);
+        assert_eq!(codes.len(), if of_the_ac3_family(&stream) { 9 } else { 11 });
+        assert_eq!(codes[0], 0, "{name}: {row:?}");
+        assert!(codes[1..].iter().all(|&code| code == 7), "{name}: {row:?}");
         let verify = oadec(&["verify", &stream]);
         let said = text(&verify.stdout);
         assert!(said.contains(names_it), "{name}: {said}");
@@ -200,7 +220,7 @@ fn what_verify_counts_and_a_delivery_does_not_leaves_every_decode_clean() {
     let dir = temp("complexity");
     let stream = found("eac3-complexity-index-mismatch.bin");
     let row = row(&stream, &dir);
-    assert_eq!(codes(&row), [0, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0], "{row:?}");
+    assert_eq!(codes(&row), [0, 7, 7, 7, 7, 0, 0, 0, 0], "{row:?}");
     let verify = oadec(&["verify", &stream]);
     assert!(
         text(&verify.stdout)
@@ -246,7 +266,7 @@ fn a_warning_fails_a_stream_of_the_ac3_family_only_below_the_default_threshold()
     let dir = temp("threshold");
     let stream = found("eac3-element-of-a-stale-size.bin");
     let row = row(&stream, &dir);
-    assert_eq!(codes(&row), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "{row:?}");
+    assert_eq!(codes(&row), [0, 0, 0, 0, 0, 0, 0, 0, 0], "{row:?}");
 
     let json = |args: &[&str]| -> (Option<i32>, serde_json::Value) {
         let out = oadec(args);

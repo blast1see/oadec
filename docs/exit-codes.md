@@ -140,10 +140,46 @@ what the format is.
 | `verify` | clean | non-conformant; with `--decode`, also a failed lossless check word or a presentation whose decode stopped | could not be read, or holds no stream |
 | `info` | the stream was read | — | could not be read, or holds no stream |
 | `emdf`, `oamd` | clean | non-conformant: a fault `verify` finds in the stream, or one in the metadata they read | could not be read, or holds no stream |
-| `decode` (PCM, WAV, CAF, DAMF, ADM, objects) | clean | a fault above, a TrueHD access unit concealed among them | fatal decode failure (a TrueHD one only with `--on-error stop`, or before the first output sample), no access unit or whole syncframe in the file, a configuration change before any output, a DVD-Audio (FBB) stream whose second channel group runs at another rate, an object output asked of an FBB stream, or a JOC measurement override on a decode with no JOC reconstruction to apply it to |
+| `decode` (PCM, WAV, CAF, DAMF, ADM, objects) | clean | a fault above, a TrueHD access unit concealed among them | fatal decode failure (a TrueHD one only with `--on-error stop`, or before the first output sample), no access unit or whole syncframe in the file, a configuration change before any output, a DVD-Audio (FBB) stream whose second channel group runs at another rate, an object output asked of an FBB stream, or an option that does not apply (below) |
 | `decode --format damf\|adm` with a declared loss | -- | 4 (above) | -- |
-| `compare` | matches and clean | differs, or a fault above | could not be read, or holds no stream |
+| `compare` | matches and clean | differs, or a fault above | could not be read, holds no stream, or an option that does not apply (below) |
 | `thd-demux`, `eac3-joc-config`, `eac3-ecpl-inject` | always | — | could not be written |
+
+## An option that does not apply
+
+An option with nothing to act on is refused, exit 2, in a sentence that says
+where it applies, and nothing is written. It used to be taken and to change
+nothing: `decode --no-dither` on a TrueHD stream wrote the bytes it writes
+without the option, `decode --loss-report` with a WAVE output wrote no
+report, `decode --fps 25` with an ADM file put the rate in no file, and
+`compare -p 0` on an E-AC-3 stream compared its one programme. A run that
+reads as having applied an option is taken for the run of that option, and
+for a measurement that is a wrong number under a right name.
+
+| Option | Applies to | Refused on |
+|---|---|---|
+| `--core-only`, `--no-dither`, `--no-tpnp`, `--ecpl-spec` (`decode`, `compare`) | an AC-3 or E-AC-3 stream | a TrueHD stream |
+| `--no-clip-gain`, `--flat-quadrature`, `--sparse-as-printed`, `--steep-as-printed`, and the hidden `--joc-lag`, `--joc-low-band`, `--joc-phase` | the object decode of an E-AC-3 stream (`--format damf` or `adm`) | a TrueHD stream, and the sample outputs of an E-AC-3 one |
+| `-p`, `--presentation` (`decode` to samples, `compare`) | a TrueHD stream | an AC-3 or E-AC-3 stream, which has one programme (`--core-only` writes the channels of its independent substream alone) |
+| `--keep-duplicates` (`decode`, `compare`) | a TrueHD stream | an AC-3 or E-AC-3 stream |
+| `--on-error` | a TrueHD stream | an AC-3 or E-AC-3 stream |
+| `--start` | the sample outputs of a TrueHD stream | an AC-3 or E-AC-3 stream, and an object output |
+| `--order` (`decode`) | a sample output | an object output, which has the order of its format |
+| `--no-bed-conform`, `--all-events`, `--loss-report`, `--isf`, `--warp-mode` | an object output (`--format damf` or `adm`) | a sample output |
+| `--dolby-origin-tag`, `--adm-allow-non-profile-rate`, `--adm-interpolation` | `--format adm` | `--format damf`, and a sample output |
+| `--fps` | `--format damf` | `--format adm`, and a sample output |
+| `--reference-format` (`compare`) | a TrueHD stream | an AC-3 or E-AC-3 stream, whose reference is 32-bit float |
+| `--worst` (`compare`) | an AC-3 or E-AC-3 stream | a TrueHD stream, whose comparison is exact and lists its mismatches (`--report`) |
+| `--require-disc`, `--trace-fifo`, `--census` (`verify`) | a TrueHD stream | an AC-3 or E-AC-3 stream |
+
+With an object output a presentation names the object programme of either
+family, and is held to that as it was. An option given at its default is
+refused as one given away from it (`--fps 24` with an ADM file, `--isf error`
+with a WAVE output, `--order interchange` with a DAMF set): what is refused
+is that it was given. A call of `oadec_cli::api` can tell an option only by
+its value, so it refuses the ones that are away from their default, in the
+same words. `verify --decode` is taken on a stream of the AC-3 family, whose
+`verify` decodes every frame with or without it: what it asks for is done.
 
 ## The threshold of `verify`
 
