@@ -39,6 +39,8 @@ const PROTECTION: &str =
 const DECLARED: &str =
     "docs/audit/evidence/engine-round-2026-11/33-what-an-evolution-frame-declares.json";
 const RESERVED: &str = "docs/audit/evidence/engine-round-2026-11/34-reserved-bits.json";
+const SYNC_DECLARES: &str =
+    "docs/audit/evidence/engine-round-2026-11/35-what-a-major-sync-declares.json";
 const FIFO: &str = "docs/audit/evidence/verification-upgrade-2026-11/06-fifo-model.json";
 const DISC: &str = "docs/audit/evidence/verification-upgrade-2026-11/07-disc-formats.json";
 
@@ -266,8 +268,8 @@ oadec_diag::catalog! {
         id: "sync.reserved_bits",
         severity: Info,
         legacy: None,
-        summary: "a major sync sets a bit the description reserves: one of its sixteen reserved bits, of the two of `format_info` that nothing reads, or of the upper two of `extended_substream_info`; a parser ignores them, as the description says it should",
-        provenance: [spec(DOLBY_HL, "3.2, 4.2"), measured(RESERVED)],
+        summary: "a major sync sets a bit the description reserves: one of its sixteen reserved bits, of the two of `format_info` that nothing reads, of the two before `extended_substream_info`, of the two low ones of `substream_info`, or of those of `flags` that have no meaning (bit 14 and bits 10 to 0); a parser ignores them, as the description says it should",
+        provenance: [spec(DOLBY_HL, "3.2, 4.2"), measured(RESERVED), measured(SYNC_DECLARES)],
     },
     /// A reserved bit of the channel meaning.
     SyncChannelMeaningReserved {
@@ -405,6 +407,14 @@ oadec_diag::catalog! {
         legacy: None,
         summary: "an access unit arrives less than one frame before its output",
         provenance: [measured(FIFO), secondary("a bound Dolby's TrueHD encoder states in its messages")],
+    },
+    /// The delay through the buffer, where it is said to be constant.
+    BufferLatencyNotConstant {
+        id: "buffer.latency_not_constant",
+        severity: Info,
+        legacy: None,
+        summary: "an access unit waits in the decoder buffer for another time than the unit before it, in a stream whose major sync says the delay is constant (`flags` bit 15)",
+        provenance: [spec(DOLBY_HL, "2.7, 4.2"), measured(SYNC_DECLARES)],
     },
     /// Delivery over the declared peak.
     RateOverDeclaredPeak {

@@ -29,6 +29,16 @@ pub const FLAG_HEAVY_DRC: u16 = 0x2000;
 /// `flags` bit 11: the eight-channel presentation is restricted (five-bit assignment).
 pub const FLAG_RESTRICTED_8CH: u16 = 0x0800;
 
+/// `flags` bit 15: the delay through the decoder buffer is one value for the
+/// whole of the stream (Dolby, Table 12).
+pub const FLAG_CONSTANT_FIFO_DELAY: u16 = 0x8000;
+
+/// The bits of the `flags` of an FBA major sync that have no meaning: bit 14,
+/// which marks the FBB syntax and is read of an FBB major sync alone, and
+/// bits 10 to 0 (Dolby, Table 12). A parser ignores them, as it ignores every
+/// reserved field (section 3.2).
+pub const FLAGS_RESERVED: u16 = 0x47FF;
+
 /// Base sampling rate of the 48 kHz family.
 pub const BASE_RATE_48K: u32 = 48_000;
 
@@ -164,6 +174,67 @@ impl FormatInfo {
             Some(fs) => Some(BASE_SAMPLES_PER_AU * (fs / BASE_RATE_44K1) as u16),
             None => None,
         }
+    }
+}
+
+/// What a channel modifier of `format_info` says of its presentation (Dolby,
+/// Tables 4 to 9): of two-channel content, what kind it is; of content with
+/// surrounds, whether a matrix is folded into them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModifierMeaning {
+    /// Two channels, 00: stereo.
+    Stereo,
+    /// Two channels, 01: a matrix-encoded pair, Lt/Rt.
+    LtRt,
+    /// Two channels, 10: a binaural pair, Lbin/Rbin.
+    LbinRbin,
+    /// Two channels, 11: mono.
+    Mono,
+    /// With surrounds, 00: nothing is indicated.
+    NotIndicated,
+    /// With surrounds, 01: not Dolby Surround EX, Pro Logic IIx or Pro Logic
+    /// IIz encoded.
+    NotMatrixEncoded,
+    /// With surrounds, 10: Dolby Surround EX or Pro Logic IIx encoded.
+    SurroundEx,
+    /// With surrounds, 11: Dolby Pro Logic IIz encoded.
+    ProLogicIiz,
+}
+
+impl ModifierMeaning {
+    /// A modifier read by the tables of two-channel content (4, 5 and 8).
+    const fn of_two_channels(modifier: u8) -> Self {
+        match modifier {
+            0 => Self::Stereo,
+            1 => Self::LtRt,
+            2 => Self::LbinRbin,
+            _ => Self::Mono,
+        }
+    }
+
+    /// A modifier read by the tables of content with surrounds (6 and 9).
+    const fn of_surrounds(modifier: u8) -> Self {
+        match modifier {
+            0 => Self::NotIndicated,
+            1 => Self::NotMatrixEncoded,
+            2 => Self::SurroundEx,
+            _ => Self::ProLogicIiz,
+        }
+    }
+}
+
+impl core::fmt::Display for ModifierMeaning {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            Self::Stereo => "stereo",
+            Self::LtRt => "Lt/Rt",
+            Self::LbinRbin => "Lbin/Rbin",
+            Self::Mono => "mono",
+            Self::NotIndicated => "not indicated",
+            Self::NotMatrixEncoded => "not Surround EX, Pro Logic IIx or Pro Logic IIz encoded",
+            Self::SurroundEx => "Surround EX or Pro Logic IIx encoded",
+            Self::ProLogicIiz => "Pro Logic IIz encoded",
+        })
     }
 }
 
@@ -404,6 +475,82 @@ impl MajorSync {
     pub const fn extra_data_is_evolution(&self) -> bool {
         self.flags & FLAG_EVOLUTION_IN_EXTRA_DATA != 0
     }
+
+    /// Whether the major sync says the delay through the decoder buffer is
+    /// constant: `flags` bit 15 of the FBA syntax (Dolby, Table 12). The
+    /// description is of that syntax, and the bit is not read of an FBB
+    /// major sync.
+    #[must_use]
+    pub const fn says_constant_delay(&self) -> bool {
+        self.fbb.is_none() && self.flags & FLAG_CONSTANT_FIFO_DELAY != 0
+    }
+
+    /// Whether the major sync announces a heavy dynamic range control, whose
+    /// updates the restart headers then carry (`flags` bit 13).
+    #[must_use]
+    pub const fn announces_heavy_drc(&self) -> bool {
+        self.flags & FLAG_HEAVY_DRC != 0
+    }
+
+    /// The channel modifier of the two-, six- or eight-channel presentation
+    /// (0, 1, 2), as coded. An FBB major sync has none, and the description
+    /// gives none to the object presentation.
+    #[must_use]
+    pub const fn channel_modifier(&self, presentation: usize) -> Option<u8> {
+        if self.fbb.is_some() {
+            return None;
+        }
+        match presentation {
+            0 => Some(self.format_info.twoch_channel_modifier),
+            1 => Some(self.format_info.sixch_channel_modifier),
+            2 => Some(self.format_info.eightch_channel_modifier),
+            _ => None,
+        }
+    }
+
+    /// What the channel modifier of a presentation says of it (Dolby, section
+    /// 4.2.2), `None` where the description gives it no meaning.
+    ///
+    /// The modifier of the two-channel presentation names its content (Table
+    /// 4). That of the six-channel one does the same when the presentation
+    /// has exactly two channels (Table 5), and with three or more it has a
+    /// meaning only when Ls and Rs are among them (Table 6). That of the
+    /// eight-channel one names the content of a presentation that is L and R
+    /// alone (Table 8), and with three or more channels has a meaning only
+    /// when Ls and Rs are the only surrounds (Table 9).
+    ///
+    /// Which channels of the eight count as surrounds the description does
+    /// not list. Table 9 is applied here where the question does not arise,
+    /// to a presentation of nothing but L, R, C, LFE, Ls and Rs: with any
+    /// other channel no meaning is given. Every stream measured that has
+    /// back channels there codes 00
+    /// (`docs/audit/evidence/engine-round-2026-11/35-what-a-major-sync-declares.json`).
+    #[must_use]
+    pub fn modifier_meaning(&self, presentation: usize) -> Option<ModifierMeaning> {
+        use crate::channel::ChannelLabel as Ch;
+        let modifier = self.channel_modifier(presentation)?;
+        if presentation == 0 {
+            return Some(ModifierMeaning::of_two_channels(modifier));
+        }
+        let channels = Ch::presentation(self, presentation);
+        let surrounds = channels.contains(&Ch::Ls);
+        let two_channels = if presentation == 1 {
+            channels.len() == 2
+        } else {
+            channels == [Ch::L, Ch::R]
+        };
+        let only_those_surrounds = presentation == 1
+            || channels
+                .iter()
+                .all(|c| matches!(c, Ch::L | Ch::R | Ch::C | Ch::LFE | Ch::Ls | Ch::Rs));
+        if two_channels {
+            Some(ModifierMeaning::of_two_channels(modifier))
+        } else if channels.len() >= 3 && surrounds && only_those_surrounds {
+            Some(ModifierMeaning::of_surrounds(modifier))
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -492,5 +639,143 @@ mod tests {
         }
         fi.sampling_frequency_code = 5;
         assert_eq!(fi.sampling_frequency(), None);
+    }
+
+    /// The modifiers by the tables of section 4.2.2. Which table reads one
+    /// is a matter of the channels of its presentation, and with some
+    /// channels none does.
+    #[test]
+    fn a_channel_modifier_is_read_by_the_table_its_presentation_selects() {
+        use ModifierMeaning as M;
+        let mut ms = MajorSync::parse(&atmos_major_sync()).unwrap();
+        // the two-channel presentation: Table 4, whatever else the stream holds
+        for (code, says) in [(0, M::Stereo), (1, M::LtRt), (2, M::LbinRbin), (3, M::Mono)] {
+            ms.format_info.twoch_channel_modifier = code;
+            assert_eq!(ms.channel_modifier(0), Some(code));
+            assert_eq!(ms.modifier_meaning(0), Some(says));
+        }
+
+        let six = |ms: &mut MajorSync, assignment: u8, code: u8| {
+            ms.format_info.sixch_channel_assignment = assignment;
+            ms.format_info.sixch_channel_modifier = code;
+            assert_eq!(ms.channel_modifier(1), Some(code));
+            ms.modifier_meaning(1)
+        };
+        // exactly two channels, whichever they are: Table 5
+        assert_eq!(six(&mut ms, 0b0_0001, 1), Some(M::LtRt), "L R");
+        assert_eq!(six(&mut ms, 0b0_0110, 3), Some(M::Mono), "C LFE");
+        assert_eq!(six(&mut ms, 0b0_1000, 2), Some(M::LbinRbin), "Ls Rs");
+        assert_eq!(six(&mut ms, 0b0_0001, 0), Some(M::Stereo), "L R");
+        // three or more with Ls and Rs among them: Table 6
+        assert_eq!(six(&mut ms, 0b0_1111, 0), Some(M::NotIndicated));
+        assert_eq!(six(&mut ms, 0b0_1111, 1), Some(M::NotMatrixEncoded));
+        assert_eq!(six(&mut ms, 0b0_1111, 2), Some(M::SurroundEx));
+        assert_eq!(six(&mut ms, 0b0_1111, 3), Some(M::ProLogicIiz));
+        assert_eq!(six(&mut ms, 0b0_1010, 2), Some(M::SurroundEx), "C Ls Rs");
+        assert_eq!(
+            six(&mut ms, 0b1_1001, 2),
+            Some(M::SurroundEx),
+            "L R Ls Rs Tfl Tfr: the six ask for Ls and Rs, not for them alone"
+        );
+        // three or more without them, and a single channel: no table
+        assert_eq!(six(&mut ms, 0b0_0111, 2), None, "L R C LFE");
+        assert_eq!(six(&mut ms, 0b0_0010, 1), None, "C");
+
+        let eight = |ms: &mut MajorSync, assignment: u16, code: u8| {
+            ms.format_info.eightch_channel_assignment = assignment;
+            ms.format_info.eightch_channel_modifier = code;
+            assert_eq!(ms.channel_modifier(2), Some(code));
+            ms.modifier_meaning(2)
+        };
+        // L and R alone: Table 8; another pair is not that
+        assert_eq!(eight(&mut ms, 0b0001, 1), Some(M::LtRt), "L R");
+        assert_eq!(eight(&mut ms, 0b0001, 3), Some(M::Mono), "L R");
+        assert_eq!(eight(&mut ms, 0b1000, 1), None, "Ls Rs");
+        assert_eq!(eight(&mut ms, 0b0110, 1), None, "C LFE");
+        // three or more whose only surrounds are Ls and Rs: Table 9
+        assert_eq!(eight(&mut ms, 0b1111, 0), Some(M::NotIndicated));
+        assert_eq!(eight(&mut ms, 0b1111, 1), Some(M::NotMatrixEncoded));
+        assert_eq!(eight(&mut ms, 0b1111, 2), Some(M::SurroundEx));
+        assert_eq!(eight(&mut ms, 0b1111, 3), Some(M::ProLogicIiz));
+        assert_eq!(eight(&mut ms, 0b1001, 1), Some(M::NotMatrixEncoded));
+        // back channels, a channel the description does not class, and no
+        // surrounds at all: no table
+        assert_eq!(eight(&mut ms, 0b100_1111, 2), None, "with Lb Rb");
+        assert_eq!(eight(&mut ms, 0b001_1111, 2), None, "with Tfl Tfr");
+        assert_eq!(eight(&mut ms, 0b0111, 2), None, "L R C LFE");
+        // the restricted assignment (flags bit 11) has Tsl and Tsr at bit 4
+        ms.flags |= FLAG_RESTRICTED_8CH;
+        assert_eq!(eight(&mut ms, 0b1_1111, 2), None, "with Tsl Tsr");
+        assert_eq!(eight(&mut ms, 0b0_1111, 3), Some(M::ProLogicIiz));
+
+        // the object presentation has no modifier, and an FBB major sync none at all
+        assert_eq!(ms.channel_modifier(3), None);
+        assert_eq!(ms.modifier_meaning(3), None);
+        let fbb = MajorSync::parse(&crate::testutil::fbb_major_sync()).unwrap();
+        for presentation in 0..4 {
+            assert_eq!(fbb.channel_modifier(presentation), None);
+            assert_eq!(fbb.modifier_meaning(presentation), None);
+        }
+    }
+
+    #[test]
+    fn a_modifier_is_said_in_the_words_of_its_table() {
+        use ModifierMeaning as M;
+        let said = [
+            M::Stereo,
+            M::LtRt,
+            M::LbinRbin,
+            M::Mono,
+            M::NotIndicated,
+            M::NotMatrixEncoded,
+            M::SurroundEx,
+            M::ProLogicIiz,
+        ]
+        .map(|m| m.to_string());
+        assert_eq!(
+            said,
+            [
+                "stereo",
+                "Lt/Rt",
+                "Lbin/Rbin",
+                "mono",
+                "not indicated",
+                "not Surround EX, Pro Logic IIx or Pro Logic IIz encoded",
+                "Surround EX or Pro Logic IIx encoded",
+                "Pro Logic IIz encoded",
+            ]
+        );
+    }
+
+    /// The bits of `flags` with a meaning and the reserved ones are the
+    /// sixteen, each once.
+    #[test]
+    fn every_bit_of_flags_is_read_or_reserved() {
+        let read = FLAG_CONSTANT_FIFO_DELAY
+            | FLAG_HEAVY_DRC
+            | FLAG_EVOLUTION_IN_EXTRA_DATA
+            | FLAG_RESTRICTED_8CH;
+        assert_eq!(read & FLAGS_RESERVED, 0);
+        assert_eq!(read | FLAGS_RESERVED, 0xFFFF);
+        assert_eq!(FLAG_CONSTANT_FIFO_DELAY, 1 << 15);
+    }
+
+    /// What a major sync says in two bits of its flags; the one about the
+    /// buffer is of the FBA syntax alone.
+    #[test]
+    fn two_flags_are_statements_about_the_stream() {
+        let mut ms = MajorSync::parse(&atmos_major_sync()).unwrap();
+        assert!(!ms.says_constant_delay());
+        assert!(!ms.announces_heavy_drc());
+        ms.flags |= FLAG_CONSTANT_FIFO_DELAY;
+        assert!(ms.says_constant_delay());
+        assert!(!ms.announces_heavy_drc());
+        ms.flags = FLAG_HEAVY_DRC;
+        assert!(!ms.says_constant_delay());
+        assert!(ms.announces_heavy_drc());
+        let mut fbb = MajorSync::parse(&crate::testutil::fbb_major_sync()).unwrap();
+        fbb.flags |= FLAG_CONSTANT_FIFO_DELAY | FLAG_HEAVY_DRC;
+        assert!(!fbb.says_constant_delay(), "not read of an FBB major sync");
+        assert!(fbb.announces_heavy_drc());
     }
 }

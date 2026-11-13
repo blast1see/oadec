@@ -202,7 +202,9 @@ word length than the container before it
 ([`eac3.md`](eac3.md#what-a-metadata-container-declares-and-the-joc-sequence-counter)).
 The Evolution frames of a TrueHD stream are filed the same way, and so is a
 bit of a major sync or of a restart header that the description reserves
-([`truehd.md`](truehd.md#the-bits-the-description-reserves)).
+([`truehd.md`](truehd.md#the-bits-the-description-reserves)), and a delay
+through the decoder buffer that changes in a stream whose major sync says it
+is constant ([`truehd.md`](truehd.md#decoder-buffer)).
 `--fail-on fatal` passes a stream whose only faults
 left it readable, which for the AC-3 family is every stream that has a frame,
 since none of its rules is fatal. `--max-per-rule` changes what is listed and

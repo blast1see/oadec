@@ -23,7 +23,11 @@ heads, for the syntax an encoder uses once an hour.
 
 A TrueHD or MLP row also carries the census of the stream (`verify --census`):
 how often each element of the syntax occurs. `tools/census.py` adds the rows up
-and names what no track carries.
+and names what no track carries. It carries what the major sync says of the
+stream as well (`info --json`: the flags, the channel modifiers and the
+channels each speaks of) and the shortest and the longest delay through the
+decoder buffer, so that a field which describes and decodes nothing can be
+counted against the layouts real streams have.
 """
 
 from __future__ import annotations
@@ -98,6 +102,28 @@ def verify(oadec: str, path: Path, census: bool = False) -> dict:
         return json.loads(res.stdout)
     except (subprocess.SubprocessError, json.JSONDecodeError, TypeError) as e:
         return {"clean": False, "first_error": f"verify did not answer: {e}"}
+
+
+def declared(oadec: str, path: Path) -> dict | None:
+    """What the first major sync of a TrueHD stream says of it."""
+    try:
+        res = subprocess.run(
+            [oadec, "info", "--json", str(path)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800,
+        )
+        info = json.loads(res.stdout)
+    except (subprocess.SubprocessError, json.JSONDecodeError, TypeError):
+        return None
+    return {
+        "flags": info.get("flags"),
+        "constant_delay_declared": info.get("constant_delay_declared"),
+        "heavy_drc_announced": info.get("heavy_drc_announced"),
+        "format_info": info.get("format_info"),
+        "presentations": [
+            {k: p.get(k) for k in ("kind", "channels", "modifier", "modifier_meaning")}
+            for p in info.get("presentations") or []
+        ],
+    }
 
 
 def summarise(report: list[dict]) -> None:
@@ -175,8 +201,16 @@ def main() -> int:
                 row |= {"clean": False, "first_error": "the head could not be written"}
                 report.append(row)
                 continue
-            v = verify(args.oadec, out, census=codec in ("truehd", "mlp"))
+            lossless = codec in ("truehd", "mlp")
+            v = verify(args.oadec, out, census=lossless)
+            buffer = v.get("buffer") or {}
             row |= {
+                # what the major sync says of the stream, and the delay
+                # through the decoder buffer its timing fields give
+                "declared": declared(args.oadec, out) if lossless else None,
+                "delay_samples": [
+                    (buffer.get(k) or {}).get("samples") for k in ("min_latency", "max_latency")
+                ] if lossless else None,
                 "clean": bool(v.get("clean")),
                 "format": v.get("format") or v.get("syntax") or codec,
                 "coverage": v.get("coverage"),

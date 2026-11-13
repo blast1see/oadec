@@ -1537,19 +1537,38 @@ fn a_reserved_bit_is_filed_and_changes_no_sample() {
     };
     let samples = pcm_of(&source);
 
-    // what the census calls the field, per substream for a restart header
+    // what the census calls the field: per substream for a restart header,
+    // and by its number for a bit of `flags`
     let counted = |report: &serde_json::Value, field: &str| -> u64 {
-        match field.strip_prefix("restart.") {
-            Some(name) => report["census"]["substreams"]
+        let sync = &report["census"]["major_sync"];
+        if let Some(name) = field.strip_prefix("restart.") {
+            report["census"]["substreams"]
                 .as_array()
                 .unwrap()
                 .iter()
                 .map(|s| s["restart"][name].as_u64().unwrap())
-                .sum(),
-            None => report["census"]["major_sync"][field].as_u64().unwrap(),
+                .sum()
+        } else if let Some(bit) = field.strip_prefix("flag_bits.") {
+            sync["flag_bits"][bit].as_u64().unwrap()
+        } else {
+            sync[field].as_u64().unwrap()
         }
     };
-    let cases: [(&str, usize, &str, &str, &str); 9] = [
+    let cases: [(&str, usize, &str, &str, &str); 11] = [
+        (
+            "the last bit of flags",
+            base + 14 * 8 + 15,
+            "sync.reserved_bits",
+            "flag_bits.0",
+            "flags 0x0001",
+        ),
+        (
+            "the bit of flags that marks the FBB syntax",
+            base + 14 * 8 + 1,
+            "sync.reserved_bits",
+            "flag_bits.14",
+            "flags 0x4000",
+        ),
         (
             "a low bit of substream_info",
             base + 21 * 8 + 7,
@@ -1658,11 +1677,27 @@ fn a_reserved_bit_is_filed_and_changes_no_sample() {
         );
         assert!(pcm_of(&file) == samples, "{what}: the samples moved");
     }
+    // The bit that marks the FBB syntax is that syntax's own: of the FBB
+    // fixture, which sets it in every major sync, nothing is filed.
+    let fbb = fixture("mlp-stereo-44k.mlp");
+    let out = oadec(&["verify", "--json", "--census", fbb.to_str().unwrap()]);
+    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{}", report["diagnostics"]);
+    assert_eq!(report["diagnostics"]["rules"], serde_json::json!([]));
+    assert_eq!(
+        counted(&report, "flag_bits.14"),
+        report["census"]["major_sync"]["fbb_major_syncs"]
+            .as_u64()
+            .unwrap()
+    );
+    assert!(counted(&report, "flag_bits.14") > 0);
     // and the fixture, which sets none of them, has nothing filed
     let out = oadec(&["verify", "--json", "--census", source.to_str().unwrap()]);
     let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(report["diagnostics"]["rules"], serde_json::json!([]));
     for field in [
+        "flag_bits.0",
+        "flag_bits.14",
         "reserved_nonzero",
         "format_info_reserved_nonzero",
         "extended_substream_info_upper",
@@ -1674,5 +1709,330 @@ fn a_reserved_bit_is_filed_and_changes_no_sample() {
     ] {
         assert_eq!(counted(&report, field), 0, "{field}");
     }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// The first bit of `flags` says that the delay through the decoder buffer
+/// is one value "for the entire duration" of the stream (Dolby, Table 12).
+/// No stream at hand sets it, so it is set here in copies of two that could
+/// not be further apart about it: the fixture Dolby's encoder wrote moves its
+/// delay 1 042 times in 2 400 access units, and the one FFmpeg's encoder
+/// wrote holds it at one frame. `verify` holds a stream to what the major
+/// sync in force says, each unit against the one before it, as information;
+/// no sample moves. The counts are those `delay_oracle.py` of the evidence
+/// gets from the timing fields alone.
+#[test]
+fn a_delay_said_to_be_constant_is_held_to_it() {
+    let dir = temp("constant-delay");
+    // `flags` is bytes 14 and 15 of a unit with a major sync; `early` moves
+    // the input timing of one unit, bytes 2 and 3 of it, a sample back
+    let copy = |source: &Path, said_in: &dyn Fn(usize) -> bool, early: Option<usize>| {
+        let mut bytes = std::fs::read(source).unwrap();
+        let all = units(source);
+        let mut nth = 0;
+        for (unit, au) in &all {
+            if au.major_sync.is_none() {
+                continue;
+            }
+            if said_in(nth) {
+                let at = unit.offset as usize + 14;
+                assert_eq!(bytes[at] & 0x80, 0, "clear in the fixture");
+                bytes[at] |= 0x80;
+            }
+            nth += 1;
+        }
+        if let Some(index) = early {
+            let (unit, au) = &all[index];
+            assert!(au.major_sync.is_none());
+            let at = unit.offset as usize + 2;
+            let timing = u16::from_be_bytes([bytes[at], bytes[at + 1]]).wrapping_sub(1);
+            bytes[at..at + 2].copy_from_slice(&timing.to_be_bytes());
+        }
+        let (repaired, _) = oadec_truehd::repair_stream(&mut bytes);
+        assert!(repaired.any(), "a checksum over what was changed");
+        let file = dir.join(format!(
+            "said.{}",
+            source.extension().unwrap().to_str().unwrap()
+        ));
+        std::fs::write(&file, &bytes).unwrap();
+        file
+    };
+    let report_of = |file: &Path| {
+        let out = oadec(&["verify", "--json", file.to_str().unwrap()]);
+        let report: serde_json::Value =
+            serde_json::from_slice(&out.stdout).unwrap_or_else(|e| panic!("{e}: {}", stderr(&out)));
+        assert_eq!(out.status.code(), Some(0), "{}", report["diagnostics"]);
+        report
+    };
+    // (count, first unit, last unit, first message) of the one rule that fired
+    let fired = |report: &serde_json::Value| -> Vec<(u64, u64, u64, String)> {
+        report["diagnostics"]["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|rule| {
+                assert_eq!(rule["id"], "buffer.latency_not_constant", "{rule}");
+                assert_eq!(rule["severity"], "info", "{rule}");
+                assert!(rule["legacy_counter"].is_null(), "{rule}");
+                (
+                    rule["count"].as_u64().unwrap(),
+                    rule["first"]["unit"].as_u64().unwrap(),
+                    rule["last"]["unit"].as_u64().unwrap(),
+                    rule["first_message"].as_str().unwrap().to_string(),
+                )
+            })
+            .collect()
+    };
+    let pcm_of = |file: &Path| {
+        let out = dir.join("decoded.pcm");
+        let run = oadec(&[
+            "decode",
+            file.to_str().unwrap(),
+            "-p",
+            "0",
+            "--format",
+            "pcm",
+            "-o",
+            out.to_str().unwrap(),
+        ]);
+        assert_eq!(run.status.code(), Some(0), "{}", stderr(&run));
+        std::fs::read(&out).unwrap()
+    };
+    let declared = |file: &Path| {
+        let out = oadec(&["info", "--json", file.to_str().unwrap()]);
+        let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        let text = String::from_utf8(oadec(&["info", file.to_str().unwrap()]).stdout).unwrap();
+        let line = text
+            .lines()
+            .any(|l| l == "Buffer delay:     constant, the major sync says (flags bit 15)");
+        (report["constant_delay_declared"] == true, line)
+    };
+
+    // the stream of Dolby's encoder: said in every major sync
+    let moving = fixture("authored-scene.mlp");
+    assert!(fired(&report_of(&moving)).is_empty());
+    assert_eq!(declared(&moving), (false, false));
+    let file = copy(&moving, &|_| true, None);
+    assert_eq!(
+        fired(&report_of(&file)),
+        [(
+            1042,
+            1,
+            2399,
+            "40 samples in the buffer, 115 the unit before".to_string()
+        )]
+    );
+    assert_eq!(declared(&file), (true, true));
+    let path = file.to_str().unwrap();
+    assert_eq!(
+        oadec(&["verify", "--fail-on", "info", path]).status.code(),
+        Some(7)
+    );
+    assert_eq!(
+        oadec(&["verify", "--fail-on", "warning", path])
+            .status
+            .code(),
+        Some(0)
+    );
+    assert!(pcm_of(&file) == pcm_of(&moving), "the samples moved");
+    // said in the first major sync alone: the units up to the second, which
+    // is at unit 125 and says nothing of the kind, are held to it
+    let file = copy(&moving, &|nth| nth == 0, None);
+    assert_eq!(
+        fired(&report_of(&file)),
+        [(
+            4,
+            1,
+            124,
+            "40 samples in the buffer, 115 the unit before".to_string()
+        )]
+    );
+    assert!(pcm_of(&file) == pcm_of(&moving), "the samples moved");
+
+    // the stream of FFmpeg's encoder keeps what the bit says
+    let still = fixture("truehd-20-44k.thd");
+    let file = copy(&still, &|_| true, None);
+    assert!(fired(&report_of(&file)).is_empty());
+    assert_eq!(declared(&file), (true, true));
+    assert!(pcm_of(&file) == pcm_of(&still), "the samples moved");
+    // until one unit arrives a sample early: its delay is 41, and that of
+    // the unit after it 40 again
+    let file = copy(&still, &|_| true, Some(5));
+    assert_eq!(
+        fired(&report_of(&file)),
+        [(
+            2,
+            5,
+            6,
+            "41 samples in the buffer, 40 the unit before".to_string()
+        )]
+    );
+    // which a stream that says nothing may do
+    let file = copy(&still, &|_| false, Some(5));
+    assert!(fired(&report_of(&file)).is_empty());
+    assert_eq!(declared(&file), (false, false));
+
+    // The description is of the FBA syntax. An FBB major sync is not read
+    // for the bit, whatever the delay does.
+    let fbb = fixture("mlp-stereo-44k.mlp");
+    let file = copy(&fbb, &|_| true, Some(5));
+    assert!(fired(&report_of(&file)).is_empty());
+    assert_eq!(declared(&file), (false, false));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// `format_info` carries a modifier for each of the three channel
+/// presentations and a type for two of them, and nothing in a decode depends
+/// on any: they say what the channels hold. `info` says them as coded and
+/// with the meaning the description gives. Here every major sync of the
+/// fixture is given three modifiers that differ from one another, and the
+/// type of the six-channel presentation: 2ch 01, which is Lt/Rt; 6ch 10,
+/// which of five channels and a half with surrounds is Surround EX; 8ch 11,
+/// which of a presentation with back channels is nothing.
+#[test]
+fn info_says_the_channel_modifiers_as_coded_and_as_meant() {
+    let dir = temp("modifiers");
+    let source = fixture("authored-scene.mlp");
+    let mut bytes = std::fs::read(&source).unwrap();
+    let mut major_syncs = 0;
+    for (unit, au) in units(&source) {
+        if au.major_sync.is_none() {
+            continue;
+        }
+        // `format_info` is bytes 8 to 11 of the unit: the rate (4 bits), the
+        // two types, two reserved bits; then the modifier of two channels,
+        // that of six, the assignment of six (5 bits), the modifier of eight
+        // and the assignment of eight (13 bits)
+        let at = unit.offset as usize + 8;
+        bytes[at] |= 0x08;
+        bytes[at + 1] = (bytes[at + 1] & 0x0F) | (1 << 6) | (2 << 4);
+        bytes[at + 2] |= 3 << 5;
+        major_syncs += 1;
+    }
+    assert_eq!(major_syncs, 22);
+    let (repaired, _) = oadec_truehd::repair_stream(&mut bytes);
+    assert!(repaired.major_sync_crc);
+    let file = dir.join("modifiers.mlp");
+    std::fs::write(&file, &bytes).unwrap();
+    let path = file.to_str().unwrap();
+
+    let json_of = |path: &str| -> serde_json::Value {
+        let out = oadec(&["info", "--json", path]);
+        assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+        serde_json::from_slice(&out.stdout).unwrap()
+    };
+    let line_of = |path: &str| -> String {
+        let text = String::from_utf8(oadec(&["info", path]).stdout).unwrap();
+        let lines: Vec<&str> = text
+            .lines()
+            .filter(|l| l.starts_with("Channel modifiers:"))
+            .collect();
+        assert_eq!(lines.len(), 1, "{text}");
+        lines[0].to_string()
+    };
+    let presentations =
+        |report: &serde_json::Value| -> Vec<(serde_json::Value, serde_json::Value)> {
+            report["presentations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|p| (p["modifier"].clone(), p["modifier_meaning"].clone()))
+                .collect()
+        };
+    use serde_json::{Value::Null, json};
+
+    // the fixture as its encoder wrote it
+    let report = json_of(source.to_str().unwrap());
+    assert_eq!(
+        report["format_info"],
+        json!({
+            "sampling_frequency_code": 0,
+            "sixch_multichannel_type": false,
+            "eightch_multichannel_type": false,
+            "twoch_channel_modifier": 0,
+            "sixch_channel_modifier": 1,
+            "sixch_channel_assignment": 0b0_1111,
+            "eightch_channel_modifier": 0,
+            "eightch_channel_assignment": 0b100_1111,
+        })
+    );
+    assert_eq!(
+        presentations(&report),
+        [
+            (json!(0), json!("stereo")),
+            (
+                json!(1),
+                json!("not Surround EX, Pro Logic IIx or Pro Logic IIz encoded")
+            ),
+            (json!(0), Null),
+            (Null, Null),
+        ]
+    );
+    assert_eq!(
+        line_of(source.to_str().unwrap()),
+        "Channel modifiers: 2ch 0 (stereo), 6ch 1 (not Surround EX, Pro Logic IIx or Pro Logic IIz encoded), 8ch 0"
+    );
+
+    // and with the fields set
+    let report = json_of(path);
+    assert_eq!(
+        report["format_info"],
+        json!({
+            "sampling_frequency_code": 0,
+            "sixch_multichannel_type": true,
+            "eightch_multichannel_type": false,
+            "twoch_channel_modifier": 1,
+            "sixch_channel_modifier": 2,
+            "sixch_channel_assignment": 0b0_1111,
+            "eightch_channel_modifier": 3,
+            "eightch_channel_assignment": 0b100_1111,
+        })
+    );
+    assert_eq!(
+        presentations(&report),
+        [
+            (json!(1), json!("Lt/Rt")),
+            (json!(2), json!("Surround EX or Pro Logic IIx encoded")),
+            (json!(3), Null),
+            (Null, Null),
+        ]
+    );
+    assert_eq!(
+        line_of(path),
+        "Channel modifiers: 2ch 1 (Lt/Rt), 6ch 2 (Surround EX or Pro Logic IIx encoded), 8ch 3"
+    );
+    // nothing is filed of them, and they move no sample
+    let out = oadec(&["verify", "--json", path]);
+    let verified: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{}", verified["diagnostics"]);
+    assert_eq!(verified["diagnostics"]["rules"], json!([]));
+    let pcm_of = |path: &str| {
+        let out = dir.join("decoded.pcm");
+        let run = oadec(&[
+            "decode",
+            path,
+            "-p",
+            "2",
+            "--format",
+            "pcm",
+            "-o",
+            out.to_str().unwrap(),
+        ]);
+        assert_eq!(run.status.code(), Some(0), "{}", stderr(&run));
+        std::fs::read(&out).unwrap()
+    };
+    assert!(pcm_of(path) == pcm_of(source.to_str().unwrap()));
+
+    // an FBB major sync has other fields in the place of `format_info`
+    let fbb = fixture("mlp-stereo-44k.mlp");
+    let report = json_of(fbb.to_str().unwrap());
+    assert_eq!(report["format_info"], Null);
+    assert!(
+        presentations(&report)
+            .iter()
+            .all(|(code, meaning)| code.is_null() && meaning.is_null())
+    );
+    let text = String::from_utf8(oadec(&["info", fbb.to_str().unwrap()]).stdout).unwrap();
+    assert!(!text.contains("Channel modifiers"), "{text}");
     std::fs::remove_dir_all(&dir).ok();
 }

@@ -1,0 +1,848 @@
+{
+ "question": "What does a major sync of a TrueHD stream say of the stream that no decode depends on -- the channel modifiers and the types of `format_info`, and the bits of `flags` -- what do real streams carry in those fields, and is a stream that says its delay through the decoder buffer is constant held to it?",
+ "method": "The high-level bitstream description gives the fields (section 4.2.2, Tables 2 to 12): a two-bit modifier for each of the two-, six- and eight-channel presentations, read by a table the channels of the presentation select; a one-bit type for the last two; and sixteen flags, of which bit 15 says \"the FIFO delay is constant for the entire duration of the audio bit stream\" and bits 10 to 0 are reserved. `info` says the modifiers as coded and as meant, and `verify` files two things at `info`: a delay that differs from that of the unit before under a major sync that says it is constant (`buffer.latency_not_constant`), and a bit of `flags` without a meaning (`sync.reserved_bits`, which named four other fields before). `tools/declared.py` added the fields up over the streams of the corpus and over the first minute of every TrueHD and MLP track of a library. No stream sets bit 15, so the rule was measured on copies of three fixtures with the bit set and the checksums recomputed, against a second reading of the timing fields that is not the decoder's (`tools/delay_oracle.py`, from the trace `verify --trace-fifo` writes), and the copies were put to three other decoders as black boxes: a stream in, samples out. The streams of the corpus and the library are media and are not in the repository; the copies are made from fixtures that are.",
+ "result": {
+  "the_corpus": {
+   "streams": 55,
+   "streams_of_the_fba_syntax": 51,
+   "streams_of_the_fbb_syntax": 4,
+   "major_syncs": 71916,
+   "major_syncs_of_the_fbb_syntax": 38,
+   "flags_bits_set": {
+    "14": {
+     "major_syncs": 38,
+     "streams": 4,
+     "streams_of_the_fbb_syntax": 4
+    },
+    "12": {
+     "major_syncs": 68806,
+     "streams": 41,
+     "streams_of_the_fbb_syntax": 0
+    }
+   },
+   "the_first_major_sync_says_the_delay_is_constant": 0,
+   "the_first_major_sync_announces_heavy_drc": 0,
+   "streams_whose_modifiers_are_one_value_throughout": 51,
+   "the_modifier_of_each_presentation_by_its_channels": {
+    "two channels": [
+     {
+      "channels": "L R",
+      "modifier": "00",
+      "meaning": "stereo",
+      "streams": 43
+     },
+     {
+      "channels": "L R",
+      "modifier": "01",
+      "meaning": "Lt/Rt",
+      "streams": 8
+     }
+    ],
+    "six channels": [
+     {
+      "channels": "L R",
+      "modifier": "01",
+      "meaning": "Lt/Rt",
+      "streams": 3
+     },
+     {
+      "channels": "L R C LFE Ls Rs",
+      "modifier": "00",
+      "meaning": "not indicated",
+      "streams": 1
+     },
+     {
+      "channels": "L R C LFE Ls Rs",
+      "modifier": "01",
+      "meaning": "not Surround EX, Pro Logic IIx or Pro Logic IIz encoded",
+      "streams": 39
+     },
+     {
+      "channels": "L R C LFE Ls Rs",
+      "modifier": "10",
+      "meaning": "Surround EX or Pro Logic IIx encoded",
+      "streams": 8
+     }
+    ],
+    "eight channels": [
+     {
+      "channels": "L R",
+      "modifier": "01",
+      "meaning": "Lt/Rt",
+      "streams": 3
+     },
+     {
+      "channels": "L R C LFE Ls Rs",
+      "modifier": "00",
+      "meaning": "not indicated",
+      "streams": 1
+     },
+     {
+      "channels": "L R C LFE Ls Rs",
+      "modifier": "01",
+      "meaning": "not Surround EX, Pro Logic IIx or Pro Logic IIz encoded",
+      "streams": 4
+     },
+     {
+      "channels": "L R C LFE Ls Rs Lb Rb",
+      "modifier": "00",
+      "meaning": null,
+      "streams": 43
+     }
+    ]
+   },
+   "major_syncs_with_the_type_of_six_channels_set": 0,
+   "major_syncs_with_the_type_of_eight_channels_set": 0,
+   "eight_channel_presentations_with_a_channel_beyond_five_and_one": {
+    "streams": 43,
+    "of_them_modifier_00": 43
+   },
+   "the_delay_through_the_decoder_buffer": {
+    "streams_the_model_placed": 55,
+    "streams_whose_delay_is_one_value": 8,
+    "of_them_of_the_fbb_syntax": 4,
+    "of_them_saying_so_in_flags_bit_15": 0
+   },
+   "what_the_rules_found": {
+    "buffer.latency_not_constant": {
+     "streams": 0,
+     "findings": 0
+    },
+    "sync.reserved_bits": {
+     "streams": 0,
+     "findings": 0
+    }
+   }
+  },
+  "the_library": {
+   "what_was_read": "the first 60 seconds of each track, cut with `ffmpeg -c copy`",
+   "titles": 141,
+   "tracks_not_clean": 0,
+   "tracks": 157,
+   "tracks_of_the_fba_syntax": 157,
+   "tracks_of_the_fbb_syntax": 0,
+   "major_syncs": 92101,
+   "major_syncs_of_the_fbb_syntax": 0,
+   "flags_bits_set": {
+    "12": {
+     "major_syncs": 77449,
+     "tracks": 137,
+     "tracks_of_the_fbb_syntax": 0
+    }
+   },
+   "the_first_major_sync_says_the_delay_is_constant": 0,
+   "the_first_major_sync_announces_heavy_drc": 0,
+   "tracks_whose_modifiers_are_one_value_throughout": 157,
+   "the_modifier_of_each_presentation_by_its_channels": {
+    "two channels": [
+     {
+      "channels": "L R",
+      "modifier": "00",
+      "meaning": "stereo",
+      "tracks": 146
+     },
+     {
+      "channels": "L R",
+      "modifier": "01",
+      "meaning": "Lt/Rt",
+      "tracks": 11
+     }
+    ],
+    "six channels": [
+     {
+      "channels": "L R",
+      "modifier": "00",
+      "meaning": "stereo",
+      "tracks": 1
+     },
+     {
+      "channels": "L R C LFE Ls Rs",
+      "modifier": "01",
+      "meaning": "not Surround EX, Pro Logic IIx or Pro Logic IIz encoded",
+      "tracks": 119
+     },
+     {
+      "channels": "L R C LFE Ls Rs",
+      "modifier": "10",
+      "meaning": "Surround EX or Pro Logic IIx encoded",
+      "tracks": 37
+     }
+    ],
+    "eight channels": [
+     {
+      "channels": "L R",
+      "modifier": "00",
+      "meaning": "stereo",
+      "tracks": 1
+     },
+     {
+      "channels": "L R C LFE Ls Rs",
+      "modifier": "01",
+      "meaning": "not Surround EX, Pro Logic IIx or Pro Logic IIz encoded",
+      "tracks": 16
+     },
+     {
+      "channels": "L R C LFE Ls Rs Lb Rb",
+      "modifier": "00",
+      "meaning": null,
+      "tracks": 140
+     }
+    ]
+   },
+   "major_syncs_with_the_type_of_six_channels_set": 0,
+   "major_syncs_with_the_type_of_eight_channels_set": 0,
+   "eight_channel_presentations_with_a_channel_beyond_five_and_one": {
+    "tracks": 140,
+    "of_them_modifier_00": 140
+   },
+   "the_delay_through_the_decoder_buffer": {
+    "tracks_the_model_placed": 157,
+    "tracks_whose_delay_is_one_value": 1,
+    "of_them_of_the_fbb_syntax": 0,
+    "of_them_saying_so_in_flags_bit_15": 0
+   },
+   "what_the_rules_found": {
+    "buffer.latency_not_constant": {
+     "tracks": 0,
+     "findings": 0
+    },
+    "sync.reserved_bits": {
+     "tracks": 0,
+     "findings": 0
+    }
+   }
+  },
+  "copies_of_three_fixtures": {
+   "the_fixtures_as_they_are": {
+    "Dolby's encoder, with objects": {
+     "the_delay_by_a_second_reading_of_the_timing_fields": {
+      "units": 2400,
+      "major_syncs": 22,
+      "delay_samples": {
+       "min": 40,
+       "max": 3580
+      },
+      "changes": 1042
+     },
+     "verify": "exit 0, nothing said, before the change and after",
+     "info_after_the_change": [
+      "Channel modifiers: 2ch 0 (stereo), 6ch 1 (not Surround EX, Pro Logic IIx or Pro Logic IIz encoded), 8ch 0"
+     ]
+    },
+    "FFmpeg's TrueHD encoder": {
+     "the_delay_by_a_second_reading_of_the_timing_fields": {
+      "units": 111,
+      "major_syncs": 7,
+      "delay_samples": {
+       "min": 40,
+       "max": 40
+      },
+      "changes": 0
+     },
+     "verify": "exit 0, nothing said, before the change and after",
+     "info_after_the_change": [
+      "Channel modifiers: 2ch 1 (Lt/Rt), 6ch 1 (Lt/Rt), 8ch 1 (Lt/Rt)"
+     ]
+    },
+    "FFmpeg's MLP encoder, FBB": {
+     "the_delay_by_a_second_reading_of_the_timing_fields": {
+      "units": 221,
+      "major_syncs": 14,
+      "delay_samples": {
+       "min": 40,
+       "max": 40
+      },
+      "changes": 0
+     },
+     "verify": "exit 0, nothing said, before the change and after",
+     "info_after_the_change": []
+    }
+   },
+   "copies": [
+    {
+     "of_the_fixture_written_by": "Dolby's encoder, with objects",
+     "copy": "flags bit 15, the constant delay, in every major sync",
+     "main_before_the_change": "verify exit 0, nothing said; the samples of the fixture",
+     "the_change": {
+      "verify": "exit 0, buffer.latency_not_constant x1042, units 1 to 2399: 40 samples in the buffer, 115 the unit before",
+      "decode": "exit 0, the samples of the fixture",
+      "info": [
+       "Buffer delay:     constant, the major sync says (flags bit 15)",
+       "Channel modifiers: 2ch 0 (stereo), 6ch 1 (not Surround EX, Pro Logic IIx or Pro Logic IIz encoded), 8ch 0"
+      ]
+     },
+     "the_delay_by_a_second_reading_of_the_timing_fields": {
+      "units": 2400,
+      "second_major_sync_at_unit": 125,
+      "delay_samples": {
+       "min": 40,
+       "max": 3580
+      },
+      "changes": 1042,
+      "first_change": [
+       1,
+       115,
+       40
+      ],
+      "last_change": [
+       2399,
+       58,
+       66
+      ],
+      "changes_before_the_second_major_sync": 4
+     }
+    },
+    {
+     "of_the_fixture_written_by": "Dolby's encoder, with objects",
+     "copy": "flags bit 15 in the first major sync alone",
+     "main_before_the_change": "verify exit 0, nothing said; the samples of the fixture",
+     "the_change": {
+      "verify": "exit 0, buffer.latency_not_constant x4, units 1 to 124: 40 samples in the buffer, 115 the unit before",
+      "decode": "exit 0, the samples of the fixture",
+      "info": [
+       "Buffer delay:     constant, the major sync says (flags bit 15)",
+       "Channel modifiers: 2ch 0 (stereo), 6ch 1 (not Surround EX, Pro Logic IIx or Pro Logic IIz encoded), 8ch 0"
+      ]
+     },
+     "the_delay_by_a_second_reading_of_the_timing_fields": {
+      "units": 2400,
+      "second_major_sync_at_unit": 125,
+      "delay_samples": {
+       "min": 40,
+       "max": 3580
+      },
+      "changes": 1042,
+      "first_change": [
+       1,
+       115,
+       40
+      ],
+      "last_change": [
+       2399,
+       58,
+       66
+      ],
+      "changes_before_the_second_major_sync": 4
+     }
+    },
+    {
+     "of_the_fixture_written_by": "Dolby's encoder, with objects",
+     "copy": "the last bit of flags, which has no meaning, in the first major sync",
+     "main_before_the_change": "verify exit 0, nothing said; the samples of the fixture",
+     "the_change": {
+      "verify": "exit 0, sync.reserved_bits x1, units 0 to 0: flags 0x0001",
+      "decode": "exit 0, the samples of the fixture",
+      "info": [
+       "Channel modifiers: 2ch 0 (stereo), 6ch 1 (not Surround EX, Pro Logic IIx or Pro Logic IIz encoded), 8ch 0"
+      ]
+     }
+    },
+    {
+     "of_the_fixture_written_by": "Dolby's encoder, with objects",
+     "copy": "flags bit 14, which is of the FBB syntax, in the first major sync",
+     "main_before_the_change": "verify exit 0, nothing said; the samples of the fixture",
+     "the_change": {
+      "verify": "exit 0, sync.reserved_bits x1, units 0 to 0: flags 0x4000",
+      "decode": "exit 0, the samples of the fixture",
+      "info": [
+       "Channel modifiers: 2ch 0 (stereo), 6ch 1 (not Surround EX, Pro Logic IIx or Pro Logic IIz encoded), 8ch 0"
+      ]
+     }
+    },
+    {
+     "of_the_fixture_written_by": "Dolby's encoder, with objects",
+     "copy": "the channel modifiers 01, 10 and 11 and the type of six channels, in every major sync",
+     "main_before_the_change": "verify exit 0, nothing said; the samples of the fixture",
+     "the_change": {
+      "verify": "exit 0, nothing said",
+      "decode": "exit 0, the samples of the fixture",
+      "info": [
+       "Channel modifiers: 2ch 1 (Lt/Rt), 6ch 2 (Surround EX or Pro Logic IIx encoded), 8ch 3"
+      ]
+     }
+    },
+    {
+     "of_the_fixture_written_by": "FFmpeg's TrueHD encoder",
+     "copy": "flags bit 15 in every major sync",
+     "main_before_the_change": "verify exit 0, nothing said; the samples of the fixture",
+     "the_change": {
+      "verify": "exit 0, nothing said",
+      "decode": "exit 0, the samples of the fixture",
+      "info": [
+       "Buffer delay:     constant, the major sync says (flags bit 15)",
+       "Channel modifiers: 2ch 1 (Lt/Rt), 6ch 1 (Lt/Rt), 8ch 1 (Lt/Rt)"
+      ]
+     },
+     "the_delay_by_a_second_reading_of_the_timing_fields": {
+      "units": 111,
+      "second_major_sync_at_unit": 16,
+      "delay_samples": {
+       "min": 40,
+       "max": 40
+      },
+      "changes": 0,
+      "first_change": null,
+      "last_change": null,
+      "changes_before_the_second_major_sync": 0
+     }
+    },
+    {
+     "of_the_fixture_written_by": "FFmpeg's TrueHD encoder",
+     "copy": "flags bit 15 in every major sync, and unit 5 a sample early",
+     "main_before_the_change": "verify exit 0, nothing said; the samples of the fixture",
+     "the_change": {
+      "verify": "exit 0, buffer.latency_not_constant x2, units 5 to 6: 41 samples in the buffer, 40 the unit before",
+      "decode": "exit 0, the samples of the fixture",
+      "info": [
+       "Buffer delay:     constant, the major sync says (flags bit 15)",
+       "Channel modifiers: 2ch 1 (Lt/Rt), 6ch 1 (Lt/Rt), 8ch 1 (Lt/Rt)"
+      ]
+     },
+     "the_delay_by_a_second_reading_of_the_timing_fields": {
+      "units": 111,
+      "second_major_sync_at_unit": 16,
+      "delay_samples": {
+       "min": 40,
+       "max": 41
+      },
+      "changes": 2,
+      "first_change": [
+       5,
+       40,
+       41
+      ],
+      "last_change": [
+       6,
+       41,
+       40
+      ],
+      "changes_before_the_second_major_sync": 2
+     }
+    },
+    {
+     "of_the_fixture_written_by": "FFmpeg's TrueHD encoder",
+     "copy": "unit 5 a sample early, and nothing said",
+     "main_before_the_change": "verify exit 0, nothing said; the samples of the fixture",
+     "the_change": {
+      "verify": "exit 0, nothing said",
+      "decode": "exit 0, the samples of the fixture",
+      "info": [
+       "Channel modifiers: 2ch 1 (Lt/Rt), 6ch 1 (Lt/Rt), 8ch 1 (Lt/Rt)"
+      ]
+     },
+     "the_delay_by_a_second_reading_of_the_timing_fields": {
+      "units": 111,
+      "second_major_sync_at_unit": 16,
+      "delay_samples": {
+       "min": 40,
+       "max": 41
+      },
+      "changes": 2,
+      "first_change": [
+       5,
+       40,
+       41
+      ],
+      "last_change": [
+       6,
+       41,
+       40
+      ],
+      "changes_before_the_second_major_sync": 2
+     }
+    },
+    {
+     "of_the_fixture_written_by": "FFmpeg's MLP encoder, FBB",
+     "copy": "flags bit 15 in every major sync of an FBB stream, and unit 5 a sample early",
+     "main_before_the_change": "verify exit 0, nothing said; the samples of the fixture",
+     "the_change": {
+      "verify": "exit 0, nothing said",
+      "decode": "exit 0, the samples of the fixture",
+      "info": []
+     },
+     "the_delay_by_a_second_reading_of_the_timing_fields": {
+      "units": 221,
+      "second_major_sync_at_unit": 16,
+      "delay_samples": {
+       "min": 40,
+       "max": 41
+      },
+      "changes": 2,
+      "first_change": [
+       5,
+       40,
+       41
+      ],
+      "last_change": [
+       6,
+       41,
+       40
+      ],
+      "changes_before_the_second_major_sync": 2
+     }
+    }
+   ],
+   "reading": "the rule fires as often as the delay changes by a reading of the timing fields that is not the decoder's, at the units that reading names; a stream that keeps its delay is not found, nor one that does not say it does, nor an FBB stream, of which the bit is not read"
+  },
+  "the_copies_of_the_first_fixture_in_three_other_decoders": {
+   "asked_for": "the eight-channel presentation; truehdd with --strict",
+   "copies": [
+    {
+     "copy": "flags bit 15, the constant delay, in every major sync",
+     "FFmpeg": "the samples it gives of the fixture",
+     "truehdd": "exit 4, 40 of 96000 samples: Error: Parse error: Parse error at frame 1: FIFO 0 latency must be constant when bit 15 of flags is set",
+     "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+    },
+    {
+     "copy": "flags bit 15 in the first major sync alone",
+     "FFmpeg": "the samples it gives of the fixture",
+     "truehdd": "exit 4, 40 of 96000 samples: Error: Parse error: Parse error at frame 1: FIFO 0 latency must be constant when bit 15 of flags is set",
+     "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+    },
+    {
+     "copy": "the last bit of flags, which has no meaning, in the first major sync",
+     "FFmpeg": "the samples it gives of the fixture",
+     "truehdd": "exit 4, 0 of 96000 samples: Error: Parse error: Parse error at frame 0: Reserved bits in flags should be 0. Read 0x1001",
+     "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+    },
+    {
+     "copy": "flags bit 14, which is of the FBB syntax, in the first major sync",
+     "FFmpeg": "the samples it gives of the fixture",
+     "truehdd": "exit 4, 0 of 96000 samples: Error: Parse error: Parse error at frame 0: Bit 14 of flags marks the syntax: it must be clear in an FBA stream and set in an FBB one. Read 0x5000",
+     "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+    },
+    {
+     "copy": "the channel modifiers 01, 10 and 11 and the type of six channels, in every major sync",
+     "FFmpeg": "the samples it gives of the fixture",
+     "truehdd": "the samples it gives of the fixture",
+     "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+    }
+   ],
+   "reading": "the Dolby decoder and FFmpeg play every copy as they play the fixture: none of these fields moves a sample. truehdd in its strict mode refuses the copies that say their delay is constant, at the unit where it first is not, and the ones with a bit of `flags` it calls reserved; it plays the one with other modifiers"
+  },
+  "the_campaign": {
+   "seed": 0,
+   "rounds": 200000,
+   "clauses_broken": 0,
+   "panics": 0,
+   "kinds_of_answers": {
+    "main": 31,
+    "the_change": 31
+   },
+   "every_command_clean": {
+    "main": 27517,
+    "the_change": 27517
+   },
+   "rounds_whose_answers_moved": 0,
+   "answers_that_moved": {}
+  },
+  "a_run_over_the_corpus_before_and_after": {
+   "streams": 131,
+   "streams_changed": 0,
+   "fields_added": [
+    "info: constant_delay_declared",
+    "info: format_info",
+    "info: heavy_drc_announced",
+    "info: heavy_drc_updates",
+    "info: presentations[0].modifier",
+    "info: presentations[0].modifier_meaning",
+    "info: presentations[1].modifier",
+    "info: presentations[1].modifier_meaning",
+    "info: presentations[2].modifier",
+    "info: presentations[2].modifier_meaning",
+    "info: presentations[3].modifier",
+    "info: presentations[3].modifier_meaning"
+   ],
+   "lines_added": [
+    "info: Channel modifiers"
+   ],
+   "lines_of_reports_compared": 8743,
+   "fields_of_reports_compared": 55962,
+   "bytes_of_deliveries_compared": 104361687447,
+   "reading": "no line `info` printed before is gone or changed and no field has another value: the lines and the fields listed are new",
+   "the_media_suite": {
+    "passed": 30,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "mutations": {
+   "of_the_files_the_change_touches": 85,
+   "new_with_the_change": 42,
+   "survive": [],
+   "caught_by_a_test_that_failed": 85,
+   "each_new_one": [
+    {
+     "mutation": "any two channels of eight read as the main pair",
+     "caught_by": [
+      "sync::tests::a_channel_modifier_is_read_by_the_table_its_presentation_selects"
+     ]
+    },
+    {
+     "mutation": "the six-channel presentation asked for Ls and Rs alone",
+     "caught_by": [
+      "sync::tests::a_channel_modifier_is_read_by_the_table_its_presentation_selects"
+     ]
+    },
+    {
+     "mutation": "Lt/Rt and Lbin/Rbin changing places",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "the modifier of six channels read where that of eight is",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "bit 14 of flags read as the bit of a constant delay",
+     "caught_by": [
+      "a_delay_said_to_be_constant_is_held_to_it",
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "bit 14 of flags not among the bits an FBA major sync reserves",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "a delay that shortens not found as a change",
+     "caught_by": [
+      "a_delay_said_to_be_constant_is_held_to_it"
+     ]
+    },
+    {
+     "mutation": "what the major sync says of the delay not handed to the buffer model",
+     "caught_by": [
+      "a_delay_said_to_be_constant_is_held_to_it"
+     ]
+    },
+    {
+     "mutation": "the bits of flags without a meaning not among the bits a major sync reserves",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "a delay that is not constant failing a stream",
+     "caught_by": [
+      "the_catalog_names_every_rule_and_refuses_an_unknown_one"
+     ]
+    },
+    {
+     "mutation": "info counting the heavy DRC updates of the first substream for all four",
+     "caught_by": [
+      "info_says_when_a_heavy_dynamic_range_control_is_announced"
+     ]
+    },
+    {
+     "mutation": "info --json saying the delay is constant where heavy DRC is announced",
+     "caught_by": [
+      "info_says_when_a_heavy_dynamic_range_control_is_announced"
+     ]
+    },
+    {
+     "mutation": "info --json giving the modifier of two channels as that of six",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "info --json giving every presentation the modifier of the first",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "the modifier of the two-channel presentation read by the table of surrounds",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "two surrounds alone read by the table of three channels or more",
+     "caught_by": [
+      "sync::tests::a_channel_modifier_is_read_by_the_table_its_presentation_selects"
+     ]
+    },
+    {
+     "mutation": "back channels not keeping the modifier of eight channels from a meaning",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "nothing indicated read as not matrix encoded",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "a channel modifier read of an FBB major sync",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "the bit of a constant delay read of an FBB major sync",
+     "caught_by": [
+      "a_delay_said_to_be_constant_is_held_to_it"
+     ]
+    },
+    {
+     "mutation": "the last bit of flags not among the bits a major sync reserves",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "the delay of the unit before not kept",
+     "caught_by": [
+      "a_delay_said_to_be_constant_is_held_to_it"
+     ]
+    },
+    {
+     "mutation": "a delay that is not constant filed as one under a frame",
+     "caught_by": [
+      "a_delay_said_to_be_constant_is_held_to_it"
+     ]
+    },
+    {
+     "mutation": "the flags said whole where a reserved one is set",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "info naming the modifier of eight channels as that of six",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "info saying of every stream that its delay is constant",
+     "caught_by": [
+      "a_delay_said_to_be_constant_is_held_to_it"
+     ]
+    },
+    {
+     "mutation": "info --json announcing heavy DRC where the delay is said to be constant",
+     "caught_by": [
+      "info_says_when_a_heavy_dynamic_range_control_is_announced"
+     ]
+    },
+    {
+     "mutation": "info --json giving the type of six channels as that of eight",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "one channel of six read as two-channel content",
+     "caught_by": [
+      "sync::tests::a_channel_modifier_is_read_by_the_table_its_presentation_selects"
+     ]
+    },
+    {
+     "mutation": "a modifier given the meaning of surrounds without Ls and Rs",
+     "caught_by": [
+      "sync::tests::a_channel_modifier_is_read_by_the_table_its_presentation_selects"
+     ]
+    },
+    {
+     "mutation": "the low-frequency channel keeping the modifier of eight channels from a meaning",
+     "caught_by": [
+      "truehd_51_88k"
+     ]
+    },
+    {
+     "mutation": "Surround EX and Pro Logic IIz changing places",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "the meaning of a modifier said in the words of another",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "heavy DRC announced by the bit of the Evolution frames",
+     "caught_by": [
+      "info_says_when_a_heavy_dynamic_range_control_is_announced"
+     ]
+    },
+    {
+     "mutation": "a delay that changes found in a stream that does not say it is constant",
+     "caught_by": [
+      "a_delay_said_to_be_constant_is_held_to_it",
+      "a_reserved_bit_is_filed_and_changes_no_sample",
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "a stream held to a constant delay after its major sync says otherwise",
+     "caught_by": [
+      "a_delay_said_to_be_constant_is_held_to_it"
+     ]
+    },
+    {
+     "mutation": "the two delays of a change said in each other's place",
+     "caught_by": [
+      "a_delay_said_to_be_constant_is_held_to_it"
+     ]
+    },
+    {
+     "mutation": "the bits of the FBA syntax held against an FBB major sync",
+     "caught_by": [
+      "verify_has_nothing_to_say_of_any_recipe"
+     ]
+    },
+    {
+     "mutation": "info leaving the meaning of a modifier out of its line",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "info printing a heavy DRC nothing announces",
+     "caught_by": [
+      "info_says_when_a_heavy_dynamic_range_control_is_announced"
+     ]
+    },
+    {
+     "mutation": "info --json giving an FBB major sync a format_info",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    },
+    {
+     "mutation": "info --json leaving the meaning of a modifier out of a presentation",
+     "caught_by": [
+      "info_says_the_channel_modifiers_as_coded_and_as_meant"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 666 passed, 30 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "binaries": {
+  "main before the change": "8709de4d621a279e84c44d64e8e390a9148374b0cfdd87cf775ef0f7812ffc49",
+  "the change": "648378437ac7707e6d0ce781ff26e16c5e21a8ff6b5a75d523fa93039fca3d8c"
+ },
+ "reading": "No real stream says its delay is constant: none of 71916 major syncs of the corpus and none of 92101 of the library sets bit 15, and the only bits of `flags` any sets are 12, the Evolution frames, and in the FBB streams 14. So the rule has fired on copies alone, where it finds what a second reading of the timing fields counts. 8 streams of the corpus keep one delay throughout and none says so; in the library the first minute of 1 of 157 tracks has one delay. The modifiers are what the tables of the description make of them wherever they apply, and where the tables give them no meaning encoders write 00: all 43 eight-channel presentations of the corpus with a channel beyond five and one, and all 140 of the library. None of these fields moves a sample in this decoder, in FFmpeg or in the Dolby decoder."
+}
