@@ -8,6 +8,13 @@ Semantic Versioning.
 
 ### Added
 
+- **`tools/kernels.py` runs the kernels on cores of one kind.** It runs
+  `cargo bench -p oadec-bench` several times, bound with `--affinity` to the
+  processors of a mask, and gives every kernel as the least of the medians
+  of its runs with the largest beside it, marking a kernel whose runs are
+  far apart. The benchmark has three kernels more: the CRC-16 of the AC-3
+  family, the CRC-8 of a TrueHD substream segment and its parity, each over
+  a megabyte.
 - **What a major sync says of the stream, in `info`.** `format_info` has a
   modifier for each of the two-, six- and eight-channel presentations, which
   says what the channels hold: of two channels, stereo, Lt/Rt, a binaural
@@ -701,6 +708,21 @@ Semantic Versioning.
 
 ### Fixed
 
+- **The kernel figures of the performance baseline were of two kinds of
+  core.** `cargo bench -p oadec-bench` runs in one process, and on a
+  processor with fast and slow cores the system moves its thread to a slow
+  one some seconds in. The table of `docs/performance.md` was one such run:
+  its first four kernels were timed on a fast core and the other six on a
+  slow one, at 1.6 to 2.1 times what they take, with nothing in the run to
+  say so. The 12-channel TrueHD presentation takes 17 ms and not 33, the two
+  JOC filter banks 18 and 19 microseconds and not 37 and 39, and the
+  sentence that had the filter banks account for all of the object path was
+  wrong: they are a third to a little over a half of it. The table is
+  measured again bound to the fast cores, with the build of the baseline
+  measured three ways beside it. The figures of whole commands
+  (`tools/bench.py`) are not affected: five commands of a quarter of a
+  second to three seconds took the same time not bound as bound to the fast
+  cores (`docs/audit/evidence/engine-round-2026-11/38-kernels-on-cores-of-one-kind.json`).
 - **The summary of `sync.reserved_bits` named three of the four fields the
   rule files.** `oadec rules` and `docs/conformance-rules.md` left out the
   two low bits of `substream_info`. They name them now, with the bits of
