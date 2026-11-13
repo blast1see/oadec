@@ -1,0 +1,1228 @@
+{
+ "question": "Where does the AC-3 decoder spend the time of a frame, and what of it is spent on nothing: work whose result it already has, or that nobody reads?",
+ "method": "Timers were put around the stages of the decoder in a throwaway build and `verify` run over one stream of each kind; the shares are in `where_the_time_of_a_frame_went`. Three things stood out that change no sample. The bit allocation is fixed-point arithmetic of exponents and parameters, and it was computed for every channel in every block though four in five had the inputs of the one before: it is kept and written again. The record of a block, some twenty vectors, was made for every block and read by two inspection commands only: it is made where it is asked for. And a block decoded its coefficients into seven arrays and copied out the channels it had: it decodes where it hands them out. Each change is a commit and was measured against the one before it with `tools/bench.py --compare`, two binaries turn and turn about, five runs a command; then the three together against main, and beside FFmpeg (`--refs`). That no sample and no report changed was looked for in the reports and deliveries of both binaries over the corpus (`tools/old_new.py --decode-all`), in 320 damaged copies of the fixture, in the campaign of evidence 22 on main and on the change, and in what the two commands that read the record print and write. The streams of the corpus are media and are not in the repository.",
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "binaries": {
+  "main before the change": "0ed3a54c6ed83c7a80a992b59474fa0a4135f639d2dc25771752edb4c4143545",
+  "the change": "9174cd60bf9f6c0b29ca72c366fed2f4432fc0d2ac8dddf68c774952b87b37ad"
+ },
+ "result": {
+  "where_the_time_of_a_frame_went": {
+   "how": "timers around the stages in a throwaway build; the shares, not the milliseconds, are meant. The release of a frame is in the last row, and the vectors of the record were released there",
+   "on_main_before_the_change": {
+    "AC-3, 6 channels": {
+     "frames": 1875,
+     "bit_allocations": 78750,
+     "decode_ms_with_the_timers": 194.8,
+     "per_cent_of_the_decode": {
+      "bit allocation": 14.0,
+      "mantissas": 18.9,
+      "exponents": 1.1,
+      "spectral extension": 0.0,
+      "the record of the block": 2.6,
+      "the rest of a block (side information, coupling, rematrixing, the vectors it hands out)": 15.7,
+      "the CRC of the frame": 4.8,
+      "the rest of a frame before the transform": 0.6,
+      "the inverse transform": 32.9,
+      "the output vectors around the transform": 2.7,
+      "pre-noise processing, release and the rest": 6.6
+     }
+    },
+    "E-AC-3, 5.1": {
+     "frames": 3305,
+     "bit_allocations": 138809,
+     "decode_ms_with_the_timers": 314.5,
+     "per_cent_of_the_decode": {
+      "bit allocation": 13.2,
+      "mantissas": 19.5,
+      "exponents": 1.1,
+      "spectral extension": 0.0,
+      "the record of the block": 2.9,
+      "the rest of a block (side information, coupling, rematrixing, the vectors it hands out)": 12.5,
+      "the CRC of the frame": 2.8,
+      "the rest of a frame before the transform": 4.2,
+      "the inverse transform": 35.8,
+      "the output vectors around the transform": 2.9,
+      "pre-noise processing, release and the rest": 5.1
+     }
+    },
+    "E-AC-3, 7.1": {
+     "frames": 3750,
+     "bit_allocations": 112500,
+     "decode_ms_with_the_timers": 339.5,
+     "per_cent_of_the_decode": {
+      "bit allocation": 16.1,
+      "mantissas": 23.7,
+      "exponents": 1.2,
+      "spectral extension": 0.0,
+      "the record of the block": 2.9,
+      "the rest of a block (side information, coupling, rematrixing, the vectors it hands out)": 8.7,
+      "the CRC of the frame": 7.9,
+      "the rest of a frame before the transform": 0.7,
+      "the inverse transform": 31.4,
+      "the output vectors around the transform": 2.7,
+      "pre-noise processing, release and the rest": 4.5
+     }
+    }
+   },
+   "after_the_change": {
+    "AC-3, 6 channels": {
+     "frames": 1875,
+     "bit_allocations": 78750,
+     "decode_ms_with_the_timers": 150.0,
+     "per_cent_of_the_decode": {
+      "bit allocation": 4.9,
+      "mantissas": 23.9,
+      "exponents": 1.4,
+      "spectral extension": 0.0,
+      "the record of the block": 0.0,
+      "the rest of a block (side information, coupling, rematrixing, the vectors it hands out)": 9.2,
+      "the CRC of the frame": 6.3,
+      "the rest of a frame before the transform": 0.9,
+      "the inverse transform": 46.5,
+      "the output vectors around the transform": 3.6,
+      "pre-noise processing, release and the rest": 3.2
+     }
+    },
+    "E-AC-3, 5.1": {
+     "frames": 3305,
+     "bit_allocations": 138809,
+     "decode_ms_with_the_timers": 253.6,
+     "per_cent_of_the_decode": {
+      "bit allocation": 5.8,
+      "mantissas": 24.3,
+      "exponents": 1.4,
+      "spectral extension": 0.0,
+      "the record of the block": 0.0,
+      "the rest of a block (side information, coupling, rematrixing, the vectors it hands out)": 9.5,
+      "the CRC of the frame": 3.6,
+      "the rest of a frame before the transform": 2.9,
+      "the inverse transform": 45.6,
+      "the output vectors around the transform": 3.7,
+      "pre-noise processing, release and the rest": 3.3
+     }
+    },
+    "E-AC-3, 7.1": {
+     "frames": 3750,
+     "bit_allocations": 112500,
+     "decode_ms_with_the_timers": 302.9,
+     "per_cent_of_the_decode": {
+      "bit allocation": 4.6,
+      "mantissas": 26.0,
+      "exponents": 1.4,
+      "spectral extension": 0.0,
+      "the record of the block": 0.0,
+      "the rest of a block (side information, coupling, rematrixing, the vectors it hands out)": 4.7,
+      "the CRC of the frame": 9.4,
+      "the rest of a frame before the transform": 0.9,
+      "the inverse transform": 47.2,
+      "the output vectors around the transform": 3.0,
+      "pre-noise processing, release and the rest": 2.8
+     }
+    }
+   }
+  },
+  "allocations_that_had_the_inputs_of_the_one_before": {
+   "how": "a counter in the throwaway build of the change, over `verify` of one stream of each kind: the allocations asked for and the ones given again from what was kept",
+   "streams": {
+    "E-AC-3, 5.1, a lower rate": {
+     "allocations_asked_for": 138800,
+     "given_again": 109990,
+     "per_cent": 79.2
+    },
+    "AC-3, 2 channels": {
+     "allocations_asked_for": 35136,
+     "given_again": 27645,
+     "per_cent": 78.7
+    },
+    "AC-3, 6 channels": {
+     "allocations_asked_for": 78750,
+     "given_again": 65041,
+     "per_cent": 82.6
+    },
+    "E-AC-3, 5.1": {
+     "allocations_asked_for": 138809,
+     "given_again": 108838,
+     "per_cent": 78.4
+    },
+    "E-AC-3, 7.1": {
+     "allocations_asked_for": 112500,
+     "given_again": 92991,
+     "per_cent": 82.7
+    }
+   },
+   "per_cent": {
+    "least": 78.4,
+    "most": 82.7
+   }
+  },
+  "each_change_by_itself": {
+   "steps": [
+    {
+     "change": "the bit allocation of a channel kept while its inputs stay",
+     "against": "the binary of main",
+     "streams": "one of each kind",
+     "runs_a_command": 5,
+     "a_command_that_reads_or_decodes_the_channels": {
+      "least": 0.882,
+      "most": 0.938,
+      "measurements": 8,
+      "faster_by_the_verdict_of_the_tool": 8,
+      "slower_by_the_verdict_of_the_tool": 0,
+      "widest_spread_of_a_side": 0.0182
+     },
+     "the_object_formats_of_the_family": {
+      "least": 0.998,
+      "most": 1.009,
+      "measurements": 2,
+      "faster_by_the_verdict_of_the_tool": 0,
+      "slower_by_the_verdict_of_the_tool": 0,
+      "widest_spread_of_a_side": 0.0098
+     },
+     "the_truehd_control": {
+      "least": 0.978,
+      "most": 1.001,
+      "measurements": 11,
+      "faster_by_the_verdict_of_the_tool": 0,
+      "slower_by_the_verdict_of_the_tool": 0,
+      "widest_spread_of_a_side": 0.023
+     },
+     "the_object_files_of_the_truehd_control": {
+      "least": 0.976,
+      "most": 0.996,
+      "measurements": 2,
+      "faster_by_the_verdict_of_the_tool": 0,
+      "slower_by_the_verdict_of_the_tool": 0,
+      "widest_spread_of_a_side": 0.0243
+     }
+    },
+    {
+     "change": "the record of a block made only where it is asked for",
+     "against": "the binary of the change before it",
+     "streams": "one of each kind",
+     "runs_a_command": 5,
+     "a_command_that_reads_or_decodes_the_channels": {
+      "least": 0.916,
+      "most": 0.969,
+      "measurements": 8,
+      "faster_by_the_verdict_of_the_tool": 7,
+      "slower_by_the_verdict_of_the_tool": 0,
+      "widest_spread_of_a_side": 0.0247
+     },
+     "the_object_formats_of_the_family": {
+      "least": 0.986,
+      "most": 0.987,
+      "measurements": 2,
+      "faster_by_the_verdict_of_the_tool": 0,
+      "slower_by_the_verdict_of_the_tool": 0,
+      "widest_spread_of_a_side": 0.0107
+     },
+     "the_truehd_control": {
+      "least": 0.988,
+      "most": 1.008,
+      "measurements": 11,
+      "faster_by_the_verdict_of_the_tool": 0,
+      "slower_by_the_verdict_of_the_tool": 0,
+      "widest_spread_of_a_side": 0.0183
+     },
+     "the_object_files_of_the_truehd_control": {
+      "least": 1.011,
+      "most": 1.378,
+      "measurements": 2,
+      "faster_by_the_verdict_of_the_tool": 0,
+      "slower_by_the_verdict_of_the_tool": 1,
+      "widest_spread_of_a_side": 0.0962
+     }
+    },
+    {
+     "change": "the coefficients of a block decoded where they are handed out",
+     "against": "the binary of the change before it",
+     "streams": "one of each kind",
+     "runs_a_command": 5,
+     "a_command_that_reads_or_decodes_the_channels": {
+      "least": 0.813,
+      "most": 0.948,
+      "measurements": 8,
+      "faster_by_the_verdict_of_the_tool": 8,
+      "slower_by_the_verdict_of_the_tool": 0,
+      "widest_spread_of_a_side": 0.0566
+     },
+     "the_object_formats_of_the_family": {
+      "least": 1.048,
+      "most": 1.225,
+      "measurements": 2,
+      "faster_by_the_verdict_of_the_tool": 0,
+      "slower_by_the_verdict_of_the_tool": 0,
+      "widest_spread_of_a_side": 0.1896
+     },
+     "the_truehd_control": {
+      "least": 0.986,
+      "most": 1.009,
+      "measurements": 11,
+      "faster_by_the_verdict_of_the_tool": 0,
+      "slower_by_the_verdict_of_the_tool": 0,
+      "widest_spread_of_a_side": 0.0308
+     },
+     "the_object_files_of_the_truehd_control": {
+      "least": 0.899,
+      "most": 1.012,
+      "measurements": 2,
+      "faster_by_the_verdict_of_the_tool": 0,
+      "slower_by_the_verdict_of_the_tool": 0,
+      "widest_spread_of_a_side": 0.2355
+     }
+    }
+   ],
+   "a_command_that_reads_or_decodes_the_channels": {
+    "measurements": 24,
+    "faster_by_the_verdict_of_the_tool": 23,
+    "the_rest": "within the spread of its runs"
+   },
+   "reading": "The object files of the TrueHD control went through none of the code that changed, and one of them measured 38 per cent slower in the run of the second change: a file of some hundreds of megabytes written to a disk. The object formats are not a measurement of these changes."
+  },
+  "the_three_together": {
+   "runs_a_command": 5,
+   "measurements": [
+    {
+     "stream": "ac3-1, 125 s, 3000000 bytes",
+     "command": "decode (2 ch) pcm",
+     "times_real_time": {
+      "before": 791.6,
+      "after": 957.1
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.075,
+      "after": 0.06
+     },
+     "spread": {
+      "before": 0.0165,
+      "after": 0.011
+     },
+     "after_over_before": 0.827,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "ac3-1, 125 s, 3000000 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 840.0,
+      "after": 1013.7
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.067,
+      "after": 0.06
+     },
+     "spread": {
+      "before": 0.0004,
+      "after": 0.0074
+     },
+     "after_over_before": 0.829,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "ac3-2, 60 s, 3360000 bytes",
+     "command": "decode (6 ch) pcm",
+     "times_real_time": {
+      "before": 298.5,
+      "after": 396.6
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.203,
+      "after": 0.141
+     },
+     "spread": {
+      "before": 0.0129,
+      "after": 0.0048
+     },
+     "after_over_before": 0.753,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "ac3-2, 60 s, 3360000 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 318.8,
+      "after": 428.9
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.188,
+      "after": 0.141
+     },
+     "spread": {
+      "before": 0.0016,
+      "after": 0.0017
+     },
+     "after_over_before": 0.743,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-1, 106 s, 5076480 bytes",
+     "command": "decode (6 ch) pcm",
+     "times_real_time": {
+      "before": 321.9,
+      "after": 412.8
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.186,
+      "after": 0.151
+     },
+     "spread": {
+      "before": 0.0076,
+      "after": 0.0041
+     },
+     "after_over_before": 0.78,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-1, 106 s, 5076480 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 340.5,
+      "after": 445.9
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.168,
+      "after": 0.133
+     },
+     "spread": {
+      "before": 0.001,
+      "after": 0.0018
+     },
+     "after_over_before": 0.764,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-2, 106 s, 2538240 bytes",
+     "command": "decode (6 ch) pcm",
+     "times_real_time": {
+      "before": 344.0,
+      "after": 438.8
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.168,
+      "after": 0.133
+     },
+     "spread": {
+      "before": 0.0018,
+      "after": 0.0031
+     },
+     "after_over_before": 0.784,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-2, 106 s, 2538240 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 378.9,
+      "after": 481.6
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.16,
+      "after": 0.124
+     },
+     "spread": {
+      "before": 0.0077,
+      "after": 0.0064
+     },
+     "after_over_before": 0.787,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-7.1-1, 60 s, 12480000 bytes",
+     "command": "decode (8 ch) pcm",
+     "times_real_time": {
+      "before": 170.1,
+      "after": 218.3
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.359,
+      "after": 0.266
+     },
+     "spread": {
+      "before": 0.0104,
+      "after": 0.0014
+     },
+     "after_over_before": 0.779,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-7.1-1, 60 s, 12480000 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 174.5,
+      "after": 230.3
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.344,
+      "after": 0.25
+     },
+     "spread": {
+      "before": 0.0368,
+      "after": 0.0195
+     },
+     "after_over_before": 0.757,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-7.1-2, 60 s, 11520000 bytes",
+     "command": "decode (8 ch) pcm",
+     "times_real_time": {
+      "before": 166.8,
+      "after": 212.5
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.359,
+      "after": 0.281
+     },
+     "spread": {
+      "before": 0.0035,
+      "after": 0.0054
+     },
+     "after_over_before": 0.785,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-7.1-2, 60 s, 11520000 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 176.6,
+      "after": 225.1
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.328,
+      "after": 0.266
+     },
+     "spread": {
+      "before": 0.0087,
+      "after": 0.0027
+     },
+     "after_over_before": 0.785,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "joc-1, 106 s, 5076480 bytes",
+     "command": "decode (6 ch) pcm",
+     "times_real_time": {
+      "before": 296.5,
+      "after": 373.2
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.195,
+      "after": 0.16
+     },
+     "spread": {
+      "before": 0.0051,
+      "after": 0.0056
+     },
+     "after_over_before": 0.795,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "joc-1, 106 s, 5076480 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 314.8,
+      "after": 400.6
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.195,
+      "after": 0.151
+     },
+     "spread": {
+      "before": 0.0049,
+      "after": 0.0043
+     },
+     "after_over_before": 0.786,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "joc-1, 106 s, 5076480 bytes",
+     "command": "decode damf",
+     "times_real_time": {
+      "before": 38.2,
+      "after": 38.0
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.294,
+      "after": 1.25
+     },
+     "spread": {
+      "before": 0.0159,
+      "after": 0.0248
+     },
+     "after_over_before": 1.004,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "joc-1, 106 s, 5076480 bytes",
+     "command": "decode adm",
+     "times_real_time": {
+      "before": 44.9,
+      "after": 47.2
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.276,
+      "after": 1.232
+     },
+     "spread": {
+      "before": 0.0497,
+      "after": 0.0293
+     },
+     "after_over_before": 0.952,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "joc-2, 60 s, 11520000 bytes",
+     "command": "decode (8 ch) pcm",
+     "times_real_time": {
+      "before": 160.0,
+      "after": 202.0
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.375,
+      "after": 0.297
+     },
+     "spread": {
+      "before": 0.0061,
+      "after": 0.0064
+     },
+     "after_over_before": 0.792,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "joc-2, 60 s, 11520000 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 164.0,
+      "after": 212.6
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.359,
+      "after": 0.281
+     },
+     "spread": {
+      "before": 0.0056,
+      "after": 0.0016
+     },
+     "after_over_before": 0.771,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "joc-2, 60 s, 11520000 bytes",
+     "command": "decode damf",
+     "times_real_time": {
+      "before": 27.9,
+      "after": 32.6
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.891,
+      "after": 1.828
+     },
+     "spread": {
+      "before": 0.0582,
+      "after": 0.0051
+     },
+     "after_over_before": 0.858,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "joc-2, 60 s, 11520000 bytes",
+     "command": "decode adm",
+     "times_real_time": {
+      "before": 32.1,
+      "after": 33.2
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.859,
+      "after": 1.781
+     },
+     "spread": {
+      "before": 0.0104,
+      "after": 0.0065
+     },
+     "after_over_before": 0.965,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "truehd-8ch-1, 30 s, 24837264 bytes",
+     "command": "decode -p 0 (2 ch) pcm",
+     "times_real_time": {
+      "before": 141.7,
+      "after": 143.1
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.625,
+      "after": 0.594
+     },
+     "spread": {
+      "before": 0.0068,
+      "after": 0.006
+     },
+     "after_over_before": 0.99,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-8ch-1, 30 s, 24837264 bytes",
+     "command": "decode -p 1 (6 ch) pcm",
+     "times_real_time": {
+      "before": 120.9,
+      "after": 121.5
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.906,
+      "after": 0.906
+     },
+     "spread": {
+      "before": 0.0035,
+      "after": 0.0032
+     },
+     "after_over_before": 0.995,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-8ch-1, 30 s, 24837264 bytes",
+     "command": "decode -p 2 (8 ch) pcm",
+     "times_real_time": {
+      "before": 104.4,
+      "after": 104.9
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.0,
+      "after": 1.0
+     },
+     "spread": {
+      "before": 0.0085,
+      "after": 0.0071
+     },
+     "after_over_before": 0.996,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-8ch-1, 30 s, 24837264 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 142.0,
+      "after": 143.5
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.406,
+      "after": 0.406
+     },
+     "spread": {
+      "before": 0.0143,
+      "after": 0.0048
+     },
+     "after_over_before": 0.99,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-8ch-1, 30 s, 24837264 bytes",
+     "command": "verify --decode",
+     "times_real_time": {
+      "before": 35.7,
+      "after": 35.3
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.688,
+      "after": 1.656
+     },
+     "spread": {
+      "before": 0.005,
+      "after": 0.0046
+     },
+     "after_over_before": 1.012,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "decode -p 0 (2 ch) pcm",
+     "times_real_time": {
+      "before": 276.2,
+      "after": 276.7
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.337,
+      "after": 0.328
+     },
+     "spread": {
+      "before": 0.0017,
+      "after": 0.0028
+     },
+     "after_over_before": 0.998,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "decode -p 1 (6 ch) pcm",
+     "times_real_time": {
+      "before": 212.3,
+      "after": 213.0
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.496,
+      "after": 0.505
+     },
+     "spread": {
+      "before": 0.0127,
+      "after": 0.0018
+     },
+     "after_over_before": 0.996,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "decode -p 2 (8 ch) pcm",
+     "times_real_time": {
+      "before": 158.3,
+      "after": 159.2
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.585,
+      "after": 0.603
+     },
+     "spread": {
+      "before": 0.012,
+      "after": 0.0045
+     },
+     "after_over_before": 0.995,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "decode -p 3 (12 ch) pcm",
+     "times_real_time": {
+      "before": 94.0,
+      "after": 95.3
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.851,
+      "after": 0.842
+     },
+     "spread": {
+      "before": 0.0058,
+      "after": 0.0026
+     },
+     "after_over_before": 0.987,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 277.0,
+      "after": 275.7
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.222,
+      "after": 0.213
+     },
+     "spread": {
+      "before": 0.0013,
+      "after": 0.0045
+     },
+     "after_over_before": 1.005,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "verify --decode",
+     "times_real_time": {
+      "before": 37.1,
+      "after": 36.9
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.622,
+      "after": 1.614
+     },
+     "spread": {
+      "before": 0.0048,
+      "after": 0.0058
+     },
+     "after_over_before": 1.004,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "decode damf",
+     "times_real_time": {
+      "before": 71.6,
+      "after": 81.4
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.94,
+      "after": 0.94
+     },
+     "spread": {
+      "before": 0.1386,
+      "after": 0.0109
+     },
+     "after_over_before": 0.881,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "decode adm",
+     "times_real_time": {
+      "before": 59.4,
+      "after": 68.3
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.922,
+      "after": 0.931
+     },
+     "spread": {
+      "before": 0.1649,
+      "after": 0.1727
+     },
+     "after_over_before": 0.87,
+     "verdict_of_the_tool": "same"
+    }
+   ],
+   "a_command_that_reads_or_decodes_the_channels_takes_of_the_time_it_took": {
+    "least_per_cent": 74,
+    "most_per_cent": 83,
+    "measurements": 16,
+    "faster_by_the_verdict_of_the_tool": 16
+   },
+   "the_object_formats_of_the_family": {
+    "least": 0.858,
+    "most": 1.004,
+    "measurements": 4,
+    "faster_by_the_verdict_of_the_tool": 1,
+    "slower_by_the_verdict_of_the_tool": 0,
+    "widest_spread_of_a_side": 0.0582,
+    "processor_time_after_over_before": {
+     "least": 0.958,
+     "most": 0.967
+    },
+    "reading": "the filter banks of the objects are most of their time, and they are written to a disk, which moves a measurement by more than these changes do"
+   },
+   "the_truehd_control": {
+    "least": 0.987,
+    "most": 1.012,
+    "measurements": 11,
+    "faster_by_the_verdict_of_the_tool": 0,
+    "slower_by_the_verdict_of_the_tool": 0,
+    "widest_spread_of_a_side": 0.0143,
+    "reading": "TrueHD decodes through other code: where it was"
+   },
+   "the_object_files_of_the_truehd_control": {
+    "least": 0.87,
+    "most": 0.881,
+    "measurements": 2,
+    "faster_by_the_verdict_of_the_tool": 0,
+    "slower_by_the_verdict_of_the_tool": 0,
+    "widest_spread_of_a_side": 0.1727,
+    "processor_time_after_over_before": {
+     "least": 1.0,
+     "most": 1.01
+    },
+    "reading": "the same code before and after, the same processor time, and a wall time that moved by more than a tenth: the disk"
+   }
+  },
+  "beside_ffmpeg_after_the_change": {
+   "streams": [
+    {
+     "stream": "ac3-1, 125 s",
+     "times_real_time": {
+      "this decoder": 911.7,
+      "FFmpeg": 1673.3
+     },
+     "ffmpeg_faster_by": 1.84
+    },
+    {
+     "stream": "ac3-2, 60 s",
+     "times_real_time": {
+      "this decoder": 392.9,
+      "FFmpeg": 931.7
+     },
+     "ffmpeg_faster_by": 2.37
+    },
+    {
+     "stream": "eac3-1, 106 s",
+     "times_real_time": {
+      "this decoder": 410.9,
+      "FFmpeg": 982.9
+     },
+     "ffmpeg_faster_by": 2.39
+    },
+    {
+     "stream": "eac3-2, 106 s",
+     "times_real_time": {
+      "this decoder": 444.7,
+      "FFmpeg": 1136.0
+     },
+     "ffmpeg_faster_by": 2.55
+    },
+    {
+     "stream": "eac3-7.1-1, 60 s",
+     "times_real_time": {
+      "this decoder": 219.2,
+      "FFmpeg": 574.2
+     },
+     "ffmpeg_faster_by": 2.62
+    },
+    {
+     "stream": "eac3-7.1-2, 60 s",
+     "times_real_time": {
+      "this decoder": 212.6,
+      "FFmpeg": 546.0
+     },
+     "ffmpeg_faster_by": 2.57
+    },
+    {
+     "stream": "joc-1, 106 s",
+     "times_real_time": {
+      "this decoder": 365.2,
+      "FFmpeg": 1019.9
+     },
+     "ffmpeg_faster_by": 2.79
+    },
+    {
+     "stream": "joc-2, 60 s",
+     "times_real_time": {
+      "this decoder": 200.9,
+      "FFmpeg": 570.3
+     },
+     "ffmpeg_faster_by": 2.84
+    }
+   ],
+   "ffmpeg_faster_by": {
+    "least": 1.84,
+    "most": 2.84
+   },
+   "before": "evidence 36 had FFmpeg 2.13 to 3.44 times faster, and the baseline of evidence 08 4.7 to 6.8 on E-AC-3"
+  },
+  "the_two_commands_that_read_the_record": {
+   "binaries": {
+    "before": "0ed3a54c6ed83c7a80a992b59474fa0a4135f639d2dc25771752edb4c4143545",
+    "after": "9174cd60bf9f6c0b29ca72c366fed2f4432fc0d2ac8dddf68c774952b87b37ad"
+   },
+   "eac3-blocks": {
+    "runs": 126,
+    "of": "every frame of the fixture, with and without --detail",
+    "lines_printed": 13356,
+    "the_same_bytes": true
+   },
+   "eac3-ecpl-inject": {
+    "says": "enhanced coupling injected into 63 of 63 frames (0 copied unchanged, 0 sync errors, 0 bytes skipped)",
+    "bytes_written": 127466,
+    "the_same_bytes": true
+   }
+  },
+  "damaged_copies_of_the_fixture": {
+   "seed": 2,
+   "copies": 320,
+   "copies_that_differ": 0,
+   "compared": "the exit code of `verify --json` and its report without the two fields that are a time; the exit code of `decode --format pcm` and the bytes it wrote"
+  },
+  "the_campaign": {
+   "seed": 0,
+   "rounds": 200000,
+   "clauses_broken": 0,
+   "panics": 0,
+   "kinds_of_answers": {
+    "main": 31,
+    "the_change": 31
+   },
+   "every_command_clean": {
+    "main": 27517,
+    "the_change": 27517
+   },
+   "rounds_whose_answers_moved": 0,
+   "answers_that_moved": {}
+  },
+  "a_run_over_the_corpus_before_and_after": {
+   "streams": 131,
+   "streams_changed": 0,
+   "fields_added": [],
+   "lines_added": [],
+   "lines_of_reports_compared": 8794,
+   "fields_of_reports_compared": 57144,
+   "bytes_of_deliveries_compared": 104361687447,
+   "the_media_suite": {
+    "passed": 30,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "mutations": {
+   "of_the_files_the_change_touches": 130,
+   "new_with_the_change": 20,
+   "the_first_run": {
+    "mutations": 130,
+    "caught_by_a_test_that_failed": 128,
+    "survived": [
+     {
+      "mutation": "an exponent the routine does not read making it compute again",
+      "what_it_was": "no hole in the tests. The mutant kept the exponents of every bin and not only of the ones a channel allocates, and the routine compares the bins it allocates whatever else is kept beside them: it computed again in no case the routine does not. A mutation that changes nothing is no mutation, and it is replaced by one that widens the comparison to the bins before the first.",
+      "replaced_by": "an exponent before the bins a channel allocates making the routine compute again"
+     },
+     {
+      "mutation": "the LFE decoded over the last full-bandwidth channel",
+      "what_it_was": "a hole. No test that runs without media looked at the samples of a decoded E-AC-3 stream, and the LFE of the fixture is silent, so a decoder that put it over the right surround passed every one of them. `the_fixture_decodes_to_the_levels_it_gave` holds each of the six channels of the fixture to its level and its peak."
+     }
+    ]
+   },
+   "the_two_run_again_on_the_final_tree": [
+    {
+     "mutation": "an exponent before the bins a channel allocates making the routine compute again",
+     "caught_by": [
+      "bitalloc::tests::an_allocation_kept_is_the_one_computed"
+     ]
+    },
+    {
+     "mutation": "the LFE decoded over the last full-bandwidth channel",
+     "caught_by": [
+      "the_fixture_decodes_to_the_levels_it_gave"
+     ]
+    }
+   ],
+   "survive": [],
+   "reading": "The first run was of the tree before the test of the levels was written. What came after it is a test, a mutation written again and documents, and no line of what the other 128 mutate, so a test that failed for one of them fails for it still.",
+   "each_new_one": [
+    {
+     "mutation": "an allocation given again though the parameters are others",
+     "caught_by": [
+      "bitalloc::tests::an_allocation_kept_is_the_one_computed"
+     ]
+    },
+    {
+     "mutation": "an allocation given again though it begins at another bin",
+     "caught_by": [
+      "bitalloc::tests::an_allocation_kept_is_the_one_computed"
+     ]
+    },
+    {
+     "mutation": "an allocation given again though it ends at another bin",
+     "caught_by": [
+      "bitalloc::tests::an_allocation_kept_is_the_one_computed"
+     ]
+    },
+    {
+     "mutation": "an allocation given again though the fast gain is another",
+     "caught_by": [
+      "bitalloc::tests::an_allocation_kept_is_the_one_computed"
+     ]
+    },
+    {
+     "mutation": "an allocation given again though the SNR offset is another",
+     "caught_by": [
+      "bitalloc::tests::an_allocation_kept_is_the_one_computed"
+     ]
+    },
+    {
+     "mutation": "an allocation given again though the leak is another",
+     "caught_by": [
+      "bitalloc::tests::an_allocation_kept_is_the_one_computed"
+     ]
+    },
+    {
+     "mutation": "an allocation given again though the delta is another",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "an allocation given again though the pointer table is the other",
+     "caught_by": [
+      "bitalloc::tests::an_allocation_kept_is_the_one_computed"
+     ]
+    },
+    {
+     "mutation": "an allocation given again though the exponents are others",
+     "caught_by": [
+      "eac3::tests::the_joc_sequence_counter_is_followed_from_payload_to_payload"
+     ]
+    },
+    {
+     "mutation": "an allocation kept without its last exponent",
+     "caught_by": [
+      "bitalloc::tests::an_allocation_kept_is_the_one_computed"
+     ]
+    },
+    {
+     "mutation": "an exponent before the bins a channel allocates making the routine compute again",
+     "caught_by": [
+      "bitalloc::tests::an_allocation_kept_is_the_one_computed"
+     ]
+    },
+    {
+     "mutation": "an allocation that is kept not written to the pointers asked for",
+     "caught_by": [
+      "bitalloc::tests::an_allocation_kept_is_the_one_computed"
+     ]
+    },
+    {
+     "mutation": "an allocation computed and not kept",
+     "caught_by": [
+      "eac3::tests::a_block_keeps_its_record_only_where_it_is_asked_for",
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group",
+      "eac3::tests::a_stale_element_size_is_a_warning_filed_at_its_frame"
+     ]
+    },
+    {
+     "mutation": "an allocation of no bins taking the place of the one kept",
+     "caught_by": [
+      "bitalloc::tests::an_allocation_kept_is_the_one_computed"
+     ]
+    },
+    {
+     "mutation": "the record of a block made for every decode",
+     "caught_by": [
+      "eac3::tests::a_block_keeps_its_record_only_where_it_is_asked_for"
+     ]
+    },
+    {
+     "mutation": "the record of a block made for nobody",
+     "caught_by": [
+      "eac3::tests::a_block_keeps_its_record_only_where_it_is_asked_for"
+     ]
+    },
+    {
+     "mutation": "the LFE decoded over the last full-bandwidth channel",
+     "caught_by": [
+      "the_fixture_decodes_to_the_levels_it_gave"
+     ]
+    },
+    {
+     "mutation": "a place for the LFE in a block of a stream that has none",
+     "caught_by": [
+      "decode_writes_the_samples_of_every_ac3_recipe",
+      "the_commands_on_the_ac3_probes",
+      "verify_has_nothing_to_say_of_any_ac3_recipe"
+     ]
+    },
+    {
+     "mutation": "the blocks printed without their records",
+     "caught_by": [
+      "the_commands_that_go_by_the_record_of_a_block_ask_for_it"
+     ]
+    },
+    {
+     "mutation": "the coupling rewritten from frames parsed without their records",
+     "caught_by": [
+      "the_commands_that_go_by_the_record_of_a_block_ask_for_it"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 673 passed, 30 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "reading": "A command of the AC-3 family that reads or decodes the channels takes 74 to 83 per cent of the time it took on main, with no sample and no report changed: the decoder computed allocations it had, made records nobody read, and decoded into arrays it then copied out of. FFmpeg decodes the same streams 1.84 to 2.84 times faster than the change. What is left is the inverse transform and the reading of the mantissas, which are work and not waste. The mutations found that nothing in the tests that run everywhere looked at a decoded E-AC-3 sample, and one does now."
+}

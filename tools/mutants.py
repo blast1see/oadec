@@ -1943,6 +1943,111 @@ MUTANTS = [
      'crates/oadec-cli/src/eac3.rs',
      '    let read = from.read(&mut buf[held..])?;',
      '    let read = from.read(&mut buf[..])?;'),
+    # --- the AC-3 core, faster and to the same samples ----------------------------
+    # A bit allocation is kept and given again where its inputs are the ones it
+    # was computed from; the record of a block is made where it is asked for;
+    # the coefficients of a block are decoded where they are handed out.
+    ('an allocation given again though the parameters are others',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''            from.params == *params
+                && from.start == start''',
+     '''            from.start == start'''),
+    ('an allocation given again though it begins at another bin',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''                && from.start == start
+                && from.end == end''',
+     '''                && from.end == end'''),
+    ('an allocation given again though it ends at another bin',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''                && from.end == end
+                && from.fgain == fgain''',
+     '''                && from.fgain == fgain'''),
+    ('an allocation given again though the fast gain is another',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''                && from.fgain == fgain
+                && from.snroffset == snroffset''',
+     '''                && from.snroffset == snroffset'''),
+    ('an allocation given again though the SNR offset is another',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''                && from.snroffset == snroffset
+                && from.leak == leak''',
+     '''                && from.leak == leak'''),
+    ('an allocation given again though the leak is another',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''                && from.leak == leak
+                && from.dba.as_ref() == dba''',
+     '''                && from.dba.as_ref() == dba'''),
+    ('an allocation given again though the delta is another',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''                && from.dba.as_ref() == dba
+                && from.high_efficiency == high_efficiency''',
+     '''                && from.high_efficiency == high_efficiency'''),
+    ('an allocation given again though the pointer table is the other',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''                && from.high_efficiency == high_efficiency
+                && from.exps[start..end] == exps[start..end]''',
+     '''                && from.exps[start..end] == exps[start..end]'''),
+    ('an allocation given again though the exponents are others',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''                && from.high_efficiency == high_efficiency
+                && from.exps[start..end] == exps[start..end]''',
+     '''                && from.high_efficiency == high_efficiency'''),
+    ('an allocation kept without its last exponent',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '                && from.exps[start..end] == exps[start..end]',
+     '                && from.exps[start..end - 1] == exps[start..end - 1]'),
+    ('an exponent before the bins a channel allocates making the routine compute again',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '                && from.exps[start..end] == exps[start..end]',
+     '                && from.exps[..end] == exps[..end]'),
+    ('an allocation that is kept not written to the pointers asked for',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''        if kept {
+            bap[start..end].copy_from_slice(&self.bap[start..end]);
+            return false;''',
+     '''        if kept {
+            return false;'''),
+    ('an allocation computed and not kept',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''        self.bap[start..end].copy_from_slice(&bap[start..end]);
+        let mut of_the_bins = [0u8; 256];''',
+     '''        let mut of_the_bins = [0u8; 256];'''),
+    ('an allocation of no bins taking the place of the one kept',
+     'crates/oadec-eac3/src/bitalloc.rs',
+     '''        if start >= end {
+            // nothing is allocated, and nothing is kept of it
+            return false;
+        }
+        let kept''',
+     '''        let kept'''),
+    ('the record of a block made for every decode',
+     'crates/oadec-eac3/src/frame.rs',
+     'let info = self.opts.block_info.then(|| self.block_info(blk));',
+     'let info = Some(self.block_info(blk));'),
+    ('the record of a block made for nobody',
+     'crates/oadec-eac3/src/frame.rs',
+     'let info = self.opts.block_info.then(|| self.block_info(blk));',
+     'let info = self.opts.block_info.then(|| self.block_info(blk)).filter(|_| false);'),
+    ('the LFE decoded over the last full-bandwidth channel',
+     'crates/oadec-eac3/src/frame.rs',
+     '        let lfe_at = nf;',
+     '        let lfe_at = nf - 1;'),
+    ('a place for the LFE in a block of a stream that has none',
+     'crates/oadec-eac3/src/frame.rs',
+     'vec![[0.0f64; N]; nf + usize::from(self.lfe)];',
+     'vec![[0.0f64; N]; nf + 1];'),
+    ('the blocks printed without their records',
+     'crates/oadec-cli/src/eac3.rs',
+     '''        let with_records = Options {
+            block_info: true,''',
+     '''        let with_records = Options {
+            block_info: false,'''),
+    ('the coupling rewritten from frames parsed without their records',
+     'crates/oadec-cli/src/ecpl_inject.rs',
+     '''        let with_records = Options {
+            block_info: true,''',
+     '''        let with_records = Options {
+            block_info: false,'''),
 ]
 
 
