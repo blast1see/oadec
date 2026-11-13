@@ -248,6 +248,70 @@ MUTANTS = [
      'crates/oadec-bits/src/crc.rs',
      'pub const CRC8_SUBSTREAM_INIT: u8 = 0xA2;',
      'pub const CRC8_SUBSTREAM_INIT: u8 = 0xA3;'),
+    ('the byte of a CRC-8 through the table of two bytes',
+     'crates/oadec-bits/src/crc.rs',
+     'self.slices[0][crc as usize] ^ byte',
+     'self.slices[1][crc as usize] ^ byte'),
+    ('the byte of a CRC-16 through the table of two bytes',
+     'crates/oadec-bits/src/crc.rs',
+     'self.slices[0][(crc >> 8) as usize] ^ (crc << 8) ^ (byte as u16)',
+     'self.slices[1][(crc >> 8) as usize] ^ (crc << 8) ^ (byte as u16)'),
+    ('every table of a step of the CRC-8 the byte table',
+     'crates/oadec-bits/src/crc.rs',
+     'slices[k][i] = table[slices[k - 1][i] as usize];',
+     'slices[k][i] = table[i];'),
+    ('the register a step of the CRC-8 began with, lost',
+     'crates/oadec-bits/src/crc.rs',
+     '''            crc = t[7][crc as usize]
+                ^ t[6][b[0] as usize]''',
+     '''            crc = t[6][b[0] as usize]'''),
+    ('the first byte of a step of the CRC-8 through the table of the second',
+     'crates/oadec-bits/src/crc.rs',
+     '                ^ t[6][b[0] as usize]',
+     '                ^ t[5][b[0] as usize]'),
+    ('a step of the CRC-8 without its last byte',
+     'crates/oadec-bits/src/crc.rs',
+     '''                ^ t[0][b[6] as usize]
+                ^ b[7];''',
+     '''                ^ t[0][b[6] as usize];'''),
+    ('the bytes after the last whole step of a CRC-8 left out',
+     'crates/oadec-bits/src/crc.rs',
+     '''                ^ b[7];
+        }
+        for &b in rest {
+            crc = self.update_byte(crc, b);
+        }''',
+     '''                ^ b[7];
+        }
+        let _ = rest;'''),
+    ('the tables of a step of the CRC-16 without the half that stays in the register',
+     'crates/oadec-bits/src/crc.rs',
+     'slices[k][i] = table[(r >> 8) as usize] ^ (r << 8);',
+     'slices[k][i] = table[(r >> 8) as usize];'),
+    ('the two halves of the register of a CRC-16 through the tables of each other',
+     'crates/oadec-bits/src/crc.rs',
+     '''            crc = t[7][(crc >> 8) as usize]
+                ^ t[6][(crc & 0xFF) as usize]''',
+     '''            crc = t[6][(crc >> 8) as usize]
+                ^ t[7][(crc & 0xFF) as usize]'''),
+    ('the first byte of a step of the CRC-16 through the table of the second',
+     'crates/oadec-bits/src/crc.rs',
+     '                ^ t[5][b[0] as usize]',
+     '                ^ t[4][b[0] as usize]'),
+    ('the seventh byte of a step of the CRC-16 in the low half of the register',
+     'crates/oadec-bits/src/crc.rs',
+     '                ^ (u16::from(b[6]) << 8)',
+     '                ^ u16::from(b[6])'),
+    ('the bytes after the last whole step of a CRC-16 left out',
+     'crates/oadec-bits/src/crc.rs',
+     '''                ^ u16::from(b[7]);
+        }
+        for &b in rest {
+            crc = self.update_byte(crc, b);
+        }''',
+     '''                ^ u16::from(b[7]);
+        }
+        let _ = rest;'''),
     ('the DAMF y coordinate, front and back swapped',
      'crates/oadec-spatial/src/program.rs',
      '    [(p[0] - 0.5) * 2.0, (0.5 - p[1]) * 2.0, p[2]]',
