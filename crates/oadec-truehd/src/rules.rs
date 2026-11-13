@@ -36,6 +36,8 @@ const CENSUS: &str =
     "docs/audit/evidence/verification-upgrade-2026-11/04-integrity-rule-census.json";
 const PROTECTION: &str =
     "docs/audit/evidence/verification-upgrade-2026-11/05-protection-census.json";
+const DECLARED: &str =
+    "docs/audit/evidence/engine-round-2026-11/33-what-an-evolution-frame-declares.json";
 const FIFO: &str = "docs/audit/evidence/verification-upgrade-2026-11/06-fifo-model.json";
 const DISC: &str = "docs/audit/evidence/verification-upgrade-2026-11/07-disc-formats.json";
 
@@ -329,6 +331,23 @@ oadec_diag::catalog! {
         legacy: None,
         summary: "an Evolution container codes its primary protection length as 00, which ETSI TS 102 366 reserves",
         provenance: [spec(TS_102_366, "H.2.2.4.1, Table H.2.5"), measured(PROTECTION)],
+    },
+    /// An Evolution container of another syntax version.
+    EvoSyntaxVersion {
+        id: "evo.syntax_version",
+        severity: Info,
+        legacy: None,
+        summary: "an Evolution container declares a syntax version other than 0, the version of the syntax it is read by",
+        provenance: [spec(TS_102_366, "H.2.2.2.2"), measured(DECLARED)],
+    },
+    /// An Evolution container that declares another protection than the one
+    /// before it.
+    EvoProtectionChanged {
+        id: "evo.protection_changed",
+        severity: Info,
+        legacy: None,
+        summary: "an Evolution container declares another key identifier, or another length of a protection word, than the container before it: what is counted is what is declared, and no word is read",
+        provenance: [spec(TS_102_366, "H.2.2.2.3, H.2.2.4"), measured(DECLARED)],
     },
     /// A substream's depth in the decoder buffer.
     BufferSubstreamDepth {

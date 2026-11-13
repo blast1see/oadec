@@ -716,13 +716,37 @@ impl Scan {
                                 if !c.protection.primary.is_empty() {
                                     self.extra.protected_frames += 1;
                                 }
-                                self.extra.protection.take(&c);
+                                // What the container declares of itself, as the
+                                // pass over an AC-3 family stream files it for the
+                                // containers of its skip fields. The words are not
+                                // read.
+                                let changed = self.extra.protection.take(&c);
+                                if c.version != 0 {
+                                    self.diag.add(RuleId::EvoSyntaxVersion, at_extra, 1, || {
+                                        format!("evo_version {}", c.version)
+                                    });
+                                }
                                 if c.protection.primary_code == 0 {
                                     self.diag.add(
                                         RuleId::EvoProtectionReserved,
                                         at_extra,
                                         1,
                                         || "primary protection length coded 00".to_string(),
+                                    );
+                                }
+                                if changed {
+                                    self.diag.add(
+                                        RuleId::EvoProtectionChanged,
+                                        at_extra,
+                                        1,
+                                        || {
+                                            format!(
+                                                "key_id {}, protection words of {} and {} bytes",
+                                                c.key_id,
+                                                c.protection.primary.len(),
+                                                c.protection.secondary.len()
+                                            )
+                                        },
                                     );
                                 }
                                 for p in &c.payloads {

@@ -1278,3 +1278,210 @@ fn a_channel_order_is_refused_with_an_object_output() {
     }
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// What an Evolution frame declares of itself is counted, and what stands
+/// out is filed at its access unit: a syntax version other than 0, the
+/// reserved code for the length of its primary word, and a key identifier
+/// or a length of a word that the frame before did not declare. The first
+/// and the last are information and fail nothing; the reserved code is a
+/// warning, as it was. The frames are those of the fixture, with the bits
+/// that say these things changed and the parity of the extra data put
+/// right. The protection words are left as they were: nothing reads them.
+#[test]
+fn what_an_evolution_frame_declares_of_itself_is_filed_at_its_unit() {
+    let dir = temp("evo-declared");
+    let source = fixture("authored-scene.mlp");
+    let sound = std::fs::read(&source).unwrap();
+    // the access units that carry a frame, and where each frame begins: behind
+    // the header word of the extra data and the length word of the frame
+    let frames: Vec<(usize, usize, Vec<u8>)> = units(&source)
+        .iter()
+        .enumerate()
+        .filter_map(|(i, (unit, au))| {
+            let frame = au.extra.as_ref()?.evolution_frame()?;
+            Some((
+                i,
+                unit.offset as usize + au.segments_end() + 4,
+                frame.to_vec(),
+            ))
+        })
+        .collect();
+    let count = frames.len() as u64;
+    assert!(count >= 3, "{count} frames");
+    let middle = frames.len() / 2;
+    let (unit, at, frame) = frames[middle].clone();
+    let next_unit = frames[middle + 1].0;
+    assert_eq!(&sound[at..at + frame.len()], frame.as_slice());
+    let declared = oadec_emdf::container::parse_evolution(&frame).unwrap();
+    assert_eq!((declared.version, declared.key_id), (0, 0));
+    assert_eq!(
+        (
+            declared.protection.primary_code,
+            declared.protection.secondary_code
+        ),
+        (1, 0),
+        "a primary word of eight bits and no secondary one"
+    );
+
+    let verify = |name: &str, edit: &dyn Fn(&mut [u8])| {
+        let mut bytes = sound.clone();
+        edit(&mut bytes[at..at + frame.len()]);
+        let (repaired, _) = oadec_truehd::repair_stream(&mut bytes);
+        assert!(repaired.any(), "{name}: the parity of the extra data");
+        let file = dir.join(name);
+        std::fs::write(&file, &bytes).unwrap();
+        let out = oadec(&["verify", "--json", file.to_str().unwrap()]);
+        let report: serde_json::Value = serde_json::from_slice(&out.stdout)
+            .unwrap_or_else(|e| panic!("{name}: {e}: {}", stderr(&out)));
+        (out.status.code(), report, file)
+    };
+    let fired = |report: &serde_json::Value| -> Vec<(String, u64, String)> {
+        report["diagnostics"]["rules"]
+            .as_array()
+            .expect("the rules that fired")
+            .iter()
+            .map(|rule| {
+                (
+                    rule["id"].as_str().unwrap().to_string(),
+                    rule["count"].as_u64().unwrap(),
+                    rule["severity"].as_str().unwrap().to_string(),
+                )
+            })
+            .collect()
+    };
+    let rule = |report: &serde_json::Value, id: &str| -> serde_json::Value {
+        report["diagnostics"]["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|rule| rule["id"] == id)
+            .unwrap_or_else(|| panic!("{id} did not fire: {}", report["diagnostics"]))
+            .clone()
+    };
+
+    // as it is, the fixture declares one thing in every frame
+    let (code, report) = {
+        let out = oadec(&["verify", "--json", source.to_str().unwrap()]);
+        let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        (out.status.code(), report)
+    };
+    assert_eq!(code, Some(0));
+    assert!(fired(&report).is_empty(), "{}", report["diagnostics"]);
+    let p = &report["extra"]["protection"];
+    assert_eq!(p["containers"], count, "{p}");
+    assert_eq!(p["key_ids"], serde_json::json!({ "0": count }), "{p}");
+    assert_eq!(p["changes"], 0, "{p}");
+
+    // the key identifier is the three bits behind the two of the version
+    let (code, report, file) = verify("key.mlp", &|frame| frame[0] |= 5 << 3);
+    assert_eq!(code, Some(0), "{}", report["diagnostics"]);
+    let p = &report["extra"]["protection"];
+    assert_eq!(
+        p["key_ids"],
+        serde_json::json!({ "0": count - 1, "5": 1 }),
+        "{p}"
+    );
+    assert_eq!(p["changes"], 2, "into the frame and out of it: {p}");
+    assert_eq!(
+        fired(&report),
+        [("evo.protection_changed".to_string(), 2, "info".to_string())]
+    );
+    let changed = rule(&report, "evo.protection_changed");
+    assert_eq!(changed["first"]["unit"], unit, "{changed}");
+    assert_eq!(changed["last"]["unit"], next_unit, "{changed}");
+    assert_eq!(
+        changed["first_message"],
+        "key_id 5, protection words of 1 and 0 bytes"
+    );
+    assert!(changed["legacy_counter"].is_null(), "{changed}");
+    assert_eq!(report["diagnostics"]["worst"], "info");
+    let path = file.to_str().unwrap();
+    assert_eq!(
+        oadec(&["verify", "--fail-on", "info", path]).status.code(),
+        Some(7)
+    );
+    assert_eq!(
+        oadec(&["verify", "--fail-on", "warning", path])
+            .status
+            .code(),
+        Some(0)
+    );
+    let decoded = oadec(&[
+        "decode",
+        path,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "-o",
+        dir.join("key.pcm").to_str().unwrap(),
+    ]);
+    assert_eq!(decoded.status.code(), Some(0), "{}", stderr(&decoded));
+
+    // another syntax version is not another protection
+    let (code, report, _) = verify("version.mlp", &|frame| frame[0] |= 1 << 6);
+    assert_eq!(code, Some(0), "{}", report["diagnostics"]);
+    let p = &report["extra"]["protection"];
+    assert_eq!(
+        p["versions"],
+        serde_json::json!({ "0": count - 1, "1": 1 }),
+        "{p}"
+    );
+    assert_eq!(p["changes"], 0, "{p}");
+    assert_eq!(
+        fired(&report),
+        [("evo.syntax_version".to_string(), 1, "info".to_string())]
+    );
+    let version = rule(&report, "evo.syntax_version");
+    assert_eq!(version["first"]["unit"], unit, "{version}");
+    assert_eq!(version["first_message"], "evo_version 1");
+
+    // The two codes of the lengths stand before the words. No primary word
+    // and a secondary word of eight bits is as long as what the frame had,
+    // so nothing else of the frame moves; 00 for the primary length is the
+    // code the table reserves.
+    let codes = declared.protection.bits_offset - 4;
+    let (code, report, _) = verify("reserved.mlp", &|frame| {
+        for (i, bit) in [false, false, false, true].into_iter().enumerate() {
+            let p = codes + i;
+            let mask = 0x80u8 >> (p % 8);
+            if bit {
+                frame[p / 8] |= mask;
+            } else {
+                frame[p / 8] &= !mask;
+            }
+        }
+    });
+    assert_eq!(code, Some(0), "a warning: {}", report["diagnostics"]);
+    let p = &report["extra"]["protection"];
+    assert_eq!(p["reserved_primary_code"], 1, "{p}");
+    assert_eq!(
+        p["primary_bytes"],
+        serde_json::json!({ "0": 1, "1": count - 1 }),
+        "{p}"
+    );
+    assert_eq!(
+        p["secondary_bytes"],
+        serde_json::json!({ "0": count - 1, "1": 1 }),
+        "{p}"
+    );
+    assert_eq!(
+        fired(&report),
+        [
+            (
+                "evo.protection_reserved".to_string(),
+                1,
+                "warning".to_string()
+            ),
+            ("evo.protection_changed".to_string(), 2, "info".to_string()),
+        ]
+    );
+    let reserved = rule(&report, "evo.protection_reserved");
+    assert_eq!(reserved["first"]["unit"], unit, "{reserved}");
+    assert_eq!(
+        reserved["first_message"],
+        "primary protection length coded 00"
+    );
+    assert_eq!(report["diagnostics"]["worst"], "warning");
+    std::fs::remove_dir_all(&dir).ok();
+}

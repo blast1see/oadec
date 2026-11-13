@@ -548,3 +548,28 @@ branch or a change of reel is not in this count, and is why none of the five
 is more than information yet.
 
 Measured: `audit/evidence/engine-round-2026-11/31-ac3-census-rules.json`.
+
+### The same container in a TrueHD access unit
+
+The Evolution frame of a TrueHD access unit is this container without the
+sync word and the length a skip field puts before it, and it says the same
+three things of itself. `verify` has them as `extra.protection` and files
+three rules at the access unit: `evo.syntax_version` and
+`evo.protection_changed`, at `info` like the two of this family they mirror,
+and `evo.protection_reserved`, which is older and a warning. A test makes
+each of the three from the fixture, by changing the bits of one frame that
+say it and putting the parity of the extra data right; a frame with no
+primary word and a secondary word of eight bits is as long as the frame it
+was made from, so the reserved code can be shown with nothing else of the
+frame moved.
+
+The count is shorter than the one above, because there is one answer in it.
+In the corpus, 41 of 55 streams carry Evolution frames, 227 395 of them; in
+a library, the first minute of 137 of 157 TrueHD tracks does, 256 309
+frames. Every frame of every one names key identifier 0, a primary word of
+one byte and no secondary word, at version 0, and none declares anything
+else than the frame before it. The key identifier 1 that half of the E-AC-3
+streams name is in no TrueHD stream. So none of the three rules has fired on
+a real stream; each would mark one whose frames changed hands.
+
+Measured: `audit/evidence/engine-round-2026-11/33-what-an-evolution-frame-declares.json`.

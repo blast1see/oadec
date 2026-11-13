@@ -200,6 +200,7 @@ follow the one before it, and a metadata container that declares another
 syntax version, the reserved length of its primary word, or another key or
 word length than the container before it
 ([`eac3.md`](eac3.md#what-a-metadata-container-declares-and-the-joc-sequence-counter)).
+The Evolution frames of a TrueHD stream are filed the same way.
 `--fail-on fatal` passes a stream whose only faults
 left it readable, which for the AC-3 family is every stream that has a frame,
 since none of its rules is fatal. `--max-per-rule` changes what is listed and

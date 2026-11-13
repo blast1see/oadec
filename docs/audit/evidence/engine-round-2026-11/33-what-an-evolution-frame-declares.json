@@ -1,0 +1,161 @@
+{
+ "question": "What do the Evolution frames of a TrueHD stream declare of themselves, and what is it worth as a rule?",
+ "method": "An Evolution frame is the metadata container of ETSI TS 102 366 Annex H as a TrueHD access unit carries it, without the sync word and the length an E-AC-3 skip field puts before it. It declares the version of its syntax, a key identifier and the lengths of two protection words (clauses H.2.2.2.2, H.2.2.2.3, H.2.2.4.1 and H.2.2.4.2). `verify` has counted these since evidence 05 of the verification upgrade and filed one rule, the reserved length code, which had a test and no mutation. It files two more now, at `info`: a version other than 0, and a frame that declares another key identifier or word length than the frame before it. The words themselves are keyed, their computation is not public, and nothing here reads one. `tools/rule_census.py` ran `verify --json` over the streams of the corpus; `tools/sweep.py` ran it over the first minute of every TrueHD and MLP track of a library. The streams are media and are not in the repository.",
+ "result": {
+  "the_corpus": {
+   "streams_of_the_family": 55,
+   "streams_with_evolution_frames": 41,
+   "frames": 227395,
+   "streams_by_key_identifier": {
+    "0": 41
+   },
+   "streams_by_primary_word_bytes": {
+    "1": 41
+   },
+   "streams_by_secondary_word_bytes": {
+    "0": 41
+   },
+   "streams_by_version": {
+    "0": 41
+   },
+   "streams_that_name_two_keys": 0,
+   "frames_with_the_reserved_primary_length": 0,
+   "frames_declaring_another_key_or_length_than_the_one_before": 0,
+   "what_each_rule_found": {
+    "evo.syntax_version": {
+     "streams": 0,
+     "findings": 0
+    },
+    "evo.protection_reserved": {
+     "streams": 0,
+     "findings": 0
+    },
+    "evo.protection_changed": {
+     "streams": 0,
+     "findings": 0
+    }
+   }
+  },
+  "the_library": {
+   "what_was_read": "the first 60 seconds of each track, cut with `ffmpeg -c copy`",
+   "titles": 141,
+   "tracks": 157,
+   "tracks_by_codec": {
+    "truehd": 157
+   },
+   "tracks_not_clean": 0,
+   "tracks_with_evolution_frames": 137,
+   "frames": 256309,
+   "tracks_by_key_identifier": {
+    "0": 137
+   },
+   "tracks_by_primary_word_bytes": {
+    "1": 137
+   },
+   "tracks_by_secondary_word_bytes": {
+    "0": 137
+   },
+   "tracks_by_version": {
+    "0": 137
+   },
+   "tracks_that_name_two_keys": 0,
+   "frames_with_the_reserved_primary_length": 0,
+   "frames_declaring_another_key_or_length_than_the_one_before": 0,
+   "what_each_rule_found": {
+    "evo.syntax_version": {
+     "tracks": 0,
+     "findings": 0
+    },
+    "evo.protection_reserved": {
+     "tracks": 0,
+     "findings": 0
+    },
+    "evo.protection_changed": {
+     "tracks": 0,
+     "findings": 0
+    }
+   },
+   "other_rules_that_fired": []
+  },
+  "what_a_test_makes_of_the_fixture": {
+   "another key identifier in one frame": "evo.protection_changed twice, into the frame and out of it; exit 0, and 7 at --fail-on info",
+   "another syntax version in one frame": "evo.syntax_version once; no change of protection",
+   "no primary word and a secondary word of eight bits": "evo.protection_reserved once, a warning as it was, and evo.protection_changed twice; the frame is as long as it was",
+   "how": "the bits of one frame of the fixture changed and the parity of its extra data put right; the protection words left as they were"
+  },
+  "a_run_over_the_corpus_before_and_after": {
+   "streams": 131,
+   "streams_changed": 0,
+   "fields_added": [],
+   "lines_added": [],
+   "lines_of_reports_compared": 8743,
+   "fields_of_reports_compared": 55962,
+   "bytes_of_deliveries_compared": 104361687447,
+   "the_media_suite": {
+    "passed": 30,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "mutations": {
+   "of_the_files_the_change_touches": 18,
+   "new_with_the_change": 6,
+   "survive": [],
+   "caught_by_a_test_that_failed": 18,
+   "each_new_one": [
+    {
+     "mutation": "the Evolution frames of a stream not counted for what they declare",
+     "caught_by": [
+      "a_reserved_protection_length_is_reported",
+      "the_protection_the_containers_declare_is_reported"
+     ]
+    },
+    {
+     "mutation": "an Evolution frame of another syntax version not filed",
+     "caught_by": [
+      "what_an_evolution_frame_declares_of_itself_is_filed_at_its_unit"
+     ]
+    },
+    {
+     "mutation": "the rule about another key of an Evolution frame weighing as a warning",
+     "caught_by": [
+      "the_catalog_names_every_rule_and_refuses_an_unknown_one"
+     ]
+    },
+    {
+     "mutation": "an Evolution frame that declares another key counted and not filed",
+     "caught_by": [
+      "what_an_evolution_frame_declares_of_itself_is_filed_at_its_unit"
+     ]
+    },
+    {
+     "mutation": "the reserved length of an Evolution frame filed for every frame but the one that codes it",
+     "caught_by": [
+      "what_an_evolution_frame_declares_of_itself_is_filed_at_its_unit"
+     ]
+    },
+    {
+     "mutation": "the rule about another syntax version of an Evolution frame failing a stream",
+     "caught_by": [
+      "the_catalog_names_every_rule_and_refuses_an_unknown_one"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 656 passed, 30 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "binaries": {
+  "main before the change": "fd9450baf52fcf831791f4b4ee5db41a7493caa50f2bdc29431b31bf3c403ec6",
+  "the change": "0bc16bf6c8ee809ce8db173be7e4ffd6a9055c84b181465e41939382612e4020"
+ },
+ "reading": "One thing, from the first frame to the last: over 227395 frames of the corpus and 256309 of the library not one declares another key identifier or another length of a word than the frame before it, none codes the reserved length, and none is of another syntax version. The key identifier of the library tracks: 0 on 137. So the two new rules have never fired on a real stream, and neither has the one that was there; all three would mark a stream whose frames changed hands, and stay where they are, two at `info` and the reserved length at `warning`. A minute is the head of a track; what a whole one does at a seamless branch is not in this count."
+}
