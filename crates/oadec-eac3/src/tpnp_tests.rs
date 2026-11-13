@@ -34,6 +34,18 @@ fn run(frames: usize, len: usize, transients: &[(usize, usize, usize)]) -> Vec<f
     out
 }
 
+/// Where the transient a frame of 1 536 samples codes at `loc` is, in the
+/// samples as they are pushed: counted from one block into the frame.
+fn transient(frame: usize, loc: usize) -> usize {
+    frame * 1536 + ORIGIN as usize + loc
+}
+
+/// The pre-noise of a transient: from the leading edge of the block before
+/// the one that holds it.
+fn pre_noise(loc: usize) -> usize {
+    loc - (loc / 256 - 1) * 256
+}
+
 #[test]
 fn a_stream_without_transients_comes_back_unchanged() {
     let out = run(8, 1536, &[]);
@@ -54,14 +66,30 @@ fn every_sample_is_released_exactly_once_at_any_frame_length() {
     }
 }
 
+/// The frame of clause E.2.7.1 begins one block into the samples of a frame
+/// as the decoder hands them out, where a Dolby decoder has its first decoded
+/// sample. A correction ends at the transient counted from there, on the
+/// sample: the one before it is written, and it is not.
 #[test]
-fn a_correction_rewrites_only_its_own_region() {
-    // Frame 4, transient 512 samples in: absolute 6656. The block before the
-    // one holding it starts at 6400, so the pre-noise is 256 long and the
+fn a_transient_is_counted_from_one_block_into_its_frame() {
+    // Frame 4, transient 512 samples in. The block before the one holding it
+    // is one block long before it, so the pre-noise is 256 samples and the
     // correction covers 256 + 100 + 256 samples ending at the transient.
     let out = run(10, 1536, &[(4, 512, 100)]);
     assert_eq!(out.len(), 10 * 1536);
-    let loc = 4 * 1536 + 512;
+    let loc = 4 * 1536 + 256 + 512;
+    assert_eq!(transient(4, 512), loc);
+    let tot = 256 + 100 + 256;
+    let written: Vec<usize> = (0..out.len()).filter(|&i| out[i] != i as f32).collect();
+    assert_eq!(written.first(), Some(&(loc - tot)));
+    assert_eq!(written.last(), Some(&(loc - 1)));
+}
+
+#[test]
+fn a_correction_rewrites_only_its_own_region() {
+    let out = run(10, 1536, &[(4, 512, 100)]);
+    assert_eq!(out.len(), 10 * 1536);
+    let loc = transient(4, 512);
     let tot = 256 + 100 + 256;
     let start = loc - tot;
     for (i, v) in out.iter().enumerate() {
@@ -70,7 +98,7 @@ fn a_correction_rewrites_only_its_own_region() {
         }
     }
     let changed = (start..loc).filter(|&i| out[i] != i as f32).count();
-    assert!(changed > tot / 2, "only {changed} of {tot} samples changed");
+    assert_eq!(changed, tot, "a sample of the region kept its value");
 }
 
 #[test]
@@ -79,8 +107,9 @@ fn the_middle_of_a_correction_is_the_earlier_audio_verbatim() {
     // 2 * TC1 + 2 * pnlen before the transient, so on a ramp the written
     // value is the index minus a constant offset.
     let out = run(10, 1536, &[(4, 512, 100)]);
-    let loc = 4 * 1536 + 512;
-    let pnlen = 256;
+    let loc = transient(4, 512);
+    let pnlen = pre_noise(loc);
+    assert_eq!(pnlen, 256);
     let tot = pnlen + 100 + TC1;
     let start = loc - tot;
     let shift = (2 * TC1 + 2 * pnlen) - tot;
@@ -94,21 +123,16 @@ fn a_transient_in_the_next_frame_is_still_applied() {
     // transprocloc reaches 4 092 samples past the frame it sits in, so this
     // frame's parameters correct samples two frames later.
     let out = run(10, 1536, &[(4, 3000, 80)]);
-    let loc = 4 * 1536 + 3000;
-    let tot = (loc - (loc / 256 - 1) * 256) + 80 + 256;
+    let loc = transient(4, 3000);
+    let tot = pre_noise(loc) + 80 + 256;
     let start = loc - tot;
     assert!(
         start > 5 * 1536,
         "the correction must land in a later frame"
     );
-    let changed = (start..loc).filter(|&i| out[i] != i as f32).count();
-    assert!(changed > tot / 2, "the late transient was not applied");
-    assert!(
-        out.iter()
-            .enumerate()
-            .take(start)
-            .all(|(i, v)| *v == i as f32)
-    );
+    let written: Vec<usize> = (0..out.len()).filter(|&i| out[i] != i as f32).collect();
+    assert_eq!(written.first(), Some(&start));
+    assert_eq!(written.last(), Some(&(loc - 1)));
 }
 
 #[test]
@@ -116,8 +140,8 @@ fn a_correction_reads_across_the_frame_before_it() {
     // The substitution source starts 1 536 samples before the transient at
     // most, which is a whole frame back.
     let out = run(10, 1536, &[(3, 100, 200)]);
-    let loc = 3 * 1536 + 100;
-    let pnlen = loc - (loc / 256 - 1) * 256;
+    let loc = transient(3, 100);
+    let pnlen = pre_noise(loc);
     let tot = pnlen + 200 + TC1;
     let start = loc - tot;
     let shift = (2 * TC1 + 2 * pnlen) - tot;
@@ -130,22 +154,58 @@ fn a_correction_reads_across_the_frame_before_it() {
     }
 }
 
+/// Both fades are raised cosines, as the Dolby decoders have them. On a ramp
+/// the substitution is the ramp `shift` samples back, so a faded sample is
+/// its index less `shift` times the weight of the substitution: a quarter of
+/// the way into a fade that weight is 0,146, where a straight line has 0,25,
+/// half way it is one half, and the two fades mirror each other.
+#[test]
+fn the_cross_fades_are_raised_cosines() {
+    let out = run(10, 1536, &[(4, 512, 100)]);
+    let loc = transient(4, 512);
+    let tot = 256 + 100 + 256;
+    let start = loc - tot;
+    let shift = ((2 * TC1 + 2 * 256) - tot) as f64;
+    let weight = |i: usize| (i as f64 - f64::from(out[i])) / shift;
+    let cosine =
+        |at: f64, len: usize| 0.5 - 0.5 * (std::f64::consts::PI * (at + 0.5) / len as f64).cos();
+    // the fade in over TC1: the weight of the substitution rises
+    for at in [0usize, 32, 64, 128, 192, 255] {
+        let want = cosine(at as f64, TC1);
+        let got = weight(start + at);
+        assert!(
+            (got - want).abs() < 2e-3,
+            "in, sample {at}: {got} for {want}"
+        );
+    }
+    assert!((weight(start + 64) - 0.1487).abs() < 2e-3);
+    // the fade out over TC2, to the transient: it falls the same way
+    for at in [0usize, 16, 32, 64, 96, 127] {
+        let want = 1.0 - cosine(at as f64, TC2);
+        let got = weight(loc - TC2 + at);
+        assert!(
+            (got - want).abs() < 2e-3,
+            "out, sample {at}: {got} for {want}"
+        );
+    }
+    assert!((weight(loc - TC2 + 32) - (1.0 - 0.1502)).abs() < 2e-3);
+}
+
 #[test]
 fn the_cross_fades_are_constant_amplitude() {
     // A ramp with a constant offset stays a ramp through a constant-amplitude
     // cross-fade, so the faded samples must lie between the two ends.
     let out = run(10, 1536, &[(4, 512, 100)]);
-    let loc = 4 * 1536 + 512;
+    let loc = transient(4, 512);
     let tot = 256 + 100 + 256;
     let start = loc - tot;
     let shift = (2 * TC1 + 2 * 256) - tot;
-    for (i, v) in out.iter().enumerate().take(start + TC1).skip(start) {
+    let faded = (start..start + TC1).chain(loc - TC2..loc);
+    for i in faded {
+        let v = out[i];
         let lo = (i - shift) as f32;
         let hi = i as f32;
-        assert!(
-            *v >= lo.min(hi) - 0.5 && *v <= lo.max(hi) + 0.5,
-            "sample {i}"
-        );
+        assert!(v > lo && v < hi, "sample {i}: {v} outside {lo} to {hi}");
     }
 }
 
@@ -159,6 +219,30 @@ fn the_buffer_stays_bounded() {
         peak = peak.max(post.buffered());
     }
     assert!(peak < 16_384, "the history grew to {peak} samples");
+}
+
+/// A frame's parameters reach as far forward as `transprocloc` goes and one
+/// block more, and as far back as a correction is long. Whatever the location
+/// and the length, a frame that has been released is not written again: the
+/// samples that come out are the samples a correction made of the whole
+/// stream at once.
+#[test]
+fn no_released_sample_is_written_again() {
+    for (loc, len) in [
+        (0usize, 255usize),
+        (4, 255),
+        (252, 0),
+        (1532, 255),
+        (4092, 255),
+    ] {
+        let out = run(12, 1536, &[(5, loc, len)]);
+        assert_eq!(out.len(), 12 * 1536, "loc {loc}");
+        let at = transient(5, loc);
+        let tot = pre_noise(at) + len + TC1;
+        let written: Vec<usize> = (0..out.len()).filter(|&i| out[i] != i as f32).collect();
+        assert_eq!(written.first(), Some(&(at - tot)), "loc {loc}");
+        assert_eq!(written.last(), Some(&(at - 1)), "loc {loc}");
+    }
 }
 
 #[test]
