@@ -855,6 +855,16 @@ None of the captured command lines mentions coupling at all, and the
 mode and the data rate. No Dolby tool here can be asked to emit enhanced
 coupling, which is why `oadec eac3-ecpl-inject` exists.
 
+An encoder outside this set writes it unasked: MainConcept TotalCode Studio
+5.3, whose Dolby Digital Plus Professional encoder couples a stereo
+programme from the lowest sub-band up to 80 kbit/s, and uses standard
+coupling from 96 kbit/s on and in 5.1 at every rate tried. Its streams are
+what showed the two things the bit allocation does there (`docs/eac3.md`).
+It is driven from its command line with a preset file,
+`tcstudio <preset.mps> <preset name> <input> <output> -transcode -quit`; it
+names its output after the input whatever it is told, and takes a preset
+file changed by hand, saying so in its log.
+
 Both Dolby decoders here also ignore the enhanced coupling angle and chaos
 fields: a stream with zeros in them and a stream with a full spread decode
 bit-identically, in the `ddp_decode` filter and in the Reference Player. See
