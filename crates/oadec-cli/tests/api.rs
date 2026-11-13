@@ -92,6 +92,215 @@ fn complaint(out: &Output) -> String {
     line.to_string()
 }
 
+/// A call refuses an option of the other family in the words the command
+/// refuses it in, and hands nothing to its sink: the options of the AC-3
+/// decoder on a TrueHD stream, a presentation and kept duplicates on a stream
+/// of the AC-3 family, and for an object output the readings of the JOC
+/// matrices on a stream without JOC.
+#[test]
+fn a_call_refuses_an_option_of_the_other_family_as_the_command_does() {
+    let dir = temp("other-family");
+    let scene = |name: &str| {
+        fixtures()
+            .into_iter()
+            .find(|p| p.ends_with(name))
+            .expect("the fixture")
+    };
+    let out_path = dir.join("out.pcm");
+    let out = out_path.to_str().unwrap();
+    for (stream, options, args) in [
+        (
+            "authored-scene.mlp",
+            PcmOptions {
+                core_only: true,
+                ..PcmOptions::default()
+            },
+            vec!["--core-only"],
+        ),
+        (
+            "authored-scene.mlp",
+            PcmOptions {
+                dither: false,
+                ..PcmOptions::default()
+            },
+            vec!["--no-dither"],
+        ),
+        (
+            "authored-scene.mlp",
+            PcmOptions {
+                tpnp: false,
+                ..PcmOptions::default()
+            },
+            vec!["--no-tpnp"],
+        ),
+        (
+            "authored-scene.mlp",
+            PcmOptions {
+                ecpl_full: true,
+                ..PcmOptions::default()
+            },
+            vec!["--ecpl-spec"],
+        ),
+        (
+            "authored-scene.ec3",
+            PcmOptions {
+                presentation: Some(2),
+                ..PcmOptions::default()
+            },
+            vec!["-p", "2"],
+        ),
+        (
+            "authored-scene.ec3",
+            PcmOptions {
+                keep_duplicates: true,
+                ..PcmOptions::default()
+            },
+            vec!["--keep-duplicates"],
+        ),
+    ] {
+        let path = scene(stream);
+        let mut sink = PcmBytes::default();
+        let refused = api::decode_pcm(
+            &Source::file(&path),
+            &options,
+            &mut sink,
+            &mut std::io::sink(),
+        )
+        .expect_err("refused");
+        let mut command = vec!["decode", "--format", "pcm", "-o", out];
+        command.extend(&args);
+        command.push(path.to_str().unwrap());
+        assert_eq!(
+            complaint(&oadec(&command)),
+            format!("{refused:#}"),
+            "{stream} {args:?}"
+        );
+        assert!(sink.bytes.is_empty(), "{stream} {args:?}");
+    }
+
+    let base = dir.join("scene");
+    let base_name = base.to_str().unwrap();
+    for (stream, options, args) in [
+        (
+            "authored-scene.mlp",
+            ObjectOptions {
+                clip_gain: false,
+                ..ObjectOptions::default()
+            },
+            vec!["--no-clip-gain"],
+        ),
+        (
+            "authored-scene.mlp",
+            ObjectOptions {
+                steep_as_printed: true,
+                ..ObjectOptions::default()
+            },
+            vec!["--steep-as-printed"],
+        ),
+        (
+            "authored-scene.mlp",
+            ObjectOptions {
+                core: oadec_eac3::Options {
+                    dither: false,
+                    ..oadec_eac3::Options::default()
+                },
+                ..ObjectOptions::default()
+            },
+            vec!["--no-dither"],
+        ),
+        (
+            "authored-scene.ec3",
+            ObjectOptions {
+                keep_duplicates: true,
+                ..ObjectOptions::default()
+            },
+            vec!["--keep-duplicates"],
+        ),
+    ] {
+        let path = scene(stream);
+        let refused =
+            api::decode_objects(&Source::file(&path), &base, &options, &mut std::io::sink())
+                .expect_err("refused");
+        let mut command = vec!["decode", "--format", "damf"];
+        command.extend(&args);
+        command.extend(["-o", base_name, path.to_str().unwrap()]);
+        assert_eq!(
+            complaint(&oadec(&command)),
+            format!("{refused:#}"),
+            "{stream} {args:?}"
+        );
+    }
+    let left: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert!(left.is_empty(), "a refusal wrote {left:?}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A call refuses an option of the other object format as the command does.
+/// What a call can tell of an option is its value, so it refuses one that is
+/// away from its default; the command refuses one that was given.
+#[test]
+fn a_call_refuses_an_option_of_the_other_object_format_as_the_command_does() {
+    let dir = temp("other-format");
+    let path = fixtures()
+        .into_iter()
+        .find(|p| p.ends_with("authored-scene.mlp"))
+        .expect("the fixture");
+    let base = dir.join("scene");
+    let base_name = base.to_str().unwrap();
+    for (options, args) in [
+        (
+            ObjectOptions {
+                dolby_origin_tag: true,
+                ..ObjectOptions::default()
+            },
+            vec!["--format", "damf", "--dolby-origin-tag"],
+        ),
+        (
+            ObjectOptions {
+                allow_non_profile_rate: true,
+                ..ObjectOptions::default()
+            },
+            vec!["--format", "damf", "--adm-allow-non-profile-rate"],
+        ),
+        (
+            ObjectOptions {
+                interpolation: Interpolation::Real,
+                ..ObjectOptions::default()
+            },
+            vec!["--format", "damf", "--adm-interpolation", "real"],
+        ),
+        (
+            ObjectOptions {
+                adm: true,
+                fps: "25".to_string(),
+                ..ObjectOptions::default()
+            },
+            vec!["--format", "adm", "--fps", "25"],
+        ),
+    ] {
+        let refused =
+            api::decode_objects(&Source::file(&path), &base, &options, &mut std::io::sink())
+                .expect_err("refused");
+        let mut command = vec!["decode"];
+        command.extend(&args);
+        command.extend(["-o", base_name, path.to_str().unwrap()]);
+        assert_eq!(
+            complaint(&oadec(&command)),
+            format!("{refused:#}"),
+            "{args:?}"
+        );
+    }
+    let left: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert!(left.is_empty(), "a refusal wrote {left:?}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 /// The same bytes, held in memory under the name of the file.
 fn in_memory(path: &Path) -> Source {
     Source::memory(path.display().to_string(), std::fs::read(path).unwrap())

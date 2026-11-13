@@ -978,3 +978,303 @@ fn a_major_sync_whose_crc_fails_is_reported_once() {
     assert_eq!(finding["magnitude"], 1, "{finding}");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// An option that is about the other family of streams is refused on a TrueHD
+/// stream, whatever is to be written from it: the four of the AC-3 decoder,
+/// which has a core, a dither, a pre-noise correction and a coupling to
+/// decode, and the four readings of the JOC matrices. Each was taken and
+/// changed nothing, so that a measurement made with it was the measurement
+/// without it under another name.
+#[test]
+fn an_option_of_the_ac3_family_is_refused_on_truehd() {
+    let dir = temp("other-family");
+    let thd = fixture("authored-scene.mlp");
+    let thd = thd.to_str().unwrap();
+    let target = dir.join("refused");
+    for (options, says) in [
+        (
+            ["--core-only", "--no-dither", "--no-tpnp", "--ecpl-spec"],
+            "are about the decode of an AC-3 or E-AC-3 stream; they do not apply to a TrueHD stream",
+        ),
+        (
+            [
+                "--no-clip-gain",
+                "--flat-quadrature",
+                "--sparse-as-printed",
+                "--steep-as-printed",
+            ],
+            "are about the JOC object decode: they apply to an E-AC-3 stream with --format damf or adm",
+        ),
+    ] {
+        for option in options {
+            for format in ["pcm", "wav", "damf", "adm"] {
+                let objects = matches!(format, "damf" | "adm");
+                let out = oadec(&[
+                    "decode",
+                    thd,
+                    "-p",
+                    if objects { "3" } else { "2" },
+                    "--format",
+                    format,
+                    option,
+                    "-o",
+                    target.to_str().unwrap(),
+                ]);
+                let said = stderr(&out);
+                assert_eq!(
+                    out.status.code(),
+                    Some(2),
+                    "{option} --format {format}: {said}"
+                );
+                assert!(said.contains(says), "{option} --format {format}: {said}");
+            }
+        }
+    }
+    let left: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert!(left.is_empty(), "a refusal wrote {left:?}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// `compare` on a TrueHD stream refuses what is about an AC-3 family
+/// comparison, and keeps the presentation and the reference format it has
+/// when it is given neither: 2, and 32-bit integers.
+#[test]
+fn compare_refuses_an_option_of_the_ac3_family_on_truehd() {
+    let dir = temp("compare-other-family");
+    let thd = fixture("authored-scene.mlp");
+    let thd = thd.to_str().unwrap();
+    let reference = dir.join("p2.pcm");
+    let decoded = oadec(&[
+        "decode",
+        thd,
+        "-p",
+        "2",
+        "--format",
+        "pcm",
+        "-o",
+        reference.to_str().unwrap(),
+    ]);
+    assert_eq!(decoded.status.code(), Some(0), "{}", stderr(&decoded));
+    // 24-bit samples as the decode writes them; the comparison is told so,
+    // and the presentation it is not told is the one that was decoded
+    let same = oadec(&[
+        "compare",
+        thd,
+        "-r",
+        reference.to_str().unwrap(),
+        "--reference-format",
+        "s24le",
+    ]);
+    assert_eq!(same.status.code(), Some(0), "{}", stderr(&same));
+    // The format it is not told is 32-bit: the same samples with a low byte
+    // under each compare equal with neither option given.
+    let wide = dir.join("p2.s32");
+    let narrow = std::fs::read(&reference).unwrap();
+    let mut samples = Vec::with_capacity(narrow.len() / 3 * 4);
+    for sample in narrow.as_chunks::<3>().0 {
+        samples.push(0);
+        samples.extend_from_slice(sample);
+    }
+    std::fs::write(&wide, samples).unwrap();
+    let same = oadec(&["compare", thd, "-r", wide.to_str().unwrap()]);
+    assert_eq!(same.status.code(), Some(0), "{}", stderr(&same));
+    for (option, says) in [
+        (&["--core-only"][..], "they do not apply to a TrueHD stream"),
+        (&["--no-dither"], "they do not apply to a TrueHD stream"),
+        (&["--no-tpnp"], "they do not apply to a TrueHD stream"),
+        (&["--ecpl-spec"], "they do not apply to a TrueHD stream"),
+        (&["--worst", "3"], "a TrueHD comparison is exact"),
+    ] {
+        let mut args = vec![
+            "compare",
+            thd,
+            "-r",
+            reference.to_str().unwrap(),
+            "--reference-format",
+            "s24le",
+        ];
+        args.extend(option);
+        let out = oadec(&args);
+        let said = stderr(&out);
+        assert_eq!(out.status.code(), Some(2), "{option:?}: {said}");
+        assert!(said.contains(says), "{option:?}: {said}");
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// The options of an object output have nowhere to go in samples, and those
+/// of one object format have nowhere to go in the other: a frame rate is in
+/// the header of a DAMF set and in no ADM file, and the origin tag, the
+/// profile rate and the interpolation are in an ADM file and in no DAMF
+/// set. Each is refused there, given at its default as much as away from
+/// it, for a stream of either family, and nothing is written. Where they
+/// apply they are taken together.
+#[test]
+fn an_option_of_an_object_output_is_refused_where_it_has_nowhere_to_go() {
+    let dir = temp("nowhere-to-go");
+    let ledger = dir.join("loss.json");
+    let ledger = ledger.to_str().unwrap();
+    let target = dir.join("out");
+    for name in ["authored-scene.mlp", "authored-scene.ec3"] {
+        let stream = fixture(name);
+        let stream = stream.to_str().unwrap();
+        let run = |format: &str, options: &[&str]| {
+            let mut args = vec!["decode", stream, "--format", format];
+            args.extend(options);
+            args.extend(["-o", target.to_str().unwrap()]);
+            oadec(&args)
+        };
+        let refused = |format: &str, options: &[&str], says: &str| {
+            let out = run(format, options);
+            let said = stderr(&out);
+            assert_eq!(
+                out.status.code(),
+                Some(2),
+                "{name} {options:?} --format {format}: {said}"
+            );
+            assert!(
+                said.contains(says),
+                "{name} {options:?} --format {format}: {said}"
+            );
+        };
+        for format in ["pcm", "wav"] {
+            for options in [
+                &["--no-bed-conform"][..],
+                &["--all-events"],
+                &["--loss-report", ledger],
+                &["--isf", "drop"],
+                &["--isf", "error"],
+                &["--fps", "24"],
+                &["--fps", "25"],
+                &["--dolby-origin-tag"],
+                &["--adm-allow-non-profile-rate"],
+                &["--adm-interpolation", "profile"],
+            ] {
+                refused(format, options, "are about an object output");
+            }
+        }
+        for options in [
+            &["--dolby-origin-tag"][..],
+            &["--adm-allow-non-profile-rate"],
+            &["--adm-interpolation", "profile"],
+            &["--adm-interpolation", "real"],
+        ] {
+            refused("damf", options, "are about an ADM BWF file");
+        }
+        for rate in ["24", "25"] {
+            refused(
+                "adm",
+                &["--fps", rate],
+                "--fps is the frame rate in the header of a DAMF set",
+            );
+        }
+        let left: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert!(left.is_empty(), "{name}: a refusal wrote {left:?}");
+
+        let together = run(
+            "damf",
+            &[
+                "--fps",
+                "25",
+                "--no-bed-conform",
+                "--all-events",
+                "--isf",
+                "drop",
+                "--loss-report",
+                ledger,
+            ],
+        );
+        assert_eq!(
+            together.status.code(),
+            Some(0),
+            "{name}: {}",
+            stderr(&together)
+        );
+        let together = run(
+            "adm",
+            &[
+                "--dolby-origin-tag",
+                "--adm-interpolation",
+                "profile",
+                "--adm-allow-non-profile-rate",
+                "--no-bed-conform",
+            ],
+        );
+        assert_eq!(
+            together.status.code(),
+            Some(0),
+            "{name}: {}",
+            stderr(&together)
+        );
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            std::fs::remove_file(entry.unwrap().path()).unwrap();
+        }
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// The channel order is an option of a sample output: an object output has
+/// its beds and its objects in the order its format gives them, whatever is
+/// asked. Asked of one it is refused, at its default as much as away from
+/// it, for a stream of either family, and nothing is written; a sample
+/// output takes it.
+#[test]
+fn a_channel_order_is_refused_with_an_object_output() {
+    let dir = temp("order-of-objects");
+    let target = dir.join("out");
+    for name in ["authored-scene.mlp", "authored-scene.ec3"] {
+        let stream = fixture(name);
+        let stream = stream.to_str().unwrap();
+        let run = |format: &str, order: &str| {
+            oadec(&[
+                "decode",
+                stream,
+                "--format",
+                format,
+                "--order",
+                order,
+                "-o",
+                target.to_str().unwrap(),
+            ])
+        };
+        for format in ["damf", "adm"] {
+            for order in ["interchange", "stream"] {
+                let out = run(format, order);
+                let said = stderr(&out);
+                assert_eq!(
+                    out.status.code(),
+                    Some(2),
+                    "{name} --order {order} --format {format}: {said}"
+                );
+                assert!(
+                    said.contains("--order names the channel order of a sample output"),
+                    "{name} --order {order} --format {format}: {said}"
+                );
+            }
+        }
+        let left: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert!(left.is_empty(), "{name}: a refusal wrote {left:?}");
+        for format in ["pcm", "wav"] {
+            for order in ["interchange", "stream"] {
+                let out = run(format, order);
+                assert_eq!(
+                    out.status.code(),
+                    Some(0),
+                    "{name} --order {order} --format {format}: {}",
+                    stderr(&out)
+                );
+            }
+        }
+        std::fs::remove_file(&target).unwrap();
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}

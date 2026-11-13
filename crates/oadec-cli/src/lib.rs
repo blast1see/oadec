@@ -180,9 +180,10 @@ enum Command {
         /// Output container.
         #[arg(long, value_enum, default_value_t = Format::Wav)]
         format: Format,
-        /// Channel order of the output.
-        #[arg(long, value_enum, default_value_t = Order::Interchange)]
-        order: Order,
+        /// PCM/WAV: channel order of the samples; `interchange` when absent.
+        /// An object output has the order of its format.
+        #[arg(long, value_enum)]
+        order: Option<Order>,
         /// Keep access units flagged as duplicates at seamless branches.
         #[arg(long)]
         keep_duplicates: bool,
@@ -220,25 +221,27 @@ enum Command {
         #[arg(long, value_name = "FILE")]
         loss_report: Option<PathBuf>,
         /// DAMF/ADM: intermediate-spatial-format (ISF) objects, which neither
-        /// format can represent: refuse the decode, or write the output without
-        /// them and declare the loss (exit 4).
-        #[arg(long, value_enum, default_value_t = IsfArg::Error)]
-        isf: IsfArg,
+        /// format can represent: refuse the decode (`error`, and what is done
+        /// when this is absent), or write the output without them and declare
+        /// the loss (`drop`, exit 4).
+        #[arg(long, value_enum)]
+        isf: Option<IsfArg>,
         /// ADM: write a programme that is not at 48 kHz although the Dolby Atmos
         /// master ADM profile requires 48 kHz; the file is declared outside the
         /// profile (exit 4). Without it such a programme is refused.
         #[arg(long)]
         adm_allow_non_profile_rate: bool,
         /// DAMF: frame rate written to the `.atmos` header (header data for
-        /// picture-locked workflows; event timing is in samples).
-        #[arg(long, default_value = "24", value_parser = ["23.976", "24", "25", "29.97", "30"])]
-        fps: String,
+        /// picture-locked workflows; event timing is in samples); 24 when
+        /// absent.
+        #[arg(long, value_parser = ["23.976", "24", "25", "29.97", "30"])]
+        fps: Option<String>,
         /// ADM: how interpolation lengths are written: the profile's fixed 250
-        /// samples (the default, what Dolby's converters write) or the source
-        /// ramps (BS.2076, outside the profile; marked in the file, refuses
-        /// --dolby-origin-tag).
-        #[arg(long, value_enum, default_value_t = InterpolationArg::Profile)]
-        adm_interpolation: InterpolationArg,
+        /// samples (`profile`, what Dolby's converters write and what is done
+        /// when this is absent) or the source ramps (`real`: BS.2076, outside
+        /// the profile; marked in the file, refuses --dolby-origin-tag).
+        #[arg(long, value_enum)]
+        adm_interpolation: Option<InterpolationArg>,
         /// DAMF/ADM: name a warp mode in the output: the one the stream declares
         /// (`stream`; a TrueHD stream declares none) or a given one. Without this
         /// the output names none and Dolby's encoders write warping, which is not
@@ -307,16 +310,17 @@ enum Command {
         /// Reference PCM file (headerless, interleaved).
         #[arg(short, long)]
         reference: PathBuf,
-        /// Presentation to decode.
-        #[arg(short, long, default_value_t = 2)]
-        presentation: usize,
-        /// Sample format of the reference.
-        #[arg(long, value_enum, default_value_t = RefFormat::S32le)]
-        reference_format: RefFormat,
+        /// TrueHD: presentation to decode; 2 when absent.
+        #[arg(short, long)]
+        presentation: Option<usize>,
+        /// TrueHD: sample format of the reference; s32le when absent. The
+        /// reference of an AC-3 or E-AC-3 stream is 32-bit float.
+        #[arg(long, value_enum)]
+        reference_format: Option<RefFormat>,
         /// Channel order of the reference.
         #[arg(long, value_enum, default_value_t = Order::Interchange)]
         order: Order,
-        /// Keep access units flagged as duplicates at seamless branches.
+        /// TrueHD: keep access units flagged as duplicates at seamless branches.
         #[arg(long)]
         keep_duplicates: bool,
         /// How many mismatches to list.
@@ -562,11 +566,40 @@ where
             joc_low_band,
             joc_phase,
         } => {
+            // An option that is absent is told from one given at its default,
+            // which is what lets one that does not apply be refused.
+            let given_for_objects = no_bed_conform
+                || all_events
+                || loss_report.is_some()
+                || isf.is_some()
+                || fps.is_some()
+                || dolby_origin_tag
+                || adm_allow_non_profile_rate
+                || adm_interpolation.is_some();
+            let given_for_adm =
+                dolby_origin_tag || adm_allow_non_profile_rate || adm_interpolation.is_some();
+            let given_for_damf = fps.is_some();
+            let given_for_samples = order.is_some();
+            let order = order.unwrap_or(Order::Interchange);
+            let isf = isf.unwrap_or(IsfArg::Error);
+            let fps = fps.unwrap_or_else(|| "24".to_string());
+            let adm_interpolation = adm_interpolation.unwrap_or(InterpolationArg::Profile);
             let verdict = stream_named(&file).and_then(|source| {
                 if let Err(e) = damf::check_presentation(format, presentation).and_then(|()| {
                     damf::check_interpolation(adm_interpolation.into(), dolby_origin_tag)
                 }) {
                     Err(e)
+                } else if given_for_objects && !matches!(format, Format::Damf | Format::Adm) {
+                    // Samples have nowhere to carry any of them.
+                    Err(anyhow::anyhow!(api::OBJECT_OPTIONS_ARE_OBJECTS))
+                } else if given_for_adm && format != Format::Adm {
+                    Err(anyhow::anyhow!(api::ADM_OPTIONS_ARE_ADM))
+                } else if given_for_damf && format != Format::Damf {
+                    Err(anyhow::anyhow!(api::FPS_IS_DAMF))
+                } else if given_for_samples && matches!(format, Format::Damf | Format::Adm) {
+                    // The beds and the objects of an object output are in the
+                    // order its format gives them, whatever is asked.
+                    Err(anyhow::anyhow!(api::ORDER_IS_SAMPLES))
                 } else if warp_mode.is_some() && !matches!(format, Format::Damf | Format::Adm) {
                     // Samples have nowhere to say it, and an option that reads as
                     // applied while changing nothing is the defect named below.
@@ -598,6 +631,28 @@ where
                     // across frames, and the object writers walk the whole programme
                     // to build one metadata timeline.
                     Err(anyhow::anyhow!(api::START_IS_TRUEHD_SAMPLES))
+                } else if (core_only || no_dither || no_tpnp || ecpl_spec)
+                    && !eac3::is_eac3(&source).unwrap_or(false)
+                {
+                    // The four are about the decoder of the AC-3 family, and a
+                    // TrueHD decode has none of what they switch.
+                    Err(anyhow::anyhow!(api::CORE_DECODE_IS_AC3))
+                } else if (no_clip_gain || flat_quadrature || sparse_as_printed || steep_as_printed)
+                    && !(eac3::is_eac3(&source).unwrap_or(false)
+                        && matches!(format, Format::Damf | Format::Adm))
+                {
+                    // A reading of the JOC matrices reaches nothing but the JOC
+                    // reconstruction, as the hidden overrides above.
+                    Err(anyhow::anyhow!(api::JOC_READINGS_ARE_EAC3_OBJECTS))
+                } else if keep_duplicates && eac3::is_eac3(&source).unwrap_or(false) {
+                    Err(anyhow::anyhow!(api::KEEP_DUPLICATES_IS_TRUEHD))
+                } else if presentation.is_some()
+                    && eac3::is_eac3(&source).unwrap_or(false)
+                    && !matches!(format, Format::Damf | Format::Adm)
+                {
+                    // With an object output the presentation is checked above,
+                    // for both families alike: it is the object programme.
+                    Err(anyhow::anyhow!(api::PRESENTATION_IS_TRUEHD))
                 } else if eac3::is_eac3(&source).unwrap_or(false)
                     && matches!(format, Format::Damf | Format::Adm)
                 {
@@ -730,7 +785,21 @@ where
             worst,
         } => {
             let equal = stream_named(&file).and_then(|source| {
-                if eac3::is_eac3(&source).unwrap_or(false) {
+                let ac3 = eac3::is_eac3(&source).unwrap_or(false);
+                // An option that reads as applied while changing nothing is a
+                // defect in a measurement more than anywhere: the number that
+                // comes out is taken for the number of the option.
+                if ac3 && presentation.is_some() {
+                    Err(anyhow::anyhow!(api::PRESENTATION_IS_TRUEHD))
+                } else if ac3 && reference_format.is_some() {
+                    Err(anyhow::anyhow!(api::REFERENCE_IS_FLOAT))
+                } else if ac3 && keep_duplicates {
+                    Err(anyhow::anyhow!(api::KEEP_DUPLICATES_IS_TRUEHD))
+                } else if !ac3 && (core_only || no_dither || no_tpnp || ecpl_spec) {
+                    Err(anyhow::anyhow!(api::CORE_DECODE_IS_AC3))
+                } else if !ac3 && worst > 0 {
+                    Err(anyhow::anyhow!(api::WORST_IS_AC3))
+                } else if ac3 {
                     eac3::compare(
                         &source,
                         &reference,
@@ -750,8 +819,8 @@ where
                         &source,
                         &reference,
                         &compare::Options {
-                            presentation,
-                            format: reference_format,
+                            presentation: presentation.unwrap_or(2),
+                            format: reference_format.unwrap_or(RefFormat::S32le),
                             order,
                             keep_duplicates,
                             report,

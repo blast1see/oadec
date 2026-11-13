@@ -366,6 +366,33 @@ Semantic Versioning.
 
 ### Changed
 
+- **An option that does not apply is refused.** `decode` and `compare` took
+  every option on every stream and for every output, and did nothing with
+  the ones that had nothing to act on: `decode --no-dither` on a TrueHD
+  stream wrote the bytes it writes without the option, `decode --loss-report`
+  with a WAVE output wrote no report, `decode --fps 25` with an ADM file put
+  the rate in no file, `decode --order stream` with a DAMF set changed no
+  order, and `compare -p 0` on an E-AC-3 stream compared its one programme.
+  A run that reads as having applied an option is taken for the run of that
+  option. Each exits 2 now, in a sentence that says where the option
+  applies, and writes nothing: the options of the AC-3 decoder
+  (`--core-only`, `--no-dither`, `--no-tpnp`, `--ecpl-spec`) on a TrueHD
+  stream; the readings of the JOC matrices (`--no-clip-gain`,
+  `--flat-quadrature`, `--sparse-as-printed`, `--steep-as-printed`) anywhere
+  but the object decode of an E-AC-3 stream; a presentation and
+  `--keep-duplicates` on a stream of the AC-3 family; the options of an
+  object output with a sample output, those of an ADM file with a DAMF set,
+  `--fps` with an ADM file, and `--order` with an object output; in
+  `compare`, `--reference-format` on a stream of the AC-3 family and
+  `--worst` on a TrueHD one. An option given at its default is refused as one
+  given away from it, which is why `--isf`, `--fps`, `--adm-interpolation`,
+  `--order` and, in `compare`, `-p` and `--reference-format` have no default
+  in the help any more; absent, each is what it was (`error`, 24, `profile`,
+  `interchange`, 2, `s32le`). A call of `oadec_cli::api` refuses the same in
+  the same words, where the value of an option is away from its default. A
+  script that passed one of these to every stream alike has to stop passing
+  it where it does not apply (`docs/exit-codes.md`,
+  `docs/audit/evidence/engine-round-2026-11/30-option-that-does-not-apply.json`).
 - **What a finding is, is a crate of its own.** `Severity`, `Location`,
   `Provenance`, `RuleInfo`, the tally of a pass and the macro that writes a
   catalog of rules lived in `oadec-truehd`, where the first catalog was

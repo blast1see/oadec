@@ -71,6 +71,51 @@ pub(crate) const START_IS_TRUEHD_SAMPLES: &str = "--start begins a TrueHD decode
 pub(crate) const JOC_MEASURES_EAC3_OBJECTS: &str = "--joc-lag, --joc-low-band and --joc-phase measure \
      the JOC object decode: they apply to an E-AC-3 stream with --format damf or adm";
 
+/// What the options of an AC-3 family decode on a TrueHD stream are told.
+pub(crate) const CORE_DECODE_IS_AC3: &str = "--core-only, --no-dither, --no-tpnp and --ecpl-spec are \
+     about the decode of an AC-3 or E-AC-3 stream; they do not apply to a TrueHD stream";
+
+/// What the readings of the JOC decode on anything but the object decode of
+/// an E-AC-3 stream are told.
+pub(crate) const JOC_READINGS_ARE_EAC3_OBJECTS: &str = "--no-clip-gain, --flat-quadrature, \
+     --sparse-as-printed and --steep-as-printed are about the JOC object decode: they apply to an \
+     E-AC-3 stream with --format damf or adm";
+
+/// What `--presentation` on an AC-3 family stream with a sample output is
+/// told.
+pub(crate) const PRESENTATION_IS_TRUEHD: &str = "--presentation names one of the presentations of a \
+     TrueHD stream; an AC-3 or E-AC-3 stream has one programme, and --core-only writes the channels \
+     of its independent substream alone";
+
+/// What `--keep-duplicates` on an AC-3 family stream is told.
+pub(crate) const KEEP_DUPLICATES_IS_TRUEHD: &str = "--keep-duplicates keeps the access units a TrueHD \
+     stream flags as duplicates at a seamless branch; it does not apply to an AC-3 or E-AC-3 stream";
+
+/// What the options of an object output with a sample output are told.
+pub(crate) const OBJECT_OPTIONS_ARE_OBJECTS: &str = "--no-bed-conform, --all-events, --loss-report, \
+     --isf, --fps, --dolby-origin-tag, --adm-allow-non-profile-rate and --adm-interpolation are \
+     about an object output: they apply to --format damf or adm";
+
+/// What the options of an ADM BWF file with a DAMF set are told.
+pub(crate) const ADM_OPTIONS_ARE_ADM: &str = "--dolby-origin-tag, --adm-allow-non-profile-rate and \
+     --adm-interpolation are about an ADM BWF file: they apply to --format adm";
+
+/// What `--fps` with an ADM BWF file is told.
+pub(crate) const FPS_IS_DAMF: &str = "--fps is the frame rate in the header of a DAMF set: it applies \
+     to --format damf";
+
+/// What a channel order with an object output is told.
+pub(crate) const ORDER_IS_SAMPLES: &str = "--order names the channel order of a sample output; an \
+     object output has the order of its format";
+
+/// What the options of a TrueHD comparison on an AC-3 family stream are told.
+pub(crate) const REFERENCE_IS_FLOAT: &str = "--reference-format names the integer format of the \
+     reference of a TrueHD stream; the reference of an AC-3 or E-AC-3 stream is 32-bit float";
+
+/// What `--worst` on a TrueHD stream is told.
+pub(crate) const WORST_IS_AC3: &str = "--worst lists the blocks of an AC-3 or E-AC-3 stream that \
+     deviate most; a TrueHD comparison is exact and lists its mismatches (--report)";
+
 /// Whether `source` is an AC-3 or E-AC-3 stream, and not a TrueHD or MLP one.
 ///
 /// # Errors
@@ -363,6 +408,12 @@ pub fn decode_pcm(
         if options.start.is_some() {
             bail!(START_IS_TRUEHD_SAMPLES);
         }
+        if options.presentation.is_some() {
+            bail!(PRESENTATION_IS_TRUEHD);
+        }
+        if options.keep_duplicates {
+            bail!(KEEP_DUPLICATES_IS_TRUEHD);
+        }
         return Ok(Pcm::Ac3(eac3::decode_into(
             source,
             &eac3::DecodeOptions {
@@ -377,6 +428,9 @@ pub fn decode_pcm(
             sink,
             remarks,
         )?));
+    }
+    if options.core_only || !options.dither || !options.tpnp || options.ecpl_full {
+        bail!(CORE_DECODE_IS_AC3);
     }
     Ok(Pcm::TrueHd(Box::new(decode::decode(
         source,
@@ -454,12 +508,37 @@ pub fn decode_objects(
     remarks: &mut dyn Write,
 ) -> Result<Objects> {
     damf::check_interpolation(options.interpolation, options.dolby_origin_tag)?;
+    // What a call can tell of an option is its value, so one left at its
+    // default is one that was not given.
+    let adm_only = options.dolby_origin_tag
+        || options.allow_non_profile_rate
+        || options.interpolation != Interpolation::Profile;
+    if !options.adm && adm_only {
+        bail!(ADM_OPTIONS_ARE_ADM);
+    }
+    if options.adm && options.fps != "24" {
+        bail!(FPS_IS_DAMF);
+    }
     let ac3 = eac3::is_eac3(source).unwrap_or(false);
     if !ac3 && options.joc != JocOverrides::default() {
         bail!(JOC_MEASURES_EAC3_OBJECTS);
     }
     if ac3 && options.on_error.is_some() {
         bail!(ON_ERROR_IS_TRUEHD);
+    }
+    if ac3 && options.keep_duplicates {
+        bail!(KEEP_DUPLICATES_IS_TRUEHD);
+    }
+    if !ac3 && (!options.core.dither || !options.core.tpnp || options.core.ecpl_full) {
+        bail!(CORE_DECODE_IS_AC3);
+    }
+    if !ac3
+        && (!options.clip_gain
+            || options.flat_quadrature
+            || options.sparse_as_printed
+            || options.steep_as_printed)
+    {
+        bail!(JOC_READINGS_ARE_EAC3_OBJECTS);
     }
     Ok(if ac3 {
         Objects::Ac3(Box::new(eac3_objects::write(

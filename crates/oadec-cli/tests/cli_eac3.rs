@@ -1093,3 +1093,131 @@ fn the_listing_limit_changes_what_is_listed_and_no_count() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// An option that is about a TrueHD stream, or about the object decode, is
+/// refused where it has nothing to act on. A stream of the AC-3 family has
+/// one programme and no presentations, and no access units flagged as
+/// duplicates; and a reading of the JOC matrices reaches nothing when the
+/// samples of the downmix are what is written. What does apply is taken,
+/// each beside the refusal it is nearest to.
+#[test]
+fn an_option_with_nothing_to_act_on_is_refused_on_eac3() {
+    let dir = temp("nothing-to-act-on");
+    let ec3 = fixture("authored-scene.ec3");
+    let ec3 = ec3.to_str().unwrap();
+    let target = dir.join("out");
+    let run = |format: &str, options: &[&str]| {
+        let mut args = vec!["decode", ec3, "--format", format];
+        args.extend(options);
+        args.extend(["-o", target.to_str().unwrap()]);
+        oadec(&args)
+    };
+    let refused = |format: &str, options: &[&str], says: &str| {
+        let out = run(format, options);
+        let said = stderr(&out);
+        assert_eq!(
+            out.status.code(),
+            Some(2),
+            "{options:?} --format {format}: {said}"
+        );
+        assert!(said.contains(says), "{options:?} --format {format}: {said}");
+    };
+    let taken = |format: &str, options: &[&str]| {
+        let out = run(format, options);
+        assert_eq!(
+            out.status.code(),
+            Some(0),
+            "{options:?} --format {format}: {}",
+            stderr(&out)
+        );
+    };
+
+    for format in ["pcm", "wav"] {
+        for presentation in ["0", "2", "3"] {
+            refused(
+                format,
+                &["-p", presentation],
+                "--presentation names one of the presentations of a TrueHD stream",
+            );
+        }
+        for reading in [
+            "--no-clip-gain",
+            "--flat-quadrature",
+            "--sparse-as-printed",
+            "--steep-as-printed",
+        ] {
+            refused(format, &[reading], "are about the JOC object decode");
+        }
+    }
+    for format in ["pcm", "wav", "damf", "adm"] {
+        refused(
+            format,
+            &["--keep-duplicates"],
+            "it does not apply to an AC-3 or E-AC-3 stream",
+        );
+    }
+    let left: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert!(left.is_empty(), "a refusal wrote {left:?}");
+
+    // the same options where they have something to act on
+    taken("pcm", &["--core-only"]);
+    taken("pcm", &["--no-dither", "--no-tpnp", "--ecpl-spec"]);
+    taken("damf", &["--no-clip-gain"]);
+    taken("damf", &["--steep-as-printed", "--sparse-as-printed"]);
+    taken("damf", &["-p", "3"]);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// `compare` on a stream of the AC-3 family refuses a presentation, the
+/// integer format of a TrueHD reference and kept duplicates: its reference is
+/// 32-bit float, and it has one programme.
+#[test]
+fn compare_refuses_an_option_of_a_truehd_comparison_on_eac3() {
+    let dir = temp("compare-nothing-to-act-on");
+    let ec3 = fixture("authored-scene.ec3");
+    let ec3 = ec3.to_str().unwrap();
+    let reference = dir.join("ours.f32");
+    let decoded = oadec(&[
+        "decode",
+        ec3,
+        "--format",
+        "pcm",
+        "--no-dither",
+        "-o",
+        reference.to_str().unwrap(),
+    ]);
+    assert_eq!(decoded.status.code(), Some(0), "{}", stderr(&decoded));
+    let same = oadec(&[
+        "compare",
+        ec3,
+        "-r",
+        reference.to_str().unwrap(),
+        "--no-dither",
+    ]);
+    assert_eq!(same.status.code(), Some(0), "{}", stderr(&same));
+    for (option, says) in [
+        (
+            &["-p", "2"][..],
+            "--presentation names one of the presentations of a TrueHD stream",
+        ),
+        (
+            &["--reference-format", "s24le"],
+            "the reference of an AC-3 or E-AC-3 stream is 32-bit float",
+        ),
+        (
+            &["--keep-duplicates"],
+            "it does not apply to an AC-3 or E-AC-3 stream",
+        ),
+    ] {
+        let mut args = vec!["compare", ec3, "-r", reference.to_str().unwrap()];
+        args.extend(option);
+        let out = oadec(&args);
+        let said = stderr(&out);
+        assert_eq!(out.status.code(), Some(2), "{option:?}: {said}");
+        assert!(said.contains(says), "{option:?}: {said}");
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
