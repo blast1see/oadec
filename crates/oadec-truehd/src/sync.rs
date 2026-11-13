@@ -104,6 +104,24 @@ impl FbbFormat {
     }
 }
 
+/// The two low bits of the `substream_info` of an FBA major sync, which the
+/// description reserves (Dolby, section 4.2). A parser ignores them, as it
+/// ignores every reserved field (section 3.2).
+pub const SUBSTREAM_INFO_RESERVED: u8 = 0b11;
+
+/// What of a `substream_info` lays the presentations out over the
+/// substreams: the byte without the bits the description reserves. The
+/// description is of the FBA syntax, and the byte of an FBB major sync is
+/// taken whole.
+#[must_use]
+pub const fn substream_layout(substream_info: u8, fbb: bool) -> u8 {
+    if fbb {
+        substream_info
+    } else {
+        substream_info & !SUBSTREAM_INFO_RESERVED
+    }
+}
+
 /// The 32-bit `format_info` word of an FBA major sync.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct FormatInfo {

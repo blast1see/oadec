@@ -38,6 +38,7 @@ const PROTECTION: &str =
     "docs/audit/evidence/verification-upgrade-2026-11/05-protection-census.json";
 const DECLARED: &str =
     "docs/audit/evidence/engine-round-2026-11/33-what-an-evolution-frame-declares.json";
+const RESERVED: &str = "docs/audit/evidence/engine-round-2026-11/34-reserved-bits.json";
 const FIFO: &str = "docs/audit/evidence/verification-upgrade-2026-11/06-fifo-model.json";
 const DISC: &str = "docs/audit/evidence/verification-upgrade-2026-11/07-disc-formats.json";
 
@@ -260,6 +261,22 @@ oadec_diag::catalog! {
         summary: "fewer than eight access units since the last major sync, other than at the start of the stream or at a branch",
         provenance: [spec(DOLBY_HL, "2.5"), measured(CENSUS)],
     },
+    /// A reserved bit of a major sync.
+    SyncReservedBits {
+        id: "sync.reserved_bits",
+        severity: Info,
+        legacy: None,
+        summary: "a major sync sets a bit the description reserves: one of its sixteen reserved bits, of the two of `format_info` that nothing reads, or of the upper two of `extended_substream_info`; a parser ignores them, as the description says it should",
+        provenance: [spec(DOLBY_HL, "3.2, 4.2"), measured(RESERVED)],
+    },
+    /// A reserved bit of the channel meaning.
+    SyncChannelMeaningReserved {
+        id: "sync.channel_meaning_reserved",
+        severity: Info,
+        legacy: None,
+        summary: "the channel meaning of a major sync sets one of its two reserved bits",
+        provenance: [spec(DOLBY_HL, "3.2, 4.3"), measured(RESERVED)],
+    },
     /// A minor sync that could be taken for a major one.
     AuSyncEmulation {
         id: "au.sync_emulation",
@@ -283,6 +300,14 @@ oadec_diag::catalog! {
         legacy: None,
         summary: "a termination word claims a whole access unit or more of added samples",
         provenance: [spec(DOLBY_HL, "4.6"), measured(CENSUS)],
+    },
+    /// A bit of a restart header that has no meaning.
+    RestartReservedBits {
+        id: "restart.reserved_bits",
+        severity: Info,
+        legacy: None,
+        summary: "a restart header sets a bit the description leaves without meaning: one of the two after `hires_output_timing`, the bit of a heavy dynamic range control the major sync does not announce, or one of the twelve that stand where its update would",
+        provenance: [spec(DOLBY_HL, "3.2, 4.7"), measured(RESERVED)],
     },
     /// Output timing across the substreams of a unit.
     TimingOutputTimingDisagree {

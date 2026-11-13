@@ -384,6 +384,47 @@ syntax. It sorts every line of the decoder by what reaches it: the unit tests
 (a bitstream built by hand to reach it), the corpus (what an encoder writes),
 both, or neither.
 
+### The bits the description reserves
+
+"Reserved bitfields are encoded as v(n) and should be ignored by parsers"
+(Dolby, section 3.2). A major sync has four such fields and its channel
+meaning two bits; a restart header has two bits, and thirteen more that mean
+something only when the major sync announces a heavy dynamic range control.
+`verify` says when one is set, at the access unit, as information:
+
+| Rule | Fires on | The census counts it as |
+|---|---|---|
+| `sync.reserved_bits` | one of the sixteen reserved bits of a major sync; of the two of `format_info` that nothing reads; of the two before `extended_substream_info`; of the two low ones of `substream_info` | `reserved_nonzero`, `format_info_reserved_nonzero`, `extended_substream_info_upper`, `substream_info_reserved_nonzero` |
+| `sync.channel_meaning_reserved` | one of the two reserved bits of the channel meaning | `channel_meaning_reserved` |
+| `restart.reserved_bits` | one of the two bits after `hires_output_timing`; the bit of a heavy DRC the major sync does not announce; one of the twelve where its update would stand | `reserved_nonzero`, `unannounced_heavy_drc_bit`, `heavy_drc_unused_nonzero` of a restart header |
+
+No real stream sets one. Of 71 916 major syncs and 282 184 restart headers
+in the 55 streams of the corpus, and of 92 101 and 340 180 in the first
+minute of 157 library tracks, not one has any of these bits set, so the
+three rules have fired on nothing but the copies a test makes. Two bits the
+syntax calls reserved are no rule, because encoders set them all the time:
+the reserved bit of a directory entry (in 47 of the 55 streams and in all
+157 tracks, millions of entries) and `hires_output_timing` (the same
+streams). A rule that fires on every stream says nothing of any.
+
+Ignoring them was not what this decoder did everywhere. A test sets each bit
+in the first access unit of the fixture and puts the checksums right; the
+stream then differs from itself at its second major sync, in a reserved bit
+and nothing else. Three of the nine copies were a change of configuration to
+`verify` (exit 7), the ones with a bit of `format_info`, of the two before
+`extended_substream_info` and of `substream_info`; and the last of them
+stopped the decode at the second major sync, 5 000 samples into 96 000. The
+`dlbtruehddec` element of the Dolby Reference Player and FFmpeg play all
+nine as they play the fixture; `truehdd` stops at the same two fields a raw
+comparison stops at. What lays the presentations out is now compared without
+its reserved bits (`sync::substream_layout`), by the decoder, by the parser
+state and by `verify`, and all nine copies decode to the samples of the
+fixture with one finding each. The description is of the FBA syntax: the
+byte of an FBB major sync is compared whole, and an FBB stream of the corpus
+sets one of those two bits.
+
+Measured: `audit/evidence/engine-round-2026-11/34-reserved-bits.json`.
+
 ## Streams written from a recipe
 
 An encoder chooses, and what no encoder chooses no stream carries. For that

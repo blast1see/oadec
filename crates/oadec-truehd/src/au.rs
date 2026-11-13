@@ -36,6 +36,16 @@ pub struct StreamConfig {
 }
 
 impl StreamConfig {
+    /// `substream_info` without the bits the description reserves
+    /// ([`crate::sync::substream_layout`]).
+    #[must_use]
+    pub fn substream_layout(&self) -> u8 {
+        crate::sync::substream_layout(
+            self.substream_info,
+            self.format_sync == crate::sync::SYNC_FBB,
+        )
+    }
+
     /// Derives the configuration from a major sync.
     pub fn from_major_sync(ms: &MajorSync) -> Result<Self> {
         let sampling_frequency = ms.sampling_frequency().ok_or_else(|| {
@@ -95,11 +105,14 @@ impl StreamConfig {
     /// rate is therefore compared in its own right.
     #[must_use]
     pub fn incompatible_with(&self, next: &Self) -> Option<&'static str> {
+        // The bits of `substream_info` the description reserves lay nothing
+        // out, and a major sync that differs in them alone is no other
+        // layout: the decoder stopped at one.
         if self.format_sync != next.format_sync {
             Some("the format sync")
         } else if self.substreams != next.substreams {
             Some("the substream count")
-        } else if self.substream_info != next.substream_info {
+        } else if self.substream_layout() != next.substream_layout() {
             Some("substream_info")
         } else if self.samples_per_au != next.samples_per_au {
             Some("the samples per access unit")
@@ -390,8 +403,28 @@ mod tests {
         fewer.substreams -= 1;
         assert_eq!(base.incompatible_with(&fewer), Some("the substream count"));
         let mut other_info = base.clone();
-        other_info.substream_info ^= 0x01;
+        other_info.substream_info ^= 0x04;
         assert_eq!(base.incompatible_with(&other_info), Some("substream_info"));
+        // The two low bits of `substream_info` are reserved, and a parser
+        // ignores what is reserved: a major sync that differs in them alone
+        // lays the presentations out as the one before it did.
+        for reserved in [0x01, 0x02, 0x03] {
+            let mut same_layout = base.clone();
+            same_layout.substream_info ^= reserved;
+            assert_eq!(
+                base.incompatible_with(&same_layout),
+                None,
+                "{reserved:#04x}"
+            );
+            assert_eq!(same_layout.substream_layout(), base.substream_layout());
+        }
+        // the description is of the FBA syntax: the byte of an FBB major
+        // sync is compared whole
+        let mut fbb = base.clone();
+        fbb.format_sync = crate::sync::SYNC_FBB;
+        let mut fbb_other = fbb.clone();
+        fbb_other.substream_info ^= 0x01;
+        assert_eq!(fbb.incompatible_with(&fbb_other), Some("substream_info"));
 
         // flags are followed rather than refused -- the decoder applies the new
         // value to the extra-data parse, the heavy DRC read and the restricted
@@ -399,6 +432,33 @@ mod tests {
         let mut other_flags = base.clone();
         other_flags.flags ^= 0x1000;
         assert_eq!(base.incompatible_with(&other_flags), None);
+    }
+
+    /// The parser adopts the configuration of every major sync, and forgets
+    /// the restart headers it has seen when the layout changed. A major sync
+    /// that differs in the reserved bits of `substream_info` alone changes
+    /// no layout: the substreams stay where they were, and the byte is kept
+    /// as it was read.
+    #[test]
+    fn a_reserved_bit_of_substream_info_does_not_reset_the_parser() {
+        let base = StreamConfig::from_major_sync(
+            &crate::sync::MajorSync::parse(&major_sync_at_rate(0)).unwrap(),
+        )
+        .unwrap();
+        let mut state = crate::state::ParserState::new(&base);
+        for ss in &mut state.substream {
+            ss.restart_seen = true;
+        }
+        let mut reserved = base.clone();
+        reserved.substream_info ^= 0x01;
+        state.update(&reserved);
+        assert!(state.substream.iter().all(|ss| ss.restart_seen));
+        assert_eq!(state.substream_info, reserved.substream_info);
+
+        let mut other = base.clone();
+        other.substream_info ^= 0x04;
+        state.update(&other);
+        assert!(state.substream.iter().all(|ss| !ss.restart_seen));
     }
 
     /// The other format's sync pattern is directory data once a stream is
