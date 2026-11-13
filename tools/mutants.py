@@ -1529,6 +1529,44 @@ MUTANTS = [
         severity: Info,''',
      '''        id: "joc.sequence_gap",
         severity: Warning,'''),
+    # --- what an Evolution frame declares of itself ---------------------------
+    # The frame of a TrueHD unit is the container of an E-AC-3 skip field
+    # without its sync word, and says the same three things of itself. One
+    # rule about them was in the catalog, with a test and no mutation.
+    ('the Evolution frames of a stream not counted for what they declare',
+     'crates/oadec-cli/src/scan.rs',
+     'let changed = self.extra.protection.take(&c);',
+     'let changed = false;'),
+    ('an Evolution frame that declares another key counted and not filed',
+     'crates/oadec-cli/src/scan.rs',
+     'let changed = self.extra.protection.take(&c);',
+     'let changed = self.extra.protection.take(&c) && false;'),
+    ('an Evolution frame of another syntax version not filed',
+     'crates/oadec-cli/src/scan.rs',
+     '''                                if c.version != 0 {
+                                    self.diag.add(RuleId::EvoSyntaxVersion''',
+     '''                                if c.version == 0 {
+                                    self.diag.add(RuleId::EvoSyntaxVersion'''),
+    ('the reserved length of an Evolution frame filed for every frame but the one that codes it',
+     'crates/oadec-cli/src/scan.rs',
+     '''                                if c.protection.primary_code == 0 {
+                                    self.diag.add(
+                                        RuleId::EvoProtectionReserved,''',
+     '''                                if c.protection.primary_code != 0 {
+                                    self.diag.add(
+                                        RuleId::EvoProtectionReserved,'''),
+    ('the rule about another key of an Evolution frame weighing as a warning',
+     'crates/oadec-truehd/src/rules.rs',
+     '''        id: "evo.protection_changed",
+        severity: Info,''',
+     '''        id: "evo.protection_changed",
+        severity: Warning,'''),
+    ('the rule about another syntax version of an Evolution frame failing a stream',
+     'crates/oadec-truehd/src/rules.rs',
+     '''        id: "evo.syntax_version",
+        severity: Info,''',
+     '''        id: "evo.syntax_version",
+        severity: Error,'''),
 ]
 
 

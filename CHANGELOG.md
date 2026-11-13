@@ -8,6 +8,22 @@ Semantic Versioning.
 
 ### Added
 
+- **What an Evolution frame declares of itself, as rules.** The frame of a
+  TrueHD access unit is the container of an E-AC-3 skip field without its
+  sync word, and says the same three things of itself. `verify` counted them
+  (`extra.protection`) and filed one rule, `evo.protection_reserved`. It
+  files two more, at `info`, as on a stream of the AC-3 family:
+  `evo.syntax_version` for a frame of another syntax version than 0, and
+  `evo.protection_changed` for one that declares another key identifier or
+  word length than the frame before it. No verdict moves, `--fail-on info`
+  aside, and no protection word is read. A test makes each of the three from
+  the fixture, and the older rule has the mutation it lacked. Counted over
+  the corpus and the first minute of 157 library tracks: of 227 395 frames in
+  the one and 256 309 in the other every one names key identifier 0 and a
+  primary word of one byte, and none declares anything else than the frame
+  before it, so none of the three has fired on a real stream
+  (`docs/eac3.md`,
+  `docs/audit/evidence/engine-round-2026-11/33-what-an-evolution-frame-declares.json`).
 - **What a metadata container declares, and the JOC sequence counter, in
   `verify`.** An EMDF container names the version of its syntax, a key
   identifier and the lengths of its two protection words, and the JOC payload
