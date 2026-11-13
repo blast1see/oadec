@@ -1316,7 +1316,13 @@ impl<'a> Parser<'a> {
 
         // ---- mantissas ----
         let mut mant = Mantissas::default();
-        let mut coef = vec![[0.0f64; N]; NCH];
+        // The coefficients as the block hands them out: the full-bandwidth
+        // channels in coded order, then the LFE. They are decoded in place.
+        // A block used to decode into an array for each of seven slots and
+        // copy out the ones it had: twenty-six thousand bytes written to
+        // hand out twelve thousand.
+        let lfe_at = nf;
+        let mut coef: Vec<[f64; N]> = vec![[0.0f64; N]; nf + usize::from(self.lfe)];
         let mut cpl_read = false;
         let mut cpl_vals: Vec<Option<f64>> = Vec::new();
         for ch in 0..nf {
@@ -1357,15 +1363,21 @@ impl<'a> Parser<'a> {
         }
         if self.lfe {
             match self.ahtinu[LFE] {
-                0 => {
-                    self.read_channel_mantissas(LFE, 0, 7, &mut mant, false, noise, &mut coef[LFE])?
-                }
+                0 => self.read_channel_mantissas(
+                    LFE,
+                    0,
+                    7,
+                    &mut mant,
+                    false,
+                    noise,
+                    &mut coef[lfe_at],
+                )?,
                 1 => {
                     self.read_aht_mantissas(LFE, 0, 7, noise, false)?;
                     self.ahtinu[LFE] = -1;
-                    self.aht_block(LFE, blk, &mut coef[LFE]);
+                    self.aht_block(LFE, blk, &mut coef[lfe_at]);
                 }
-                _ => self.aht_block(LFE, blk, &mut coef[LFE]),
+                _ => self.aht_block(LFE, blk, &mut coef[lfe_at]),
             }
         }
 
@@ -1481,13 +1493,9 @@ impl<'a> Parser<'a> {
         }
 
         // ---- collect ----
-        let mut coeffs: Vec<[f64; N]> = coef[..nf].to_vec();
-        if self.lfe {
-            coeffs.push(coef[LFE]);
-        }
         let info = self.opts.block_info.then(|| self.block_info(blk));
         self.out_blocks.push(Block {
-            coeffs,
+            coeffs: coef,
             blksw: self.blksw[..nf].to_vec(),
             info,
             ecpl: ecpl_block,
