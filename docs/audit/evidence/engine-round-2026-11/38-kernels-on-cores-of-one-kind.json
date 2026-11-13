@@ -1,0 +1,1195 @@
+{
+ "question": "Is a kernel figure of `cargo bench -p oadec-bench` the figure of one kind of core, and is the figure of a whole command?",
+ "method": "The processor has eight fast cores with two threads each, its logical processors 0 to 15, and twelve slow ones, 16 to 27. The benchmark of the baseline (the commit that recorded evidence 08) and the benchmark of main were each run three times not bound, three times bound to the first sixteen logical processors and three times bound to the other twelve, and the median every run gave of every kernel kept. Five whole commands, of a quarter of a second to three seconds, were timed from outside fourteen times each of the three ways, with the binary of main. A process is bound by a parent that binds itself and starts it. The streams are media and are not in the repository.",
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11",
+  "cores": "eight fast cores with two threads each (logical processors 0 to 15) and twelve slow ones (16 to 27)"
+ },
+ "result": {
+  "the_benchmark_of_the_baseline": {
+   "commit": "2ca2248",
+   "kernels": [
+    {
+     "kernel": "truehd: frame the access units",
+     "the_table_said_ns": 174044.2,
+     "which_is_the_figure_of": "a fast core",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       153445.1,
+       163761.0,
+       150695.6
+      ],
+      "widest_spread_within_a_run": 0.0291
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       159363.4,
+       150652.7,
+       154932.9
+      ],
+      "widest_spread_within_a_run": 0.0291
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       281108.8,
+       287752.9,
+       287226.0
+      ],
+      "widest_spread_within_a_run": 0.0761
+     },
+     "not_bound_ran_on": [
+      "a fast core",
+      "a fast core",
+      "a fast core"
+     ],
+     "slow_over_fast": 1.85
+    },
+    {
+     "kernel": "truehd: decode presentation 0, 2 channels",
+     "the_table_said_ns": 3007435.7,
+     "which_is_the_figure_of": "a fast core",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       2984350.0,
+       2997350.0,
+       3151630.8
+      ],
+      "widest_spread_within_a_run": 0.0043
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       2996014.3,
+       2991192.9,
+       2988807.1
+      ],
+      "widest_spread_within_a_run": 0.005
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       5178311.1,
+       5206011.1,
+       5116533.3
+      ],
+      "widest_spread_within_a_run": 0.0396
+     },
+     "not_bound_ran_on": [
+      "a fast core",
+      "a fast core",
+      "a fast core"
+     ],
+     "slow_over_fast": 1.73
+    },
+    {
+     "kernel": "truehd: decode presentation 1, 6 channels",
+     "the_table_said_ns": 7908790.0,
+     "which_is_the_figure_of": "a fast core",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       7881183.3,
+       7828450.0,
+       7824000.0
+      ],
+      "widest_spread_within_a_run": 0.0043
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       7890966.7,
+       7843150.0,
+       7835500.0
+      ],
+      "widest_spread_within_a_run": 0.0054
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       13961366.7,
+       14290933.3,
+       14318533.3
+      ],
+      "widest_spread_within_a_run": 0.0204
+     },
+     "not_bound_ran_on": [
+      "a fast core",
+      "a fast core",
+      "a fast core"
+     ],
+     "slow_over_fast": 1.82
+    },
+    {
+     "kernel": "truehd: decode presentation 2, 8 channels",
+     "the_table_said_ns": 11259375.0,
+     "which_is_the_figure_of": "a fast core",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       10902700.0,
+       10836750.0,
+       10768625.0
+      ],
+      "widest_spread_within_a_run": 0.0042
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       10858450.0,
+       10879950.0,
+       10807100.0
+      ],
+      "widest_spread_within_a_run": 0.005
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       19679033.3,
+       20259625.0,
+       20298900.0
+      ],
+      "widest_spread_within_a_run": 0.0194
+     },
+     "not_bound_ran_on": [
+      "a fast core",
+      "a fast core",
+      "a fast core"
+     ],
+     "slow_over_fast": 1.87
+    },
+    {
+     "kernel": "truehd: decode presentation 3, 12 channels",
+     "the_table_said_ns": 32913150.0,
+     "which_is_the_figure_of": "a slow core",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       17471000.0,
+       17212533.3,
+       17493700.0
+      ],
+      "widest_spread_within_a_run": 0.0301
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       17377500.0,
+       17087133.3,
+       17016100.0
+      ],
+      "widest_spread_within_a_run": 0.0037
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       29445550.0,
+       30473750.0,
+       29964750.0
+      ],
+      "widest_spread_within_a_run": 0.013
+     },
+     "not_bound_ran_on": [
+      "a fast core",
+      "a fast core",
+      "a fast core"
+     ],
+     "slow_over_fast": 1.75
+    },
+    {
+     "kernel": "truehd: decode 88.2 kHz, 6 channels",
+     "the_table_said_ns": 960954.5,
+     "which_is_the_figure_of": "a slow core",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       935357.5,
+       991395.0,
+       974122.5
+      ],
+      "widest_spread_within_a_run": 0.0142
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       541310.1,
+       540781.8,
+       544905.5
+      ],
+      "widest_spread_within_a_run": 0.0045
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       936226.1,
+       973144.7,
+       986686.0
+      ],
+      "widest_spread_within_a_run": 0.0362
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 1.8
+    },
+    {
+     "kernel": "mlp: decode 96 kHz, 6 channels",
+     "the_table_said_ns": 921143.4,
+     "which_is_the_figure_of": "a slow core",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       946730.9,
+       944529.3,
+       1081463.2
+      ],
+      "widest_spread_within_a_run": 0.0115
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       582137.3,
+       572395.7,
+       576064.3
+      ],
+      "widest_spread_within_a_run": 0.0037
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       873727.7,
+       931361.9,
+       951162.8
+      ],
+      "widest_spread_within_a_run": 0.0187
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 1.62
+    },
+    {
+     "kernel": "eac3: decode the 5.1 core of the object stream",
+     "the_table_said_ns": 9629962.5,
+     "which_is_the_figure_of": "a slow core",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       9421662.5,
+       9656280.0,
+       9718862.5
+      ],
+      "widest_spread_within_a_run": 0.0142
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       5032787.5,
+       5064387.5,
+       5034550.0
+      ],
+      "widest_spread_within_a_run": 0.0089
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       9599760.0,
+       9613380.0,
+       9557160.0
+      ],
+      "widest_spread_within_a_run": 0.0126
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 1.91
+    },
+    {
+     "kernel": "joc: analysis bank, one channel, one frame",
+     "the_table_said_ns": 37076.1,
+     "which_is_the_figure_of": "a slow core",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       36939.6,
+       37723.2,
+       37354.3
+      ],
+      "widest_spread_within_a_run": 0.0102
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       17874.7,
+       18039.2,
+       18054.5
+      ],
+      "widest_spread_within_a_run": 0.0066
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       37268.8,
+       37135.1,
+       37088.4
+      ],
+      "widest_spread_within_a_run": 0.0067
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 2.06
+    },
+    {
+     "kernel": "joc: synthesis bank, one object, one frame",
+     "the_table_said_ns": 39015.8,
+     "which_is_the_figure_of": "a slow core",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       38850.1,
+       39747.9,
+       19462.8
+      ],
+      "widest_spread_within_a_run": 0.0094
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       19378.7,
+       19539.7,
+       19373.5
+      ],
+      "widest_spread_within_a_run": 0.0088
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       38977.8,
+       39447.8,
+       38952.8
+      ],
+      "widest_spread_within_a_run": 0.0115
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a fast core"
+     ],
+     "slow_over_fast": 2.01
+    }
+   ],
+   "slow_over_fast": {
+    "least": 1.62,
+    "most": 2.06
+   },
+   "the_table_of_evidence_08_was_of": {
+    "a fast core": [
+     "truehd: frame the access units",
+     "truehd: decode presentation 0, 2 channels",
+     "truehd: decode presentation 1, 6 channels",
+     "truehd: decode presentation 2, 8 channels"
+    ],
+    "a slow core": [
+     "truehd: decode presentation 3, 12 channels",
+     "truehd: decode 88.2 kHz, 6 channels",
+     "mlp: decode 96 kHz, 6 channels",
+     "eac3: decode the 5.1 core of the object stream",
+     "joc: analysis bank, one channel, one frame",
+     "joc: synthesis bank, one object, one frame"
+    ]
+   },
+   "not_bound": "the first five kernels on a fast core in each of three runs; of the fifteen runs of the five kernels after them, 14 on a slow core"
+  },
+  "the_benchmark_of_main": {
+   "kernels": [
+    {
+     "kernel": "truehd: frame the access units",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       147780.9,
+       155533.8,
+       145433.6
+      ],
+      "widest_spread_within_a_run": 0.0119
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       149525.0,
+       151436.1,
+       163405.3
+      ],
+      "widest_spread_within_a_run": 0.029
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       269670.0,
+       292129.2,
+       268314.4
+      ],
+      "widest_spread_within_a_run": 0.0435
+     },
+     "not_bound_ran_on": [
+      "a fast core",
+      "a fast core",
+      "a fast core"
+     ],
+     "slow_over_fast": 1.78
+    },
+    {
+     "kernel": "truehd: decode presentation 0, 2 channels",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       3029242.9,
+       3023450.0,
+       3059835.7
+      ],
+      "widest_spread_within_a_run": 0.0072
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       3000314.3,
+       3034869.2,
+       3042842.9
+      ],
+      "widest_spread_within_a_run": 0.0071
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       5082862.5,
+       5255333.3,
+       5128150.0
+      ],
+      "widest_spread_within_a_run": 0.0577
+     },
+     "not_bound_ran_on": [
+      "a fast core",
+      "a fast core",
+      "a fast core"
+     ],
+     "slow_over_fast": 1.69
+    },
+    {
+     "kernel": "truehd: decode presentation 1, 6 channels",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       7891983.3,
+       7927800.0,
+       7955200.0
+      ],
+      "widest_spread_within_a_run": 0.0036
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       7822930.0,
+       7975230.0,
+       7887916.7
+      ],
+      "widest_spread_within_a_run": 0.0055
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       14291000.0,
+       14251700.0,
+       15519766.7
+      ],
+      "widest_spread_within_a_run": 0.0286
+     },
+     "not_bound_ran_on": [
+      "a fast core",
+      "a fast core",
+      "a fast core"
+     ],
+     "slow_over_fast": 1.81
+    },
+    {
+     "kernel": "truehd: decode presentation 2, 8 channels",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       10944975.0,
+       10873350.0,
+       11062725.0
+      ],
+      "widest_spread_within_a_run": 0.0052
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       10825425.0,
+       11023575.0,
+       10899425.0
+      ],
+      "widest_spread_within_a_run": 0.0032
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       20812950.0,
+       20248733.3,
+       20859800.0
+      ],
+      "widest_spread_within_a_run": 0.0282
+     },
+     "not_bound_ran_on": [
+      "a fast core",
+      "a fast core",
+      "a fast core"
+     ],
+     "slow_over_fast": 1.91
+    },
+    {
+     "kernel": "truehd: decode presentation 3, 12 channels",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       29947333.3,
+       25506466.7,
+       30061033.3
+      ],
+      "widest_spread_within_a_run": 0.1927
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       16958966.7,
+       17148866.7,
+       17052600.0
+      ],
+      "widest_spread_within_a_run": 0.0088
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       30787350.0,
+       29291150.0,
+       30979350.0
+      ],
+      "widest_spread_within_a_run": 0.0262
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 1.81
+    },
+    {
+     "kernel": "truehd: decode 88.2 kHz, 6 channels",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       979284.2,
+       977366.0,
+       969969.8
+      ],
+      "widest_spread_within_a_run": 0.0203
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       546650.0,
+       545035.1,
+       550402.1
+      ],
+      "widest_spread_within_a_run": 0.0068
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       1061320.0,
+       984422.0,
+       1081485.4
+      ],
+      "widest_spread_within_a_run": 0.0756
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 1.94
+    },
+    {
+     "kernel": "mlp: decode 96 kHz, 6 channels",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       926955.6,
+       926612.8,
+       923612.2
+      ],
+      "widest_spread_within_a_run": 0.0262
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       579520.3,
+       581749.3,
+       615175.5
+      ],
+      "widest_spread_within_a_run": 0.0038
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       1029321.4,
+       877936.2,
+       967388.9
+      ],
+      "widest_spread_within_a_run": 0.0108
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 1.66
+    },
+    {
+     "kernel": "eac3: decode the 5.1 core of the object stream",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       7664230.0,
+       7656783.3,
+       7663220.0
+      ],
+      "widest_spread_within_a_run": 0.0151
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       4099710.0,
+       4104550.0,
+       4088490.0
+      ],
+      "widest_spread_within_a_run": 0.0064
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       7633733.3,
+       7555216.7,
+       7594633.3
+      ],
+      "widest_spread_within_a_run": 0.0082
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 1.85
+    },
+    {
+     "kernel": "joc: analysis bank, one channel, one frame",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       37373.5,
+       37592.7,
+       37568.7
+      ],
+      "widest_spread_within_a_run": 0.009
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       17976.1,
+       18174.4,
+       18132.3
+      ],
+      "widest_spread_within_a_run": 0.0043
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       37119.0,
+       37519.4,
+       36969.8
+      ],
+      "widest_spread_within_a_run": 0.0102
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 2.05
+    },
+    {
+     "kernel": "joc: synthesis bank, one object, one frame",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       38980.1,
+       39045.3,
+       39220.4
+      ],
+      "widest_spread_within_a_run": 0.0121
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       19344.2,
+       19370.7,
+       19297.0
+      ],
+      "widest_spread_within_a_run": 0.0075
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       38661.5,
+       39138.1,
+       38728.7
+      ],
+      "widest_spread_within_a_run": 0.0038
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 2.0
+    },
+    {
+     "kernel": "checksum: CRC-16 of a megabyte",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       1631575.0,
+       1689860.9,
+       1648534.6
+      ],
+      "widest_spread_within_a_run": 0.0406
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       1806000.0,
+       1829534.8,
+       1813626.1
+      ],
+      "widest_spread_within_a_run": 0.0052
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       1619404.3,
+       1625469.2,
+       1617676.9
+      ],
+      "widest_spread_within_a_run": 0.0123
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 0.89
+    },
+    {
+     "kernel": "checksum: CRC-8 of a megabyte",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       1505128.6,
+       1517492.9,
+       1502821.4
+      ],
+      "widest_spread_within_a_run": 0.0154
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       1339525.8,
+       1329851.6,
+       1328932.3
+      ],
+      "widest_spread_within_a_run": 0.0047
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       1490378.6,
+       1493007.1,
+       1496150.0
+      ],
+      "widest_spread_within_a_run": 0.0098
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 1.12
+    },
+    {
+     "kernel": "checksum: parity of a megabyte",
+     "not bound": {
+      "medians_of_three_runs_ns": [
+       19843.6,
+       19533.6,
+       19495.4
+      ],
+      "widest_spread_within_a_run": 0.0475
+     },
+     "bound to the first sixteen": {
+      "medians_of_three_runs_ns": [
+       8164.2,
+       8208.1,
+       8290.6
+      ],
+      "widest_spread_within_a_run": 0.0069
+     },
+     "bound to the other twelve": {
+      "medians_of_three_runs_ns": [
+       19504.6,
+       19551.6,
+       19388.3
+      ],
+      "widest_spread_within_a_run": 0.009
+     },
+     "not_bound_ran_on": [
+      "a slow core",
+      "a slow core",
+      "a slow core"
+     ],
+     "slow_over_fast": 2.38
+    }
+   ],
+   "slow_over_fast": {
+    "least": 0.89,
+    "most": 2.38
+   },
+   "the_one_kernel_a_slow_core_is_faster_at": {
+    "kernel": "checksum: CRC-16 of a megabyte",
+    "slow_over_fast": 0.89,
+    "reading": "a register that every byte has to wait for: one chain of table look-ups, which the slow core runs in less time than the fast one"
+   }
+  },
+  "whole_commands": {
+   "binary": "the binary of main, SHA-256 9174cd60bf9f6c0b29ca72c366fed2f4432fc0d2ac8dddf68c774952b87b37ad",
+   "commands": [
+    {
+     "command": "`verify` of 60 s of E-AC-3 7.1",
+     "not bound": {
+      "runs": 14,
+      "least_ms": 257.9,
+      "median_ms": 258.8,
+      "most_ms": 261.6
+     },
+     "bound to the first sixteen": {
+      "runs": 14,
+      "least_ms": 256.9,
+      "median_ms": 260.4,
+      "most_ms": 266.3
+     },
+     "bound to the other twelve": {
+      "runs": 14,
+      "least_ms": 449.8,
+      "median_ms": 453.2,
+      "most_ms": 487.4
+     },
+     "not_bound_over_fast": 0.994,
+     "slow_over_fast": 1.74
+    },
+    {
+     "command": "`verify` of a TrueHD stream of 26 684 144 bytes",
+     "not bound": {
+      "runs": 14,
+      "least_ms": 300.1,
+      "median_ms": 302.7,
+      "most_ms": 308.5
+     },
+     "bound to the first sixteen": {
+      "runs": 14,
+      "least_ms": 301.0,
+      "median_ms": 303.3,
+      "most_ms": 306.3
+     },
+     "bound to the other twelve": {
+      "runs": 14,
+      "least_ms": 443.6,
+      "median_ms": 450.1,
+      "most_ms": 483.4
+     },
+     "not_bound_over_fast": 0.998,
+     "slow_over_fast": 1.48
+    },
+    {
+     "command": "`decode --format pcm` of the same",
+     "not bound": {
+      "runs": 14,
+      "least_ms": 349.8,
+      "median_ms": 352.4,
+      "most_ms": 361.1
+     },
+     "bound to the first sixteen": {
+      "runs": 14,
+      "least_ms": 347.0,
+      "median_ms": 352.3,
+      "most_ms": 354.9
+     },
+     "bound to the other twelve": {
+      "runs": 14,
+      "least_ms": 602.4,
+      "median_ms": 628.1,
+      "most_ms": 720.8
+     },
+     "not_bound_over_fast": 1.0,
+     "slow_over_fast": 1.78
+    },
+    {
+     "command": "`verify --decode` of 106 s of a TrueHD object stream",
+     "not bound": {
+      "runs": 14,
+      "least_ms": 2828.3,
+      "median_ms": 2868.0,
+      "most_ms": 2901.4
+     },
+     "bound to the first sixteen": {
+      "runs": 14,
+      "least_ms": 2845.1,
+      "median_ms": 2867.8,
+      "most_ms": 2884.4
+     },
+     "bound to the other twelve": {
+      "runs": 14,
+      "least_ms": 4835.4,
+      "median_ms": 4928.4,
+      "most_ms": 5010.5
+     },
+     "not_bound_over_fast": 1.0,
+     "slow_over_fast": 1.72
+    },
+    {
+     "command": "`decode -p 3 --format pcm` of the same",
+     "not bound": {
+      "runs": 14,
+      "least_ms": 1109.0,
+      "median_ms": 1124.0,
+      "most_ms": 1157.2
+     },
+     "bound to the first sixteen": {
+      "runs": 14,
+      "least_ms": 1110.6,
+      "median_ms": 1130.6,
+      "most_ms": 1154.6
+     },
+     "bound to the other twelve": {
+      "runs": 14,
+      "least_ms": 1966.2,
+      "median_ms": 2066.4,
+      "most_ms": 2156.3
+     },
+     "not_bound_over_fast": 0.994,
+     "slow_over_fast": 1.83
+    }
+   ],
+   "not_bound_over_fast": {
+    "least": 0.994,
+    "most": 1.0
+   },
+   "slow_over_fast": {
+    "least": 1.48,
+    "most": 1.83
+   },
+   "reading": "not one run of seventy that were not bound took what a slow core takes: the figures of `tools/bench.py` in the evidence before this are of the fast cores. A command that runs longer than three seconds was not timed this way."
+  },
+  "the_kernels_as_the_document_has_them_now": {
+   "command": "python tools/kernels.py --affinity FFFF --runs 5",
+   "kernels": [
+    {
+     "kernel": "truehd: frame the access units",
+     "least_ns": 150823.8,
+     "most_ns": 164803.9,
+     "medians_ns": [
+      151851.9,
+      154315.0,
+      150823.8,
+      164803.9,
+      159838.4
+     ],
+     "mad_share_of_the_least": 0.0247,
+     "audio_seconds": null,
+     "realtime": null,
+     "runs_apart": false
+    },
+    {
+     "kernel": "truehd: decode presentation 0, 2 channels",
+     "least_ns": 3009842.9,
+     "most_ns": 3070384.6,
+     "medians_ns": [
+      3067192.3,
+      3054457.1,
+      3009842.9,
+      3014764.3,
+      3070384.6
+     ],
+     "mad_share_of_the_least": 0.0025,
+     "audio_seconds": 2,
+     "realtime": 664.5,
+     "runs_apart": false
+    },
+    {
+     "kernel": "truehd: decode presentation 1, 6 channels",
+     "least_ns": 7890150.0,
+     "most_ns": 8209180.0,
+     "medians_ns": [
+      7950950.0,
+      7950220.0,
+      8209180.0,
+      7947950.0,
+      7890150.0
+     ],
+     "mad_share_of_the_least": 0.0033,
+     "audio_seconds": 2,
+     "realtime": 253.5,
+     "runs_apart": false
+    },
+    {
+     "kernel": "truehd: decode presentation 2, 8 channels",
+     "least_ns": 10909925.0,
+     "most_ns": 11267325.0,
+     "medians_ns": [
+      10909925.0,
+      10944650.0,
+      11267325.0,
+      10960225.0,
+      10916200.0
+     ],
+     "mad_share_of_the_least": 0.0021,
+     "audio_seconds": 2,
+     "realtime": 183.3,
+     "runs_apart": false
+    },
+    {
+     "kernel": "truehd: decode presentation 3, 12 channels",
+     "least_ns": 17047133.3,
+     "most_ns": 17523133.3,
+     "medians_ns": [
+      17161566.7,
+      17117033.3,
+      17523133.3,
+      17047133.3,
+      17142833.3
+     ],
+     "mad_share_of_the_least": 0.0043,
+     "audio_seconds": 2,
+     "realtime": 117.3,
+     "runs_apart": false
+    },
+    {
+     "kernel": "truehd: decode 88.2 kHz, 6 channels",
+     "least_ns": 545635.6,
+     "most_ns": 578415.4,
+     "medians_ns": [
+      546941.5,
+      551720.5,
+      578415.4,
+      553404.1,
+      545635.6
+     ],
+     "mad_share_of_the_least": 0.0079,
+     "audio_seconds": 0.10068027210884353,
+     "realtime": 184.5,
+     "runs_apart": false
+    },
+    {
+     "kernel": "mlp: decode 96 kHz, 6 channels",
+     "least_ns": 577940.6,
+     "most_ns": 584969.1,
+     "medians_ns": [
+      584244.9,
+      584969.1,
+      582843.2,
+      584790.9,
+      577940.6
+     ],
+     "mad_share_of_the_least": 0.0063,
+     "audio_seconds": 0.1,
+     "realtime": 173.0,
+     "runs_apart": false
+    },
+    {
+     "kernel": "eac3: decode the 5.1 core of the object stream",
+     "least_ns": 4073840.0,
+     "most_ns": 4106060.0,
+     "medians_ns": [
+      4106060.0,
+      4074920.0,
+      4075060.0,
+      4097530.0,
+      4073840.0
+     ],
+     "mad_share_of_the_least": 0.0038,
+     "audio_seconds": 2.016,
+     "realtime": 494.9,
+     "runs_apart": false
+    },
+    {
+     "kernel": "joc: analysis bank, one channel, one frame",
+     "least_ns": 18035.4,
+     "most_ns": 18156.0,
+     "medians_ns": [
+      18104.2,
+      18111.0,
+      18068.9,
+      18156.0,
+      18035.4
+     ],
+     "mad_share_of_the_least": 0.0029,
+     "audio_seconds": 0.032,
+     "realtime": 1774.3,
+     "runs_apart": false
+    },
+    {
+     "kernel": "joc: synthesis bank, one object, one frame",
+     "least_ns": 19159.4,
+     "most_ns": 19460.4,
+     "medians_ns": [
+      19232.8,
+      19301.7,
+      19214.7,
+      19460.4,
+      19159.4
+     ],
+     "mad_share_of_the_least": 0.0037,
+     "audio_seconds": 0.032,
+     "realtime": 1670.2,
+     "runs_apart": false
+    },
+    {
+     "kernel": "checksum: CRC-16 of a megabyte",
+     "least_ns": 1805552.4,
+     "most_ns": 1818400.0,
+     "medians_ns": [
+      1818400.0,
+      1807656.8,
+      1805800.0,
+      1808061.4,
+      1805552.4
+     ],
+     "mad_share_of_the_least": 0.0016,
+     "audio_seconds": null,
+     "realtime": null,
+     "runs_apart": false
+    },
+    {
+     "kernel": "checksum: CRC-8 of a megabyte",
+     "least_ns": 1327100.0,
+     "most_ns": 1337473.3,
+     "medians_ns": [
+      1337473.3,
+      1334725.8,
+      1327100.0,
+      1330161.3,
+      1329854.8
+     ],
+     "mad_share_of_the_least": 0.0022,
+     "audio_seconds": null,
+     "realtime": null,
+     "runs_apart": false
+    },
+    {
+     "kernel": "checksum: parity of a megabyte",
+     "least_ns": 8129.9,
+     "most_ns": 8231.0,
+     "medians_ns": [
+      8180.2,
+      8160.3,
+      8231.0,
+      8144.1,
+      8129.9
+     ],
+     "mad_share_of_the_least": 0.0039,
+     "audio_seconds": null,
+     "realtime": null,
+     "runs_apart": false
+    }
+   ]
+  },
+  "what_it_changes_in_what_the_baseline_said": {
+   "the_filter_banks_of_sixteen_objects_over_a_5.1_core_ms_a_frame": {
+    "said": 0.85,
+    "is": 0.41
+   },
+   "which_alone_holds_the_object_path_to_times_real_time": {
+    "said": 38,
+    "is": 77
+   },
+   "where_the_object_formats_measured_26_to_42_times_real_time_the_banks_are_a_share_of": {
+    "least_per_cent": 34,
+    "most_per_cent": 54
+   }
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 673 passed, 30 ignored (the media suite)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file",
+   "what_was_not_run_and_why": "no decoder source changes: the change is a tool, three kernels of the benchmark and documents, so no binary was compared with the one before it and no mutation is of a file it touches"
+  }
+ },
+ "reading": "The kernel table of the baseline was one run that was not bound, and the system moved its thread to a slow core after the fourth kernel: six of its ten figures are of a slow core, 1.6 to 2.1 times what the kernels take on a fast one, with a spread inside the run that shows nothing. The figures of whole commands are of the fast cores and stand. The filter banks of the object path cost half of what the baseline said, and are a third to a little over a half of that path and not all of it."
+}

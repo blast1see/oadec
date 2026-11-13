@@ -13,6 +13,7 @@ use std::hint::black_box;
 use std::path::Path;
 
 use oadec_bench::{Sample, json, line, measure};
+use oadec_bits::{CRC8_SUBSTREAM, CRC8_SUBSTREAM_INIT, xor_bytes};
 use oadec_eac3::{FrameHeader, Options};
 use oadec_joc::{Analysis, BANDS, Complex, Synthesis};
 use oadec_truehd::{AccessUnit, Decoder, Extractor, Unit};
@@ -90,6 +91,19 @@ fn eac3(frames: &[&[u8]]) -> usize {
         samples += black_box(&decoded.pcm)[0].len();
     }
     samples
+}
+
+/// `len` bytes that are no stream, the same on every run.
+fn noise(len: usize) -> Vec<u8> {
+    let mut state = 0x9e37_79b9_7f4a_7c15u64;
+    (0..len)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 32) as u8
+        })
+        .collect()
 }
 
 /// One frame of time slots for a filter bank: a tone and a little noise, the
@@ -205,6 +219,26 @@ fn main() {
             }
             black_box(&pcm).len()
         },
+    );
+
+    // What a byte costs the checks every frame and every segment makes of
+    // itself: the CRC-16 of the AC-3 family, the CRC-8 and the parity of a
+    // TrueHD substream segment, each over a megabyte.
+    let megabyte = noise(1 << 20);
+    run(
+        "checksum: CRC-16 of a megabyte".to_string(),
+        None,
+        &mut || usize::from(oadec_eac3::frame::CRC16.update_bytes(0, black_box(&megabyte))),
+    );
+    run(
+        "checksum: CRC-8 of a megabyte".to_string(),
+        None,
+        &mut || usize::from(CRC8_SUBSTREAM.update_bytes(CRC8_SUBSTREAM_INIT, black_box(&megabyte))),
+    );
+    run(
+        "checksum: parity of a megabyte".to_string(),
+        None,
+        &mut || usize::from(xor_bytes(black_box(&megabyte))),
     );
 
     if let Some(path) = out {

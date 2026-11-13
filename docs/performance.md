@@ -45,7 +45,12 @@ python tools/bench.py --compare old/oadec new/oadec --out compare.json  WORK/thd
 
 `cargo bench -p oadec-bench` is the other half: the decoder's kernels over the
 committed fixtures, inside one process, with no file read and nothing written.
-It needs no media and is for comparing two builds on one machine.
+It needs no media and is for comparing two builds on one machine. A kernel is
+timed on whatever core its thread is on, so on a processor with cores of two
+speeds the benchmark is run through `python tools/kernels.py --affinity
+MASK`, which binds it to the processors of a mask and runs it several times.
+The first table of kernels this document had was not, and was wrong for it
+(see the kernels below).
 
 ## The baseline
 
@@ -96,20 +101,56 @@ The range over the streams of a kind; the reference decoders in brackets.
 
 ### The kernels
 
-`cargo bench -p oadec-bench` on the same machine and build:
+`python tools/kernels.py --affinity FFFF --runs 5` on the same machine: the
+benchmark five times, bound to the eight fast cores of the processor, every
+kernel as the least of the medians of its runs and the largest. Measured on
+14 November 2026, on the build after the changes to the AC-3 core that are
+described further down, so the core of that family is faster here than those
+changes found it:
 
 ```text
-truehd: frame the access units                          174.044 us  +/-  3.8 %
-truehd: decode presentation 0, 2 channels                 3.007 ms  +/-  0.4 %  665x real time
-truehd: decode presentation 1, 6 channels                 7.909 ms  +/-  0.3 %  253x real time
-truehd: decode presentation 2, 8 channels                11.259 ms  +/-  1.7 %  178x real time
-truehd: decode presentation 3, 12 channels               32.913 ms  +/-  0.9 %  61x real time
-truehd: decode 88.2 kHz, 6 channels                     960.955 us  +/-  1.9 %  105x real time
-mlp: decode 96 kHz, 6 channels                          921.143 us  +/-  0.8 %  109x real time
-eac3: decode the 5.1 core of the object stream            9.630 ms  +/-  0.7 %  209x real time
-joc: analysis bank, one channel, one frame               37.076 us  +/-  0.1 %  863x real time
-joc: synthesis bank, one object, one frame               39.016 us  +/-  0.5 %  820x real time
+truehd: frame the access units                    150.824 us  to   164.804 us
+truehd: decode presentation 0, 2 channels           3.010 ms  to     3.070 ms  664x real time
+truehd: decode presentation 1, 6 channels           7.890 ms  to     8.209 ms  254x real time
+truehd: decode presentation 2, 8 channels          10.910 ms  to    11.267 ms  183x real time
+truehd: decode presentation 3, 12 channels         17.047 ms  to    17.523 ms  117x real time
+truehd: decode 88.2 kHz, 6 channels               545.636 us  to   578.415 us  184x real time
+mlp: decode 96 kHz, 6 channels                    577.941 us  to   584.969 us  173x real time
+eac3: decode the 5.1 core of the object stream      4.074 ms  to     4.106 ms  495x real time
+joc: analysis bank, one channel, one frame         18.035 us  to    18.156 us  1774x real time
+joc: synthesis bank, one object, one frame         19.159 us  to    19.460 us  1670x real time
+checksum: CRC-16 of a megabyte                      1.806 ms  to     1.818 ms
+checksum: CRC-8 of a megabyte                       1.327 ms  to     1.337 ms
+checksum: parity of a megabyte                      8.130 us  to     8.231 us
 ```
+
+**The table that stood here before was wrong from its fifth line down.** It
+was one run of `cargo bench`, not bound. Some seconds into a run the system
+moves the thread to one of the slow cores of this processor, and a kernel
+timed there takes 1.6 to 2.1 times as long, with a spread inside the run no
+wider than on a fast core, so nothing in the run says so. The build of the
+baseline, measured again three ways, three runs each
+(`docs/audit/evidence/engine-round-2026-11/38-kernels-on-cores-of-one-kind.json`):
+
+| kernel | the table said | bound to the fast cores | bound to the slow cores |
+|---|---:|---:|---:|
+| TrueHD, presentation 3, 12 channels | 32.9 ms | 17.0 to 17.4 ms | 29.4 to 30.5 ms |
+| TrueHD, 88.2 kHz, 6 channels | 961 us | 541 to 545 us | 936 to 987 us |
+| MLP, 96 kHz, 6 channels | 921 us | 572 to 582 us | 874 to 951 us |
+| the 5.1 core of the object stream | 9.63 ms | 5.03 to 5.06 ms | 9.56 to 9.61 ms |
+| JOC analysis bank | 37.1 us | 17.9 to 18.1 us | 37.1 to 37.3 us |
+| JOC synthesis bank | 39.0 us | 19.4 to 19.5 us | 39.0 to 39.4 us |
+
+The first four lines of the old table were of a fast core and stand. Not
+bound, the same build gave the figures of a fast core for its first five
+kernels in each of three runs, and of a slow one for the five after them in
+all but the last kernel of one run.
+
+The figures of whole commands in this document are not touched by it. A
+command measured from outside is a process of its own, and five of them that
+run from a quarter of a second to three seconds took the same time not bound
+as bound to the fast cores, to within 0.6 per cent over fourteen runs each
+way, and 1.5 to 1.8 times as long bound to the slow ones.
 
 ## What the baseline says
 
@@ -130,10 +171,14 @@ because it decodes: 0.19 to 0.70 processor seconds a minute against 0.11 to
 
 **Objects out of JOC cost three to four times the channels under them.** 26 to 42
 times real time for the object formats against 82 to 169 for the core. The
-kernels say why: an analysis bank for every coded channel and a synthesis
-bank for every object, 37 and 39 microseconds each for a frame of 32
-milliseconds. Sixteen objects over a 5.1 core is 0.85 ms of filter bank a
-frame, which alone holds the whole to about 38 times real time.
+kernels say where part of it goes: an analysis bank for every coded channel
+and a synthesis bank for every object, 18 and 19 microseconds each for a
+frame of 32 milliseconds. Sixteen objects over a 5.1 core is 0.41 ms of
+filter bank a frame, which alone would hold the whole to about 77 times real
+time: a third to a little over a half of what an object format took. This
+paragraph used to say 37 and 39 microseconds, 0.85 ms and 38 times, and so
+that the filter banks were all of it. Those were the figures of a slow core.
+Where the rest of the object path goes has not been measured.
 
 **`verify --decode` is the sum of its presentations**, 30 to 131 times real
 time, because it decodes them one after another.
@@ -150,8 +195,9 @@ takes 19.7 s against 18.6; of five streams none took more than 20 MiB beside
 its own size
 (`docs/audit/evidence/engine-round-2026-11/21-standard-input.json`).
 
-So the order of work for speed is the AC-3 core first, then the filter banks
-of the object path, then the presentations of `verify --decode` side by side.
+So the order of work for speed is the AC-3 core first, then the object path,
+of which the filter banks are the half that is known, then the presentations
+of `verify --decode` side by side.
 Each of those is a change that has to show its figure with `--compare`
 against this one, and leave the output where it was.
 
@@ -308,6 +354,11 @@ the level and the peak of each of its six channels now.
 
 - One machine. The ratios between commands carry to another; the figures do
   not.
+- One kind of core. This processor has eight fast cores and twelve slow
+  ones, and decoding takes 1.5 to 2.1 times as long on a slow one. The
+  kernels are of a process bound to the fast cores. The whole commands were
+  not bound: commands of up to three seconds have been seen to stay on the
+  fast cores, and a longer one has not been looked at.
 - Heads of about a minute. A command that takes a quarter of a second is
   measured to a few per cent at best, and the processor time of so short a
   run is counted by a clock that steps by a sixty-fourth of a second.

@@ -10,6 +10,7 @@ authors.workspace = true
 publish = false
 
 [dependencies]
+oadec-bits.workspace = true
 oadec-truehd.workspace = true
 oadec-eac3.workspace = true
 oadec-joc.workspace = true
