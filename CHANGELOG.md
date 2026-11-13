@@ -461,6 +461,22 @@ Semantic Versioning.
 
 ### Changed
 
+- **The frames of the AC-3 family are read without moving the buffer.** The
+  loop every command of the family reads syncframes through kept four
+  megabytes of the file in a buffer and moved what was left of them to the
+  front at every frame: two megabytes on average, some four gigabytes of
+  copying for a minute of audio. It moves a cursor now and gives up what it
+  has taken when it fills the buffer again. `verify` and `decode` of AC-3 and
+  E-AC-3 take 38 to 66 per cent of the time they took (two channels of AC-3
+  802 times faster than real time where it was 313, 7.1 of E-AC-3 170 where
+  it was 83), the object formats 84 to 89 per cent, and FFmpeg's lead on the
+  same streams is 2.1 to 3.4 times where it was 4.7 to 6.8. The reads of the
+  file and the places where bytes are found to be no frame are what they
+  were: no report and no delivery changes over the corpus, nor over 320
+  damaged copies of the fixture. The loop had no test of its own and no
+  mutation; it has three tests, two of which the loop of `main` passes as
+  well, and twelve mutations (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/36-frames-by-a-cursor.json`).
 - **One walk over the skip fields of a frame.** Six loops looked for an EMDF
   container there: the pass of `verify`, the count of containers beside it,
   the object decode, the walk of `emdf` and `oamd`, and the two tools that

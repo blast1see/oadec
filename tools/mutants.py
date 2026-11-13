@@ -25,6 +25,9 @@ out of the run without a word; it is found before any test runs now, and
 `--check` looks for nothing else, which is quick enough for CI. A mutation
 that does not build is in the first group as well: the compiler refused it,
 the run failed, and no test was asked anything, which used to read as caught.
+What the build said is printed under it, because a build also fails for
+reasons that are not the mutation's: one of 56 mutations run three at a time
+did, and built and was caught when it was run again alone.
 2: the tree is not clean, or the suite does not pass before any mutation.
 """
 
@@ -1878,6 +1881,68 @@ MUTANTS = [
      'crates/oadec-cli/src/info.rs',
      '"modifier": ms.channel_modifier(i),',
      '"modifier": ms.channel_modifier(0),'),
+    # --- the frame reader of the AC-3 family ------------------------------------
+    # Every command reads the syncframes of a stream through one loop, which
+    # had no mutation here. It takes a frame out of its buffer by moving a
+    # cursor, and gives up what it has taken when it fills the buffer again.
+    ('a frame taken and the cursor left a byte short of its end',
+     'crates/oadec-cli/src/eac3.rs',
+     '''        base += header.frame_bytes as u64;
+        at += header.frame_bytes;''',
+     '''        base += header.frame_bytes as u64;
+        at += header.frame_bytes - 1;'''),
+    ('a frame handed out at the offset of the one before it',
+     'crates/oadec-cli/src/eac3.rs',
+     '        base += header.frame_bytes as u64;',
+     '        base += 0;'),
+    ('the frames read from the start of the buffer whatever has been taken',
+     'crates/oadec-cli/src/eac3.rs',
+     '        let window = &buf[at..];',
+     '        let window = &buf[..];'),
+    ('the pass ended at the first frame taken after the source has ended',
+     'crates/oadec-cli/src/eac3.rs',
+     '        if at == buf.len() && eof {',
+     '        if eof {'),
+    ('the bytes before a sync word skipped with its first byte',
+     'crates/oadec-cli/src/eac3.rs',
+     '''            skipped += pos as u64;
+            at += pos;''',
+     '''            skipped += pos as u64;
+            at += pos + 1;'''),
+    ('the bytes before a sync word not counted as a sync error',
+     'crates/oadec-cli/src/eac3.rs',
+     '''            on_gap(base, true, pos as u64);
+            sync_errors += 1;''',
+     '''            on_gap(base, true, pos as u64);'''),
+    ('a buffer without a sync word given up and the cursor left where it was',
+     'crates/oadec-cli/src/eac3.rs',
+     '''            buf.clear();
+            at = 0;''',
+     '''            buf.clear();'''),
+    ('a frame with no sync word behind it taken all the same',
+     'crates/oadec-cli/src/eac3.rs',
+     '''        if !next_ok {
+            on_gap(base, true, 1);''',
+     '''        if false {
+            on_gap(base, true, 1);'''),
+    ('the bytes taken kept when the buffer is filled',
+     'crates/oadec-cli/src/eac3.rs',
+     '''    buf.drain(..*at);
+    *at = 0;''',
+     '''    *at = 0;'''),
+    ('the cursor left where it was when the bytes taken are given up',
+     'crates/oadec-cli/src/eac3.rs',
+     '''    buf.drain(..*at);
+    *at = 0;''',
+     '''    buf.drain(..*at);'''),
+    ('the buffer kept as long as the read asked for and not as long as it gave',
+     'crates/oadec-cli/src/eac3.rs',
+     '    buf.truncate(held + read);',
+     '    buf.truncate(held + most);'),
+    ('a read onto the start of the buffer and not behind what it holds',
+     'crates/oadec-cli/src/eac3.rs',
+     '    let read = from.read(&mut buf[held..])?;',
+     '    let read = from.read(&mut buf[..])?;'),
 ]
 
 
@@ -1942,12 +2007,17 @@ for name, path, old, new in selected:
     # A mutation the compiler refuses fails the run before a test has run:
     # that is a mutation written wrong, and says nothing of the suite.
     built = 'could not compile' not in r.stderr
+    # What the build said where it failed. A mutation written wrong and a
+    # build that failed for a reason of its own -- a linker that could not
+    # write its file, say -- read the same until this is looked at.
+    said = ([ln.strip() for ln in r.stderr.splitlines() if ln.lstrip().startswith('error')][:4]
+            if not built else [])
     caught = r.returncode != 0 and built
     failing = sorted({ln.split()[1] for ln in r.stdout.splitlines()
                       if ln.startswith('test ') and ln.rstrip().endswith('FAILED')})
     subprocess.run(['git', 'checkout', '--', path], check=True)
     rows.append({'mutation': name, 'applied': True, 'built': built, 'caught': caught,
-                 'failing_tests': failing[:6], 'failing_count': len(failing)})
+                 'failing_tests': failing[:6], 'failing_count': len(failing), 'build_says': said})
     expected = name in EXPECTED_SURVIVORS
     rows[-1]['expected_to_survive'] = expected
     mark = ('NO BUILD' if not built else
@@ -1955,6 +2025,8 @@ for name, path, old, new in selected:
     print(f'  {mark:9s} {name}'
           f'{"  by " + ", ".join(failing[:3]) if failing else ""}'
           f'{f" (+{len(failing) - 3} more)" if len(failing) > 3 else ""}', flush=True)
+    for ln in said:
+        print(f'            {ln[:200]}', flush=True)
 
 if _args.out:
     json.dump(rows, open(_args.out, 'w'), indent=1)
@@ -1964,7 +2036,8 @@ holes = [r for r in survived if not r['expected_to_survive']]
 stale = [r for r in rows if r['caught'] and r['expected_to_survive']]
 print(f'\n{len(rows)} mutations, {len(survived)} survived, {len(holes)} of them unexpected')
 for r in unbuilt:
-    print('  does not build:', r['mutation'], '-- write it so that it compiles')
+    print('  does not build:', r['mutation'], '-- write it so that it compiles, or run it again '
+          'where what the build said is not about its text')
 for r in survived:
     why = EXPECTED_SURVIVORS.get(r['mutation'])
     print('  survived:', r['mutation'], f'(expected: {why})' if why else '(a hole in the suite)')
