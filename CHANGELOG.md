@@ -393,6 +393,22 @@ Semantic Versioning.
 
 ### Changed
 
+- **One walk over the skip fields of a frame.** Six loops looked for an EMDF
+  container there: the pass of `verify`, the count of containers beside it,
+  the object decode, the walk of `emdf` and `oamd`, and the two tools that
+  rewrite a field of a JOC payload. They differed in how far they stepped
+  past a sync word that opens nothing, one byte or two, and in the least
+  they took for a candidate, two bytes or four, and in nothing that changes
+  what is found: the byte after a sync word is never the first of another,
+  and fewer than four bytes hold no container. They are one now,
+  `oadec_emdf::container::candidates`, which hands out every place the sync
+  word stands with the container that opens there or the reason none does;
+  what a place where nothing opens means stays with each command, which
+  knows whether a container opened before it. No report and no delivery
+  changes. The fuzz target of the container holds the walk to ending, to
+  going forward and to handing out containers that are whole in the bytes
+  they were found in
+  (`docs/audit/evidence/engine-round-2026-11/32-one-walk.json`).
 - **An option that does not apply is refused.** `decode` and `compare` took
   every option on every stream and for every output, and did nothing with
   the ones that had nothing to act on: `decode --no-dither` on a TrueHD

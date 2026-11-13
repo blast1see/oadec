@@ -575,48 +575,33 @@ fn frame_payloads(
         out.container_failed = declares_emdf;
         return out;
     }
-    let mut data = Vec::with_capacity(total);
-    for s in skip_fields {
-        data.extend_from_slice(s);
-    }
+    let data = container::joined(skip_fields);
     let mut opened = false;
-    let mut pos = 0usize;
-    while pos + 4 <= data.len() {
-        if data[pos] != 0x58 || data[pos + 1] != 0x38 {
-            pos += 1;
-            continue;
-        }
-        match container::parse_emdf_with_sync(&data[pos..]) {
-            Ok((c, used)) => {
-                opened = true;
-                for p in &c.payloads {
-                    if p.id == PAYLOAD_ID_OAMD {
-                        match Oamd::parse(&p.data) {
-                            Ok(o) => out.oamd.push((o, p.config.sample_offset.unwrap_or(0))),
-                            Err(_) => out.errors += 1,
-                        }
-                    } else if p.id == PAYLOAD_ID_JOC {
-                        match Joc::parse(&p.data, sparse) {
-                            Ok(j) => {
-                                // the check verify and the PCM path make
-                                if !j.size_ok(p.data.len()) {
-                                    out.joc_size_mismatches += 1;
-                                }
-                                out.joc = Some(j);
-                            }
-                            // read through and refused, so the header is intact
-                            Err(JocError::ExtConfig(_)) => match JocHeader::parse(&p.data) {
-                                Ok(h) => out.joc_reserved = Some(h),
-                                Err(_) => out.errors += 1,
-                            },
-                            Err(_) => out.errors += 1,
-                        }
-                    }
+    // a sync word that opens nothing is no container, as `verify` reads it
+    for (c, _) in container::candidates(&data).filter_map(|(_, candidate)| candidate.ok()) {
+        opened = true;
+        for p in &c.payloads {
+            if p.id == PAYLOAD_ID_OAMD {
+                match Oamd::parse(&p.data) {
+                    Ok(o) => out.oamd.push((o, p.config.sample_offset.unwrap_or(0))),
+                    Err(_) => out.errors += 1,
                 }
-                pos += used.max(4);
-            }
-            Err(_) => {
-                pos += 2;
+            } else if p.id == PAYLOAD_ID_JOC {
+                match Joc::parse(&p.data, sparse) {
+                    Ok(j) => {
+                        // the check verify and the PCM path make
+                        if !j.size_ok(p.data.len()) {
+                            out.joc_size_mismatches += 1;
+                        }
+                        out.joc = Some(j);
+                    }
+                    // read through and refused, so the header is intact
+                    Err(JocError::ExtConfig(_)) => match JocHeader::parse(&p.data) {
+                        Ok(h) => out.joc_reserved = Some(h),
+                        Err(_) => out.errors += 1,
+                    },
+                    Err(_) => out.errors += 1,
+                }
             }
         }
     }

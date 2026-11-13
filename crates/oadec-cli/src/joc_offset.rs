@@ -44,24 +44,16 @@ const OFFSET_BITS: u32 = 5;
 fn offset_bits(frame: &Frame) -> Vec<usize> {
     let mut out = Vec::new();
     for (skip, &skip_bit) in frame.skip_fields.iter().zip(&frame.skip_bits) {
-        let mut i = 0usize;
-        while i + 4 <= skip.len() {
-            if skip[i] == 0x58
-                && skip[i + 1] == 0x38
-                && let Ok((c, used)) = container::parse_emdf_with_sync(&skip[i..])
-            {
-                for p in &c.payloads {
-                    if p.id == PAYLOAD_ID_JOC
-                        && let Ok(fields) = Joc::offset_ts_bits(&p.data)
-                    {
-                        let base = skip_bit + 8 * i + p.data_bit;
-                        out.extend(fields.into_iter().map(|f| base + f));
-                    }
+        for (i, candidate) in container::candidates(skip) {
+            let Ok((c, _)) = candidate else { continue };
+            for p in &c.payloads {
+                if p.id == PAYLOAD_ID_JOC
+                    && let Ok(fields) = Joc::offset_ts_bits(&p.data)
+                {
+                    let base = skip_bit + 8 * i + p.data_bit;
+                    out.extend(fields.into_iter().map(|f| base + f));
                 }
-                i += used.max(4);
-                continue;
             }
-            i += 1;
         }
     }
     out

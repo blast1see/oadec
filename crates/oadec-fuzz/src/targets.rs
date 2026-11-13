@@ -259,6 +259,25 @@ pub fn emdf_container(data: &[u8]) {
         assert!(4 + declared <= data.len());
         check_container(&container, data);
     }
+    // The walk every command makes over the skip fields of a frame: it ends,
+    // it goes forward, and a container it hands out is whole in the bytes it
+    // was found in and is the one a parse from that place gives.
+    let mut after = 0;
+    for (at, candidate) in container::candidates(data) {
+        assert!(at >= after, "the walk went back from {after} to {at}");
+        assert_eq!(
+            data[at..at + 2],
+            container::EMDF_SYNCWORD.to_be_bytes(),
+            "{at}"
+        );
+        after = at + 1;
+        if let Ok((container, declared)) = candidate {
+            assert!(at + 4 + declared <= data.len());
+            check_container(&container, &data[at..]);
+            // what it steps over holds no place it hands out again
+            after = at + declared.max(4);
+        }
+    }
 }
 
 /// An object audio metadata payload. A payload that parses answers everything

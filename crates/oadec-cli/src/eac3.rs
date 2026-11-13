@@ -442,23 +442,15 @@ impl EmdfStats {
         }
         self.frames_with_skip += 1;
         self.skip_bytes += total as u64;
-        let mut data = Vec::with_capacity(total);
-        for s in skip_fields {
-            data.extend_from_slice(s);
-        }
+        let data = container::joined(skip_fields);
         // A frame carries one EMDF container (ETSI TS 103 420 clause 8.2), but
         // its payload bytes may hold the sync word again. A candidate that does
         // not parse is such a false sync, not a broken container; only a frame
         // that yields no container at all is a failure.
         let mut found = false;
-        let mut pos = 0usize;
-        while pos + 4 <= data.len() {
-            if data[pos] != 0x58 || data[pos + 1] != 0x38 {
-                pos += 1;
-                continue;
-            }
-            match container::parse_emdf_with_sync(&data[pos..]) {
-                Ok((c, used)) => {
+        for (_, candidate) in container::candidates(&data) {
+            match candidate {
+                Ok((c, _)) => {
                     self.containers += 1;
                     found = true;
                     // What the container declares of itself. None of it is a
@@ -706,11 +698,9 @@ impl EmdfStats {
                             }
                         }
                     }
-                    pos += used.max(4);
                 }
                 Err(_) => {
                     self.false_syncs += 1;
-                    pos += 1;
                 }
             }
         }
@@ -1308,23 +1298,9 @@ fn account(
 /// How many EMDF containers a substream's skip fields hold, for the evidence
 /// counter above. Nothing is parsed beyond the container itself.
 fn count_containers(skip: &[Vec<u8>]) -> u64 {
-    let data: Vec<u8> = skip.iter().flatten().copied().collect();
-    let mut pos = 0usize;
-    let mut found = 0u64;
-    while pos + 2 <= data.len() {
-        if u16::from_be_bytes([data[pos], data[pos + 1]]) != container::EMDF_SYNCWORD {
-            pos += 1;
-            continue;
-        }
-        match container::parse_emdf_with_sync(&data[pos..]) {
-            Ok((_, used)) => {
-                found += 1;
-                pos += used.max(1);
-            }
-            Err(_) => pos += 1,
-        }
-    }
-    found
+    container::candidates(&container::joined(skip))
+        .filter(|(_, candidate)| candidate.is_ok())
+        .count() as u64
 }
 
 /// The largest absolute dequantized matrix coefficient of one JOC payload.

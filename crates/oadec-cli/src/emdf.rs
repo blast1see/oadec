@@ -321,33 +321,23 @@ fn find_emdf(
         .bsi
         .joc_extension()
         .is_some_and(|(present, _)| present);
-    let total: usize = parsed.skip_fields.iter().map(Vec::len).sum();
-    if total == 0 {
+    let data = container::joined(&parsed.skip_fields);
+    if data.is_empty() {
         return (out, false, declares_joc);
     }
-    let mut data = Vec::with_capacity(total);
-    for s in &parsed.skip_fields {
-        data.extend_from_slice(s);
-    }
-    let mut i = 0;
     let mut read_one = false;
-    while i + 4 <= data.len() {
-        if data[i] == 0x58 && data[i + 1] == 0x38 {
-            match container::parse_emdf_with_sync(&data[i..]) {
-                Ok((c, used)) => {
-                    out.push((i, Ok(c)));
-                    read_one = true;
-                    i += used.max(4);
-                    continue;
-                }
-                // the bytes after the last container are padding and can
-                // carry the sync word by chance; only a sync word before any
-                // container has been read is a container we failed to open
-                Err(e) if !read_one => out.push((i, Err(e))),
-                Err(_) => {}
+    for (at, candidate) in container::candidates(&data) {
+        match candidate {
+            Ok((c, _)) => {
+                out.push((at, Ok(c)));
+                read_one = true;
             }
+            // the bytes after the last container are padding and can
+            // carry the sync word by chance; only a sync word before any
+            // container has been read is a container we failed to open
+            Err(e) if !read_one => out.push((at, Err(e))),
+            Err(_) => {}
         }
-        i += 1;
     }
     // A frame carries one container (TS 103 420 clause 8.2): a candidate that
     // failed before one that opened was a false sync, as `verify` reads it, and a

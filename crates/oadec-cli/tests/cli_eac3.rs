@@ -1481,3 +1481,86 @@ fn what_the_containers_declare_of_their_protection_is_reported() {
     assert_eq!(report["diagnostics"]["rules"].as_array().unwrap().len(), 1);
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// The two tools that rewrite a field of a JOC payload find the payload by
+/// the walk every command makes over the skip fields, and write at its place
+/// in the frame. On the fixture one relabels the downmix configuration of
+/// every payload and leaves the rest of the metadata as it was; the other
+/// moves the switch offset of every steep object, all of which are in one
+/// frame. Both repair the frame check, so the copies verify clean.
+#[test]
+fn the_tools_that_rewrite_a_joc_field_find_it_in_every_frame() {
+    let dir = temp("rewrite");
+    let source = fixture("authored-scene.ec3");
+    let (_, before) = verify_json(&source);
+    let frames = before["frames"].as_u64().expect("a count of frames");
+    assert_eq!(before["joc"]["downmix_configs"], serde_json::json!([3]));
+    assert_eq!(
+        before["joc"]["offset_ts"],
+        serde_json::json!({ "0": 930, "15": 15 })
+    );
+
+    let relabelled = dir.join("config.ec3");
+    let out = oadec(&[
+        "eac3-joc-config",
+        source.to_str().unwrap(),
+        "-o",
+        relabelled.to_str().unwrap(),
+        "--dmx-config",
+        "0",
+    ]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    let (code, after) = verify_json(&relabelled);
+    assert_eq!(code, Some(0), "{}", after["diagnostics"]);
+    assert_eq!(after["joc"]["downmix_configs"], serde_json::json!([0]));
+    assert_eq!(after["frames"], frames);
+    for key in [
+        "parsed",
+        "errors",
+        "size_mismatches",
+        "non_zero_padding",
+        "objects_per_payload",
+        "offset_ts",
+        "steep_objects",
+    ] {
+        assert_eq!(after["joc"][key], before["joc"][key], "joc.{key}");
+    }
+    assert_eq!(after["emdf"], before["emdf"]);
+    // three bits of a payload and the two bytes of the frame check, in every
+    // frame and nowhere else
+    let old = std::fs::read(&source).unwrap();
+    let new = std::fs::read(&relabelled).unwrap();
+    assert_eq!(old.len(), new.len());
+    let offsets = frame_offsets(&old);
+    for (n, &at) in offsets.iter().enumerate() {
+        let end = offsets.get(n + 1).copied().unwrap_or(old.len());
+        let differing = (at..end).filter(|&i| old[i] != new[i]).count();
+        assert!((1..=4).contains(&differing), "frame {n}: {differing}");
+    }
+
+    let moved = dir.join("offset.ec3");
+    let out = oadec(&[
+        "eac3-joc-offset",
+        source.to_str().unwrap(),
+        "-o",
+        moved.to_str().unwrap(),
+        "--offset-ts-bits",
+        "3",
+    ]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    let said = format!("{}{}", String::from_utf8_lossy(&out.stdout), stderr(&out));
+    assert!(
+        said.contains(&format!("in 15 fields of 1 of {frames} frames")),
+        "{said}"
+    );
+    let (code, after) = verify_json(&moved);
+    assert_eq!(code, Some(0), "{}", after["diagnostics"]);
+    // the decoder's offset is one more than the bits that carry it
+    assert_eq!(
+        after["joc"]["offset_ts"],
+        serde_json::json!({ "0": 930, "4": 15 })
+    );
+    assert_eq!(after["joc"]["downmix_configs"], serde_json::json!([3]));
+    assert_eq!(after["emdf"], before["emdf"]);
+    std::fs::remove_dir_all(&dir).ok();
+}
