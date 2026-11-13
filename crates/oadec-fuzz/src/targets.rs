@@ -371,6 +371,7 @@ pub fn eac3_frame(data: &[u8]) {
             dither: false,
             tpnp: true,
             ecpl_full,
+            block_info: true,
         };
         assert!(
             decode_frame(frame, options) == decode_frame(frame, options),
@@ -400,6 +401,9 @@ pub fn eac3_program(data: &[u8]) {
         dither: false,
         tpnp: true,
         ecpl_full: false,
+        // the tools that print or rewrite a frame make the record of every
+        // block from whatever they are given: it stays under the fuzzer
+        block_info: true,
     });
     let mut at = 0;
     let mut pushed = 0;

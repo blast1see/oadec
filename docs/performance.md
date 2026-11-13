@@ -206,6 +206,104 @@ frames notices: cut short, bytes taken out, bytes that are no frame put in,
 bits turned, a frame twice or not at all, half of them long enough for the
 damage to stand where a read of four megabytes ends.
 
+### The AC-3 core: an allocation kept, a record on demand, a block decoded in place
+
+With the reader out of the way, timers were put around the stages of the
+decoder in a throwaway build, and `verify` run over one stream of each kind.
+The shares of a decode, in per cent, on `main` and after the three changes
+below:
+
+| | AC-3 5.1, before | after | E-AC-3 5.1, before | after | E-AC-3 7.1, before | after |
+|---|---:|---:|---:|---:|---:|---:|
+| the inverse transform | 32.9 | 46.5 | 35.8 | 45.6 | 31.4 | 47.2 |
+| the mantissas | 18.9 | 23.9 | 19.5 | 24.3 | 23.7 | 26.0 |
+| the bit allocation | 14.0 | 4.9 | 13.2 | 5.8 | 16.1 | 4.6 |
+| the rest of a block: side information, coupling, rematrixing, the vectors it hands out | 15.7 | 9.2 | 12.5 | 9.5 | 8.7 | 4.7 |
+| the record of a block | 2.6 | 0 | 2.9 | 0 | 2.9 | 0 |
+| the CRC of the frame | 4.8 | 6.3 | 2.8 | 3.6 | 7.9 | 9.4 |
+| pre-noise processing, the release of a frame and the rest | 6.6 | 3.2 | 5.1 | 3.3 | 4.5 | 2.8 |
+| the output vectors around the transform | 2.7 | 3.6 | 2.9 | 3.7 | 2.7 | 3.0 |
+| the exponents | 1.1 | 1.4 | 1.1 | 1.4 | 1.2 | 1.4 |
+| the rest of a frame before the transform | 0.6 | 0.9 | 4.2 | 2.9 | 0.7 | 0.9 |
+
+The timers cost time themselves, so the shares are meant and not the
+milliseconds. Three of the rows held work whose result the decoder already
+had, or that nobody read.
+
+**The bit allocation.** A syncframe has up to six blocks, and the decoder
+allocated for every channel in every one of them. The allocation is
+fixed-point arithmetic of the exponents of a channel and a handful of
+parameters, and an encoder sends those again far less often than every
+block: of the allocations five streams asked for, 78 to 83 per cent had the
+inputs of the one before them for that channel. An allocation is kept with
+what it was computed from and written again where it is asked for with the
+same.
+
+**The record of a block.** Every block carried its side information, its
+exponents and its pointers as some twenty vectors. A decode reads none of
+them; `eac3-blocks` prints them and `eac3-ecpl-inject` rewrites the coupling
+of a frame from them. The record is made where it is asked for, and its
+release, which was counted with the rest of a frame, goes with it.
+
+**The coefficients.** A block decoded into an array for each of seven slots,
+allocated and cleared for the purpose, and then copied the channels it had
+into the vector it hands out. It decodes into that vector.
+
+Each is a commit and was measured by itself against the one before it, on
+one stream of each kind, the two binaries turn and turn about, five runs
+each. Of the time a command that reads or decodes the channels took, the
+allocation kept leaves 88 to 94 per cent, the record on demand 92 to 97 and
+the decode in place 81 to 95: eight measurements each, twenty-three of them
+faster by more than the spread of the runs and one within it.
+
+The three together, measured on 13 November 2026 against the binary of
+`main` on the streams of the table above
+(`docs/audit/evidence/engine-round-2026-11/37-the-ac3-core-kept-and-in-place.json`):
+
+| | work | × real time, before | after | processor s per minute, before | after |
+|---|---|---:|---:|---:|---:|
+| AC-3, 2 channels | `decode` | 792 | 957 | 0.07 | 0.06 |
+| | `verify` | 840 | 1014 | 0.07 | 0.06 |
+| AC-3, 6 channels | `decode` | 299 | 397 | 0.20 | 0.14 |
+| | `verify` | 319 | 429 | 0.19 | 0.14 |
+| E-AC-3, 5.1 | `decode` | 322 and 344 | 413 and 439 | 0.19 and 0.17 | 0.15 and 0.13 |
+| | `verify` | 341 and 379 | 446 and 482 | 0.17 and 0.16 | 0.13 and 0.12 |
+| E-AC-3, 7.1 | `decode` | 170 and 167 | 218 and 213 | 0.36 and 0.36 | 0.27 and 0.28 |
+| | `verify` | 174 and 177 | 230 and 225 | 0.34 and 0.33 | 0.25 and 0.27 |
+| E-AC-3 with JOC | `decode`, the channels | 296 and 160 | 373 and 202 | 0.20 and 0.38 | 0.16 and 0.30 |
+| | `verify` | 315 and 164 | 401 and 213 | 0.20 and 0.36 | 0.15 and 0.28 |
+| | `decode --format damf` | 38 and 28 | 38 and 33 | 1.29 and 1.89 | 1.25 and 1.83 |
+| | `decode --format adm` | 45 and 32 | 47 and 33 | 1.28 and 1.86 | 1.23 and 1.78 |
+
+A command that reads or decodes the channels takes 74 to 83 per cent of the
+time it took, sixteen measurements and every one of them faster by more than
+the spread of its runs. The object formats spend three to four per cent less
+processor time; how long they take is the disk's to say more than the
+decoder's, and it said 86 to 100 per cent. The two TrueHD streams ran beside
+them as a control: eleven measurements of commands that write no object
+file, each within 1.3 per cent of where it was, and two of object files,
+which went through none of the code that changed and moved by 12 and 13 per
+cent in this run and by 38 in one of the runs before it. A figure of an
+object format in these tables is a figure of the machine at that minute.
+
+FFmpeg, measured again on the same eight streams, decodes them 1.8 to 2.8
+times faster than this, where it was 2.1 to 3.4 before these changes. What
+is left is the transform, close to half of a decode now, and the reading of
+the mantissas, a quarter of it: work, and not waste.
+
+Nothing a command says or writes has changed. The binaries before and after
+give the same reports and the same deliveries over the 131 streams of the
+corpus and over 320 damaged copies of the fixture, the campaign of 200 000
+rounds gives the answers it gave on `main`, and `eac3-blocks` prints the
+same bytes for every frame of the fixture, with `--detail` and without, as
+`eac3-ecpl-inject` writes the same stream.
+
+One thing the change found was not about speed. A mutation that decoded the
+LFE over the last full-bandwidth channel survived every test that runs
+without media: none of them looked at the samples of a decoded E-AC-3
+stream, and the LFE of the fixture is silent. A test holds the fixture to
+the level and the peak of each of its six channels now.
+
 ## What it does not say
 
 - One machine. The ratios between commands carry to another; the figures do

@@ -2341,6 +2341,7 @@ pub fn decode_into(
             dither: opts.dither,
             tpnp: opts.tpnp,
             ecpl_full: opts.ecpl_full,
+            block_info: false,
         },
         |frame| {
             let (chans, pcm) = output_channels(frame, opts.core_only);
@@ -2448,7 +2449,12 @@ pub fn blocks(source: &Source, index: u64, part: usize, detail: bool) -> Result<
             "group {index} part {part} at byte {offset}: {} bytes, {:?}",
             header.frame_bytes, header
         );
-        let blocks = match oadec_eac3::Frame::parse_partial(bytes, &mut noise, Options::default()) {
+        // the record of every block is what this command prints
+        let with_records = Options {
+            block_info: true,
+            ..Options::default()
+        };
+        let blocks = match oadec_eac3::Frame::parse_partial(bytes, &mut noise, with_records) {
             Ok(frame) => {
                 println!("bsi: {:?}", frame.bsi);
                 println!("coverage: {:?}", frame.coverage);
@@ -2477,14 +2483,16 @@ pub fn blocks(source: &Source, index: u64, part: usize, detail: bool) -> Result<
         };
         for (b, block) in blocks.iter().enumerate() {
             println!("block {b}: blksw {:?}", block.blksw);
-            println!("  {:?}", block.info);
+            if let Some(info) = &block.info {
+                println!("  {info:?}");
+            }
             for (ch, c) in block.coeffs.iter().enumerate() {
                 let peak = c.iter().fold(0.0f64, |m, v| m.max(v.abs()));
                 let last = c.iter().rposition(|v| *v != 0.0).map_or(0, |i| i + 1);
                 println!("  ch {ch}: peak {peak:.6}, {last} coefficients");
-                if detail {
-                    let exps = &block.info.exps[ch];
-                    let bap = &block.info.bap[ch];
+                if let Some(info) = block.info.as_ref().filter(|_| detail) {
+                    let exps = &info.exps[ch];
+                    let bap = &info.bap[ch];
                     let shown = exps.len().min(48);
                     println!("    exps {:?}", &exps[..shown]);
                     println!("    bap  {:?}", &bap[..shown]);
@@ -2550,6 +2558,7 @@ pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Resu
             dither: opts.dither,
             tpnp: opts.tpnp,
             ecpl_full: opts.ecpl_full,
+            block_info: false,
         },
         |frame| {
             let (chans, pcm) = output_channels(frame, opts.core_only);
@@ -3119,6 +3128,38 @@ mod tests {
         at = 5;
         assert!(!fill(&mut buf, &mut at, &mut from, 100).unwrap());
         assert_eq!((buf.as_slice(), at), (&[][..], 0));
+    }
+
+    /// The record of a block is made where it is asked for and nowhere else,
+    /// and asking for it changes nothing else of a frame.
+    #[test]
+    fn a_block_keeps_its_record_only_where_it_is_asked_for() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/authored-scene.ec3"
+        );
+        let stream = std::fs::read(path).expect("the fixture");
+        let parsed = |options: Options| {
+            let mut noise = oadec_eac3::Noise::default();
+            oadec_eac3::Frame::parse(&stream[..1792], &mut noise, options).expect("a frame")
+        };
+        let plain = parsed(Options::default());
+        assert_eq!(plain.blocks.len(), 6);
+        assert!(plain.blocks.iter().all(|b| b.info.is_none()));
+        let recorded = parsed(Options {
+            block_info: true,
+            ..Options::default()
+        });
+        for (with, without) in recorded.blocks.iter().zip(&plain.blocks) {
+            let info = with.info.as_ref().expect("asked for");
+            // five channels and the LFE
+            assert_eq!(with.coeffs.len(), 6);
+            assert_eq!(info.exps.len(), 6);
+            assert_eq!(info.bap.len(), 6);
+            assert_eq!(info.endmant.len(), 5);
+            assert!(with.coeffs == without.coeffs);
+            assert_eq!(with.blksw, without.blksw);
+        }
     }
 
     /// The first frame group of the committed E-AC-3 fixture, decoded.

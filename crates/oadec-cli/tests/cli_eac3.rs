@@ -1564,3 +1564,118 @@ fn the_tools_that_rewrite_a_joc_field_find_it_in_every_frame() {
     assert_eq!(after["emdf"], before["emdf"]);
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A decode reads nothing of the record of a block, so the decoder makes
+/// none unless it is asked. Two commands go by it: `eac3-blocks` prints it,
+/// with the exponents and the pointers of every channel under `--detail`,
+/// and `eac3-ecpl-inject` rewrites the coupling of a frame from it. Both ask
+/// for it, and say of the fixture what they said when every decode made it.
+#[test]
+fn the_commands_that_go_by_the_record_of_a_block_ask_for_it() {
+    let dir = temp("block-records");
+    let ec3 = fixture("authored-scene.ec3");
+    let name = ec3.to_str().unwrap();
+
+    let blocks = oadec(&["eac3-blocks", name, "--frame", "0", "--detail"]);
+    assert_eq!(blocks.status.code(), Some(0), "{}", stderr(&blocks));
+    let said = String::from_utf8(blocks.stdout).unwrap();
+    let starting = |with: &str| said.lines().filter(|l| l.starts_with(with)).count();
+    // six blocks, each with its record, and five channels and the LFE in each
+    assert_eq!(starting("block "), 6, "{said}");
+    assert_eq!(starting("  BlockInfo {"), 6, "{said}");
+    assert_eq!(starting("    exps ["), 36, "{said}");
+    assert_eq!(starting("    bap  ["), 36, "{said}");
+    // without `--detail` the record and not the two lists
+    let plain = oadec(&["eac3-blocks", name, "--frame", "0"]);
+    let said = String::from_utf8(plain.stdout).unwrap();
+    assert_eq!(
+        said.lines()
+            .filter(|l| l.starts_with("  BlockInfo {"))
+            .count(),
+        6
+    );
+    assert!(!said.contains("    exps ["), "{said}");
+
+    let out = dir.join("injected.ec3");
+    let inject = oadec(&["eac3-ecpl-inject", name, "-o", out.to_str().unwrap()]);
+    assert_eq!(inject.status.code(), Some(0), "{}", stderr(&inject));
+    let said = String::from_utf8(inject.stdout).unwrap();
+    assert!(
+        said.starts_with("enhanced coupling injected into 63 of 63 frames"),
+        "{said}"
+    );
+    // and what it wrote is a stream of the same frames, every one with
+    // enhanced coupling, that `verify` has nothing to say of
+    let verified = oadec(&["verify", "--json", out.to_str().unwrap()]);
+    assert_eq!(verified.status.code(), Some(0), "{}", stderr(&verified));
+    let report: serde_json::Value = serde_json::from_slice(&verified.stdout).unwrap();
+    assert_eq!(report["clean"], true, "{report}");
+    assert_eq!(report["frames"], 63);
+    assert_eq!(report["ecpl_frames"], 63);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// What the fixture decodes to, held to the levels it gave when this was
+/// written: the root mean square and the peak of each of its six channels,
+/// without dither, to one part in a hundred thousand. Nothing else here
+/// looked at the samples of an E-AC-3 decode. A mutation that decoded the
+/// LFE over the last full-bandwidth channel passed every test of the suite:
+/// the LFE of the fixture is silent, and what the mutation did to the right
+/// surround, whose level it moves by one part in two thousand, no test saw.
+#[test]
+fn the_fixture_decodes_to_the_levels_it_gave() {
+    let dir = temp("levels");
+    let out = dir.join("fixture.pcm");
+    let ec3 = fixture("authored-scene.ec3");
+    let run = oadec(&[
+        "decode",
+        ec3.to_str().unwrap(),
+        "--format",
+        "pcm",
+        "--no-dither",
+        "-o",
+        out.to_str().unwrap(),
+    ]);
+    assert_eq!(run.status.code(), Some(0), "{}", stderr(&run));
+    let bytes = std::fs::read(&out).unwrap();
+    // 63 frames of 1 536 samples, six channels of 32-bit floats in the
+    // order of a WAVE file
+    const FRAMES: usize = 63 * 1536;
+    assert_eq!(bytes.len(), FRAMES * 6 * 4);
+    let levels: [(&str, f64, f64); 6] = [
+        ("L", 0.022_128_263_979, 0.031_636_424_363),
+        ("R", 0.022_128_354_170, 0.031_620_368_361),
+        ("C", 0.000_496_822_990, 0.080_135_352_910),
+        ("LFE", 0.0, 0.0),
+        ("Ls", 0.020_473_131_045, 0.055_324_587_971),
+        ("Rs", 0.018_629_814_817, 0.054_464_608_431),
+    ];
+    let (frames, rest) = bytes.as_chunks::<24>();
+    assert!(rest.is_empty());
+    for (ch, (name, rms, peak)) in levels.into_iter().enumerate() {
+        let samples = frames.iter().map(|frame| {
+            let at = ch * 4;
+            f64::from(f32::from_le_bytes([
+                frame[at],
+                frame[at + 1],
+                frame[at + 2],
+                frame[at + 3],
+            ]))
+        });
+        let (mut squares, mut top) = (0.0f64, 0.0f64);
+        for v in samples {
+            squares += v * v;
+            top = top.max(v.abs());
+        }
+        let got = (squares / FRAMES as f64).sqrt();
+        assert!(
+            (got - rms).abs() <= rms * 1e-5,
+            "{name}: a root mean square of {got}, not {rms}"
+        );
+        assert!(
+            (top - peak).abs() <= peak * 1e-5,
+            "{name}: a peak of {top}, not {peak}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}

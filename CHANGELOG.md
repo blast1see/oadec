@@ -461,6 +461,30 @@ Semantic Versioning.
 
 ### Changed
 
+- **The AC-3 decoder no longer does what it has done, or what nobody
+  reads.** Timers around its stages showed three things that change no
+  sample. The bit allocation of a channel, fixed-point arithmetic of its
+  exponents and a handful of parameters, was computed in every block, though
+  four times in five the inputs were those of the block before: it is kept
+  with what it was computed from and written again while they stay
+  (`bitalloc::Allocation`). The record of a block, some twenty vectors that
+  `eac3-blocks` prints and `eac3-ecpl-inject` rewrites a frame from, was made
+  for every block of every decode: it is made where it is asked for, so
+  `frame::Options` has a `block_info` and `Block::info` is an `Option`. And a
+  block decoded its coefficients into seven arrays and copied out the
+  channels it had: it decodes where it hands them out. `verify` and `decode`
+  of AC-3 and E-AC-3 take 74 to 83 per cent of the time they took (5.1 of
+  E-AC-3 413 and 439 times faster than real time where it was 322 and 344,
+  7.1 218 and 213 where it was 170 and 167), and FFmpeg's lead on the same
+  streams is 1.8 to 2.8 times where it was 2.1 to 3.4. No report and no
+  delivery changes over the corpus, nor over 320 damaged copies of the
+  fixture, nor in what the two inspection commands print and write. One of
+  the twenty mutations of the change, the LFE decoded over the last
+  full-bandwidth channel, survived every test that runs without media,
+  because none looked at the samples of a decoded E-AC-3 stream:
+  `the_fixture_decodes_to_the_levels_it_gave` holds the fixture to the level
+  and the peak of each of its six channels (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/37-the-ac3-core-kept-and-in-place.json`).
 - **The frames of the AC-3 family are read without moving the buffer.** The
   loop every command of the family reads syncframes through kept four
   megabytes of the file in a buffer and moved what was left of them to the

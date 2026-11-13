@@ -166,6 +166,7 @@ impl Seeds {
                 dither: false,
                 tpnp: true,
                 ecpl_full: false,
+                block_info: true,
             });
             let mut skip = Vec::new();
             if let Ok(Some(decoded)) = decoder.decode(frame) {

@@ -198,7 +198,9 @@ fn rewrite(bytes: &[u8], frame: &Frame, shape: Shape) -> Result<Option<Vec<u8>>>
     let mut firstcplcos = vec![true; frame.header.nfchans()];
     let mut nbnd = 0usize;
     for (i, b) in frame.blocks.iter().enumerate() {
-        let info = &b.info;
+        let Some(info) = &b.info else {
+            bail!("the frame was parsed without the records of its blocks");
+        };
         if info.ecplinu {
             bail!("the stream already uses enhanced coupling");
         }
@@ -297,7 +299,12 @@ pub fn run(path: &Path, out: &Path, shape: Shape) -> Result<()> {
             copied += 1;
             return Ok(());
         }
-        let frame = Frame::parse(bytes, &mut noise, Options::default())?;
+        // the rewrite goes by the record of every block
+        let with_records = Options {
+            block_info: true,
+            ..Options::default()
+        };
+        let frame = Frame::parse(bytes, &mut noise, with_records)?;
         match rewrite(bytes, &frame, shape)? {
             Some(new) => {
                 sink.write_all(&new)?;

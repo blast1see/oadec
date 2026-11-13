@@ -142,6 +142,11 @@ pub struct Options {
     /// chaos fields carry zeros or a full spread of values. See
     /// `docs/eac3.md`.
     pub ecpl_full: bool,
+    /// Keep the side information of every block ([`Block::info`]). A decode
+    /// reads none of it; the tools that inspect or rewrite a frame do. It is
+    /// some twenty vectors a block, so it is made only where it is asked
+    /// for.
+    pub block_info: bool,
 }
 
 impl Default for Options {
@@ -150,6 +155,7 @@ impl Default for Options {
             dither: true,
             tpnp: true,
             ecpl_full: false,
+            block_info: false,
         }
     }
 }
@@ -253,8 +259,9 @@ pub struct Block {
     pub coeffs: Vec<[f64; N]>,
     /// Block switch flag per full-bandwidth channel (the LFE never switches).
     pub blksw: Vec<bool>,
-    /// The side information the block was decoded with.
-    pub info: BlockInfo,
+    /// The side information the block was decoded with, where
+    /// [`Options::block_info`] asked for it.
+    pub info: Option<BlockInfo>,
     /// Enhanced coupling of this block. While it is `Some`, the coupled
     /// channels' `coeffs` are still zero over `start..end`: the synthesis
     /// needs the following block and runs in `crate::ecpl`.
@@ -436,6 +443,9 @@ struct Parser<'a> {
     /// not what its last `deltbae` says: see [`delta_in_force`].
     dba_in_force: [bool; NCH],
     bap: [[u8; N]; NCH],
+    /// The allocation each slot was last given, with what it was computed
+    /// from: a block that allocates from the same is given it again.
+    allocated: [bitalloc::Allocation; NCH],
     /// AHT: the six blocks of pre-IDCT mantissas per channel slot.
     pre_mant: Vec<Vec<[f64; N]>>,
     // ---- outputs ----
@@ -551,6 +561,7 @@ impl<'a> Parser<'a> {
             dba: Default::default(),
             dba_in_force: [false; NCH],
             bap: [[0; N]; NCH],
+            allocated: std::array::from_fn(|_| bitalloc::Allocation::new()),
             pre_mant: Vec::new(),
             out_blocks: Vec::with_capacity(usize::from(h.blocks)),
             skip_fields: Vec::with_capacity(usize::from(h.blocks)),
@@ -1305,7 +1316,13 @@ impl<'a> Parser<'a> {
 
         // ---- mantissas ----
         let mut mant = Mantissas::default();
-        let mut coef = vec![[0.0f64; N]; NCH];
+        // The coefficients as the block hands them out: the full-bandwidth
+        // channels in coded order, then the LFE. They are decoded in place.
+        // A block used to decode into an array for each of seven slots and
+        // copy out the ones it had: twenty-six thousand bytes written to
+        // hand out twelve thousand.
+        let lfe_at = nf;
+        let mut coef: Vec<[f64; N]> = vec![[0.0f64; N]; nf + usize::from(self.lfe)];
         let mut cpl_read = false;
         let mut cpl_vals: Vec<Option<f64>> = Vec::new();
         for ch in 0..nf {
@@ -1346,15 +1363,21 @@ impl<'a> Parser<'a> {
         }
         if self.lfe {
             match self.ahtinu[LFE] {
-                0 => {
-                    self.read_channel_mantissas(LFE, 0, 7, &mut mant, false, noise, &mut coef[LFE])?
-                }
+                0 => self.read_channel_mantissas(
+                    LFE,
+                    0,
+                    7,
+                    &mut mant,
+                    false,
+                    noise,
+                    &mut coef[lfe_at],
+                )?,
                 1 => {
                     self.read_aht_mantissas(LFE, 0, 7, noise, false)?;
                     self.ahtinu[LFE] = -1;
-                    self.aht_block(LFE, blk, &mut coef[LFE]);
+                    self.aht_block(LFE, blk, &mut coef[lfe_at]);
                 }
-                _ => self.aht_block(LFE, blk, &mut coef[LFE]),
+                _ => self.aht_block(LFE, blk, &mut coef[lfe_at]),
             }
         }
 
@@ -1470,13 +1493,9 @@ impl<'a> Parser<'a> {
         }
 
         // ---- collect ----
-        let mut coeffs: Vec<[f64; N]> = coef[..nf].to_vec();
-        if self.lfe {
-            coeffs.push(coef[LFE]);
-        }
-        let info = self.block_info(blk);
+        let info = self.opts.block_info.then(|| self.block_info(blk));
         self.out_blocks.push(Block {
-            coeffs,
+            coeffs: coef,
             blksw: self.blksw[..nf].to_vec(),
             info,
             ecpl: ecpl_block,
@@ -1653,7 +1672,11 @@ impl<'a> Parser<'a> {
         let snroffset = bitalloc::snr_offset(self.csnroffst, self.fsnroffst[slot]);
         let he = self.ahtinu[slot] != 0;
         let exps = self.exps[slot];
-        bitalloc::compute(
+        // The exponents and the parameters of a channel are sent again far
+        // less often than a block allocates from them. The pointers are
+        // written in either case: a block with no SNR offset anywhere
+        // clears them all.
+        self.allocated[slot].compute(
             &params,
             start,
             end,
