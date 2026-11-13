@@ -343,6 +343,7 @@ dependencies = [
 name = "oadec-bench"
 version = "0.8.0"
 dependencies = [
+ "oadec-bits",
  "oadec-eac3",
  "oadec-joc",
  "oadec-truehd",
