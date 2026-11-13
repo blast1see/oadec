@@ -1,0 +1,619 @@
+{
+ "question": "Where does transient pre-noise processing put a correction, and with which windows does it fade it in and out?",
+ "method": "Clause E.2.7 counts the transient from \"the first decoded PCM sample contained in the audio frame\" and leaves the two windows open. A correction is the decode itself, copied and faded, so both can be read off a reference decode: `tools/tpnp_fit.py` decodes a stream without the tool, applies the correction of the clause under a hypothesis (the frame begins at sample 0, 256 or 512 of the samples oadec hands out for it; the windows are straight lines or raised cosines) and measures how far the result is from the reference over the corrected samples. The references are two Dolby decoders: the `dlbac3dec` element of Dolby Reference Player 3.2 (`drc-suppress=true`) and the `ddp_decode` filter of the Dolby Encoding Engine 5.2.1 (`drc` none). The streams: two of the encoder of evidence 28, whose signals were made for it (in one the place of each level step is known from the source file); one of the Dolby Encoding Engine; the heads of two film tracks. `tools/tpnp_window.py`, the measurement the notes quoted before, counts over the samples the tool changes. `tools/old_new.py --decode-all` compared main with the change over the corpus. The streams are media and are not in the repository.",
+ "binaries": {
+  "main before the change": "d09ad21412de39ebffe7a333edba4b397d5d9a8197a23eebe70fb17ddf8440c8",
+  "the change": "e90324ca2d783d7171cbe7f588536f380dba4cf75ae79e9e56d274a7d86130b2"
+ },
+ "result": {
+  "the_fit": {
+   "ecpl-low-steps.ec3 against the element of the Dolby Reference Player": {
+    "stream": "pink noise in level steps, stereo, 64 kbit/s, of the second encoder",
+    "transients": 4,
+    "frames_with_a_transient": 2,
+    "reference_late_by_samples": 32,
+    "reference_gain": 0.4455,
+    "db_below_the_reference_over_the_corrected_samples": {
+     "the frame begins at sample 0, line": {
+      "with_the_tool": 6.2,
+      "without_it": 1.0,
+      "the_first_fade": 5.8,
+      "the_second_fade": 4.2
+     },
+     "the frame begins at sample 0, raised cosine": {
+      "with_the_tool": 5.9,
+      "without_it": 1.0,
+      "the_first_fade": 5.3,
+      "the_second_fade": 3.8
+     },
+     "the frame begins at sample 256, line": {
+      "with_the_tool": 17.7,
+      "without_it": -6.1,
+      "the_first_fade": 11.0,
+      "the_second_fade": 17.9
+     },
+     "the frame begins at sample 256, raised cosine": {
+      "with_the_tool": 29.5,
+      "without_it": -6.1,
+      "the_first_fade": 11.0,
+      "the_second_fade": 39.8
+     },
+     "the frame begins at sample 512, line": {
+      "with_the_tool": 0.8,
+      "without_it": 4.5,
+      "the_first_fade": 1.3,
+      "the_second_fade": 2.7
+     },
+     "the frame begins at sample 512, raised cosine": {
+      "with_the_tool": 0.6,
+      "without_it": 4.5,
+      "the_first_fade": 0.6,
+      "the_second_fade": 2.0
+     }
+    },
+    "the_best": {
+     "frame_begins_at_sample": 256,
+     "windows": "raised cosine"
+    },
+    "the_second_fade_with_the_best_moved_by_samples": {
+     "-4": 23.2,
+     "-3": 25.7,
+     "-2": 28.9,
+     "-1": 33.6,
+     "+0": 39.8,
+     "+1": 36.5,
+     "+2": 31.4,
+     "+3": 28.0,
+     "+4": 25.6
+    }
+   },
+   "ecpl-low-steps.ec3 against the decode filter of the Dolby Encoding Engine": {
+    "stream": "the same stream",
+    "transients": 4,
+    "frames_with_a_transient": 2,
+    "reference_late_by_samples": -256,
+    "reference_gain": 1.0,
+    "db_below_the_reference_over_the_corrected_samples": {
+     "the frame begins at sample 0, line": {
+      "with_the_tool": 6.2,
+      "without_it": 1.0,
+      "the_first_fade": 5.8,
+      "the_second_fade": 4.2
+     },
+     "the frame begins at sample 0, raised cosine": {
+      "with_the_tool": 5.9,
+      "without_it": 1.0,
+      "the_first_fade": 5.3,
+      "the_second_fade": 3.8
+     },
+     "the frame begins at sample 256, line": {
+      "with_the_tool": 17.7,
+      "without_it": -6.1,
+      "the_first_fade": 11.0,
+      "the_second_fade": 17.9
+     },
+     "the frame begins at sample 256, raised cosine": {
+      "with_the_tool": 29.5,
+      "without_it": -6.1,
+      "the_first_fade": 11.0,
+      "the_second_fade": 39.8
+     },
+     "the frame begins at sample 512, line": {
+      "with_the_tool": 0.8,
+      "without_it": 4.5,
+      "the_first_fade": 1.3,
+      "the_second_fade": 2.7
+     },
+     "the frame begins at sample 512, raised cosine": {
+      "with_the_tool": 0.6,
+      "without_it": 4.5,
+      "the_first_fade": 0.6,
+      "the_second_fade": 2.0
+     }
+    },
+    "the_best": {
+     "frame_begins_at_sample": 256,
+     "windows": "raised cosine"
+    },
+    "the_second_fade_with_the_best_moved_by_samples": {
+     "-4": 23.2,
+     "-3": 25.7,
+     "-2": 28.9,
+     "-1": 33.6,
+     "+0": 39.8,
+     "+1": 36.5,
+     "+2": 31.4,
+     "+3": 28.0,
+     "+4": 25.6
+    }
+   },
+   "ecpl-low-bursts.ec3 against the element of the Dolby Reference Player": {
+    "stream": "bursts, stereo, 64 kbit/s, of the second encoder",
+    "transients": 18,
+    "frames_with_a_transient": 9,
+    "reference_late_by_samples": 32,
+    "reference_gain": 0.4454,
+    "db_below_the_reference_over_the_corrected_samples": {
+     "the frame begins at sample 0, line": {
+      "with_the_tool": 3.2,
+      "without_it": -1.1,
+      "the_first_fade": 3.3,
+      "the_second_fade": -0.7
+     },
+     "the frame begins at sample 0, raised cosine": {
+      "with_the_tool": 2.8,
+      "without_it": -1.1,
+      "the_first_fade": 2.7,
+      "the_second_fade": -1.3
+     },
+     "the frame begins at sample 256, line": {
+      "with_the_tool": 22.5,
+      "without_it": 1.9,
+      "the_first_fade": 18.3,
+      "the_second_fade": 23.8
+     },
+     "the frame begins at sample 256, raised cosine": {
+      "with_the_tool": 26.7,
+      "without_it": 1.9,
+      "the_first_fade": 20.7,
+      "the_second_fade": 35.4
+     },
+     "the frame begins at sample 512, line": {
+      "with_the_tool": 2.1,
+      "without_it": 15.0,
+      "the_first_fade": 1.3,
+      "the_second_fade": 5.1
+     },
+     "the frame begins at sample 512, raised cosine": {
+      "with_the_tool": 2.0,
+      "without_it": 15.0,
+      "the_first_fade": 1.0,
+      "the_second_fade": 4.6
+     }
+    },
+    "the_best": {
+     "frame_begins_at_sample": 256,
+     "windows": "raised cosine"
+    },
+    "the_second_fade_with_the_best_moved_by_samples": {
+     "-4": 25.7,
+     "-3": 28.4,
+     "-2": 31.1,
+     "-1": 33.7,
+     "+0": 35.4,
+     "+1": 35.7,
+     "+2": 35.0,
+     "+3": 33.8,
+     "+4": 32.5
+    }
+   },
+   "pi-head-spx192.ec3 against the decode filter of the Dolby Encoding Engine": {
+    "stream": "film audio, 5.1, 192 kbit/s, of the Dolby Encoding Engine",
+    "transients": 24,
+    "frames_with_a_transient": 18,
+    "reference_late_by_samples": -256,
+    "reference_gain": 1.0011,
+    "db_below_the_reference_over_the_corrected_samples": {
+     "the frame begins at sample 0, line": {
+      "with_the_tool": 5.4,
+      "without_it": 2.3,
+      "the_first_fade": 3.0,
+      "the_second_fade": 3.1
+     },
+     "the frame begins at sample 0, raised cosine": {
+      "with_the_tool": 5.1,
+      "without_it": 2.3,
+      "the_first_fade": 2.6,
+      "the_second_fade": 2.5
+     },
+     "the frame begins at sample 256, line": {
+      "with_the_tool": 19.9,
+      "without_it": 0.9,
+      "the_first_fade": 23.2,
+      "the_second_fade": 15.4
+     },
+     "the frame begins at sample 256, raised cosine": {
+      "with_the_tool": 21.8,
+      "without_it": 0.9,
+      "the_first_fade": 33.4,
+      "the_second_fade": 16.9
+     },
+     "the frame begins at sample 512, line": {
+      "with_the_tool": 1.6,
+      "without_it": 6.0,
+      "the_first_fade": 3.5,
+      "the_second_fade": 4.2
+     },
+     "the frame begins at sample 512, raised cosine": {
+      "with_the_tool": 1.5,
+      "without_it": 6.0,
+      "the_first_fade": 2.9,
+      "the_second_fade": 3.6
+     }
+    },
+    "the_best": {
+     "frame_begins_at_sample": 256,
+     "windows": "raised cosine"
+    },
+    "the_second_fade_with_the_best_moved_by_samples": {
+     "-4": 16.5,
+     "-3": 16.6,
+     "-2": 16.8,
+     "-1": 16.7,
+     "+0": 16.9,
+     "+1": 16.9,
+     "+2": 17.0,
+     "+3": 16.9,
+     "+4": 16.8
+    }
+   },
+   "eac3004.ec3 against the element of the Dolby Reference Player": {
+    "stream": "the head of a film track, stereo, 128 kbit/s",
+    "transients": 5,
+    "frames_with_a_transient": 3,
+    "reference_late_by_samples": 32,
+    "reference_gain": 0.5,
+    "db_below_the_reference_over_the_corrected_samples": {
+     "the frame begins at sample 0, line": {
+      "with_the_tool": 4.7,
+      "without_it": 0.7,
+      "the_first_fade": 5.0,
+      "the_second_fade": -0.2
+     },
+     "the frame begins at sample 0, raised cosine": {
+      "with_the_tool": 4.5,
+      "without_it": 0.7,
+      "the_first_fade": 4.6,
+      "the_second_fade": -0.5
+     },
+     "the frame begins at sample 256, line": {
+      "with_the_tool": 21.6,
+      "without_it": -1.6,
+      "the_first_fade": 21.8,
+      "the_second_fade": 19.5
+     },
+     "the frame begins at sample 256, raised cosine": {
+      "with_the_tool": 35.5,
+      "without_it": -1.6,
+      "the_first_fade": 33.1,
+      "the_second_fade": 42.1
+     },
+     "the frame begins at sample 512, line": {
+      "with_the_tool": 2.3,
+      "without_it": 3.5,
+      "the_first_fade": 2.9,
+      "the_second_fade": 7.7
+     },
+     "the frame begins at sample 512, raised cosine": {
+      "with_the_tool": 2.3,
+      "without_it": 3.5,
+      "the_first_fade": 2.5,
+      "the_second_fade": 7.4
+     }
+    },
+    "the_best": {
+     "frame_begins_at_sample": 256,
+     "windows": "raised cosine"
+    },
+    "the_second_fade_with_the_best_moved_by_samples": {
+     "-4": 23.9,
+     "-3": 26.4,
+     "-2": 29.7,
+     "-1": 34.7,
+     "+0": 42.1,
+     "+1": 36.9,
+     "+2": 31.3,
+     "+3": 27.8,
+     "+4": 25.4
+    }
+   },
+   "eac3033.ec3 against the element of the Dolby Reference Player": {
+    "stream": "the head of a film track, 5.1, 256 kbit/s",
+    "transients": 35,
+    "frames_with_a_transient": 30,
+    "reference_late_by_samples": 32,
+    "reference_gain": 0.5606,
+    "db_below_the_reference_over_the_corrected_samples": {
+     "the frame begins at sample 0, line": {
+      "with_the_tool": 4.6,
+      "without_it": 4.3,
+      "the_first_fade": 1.9,
+      "the_second_fade": 4.5
+     },
+     "the frame begins at sample 0, raised cosine": {
+      "with_the_tool": 4.2,
+      "without_it": 4.3,
+      "the_first_fade": 1.4,
+      "the_second_fade": 4.1
+     },
+     "the frame begins at sample 256, line": {
+      "with_the_tool": 23.0,
+      "without_it": 2.4,
+      "the_first_fade": 23.6,
+      "the_second_fade": 17.6
+     },
+     "the frame begins at sample 256, raised cosine": {
+      "with_the_tool": 26.0,
+      "without_it": 2.4,
+      "the_first_fade": 36.8,
+      "the_second_fade": 19.8
+     },
+     "the frame begins at sample 512, line": {
+      "with_the_tool": 3.8,
+      "without_it": 8.2,
+      "the_first_fade": 4.6,
+      "the_second_fade": 7.8
+     },
+     "the frame begins at sample 512, raised cosine": {
+      "with_the_tool": 3.8,
+      "without_it": 8.2,
+      "the_first_fade": 4.1,
+      "the_second_fade": 8.0
+     }
+    },
+    "the_best": {
+     "frame_begins_at_sample": 256,
+     "windows": "raised cosine"
+    },
+    "the_second_fade_with_the_best_moved_by_samples": {
+     "-4": 18.7,
+     "-3": 19.1,
+     "-2": 19.4,
+     "-1": 19.6,
+     "+0": 19.8,
+     "+1": 19.7,
+     "+2": 19.7,
+     "+3": 19.4,
+     "+4": 19.2
+    }
+   }
+  },
+  "the_transients_whose_place_is_known": {
+   "stream": "ecpl-low-steps.ec3",
+   "the_decode_is_the_source_later_by_samples": 256,
+   "each": [
+    {
+     "frame": 156,
+     "transprocloc_samples": 1248,
+     "transproclen": 183,
+     "the_source_steps_at_sample": 240640,
+     "the_decode_without_the_tool_rises_at_sample_of_the_frame": 1280,
+     "the_source_step_in_the_decode_at_sample_of_the_frame": 1280,
+     "the_coded_place_counted_from_the_first_sample_handed_out": 1248,
+     "the_coded_place_counted_from_one_block_in": 1504,
+     "the_step_is_before_the_coded_place_by": {
+      "counted_from_the_first_sample_handed_out": -32,
+      "counted_from_one_block_in": 224
+     }
+    },
+    {
+     "frame": 468,
+     "transprocloc_samples": 2152,
+     "transproclen": 159,
+     "the_source_steps_at_sample": 720896,
+     "the_decode_without_the_tool_rises_at_sample_of_the_frame": 2304,
+     "the_source_step_in_the_decode_at_sample_of_the_frame": 2304,
+     "the_coded_place_counted_from_the_first_sample_handed_out": 2152,
+     "the_coded_place_counted_from_one_block_in": 2408,
+     "the_step_is_before_the_coded_place_by": {
+      "counted_from_the_first_sample_handed_out": -152,
+      "counted_from_one_block_in": 104
+     }
+    }
+   ],
+   "reading": "counted from one block in, the encoder places a step of noise 224 and 104 samples into it; the Dolby decoders end the correction there, on the sample"
+  },
+  "counted_over_the_samples_the_tool_changes": {
+   "stream": "pi-head-spx192.ec3 against the decode filter of the Dolby Encoding Engine",
+   "tool": "tools/tpnp_window.py",
+   "main_before_the_change": {
+    "channels": {
+     "L": {
+      "samples": 9143,
+      "error_without_dbfs": -36.8,
+      "error_with_dbfs": -39.6,
+      "change_db": -2.82
+     },
+     "R": {
+      "samples": 10581,
+      "error_without_dbfs": -39.0,
+      "error_with_dbfs": -42.3,
+      "change_db": -3.3
+     },
+     "Ls": {
+      "samples": 776,
+      "error_without_dbfs": -59.9,
+      "error_with_dbfs": -66.1,
+      "change_db": -6.17
+     },
+     "Rs": {
+      "samples": 1006,
+      "error_without_dbfs": -49.5,
+      "error_with_dbfs": -56.1,
+      "change_db": -6.58
+     }
+    },
+    "samples": 21506,
+    "error_without_dbfs": -38.2,
+    "error_with_dbfs": -41.2,
+    "change_db": -3.02
+   },
+   "the_change": {
+    "channels": {
+     "L": {
+      "samples": 9143,
+      "error_without_dbfs": -35.5,
+      "error_with_dbfs": -56.9,
+      "change_db": -21.46
+     },
+     "R": {
+      "samples": 10581,
+      "error_without_dbfs": -36.2,
+      "error_with_dbfs": -56.9,
+      "change_db": -20.68
+     },
+     "Ls": {
+      "samples": 776,
+      "error_without_dbfs": -51.5,
+      "error_with_dbfs": -68.0,
+      "change_db": -16.54
+     },
+     "Rs": {
+      "samples": 1006,
+      "error_without_dbfs": -37.4,
+      "error_with_dbfs": -55.4,
+      "change_db": -17.99
+     }
+    },
+    "samples": 21506,
+    "error_without_dbfs": -36.1,
+    "error_with_dbfs": -57.0,
+    "change_db": -20.89
+   }
+  },
+  "the_rest_of_the_corpus": {
+   "streams": 129,
+   "streams_of_the_ac3_family": 74,
+   "streams_that_code_a_transient": {
+    "eac3004.ec3": {
+     "frames_with_a_transient": 3,
+     "transients": 5,
+     "joc": false
+    },
+    "eac3033.ec3": {
+     "frames_with_a_transient": 30,
+     "transients": 35,
+     "joc": false
+    },
+    "ecpl-low-bursts.ec3": {
+     "frames_with_a_transient": 9,
+     "transients": 18,
+     "joc": false
+    },
+    "ecpl-low-steps.ec3": {
+     "frames_with_a_transient": 2,
+     "transients": 4,
+     "joc": false
+    },
+    "pi-head-spx192.ec3": {
+     "frames_with_a_transient": 18,
+     "transients": 24,
+     "joc": false
+    }
+   },
+   "streams_changed": [
+    "eac3004.ec3",
+    "eac3033.ec3",
+    "ecpl-low-bursts.ec3",
+    "ecpl-low-steps.ec3",
+    "pi-head-spx192.ec3"
+   ],
+   "what_changed_in_them": {
+    "eac3004.ec3": [
+     "decode (pcm --core-only): output bytes",
+     "decode (pcm): output bytes",
+     "decode (wav): output bytes"
+    ],
+    "eac3033.ec3": [
+     "decode (pcm --core-only): output bytes",
+     "decode (pcm): output bytes",
+     "decode (wav): output bytes"
+    ],
+    "pi-head-spx192.ec3": [
+     "decode (pcm --core-only): output bytes",
+     "decode (pcm): output bytes",
+     "decode (wav): output bytes"
+    ],
+    "ecpl-low-bursts.ec3": [
+     "decode (pcm --core-only): output bytes",
+     "decode (pcm): output bytes",
+     "decode (wav): output bytes"
+    ],
+    "ecpl-low-steps.ec3": [
+     "decode (pcm --core-only): output bytes",
+     "decode (pcm): output bytes",
+     "decode (wav): output bytes"
+    ]
+   },
+   "streams_unchanged": 124,
+   "fields_added": [],
+   "lines_added": [],
+   "lines_of_reports_compared": 8518,
+   "fields_of_reports_compared": 53638,
+   "bytes_of_deliveries_compared": 103468822913,
+   "the_media_suite": {
+    "passed": 30,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8,
+    "the_object_gate": "the same numbers as before the change: no stream of the gate codes a transient"
+   }
+  },
+  "mutations": {
+   "count": 6,
+   "survive": [],
+   "each": [
+    {
+     "mutation": "a transient counted from the first sample of the frame as it is handed out",
+     "caught_by": [
+      "tpnp::tests::a_correction_reads_across_the_frame_before_it",
+      "tpnp::tests::a_correction_rewrites_only_its_own_region",
+      "tpnp::tests::a_transient_in_the_next_frame_is_still_applied"
+     ]
+    },
+    {
+     "mutation": "a pre-noise fade along a straight line",
+     "caught_by": [
+      "tpnp::tests::the_cross_fades_are_raised_cosines"
+     ]
+    },
+    {
+     "mutation": "the fade out of a correction turned round",
+     "caught_by": [
+      "tpnp::tests::the_cross_fades_are_raised_cosines"
+     ]
+    },
+    {
+     "mutation": "the pre-noise counted from the block that holds the transient",
+     "caught_by": [
+      "tpnp::tests::a_correction_reads_across_the_frame_before_it",
+      "tpnp::tests::a_correction_rewrites_only_its_own_region",
+      "tpnp::tests::a_transient_in_the_next_frame_is_still_applied"
+     ]
+    },
+    {
+     "mutation": "the substitution read one pre-noise back, where it is two",
+     "caught_by": [
+      "tpnp::tests::a_correction_reads_across_the_frame_before_it",
+      "tpnp::tests::no_released_sample_is_written_again",
+      "tpnp::tests::the_cross_fades_are_raised_cosines"
+     ]
+    },
+    {
+     "mutation": "the time scaling length left out of a correction",
+     "caught_by": [
+      "tpnp::tests::a_correction_reads_across_the_frame_before_it",
+      "tpnp::tests::a_correction_rewrites_only_its_own_region",
+      "tpnp::tests::a_transient_in_the_next_frame_is_still_applied"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 634 passed, 30 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  },
+  "what_was_wrong_in_the_notes": "that the tool brought the stream of the Dolby Encoding Engine 3 to 4 dB closer, that a straight line measured closer than a raised cosine, and that the residual sat in the first cross-fade: all three were the correction one block early, which two decoders agree on wherever their corrections overlap, because the substitution copies the same samples",
+  "what_is_not_claimed": [
+   "The second fade of the two 5.1 streams fits to 17 and 20 dB only, and moving it a sample changes nothing there: the transients of film audio are not sharp enough to read a window off, and what follows them is where two decoders differ anyway.",
+   "The first fade of the level-step stream fits to 11 dB with either window: the noise before its steps is 35 dB down, where the two decoders have their own dither.",
+   "The place and the windows are those of two Dolby decoders. The clause does not name the windows, and its words for the place can be read either way."
+  ]
+ },
+ "reading": "One block into the frame as oadec hands it out, and with raised cosines. On every one of five streams (one of the Dolby Encoding Engine, two of another encoder, two cut from film tracks) the correction of the clause fits the Dolby decode there and nowhere else: 21.8 to 35.5 dB below the reference over the corrected samples, against 3.2 to 6.2 one block earlier, where oadec had it, and 0.6 to 3.8 one block later. On the two streams whose transients are sharp the fit is 3 to 7 dB worse one sample either way, and the window that gives way to the transient is a raised cosine to 40 and 42 dB, a straight line to 18 and 20. Counted the old way, the stream of the Dolby Encoding Engine is 20.89 dB closer to the Dolby decode with the tool than without, where it was 3.02. The five streams of the corpus that code a transient change in the samples decoded from them and in no report; the other 124 streams do not change: 8 518 lines and 53 638 fields of reports and 103 468 822 913 bytes of deliveries compared."
+}
