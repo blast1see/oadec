@@ -8,6 +8,44 @@ Semantic Versioning.
 
 ### Added
 
+- **What a major sync says of the stream, in `info`.** `format_info` has a
+  modifier for each of the two-, six- and eight-channel presentations, which
+  says what the channels hold: of two channels, stereo, Lt/Rt, a binaural
+  pair or mono; of five and one, whether Surround EX or Pro Logic is folded
+  into the surrounds. `info` prints the three as coded and with the meaning
+  the tables of the description give them for the channels at hand
+  (`Channel modifiers:`), and `info --json` carries `format_info` field by
+  field and a `modifier` and `modifier_meaning` for every presentation. It
+  also says when a heavy dynamic range control is announced and how many
+  restart headers carry its update (`Heavy DRC:`; `heavy_drc_announced`,
+  `heavy_drc_updates`), and when the stream says its delay through the
+  decoder buffer is constant (`Buffer delay:`; `constant_delay_declared`).
+  No line `info` printed before has changed. Counted over the corpus and the
+  first minute of 157 library tracks: 8 streams and 11 tracks call their
+  two-channel presentation Lt/Rt, 8 and 37 call their five and one Surround
+  EX or Pro Logic IIx encoded, and every eight-channel presentation with
+  back channels, 43 and 140, codes 00, where the description gives the field
+  no meaning (`docs/truehd.md`, `tools/declared.py`,
+  `docs/audit/evidence/engine-round-2026-11/35-what-a-major-sync-declares.json`).
+- **A stream that says its delay is constant is held to it.** Bit 15 of the
+  `flags` of a major sync says the delay through the decoder buffer is one
+  value for the whole stream, and nothing checked it. `verify` files a unit
+  that waits for another time than the unit before it, under a major sync
+  that says so, at `info`: `buffer.latency_not_constant`. No stream sets the
+  bit, in the corpus or in the library, so the rule is measured on copies of
+  two fixtures against a count made from the timing fields alone
+  (`tools/delay_oracle.py`): 1 042 changes in the stream Dolby's encoder
+  wrote and 1 042 findings, none in the one FFmpeg's encoder wrote and none
+  found. `truehdd` in its strict mode refuses the first copy at the unit the
+  rule names first; FFmpeg and the Dolby decoder play it as they play the
+  fixture, which is why the finding is information.
+- **The bits of `flags` without a meaning are reserved bits like the
+  others.** `sync.reserved_bits` files bit 14 in an FBA major sync, where it
+  marks nothing, and bits 10 to 0. No stream sets one: the only bits of
+  `flags` set in the corpus and in the library are 12 and, in the FBB
+  streams, 14. `tools/sweep.py` writes what the major sync of a track says
+  into its row (`declared`, `delay_samples`), and `tools/declared.py` adds
+  the rows up.
 - **A reserved bit that is set is said.** The description of the TrueHD
   bitstream reserves fields of the major sync, of its channel meaning and of
   the restart header, and says a parser ignores them. `verify` files one
@@ -623,6 +661,10 @@ Semantic Versioning.
 
 ### Fixed
 
+- **The summary of `sync.reserved_bits` named three of the four fields the
+  rule files.** `oadec rules` and `docs/conformance-rules.md` left out the
+  two low bits of `substream_info`. They name them now, with the bits of
+  `flags`.
 - **A reserved bit that differed between two major syncs was a change of
   configuration, and one stopped the decode.** A parser ignores a reserved
   field, the description says. `verify` compared `format_info`,

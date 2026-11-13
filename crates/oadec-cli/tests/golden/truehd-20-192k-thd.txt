@@ -11,6 +11,7 @@ Presentations:
   0: substreams 0001  L R  [independent]
   1: substreams 0001  L R  [copy of presentation 0]
   2: substreams 0001  L R  [copy of presentation 0]
+Channel modifiers: 2ch 1 (Lt/Rt), 6ch 1 (Lt/Rt), 8ch 1 (Lt/Rt)
 Dialogue norm:    2ch -0 dB, 6ch -0 dB, 8ch -0 dB
 Control:          2ch false, 6ch false, 8ch false; DRC start-up gain 0, heavy DRC start-up gain 0
 Error protection: substream CRC present in [120, 0, 0, 0] access units; DRC updates [0, 0, 0, 0]
@@ -40,6 +41,7 @@ exit 0
     "twoch_dialogue_norm": 0,
     "twoch_mix_level": 0
   },
+  "constant_delay_declared": false,
   "coverage": [
     "fir",
     "huffman-1",
@@ -119,7 +121,24 @@ exit 0
   "first_unit_offset": 0,
   "flags": 0,
   "foreign_syncs": 0,
+  "format_info": {
+    "eightch_channel_assignment": 1,
+    "eightch_channel_modifier": 1,
+    "eightch_multichannel_type": false,
+    "sampling_frequency_code": 2,
+    "sixch_channel_assignment": 1,
+    "sixch_channel_modifier": 1,
+    "sixch_multichannel_type": false,
+    "twoch_channel_modifier": 1
+  },
   "has_16ch_presentation": false,
+  "heavy_drc_announced": false,
+  "heavy_drc_updates": [
+    0,
+    0,
+    0,
+    0
+  ],
   "last_input_timing": 18880,
   "major_syncs": 8,
   "max_major_sync_interval": 16,
@@ -134,6 +153,8 @@ exit 0
       ],
       "index": 0,
       "kind": "independent",
+      "modifier": 1,
+      "modifier_meaning": "Lt/Rt",
       "substream_mask": 1
     },
     {
@@ -143,6 +164,8 @@ exit 0
       ],
       "index": 1,
       "kind": "copy of presentation 0",
+      "modifier": 1,
+      "modifier_meaning": "Lt/Rt",
       "substream_mask": 1
     },
     {
@@ -152,12 +175,16 @@ exit 0
       ],
       "index": 2,
       "kind": "copy of presentation 0",
+      "modifier": 1,
+      "modifier_meaning": "Lt/Rt",
       "substream_mask": 1
     },
     {
       "channels": [],
       "index": 3,
       "kind": "not carried",
+      "modifier": null,
+      "modifier_meaning": null,
       "substream_mask": 0
     }
   ],

@@ -131,6 +131,14 @@ pub enum Excess {
         /// The rate, bits per second.
         bps: u64,
     },
+    /// Another delay through the buffer than the unit before had, in a
+    /// stream that says its delay is constant.
+    LatencyNotConstant {
+        /// The delay of the unit before, samples.
+        before: u64,
+        /// The delay of this unit, samples.
+        samples: u64,
+    },
 }
 
 /// The decoder buffer of one stream, unit by unit.
@@ -158,6 +166,10 @@ pub struct BufferModel {
     pub max_latency: Peak,
     /// The shortest delay through the buffer, samples.
     pub min_latency: Option<(u64, u64)>,
+    /// The delay of the last unit that had one.
+    last_latency: Option<u64>,
+    /// Whether the major sync in force says the delay is constant.
+    constant_delay: bool,
     /// The highest delivery rate over one input interval, bits per second.
     pub max_rate: Peak,
     /// Units the model could not place (before the first restart, or after a
@@ -186,6 +198,8 @@ impl BufferModel {
             depth: [Peak::default(); 9],
             max_latency: Peak::default(),
             min_latency: None,
+            last_latency: None,
+            constant_delay: false,
             max_rate: Peak::default(),
             restarts: 0,
         }
@@ -201,6 +215,15 @@ impl BufferModel {
     /// The peak data rate the latest major sync declares, bits per second.
     pub fn set_declared_peak(&mut self, bps: u64) {
         self.declared_peak_bps = bps;
+    }
+
+    /// Whether the latest major sync says the delay through the buffer is
+    /// constant (`flags` bit 15; Dolby, Table 12). The units after it are
+    /// held to that until a major sync says otherwise: each against the unit
+    /// before it, whichever major sync that one came under, since the delay
+    /// is said to be one "for the entire duration" of the stream.
+    pub fn set_constant_delay(&mut self, constant: bool) {
+        self.constant_delay = constant;
     }
 
     /// The substream mask of the decoder of presentation `p` (0 when the
@@ -312,6 +335,16 @@ impl BufferModel {
             if latency < self.spa {
                 found.push(Excess::LatencyUnderFrame { samples: latency });
             }
+            if let Some(before) = self.last_latency
+                && self.constant_delay
+                && before != latency
+            {
+                found.push(Excess::LatencyNotConstant {
+                    before,
+                    samples: latency,
+                });
+            }
+            self.last_latency = Some(latency);
         }
 
         // the unit arrives; whatever has left by now is drained first
@@ -450,6 +483,40 @@ mod tests {
                 .any(|e| matches!(e, Excess::RateOverDeclared { .. })),
             "and it is over the peak all the same"
         );
+    }
+
+    /// A stream that says its delay is constant is held to it, each unit
+    /// against the one before; a stream that does not say so changes its
+    /// delay as it likes.
+    #[test]
+    fn a_delay_that_changes_is_found_where_the_stream_says_it_is_constant() {
+        let changed = |found: Vec<Excess>| -> Vec<(u64, u64)> {
+            found
+                .iter()
+                .filter_map(|e| match e {
+                    Excess::LatencyNotConstant { before, samples } => Some((*before, *samples)),
+                    _ => None,
+                })
+                .collect()
+        };
+        let mut m = BufferModel::new(48_000, 40, 0, [1, 0, 0, 0]);
+        let take = |m: &mut BufferModel, index: u64, input: u16| {
+            changed(m.take(&unit(index, input, (index == 0).then_some(100), [10, 0])))
+        };
+        // the outputs are 100, 140, 180 and so on; the delays 100 and 90
+        assert_eq!(take(&mut m, 0, 0), []);
+        assert_eq!(take(&mut m, 1, 50), [], "nothing says it is constant");
+        m.set_constant_delay(true);
+        // 180 less 100: held against the unit before, though that one came
+        // before anything was said
+        assert_eq!(take(&mut m, 2, 100), [(90, 80)]);
+        assert_eq!(take(&mut m, 3, 140), [], "80 again");
+        assert_eq!(take(&mut m, 4, 179), [(80, 81)], "one sample is a change");
+        m.set_constant_delay(false);
+        assert_eq!(take(&mut m, 5, 230), [], "70, and no longer said");
+        m.set_constant_delay(true);
+        assert_eq!(take(&mut m, 6, 270), [], "70 again");
+        assert_eq!(take(&mut m, 7, 320), [(70, 60)]);
     }
 
     #[test]

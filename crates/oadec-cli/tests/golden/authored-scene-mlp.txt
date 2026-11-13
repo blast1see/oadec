@@ -12,6 +12,7 @@ Presentations:
   1: substreams 0011  L R C LFE Ls Rs  [downmix of presentation 2]
   2: substreams 0111  L R C LFE Ls Rs Lb Rb  [downmix of presentation 3]
   3: substreams 1111  12 channels: bed LFE (1) + 11 dynamic objects  [independent]
+Channel modifiers: 2ch 0 (stereo), 6ch 1 (not Surround EX, Pro Logic IIx or Pro Logic IIz encoded), 8ch 0
 Dialogue norm:    2ch -32 dB, 6ch -26 dB, 8ch -26 dB, 16ch -26 dB
 Control:          2ch true, 6ch false, 8ch false; DRC start-up gain 0, heavy DRC start-up gain 0
 Error protection: substream CRC present in [2400, 2400, 2400, 2400] access units; DRC updates [20, 20, 20, 20]
@@ -44,6 +45,7 @@ exit 0
     "twoch_dialogue_norm": 32,
     "twoch_mix_level": 29
   },
+  "constant_delay_declared": false,
   "coverage": [
     "fir",
     "iir",
@@ -147,7 +149,24 @@ exit 0
   "first_unit_offset": 0,
   "flags": 4096,
   "foreign_syncs": 0,
+  "format_info": {
+    "eightch_channel_assignment": 79,
+    "eightch_channel_modifier": 0,
+    "eightch_multichannel_type": false,
+    "sampling_frequency_code": 0,
+    "sixch_channel_assignment": 15,
+    "sixch_channel_modifier": 1,
+    "sixch_multichannel_type": false,
+    "twoch_channel_modifier": 0
+  },
   "has_16ch_presentation": true,
+  "heavy_drc_announced": false,
+  "heavy_drc_updates": [
+    0,
+    0,
+    0,
+    0
+  ],
   "last_input_timing": 30358,
   "major_syncs": 22,
   "max_major_sync_interval": 125,
@@ -162,6 +181,8 @@ exit 0
       ],
       "index": 0,
       "kind": "downmix of presentation 1",
+      "modifier": 0,
+      "modifier_meaning": "stereo",
       "substream_mask": 1
     },
     {
@@ -175,6 +196,8 @@ exit 0
       ],
       "index": 1,
       "kind": "downmix of presentation 2",
+      "modifier": 1,
+      "modifier_meaning": "not Surround EX, Pro Logic IIx or Pro Logic IIz encoded",
       "substream_mask": 3
     },
     {
@@ -190,6 +213,8 @@ exit 0
       ],
       "index": 2,
       "kind": "downmix of presentation 3",
+      "modifier": 0,
+      "modifier_meaning": null,
       "substream_mask": 7
     },
     {
@@ -198,6 +223,8 @@ exit 0
       ],
       "index": 3,
       "kind": "independent",
+      "modifier": null,
+      "modifier_meaning": null,
       "substream_mask": 15
     }
   ],

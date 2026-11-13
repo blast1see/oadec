@@ -67,6 +67,10 @@ then `gain s9, time:3`, else 12 reserved bits), `ch_assign:6` per matrix
 channel (a permutation), `crc:8` (polynomial `0x1D`, register from 0, over the
 bits from the sync word to just before the CRC).
 
+`info` says when the major sync announces a heavy dynamic range control and
+how many restart headers of each substream carry an update of it (`Heavy
+DRC:`; `heavy_drc_announced` and `heavy_drc_updates` in `--json`).
+
 A restart header is therefore an entry point. Applying one re-initialises the
 substream: the channel assignment, the dither, the matrices and the FIR and IIR
 histories of every channel, which is what carries audio state from one access
@@ -218,6 +222,62 @@ decoder takes. The substreams of a unit restart together, never one without
 the others. And where a substream states a step for a channel under its own
 it states the one the substream that codes the channel has: no difference in
 138 million blocks and channels.
+
+### What the major sync says of a presentation
+
+`format_info` has a two-bit modifier for each of the two-, six- and
+eight-channel presentations and a one-bit type for the last two. No decode
+depends on any of them: they say what the channels hold. The table that
+reads a modifier is chosen by the channels of its presentation (Dolby,
+section 4.2.2, Tables 4 to 9):
+
+| The presentation | 00 | 01 | 10 | 11 |
+|---|---|---|---|---|
+| two channels; six channels that are exactly two; eight channels that are L and R alone | stereo | Lt/Rt | Lbin/Rbin | mono |
+| six channels, three or more with Ls and Rs among them; eight channels, three or more whose only surrounds are Ls and Rs | not indicated | not Surround EX, Pro Logic IIx or Pro Logic IIz encoded | Surround EX or Pro Logic IIx encoded | Pro Logic IIz encoded |
+
+With other channels the modifier has no meaning. The description does not
+list which of the channels an eight-channel presentation can have count as
+surrounds, so the second row is applied to it where the question does not
+arise: when it holds nothing but L, R, C, LFE, Ls and Rs. A type of 0 is "a
+standard loudspeaker layout", and 1 "has a reserved meaning".
+
+`info` prints the three modifiers as coded, each with its meaning where it
+has one (`Channel modifiers:`); `info --json` carries `format_info` field by
+field and gives every presentation its `modifier` and `modifier_meaning`. An
+FBB major sync has other fields in that place and none of these.
+
+What encoders write, over the 51 FBA streams of the corpus and over the
+first minute of 157 library tracks, which are counted apart because the
+corpus holds heads of some of them (`tools/declared.py`,
+`docs/audit/evidence/engine-round-2026-11/35-what-a-major-sync-declares.json`):
+
+| Presentation | Its channels | Modifier | Corpus | Library |
+|---|---|---|---|---|
+| two channels | L R | 00, stereo | 43 | 146 |
+| | | 01, Lt/Rt | 8 | 11 |
+| six channels | L R | 00, stereo | 0 | 1 |
+| | | 01, Lt/Rt | 3 | 0 |
+| | L R C LFE Ls Rs | 00, not indicated | 1 | 0 |
+| | | 01, not matrix encoded | 39 | 119 |
+| | | 10, Surround EX or Pro Logic IIx encoded | 8 | 37 |
+| eight channels | L R | 00, stereo | 0 | 1 |
+| | | 01, Lt/Rt | 3 | 0 |
+| | L R C LFE Ls Rs | 00, not indicated | 1 | 0 |
+| | | 01, not matrix encoded | 4 | 16 |
+| | L R C LFE Ls Rs Lb Rb | 00, which has no meaning there | 43 | 140 |
+
+Every stream keeps one value in all its major syncs, and both types are 0 in
+every major sync read. An eight-channel presentation with back channels
+codes 00 in every stream and track, 43 and 140, which is what an encoder
+writes into a field it has nothing to say with. The three streams that code
+01 in all three modifiers are the stereo ones FFmpeg's TrueHD encoder wrote:
+by the tables they call two plain tones Lt/Rt.
+
+No decoder asked makes anything of these fields either. A copy of the
+fixture with the modifiers 01, 10 and 11 and the type of six channels set in
+every major sync decodes to the samples of the fixture here, in FFmpeg, in
+`truehdd` and in the `dlbtruehddec` element of the Dolby Reference Player.
 
 ## Decoding
 
@@ -387,21 +447,37 @@ both, or neither.
 ### The bits the description reserves
 
 "Reserved bitfields are encoded as v(n) and should be ignored by parsers"
-(Dolby, section 3.2). A major sync has four such fields and its channel
-meaning two bits; a restart header has two bits, and thirteen more that mean
-something only when the major sync announces a heavy dynamic range control.
+(Dolby, section 3.2). A major sync has four such fields, twelve bits of its
+`flags` without a meaning, and two bits of its channel meaning; a restart
+header has two bits, and thirteen more that mean something only when the
+major sync announces a heavy dynamic range control.
 `verify` says when one is set, at the access unit, as information:
 
 | Rule | Fires on | The census counts it as |
 |---|---|---|
-| `sync.reserved_bits` | one of the sixteen reserved bits of a major sync; of the two of `format_info` that nothing reads; of the two before `extended_substream_info`; of the two low ones of `substream_info` | `reserved_nonzero`, `format_info_reserved_nonzero`, `extended_substream_info_upper`, `substream_info_reserved_nonzero` |
+| `sync.reserved_bits` | one of the sixteen reserved bits of a major sync; of the two of `format_info` that nothing reads; of the two before `extended_substream_info`; of the two low ones of `substream_info`; of those of `flags` without a meaning, bit 14 and bits 10 to 0 | `reserved_nonzero`, `format_info_reserved_nonzero`, `extended_substream_info_upper`, `substream_info_reserved_nonzero`, and bit by bit in `flag_bits` |
 | `sync.channel_meaning_reserved` | one of the two reserved bits of the channel meaning | `channel_meaning_reserved` |
 | `restart.reserved_bits` | one of the two bits after `hires_output_timing`; the bit of a heavy DRC the major sync does not announce; one of the twelve where its update would stand | `reserved_nonzero`, `unannounced_heavy_drc_bit`, `heavy_drc_unused_nonzero` of a restart header |
+
+`flags` is sixteen bits, and Table 12 of the description gives two of them a
+meaning: bit 15, a constant delay through the decoder buffer (*Decoder
+buffer*), and bit 11, the restricted assignment of the eight-channel
+presentation. It calls the rest reserved. Three of those are read here all
+the same. Bit 12 says the extra data holds Evolution frames, and every
+stream with objects sets it. Bit 13 announces a heavy dynamic range control;
+no stream at hand sets it, and one is written with it under *Streams written
+from a recipe*. Bit 14 marks the FBB syntax: every FBB major sync read has
+it and no FBA one. What is left without a meaning is bits 10 to 0 and, in an
+FBA major sync, bit 14. `truehdd` in its strict mode refuses a stream that
+sets one of them, and says of bit 14 what is said here, that it marks the
+syntax; FFmpeg and the Dolby decoder play it.
 
 No real stream sets one. Of 71 916 major syncs and 282 184 restart headers
 in the 55 streams of the corpus, and of 92 101 and 340 180 in the first
 minute of 157 library tracks, not one has any of these bits set, so the
-three rules have fired on nothing but the copies a test makes. Two bits the
+three rules have fired on nothing but the copies a test makes. The only bits
+of `flags` set anywhere are 12, in 41 streams and 137 tracks, and 14 in the
+four FBB streams. Two bits the
 syntax calls reserved are no rule, because encoders set them all the time:
 the reserved bit of a directory entry (in 47 of the 55 streams and in all
 157 tracks, millions of entries) and `hires_output_timing` (the same
@@ -423,7 +499,8 @@ fixture with one finding each. The description is of the FBA syntax: the
 byte of an FBB major sync is compared whole, and an FBB stream of the corpus
 sets one of those two bits.
 
-Measured: `audit/evidence/engine-round-2026-11/34-reserved-bits.json`.
+Measured: `audit/evidence/engine-round-2026-11/34-reserved-bits.json`; the
+bits of `flags`, `35-what-a-major-sync-declares.json` beside it.
 
 ## Streams written from a recipe
 
@@ -688,9 +765,36 @@ stream over its allowance, delivery over the declared peak or over 18 Mbit/s.
 On real material they fire only inside damage regions. `verify --trace-fifo
 FILE` writes what every unit puts into the buffer and when, as CSV.
 
-Not checked: a delay held constant when `flags` bit 15 says so (Dolby, Table
-12). No stream in the corpus sets the bit -- 63 streams, encoder deliveries
-included -- so there is nothing to measure the rule against at a branch.
+A major sync may say that the delay is one value "for the entire duration of
+the audio bit stream" (`flags` bit 15; Dolby, Table 12). `verify` holds the
+units that follow such a major sync to it, each against the unit before it,
+until a major sync says otherwise (`buffer.latency_not_constant`, as
+information), and `info` says that the stream says so (`Buffer delay:`;
+`constant_delay_declared` in `--json`). The bit is read of an FBA major sync
+alone, the syntax the description is of.
+
+No stream sets the bit: not one of 71 916 major syncs in the 55 streams of
+the corpus, nor of 92 101 in the first minute of 157 library tracks. So the
+rule is measured on copies of fixtures, with the bit set and the checksums
+put right, against a second reading of the timing fields that is not this
+decoder's: `tools/delay_oracle.py` takes the `input_timing` of the units and
+the `output_timing` of the restart headers from the CSV of `--trace-fifo`
+and counts how often the delay changes. The fixture Dolby's encoder wrote
+changes its delay 1 042 times in 2 400 units, 4 of them before its second
+major sync; the rule fires 1 042 times with the bit in every major sync and
+4 times with it in the first alone, at the units the count names. The
+fixture FFmpeg's encoder wrote holds one frame throughout, and with the bit
+set nothing is filed until one unit is moved a sample early, which is two
+changes and two findings. Eight streams of the corpus keep one delay and
+none says so: they are the eight FFmpeg's encoders wrote. In the library one
+track of 157 does, over its first minute.
+
+Information is as much as the bit bears. It moves no sample: FFmpeg and the
+`dlbtruehddec` element of the Dolby Reference Player play the copies as they
+play the fixture. `truehdd`, asked in its strict mode, refuses the copy at
+the unit where the delay first changes ("FIFO 0 latency must be constant
+when bit 15 of flags is set"), which is the unit this rule names first
+(`docs/audit/evidence/engine-round-2026-11/35-what-a-major-sync-declares.json`).
 
 ## Disc formats
 

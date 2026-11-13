@@ -90,6 +90,58 @@ fn decoded(path: &str, index: usize, out_path: &std::path::Path) -> (Option<i32>
     )
 }
 
+/// A stream whose major sync announces a heavy dynamic range control
+/// (`flags` bit 13) carries its updates in the restart headers. `info` says
+/// that it is announced and how many headers carry one; of a stream that
+/// announces none it says neither.
+#[test]
+fn info_says_when_a_heavy_dynamic_range_control_is_announced() {
+    let dir = temp("heavy-drc");
+    let report_of = |name: &str| {
+        let recipe = RECIPES
+            .iter()
+            .find(|r| r.name == name)
+            .unwrap_or_else(|| panic!("no recipe {name}"));
+        let stream = written(recipe, &dir);
+        let report = json(&oadec(&["info", "--json", &stream.path]));
+        let census = json(&oadec(&["verify", "--census", "--json", &stream.path]));
+        let headers = census["census"]["substreams"][0]["restart"]["headers"]
+            .as_u64()
+            .unwrap();
+        let said = text(&oadec(&["info", &stream.path]).stdout);
+        let lines: Vec<String> = said
+            .lines()
+            .filter(|l| l.starts_with("Heavy DRC:"))
+            .map(str::to_string)
+            .collect();
+        (report, headers, lines)
+    };
+    let (report, headers, lines) = report_of("heavy-drc");
+    assert!(headers > 1, "{headers} restart headers");
+    assert_eq!(report["flags"], 0x2000);
+    assert_eq!(report["heavy_drc_announced"], true);
+    assert_eq!(
+        report["heavy_drc_updates"],
+        serde_json::json!([headers, 0, 0, 0]),
+        "every restart header of the recipe carries the update"
+    );
+    assert_eq!(report["constant_delay_declared"], false);
+    assert_eq!(
+        lines,
+        [format!(
+            "Heavy DRC:        announced (flags bit 13); updates in [{headers}, 0, 0, 0] restart headers"
+        )]
+    );
+
+    let (report, headers, lines) = report_of("filter-at-restart");
+    assert!(headers > 1, "{headers} restart headers");
+    assert_eq!(report["flags"], 0);
+    assert_eq!(report["heavy_drc_announced"], false);
+    assert_eq!(report["heavy_drc_updates"], serde_json::json!([0, 0, 0, 0]));
+    assert!(lines.is_empty(), "{lines:?}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 #[test]
 fn verify_has_nothing_to_say_of_any_recipe() {
     let dir = temp("verify");

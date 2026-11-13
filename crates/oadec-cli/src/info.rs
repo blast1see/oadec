@@ -23,6 +23,29 @@ fn kind_text(kind: PresentationKind) -> String {
     }
 }
 
+/// The three channel modifiers of an FBA major sync, each as coded and,
+/// where the description gives it one, with its meaning; `None` for an FBB
+/// major sync, which has none.
+fn modifiers_text(ms: &MajorSync) -> Option<String> {
+    let parts: Vec<String> = [(0, "2ch"), (1, "6ch"), (2, "8ch")]
+        .iter()
+        .filter_map(|&(index, name)| {
+            let code = ms.channel_modifier(index)?;
+            Some(match ms.modifier_meaning(index) {
+                Some(meaning) => format!("{name} {code} ({meaning})"),
+                None => format!("{name} {code}"),
+            })
+        })
+        .collect();
+    (!parts.is_empty()).then(|| parts.join(", "))
+}
+
+/// The restart headers of each substream that carry an update of the heavy
+/// dynamic range control.
+fn heavy_drc_updates(scan: &Scan) -> [u64; 4] {
+    core::array::from_fn(|i| scan.census.substreams[i].restart.heavy_drc_present)
+}
+
 fn format_duration(seconds: f64) -> String {
     let total_ms = (seconds * 1000.0).round() as u64;
     let h = total_ms / 3_600_000;
@@ -187,7 +210,13 @@ fn print_text(scan: &Scan) {
         "Major syncs:      {} (at most every {} access units)",
         scan.major_syncs, scan.max_major_sync_interval
     );
+    if ms.says_constant_delay() {
+        println!("Buffer delay:     constant, the major sync says (flags bit 15)");
+    }
     print_presentations(ms);
+    if let Some(modifiers) = modifiers_text(ms) {
+        println!("Channel modifiers: {modifiers}");
+    }
     // the dialogue level and the control fields are FBA's channel meaning;
     // an FBB one is laid out otherwise and is not read
     if !ms.is_fbb() {
@@ -213,6 +242,12 @@ fn print_text(scan: &Scan) {
         "Error protection: substream CRC present in {:?} access units; DRC updates {:?}",
         scan.crc_present_units, scan.drc_updates
     );
+    if ms.announces_heavy_drc() {
+        println!(
+            "Heavy DRC:        announced (flags bit 13); updates in {:?} restart headers",
+            heavy_drc_updates(scan)
+        );
+    }
     let e = &scan.extra;
     println!(
         "Extra data:       {} access units ({} padding, {} opaque, {} Evolution blocks, {} Evolution frames, {} protected)",
@@ -325,6 +360,27 @@ impl Report {
             value["average_bit_rate"] = serde_json::json!(scan.average_bit_rate());
             value["variable_rate"] = serde_json::json!(ms.variable_rate);
             value["flags"] = serde_json::json!(ms.flags);
+            // What the major sync says in its flags of the stream as a whole.
+            value["constant_delay_declared"] = serde_json::json!(ms.says_constant_delay());
+            value["heavy_drc_announced"] = serde_json::json!(ms.announces_heavy_drc());
+            value["heavy_drc_updates"] = serde_json::json!(heavy_drc_updates(scan));
+            // `format_info` field by field, as coded. An FBB major sync has
+            // other fields in its place, of which only the rate is read.
+            let fi = &ms.format_info;
+            value["format_info"] = if ms.is_fbb() {
+                serde_json::Value::Null
+            } else {
+                serde_json::json!({
+                    "sampling_frequency_code": fi.sampling_frequency_code,
+                    "sixch_multichannel_type": fi.sixch_multichannel_type,
+                    "eightch_multichannel_type": fi.eightch_multichannel_type,
+                    "twoch_channel_modifier": fi.twoch_channel_modifier,
+                    "sixch_channel_modifier": fi.sixch_channel_modifier,
+                    "sixch_channel_assignment": fi.sixch_channel_assignment,
+                    "eightch_channel_modifier": fi.eightch_channel_modifier,
+                    "eightch_channel_assignment": fi.eightch_channel_assignment,
+                })
+            };
             value["substreams"] = serde_json::json!(ms.substreams);
             value["substream_info"] = serde_json::json!(ms.substream_info);
             value["extended_substream_info"] = serde_json::json!(ms.extended_substream_info & 3);
@@ -338,6 +394,10 @@ impl Report {
                     "substream_mask": map.mask(i),
                     "kind": kind_text(map.kind(i)),
                     "channels": chans.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                    // the channel modifier as coded, and what the
+                    // description has it say of these channels, if anything
+                    "modifier": ms.channel_modifier(i),
+                    "modifier_meaning": ms.modifier_meaning(i).map(|m| m.to_string()),
                 })
             })
             .collect::<Vec<_>>());

@@ -37,6 +37,7 @@ exit 0
     "twoch_dialogue_norm": 0,
     "twoch_mix_level": 0
   },
+  "constant_delay_declared": false,
   "coverage": [
     "fir",
     "huffman-1",
@@ -116,7 +117,15 @@ exit 0
   "first_unit_offset": 0,
   "flags": 16384,
   "foreign_syncs": 0,
+  "format_info": null,
   "has_16ch_presentation": false,
+  "heavy_drc_announced": false,
+  "heavy_drc_updates": [
+    0,
+    0,
+    0,
+    0
+  ],
   "last_input_timing": 4720,
   "major_syncs": 8,
   "max_major_sync_interval": 16,
@@ -134,6 +143,8 @@ exit 0
       ],
       "index": 0,
       "kind": "independent",
+      "modifier": null,
+      "modifier_meaning": null,
       "substream_mask": 1
     },
     {
@@ -146,18 +157,24 @@ exit 0
       ],
       "index": 1,
       "kind": "copy of presentation 0",
+      "modifier": null,
+      "modifier_meaning": null,
       "substream_mask": 1
     },
     {
       "channels": [],
       "index": 2,
       "kind": "not carried",
+      "modifier": null,
+      "modifier_meaning": null,
       "substream_mask": 0
     },
     {
       "channels": [],
       "index": 3,
       "kind": "not carried",
+      "modifier": null,
+      "modifier_meaning": null,
       "substream_mask": 0
     }
   ],

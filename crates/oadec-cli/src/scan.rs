@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use anyhow::Result;
 use oadec_emdf::container;
 use oadec_truehd::damage::{DamageTracker, Region, Scope, scope_of};
-use oadec_truehd::sync::{SUBSTREAM_INFO_RESERVED, SYNC_FBB, substream_layout};
+use oadec_truehd::sync::{FLAGS_RESERVED, SUBSTREAM_INFO_RESERVED, SYNC_FBB, substream_layout};
 use oadec_truehd::{
     AccessUnit, ExtraKind, Gap, Location, MajorSync, ParserState, RestartHeader, RuleId,
     SampleBuffer, Segment, StreamConfig, StreamTiming, Tally, TimingModel, Unit,
@@ -357,6 +357,7 @@ fn excess_rule(excess: &oadec_truehd::buffer::Excess) -> RuleId {
         Excess::LatencyUnderFrame { .. } => RuleId::BufferLatencyUnderFrame,
         Excess::RateOverDeclared { .. } => RuleId::RateOverDeclaredPeak,
         Excess::RateOverCeiling { .. } => RuleId::RateOverCeiling,
+        Excess::LatencyNotConstant { .. } => RuleId::BufferLatencyNotConstant,
     }
 }
 
@@ -383,6 +384,9 @@ fn excess_text(excess: &oadec_truehd::buffer::Excess, fs: u32) -> String {
             format!("delivered at {bps} bit/s, {declared} declared")
         }
         Excess::RateOverCeiling { bps } => format!("delivered at {bps} bit/s"),
+        Excess::LatencyNotConstant { before, samples } => {
+            format!("{samples} samples in the buffer, {before} the unit before")
+        }
     }
 }
 
@@ -919,6 +923,9 @@ impl Scan {
             }
         }
         if let Some(model) = &mut self.fifo {
+            if let Some(ms) = &au.major_sync {
+                model.set_constant_delay(ms.says_constant_delay());
+            }
             for excess in model.take(&layout) {
                 self.diag.tally.add(excess_rule(&excess), at_unit, 1, || {
                     excess_text(&excess, config.sampling_frequency)
@@ -1349,8 +1356,9 @@ pub fn scan_while(
 /// sets, in words; `None` for a major sync that sets none. They are the
 /// fields the census counts as `reserved_nonzero`,
 /// `format_info_reserved_nonzero`, `extended_substream_info_upper` and
-/// `substream_info_reserved_nonzero`: the last three are of the FBA syntax
-/// alone.
+/// `substream_info_reserved_nonzero`, and the bits of `flags` without a
+/// meaning, which it counts one by one in `flag_bits`: all but the first are
+/// of the FBA syntax alone.
 fn reserved_of_sync(sync: &MajorSync) -> Option<String> {
     let mut said = Vec::new();
     if sync.reserved != 0 {
@@ -1374,6 +1382,9 @@ fn reserved_of_sync(sync: &MajorSync) -> Option<String> {
                 "substream_info {:#04b}",
                 sync.substream_info & SUBSTREAM_INFO_RESERVED
             ));
+        }
+        if sync.flags & FLAGS_RESERVED != 0 {
+            said.push(format!("flags {:#06x}", sync.flags & FLAGS_RESERVED));
         }
     }
     (!said.is_empty()).then(|| said.join("; "))
