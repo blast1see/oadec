@@ -1,0 +1,443 @@
+{
+ "question": "Which bits does the description of the TrueHD bitstream reserve, does any real stream set one, and does this decoder ignore them as the description says a parser should?",
+ "method": "Section 3.2 of the high-level bitstream description: \"reserved bitfields are encoded as v(n) and should be ignored by parsers\". The reserved fields a major sync and a restart header have are counted by the census of `verify --census`: sixteen bits of the major sync, two of `format_info`, two before `extended_substream_info`, the two low ones of `substream_info`, two of the channel meaning; two of the restart header, the bit of a heavy dynamic range control the major sync does not announce, and the twelve where its update would stand. Three rules file a bit that is set, at `info`. The census was added up over the streams of the corpus and over the first minute of every TrueHD and MLP track of a library. Then nine copies of the fixture were made, each with one of these bits set in its first access unit and the checksums over it recomputed, and put to the binary of main, the binary of the change, and three other decoders as black boxes: a stream in, samples out. The streams of the corpus and the library are media and are not in the repository; the nine copies are made from the fixture.",
+ "result": {
+  "the_corpus": {
+   "streams": 55,
+   "major_syncs": 71916,
+   "restart_headers": 282184,
+   "major_syncs_with_reserved_nonzero": 0,
+   "major_syncs_with_format_info_reserved_nonzero": 0,
+   "major_syncs_with_extended_substream_info_upper": 0,
+   "major_syncs_with_substream_info_reserved_nonzero": 0,
+   "major_syncs_with_channel_meaning_reserved": 0,
+   "restart_headers_with_reserved_nonzero": 0,
+   "restart_headers_with_unannounced_heavy_drc_bit": 0,
+   "restart_headers_with_heavy_drc_unused_nonzero": 0,
+   "set_in_most_streams_and_no_rule": {
+    "directory entries with the bit the syntax calls reserved": {
+     "entries": 4277481,
+     "streams": 47
+    },
+    "restart headers with hires_output_timing": {
+     "headers": 121313,
+     "streams": 47
+    }
+   },
+   "what_each_rule_found": {
+    "sync.reserved_bits": {
+     "streams": 0,
+     "findings": 0
+    },
+    "sync.channel_meaning_reserved": {
+     "streams": 0,
+     "findings": 0
+    },
+    "restart.reserved_bits": {
+     "streams": 0,
+     "findings": 0
+    }
+   }
+  },
+  "the_library": {
+   "what_was_read": "the first 60 seconds of each track, cut with `ffmpeg -c copy`",
+   "titles": 141,
+   "tracks": 157,
+   "major_syncs": 92101,
+   "restart_headers": 340180,
+   "major_syncs_with_reserved_nonzero": 0,
+   "major_syncs_with_format_info_reserved_nonzero": 0,
+   "major_syncs_with_extended_substream_info_upper": 0,
+   "major_syncs_with_substream_info_reserved_nonzero": 0,
+   "major_syncs_with_channel_meaning_reserved": 0,
+   "restart_headers_with_reserved_nonzero": 0,
+   "restart_headers_with_unannounced_heavy_drc_bit": 0,
+   "restart_headers_with_heavy_drc_unused_nonzero": 0,
+   "set_in_most_streams_and_no_rule": {
+    "directory entries with the bit the syntax calls reserved": {
+     "entries": 5244522,
+     "tracks": 157
+    },
+    "restart headers with hires_output_timing": {
+     "headers": 136114,
+     "tracks": 157
+    }
+   },
+   "tracks_not_clean": 0,
+   "what_each_rule_found": {
+    "sync.reserved_bits": {
+     "tracks": 0,
+     "findings": 0
+    },
+    "sync.channel_meaning_reserved": {
+     "tracks": 0,
+     "findings": 0
+    },
+    "restart.reserved_bits": {
+     "tracks": 0,
+     "findings": 0
+    }
+   }
+  },
+  "one_bit_set_in_the_first_access_unit_of_the_fixture": {
+   "cases": [
+    {
+     "bit": "the last of the sixteen reserved bits of the major sync",
+     "main_before_the_change": {
+      "verify": "exit 0, nothing said",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "the_change": {
+      "verify": "exit 0, sync.reserved_bits x1: reserved 0x0001",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "other_decoders": {
+      "FFmpeg": "the samples it gives of the fixture",
+      "truehdd": "the samples it gives of the fixture",
+      "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+     }
+    },
+    {
+     "bit": "a bit of format_info that nothing reads",
+     "main_before_the_change": {
+      "verify": "exit 7, config.changed x21",
+      "decode": "exit 7",
+      "the_samples_of_the_fixture": true
+     },
+     "the_change": {
+      "verify": "exit 0, sync.reserved_bits x1: format_info 0b01",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "other_decoders": {
+      "FFmpeg": "the samples it gives of the fixture",
+      "truehdd": "the samples it gives of the fixture",
+      "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+     }
+    },
+    {
+     "bit": "a bit before extended_substream_info",
+     "main_before_the_change": {
+      "verify": "exit 7, config.changed x21",
+      "decode": "exit 7",
+      "the_samples_of_the_fixture": true
+     },
+     "the_change": {
+      "verify": "exit 0, sync.reserved_bits x1: extended_substream_info 0b01",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "other_decoders": {
+      "FFmpeg": "the samples it gives of the fixture",
+      "truehdd": "exit 4, 5000 of 96000 samples: Error: Parse error: Parse error at frame 125: extended_substream_info must be constant throughout the FBA stream. Read 0x3, expected 0x7",
+      "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+     }
+    },
+    {
+     "bit": "a low bit of substream_info",
+     "main_before_the_change": {
+      "verify": "exit 7, config.changed x21",
+      "decode": "exit 7: substream_info changed at a major sync; 5000 samples written",
+      "the_samples_of_the_fixture": false
+     },
+     "the_change": {
+      "verify": "exit 0, sync.reserved_bits x1: substream_info 0b01",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "other_decoders": {
+      "FFmpeg": "the samples it gives of the fixture",
+      "truehdd": "exit 4, 5000 of 96000 samples: Error: Parse error: Parse error at frame 125: substream_info must be constant throughout the stream. Read 0xFC, expected 0xFD",
+      "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+     }
+    },
+    {
+     "bit": "the first reserved bit of the channel meaning",
+     "main_before_the_change": {
+      "verify": "exit 0, nothing said",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "the_change": {
+      "verify": "exit 0, sync.channel_meaning_reserved x1: the bit after 8ch_control_enabled",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "other_decoders": {
+      "FFmpeg": "the samples it gives of the fixture",
+      "truehdd": "the samples it gives of the fixture",
+      "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+     }
+    },
+    {
+     "bit": "the second reserved bit of the channel meaning",
+     "main_before_the_change": {
+      "verify": "exit 0, nothing said",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "the_change": {
+      "verify": "exit 0, sync.channel_meaning_reserved x1: the bit before extra_channel_meaning_present",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "other_decoders": {
+      "FFmpeg": "the samples it gives of the fixture",
+      "truehdd": "the samples it gives of the fixture",
+      "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+     }
+    },
+    {
+     "bit": "a reserved bit of the restart header",
+     "main_before_the_change": {
+      "verify": "exit 0, nothing said",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "the_change": {
+      "verify": "exit 0, restart.reserved_bits x1: reserved 0b01",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "other_decoders": {
+      "FFmpeg": "the samples it gives of the fixture",
+      "truehdd": "the samples it gives of the fixture",
+      "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+     }
+    },
+    {
+     "bit": "the bit of a heavy DRC the major sync does not announce",
+     "main_before_the_change": {
+      "verify": "exit 0, nothing said",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "the_change": {
+      "verify": "exit 0, restart.reserved_bits x1: heavy_drc_present without flag 13",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "other_decoders": {
+      "FFmpeg": "the samples it gives of the fixture",
+      "truehdd": "the samples it gives of the fixture",
+      "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+     }
+    },
+    {
+     "bit": "the last of the twelve bits where its update would stand",
+     "main_before_the_change": {
+      "verify": "exit 0, nothing said",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "the_change": {
+      "verify": "exit 0, restart.reserved_bits x1: 0x001 where a heavy DRC update would stand",
+      "decode": "exit 0",
+      "the_samples_of_the_fixture": true
+     },
+     "other_decoders": {
+      "FFmpeg": "the samples it gives of the fixture",
+      "truehdd": "the samples it gives of the fixture",
+      "the TrueHD element of the Dolby Reference Player": "the samples it gives of the fixture"
+     }
+    }
+   ],
+   "failed_verify_before": [
+    "a bit of format_info that nothing reads",
+    "a bit before extended_substream_info",
+    "a low bit of substream_info"
+   ],
+   "stopped_the_decode_before": [
+    "a low bit of substream_info"
+   ],
+   "reading": "the Dolby decoder and FFmpeg play all nine as they play the fixture; main called three of them a change of configuration, because the first major sync differs from the next in a reserved bit, and stopped the decode of one at its second major sync"
+  },
+  "the_campaign": {
+   "seed": 0,
+   "rounds": 200000,
+   "clauses_broken": 0,
+   "panics": 0,
+   "kinds_of_answers": {
+    "main": 31,
+    "the_change": 31
+   },
+   "every_command_clean": {
+    "main": 27517,
+    "the_change": 27517
+   },
+   "rounds_whose_answers_moved": 0,
+   "answers_that_moved": {}
+  },
+  "a_run_over_the_corpus_before_and_after": {
+   "streams": 131,
+   "streams_changed": 0,
+   "fields_added": [],
+   "lines_added": [],
+   "lines_of_reports_compared": 8743,
+   "fields_of_reports_compared": 55962,
+   "bytes_of_deliveries_compared": 104361687447,
+   "the_media_suite": {
+    "passed": 30,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "mutations": {
+   "of_the_files_the_change_touches": 51,
+   "new_with_the_change": 22,
+   "survive": [],
+   "caught_by_a_test_that_failed": 51,
+   "each_new_one": [
+    {
+     "mutation": "the sixteen reserved bits of a major sync not among the bits it reserves",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "the two low bits of substream_info not among the bits a major sync reserves",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "the second reserved bit of the channel meaning not among its reserved bits",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "the bit of a heavy DRC nothing announces not among the bits without meaning",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "a bit before extended_substream_info taken by verify for another configuration",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "a reserved bit of substream_info making the parser forget its restart headers",
+     "caught_by": [
+      "au::tests::a_reserved_bit_of_substream_info_does_not_reset_the_parser"
+     ]
+    },
+    {
+     "mutation": "the low bits of substream_info not counted by the census",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "the two bits of format_info nothing reads not among the bits a major sync reserves",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "a reserved bit of the channel meaning not filed",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "a bit of a restart header that has no meaning not filed",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "the twelve bits where a heavy DRC update would stand not among the bits without meaning",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "a reserved bit of format_info taken by verify for another configuration",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "the layout of substream_info keeping the bits the description reserves",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "a reserved bit of a major sync failing a stream",
+     "caught_by": [
+      "a_presentation_over_a_substream_that_is_not_there_stops_a_decode_and_no_rule_names_it"
+     ]
+    },
+    {
+     "mutation": "a reserved bit of a major sync not filed",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "the two bits before extended_substream_info not among the bits a major sync reserves",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "the first reserved bit of the channel meaning not among its reserved bits",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "the two reserved bits of a restart header not among the bits without meaning",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "a reserved bit of substream_info taken by verify for another configuration",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "a reserved bit of substream_info stopping the decode at a major sync",
+     "caught_by": [
+      "a_reserved_bit_is_filed_and_changes_no_sample"
+     ]
+    },
+    {
+     "mutation": "the byte of an FBB major sync read as the description of FBA has it",
+     "caught_by": [
+      "au::tests::a_rate_change_at_a_major_sync_is_refused_like_any_other_layout_change"
+     ]
+    },
+    {
+     "mutation": "a bit of a restart header without meaning weighing as a warning",
+     "caught_by": [
+      "the_catalog_names_every_rule_and_refuses_an_unknown_one"
+     ]
+    }
+   ]
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 658 passed, 30 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "binaries": {
+  "main before the change": "0bc16bf6c8ee809ce8db173be7e4ffd6a9055c84b181465e41939382612e4020",
+  "the change": "8709de4d621a279e84c44d64e8e390a9148374b0cfdd87cf775ef0f7812ffc49"
+ },
+ "reading": "No real stream sets one: not one of 71916 major syncs and 282184 restart headers of the corpus, nor of 92101 and 340180 of the library, has a reserved bit set, so the three rules have never fired on a real stream. Two bits the syntax calls reserved are no rule, because encoders set them all the time: the reserved bit of a directory entry and `hires_output_timing`. And this decoder did not ignore every reserved bit: a major sync that differed from the first in one of `format_info`, of the two before `extended_substream_info` or of `substream_info` was a change of configuration to `verify`, and the last of them stopped the decode. The Dolby decoder and FFmpeg play all nine copies as they play the fixture, and so does the change."
+}

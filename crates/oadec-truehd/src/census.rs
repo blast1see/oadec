@@ -179,6 +179,9 @@ census! {
         /// Major syncs with one of the upper two bits of
         /// `extended_substream_info` set.
         pub extended_substream_info_upper: u64,
+        /// Major syncs with one of the two low bits of `substream_info`
+        /// set, which the description reserves.
+        pub substream_info_reserved_nonzero: u64,
         /// Major syncs with a reserved bit of the channel meaning set.
         pub channel_meaning_reserved: u64,
         /// Major syncs that carry the extra channel meaning.
@@ -431,6 +434,8 @@ impl SyncCensus {
         self.sixch_multichannel_type += u64::from(info.sixch_multichannel_type);
         self.eightch_multichannel_type += u64::from(info.eightch_multichannel_type);
         self.extended_substream_info_upper += u64::from(sync.extended_substream_info >> 2 != 0);
+        self.substream_info_reserved_nonzero +=
+            u64::from(sync.substream_info & crate::sync::SUBSTREAM_INFO_RESERVED != 0);
         let meaning = &sync.channel_meaning;
         self.channel_meaning_reserved += u64::from(meaning.reserved1 || meaning.reserved2);
         if let Some(extra) = &meaning.extra {
@@ -1055,7 +1060,7 @@ mod tests {
             s.entropy.fields().len(),
             s.matrix.fields().len(),
         ];
-        assert_eq!(listed, [22, 17, 10, 11, 5, 20]);
+        assert_eq!(listed, [23, 17, 10, 11, 5, 20]);
         let names: Vec<&str> = s.filter.fields().iter().map(|(n, _)| *n).collect();
         assert_eq!(names[..2], ["fir_sent", "iir_sent"]);
     }

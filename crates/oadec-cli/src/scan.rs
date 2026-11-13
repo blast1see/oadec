@@ -5,10 +5,10 @@ use std::collections::BTreeMap;
 use anyhow::Result;
 use oadec_emdf::container;
 use oadec_truehd::damage::{DamageTracker, Region, Scope, scope_of};
-use oadec_truehd::sync::SYNC_FBB;
+use oadec_truehd::sync::{SUBSTREAM_INFO_RESERVED, SYNC_FBB, substream_layout};
 use oadec_truehd::{
-    AccessUnit, ExtraKind, Gap, Location, MajorSync, ParserState, RuleId, SampleBuffer, Segment,
-    StreamConfig, StreamTiming, Tally, TimingModel, Unit,
+    AccessUnit, ExtraKind, Gap, Location, MajorSync, ParserState, RestartHeader, RuleId,
+    SampleBuffer, Segment, StreamConfig, StreamTiming, Tally, TimingModel, Unit,
 };
 use serde::Serialize;
 
@@ -394,30 +394,44 @@ fn opens_a_bitstream(index: u64, mut branch_units: impl Iterator<Item = u64>) ->
 }
 
 /// What a later major sync changes of the first one, if anything `verify`
-/// counts as a configuration change.
+/// counts as a configuration change. The bits the description reserves are
+/// no part of a configuration: the two low ones of `substream_info`, the two
+/// before `extended_substream_info`, and the two of `format_info`.
 fn config_change(first: &MajorSync, ms: &MajorSync) -> Option<String> {
     if first.substreams != ms.substreams {
         Some(format!(
             "substreams {} -> {}",
             first.substreams, ms.substreams
         ))
-    } else if first.substream_info != ms.substream_info {
+    } else if substream_layout(first.substream_info, first.fbb.is_some())
+        != substream_layout(ms.substream_info, ms.fbb.is_some())
+    {
         Some(format!(
             "substream_info {:#04X} -> {:#04X}",
             first.substream_info, ms.substream_info
         ))
-    } else if first.extended_substream_info != ms.extended_substream_info {
+    } else if first.extended_substream_info & 3 != ms.extended_substream_info & 3 {
         Some(format!(
             "extended_substream_info {} -> {}",
             first.extended_substream_info, ms.extended_substream_info
         ))
-    } else if first.format_info != ms.format_info {
+    } else if read_of(&first.format_info) != read_of(&ms.format_info) {
         Some(format!(
             "format_info changed (rate code {} -> {})",
             first.format_info.sampling_frequency_code, ms.format_info.sampling_frequency_code
         ))
     } else {
         None
+    }
+}
+
+/// `format_info` without the two bits the description reserves, which a
+/// parser ignores: a major sync that differs from the first in them alone
+/// configures nothing differently.
+fn read_of(info: &oadec_truehd::sync::FormatInfo) -> oadec_truehd::sync::FormatInfo {
+    oadec_truehd::sync::FormatInfo {
+        reserved_bits: 0,
+        ..*info
     }
 }
 
@@ -620,6 +634,17 @@ impl Scan {
                     at_unit,
                     || format!("signature {signature:#06X}, not 0xB752"),
                 );
+            }
+            // Bits the description reserves. A parser ignores them, as the
+            // description says it should, and they are said: a stream that
+            // sets one was written by something that reads the syntax another
+            // way.
+            if let Some(said) = reserved_of_sync(ms) {
+                self.diag.add(RuleId::SyncReservedBits, at_unit, 1, || said);
+            }
+            if let Some(said) = reserved_of_channel_meaning(ms) {
+                self.diag
+                    .add(RuleId::SyncChannelMeaningReserved, at_unit, 1, || said);
             }
             if ms.has_16ch_presentation()
                 && self.program_from_sync.is_none()
@@ -1023,6 +1048,7 @@ impl Scan {
                 continue;
             }
             let census = &mut self.census;
+            let diag = &mut self.diag;
             let seg = match Segment::parse_located_with(
                 bytes,
                 parser,
@@ -1031,6 +1057,11 @@ impl Scan {
                 &mut self.buffer,
                 |block, state, _| {
                     census.take_block(i, block, &state.substream[i]);
+                    // filed where the census counts it, so that the two
+                    // agree on a segment that stops parsing further on
+                    if let Some(said) = block.restart.as_ref().and_then(reserved_of_restart) {
+                        diag.add(RuleId::RestartReservedBits, at_seg, 1, || said);
+                    }
                     Ok(())
                 },
             ) {
@@ -1312,6 +1343,77 @@ pub fn scan_while(
     })?;
     scan.finish(summary);
     Ok(scan)
+}
+
+/// The bits of a major sync that the description reserves and this one
+/// sets, in words; `None` for a major sync that sets none. They are the
+/// fields the census counts as `reserved_nonzero`,
+/// `format_info_reserved_nonzero`, `extended_substream_info_upper` and
+/// `substream_info_reserved_nonzero`: the last three are of the FBA syntax
+/// alone.
+fn reserved_of_sync(sync: &MajorSync) -> Option<String> {
+    let mut said = Vec::new();
+    if sync.reserved != 0 {
+        said.push(format!("reserved {:#06x}", sync.reserved));
+    }
+    if sync.fbb.is_none() {
+        if sync.format_info.reserved_bits != 0 {
+            said.push(format!(
+                "format_info {:#04b}",
+                sync.format_info.reserved_bits
+            ));
+        }
+        if sync.extended_substream_info >> 2 != 0 {
+            said.push(format!(
+                "extended_substream_info {:#04b}",
+                sync.extended_substream_info >> 2
+            ));
+        }
+        if sync.substream_info & SUBSTREAM_INFO_RESERVED != 0 {
+            said.push(format!(
+                "substream_info {:#04b}",
+                sync.substream_info & SUBSTREAM_INFO_RESERVED
+            ));
+        }
+    }
+    (!said.is_empty()).then(|| said.join("; "))
+}
+
+/// The reserved bits of the channel meaning that a major sync of the FBA
+/// syntax sets, by where they stand; the census counts them as
+/// `channel_meaning_reserved`.
+fn reserved_of_channel_meaning(sync: &MajorSync) -> Option<String> {
+    if sync.fbb.is_some() {
+        return None;
+    }
+    let mut said = Vec::new();
+    if sync.channel_meaning.reserved1 {
+        said.push("the bit after 8ch_control_enabled");
+    }
+    if sync.channel_meaning.reserved2 {
+        said.push("the bit before extra_channel_meaning_present");
+    }
+    (!said.is_empty()).then(|| said.join("; "))
+}
+
+/// The bits of a restart header that have no meaning and are set, in words:
+/// what the census counts as `reserved_nonzero`, `unannounced_heavy_drc_bit`
+/// and `heavy_drc_unused_nonzero`.
+fn reserved_of_restart(header: &RestartHeader) -> Option<String> {
+    let mut said = Vec::new();
+    if header.reserved_bits != 0 {
+        said.push(format!("reserved {:#04b}", header.reserved_bits));
+    }
+    if header.unannounced_heavy_drc_bit {
+        said.push("heavy_drc_present without flag 13".to_string());
+    }
+    if header.heavy_drc_unused != 0 {
+        said.push(format!(
+            "{:#05x} where a heavy DRC update would stand",
+            header.heavy_drc_unused
+        ));
+    }
+    (!said.is_empty()).then(|| said.join("; "))
 }
 
 #[cfg(test)]

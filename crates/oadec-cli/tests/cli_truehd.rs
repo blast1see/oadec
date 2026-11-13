@@ -1485,3 +1485,194 @@ fn what_an_evolution_frame_declares_of_itself_is_filed_at_its_unit() {
     assert_eq!(report["diagnostics"]["worst"], "warning");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A bit the description reserves is one a parser ignores, as the
+/// description says a parser should: the stream decodes to the samples it
+/// decoded to. `verify` says that the bit is set, at its access unit and as
+/// information, and the census counts it under the field it belongs to. The
+/// bits are those of the first access unit of the fixture, which carries a
+/// major sync and, in the first block of its first segment, a restart
+/// header; each is set in a copy and the checksums over it put right.
+#[test]
+fn a_reserved_bit_is_filed_and_changes_no_sample() {
+    let dir = temp("reserved-bits");
+    let source = fixture("authored-scene.mlp");
+    let sound = std::fs::read(&source).unwrap();
+    let all = units(&source);
+    let (unit, au) = &all[0];
+    assert!(
+        au.major_sync.is_some(),
+        "the stream begins with a major sync"
+    );
+    // The unit: four bytes of header, then the major sync, which is the
+    // format sync (4 bytes), `format_info` (4), the signature (2), the flags
+    // (2), sixteen reserved bits, the peak data rate (2), the count of
+    // substreams with `extended_substream_info` (1), `substream_info` (1)
+    // and the channel meaning.
+    let base = unit.offset as usize * 8;
+    // The first segment begins with a block that has a header (1 bit) with
+    // a restart header in it (1 bit): the sync word (14 bits), the output
+    // timing (16), three channel numbers (12), the dither shift (4) and seed
+    // (23), three limits (14), the repeat of one (5), the flag of the check
+    // (1), the check (8) and `hires_output_timing` (1); then two reserved
+    // bits, the bit of a heavy dynamic range control, and the twelve of its
+    // update.
+    let restart = (unit.offset as usize + au.segments_start) * 8 + 2;
+    let after_timing_flag = restart + 14 + 16 + 12 + 4 + 23 + 14 + 5 + 1 + 8 + 1;
+
+    let pcm_of = |file: &Path| {
+        let out = dir.join("decoded.pcm");
+        let run = oadec(&[
+            "decode",
+            file.to_str().unwrap(),
+            "-p",
+            "2",
+            "--format",
+            "pcm",
+            "-o",
+            out.to_str().unwrap(),
+        ]);
+        assert_eq!(run.status.code(), Some(0), "{}", stderr(&run));
+        std::fs::read(&out).unwrap()
+    };
+    let samples = pcm_of(&source);
+
+    // what the census calls the field, per substream for a restart header
+    let counted = |report: &serde_json::Value, field: &str| -> u64 {
+        match field.strip_prefix("restart.") {
+            Some(name) => report["census"]["substreams"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|s| s["restart"][name].as_u64().unwrap())
+                .sum(),
+            None => report["census"]["major_sync"][field].as_u64().unwrap(),
+        }
+    };
+    let cases: [(&str, usize, &str, &str, &str); 9] = [
+        (
+            "a low bit of substream_info",
+            base + 21 * 8 + 7,
+            "sync.reserved_bits",
+            "substream_info_reserved_nonzero",
+            "substream_info 0b01",
+        ),
+        (
+            "the last of the sixteen reserved bits",
+            base + 16 * 8 + 15,
+            "sync.reserved_bits",
+            "reserved_nonzero",
+            "reserved 0x0001",
+        ),
+        (
+            "a bit of format_info nothing reads",
+            base + 8 * 8 + 7,
+            "sync.reserved_bits",
+            "format_info_reserved_nonzero",
+            "format_info 0b01",
+        ),
+        (
+            "an upper bit of extended_substream_info",
+            base + 20 * 8 + 5,
+            "sync.reserved_bits",
+            "extended_substream_info_upper",
+            "extended_substream_info 0b01",
+        ),
+        (
+            "the first reserved bit of the channel meaning",
+            base + 22 * 8 + 9,
+            "sync.channel_meaning_reserved",
+            "channel_meaning_reserved",
+            "the bit after 8ch_control_enabled",
+        ),
+        (
+            "the second reserved bit of the channel meaning",
+            base + 22 * 8 + 62,
+            "sync.channel_meaning_reserved",
+            "channel_meaning_reserved",
+            "the bit before extra_channel_meaning_present",
+        ),
+        (
+            "a reserved bit of the restart header",
+            after_timing_flag + 1,
+            "restart.reserved_bits",
+            "restart.reserved_nonzero",
+            "reserved 0b01",
+        ),
+        (
+            "the bit of a heavy DRC the stream does not announce",
+            after_timing_flag + 2,
+            "restart.reserved_bits",
+            "restart.unannounced_heavy_drc_bit",
+            "heavy_drc_present without flag 13",
+        ),
+        (
+            "the last of the twelve bits of the update it does not carry",
+            after_timing_flag + 3 + 11,
+            "restart.reserved_bits",
+            "restart.heavy_drc_unused_nonzero",
+            "0x001 where a heavy DRC update would stand",
+        ),
+    ];
+    for (what, bit, rule, field, says) in cases {
+        let mut bytes = sound.clone();
+        assert_eq!(
+            bytes[bit / 8] & (0x80 >> (bit % 8)),
+            0,
+            "{what}: clear in the fixture"
+        );
+        bytes[bit / 8] |= 0x80 >> (bit % 8);
+        let (repaired, _) = oadec_truehd::repair_stream(&mut bytes);
+        assert!(repaired.any(), "{what}: a checksum over the bit");
+        let file = dir.join("reserved.mlp");
+        std::fs::write(&file, &bytes).unwrap();
+        let out = oadec(&["verify", "--json", "--census", file.to_str().unwrap()]);
+        let report: serde_json::Value = serde_json::from_slice(&out.stdout)
+            .unwrap_or_else(|e| panic!("{what}: {e}: {}", stderr(&out)));
+        assert_eq!(
+            out.status.code(),
+            Some(0),
+            "{what}: {}",
+            report["diagnostics"]
+        );
+        let rules = report["diagnostics"]["rules"].as_array().unwrap();
+        assert_eq!(rules.len(), 1, "{what}: {}", report["diagnostics"]);
+        let fired = &rules[0];
+        assert_eq!(fired["id"], rule, "{what}");
+        assert_eq!(fired["severity"], "info", "{what}");
+        assert_eq!(fired["count"], 1, "{what}: {fired}");
+        assert_eq!(fired["first"]["unit"], 0, "{what}: {fired}");
+        assert_eq!(fired["first_message"], says, "{what}");
+        assert!(fired["legacy_counter"].is_null(), "{what}: {fired}");
+        assert_eq!(
+            counted(&report, field),
+            1,
+            "{what}: the census under {field}"
+        );
+        assert_eq!(
+            oadec(&["verify", "--fail-on", "info", file.to_str().unwrap()])
+                .status
+                .code(),
+            Some(7),
+            "{what}"
+        );
+        assert!(pcm_of(&file) == samples, "{what}: the samples moved");
+    }
+    // and the fixture, which sets none of them, has nothing filed
+    let out = oadec(&["verify", "--json", "--census", source.to_str().unwrap()]);
+    let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(report["diagnostics"]["rules"], serde_json::json!([]));
+    for field in [
+        "reserved_nonzero",
+        "format_info_reserved_nonzero",
+        "extended_substream_info_upper",
+        "substream_info_reserved_nonzero",
+        "channel_meaning_reserved",
+        "restart.reserved_nonzero",
+        "restart.unannounced_heavy_drc_bit",
+        "restart.heavy_drc_unused_nonzero",
+    ] {
+        assert_eq!(counted(&report, field), 0, "{field}");
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}

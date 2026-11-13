@@ -8,6 +8,20 @@ Semantic Versioning.
 
 ### Added
 
+- **A reserved bit that is set is said.** The description of the TrueHD
+  bitstream reserves fields of the major sync, of its channel meaning and of
+  the restart header, and says a parser ignores them. `verify` files one
+  that is set, at its access unit and at `info`: `sync.reserved_bits`,
+  `sync.channel_meaning_reserved` and `restart.reserved_bits`. The census
+  counted all but one of these fields already; the two low bits of
+  `substream_info`, which the description reserves as well, are counted too
+  (`substream_info_reserved_nonzero`). No real stream sets one: not one of
+  71 916 major syncs and 282 184 restart headers of the corpus, nor of 92 101
+  and 340 180 in the first minute of 157 library tracks. Two bits the syntax
+  calls reserved are no rule, because encoders set them all the time: the
+  reserved bit of a directory entry and `hires_output_timing`
+  (`docs/truehd.md`,
+  `docs/audit/evidence/engine-round-2026-11/34-reserved-bits.json`).
 - **What an Evolution frame declares of itself, as rules.** The frame of a
   TrueHD access unit is the container of an E-AC-3 skip field without its
   sync word, and says the same three things of itself. `verify` counted them
@@ -609,6 +623,21 @@ Semantic Versioning.
 
 ### Fixed
 
+- **A reserved bit that differed between two major syncs was a change of
+  configuration, and one stopped the decode.** A parser ignores a reserved
+  field, the description says. `verify` compared `format_info`,
+  `extended_substream_info` and `substream_info` whole against the first
+  major sync, their reserved bits with them, and the decoder compared
+  `substream_info` whole against the configuration in force. A stream whose
+  first major sync has one such bit set and whose next has not exited 7 from
+  `verify`, and with the bit in `substream_info` the decode stopped at the
+  second major sync. No stream of the corpus or the library is such a
+  stream; nine copies of the fixture are, one for each reserved field, and
+  the Dolby decoder and FFmpeg play all nine as they play the fixture. The
+  layout of the presentations is compared without its reserved bits now, by
+  the decoder, the parser state and `verify`, and the nine decode to the
+  samples of the fixture. The byte of an FBB major sync is compared whole, as
+  it was (`docs/audit/evidence/engine-round-2026-11/34-reserved-bits.json`).
 - **`tools/mutants.py` took a mutation that does not build for one that was
   caught.** A mutation the compiler refuses fails the run before a test has
   run, and that the run failed was all the tool looked at: one of the

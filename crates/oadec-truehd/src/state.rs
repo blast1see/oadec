@@ -215,8 +215,10 @@ impl ParserState {
     /// Adopts a (possibly changed) configuration; a changed layout invalidates the
     /// substream states until their next restart header.
     pub fn update(&mut self, config: &StreamConfig) {
+        // the reserved bits of `substream_info` are no part of a layout
         let changed = self.samples_per_au != usize::from(config.samples_per_au)
-            || self.substream_info != config.substream_info
+            || crate::sync::substream_layout(self.substream_info, self.fbb)
+                != config.substream_layout()
             || self.substreams != usize::from(config.substreams);
         self.samples_per_au = usize::from(config.samples_per_au);
         self.flags = config.flags;
