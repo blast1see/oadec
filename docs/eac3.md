@@ -264,35 +264,59 @@ Both ETSI clause E.2.7.2 and ATSC clause E.3.7.2 give the same pseudo-code,
 and A/52 adds that "the reference decoder shall implement" it. FFmpeg parses
 the fields and applies nothing.
 
+- **The frame begins one block into the samples a decoder hands out.** The
+  transient is counted from "the first decoded PCM sample contained in the
+  audio frame" (clause E.2.7.1). A decoder that hands out everything its
+  transforms make begins a stream with the half block the first transform
+  fades in over, as oadec and FFmpeg do. The Dolby decoders drop that half
+  block: the decode filter of the Dolby Encoding Engine starts 256 samples
+  later for it. Their frame begins one block later in the same samples, and
+  that is where the count starts. Measured on both Dolby decoders, to the
+  sample: a correction ends 256 samples after `transprocloc` counted from the
+  first sample oadec hands out for the frame, and on the two streams whose
+  transients are sharpest the fit is 3 to 7 dB worse one sample either way.
+  `tools/tpnp_fit.py` is the measurement.
 - **The parameters reach forward and backward.** `transprocloc` is ten bits of
-  four samples, so a frame's transient can sit up to 4 092 samples past that
-  frame's first sample, in a frame not decoded yet; the substitution source
+  four samples, so a frame's transient can sit up to 4 092 samples past the
+  start of that frame, in a frame not decoded yet; the substitution source
   starts `2*TC1 + 2*pnlen` (up to 1 536) samples before the transient, in a
   frame already decoded. Output can only be released once no future frame can
   still rewrite it.
 - **`transproclen` is measured backwards from the pre-noise**, not from the
   transient: clause E.2.3.2.23 says otherwise but the pseudo-code and clause
-  E.3.7.2 agree, and the reading was confirmed by measurement (below).
+  E.3.7.2 agree, and the fit below is with that reading.
 - **The pre-noise starts at the leading edge of the audio block before the one
   holding the transient**, so `pnlen` runs from 256 to 512 samples.
-- **The cross-fade shape is left open** ("nearly any pair of constant
-  amplitude cross-fade windows", with Hanning suggested). Measured against the
-  Dolby decode of `pi-head-spx192.ec3`, a linear ramp lands closer than a
-  raised cosine on every channel that carries a transient, by 0,3 to 0,6 dB,
-  so oadec uses the ramp.
-- **Measured effect.** On that stream (24 transients over 18 frames), inside
-  the corrected regions the distance to the Dolby decode drops by 3,79 dB on
-  L, 3,05 dB on R and 4,00 dB on Rs. Dolby applies the tool; FFmpeg does not.
-  `tools/tpnp_window.py` is the measurement.
-- **The copy is not the whole tool.** Over the substituted stretch itself the
-  printed reading tracks the Dolby decode to the line, so the source offset,
-  the region and the length are right. The entire residual sits in the first
-  cross-fade, and the variant that measures best there is the one that starts
-  the substitution abruptly, which puts a step at the splice that Dolby does
-  not have. Dolby reaches the splice already matching the original, which is
-  what "time scaling synthesis" in the clause title implies and what its
-  pseudo-code, a plain copy, does not do. oadec keeps the printed cross-fade.
-  See `docs/evidence/2026-09-09-b.md` and `tools/plots.py`.
+- **Both fades are raised cosines.** The clause leaves the shape open ("nearly
+  any pair of constant amplitude cross-fade windows", with Hanning suggested).
+  Where a correction gives way to a loud transient, the Dolby decode is the
+  decode without the tool under the window, so the window can be read off it:
+  a raised cosine fits to 40 and 42 dB on two streams, a straight line to 18
+  and 20. The fade into a correction fits the same way where the sound before
+  the transient is loud enough to tell: 33 to 37 dB against 22 to 24 on three
+  streams.
+- **Measured effect.** Over the corrected samples of a stream, the distance to
+  the Dolby decode, in dB below it, without the tool and with it: 0,9 and
+  21,8 on `pi-head-spx192.ec3`, a 5.1 stream of Dolby's own encoder with 24
+  transients; -6,1 and 29,5 on pink noise in level steps (4) and 1,9 and 26,7
+  on bursts (18), both stereo at 64 kbit/s from another encoder; -1,6 and
+  35,5 (5) and 2,4 and 26,0 (35) on the heads of two film tracks, stereo and
+  5.1. With the correction one block early the five were 3 to 6 dB below it.
+  Counted the way `tools/tpnp_window.py` counts, over the samples the tool
+  changes, the first stream is 20,9 dB closer to the Dolby decode with the
+  tool than without: 21,5 dB on L, 20,7 on R, 16,5 on Ls and 18,0 on Rs.
+  Dolby applies the tool; FFmpeg does not.
+- **What this section said until 2026-11.** That the tool brought that stream
+  3 to 4 dB closer, that a straight line measured 0,3 to 0,6 dB closer than a
+  raised cosine, and that the whole residual sat in the first cross-fade and
+  was smallest with no fade at all, "which puts a step at the splice that
+  Dolby does not have". All three were one thing: the correction was one
+  block early. Two decoders whose corrections are a block apart agree where
+  the two overlap, because the substitution copies the same samples either
+  way; ours began where Dolby had not begun, and ended a block before the
+  transient, with the loudest of the pre-noise still in place. A residual
+  with a shape is a finding, and this one was written down as a property of
+  the reference.
 
 ## A frame that ends inside its own tail
 

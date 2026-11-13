@@ -8,6 +8,15 @@
 //! length. The decoder overwrites the pre-noise with that earlier audio,
 //! cross-fading in over 256 samples and out over 128.
 //!
+//! Where the transient is, is counted from "the first decoded PCM sample
+//! contained in the audio frame" (clause E.2.7.1). A frame as [`crate::Decoder`]
+//! hands it out begins with the half block its first transform fades in over,
+//! which a Dolby decoder drops at the head of a stream: its frames begin one
+//! block later in the same samples, and so does the count. Measured on two
+//! Dolby decoders, to the sample: a correction ends [`ORIGIN`] samples after
+//! `transprocloc` counted from the first sample handed out, and both fades
+//! are raised cosines (`docs/eac3.md`).
+//!
 //! Two things make this a buffering problem rather than a filter. The
 //! substitution reads up to 1 536 samples *before* the transient, so the
 //! previous frame must still be around; and `transprocloc` reaches 4 092
@@ -27,6 +36,9 @@ const TC1: usize = 256;
 const TC2: usize = 128;
 /// One audio block, the granularity of the pre-noise region.
 const BLOCK: u64 = 256;
+/// Where the frame of clause E.2.7.1 begins in the samples of a frame as they
+/// are pushed: one block in.
+pub const ORIGIN: u64 = BLOCK;
 /// The furthest back a correction writes: one block of pre-noise at most,
 /// plus the longest time scaling length, plus the first cross-fade.
 pub const REACH_BACK: u64 = 2 * BLOCK + 255 + TC1 as u64;
@@ -84,20 +96,20 @@ impl<T> Post<T> {
     ///
     /// Clause E.3.7.2 leaves the cross-fade shape open: "nearly any pair of
     /// constant amplitude cross-fade windows may be used ... although
-    /// standard Hanning windows have been shown to provide good results". A
-    /// linear ramp and a raised cosine were both measured against the Dolby
-    /// decode of `pi-head-spx192.ec3`; the ramp came out closer on every
-    /// channel that carries a transient, by 0,3 to 0,6 dB. See
-    /// `docs/eac3.md`.
+    /// standard Hanning windows have been shown to provide good results".
+    /// The Dolby decoders use the raised cosine: where a correction gives
+    /// way to a loud transient, their output is the decode without the
+    /// correction under that window to 39 dB, and under a straight line to
+    /// 16. See `docs/eac3.md`.
     #[must_use]
     pub fn new() -> Self {
         let mut fade1 = [0.0f32; TC1];
         for (i, v) in fade1.iter_mut().enumerate() {
-            *v = (i as f64 + 0.5) as f32 / TC1 as f32;
+            *v = raised_cosine(i, TC1);
         }
         let mut fade2 = [0.0f32; TC2];
         for (i, v) in fade2.iter_mut().enumerate() {
-            *v = (i as f64 + 0.5) as f32 / TC2 as f32;
+            *v = raised_cosine(i, TC2);
         }
         Self {
             buf: Vec::new(),
@@ -159,7 +171,7 @@ impl<T> Post<T> {
                 self.seen = true;
                 self.pending.push_back(Pending {
                     ch,
-                    loc: start + t.loc as u64,
+                    loc: start + ORIGIN + t.loc as u64,
                     len: t.len,
                 });
             }
@@ -274,6 +286,14 @@ impl<T> Post<T> {
             };
         }
     }
+}
+
+/// Sample `i` of a fade in over `len` samples: half a period of a raised
+/// cosine, read at the middle of each sample, so that the fade out is the
+/// same window read backwards and the two add up to one.
+fn raised_cosine(i: usize, len: usize) -> f32 {
+    let phase = std::f64::consts::PI * (i as f64 + 0.5) / len as f64;
+    (0.5 - 0.5 * phase.cos()) as f32
 }
 
 #[cfg(test)]

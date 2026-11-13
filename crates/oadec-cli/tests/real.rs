@@ -450,6 +450,85 @@ fn transient_pre_noise_changes_only_what_it_should() {
     }
 }
 
+/// The pre-noise corrections are where the Dolby decoder has them. Two clips
+/// of an encoder that writes the tool at a low rate carry transients: pink
+/// noise in level steps (4 corrections) and bursts (18). Over the corrected
+/// samples the decode is within 20 dB of the Dolby decode of the same stream,
+/// where the decode without the tool is not within 5. A correction one block
+/// early, as it was until the place was measured, is within 7 dB on neither.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn the_pre_noise_corrections_are_where_the_dolby_decoder_has_them() {
+    // The reference decoder hands its samples out 32 later than oadec does,
+    // and lower by the dialogue normalisation it applies: 31 - 24 dB.
+    const LATE: usize = 32;
+    const CHANNELS: usize = 2;
+    let gain = 10f64.powf(-7.0 / 20.0);
+    let media = media_dir();
+    let dir = std::env::temp_dir().join(format!("oadec-pre-noise-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("scratch directory");
+    for name in ["ecpl-low-steps", "ecpl-low-bursts"] {
+        let file = media.join(format!("clips/{name}.ec3"));
+        let dolby = media.join(format!("ref-drp/ecpl/{name}.f32"));
+        require(&file);
+        assert!(
+            dolby.exists(),
+            "{} is missing, so the place cannot be judged",
+            dolby.display()
+        );
+        let report = verify_json(&file);
+        let transients = report["transients"].as_array().expect("transients");
+        assert!(!transients.is_empty(), "{name} codes no transient");
+        let decode = |tag: &str, extra: &[&str]| {
+            let path = dir.join(format!("{name}-{tag}.f32"));
+            let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+                .args(["decode", "--format", "pcm", "-o"])
+                .arg(&path)
+                .args(extra)
+                .arg(&file)
+                .output()
+                .expect("run oadec decode");
+            assert!(out.status.success(), "{name} {tag}: the decode failed");
+            floats(&path)
+        };
+        let with = decode("with", &[]);
+        let without = decode("without", &["--no-tpnp"]);
+        let reference = floats(&dolby);
+        assert_eq!(with.len(), without.len(), "{name}");
+
+        let (mut signal, mut near, mut far) = (0.0f64, 0.0f64, 0.0f64);
+        for t in transients {
+            let frame = t["frame"].as_u64().expect("frame") as usize;
+            let ch = t["channel"].as_u64().expect("channel") as usize;
+            let loc = t["loc"].as_u64().expect("loc") as usize;
+            let len = t["len"].as_u64().expect("len") as usize;
+            // one block into the frame as it is handed out (clause E.2.7.1,
+            // as the Dolby decoders count it)
+            let at = frame * 1536 + 256 + loc;
+            let pre_noise = at - (at / 256 - 1) * 256;
+            let total = pre_noise + len + 256;
+            for i in at - total..at {
+                let want = reference[(i + LATE) * CHANNELS + ch] / gain;
+                signal += want * want;
+                near += (want - with[i * CHANNELS + ch]).powi(2);
+                far += (want - without[i * CHANNELS + ch]).powi(2);
+            }
+        }
+        let below = |noise: f64| 10.0 * (signal / noise).log10();
+        assert!(
+            below(near) > 20.0,
+            "{name}: the corrections are {:.1} dB below the Dolby decode",
+            below(near)
+        );
+        assert!(
+            below(far) < 5.0,
+            "{name}: without the tool the same samples are {:.1} dB below it",
+            below(far)
+        );
+    }
+    std::fs::remove_dir_all(&dir).expect("remove the scratch directory");
+}
+
 /// Downmix configuration 4 decodes to objects.
 ///
 /// It needs a seven-channel JOC downmix, a seven-channel downmix needs a

@@ -523,6 +523,28 @@ Semantic Versioning.
 
 ### Fixed
 
+- **A pre-noise correction was one block early, and faded along a straight
+  line.** Transient pre-noise processing counts the transient from "the first
+  decoded PCM sample contained in the audio frame". oadec counted from the
+  first sample it hands out for the frame, which at the head of a stream is
+  the half block the first transform fades in over. A Dolby decoder drops
+  that half block; its frames begin one block later in the same samples, and
+  so does the count. Every correction therefore ended 256 samples before the
+  place the Dolby decoders end it: the block before the transient, where the
+  pre-noise is loudest, was left as it was, and a block of sound before the
+  pre-noise was written over. The two fades were straight lines, chosen by a
+  measurement the misplacement had spoiled; the Dolby decoders use raised
+  cosines. Both were read off two Dolby decodes of a stream whose transients
+  are known, to the sample (`tools/tpnp_fit.py`). Over the corrected samples
+  of five streams (one of Dolby's encoder, two of another, two cut from
+  films) the decode is now 22 to 36 dB below the Dolby decode, where it was
+  3 to 6; counted over the samples the tool
+  changes, a stream of Dolby's own encoder is 20,9 dB closer to the Dolby
+  decode with the tool than without, where it was 3,0. A stream that codes a
+  transient decodes differently in the samples of its corrections, and no
+  other sample of any stream changes. `docs/eac3.md` says what it said before
+  and why that was wrong
+  (`docs/audit/evidence/engine-round-2026-11/29-pre-noise-one-block-later.json`).
 - **Enhanced coupling from its lowest sub-band could not be read.** With
   `ecplbegf` 0 the coupling channel begins at band 13 of the masking model and
   the channels coupled into it end there, and the excitation function does two
