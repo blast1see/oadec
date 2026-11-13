@@ -96,45 +96,64 @@ pub(crate) fn for_each_frame(
 /// [`for_each_frame`], which also says where the stream was no syncframe:
 /// `on_gap(offset, sync_error, bytes)` is called for every sync error that is
 /// counted and for every run of bytes that is skipped, with the offset in the
-/// file it is at, so that the calls add up to the two totals returned.
+/// file it is at, so that the calls add up to the two totals returned. A
+/// call with no bytes that is no sync error may close the pass: the end of
+/// the stream, found by a read that gave nothing.
 fn for_each_frame_and_gap(
     source: &Source,
+    on_frame: impl FnMut(u64, &[u8], &FrameHeader) -> Result<()>,
+    on_gap: impl FnMut(u64, bool, u64),
+) -> Result<(u64, u64, u64)> {
+    frames_and_gaps(source, READ_BYTES, on_frame, on_gap)
+}
+
+/// What one read asks the source for.
+const READ_BYTES: usize = 4 << 20;
+
+/// [`for_each_frame_and_gap`] with the size of a read as `read_bytes`, which
+/// a test makes small enough for a short stream to be read in many pieces.
+fn frames_and_gaps(
+    source: &Source,
+    read_bytes: usize,
     mut on_frame: impl FnMut(u64, &[u8], &FrameHeader) -> Result<()>,
     mut on_gap: impl FnMut(u64, bool, u64),
 ) -> Result<(u64, u64, u64)> {
     let file_bytes = source.size().unwrap_or(0);
     let mut progress = crate::progress::Progress::new("reading", file_bytes);
-    let mut file = BufReader::with_capacity(4 << 20, source.open()?);
-    let mut buf: Vec<u8> = Vec::with_capacity(8 << 20);
-    let mut base: u64 = 0; // file offset of buf[0]
+    let mut file = BufReader::with_capacity(read_bytes, source.open()?);
+    // What has been read and not yet taken is `buf[at..]`. A frame that is
+    // taken moves `at` and nothing else. The bytes behind it are given up
+    // when the buffer is filled again, once in four megabytes: giving them
+    // up at every frame moved what was left of those four megabytes down
+    // the buffer a frame at a time, some four gigabytes for a minute of
+    // audio.
+    let mut buf: Vec<u8> = Vec::with_capacity(2 * read_bytes);
+    let mut at = 0usize;
+    let mut base: u64 = 0; // file offset of buf[at]
     let mut frames = 0u64;
     let mut sync_errors = 0u64;
     let mut skipped = 0u64;
     let mut eof = false;
     loop {
-        if buf.len() < 4096 && !eof {
-            let mut chunk = vec![0u8; 4 << 20];
-            let n = file.read(&mut chunk)?;
-            if n == 0 {
-                eof = true;
-            } else {
-                buf.extend_from_slice(&chunk[..n]);
-            }
+        if buf.len() - at < 4096 && !eof {
+            eof = !fill(&mut buf, &mut at, &mut file, read_bytes)?;
         }
-        if buf.len() < 8 {
+        let window = &buf[at..];
+        if window.len() < 8 {
             if eof {
-                on_gap(base, false, buf.len() as u64);
-                skipped += buf.len() as u64;
+                on_gap(base, false, window.len() as u64);
+                skipped += window.len() as u64;
                 break;
             }
             continue;
         }
         progress.at(base);
-        let Some(pos) = find_sync(&buf, 0) else {
-            on_gap(base, false, buf.len() as u64);
-            skipped += buf.len() as u64;
-            base += buf.len() as u64;
+        let Some(pos) = find_sync(window, 0) else {
+            on_gap(base, false, window.len() as u64);
+            skipped += window.len() as u64;
+            base += window.len() as u64;
             buf.clear();
+            at = 0;
             if eof {
                 break;
             }
@@ -144,59 +163,73 @@ fn for_each_frame_and_gap(
             on_gap(base, true, pos as u64);
             sync_errors += 1;
             skipped += pos as u64;
-            buf.drain(..pos);
+            at += pos;
             base += pos as u64;
             continue;
         }
-        let header = match FrameHeader::parse(&buf) {
+        let header = match FrameHeader::parse(window) {
             Ok(h) => h,
             Err(_) => {
                 on_gap(base, true, 1);
                 sync_errors += 1;
                 skipped += 1;
-                buf.drain(..1);
+                at += 1;
                 base += 1;
                 continue;
             }
         };
-        if buf.len() < header.frame_bytes {
+        if window.len() < header.frame_bytes {
             if eof {
-                on_gap(base, false, buf.len() as u64);
-                skipped += buf.len() as u64;
+                on_gap(base, false, window.len() as u64);
+                skipped += window.len() as u64;
                 break;
             }
-            let mut chunk = vec![0u8; (header.frame_bytes - buf.len()).max(4 << 20)];
-            let n = file.read(&mut chunk)?;
-            if n == 0 {
-                eof = true;
-            } else {
-                buf.extend_from_slice(&chunk[..n]);
-            }
+            let most = (header.frame_bytes - window.len()).max(read_bytes);
+            eof = !fill(&mut buf, &mut at, &mut file, most)?;
             continue;
         }
         // the next frame must start with a sync word (or the file must end)
-        let next_ok = buf.len() == header.frame_bytes && eof
-            || buf.len() < header.frame_bytes + 2
-            || buf[header.frame_bytes..header.frame_bytes + 2] == [0x0B, 0x77];
+        let next_ok = window.len() == header.frame_bytes && eof
+            || window.len() < header.frame_bytes + 2
+            || window[header.frame_bytes..header.frame_bytes + 2] == [0x0B, 0x77];
         if !next_ok {
             on_gap(base, true, 1);
             sync_errors += 1;
             skipped += 1;
-            buf.drain(..1);
+            at += 1;
             base += 1;
             continue;
         }
-        on_frame(base, &buf[..header.frame_bytes], &header)?;
+        on_frame(base, &window[..header.frame_bytes], &header)?;
         frames += 1;
         base += header.frame_bytes as u64;
-        buf.drain(..header.frame_bytes);
-        if buf.is_empty() && eof {
+        at += header.frame_bytes;
+        if at == buf.len() && eof {
             break;
         }
     }
     // The line is cleared when `progress` is dropped, which also covers the
     // `?` on on_frame above.
     Ok((frames, sync_errors, skipped))
+}
+
+/// Gives up the bytes of `buf` before `at`, which have been taken, and reads
+/// up to `most` more onto its end with one read; `false` when the source
+/// gave none, which is its end. After an error of the source the buffer is
+/// not what it was, and the pass is over.
+fn fill(
+    buf: &mut Vec<u8>,
+    at: &mut usize,
+    from: &mut impl Read,
+    most: usize,
+) -> std::io::Result<bool> {
+    buf.drain(..*at);
+    *at = 0;
+    let held = buf.len();
+    buf.resize(held + most, 0);
+    let read = from.read(&mut buf[held..])?;
+    buf.truncate(held + read);
+    Ok(read > 0)
 }
 
 fn syntax_name(h: &FrameHeader) -> &'static str {
@@ -2917,6 +2950,175 @@ mod tests {
             shown.contains("frame 22: CRC failure") && !shown.contains("frame tail"),
             "the delivery's first problem is not its first fault: {shown}"
         );
+    }
+
+    /// Every frame of a pass over `stream` and every run of bytes that is no
+    /// frame, with the three totals, read `read_bytes` at a time.
+    ///
+    /// A run is the gaps that touch, put together. The reader reports a run
+    /// longer than its buffer holds in pieces, one a filling, and only the
+    /// piece that ends at a sync word as a sync error: how many gaps a run
+    /// is reported in is a matter of where the reads fall, and where the run
+    /// is and how long are not.
+    #[allow(
+        clippy::type_complexity,
+        reason = "the two lists and the totals of one pass"
+    )]
+    fn read_in_pieces(
+        stream: &[u8],
+        read_bytes: usize,
+    ) -> (Vec<(u64, usize)>, Vec<(u64, u64)>, (u64, u64, u64)) {
+        let source = Source::memory("a stream", stream.to_vec());
+        let mut frames = Vec::new();
+        let mut gaps: Vec<(u64, bool, u64)> = Vec::new();
+        let totals = frames_and_gaps(
+            &source,
+            read_bytes,
+            |offset, bytes, header| {
+                assert_eq!(bytes.len(), header.frame_bytes);
+                assert_eq!(
+                    bytes,
+                    &stream[offset as usize..offset as usize + bytes.len()],
+                    "the frame at {offset} is the bytes of the stream there"
+                );
+                frames.push((offset, bytes.len()));
+                Ok(())
+            },
+            |offset, sync_error, bytes| gaps.push((offset, sync_error, bytes)),
+        )
+        .expect("a pass over bytes in memory");
+        // the calls add up to the totals, as the reader says they do
+        assert_eq!(
+            totals.1,
+            gaps.iter().filter(|(_, sync_error, _)| *sync_error).count() as u64
+        );
+        assert_eq!(
+            totals.2,
+            gaps.iter().map(|(_, _, bytes)| *bytes).sum::<u64>()
+        );
+        let mut runs: Vec<(u64, u64)> = Vec::new();
+        for (offset, _, bytes) in gaps {
+            match runs.last_mut() {
+                Some((begin, len)) if *begin + *len == offset => *len += bytes,
+                // a gap of no bytes is the end of the stream, found by a
+                // read that gave nothing: no run
+                _ if bytes > 0 => runs.push((offset, bytes)),
+                _ => {}
+            }
+        }
+        (frames, runs, totals)
+    }
+
+    /// The reader takes its frames out of a buffer it fills as it goes, and
+    /// what it hands out is a matter of the stream and not of where the
+    /// reads fall. The fixture is 63 frames of 1 792 bytes; here it is read
+    /// whole and in pieces down to a single byte, which fills the buffer
+    /// from once to a hundred thousand times.
+    #[test]
+    fn the_frames_of_a_stream_do_not_depend_on_how_it_is_read() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/authored-scene.ec3"
+        );
+        let stream = std::fs::read(path).expect("the fixture");
+        let whole = read_in_pieces(&stream, READ_BYTES);
+        let frames: Vec<(u64, usize)> = (0..63).map(|k| (k * 1792, 1792)).collect();
+        assert_eq!(whole, (frames, Vec::new(), (63, 0, 0)));
+        for read_bytes in [1, 7, 100, 1791, 1792, 1793, 4095, 4096, 4097, 5000, 100_000] {
+            assert_eq!(
+                read_in_pieces(&stream, read_bytes),
+                whole,
+                "{read_bytes} bytes a read"
+            );
+        }
+    }
+
+    /// And so are the places where a stream is no frame. Bytes that are no
+    /// frame stand before the first frame and twice between frames, and the
+    /// stream ends in half a frame. The reader takes a frame when a sync
+    /// word follows it or the stream ends there, so the frame before a run
+    /// of other bytes goes with the run, and the one before the half frame,
+    /// which begins as a frame does, is taken. What is pinned here is what
+    /// the reader did before its buffer had a cursor. The reads are of 4 096
+    /// bytes and more, which is what the reader keeps ahead of itself: with
+    /// less it may not have the two bytes after a frame to look at.
+    #[test]
+    fn the_gaps_of_a_stream_do_not_depend_on_how_it_is_read() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/authored-scene.ec3"
+        );
+        let clean = std::fs::read(path).expect("the fixture");
+        const FRAME: usize = 1792;
+        // bytes with no sync word in them, of three lengths: one under a
+        // frame, one over the 4 096 bytes kept ahead, and one longer than
+        // the smaller reads below
+        let other = |n: usize| -> Vec<u8> { (0..n).map(|i| (i % 7) as u8 + 1).collect() };
+        let mut stream = other(300);
+        stream.extend_from_slice(&clean[..10 * FRAME]);
+        stream.extend(other(5000));
+        stream.extend_from_slice(&clean[10 * FRAME..20 * FRAME]);
+        stream.extend(other(9000));
+        stream.extend_from_slice(&clean[20 * FRAME..30 * FRAME]);
+        stream.extend_from_slice(&clean[..FRAME / 2]);
+
+        let whole = read_in_pieces(&stream, READ_BYTES);
+        let (frames, runs, totals) = &whole;
+        // nine frames of the first ten and of the second, whose tenth has
+        // other bytes behind it, and all of the last ten
+        let taken = [
+            (300, 9),
+            (300 + 10 * FRAME + 5000, 9),
+            (300 + 20 * FRAME + 14_000, 10),
+        ];
+        let expected: Vec<(u64, usize)> = taken
+            .iter()
+            .flat_map(|&(at, n)| (0..n).map(move |k| ((at + k * FRAME) as u64, FRAME)))
+            .collect();
+        assert_eq!(frames, &expected);
+        // the bytes before the first frame; a frame and the bytes behind it,
+        // twice; the half frame
+        assert_eq!(
+            runs,
+            &[
+                (0, 300),
+                ((300 + 9 * FRAME) as u64, (FRAME + 5000) as u64),
+                ((300 + 19 * FRAME + 5000) as u64, (FRAME + 9000) as u64),
+                ((stream.len() - FRAME / 2) as u64, (FRAME / 2) as u64),
+            ]
+        );
+        // The frame refused is a sync error and what follows it another, as
+        // are the bytes before the first frame; the half frame is none.
+        assert_eq!(
+            *totals,
+            (28, 5, (300 + 2 * FRAME + 14_000 + FRAME / 2) as u64)
+        );
+
+        for read_bytes in [4096, 4097, 5000, 6000, 9001, 20_000, 100_000] {
+            assert_eq!(
+                read_in_pieces(&stream, read_bytes),
+                whole,
+                "{read_bytes} bytes a read"
+            );
+        }
+    }
+
+    /// The buffer is filled behind what is left in it: the bytes taken are
+    /// given up, the bytes not yet taken stay, and a source at its end adds
+    /// nothing and says so.
+    #[test]
+    fn filling_the_buffer_gives_up_what_was_taken_and_keeps_the_rest() {
+        let mut from: &[u8] = &[10, 11, 12, 13, 14];
+        let mut buf = vec![1u8, 2, 3, 4];
+        let mut at = 3;
+        assert!(fill(&mut buf, &mut at, &mut from, 2).unwrap());
+        assert_eq!((buf.as_slice(), at), (&[4u8, 10, 11][..], 0));
+        at = 1;
+        assert!(fill(&mut buf, &mut at, &mut from, 100).unwrap());
+        assert_eq!((buf.as_slice(), at), (&[10u8, 11, 12, 13, 14][..], 0));
+        at = 5;
+        assert!(!fill(&mut buf, &mut at, &mut from, 100).unwrap());
+        assert_eq!((buf.as_slice(), at), (&[][..], 0));
     }
 
     /// The first frame group of the committed E-AC-3 fixture, decoded.

@@ -155,6 +155,57 @@ of the object path, then the presentations of `verify --decode` side by side.
 Each of those is a change that has to show its figure with `--compare`
 against this one, and leave the output where it was.
 
+## What has been done about it
+
+### The frames of the AC-3 family, read without moving the buffer
+
+The order of work above begins with the AC-3 core, and the first thing found
+there was not in the decoder. Every command of this family reads the
+syncframes of a stream through one loop. It kept four megabytes of the file
+in a buffer and, at each frame it handed out, moved what was left of them to
+the front: two megabytes on average for a frame of two thousand bytes, some
+four gigabytes of copying for a minute of audio, and twice that where a
+dependent substream doubles the frames. It moves a cursor now, and gives up
+the bytes it has taken when it fills the buffer again. The reads it makes of
+the file, and where it decides that bytes are no frame, are what they were.
+
+Measured on 13 November 2026 on the machine of the baseline, the binary of
+`main` before the change and after it turn and turn about, five runs each
+(`python tools/bench.py --compare`; `docs/audit/evidence/engine-round-2026-11/36-frames-by-a-cursor.json`):
+
+| | work | × real time, before | after | processor s per minute, before | after |
+|---|---|---:|---:|---:|---:|
+| AC-3, 2 channels | `decode` | 313 | 802 | 0.19 | 0.07 |
+| | `verify` | 316 | 841 | 0.19 | 0.07 |
+| AC-3, 6 channels | `decode` | 176 | 296 | 0.33 | 0.20 |
+| | `verify` | 183 | 318 | 0.33 | 0.19 |
+| E-AC-3, 5.1 | `decode` | 176 and 232 | 323 and 349 | 0.35 and 0.26 | 0.19 and 0.17 |
+| | `verify` | 185 and 244 | 348 and 381 | 0.33 and 0.24 | 0.17 and 0.16 |
+| E-AC-3, 7.1 | `decode` | 83 and 84 | 170 and 169 | 0.72 and 0.70 | 0.36 and 0.36 |
+| | `verify` | 86 and 89 | 181 and 176 | 0.69 and 0.67 | 0.31 and 0.34 |
+| E-AC-3 with JOC | `decode`, the channels | 169 and 83 | 301 and 159 | 0.35 and 0.72 | 0.20 and 0.38 |
+| | `verify` | 173 and 86 | 318 and 168 | 0.35 and 0.69 | 0.19 and 0.36 |
+| | `decode --format damf` | 41 and 27 | 46 and 32 | 1.45 and 2.23 | 1.29 and 1.84 |
+| | `decode --format adm` | 41 and 27 | 47 and 32 | 1.45 and 2.20 | 1.27 and 1.84 |
+
+A command that reads or decodes the channels takes 38 to 66 per cent of the
+time it took, and one that decodes the objects 84 to 89 per cent, the filter
+banks being the larger share of that. The less a frame costs to decode, the
+more of its time was the copying: two channels of AC-3 gained the most. Two
+TrueHD streams ran beside them as a control, through a reader of their own:
+thirteen measurements, each within 1.3 per cent of where it was.
+
+FFmpeg, measured again on the same eight streams, decodes them 2.1 to 3.4
+times faster than this, where the baseline had it at 4.7 to 6.8 times on
+E-AC-3. What is left of that is in the decoder.
+
+Nothing a command says or writes has changed. The binaries before and after
+give the same reports and the same deliveries over the 131 streams of the
+corpus, and over 320 copies of the fixture damaged the ways a reader of
+frames notices: cut short, bytes taken out, bytes that are no frame put in,
+bits turned, a frame twice or not at all, half of them long enough for the
+damage to stand where a read of four megabytes ends.
+
 ## What it does not say
 
 - One machine. The ratios between commands carry to another; the figures do
