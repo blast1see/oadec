@@ -275,9 +275,406 @@ pub fn compute(
     }
 }
 
+/// The bit allocation of one channel, kept with what it was computed from
+/// and given again where it is asked for with the same.
+///
+/// A syncframe has up to six blocks, and the decoder allocates for every
+/// channel in every one of them. The exponents and the parameters are sent
+/// again far less often than that: four allocations in five are of the
+/// inputs the one before them had, and the routine is fixed-point arithmetic
+/// that gives the same pointers of the same inputs. [`compute`] reads the
+/// exponents of the bins it allocates and of no others, and writes the
+/// pointers of those bins and no others, so what is kept is what it would
+/// write again.
+#[derive(Debug, Clone)]
+pub struct Allocation {
+    from: Option<Inputs>,
+    bap: [u8; 256],
+}
+
+/// What an allocation was computed from.
+#[derive(Debug, Clone)]
+struct Inputs {
+    params: AllocParams,
+    start: usize,
+    end: usize,
+    fgain: i32,
+    snroffset: i32,
+    leak: Option<(i32, i32)>,
+    dba: Option<DeltaBa>,
+    high_efficiency: bool,
+    /// The exponents of bins `start..end`, in their places.
+    exps: [u8; 256],
+}
+
+impl Default for Allocation {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Allocation {
+    /// An allocation of nothing yet.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            from: None,
+            bap: [0; 256],
+        }
+    }
+
+    /// As [`compute`], which it calls unless the allocation it holds was
+    /// computed from these inputs: then it writes that one to `bap`.
+    /// Whatever stood in `bap` before, the pointers of bins `start..end` are
+    /// afterwards what [`compute`] gives. Returns whether it computed.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the routine has this many inputs"
+    )]
+    pub fn compute(
+        &mut self,
+        params: &AllocParams,
+        start: usize,
+        end: usize,
+        exps: &[u8],
+        fgain: i32,
+        snroffset: i32,
+        leak: Option<(i32, i32)>,
+        dba: Option<&DeltaBa>,
+        high_efficiency: bool,
+        bap: &mut [u8],
+    ) -> bool {
+        if start >= end {
+            // nothing is allocated, and nothing is kept of it
+            return false;
+        }
+        let kept = self.from.as_ref().is_some_and(|from| {
+            from.params == *params
+                && from.start == start
+                && from.end == end
+                && from.fgain == fgain
+                && from.snroffset == snroffset
+                && from.leak == leak
+                && from.dba.as_ref() == dba
+                && from.high_efficiency == high_efficiency
+                && from.exps[start..end] == exps[start..end]
+        });
+        if kept {
+            bap[start..end].copy_from_slice(&self.bap[start..end]);
+            return false;
+        }
+        compute(
+            params,
+            start,
+            end,
+            exps,
+            fgain,
+            snroffset,
+            leak,
+            dba,
+            high_efficiency,
+            bap,
+        );
+        self.bap[start..end].copy_from_slice(&bap[start..end]);
+        let mut of_the_bins = [0u8; 256];
+        of_the_bins[start..end].copy_from_slice(&exps[start..end]);
+        self.from = Some(Inputs {
+            params: *params,
+            start,
+            end,
+            fgain,
+            snroffset,
+            leak,
+            dba: dba.cloned(),
+            high_efficiency,
+            exps: of_the_bins,
+        });
+        true
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The inputs of the routine, for the test below.
+    #[derive(Clone)]
+    struct In {
+        params: AllocParams,
+        start: usize,
+        end: usize,
+        exps: [u8; 256],
+        fgain: i32,
+        snroffset: i32,
+        leak: Option<(i32, i32)>,
+        dba: Option<DeltaBa>,
+        he: bool,
+    }
+
+    impl In {
+        /// What the routine gives of these inputs, on pointers that were all
+        /// 0xEE before.
+        fn computed(&self) -> [u8; 256] {
+            let mut bap = [0xEEu8; 256];
+            compute(
+                &self.params,
+                self.start,
+                self.end,
+                &self.exps,
+                self.fgain,
+                self.snroffset,
+                self.leak,
+                self.dba.as_ref(),
+                self.he,
+                &mut bap,
+            );
+            bap
+        }
+
+        /// What `kept` gives of them on such pointers, and whether it
+        /// computed.
+        fn asked_of(&self, kept: &mut Allocation) -> ([u8; 256], bool) {
+            // not what the last call left, and not zeros either
+            let mut bap = [0xEEu8; 256];
+            let computed = kept.compute(
+                &self.params,
+                self.start,
+                self.end,
+                &self.exps,
+                self.fgain,
+                self.snroffset,
+                self.leak,
+                self.dba.as_ref(),
+                self.he,
+                &mut bap,
+            );
+            (bap, computed)
+        }
+    }
+
+    /// An allocation that is kept is the one that would be computed. Every
+    /// input of the routine is changed by itself and changed back, for a
+    /// channel that begins at bin 0 and for a coupling channel, and the
+    /// pointers of the caller are overwritten before each call: what
+    /// `Allocation` gives is what `compute` gives of the same inputs, and it
+    /// computes when an input the routine reads is another than the last
+    /// time and not otherwise.
+    #[test]
+    fn an_allocation_kept_is_the_one_computed() {
+        // a spectrum that falls from loud to the hearing threshold, so that
+        // every parameter has something to bend
+        let mut exps = [0u8; 256];
+        for (bin, e) in exps.iter_mut().enumerate() {
+            *e = ((bin / 7) as u8 + (bin % 3) as u8).min(24);
+        }
+        let channel = In {
+            params: AllocParams::from_codes(2, 1, 1, 2, 4, 0),
+            start: 0,
+            end: 150,
+            exps,
+            fgain: fast_gain(4),
+            snroffset: snr_offset(24, 3),
+            leak: None,
+            dba: None,
+            he: false,
+        };
+        let coupling = In {
+            start: 37,
+            leak: Some((2560, 1024)),
+            ..channel.clone()
+        };
+        // a level spectrum under the hearing threshold, which is then the
+        // whole of the masking curve
+        let quiet = In {
+            exps: [14; 256],
+            ..channel.clone()
+        };
+        let delta = |value: u8| DeltaBa {
+            offsets: vec![2],
+            lengths: vec![6],
+            values: vec![value],
+        };
+        type Change = Box<dyn Fn(&mut In)>;
+        // of which inputs, what is changed, the change, and whether the
+        // routine reads it
+        let changes: Vec<(&In, &str, Change, bool)> = vec![
+            (&channel, "nothing", Box::new(|_| {}), false),
+            (
+                &channel,
+                "an exponent allocated",
+                Box::new(|i| i.exps[40] += 5),
+                true,
+            ),
+            (
+                &channel,
+                "the last exponent allocated",
+                Box::new(|i| i.exps[149] -= 9),
+                true,
+            ),
+            (
+                &channel,
+                "an exponent after the bins",
+                Box::new(|i| i.exps[150] -= 7),
+                false,
+            ),
+            (
+                &channel,
+                "the end of the bins",
+                Box::new(|i| i.end = 151),
+                true,
+            ),
+            (
+                &channel,
+                "the start of the bins",
+                Box::new(|i| i.start = 1),
+                true,
+            ),
+            (
+                &channel,
+                "the fast gain",
+                Box::new(|i| i.fgain = fast_gain(7)),
+                true,
+            ),
+            (
+                &channel,
+                "the SNR offset",
+                Box::new(|i| i.snroffset = snr_offset(30, 4)),
+                true,
+            ),
+            (
+                &channel,
+                "the slow decay",
+                Box::new(|i| i.params.sdecay = 0x60),
+                true,
+            ),
+            (
+                &channel,
+                "the fast decay",
+                Box::new(|i| i.params.fdecay = 0x200),
+                true,
+            ),
+            (
+                &channel,
+                "the slow gain",
+                Box::new(|i| i.params.sgain = 0x200),
+                true,
+            ),
+            (
+                &channel,
+                "the knee",
+                Box::new(|i| i.params.dbknee = 0),
+                true,
+            ),
+            (
+                &channel,
+                "the floor",
+                Box::new(|i| i.params.floor = -0x800),
+                true,
+            ),
+            (
+                &quiet,
+                "the hearing threshold",
+                Box::new(|i| i.params.hth_index = 2),
+                true,
+            ),
+            (
+                &channel,
+                "the pointer table",
+                Box::new(|i| i.he = true),
+                true,
+            ),
+            (
+                &channel,
+                "a delta",
+                Box::new(move |i| i.dba = Some(delta(7))),
+                true,
+            ),
+            (&coupling, "nothing", Box::new(|_| {}), false),
+            (
+                &coupling,
+                "an exponent before the bins",
+                Box::new(|i| i.exps[36] += 9),
+                false,
+            ),
+            (
+                &coupling,
+                "the first exponent allocated",
+                Box::new(|i| i.exps[37] = 0),
+                true,
+            ),
+            (
+                &coupling,
+                "the fast leak",
+                Box::new(|i| i.leak = Some((1800, 1024))),
+                true,
+            ),
+            (
+                &coupling,
+                "the slow leak",
+                Box::new(|i| i.leak = Some((2560, 2560))),
+                true,
+            ),
+            (&coupling, "no leak", Box::new(|i| i.leak = None), true),
+        ];
+        let mut kept = Allocation::new();
+        for (n, (base, what, change, read)) in changes.iter().enumerate() {
+            let of_the_base = base.computed();
+            // the base, whatever the allocation held before
+            assert_eq!(
+                base.asked_of(&mut kept).0,
+                of_the_base,
+                "{n}, before {what}"
+            );
+            assert_eq!(
+                base.asked_of(&mut kept),
+                (of_the_base, false),
+                "{n}, before {what}: the same again is kept"
+            );
+            let mut changed = (*base).clone();
+            change(&mut changed);
+            let of_the_change = changed.computed();
+            // The inputs of this test do bend the allocation: each one the
+            // routine reads gives another allocation, so a stale one would
+            // be seen.
+            assert_eq!(of_the_change != of_the_base, *read, "{n}, {what}");
+            assert_eq!(
+                changed.asked_of(&mut kept),
+                (of_the_change, *read),
+                "{n}, {what}"
+            );
+            assert_eq!(
+                base.asked_of(&mut kept),
+                (of_the_base, *read),
+                "{n}, {what} changed back"
+            );
+            assert!(
+                of_the_change[..changed.start]
+                    .iter()
+                    .chain(&of_the_change[changed.end..])
+                    .all(|&b| b == 0xEE),
+                "{n}, {what}: a pointer outside the bins was written"
+            );
+        }
+
+        // the same delta again is kept, another one is not
+        let with = |value: u8| In {
+            dba: Some(delta(value)),
+            ..channel.clone()
+        };
+        assert!(with(7).asked_of(&mut kept).1);
+        assert_eq!(with(7).asked_of(&mut kept), (with(7).computed(), false));
+        assert_eq!(with(0).asked_of(&mut kept), (with(0).computed(), true));
+        assert_ne!(with(0).computed(), with(7).computed());
+
+        // no bins: nothing is computed, written or kept
+        let none = In {
+            start: 80,
+            end: 80,
+            ..channel.clone()
+        };
+        assert_eq!(none.asked_of(&mut kept), ([0xEE; 256], false));
+        assert_eq!(with(0).asked_of(&mut kept), (with(0).computed(), false));
+    }
 
     #[test]
     fn snr_offset_formula() {

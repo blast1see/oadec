@@ -436,6 +436,9 @@ struct Parser<'a> {
     /// not what its last `deltbae` says: see [`delta_in_force`].
     dba_in_force: [bool; NCH],
     bap: [[u8; N]; NCH],
+    /// The allocation each slot was last given, with what it was computed
+    /// from: a block that allocates from the same is given it again.
+    allocated: [bitalloc::Allocation; NCH],
     /// AHT: the six blocks of pre-IDCT mantissas per channel slot.
     pre_mant: Vec<Vec<[f64; N]>>,
     // ---- outputs ----
@@ -551,6 +554,7 @@ impl<'a> Parser<'a> {
             dba: Default::default(),
             dba_in_force: [false; NCH],
             bap: [[0; N]; NCH],
+            allocated: std::array::from_fn(|_| bitalloc::Allocation::new()),
             pre_mant: Vec::new(),
             out_blocks: Vec::with_capacity(usize::from(h.blocks)),
             skip_fields: Vec::with_capacity(usize::from(h.blocks)),
@@ -1653,7 +1657,11 @@ impl<'a> Parser<'a> {
         let snroffset = bitalloc::snr_offset(self.csnroffst, self.fsnroffst[slot]);
         let he = self.ahtinu[slot] != 0;
         let exps = self.exps[slot];
-        bitalloc::compute(
+        // The exponents and the parameters of a channel are sent again far
+        // less often than a block allocates from them. The pointers are
+        // written in either case: a block with no SNR offset anywhere
+        // clears them all.
+        self.allocated[slot].compute(
             &params,
             start,
             end,
