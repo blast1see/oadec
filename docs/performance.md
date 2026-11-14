@@ -189,9 +189,10 @@ time: a third to a little over a half of what an object format took. This
 paragraph used to say 37 and 39 microseconds, 0.85 ms and 38 times, and so
 that the filter banks were all of it. Those were the figures of a slow core.
 Where the rest of the object path goes has not been measured. (The banks take
-58 per cent of that now, and the rest has been measured: see "The filter
-banks of JOC: real and imaginary parts apart" and "A delivery of objects: the
-rows in one buffer" below.)
+58 per cent of that now, the synthesis bank 63 per cent of that again, and
+the rest has been measured: see "The filter banks of JOC: real and imaginary
+parts apart", "A delivery of objects: the rows in one buffer" and "The
+synthesis bank of JOC: a ring of blocks, and zeros that are known" below.)
 
 **`verify --decode` is the sum of its presentations**, 30 to 131 times real
 time, because it decodes them one after another. (It no longer is: see
@@ -875,6 +876,97 @@ gives the answers it gave.
 The synthesis banks are 30 to 35 per cent of a delivery now, the analysis
 banks and the matrices they feed 10 to 13 each, and the rows, taken off and
 written, 16 to 22.
+
+### The synthesis bank of JOC: a ring of blocks, and zeros that are known
+
+The synthesis banks were 29.8 to 34.6 per cent of a delivery of objects after
+the change above: a bank for every object, and a step of it for every time
+slot. A step made 128 values of the 64 subbands of the slot with an inverse
+DFT, moved a history of 1 280 values along by them, multiplied 640 of those
+by the window into an array of their own, and made every sample of the sum of
+ten of the products, taken from ten places 64 apart.
+
+Three things were changed, each measured on top of the one before it inside
+one binary: kernels of a throwaway worktree, bound to the fast cores, a frame
+of one object
+(`docs/audit/evidence/engine-round-2026-11/47-the-synthesis-bank-in-a-ring.json`):
+
+| | µs a frame | of the time, per cent |
+|---|---:|---:|
+| as it was | 12.51 | 100 |
+| the window and the sum a block at a time | 10.18 | 81 |
+| that, with the history in a ring of ten blocks | 8.96 | 72 |
+| that, with the first stage of the inverse DFT done where its values are put | 7.94 | 63 |
+
+A block at a time: the 64 products of a block of the history and its part of
+the window are added to 64 sums, one block after another, and no product is
+kept. A sample is still the sum of its ten products in the order of the
+blocks, which is the order it had.
+
+A ring: the history was moved along by 128 values every time slot, which is
+1 152 values of the 1 280 moved. The blocks stay where they are now, and the
+place of the newest goes round.
+
+Zeros that are known: of the 128 values the inverse DFT is given, 64 are the
+subbands and 64 are zeros, and its first stage pairs every subband with a
+zero. A butterfly makes of a value and a zero the value twice, so the value
+is written twice and the stages begin at the second. To the letter it makes
+the value plus a zero and the value less a zero, and a negative zero comes
+out of the sum positive. No sample can show that: a zero of either sign stays
+a zero through every operation after it and adds nothing to a sum, and the
+sums of the window begin from a positive zero.
+
+Two things were tried and not taken. The analysis bank with its history in a
+ring and its window in passes takes 94 per cent of the time it takes (9.95 µs
+against 10.58), which would be under one per cent of a delivery. And the
+stages of the inverse DFT, each with the size of its butterflies known where
+it is compiled, take what they take without it (8.15 µs against 7.94): the
+compiler takes them two at a time as they are.
+
+The kernel of the benchmark for a frame of one object, on `main` and with the
+change, which are two builds: 11.96 µs and 7.87.
+
+A delivery (`decode --format damf`), the binary of `main` and the binary of
+the change turn and turn about, five runs each bound to the fast cores:
+
+| | × real time, before | after | of the time, per cent |
+|---|---:|---:|---:|
+| 11 objects over 5.1, 12 parameter bands | 66.8 | 76.6 | 87.2 |
+| 15 objects over 5.1, 12 parameter bands | 54.0 | 61.9 | 87.1 |
+| 15 objects over 7.1, 15 parameter bands | 45.8 | 51.4 | 89.3 |
+
+`tools/bench.py --compare` has the object formats of its two JOC streams at
+85 to 89 per cent of the time and 85 to 90 of the processor time, and of its 88
+measurements 4 faster, 83 where they were and 1 slower.
+The one it calls slower is the decode of a presentation of a TrueHD stream,
+which this change does not touch: 103.7 per cent there, and 101.4 measured
+again bound to the fast cores, nine runs each. That is what the place of a
+loop does from one build to the next (see "What it does not say").
+
+Timers around the stages of a delivery again, in per cent of the command, the
+least and the most of the three streams:
+
+| | on `main` | with the change |
+|---|---:|---:|
+| the synthesis banks | 29.8 to 34.6 | 22.4 to 26.6 |
+| the core decoded | 10.2 to 15.4 | 11.3 to 16.9 |
+| the analysis banks | 10.1 to 12.9 | 12.0 to 14.1 |
+| the matrices updated from the payload | 10.1 to 12.7 | 11.6 to 13.9 |
+| the rows written | 9.1 to 13.6 | 10.3 to 13.0 |
+| the rows taken off the queues | 7.1 to 8.0 | 8.3 to 9.9 |
+| the matrix applied | 5.7 to 7.1 | 7.0 to 7.8 |
+| the payloads read, the quadrature, the metadata, the queues, the rest of the pipeline | 3.1 to 3.8 | 3.4 to 4.3 |
+| everything else of the command | 2.4 to 3.3 | 1.7 to 4.5 |
+
+The synthesis banks took 4.80 to 6.50 ms a second of audio in the build with
+the timers, and take 3.35 to 4.40.
+
+The samples are the same to the last bit. The test that holds the bank to the
+clause computed the plain way, bit for bit, has slots of zeros of both signs
+in it. A reset of either bank, which nothing had tested and nothing in the
+workspace calls, is held to a new bank by a test of its own. Every delivery
+of every stream of the corpus is the same byte for byte, and the campaign of
+200 000 damaged streams gives the answers it gave.
 
 ## What it does not say
 
