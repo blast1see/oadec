@@ -9,7 +9,7 @@ use anyhow::Result;
 use oadec_truehd::damage::{Region, RegionKind};
 use oadec_truehd::disc::{self, Disc, Row};
 use oadec_truehd::{
-    Location, MAX_PRESENTATIONS, MajorSync, Provenance, RuleId, Severity, StreamConfig, Tally,
+    Location, MAX_PRESENTATIONS, MajorSync, Provenance, RuleId, Severity, StreamConfig, Tally, Unit,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -60,6 +60,14 @@ impl LosslessChecks {
     }
 }
 
+/// Access units handed to the decodes of the presentations at a time: enough
+/// of them that handing them over costs nothing beside decoding them.
+const UNITS_AT_A_TIME: usize = 64;
+
+/// How many times that many units a decode may have waiting for it before
+/// the reader of the stream waits for the decode.
+const WAITING: usize = 2;
+
 /// Decodes every presentation the stream carries and collects the lossless
 /// check words the decoder evaluated.
 ///
@@ -68,65 +76,165 @@ impl LosslessChecks {
 /// decoded output of the section before it was never evaluated by `verify` --
 /// only by a decode, and only for the one presentation that decode asked for.
 /// A presentation that is a copy of another is not decoded twice: its samples,
-/// and so its checks, are the other one's.
+/// and so its checks, are those of the other.
+///
+/// The stream is read once, on the thread that calls, and every presentation
+/// is decoded on a thread of its own from the units all of them are handed:
+/// the whole takes as long as the widest presentation and not as long as all
+/// of them.
 fn lossless_checks(source: &Source, ms: &MajorSync) -> Result<LosslessChecks> {
     let config = StreamConfig::from_major_sync(ms)?;
-    let mut sessions: Vec<(usize, Session, Option<String>, u64)> = (0..MAX_PRESENTATIONS)
+    let carried: Vec<usize> = (0..MAX_PRESENTATIONS)
         .filter(|&p| config.presentations.is_carried(p))
-        .map(|p| (p, Session::new(p, false, Order::Stream), None, 0))
         .collect();
-    input::for_each_unit(source, |unit| {
-        for (_, session, error, clipped) in &mut sessions {
-            if error.is_some() {
-                continue;
-            }
-            // no start is asked for here, so a session has nothing to remark
-            match session.decode(&unit, &mut std::io::sink()) {
-                // counted with the rule every writer clamps by, so the count
-                // is the one `decode` reports for the same presentation
-                Ok(Some(frame)) => {
-                    for row in frame.pcm {
-                        for &ch in frame.order {
-                            *clipped += u64::from(oadec_spatial::clamp_i24(row[ch]).1);
-                        }
-                    }
-                }
-                Ok(None) => {}
-                Err(e) => *error = Some(format!("{e:#}")),
-            }
+    let per_presentation = std::thread::scope(|scope| -> Result<Vec<PresentationChecks>> {
+        let mut hand_over = Vec::with_capacity(carried.len());
+        let mut decodes = Vec::with_capacity(carried.len());
+        for &presentation in &carried {
+            let (to, units) = std::sync::mpsc::sync_channel::<Arc<Vec<Unit>>>(WAITING);
+            hand_over.push(to);
+            decodes.push(scope.spawn(move || presentation_checks(presentation, &units)));
         }
-        Ok(())
+        let give = |units: Vec<Unit>| {
+            let units = Arc::new(units);
+            for to in &hand_over {
+                // a decode that has stopped at a fault takes no more of
+                // them, and that is no fault of the hand-over
+                let _ = to.send(Arc::clone(&units));
+            }
+        };
+        let mut units = Vec::with_capacity(UNITS_AT_A_TIME);
+        let read = input::for_each_unit(source, |unit| {
+            units.push(unit);
+            if units.len() == UNITS_AT_A_TIME {
+                give(std::mem::replace(
+                    &mut units,
+                    Vec::with_capacity(UNITS_AT_A_TIME),
+                ));
+            }
+            Ok(())
+        });
+        // the units after the last full hand-over
+        give(units);
+        // the decodes end when there is nothing more to hand them
+        drop(hand_over);
+        let said = decodes
+            .into_iter()
+            .map(|decode| {
+                decode
+                    .join()
+                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+            })
+            .collect();
+        read.map(|_| said)
     })?;
     let mut checks = LosslessChecks::default();
-    for (presentation, session, error, clipped) in sessions {
-        let p = match session.stats() {
-            Some(s) => PresentationChecks {
-                presentation,
-                evaluated: s.lossless_checks,
-                failed: s.lossless_mismatches,
-                skipped: s.lossless_checks_skipped,
-                first_problem: s.first_problem.clone(),
-                error,
-                max_bits_violations: s.max_bits_violations,
-                clipped,
-            },
-            None => PresentationChecks {
-                presentation,
-                evaluated: 0,
-                failed: 0,
-                skipped: 0,
-                first_problem: None,
-                error,
-                max_bits_violations: 0,
-                clipped,
-            },
-        };
+    for p in per_presentation {
         checks.evaluated += p.evaluated;
         checks.failed += p.failed;
         checks.skipped += p.skipped;
         checks.per_presentation.push(p);
     }
     Ok(checks)
+}
+
+/// Decodes one presentation from the units it is handed, and says what its
+/// lossless checks came to. A decode that stops at a fault takes no more
+/// units: the others go on without it.
+fn presentation_checks(
+    presentation: usize,
+    units: &std::sync::mpsc::Receiver<Arc<Vec<Unit>>>,
+) -> PresentationChecks {
+    let mut session = Session::new(presentation, false, Order::Stream);
+    let mut error = None;
+    let mut clipped = 0u64;
+    'stream: for handed in units {
+        for unit in handed.iter() {
+            // no start is asked for here, so a session has nothing to remark
+            match session.decode(unit, &mut std::io::sink()) {
+                // counted with the rule every writer clamps by, so the count
+                // is the one `decode` reports for the same presentation
+                Ok(Some(frame)) => {
+                    for row in frame.pcm {
+                        for &ch in frame.order {
+                            clipped += u64::from(oadec_spatial::clamp_i24(row[ch]).1);
+                        }
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    error = Some(format!("{e:#}"));
+                    break 'stream;
+                }
+            }
+        }
+    }
+    match session.stats() {
+        Some(s) => PresentationChecks {
+            presentation,
+            evaluated: s.lossless_checks,
+            failed: s.lossless_mismatches,
+            skipped: s.lossless_checks_skipped,
+            first_problem: s.first_problem.clone(),
+            error,
+            max_bits_violations: s.max_bits_violations,
+            clipped,
+        },
+        None => PresentationChecks {
+            presentation,
+            evaluated: 0,
+            failed: 0,
+            skipped: 0,
+            first_problem: None,
+            error,
+            max_bits_violations: 0,
+            clipped,
+        },
+    }
+}
+
+/// The scan of `verify --decode` and, beside it, the decodes of the
+/// presentations: the scan on a thread of its own, the decodes begun from
+/// this one as soon as the scan has the major sync they are configured from.
+/// The second of the pair is `None` for a stream in which the scan found no
+/// major sync, and the error of the decodes where they could not go on.
+///
+/// The stream is read twice, as it was when one followed the other, and the
+/// two readers are the scan and what hands the units to the decodes. This
+/// thread is the one that draws how far the command has got, and what it
+/// draws is the slower of the two. Where the scan fails, the error is the
+/// one it failed with, as it was when the scan came first: it is an error of
+/// reading the stream, which the other reader does not get past either.
+fn scan_beside_the_decodes(
+    source: &Source,
+    opts: &Options,
+) -> Result<(Box<scan::Scan>, Option<Result<LosslessChecks>>)> {
+    std::thread::scope(|scope| {
+        let (tell, told) = std::sync::mpsc::channel::<MajorSync>();
+        let scanning = scope.spawn(move || {
+            scan::scan_announcing(
+                source,
+                opts.max_per_rule,
+                opts.trace_fifo.is_some(),
+                &|| true,
+                &|sync| {
+                    let _ = tell.send(sync.clone());
+                },
+            )
+            // A scan is large. It goes onto the heap here, on the thread that
+            // made it: handed back by value it stood on the stack of the
+            // thread that waits for it once for every function it passed
+            // through, which a build without optimisation does not have room
+            // for.
+            .map(Box::new)
+        });
+        // told once, or not at all when the scan ends without a major sync
+        let checks = told.recv().ok().map(|sync| lossless_checks(source, &sync));
+        let scan = scanning
+            .join()
+            .unwrap_or_else(|panic| std::panic::resume_unwind(panic))?;
+        Ok((scan, checks))
+    })
 }
 
 /// What `verify` concludes about a stream, for the commands that report its
@@ -816,11 +924,12 @@ pub struct Report {
 /// join the verdict.
 pub fn report(source: &Source, opts: &Options) -> Result<Report> {
     let started = Instant::now();
-    let mut scan = Box::new(scan::scan_keeping(
-        source,
-        opts.max_per_rule,
-        opts.trace_fifo.is_some(),
-    )?);
+    let (mut scan, decoded) = if opts.decode {
+        scan_beside_the_decodes(source, opts)?
+    } else {
+        let scan = scan::scan_keeping(source, opts.max_per_rule, opts.trace_fifo.is_some())?;
+        (Box::new(scan), None)
+    };
     if let (Some(out), Some(layouts)) = (&opts.trace_fifo, &scan.layouts) {
         write_trace(out, layouts)?;
     }
@@ -829,10 +938,11 @@ pub fn report(source: &Source, opts: &Options) -> Result<Report> {
         // input, exit 2, as it is for every command that reports one.
         return Err(crate::info::no_stream(source));
     }
-    let checks = match (&scan.first_major_sync, opts.decode) {
-        (Some(ms), true) => Some(lossless_checks(source, ms)?),
+    let checks = match (decoded, opts.decode) {
+        (Some(decoded), _) => Some(decoded?),
+        // asked for, of a stream without a major sync to decode from
         (None, true) => Some(LosslessChecks::default()),
-        (_, false) => None,
+        (None, false) => None,
     };
     if let Some(c) = &checks {
         record_lossless(&mut scan.diag.tally, c);
@@ -1130,6 +1240,118 @@ mod tests {
 
     fn said(check: &StreamCheck) -> Value {
         serde_json::to_value(check).expect("a value")
+    }
+
+    /// What the decode of one presentation of a stream says of its lossless
+    /// checks, decoded by itself from the first unit to the last.
+    fn alone(source: &Source, presentation: usize) -> Value {
+        let mut session = Session::new(presentation, false, Order::Stream);
+        let mut error = None;
+        let mut clipped = 0u64;
+        input::for_each_unit(source, |unit| {
+            if error.is_some() {
+                return Ok(());
+            }
+            match session.decode(&unit, &mut std::io::sink()) {
+                Ok(Some(frame)) => {
+                    for row in frame.pcm {
+                        for &ch in frame.order {
+                            clipped += u64::from(oadec_spatial::clamp_i24(row[ch]).1);
+                        }
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => error = Some(format!("{e:#}")),
+            }
+            Ok(())
+        })
+        .expect("read");
+        let stats = session.stats();
+        json!({
+            "presentation": presentation,
+            "evaluated": stats.map_or(0, |s| s.lossless_checks),
+            "failed": stats.map_or(0, |s| s.lossless_mismatches),
+            "skipped": stats.map_or(0, |s| s.lossless_checks_skipped),
+            "first_problem": stats.and_then(|s| s.first_problem.clone()),
+            "error": error,
+            "max_bits_violations": stats.map_or(0, |s| s.max_bits_violations),
+            "clipped": clipped,
+        })
+    }
+
+    /// What `verify --decode` says of a presentation is what the decode of
+    /// that presentation says by itself. The presentations of a stream are
+    /// decoded side by side, each from the units all of them are given, and
+    /// one that stops at a fault stops alone: the others go on to the end.
+    #[test]
+    fn the_presentations_side_by_side_say_what_each_says_alone() {
+        let mut one_stopped_and_another_went_on = 0;
+        let mut presentations = 0;
+        // A stream as it is (place 0), and with a bit turned so many eighths
+        // of the way through it, or (place 8) in one of its last units, which
+        // are handed to the decodes after the last full hand-over. Of the
+        // stream of four presentations, the bit at seven eighths stops two
+        // and leaves two; the streams of one presentation stop at theirs.
+        let streams: [(&str, &[usize]); 4] = [
+            ("authored-scene.mlp", &[0, 4, 7, 8]),
+            ("truehd-51-88k.thd", &[0, 2]),
+            ("mlp-51-96k.mlp", &[0, 2]),
+            ("truehd-20-44k.thd", &[3]),
+        ];
+        for (name, places) in streams {
+            let mut whole = Vec::new();
+            std::io::Read::read_to_end(&mut fixture(name).open().expect("opened"), &mut whole)
+                .expect("read");
+            for &n in places {
+                let mut bytes = whole.clone();
+                if n > 0 {
+                    let at = match n {
+                        8 => bytes.len() - 700,
+                        _ => bytes.len() * n / 8 + 3,
+                    };
+                    bytes[at] ^= 0x10;
+                }
+                let source = Source::memory(name, bytes);
+                let options = Options {
+                    decode: true,
+                    ..Options::default()
+                };
+                let report = report(&source, &options).expect("a report");
+                let checks = report.checks.as_ref().expect("asked for");
+                let carried: Vec<usize> = checks
+                    .per_presentation
+                    .iter()
+                    .map(|p| p.presentation)
+                    .collect();
+                assert!(carried.is_sorted_by(|a, b| a < b), "{name}: {carried:?}");
+                assert!(!carried.is_empty(), "{name}");
+                for said in &checks.per_presentation {
+                    assert_eq!(
+                        serde_json::to_value(said).expect("a value"),
+                        alone(&source, said.presentation),
+                        "{name}, stream {n}, presentation {}",
+                        said.presentation
+                    );
+                }
+                let sum = |of: fn(&PresentationChecks) -> u64| -> u64 {
+                    checks.per_presentation.iter().map(of).sum()
+                };
+                assert_eq!(checks.evaluated, sum(|p| p.evaluated), "{name}, stream {n}");
+                assert_eq!(checks.failed, sum(|p| p.failed), "{name}, stream {n}");
+                assert_eq!(checks.skipped, sum(|p| p.skipped), "{name}, stream {n}");
+                let stopped = checks
+                    .per_presentation
+                    .iter()
+                    .filter(|p| p.error.is_some())
+                    .count();
+                if stopped > 0 && stopped < carried.len() {
+                    one_stopped_and_another_went_on += 1;
+                }
+                presentations += carried.len();
+            }
+        }
+        assert_eq!(presentations, 23);
+        assert_eq!(one_stopped_and_another_went_on, 1);
     }
 
     /// A stream read from memory is the stream read from its file: the checks

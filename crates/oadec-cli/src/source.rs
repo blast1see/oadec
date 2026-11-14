@@ -19,7 +19,7 @@ const PIECE: usize = 16 << 20;
 /// A command reads its input more than once. It looks at the first bytes to
 /// tell the codecs apart; most commands run the checks of `verify` over the
 /// whole stream on a thread of their own, beside the pass that does their
-/// work; and `verify --decode` decodes after it has scanned. So a source is
+/// work; and `verify --decode` decodes beside its scan. So a source is
 /// something that opens again at its beginning as often as it is asked, and
 /// that a second thread can hold: a clone of one is the same stream.
 #[derive(Debug, Clone)]

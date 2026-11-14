@@ -468,6 +468,20 @@ Semantic Versioning.
 
 ### Changed
 
+- **`verify --decode` of a TrueHD stream runs its scan and its presentations
+  side by side.** It scanned the stream and then decoded every presentation
+  it carries, one after another on one thread. The scan has a thread of its
+  own now and tells the first major sync as soon as it has it
+  (`scan::scan_announcing`); the decodes begin then, a thread for each
+  presentation, from the access units one more reading of the stream hands
+  all of them. The command takes what its widest presentation takes to
+  decode: 33 to 55 per cent of the time it took, on ten streams of six to
+  sixteen channels (a 16-channel stream of a minute in 0.68 s where it took
+  1.69, the longest stream there is in 47 s where it took 128), for the same
+  processor time and 23 to 28 MiB where it held 14 to 19. A presentation that
+  stops at a fault stops alone, as it did. No report changes over the corpus,
+  nor an answer of the campaign (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/42-the-scan-and-the-presentations-side-by-side.json`).
 - **A stream of the AC-3 family is read and not listened to.** `verify` and
   `info` of an AC-3 or E-AC-3 stream decoded every frame to samples, and so
   did the check that runs beside `emdf` and `oamd`. One figure of a report is
