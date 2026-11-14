@@ -418,6 +418,54 @@ deliveries over the 131 streams of the corpus, whose checksums other
 encoders wrote, and the same answers in the campaign of 200 000 damaged
 streams.
 
+### The matrix stage of TrueHD: a matrix that stands still
+
+With the checksums cheap, timers went around the stages of the TrueHD decoder
+in a throwaway build, for the widest presentation of the 16-channel stream of
+the section above. Of the time of the thread that decodes, the matrix stage is
+44 per cent, the prediction filters 23, the reading of the blocks, entropy
+decoding and all, 24, and the parity and the CRC of the segments 2.
+
+A matrix of an object substream (`0x31EC`) is interpolated over the access
+unit: every coefficient has a delta, and the stage summed the samples by the
+coefficients and by the deltas, for every matrix of every sample. Counted over
+the widest presentations of six object streams, the deltas were half of
+everything the stage multiplied, and 83 to 100 per cent of the matrices
+applied had deltas that were all zero: a matrix stands still most of the time.
+The sum of the samples by deltas of zero is zero whatever the samples are, so
+a matrix that stands still is no longer multiplied by them. The coefficients
+themselves are 71.5 to 86.5 per cent set, and nothing is to be had from
+leaving out the ones that are zero.
+
+Inside one binary that can sum every matrix with its deltas as before, both
+ways turn and turn about, nine runs each, bound to the fast cores. Of the time
+with every delta, in per cent
+(`docs/audit/evidence/engine-round-2026-11/40-a-matrix-that-stands-still.json`):
+
+| TrueHD with objects | `decode` of the object presentation | `verify --decode` |
+|---|---:|---:|
+| 12 channels, two streams | 91.2 and 93.8 | 97.2 and 97.5 |
+| 14 channels, two streams | 88.4 and 90.7 | 96.2 and 95.9 |
+| 16 channels, two streams | 91.7 and 89.3 | 96.2 and 95.2 |
+
+Four streams without an object substream, which run none of it, measure 99.3
+to 101.1 the same way.
+
+The binary of the change against the binary of `main`, eighteen streams and 88
+commands: the object presentation decodes to PCM in 83 to 91 per cent of the
+time it took, to the object formats in 84 to 97, and `verify --decode` of an
+object stream takes 92 to 97, 23 of 24 faster by more than the spread of their
+runs and the other within it.
+
+The tool calls 2 other commands slower, by up to 2.6 per cent. They are
+presentations of six and eight channels, whose matrices have no deltas, and
+they run none of what changed: it is the placing of the stage again, of which
+the section before this one tells.
+
+No sample of any presentation of any of the 131 streams of the corpus changes,
+and the fixture, a quarter of whose matrices move, holds both ways of summing
+to the samples they gave.
+
 ## What it does not say
 
 - One machine. The ratios between commands carry to another; the figures do

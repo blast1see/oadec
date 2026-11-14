@@ -468,6 +468,18 @@ Semantic Versioning.
 
 ### Changed
 
+- **A matrix that stands still is not multiplied by its deltas.** A matrix of
+  a TrueHD object substream is interpolated over the access unit by a delta
+  for every coefficient, and the matrix stage, 44 per cent of the decode of a
+  16-channel presentation, summed the samples by both for every matrix of
+  every sample. Over six object streams 83 to 100 per cent of the matrices
+  applied have deltas that are all zero, and their sum is zero whatever the
+  samples are. Leaving it out, the object presentation decodes in 88 to 94 per
+  cent of the time and `verify --decode` in 95 to 98, inside one binary that
+  can do either; against the binary of `main` the object formats take 84 to 97
+  per cent of the time they took. No sample of any presentation of any stream
+  of the corpus changes (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/40-a-matrix-that-stands-still.json`).
 - **The checksums go eight bytes at a step.** The CRC-16 of an AC-3
   syncframe and the CRC-8 of a TrueHD substream segment went through a byte
   table a byte at a time, every byte waiting for the look-up of the one
