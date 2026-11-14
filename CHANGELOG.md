@@ -829,6 +829,13 @@ Semantic Versioning.
 
 ### Fixed
 
+- **A test that two runs of the suite at once could fail.** The test of the
+  demultiplexer that splits a run of access units wrote its two files into
+  the temporary directory under the same names whichever process ran it, and
+  a second run of the suite on the same machine could write over them in
+  between: 6 failures in 1 440 runs of that test, twenty-four at once. The
+  files have the number of the process in their names now, as those of
+  every other test of the crate do: none in 4 320.
 - **What the document said of the compiled transform had been read from the
   wrong code.** `docs/performance.md` said that the inverse transform of the
   AC-3 family is compiled to instructions that take one number at a time
