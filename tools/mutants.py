@@ -461,6 +461,36 @@ MUTANTS = [
             told = true;""",
      """            let _ = first;
             told = true;"""),
+    ('the decodes of verify --decode not begun when the scan has a major sync',
+     'crates/oadec-cli/src/verify.rs',
+     'let checks = told.recv().ok().map(|sync| lossless_checks(source, &sync));',
+     'let checks = told.recv().ok().and_then(|_| None::<Result<LosslessChecks>>);'),
+    ('the last units of a stream not handed to the decodes of its presentations',
+     'crates/oadec-cli/src/verify.rs',
+     """        // the units after the last full hand-over
+        give(units);""",
+     """        // the units after the last full hand-over
+        drop(units);"""),
+    ('a decode of verify --decode handed every unit twice',
+     'crates/oadec-cli/src/verify.rs',
+     """                let _ = to.send(Arc::clone(&units));
+""",
+     """                let _ = to.send(Arc::clone(&units));
+                let _ = to.send(Arc::clone(&units));
+"""),
+    ('the first unit of every hand-over not decoded',
+     'crates/oadec-cli/src/verify.rs',
+     '        for unit in handed.iter() {',
+     '        for unit in handed.iter().skip(1) {'),
+    ('a presentation that stopped at a fault going on with the next unit',
+     'crates/oadec-cli/src/verify.rs',
+     """                    error = Some(format!("{e:#}"));
+                    break 'stream;""",
+     """                    error = Some(format!("{e:#}"));"""),
+    ('a presentation the stream carries left out of verify --decode',
+     'crates/oadec-cli/src/verify.rs',
+     '        .filter(|&p| config.presentations.is_carried(p))\n        .collect();\n    let per_presentation',
+     '        .filter(|&p| p == 0 && config.presentations.is_carried(p))\n        .collect();\n    let per_presentation'),
     ('the DAMF y coordinate, front and back swapped',
      'crates/oadec-spatial/src/program.rs',
      '    [(p[0] - 0.5) * 2.0, (0.5 - p[1]) * 2.0, p[2]]',
