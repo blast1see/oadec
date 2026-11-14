@@ -52,6 +52,15 @@ MASK`, which binds it to the processors of a mask and runs it several times.
 The first table of kernels this document had was not, and was wrong for it
 (see the kernels below).
 
+What the compiler made of a loop is read from the linked binary:
+`python tools/packed.py target/release/oadec.exe NAME` counts, for every
+procedure whose name holds `NAME`, the floating-point instructions that take
+one number at a time, those that take two, and those that only move numbers
+between the halves of a register. The workspace is built with link-time
+optimisation, so the assembly a crate is compiled to by itself is the code
+before the linker has optimised it. This document read that assembly once,
+and was wrong for it (see the inverse transform of the AC-3 family below).
+
 ## The baseline
 
 Measured on 11 November 2026: an Intel Core i7-14700K (28 logical
@@ -637,11 +646,39 @@ blocks bound to the fast cores
 | that, over an array of a known size, the values put straight into bit-reversed places | 1.172 | 82 |
 | that, with the real parts in one array and the imaginary parts in another | 0.740 | 52 |
 
-The last is the one taken. Why the parts apart are worth what they are is
-not known. The compiled code takes one number at a time in every one of the
-four: the stages of the 64-point transform, in the form taken, are 72 scalar
-multiplications and 108 scalar additions and subtractions, and not one
-instruction that takes two.
+The last is the one taken, and what the parts apart are worth is in what
+the compiler makes of a butterfly, which is ten operations: four
+multiplications, three additions and three subtractions. The stages of each
+of the four, each put in a procedure of its own, in one linked binary
+(`tools/packed.py`, `docs/audit/evidence/engine-round-2026-11/46-what-the-compiler-makes-of-the-parts-apart.json`):
+
+| the stages | instructions that take one number | that take two | that only move numbers between the halves of a register |
+|---|---:|---:|---:|
+| as they were | 10 | 0 | 0 |
+| a table of twiddles for every stage, and a butterfly over the two halves of a block | 10 | 10 | 10 |
+| that, over an array of a known size | 10 | 10 | 10 |
+| that, with the real parts in one array and the imaginary parts in another | 10 | 10 | 0 |
+
+As they were, the stages take one butterfly at a time. With a table for
+every stage the compiler takes two at a time, and keeps a scalar loop for
+the stage whose blocks are a single butterfly. But a complex value is its
+real part and then its imaginary part, and two of them have to be taken
+apart before the packed instructions and put back after: ten instructions
+that compute nothing for ten that do. With the parts apart there is nothing
+to move. In the command, where the size of the 64-point transform is known
+where it is compiled, its stages are 400 instructions that take two numbers
+and not one that takes one.
+
+This section used to say that the compiled code takes one number at a time
+in every one of the four, and that why the parts apart are worth what they
+are was not known. What it had read was the assembly the decoder crate is
+compiled to by itself (`cargo rustc -p oadec-eac3 --lib -- --emit asm`),
+which has 72 scalar multiplications and 108 scalar additions and
+subtractions for the stages of the 64-point transform. That is the code
+before the linker has optimised it, and the loops of the binary are not the
+loops of that file: with link-time optimisation off, the assembly of the
+same crate has the 400 packed instructions the binary has.
+
 The window and the overlap-add in one pass, with no 512 samples in between,
 were tried on top of it and measured 0.717 to 0.759 ms against 0.745 to
 0.754, which is nothing, so they are as they were.
@@ -697,7 +734,11 @@ were written the way the one of the AC-3 transform was, a complex value for
 every element and one table of twiddles for all the stages. They were given
 what that one was given in the section above: the real parts in one array and
 the imaginary parts in another, a table for every stage, the values put
-straight into their bit-reversed places.
+straight into their bit-reversed places. What the compiler makes of it is
+what it makes of that one: in a linked binary with both, the stages there
+were are ten scalar instructions, one butterfly at a time, and the stages
+with the parts apart are those and ten that take two numbers, with none
+that only moves them.
 
 Inside one binary, a kernel for each bank each way, bound to the fast cores
 (`docs/audit/evidence/engine-round-2026-11/44-the-filter-banks-of-joc-real-and-imaginary-apart.json`):
