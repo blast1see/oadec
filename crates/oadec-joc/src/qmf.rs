@@ -109,8 +109,18 @@ impl Idft128 {
     /// The stages of the transform, over values that are already where the
     /// bit-reversal puts them: value `k` at `rev[k]`.
     fn stages(&self, re: &mut [f64; 128], im: &mut [f64; 128]) {
-        let mut at = 0;
-        let mut half = 1;
+        self.stages_from(re, im, 1);
+    }
+
+    /// The stages from the one whose butterflies are `first` values apart,
+    /// over values the stages before it have been done to. From 1 it is
+    /// every stage.
+    fn stages_from(&self, re: &mut [f64; 128], im: &mut [f64; 128], first: usize) {
+        debug_assert!(first.is_power_of_two());
+        // the twiddles of a stage come after those of the stages before it,
+        // which are one fewer than its butterflies are apart
+        let mut at = first - 1;
+        let mut half = first;
         while half < 128 {
             let twiddle_re = &self.stage_re[at..at + half];
             let twiddle_im = &self.stage_im[at..at + half];
@@ -224,10 +234,19 @@ impl Analysis {
     }
 }
 
+/// How many blocks of 128 values the window of the synthesis reaches over.
+const RING: usize = LENGTH / BANDS;
+
 /// One channel's synthesis filter state.
 #[derive(Debug, Clone)]
 pub struct Synthesis {
-    buf: [f64; 2 * LENGTH],
+    /// The last ten blocks of 128 values the inverse DFT made, the newest at
+    /// `head` and each older one after it, round the ring. Clause 7.3 keeps
+    /// them as one row of 1 280 values that it shifts by a block every time
+    /// slot; here the blocks stay where they are and the start of the row
+    /// moves.
+    blocks: [[f64; 2 * BANDS]; RING],
+    head: usize,
     idft: Idft128,
     /// `exp(-i pi 255 sb / 128)` for `sb` in `0..64`.
     pre: [Complex; BANDS],
@@ -262,7 +281,8 @@ impl Synthesis {
             };
         }
         Self {
-            buf: [0.0; 2 * LENGTH],
+            blocks: [[0.0; 2 * BANDS]; RING],
+            head: 0,
             idft: Idft128::new(),
             pre,
             post,
@@ -271,24 +291,34 @@ impl Synthesis {
 
     /// Clears the history.
     pub fn reset(&mut self) {
-        self.buf = [0.0; 2 * LENGTH];
+        self.blocks = [[0.0; 2 * BANDS]; RING];
     }
 
     /// Consumes one time slot and produces 64 output samples:
     /// `buf[j] = Re(sum_sb Q[sb]/n exp(i pi/(4n) (2 sb + 1)(2 j - 4n + 1)))`.
     pub fn step(&mut self, q: &[Complex; BANDS], pcm: &mut [f64; BANDS]) {
-        // 1. shift by 2n
-        self.buf.copy_within(0..2 * LENGTH - 2 * BANDS, 2 * BANDS);
+        // 1. shift by 2n: the oldest block gives its place to the new one
+        self.head = (self.head + RING - 1) % RING;
         // 2. 128 new values through the inverse DFT: the 64 subbands, each
-        // put where the transform begins with it, and 64 zeros
+        // put where the transform begins with it, and 64 zeros. The first
+        // stage of the transform pairs every subband with one of the zeros,
+        // and is done here: a value and a zero come out as the value twice.
+        // (As the value plus a zero and the value less a zero, to the letter,
+        // which is the value twice but for a zero that comes out positive in
+        // the first. No sample can tell: a zero of either sign adds nothing
+        // to a sum, and the sums of step 5 begin from a positive zero.)
         let mut re = [0.0f64; 128];
         let mut im = [0.0f64; 128];
         for ((qq, pre), &to) in q.iter().zip(&self.pre).zip(&self.idft.rev) {
-            re[to] = qq.re * pre.re - qq.im * pre.im;
-            im[to] = qq.re * pre.im + qq.im * pre.re;
+            let x = qq.re * pre.re - qq.im * pre.im;
+            let y = qq.re * pre.im + qq.im * pre.re;
+            re[to] = x;
+            re[to + 1] = x;
+            im[to] = y;
+            im[to + 1] = y;
         }
-        self.idft.stages(&mut re, &mut im);
-        for (((b, post), re), im) in self.buf[..2 * BANDS]
+        self.idft.stages_from(&mut re, &mut im, 2);
+        for (((b, post), re), im) in self.blocks[self.head]
             .iter_mut()
             .zip(&self.post)
             .zip(&re)
@@ -296,23 +326,24 @@ impl Synthesis {
         {
             *b = re * post.re - im * post.im;
         }
-        // 3./4. gather and window
-        let mut w = [0.0f64; LENGTH];
-        for j in 0..LENGTH / (2 * BANDS) {
-            for sb in 0..BANDS {
-                w[2 * BANDS * j + sb] = self.buf[4 * BANDS * j + sb] * QWIN[2 * BANDS * j + sb];
-                w[2 * BANDS * j + BANDS + sb] =
-                    self.buf[4 * BANDS * j + 3 * BANDS + sb] * QWIN[2 * BANDS * j + BANDS + sb];
+        // 3./4./5. gather, window and sum, a block at a time: the first half
+        // of the newest block and of every second one after it, the second
+        // half of the others, each under its own 64 values of the window.
+        // A sample is the sum of its ten products in the order of the blocks,
+        // as it is when the products are made first and summed after.
+        let mut acc = [0.0f64; BANDS];
+        for (k, window) in QWIN.as_chunks::<BANDS>().0.iter().enumerate() {
+            let block = &self.blocks[(self.head + k) % RING];
+            let half = if k % 2 == 1 {
+                &block[BANDS..]
+            } else {
+                &block[..BANDS]
+            };
+            for ((a, v), w) in acc.iter_mut().zip(half).zip(window) {
+                *a += v * w;
             }
         }
-        // 5. sum
-        for (ts, p) in pcm.iter_mut().enumerate() {
-            let mut acc = 0.0;
-            for j in 0..LENGTH / BANDS {
-                acc += w[BANDS * j + ts];
-            }
-            *p = acc;
-        }
+        *pcm = acc;
     }
 }
 
@@ -377,7 +408,7 @@ mod tests {
         let mut out = [0.0f64; BANDS];
         syn.step(&slot, &mut out);
         for j in 0..128 {
-            let fast = syn.buf[j];
+            let fast = syn.blocks[syn.head][j];
             let mut direct = 0.0;
             for (sb, qq) in slot.iter().enumerate() {
                 let a = PI / (4.0 * BANDS as f64)
@@ -565,6 +596,50 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// A bank that is reset is a bank that is new: what it makes of a signal
+    /// afterwards is what a new one makes of it, to the bit, whatever it was
+    /// given before and however long.
+    #[test]
+    fn a_bank_that_is_reset_is_a_new_one() {
+        let slots = slots();
+        // not a number of slots the history of either bank comes round in
+        let (before, after) = slots.split_at(27);
+        let mut analysis = Analysis::new();
+        let mut synthesis = Synthesis::new();
+        let mut bands = [Complex::default(); BANDS];
+        let mut pcm = [0.0f64; BANDS];
+        for slot in before {
+            analysis.step(slot, &mut bands);
+            synthesis.step(&bands, &mut pcm);
+        }
+        analysis.reset();
+        synthesis.reset();
+        let mut new_analysis = Analysis::new();
+        let mut new_synthesis = Synthesis::new();
+        let mut new_bands = [Complex::default(); BANDS];
+        let mut new_pcm = [0.0f64; BANDS];
+        for (n, slot) in after.iter().enumerate() {
+            analysis.step(slot, &mut bands);
+            new_analysis.step(slot, &mut new_bands);
+            for (sb, (got, want)) in bands.iter().zip(&new_bands).enumerate() {
+                assert_eq!(
+                    (got.re.to_bits(), got.im.to_bits()),
+                    (want.re.to_bits(), want.im.to_bits()),
+                    "slot {n}, subband {sb}"
+                );
+            }
+            // both are given the subbands of the new analysis, so that the
+            // synthesis is held by itself
+            synthesis.step(&new_bands, &mut pcm);
+            new_synthesis.step(&new_bands, &mut new_pcm);
+            for (ts, (got, want)) in pcm.iter().zip(&new_pcm).enumerate() {
+                assert_eq!(got.to_bits(), want.to_bits(), "slot {n}, sample {ts}");
+            }
+        }
+        // and the signal after the reset was one: the banks made something
+        assert!(new_pcm.iter().any(|v| *v != 0.0));
     }
 
     #[test]

@@ -474,6 +474,20 @@ Semantic Versioning.
 
 ### Changed
 
+- **The synthesis bank of JOC keeps its history in a ring.** A step of the
+  bank moved a history of 1 280 values along by 128 every time slot,
+  multiplied half of it by the window into an array of its own and summed
+  ten products a sample from ten places. The blocks of the history stay where
+  they are now and the place of the newest goes round; the products of a
+  block are added to 64 sums as they are made; and the first stage of the
+  inverse DFT, which pairs every subband with a zero, is done where the
+  values are put. A step takes 63 per cent of the time it took, inside one
+  binary, and a delivery of objects (`decode --format damf`, `--format adm`)
+  87.1 to 89.3 per cent, on one stream of each kind of JOC stream in the
+  corpus. The samples are the same to the last bit, and no byte of any
+  delivery of the corpus changes. A reset of a bank, which nothing tested, is
+  held to a new bank by a test (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/47-the-synthesis-bank-in-a-ring.json`).
 - **The rows of a delivery of objects go through one buffer.** A delivery of
   objects out of JOC (`decode --format damf`, `--format adm`) handed its
   samples from the pipeline to the file one at a time: onto a queue for every
