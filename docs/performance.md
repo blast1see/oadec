@@ -182,7 +182,9 @@ that the filter banks were all of it. Those were the figures of a slow core.
 Where the rest of the object path goes has not been measured.
 
 **`verify --decode` is the sum of its presentations**, 30 to 131 times real
-time, because it decodes them one after another.
+time, because it decodes them one after another. (It no longer is: see
+"`verify --decode` of TrueHD: the scan and the presentations side by side"
+below.)
 
 **The object formats are written to a disk, and it shows.** The two widest
 spreads in the table, 35 and 8 per cent, are object files of TrueHD streams;
@@ -546,6 +548,61 @@ the fixture. That a frame nobody listens to counts for the samples its blocks
 would have made is tested on the buffer by itself, for frames of one, two,
 three and six blocks; no stream of shorter frames has been through both
 decoders.
+
+### `verify --decode` of TrueHD: the scan and the presentations side by side
+
+`verify --decode` scanned a stream and then decoded every presentation it
+carries, a unit in each presentation after another. Of a 16-channel stream of
+a minute the scan takes 0.25 s by itself and the decode of its widest
+presentation 0.69, and `verify --decode` took 1.69: the scan and four
+presentations, one after another on one thread.
+
+They run side by side now. The scan has a thread of its own, and tells the
+first major sync of the stream as soon as it has it, which is what the
+decodes are configured from. The stream is then read once more, on the thread
+of the command, and its access units are handed, sixty-four at a time, to a
+thread for each presentation. A presentation that stops at a fault takes no
+more units, and the others go on to the end, as they did. The command takes
+what its widest presentation takes to decode.
+
+Measured on 14 November 2026, the binary of `main` and the binary of the
+change turn and turn about, five runs each (`tools/bench.py --compare`;
+`docs/audit/evidence/engine-round-2026-11/42-the-scan-and-the-presentations-side-by-side.json`).
+The effect is a factor of two to three, which two builds do not differ by, so
+it was not measured a second time inside one binary:
+
+| TrueHD | × real time, before | after | of the time, per cent |
+|---|---:|---:|---:|
+| 6 channels, two streams | 132 and 134 | 239 and 248 | 55.0 and 54.1 |
+| 8 channels, two streams | 69 and 38 | 169 and 116 | 41.1 and 33.0 |
+| objects, 12 channels, two streams | 40 and 39 | 109 and 105 | 36.3 and 37.1 |
+| objects, 14 channels, two streams | 38 and 39 | 108 and 103 | 35.4 and 37.4 |
+| objects, 16 channels, two streams | 36 and 35 | 88 and 84 | 40.6 and 41.6 |
+
+That is 94 to 100 per cent of what `decode` of the widest presentation takes
+by itself. The processor time is the same work on more threads, 92 to 107 per
+cent of what it was, and the command holds 23 to 28 MiB where it held 14 to
+19: two readers of the stream and the threads at once. The longest stream
+there is, 2.6 GB, takes 46.7 s where it took 127.7.
+
+Of the 78 other commands of the comparison the tool calls three slower:
+`verify` of a 7.1 E-AC-3 stream by 3.0 per cent, a `decode` of six channels
+by 2.1, and a `decode --format damf`, which is written to a disk, by 46. The
+first runs nothing that changed, and the other two only the scan, which asks
+one question more for every unit. Measured again bound to the fast cores,
+eleven runs each and seven for the object format, they take 100.4, 99.1 and
+101.1 per cent of the time.
+
+Nothing a command says has changed: the same reports over the 131 streams of
+the corpus, `verify --decode` of every one among them, and the same answers
+in the campaign of 200 000 damaged streams. That the threads run side by side
+is what the times show and no test asserts. A test holds every presentation
+to what its decode says by itself, on streams whole and damaged, which is
+true of one after another as well.
+
+A stream of four presentations runs six threads. This was measured on a
+machine of twenty-eight processors; on fewer than the command has threads it
+does the same work and gains less.
 
 ## What it does not say
 
