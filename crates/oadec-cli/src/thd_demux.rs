@@ -203,9 +203,11 @@ mod tests {
             expect_thd.extend_from_slice(&a);
             stream.extend_from_slice(&a);
         }
+        // files of this process alone: two runs of the suite at once wrote
+        // over each other's when the names were the same for every run
         let dir = std::env::temp_dir();
-        let src = dir.join("oadec-demux-src.bin");
-        let out = dir.join("oadec-demux-out.thd");
+        let src = dir.join(format!("oadec-demux-src-{}.bin", std::process::id()));
+        let out = dir.join(format!("oadec-demux-out-{}.thd", std::process::id()));
         std::fs::write(&src, &stream).expect("write the source");
         run(&src, &out, None).expect("split");
         assert_eq!(std::fs::read(&out).expect("read the output"), expect_thd);
