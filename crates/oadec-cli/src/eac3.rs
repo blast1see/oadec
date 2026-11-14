@@ -888,6 +888,12 @@ struct Pass {
     /// Frames whose JOC payload carries a clip gain other than 1, for the
     /// evidence tooling.
     clipgains: Vec<(u64, f64)>,
+    /// Frames whose core came with its samples. A pass that reads a stream
+    /// and does not listen to it makes none.
+    heard: u64,
+    /// The report has a figure of the samples of the core and the pass made
+    /// none of them (see [`reports_core_level`]).
+    core_level_unheard: bool,
 }
 
 /// Folds what one substream of a group carried into [`SubStats`].
@@ -961,15 +967,22 @@ fn pass_while(
     go_on: &dyn Fn() -> bool,
     on_pcm: impl FnMut(&ProgramFrame) -> Result<()>,
 ) -> Result<(Pass, u64, u64)> {
-    pass_listing(source, opts, go_on, Diag::DEFAULT_MAX_PER_RULE, on_pcm)
+    pass_listing(
+        source,
+        opts,
+        &|_| go_on(),
+        Diag::DEFAULT_MAX_PER_RULE,
+        on_pcm,
+    )
 }
 
 /// [`pass_while`], keeping at most `listed` findings of a rule in full (0
 /// keeps every one). The limit changes what is listed and never a count.
+/// `go_on` is asked at every syncframe with what the pass has found so far.
 fn pass_listing(
     source: &Source,
     opts: Options,
-    go_on: &dyn Fn() -> bool,
+    go_on: &dyn Fn(&Pass) -> bool,
     listed: usize,
     mut on_pcm: impl FnMut(&ProgramFrame) -> Result<()>,
 ) -> Result<(Pass, u64, u64)> {
@@ -982,7 +995,7 @@ fn pass_listing(
     let (frames, sync_errors, skipped) = for_each_frame_and_gap(
         source,
         |offset, bytes, header| {
-            if !go_on() {
+            if !go_on(&p) {
                 bail!("the pass was given up");
             }
             let key = (header.stream_type as u8, header.substream_id);
@@ -1328,25 +1341,40 @@ fn account(
             p.emdf.auxdata_overruns += 1;
         }
     }
+    let heard = d.pcm.first().is_some_and(|channel| !channel.is_empty());
+    p.heard += u64::from(heard);
     if let Some(g) = p.emdf.last_clipgain {
         if (g - 1.0).abs() > 1e-9 {
             p.clipgains.push((index, g));
         }
-        let peak = d
-            .pcm
-            .iter()
-            .flat_map(|c| c.iter())
-            .fold(0.0f32, |a, &v| a.max(v.abs()));
-        let e = p
-            .core_peak
-            .entry((g * 1000.0).round() as u32)
-            .or_insert((0.0, 0.0, 0));
-        e.0 = e.0.max(f64::from(peak));
-        e.1 += f64::from(peak);
-        e.2 += 1;
+        if heard {
+            let peak = d
+                .pcm
+                .iter()
+                .flat_map(|c| c.iter())
+                .fold(0.0f32, |a, &v| a.max(v.abs()));
+            let e = p
+                .core_peak
+                .entry((g * 1000.0).round() as u32)
+                .or_insert((0.0, 0.0, 0));
+            e.0 = e.0.max(f64::from(peak));
+            e.1 += f64::from(peak);
+            e.2 += 1;
+        } else if reports_core_level(&p.emdf) {
+            // the frames before this one were not listened to either, so the
+            // figure cannot be made up from here
+            p.core_level_unheard = true;
+        }
     }
     p.samples += d.header.samples() as u64;
     on_pcm(frame)
+}
+
+/// Whether the report of a pass has the level of the core under each clip
+/// gain: where the JOC payloads of the stream carry more than one. It is the
+/// one figure of the report that is of the samples.
+fn reports_core_level(emdf: &EmdfStats) -> bool {
+    emdf.joc_clipgain.len() > 1
 }
 
 /// How many EMDF containers a substream's skip fields hold, for the evidence
@@ -1945,7 +1973,7 @@ fn print_pass(
             e.joc_seq_zero,
             e.joc_clipgain
         );
-        if e.joc_clipgain.len() > 1 {
+        if reports_core_level(e) {
             let rows: Vec<String> = e
                 .joc_peak
                 .iter()
@@ -2209,6 +2237,8 @@ pub struct ReportOptions {
     pub fail_on: Severity,
     /// Findings listed in full per rule; 0 lists every one.
     pub max_per_rule: usize,
+    /// Make the samples of every frame, which `verify --decode` asks for.
+    pub decode: bool,
 }
 
 impl Default for ReportOptions {
@@ -2216,11 +2246,12 @@ impl Default for ReportOptions {
         Self {
             fail_on: Severity::Error,
             max_per_rule: Diag::DEFAULT_MAX_PER_RULE,
+            decode: false,
         }
     }
 }
 
-/// Decodes the whole stream to gather what `info` and `verify` report, and
+/// Reads the whole stream to gather what `info` and `verify` report, and
 /// prints nothing.
 pub fn report(source: &Source) -> Result<Report> {
     report_with(source, &ReportOptions::default())
@@ -2228,15 +2259,38 @@ pub fn report(source: &Source) -> Result<Report> {
 
 /// [`report`], with the threshold of the verdict and the number of findings
 /// a rule lists.
+///
+/// The stream is read and not listened to: every frame is parsed to its last
+/// bit and its check made, and the transform, which is half of a decode, is
+/// not run. One figure of the report is of the samples, the level of the core
+/// under each clip gain, which it has where the JOC payloads carry more than
+/// one. When a second clip gain shows, the stream is read again from its
+/// first frame with the samples, so that the figure is the one every frame
+/// decoded gives.
 pub fn report_with(source: &Source, options: &ReportOptions) -> Result<Report> {
     let started = Instant::now();
-    let (p, sync_errors, skipped) = pass_listing(
-        source,
-        Options::default(),
-        &|| true,
-        options.max_per_rule,
-        |_| Ok(()),
-    )?;
+    let read = |samples: bool, wanted: &std::cell::Cell<bool>| {
+        pass_listing(
+            source,
+            Options {
+                samples,
+                ..Options::default()
+            },
+            &|p| {
+                wanted.set(p.core_level_unheard);
+                !p.core_level_unheard
+            },
+            options.max_per_rule,
+            |_| Ok(()),
+        )
+    };
+    let wanted = std::cell::Cell::new(false);
+    let (p, sync_errors, skipped) = match read(options.decode, &wanted) {
+        Ok(read) if !read.0.core_level_unheard => read,
+        Err(e) if !wanted.get() => return Err(e),
+        // given up for the samples, or read to the end without them
+        _ => read(true, &std::cell::Cell::new(false))?,
+    };
     if p.independent + p.dependent == 0 {
         // A sync word opened the file and no whole syncframe followed. A report
         // of nothing reads like a clean stream that holds nothing: the file is
@@ -2313,11 +2367,21 @@ pub fn stream_check(
     source: &Source,
     go_on: &dyn Fn() -> bool,
 ) -> Result<crate::verify::StreamCheck> {
-    let (p, sync_errors, skipped) = pass_while(source, Options::default(), go_on, |_| Ok(()))?;
+    let (p, sync_errors, skipped) = check_pass(source, go_on)?;
     Ok(crate::verify::StreamCheck {
         clean: is_clean(&p, sync_errors, skipped),
         first_problem: p.first_error.clone().or_else(|| p.emdf.first_error.clone()),
     })
+}
+
+/// The pass of [`stream_check`]. What it is read for is a verdict and the
+/// first problem, neither of which is of the samples, so it makes none.
+fn check_pass(source: &Source, go_on: &dyn Fn() -> bool) -> Result<(Pass, u64, u64)> {
+    let unheard = Options {
+        samples: false,
+        ..Options::default()
+    };
+    pass_while(source, unheard, go_on, |_| Ok(()))
 }
 
 /// Options of `decode` for AC-3 family streams.
@@ -3217,6 +3281,118 @@ mod tests {
             assert_eq!(info.endmant.len(), 5);
             assert!(with.coeffs == without.coeffs);
             assert_eq!(with.blksw, without.blksw);
+        }
+    }
+
+    /// The committed E-AC-3 fixture: 63 frames of 1 792 bytes, each with a
+    /// JOC payload of clip gain 1.
+    fn fixture_bytes() -> Vec<u8> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/authored-scene.ec3"
+        );
+        std::fs::read(path).expect("the fixture")
+    }
+
+    /// A copy of the fixture whose JOC payloads say a clip gain of 1.5 from
+    /// frame `from` on: `joc_clipgain_y`, five bits, fifteen bits into the
+    /// payload. The frame checks are repaired.
+    fn two_clip_gains(from: usize) -> Vec<u8> {
+        let mut stream = fixture_bytes();
+        let mut noise = oadec_eac3::Noise::default();
+        let quiet = Options {
+            dither: false,
+            ..Options::default()
+        };
+        for (n, frame) in stream.as_chunks_mut::<1792>().0.iter_mut().enumerate() {
+            let parsed = oadec_eac3::Frame::parse(frame, &mut noise, quiet).expect("a frame");
+            if n >= from {
+                let at = crate::joc_config::config_bit(&parsed).expect("a JOC payload");
+                crate::joc_config::put_bits(frame, at + 15, 5, 16);
+                oadec_eac3::repair::fix_crcs(frame);
+            }
+        }
+        stream
+    }
+
+    /// `verify` reads what a stream says and does not listen to it. Of a
+    /// stream whose JOC payloads carry one clip gain, which is nearly every
+    /// stream, its report has no figure of the samples, and it makes the
+    /// samples of no frame. Asked to decode, it makes them all.
+    #[test]
+    fn verify_makes_no_samples_where_its_report_has_no_figure_of_them() {
+        let source = Source::memory("the fixture", fixture_bytes());
+        let read = report(&source).expect("a report");
+        assert_eq!(read.pass.frames, 63);
+        assert_eq!(read.pass.heard, 0);
+        assert!(read.pass.core_peak.is_empty());
+        assert!(!read.pass.core_level_unheard);
+        let decoded = report_with(
+            &source,
+            &ReportOptions {
+                decode: true,
+                ..ReportOptions::default()
+            },
+        )
+        .expect("a report");
+        assert_eq!(decoded.pass.frames, 63);
+        assert_eq!(decoded.pass.heard, 63);
+        // and `verify --decode` is what asks
+        for (decode, heard) in [(false, 0), (true, 63)] {
+            let asked = crate::api::VerifyOptions {
+                decode,
+                ..crate::api::VerifyOptions::default()
+            };
+            let crate::api::Verified::Ac3(read) =
+                crate::api::verify(&source, &asked).expect("a report")
+            else {
+                panic!("the fixture is an E-AC-3 stream");
+            };
+            assert_eq!(read.pass.heard, heard, "decode {decode}");
+        }
+    }
+
+    /// Where the payloads carry a second clip gain, the report has the level
+    /// of the core under each, which is a figure of the samples. The stream
+    /// is then read again from its first frame with them, so the figure is
+    /// the one every frame decoded gives, to the last bit: wherever the
+    /// second clip gain shows, in the second frame, in the middle, or in the
+    /// last frame, which comes out only when the stream has ended.
+    #[test]
+    fn verify_starts_over_with_the_samples_when_a_second_clip_gain_shows() {
+        for from in [1, 30, 62] {
+            let source = Source::memory("two clip gains", two_clip_gains(from));
+            let read = report(&source).expect("a report");
+            assert_eq!(read.pass.frames, 63, "from frame {from}");
+            assert_eq!(read.pass.heard, 63, "from frame {from}");
+            assert!(!read.pass.core_level_unheard, "from frame {from}");
+            let (whole, _, _) = pass_listing(
+                &source,
+                Options::default(),
+                &|_| true,
+                Diag::DEFAULT_MAX_PER_RULE,
+                |_| Ok(()),
+            )
+            .expect("a pass");
+            assert_eq!(whole.heard, 63);
+            assert_eq!(read.pass.core_peak, whole.core_peak, "from frame {from}");
+            let frames: Vec<u64> = read.pass.core_peak.values().map(|level| level.2).collect();
+            assert_eq!(frames, [from as u64, 63 - from as u64], "from frame {from}");
+            assert!(read.pass.core_peak.values().all(|level| level.0 > 0.0));
+        }
+    }
+
+    /// The check that runs beside `emdf` and `oamd` prints nothing. It makes
+    /// the samples of no frame, whatever the clip gains, and reads the stream
+    /// once.
+    #[test]
+    fn the_check_beside_another_command_makes_no_samples() {
+        for stream in [fixture_bytes(), two_clip_gains(30)] {
+            let source = Source::memory("a stream", stream);
+            let (p, sync_errors, skipped) = check_pass(&source, &|| true).expect("a pass");
+            assert_eq!((p.frames, sync_errors, skipped), (63, 0, 0));
+            assert_eq!(p.heard, 0);
+            assert!(p.core_peak.is_empty());
         }
     }
 

@@ -57,7 +57,7 @@ pub fn put_bits(buf: &mut [u8], at: usize, n: u32, value: u32) {
 
 /// Bit offset in the frame of the `joc_dmx_config_idx` field, if the frame
 /// carries a JOC payload.
-fn config_bit(frame: &Frame) -> Option<usize> {
+pub(crate) fn config_bit(frame: &Frame) -> Option<usize> {
     for (skip, &skip_bit) in frame.skip_fields.iter().zip(&frame.skip_bits) {
         for (i, candidate) in container::candidates(skip) {
             let Ok((c, _)) = candidate else { continue };

@@ -178,8 +178,11 @@ refused as one given away from it (`--fps 24` with an ADM file, `--isf error`
 with a WAVE output, `--order interchange` with a DAMF set): what is refused
 is that it was given. A call of `oadec_cli::api` can tell an option only by
 its value, so it refuses the ones that are away from their default, in the
-same words. `verify --decode` is taken on a stream of the AC-3 family, whose
-`verify` decodes every frame with or without it: what it asks for is done.
+same words. `verify --decode` is taken on a stream of the AC-3 family.
+`verify` reads every frame of such a stream to its last bit and makes no
+samples of it, and with `--decode` it makes them: what it asks for is done.
+Nothing in a stream of that family checks its samples, so the report is the
+same with it and without.
 
 ## The threshold of `verify`
 
