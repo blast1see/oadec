@@ -468,6 +468,35 @@ Semantic Versioning.
 
 ### Changed
 
+- **A stream of the AC-3 family is read and not listened to.** `verify` and
+  `info` of an AC-3 or E-AC-3 stream decoded every frame to samples, and so
+  did the check that runs beside `emdf` and `oamd`. One figure of a report is
+  of the samples, the level of the core under each clip gain (`JOC core
+  level:`), which a report has where the JOC payloads carry more than one
+  clip gain: 2 of the 76 streams of the family in the corpus. A decoder can
+  now be told that nobody listens (`Options::samples`): it parses every frame
+  to its last bit, makes its checks and hands out the same frames in the same
+  calls, without their samples and without running the transform. `verify`,
+  `info` and that check read so, and where a second clip gain shows, `verify`
+  and `info` start over with the samples, so the row is what it was. Inside
+  one binary `verify` takes 46 to 59 per cent of the time it takes with the
+  samples, on eight streams; against the binary of `main`, `info`, `verify`,
+  `emdf` and `oamd` take 46 to 58 per cent of the time they took. The two
+  streams that have the row are read twice up to their second clip gain and
+  take 110 and 124 per cent. `verify --decode`, which this family took and
+  did nothing with, makes the samples of every frame; its report is the
+  same. No report and no delivery changes over the corpus, nor an answer of
+  the campaign (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/41-a-stream-read-without-listening.json`).
+- **The samples of a delivery go into its bytes a channel at a time.** A
+  delivery of an AC-3 family stream as 32-bit floats pushed the samples of a
+  frame onto a new vector, a sample of every channel at a time, and how fast
+  that loop ran depended on what the compiler made of the code around it:
+  the change above, which touches no line of it, made a delivery 3.5 to 12.2
+  per cent slower when it was first measured. The samples go a channel at a
+  time into one buffer of the size of the frame now. Two builds that were a
+  tenth apart are within 1.2 per cent of each other, and a delivery to PCM
+  takes 96 to 97 per cent of the time it took. The bytes are what they were.
 - **A matrix that stands still is not multiplied by its deltas.** A matrix of
   a TrueHD object substream is interpolated over the access unit by a delta
   for every coefficient, and the matrix stage, 44 per cent of the decode of a
