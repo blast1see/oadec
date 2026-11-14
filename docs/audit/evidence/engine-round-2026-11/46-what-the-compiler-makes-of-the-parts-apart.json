@@ -1,0 +1,304 @@
+{
+ "question": "What does the compiler make of the inverse transforms with their real and imaginary parts apart, and what had been read when the document said it makes scalar code of them and that why the parts apart are worth what they are was not known?",
+ "method": "The floating-point instructions of a procedure are counted in the linked binary: its place and its size from the debug file (`llvm-pdbutil dump --symbols`), its instructions from the executable (`llvm-objdump -d`), which is what `tools/packed.py` does. The four forms of the inverse FFT that evidence 43 measured were put back into the commit before that change by the scripts of that experiment, in a throwaway worktree, with the stages of each form in a procedure of its own so that they can be told apart in the binary; the two forms of the inverse DFT of the JOC filter banks likewise, into the commit before the change of evidence 44. Each binary was timed where it was counted (`tools/kernels.py --affinity FFFF --runs 5`). A count is of the instructions that are there, not of how often each runs: a loop that takes two numbers at a time keeps a scalar loop beside it, and each is counted once.",
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "result": {
+  "the_four_forms_of_the_inverse_fft_in_one_linked_binary": {
+   "how": "`python tools/packed.py <the benchmark> oadec_eac3::imdct::Ifft oadec_eac3::imdct::stages_of`, and `python tools/kernels.py --affinity FFFF --runs 5 --filter imdct`",
+   "a_butterfly": "four multiplications, three additions and three subtractions",
+   "forms": [
+    {
+     "the_stages": "as it was: a complex value for every element, a slice whose length it learns when it runs, one table of twiddles that every stage steps through",
+     "procedure": "oadec_eac3::imdct::Ifft::run",
+     "bytes": 691,
+     "scalar": 10,
+     "packed": 0,
+     "moves_between_halves": 0,
+     "instructions": {
+      "addsd": 3,
+      "mulsd": 4,
+      "subsd": 3
+     },
+     "the_transform_of_1536_blocks_ms": 1.477
+    },
+    {
+     "the_stages": "a table of twiddles for every stage, and a butterfly over the two halves of a block",
+     "procedure": "oadec_eac3::imdct::Ifft2::run",
+     "bytes": 727,
+     "scalar": 10,
+     "packed": 10,
+     "moves_between_halves": 10,
+     "instructions": {
+      "addpd": 3,
+      "addsd": 3,
+      "movhlps": 1,
+      "mulpd": 4,
+      "mulsd": 4,
+      "subpd": 3,
+      "subsd": 3,
+      "unpckhpd": 4,
+      "unpcklpd": 5
+     },
+     "the_transform_of_1536_blocks_ms": 1.279
+    },
+    {
+     "the_stages": "that, over an array of a known size, the values put straight into bit-reversed places",
+     "procedure": "oadec_eac3::imdct::stages_of_complex_values",
+     "bytes": 577,
+     "scalar": 10,
+     "packed": 10,
+     "moves_between_halves": 10,
+     "instructions": {
+      "addpd": 3,
+      "addsd": 3,
+      "movhlps": 1,
+      "mulpd": 4,
+      "mulsd": 4,
+      "subpd": 3,
+      "subsd": 3,
+      "unpckhpd": 4,
+      "unpcklpd": 5
+     },
+     "the_transform_of_1536_blocks_ms": 1.195
+    },
+    {
+     "the_stages": "that, with the real parts in one array and the imaginary parts in another",
+     "procedure": "oadec_eac3::imdct::stages_of_parts_apart",
+     "bytes": 554,
+     "scalar": 10,
+     "packed": 10,
+     "moves_between_halves": 0,
+     "instructions": {
+      "addpd": 3,
+      "addsd": 3,
+      "mulpd": 4,
+      "mulsd": 4,
+      "subpd": 3,
+      "subsd": 3
+     },
+     "the_transform_of_1536_blocks_ms": 0.775
+    }
+   ],
+   "reading": "As they were, the stages are ten scalar instructions: one butterfly at a time. With a table for every stage there are ten packed instructions as well, which take two butterflies at a time; the scalar ten stay for the stage whose blocks are one butterfly. Over complex values the packed loop has ten instructions more that compute nothing: a complex value is its real part and then its imaginary part, and two of them are taken apart before the arithmetic and put back after. With the parts apart there are none."
+  },
+  "the_two_forms_of_the_inverse_dft_of_the_filter_banks_in_one_linked_binary": {
+   "how": "`python tools/packed.py <the benchmark> oadec_joc::qmf::Idft128::run oadec_joc::qmf::Stages128::run`, and `python tools/kernels.py --affinity FFFF --runs 5 --filter \"joc: \"`",
+   "forms": [
+    {
+     "the_stages": "as they were: a complex value for every element, one table of twiddles for all the stages",
+     "procedure": "oadec_joc::qmf::Idft128::run",
+     "bytes": 588,
+     "scalar": 10,
+     "packed": 0,
+     "moves_between_halves": 0,
+     "instructions": {
+      "addsd": 3,
+      "mulsd": 4,
+      "subsd": 3
+     },
+     "a_frame_us": {
+      "the analysis bank, one channel": 18.37,
+      "the synthesis bank, one object": 19.1
+     }
+    },
+    {
+     "the_stages": "the parts apart, a table of twiddles for every stage",
+     "procedure": "oadec_joc::qmf::Stages128::run",
+     "bytes": 538,
+     "scalar": 10,
+     "packed": 10,
+     "moves_between_halves": 0,
+     "instructions": {
+      "addpd": 3,
+      "addsd": 3,
+      "mulpd": 4,
+      "mulsd": 4,
+      "subpd": 3,
+      "subsd": 3
+     },
+     "a_frame_us": {
+      "the analysis bank, one channel": 10.69,
+      "the synthesis bank, one object": 11.61
+     }
+    }
+   ]
+  },
+  "the_command_as_it_is": {
+   "how": "`cargo build --release --locked -p oadec-cli`, `python tools/packed.py target/release/oadec.exe oadec_eac3::imdct oadec_joc::qmf`",
+   "procedures": {
+    "oadec_eac3::imdct::Dft512::forward": {
+     "bytes": 855,
+     "scalar": 10,
+     "packed": 14,
+     "moves_between_halves": 4,
+     "instructions": {
+      "addpd": 3,
+      "addsd": 3,
+      "mulpd": 8,
+      "mulsd": 4,
+      "subpd": 3,
+      "subsd": 3,
+      "unpckhpd": 2,
+      "unpcklpd": 2
+     }
+    },
+    "oadec_eac3::imdct::Dft512::new": {
+     "bytes": 1695,
+     "scalar": 0,
+     "packed": 8,
+     "moves_between_halves": 16,
+     "instructions": {
+      "mulpd": 8,
+      "unpckhpd": 4,
+      "unpcklpd": 12
+     }
+    },
+    "oadec_eac3::imdct::Ifft::stages<64>": {
+     "bytes": 6058,
+     "scalar": 0,
+     "packed": 400,
+     "moves_between_halves": 32,
+     "instructions": {
+      "addpd": 120,
+      "movhlps": 11,
+      "mulpd": 160,
+      "subpd": 120,
+      "unpckhpd": 5,
+      "unpcklpd": 16
+     }
+    },
+    "oadec_eac3::imdct::Imdct::new": {
+     "bytes": 4005,
+     "scalar": 25,
+     "packed": 20,
+     "moves_between_halves": 20,
+     "instructions": {
+      "addpd": 4,
+      "addsd": 14,
+      "divsd": 3,
+      "mulpd": 16,
+      "mulsd": 7,
+      "subsd": 1,
+      "unpckhpd": 6,
+      "unpcklpd": 14
+     }
+    },
+    "oadec_eac3::imdct::Imdct::windowed": {
+     "bytes": 2343,
+     "scalar": 28,
+     "packed": 44,
+     "moves_between_halves": 20,
+     "instructions": {
+      "addpd": 6,
+      "addsd": 6,
+      "mulpd": 32,
+      "mulsd": 16,
+      "shufpd": 8,
+      "subpd": 6,
+      "subsd": 6,
+      "unpckhpd": 4,
+      "unpcklpd": 8
+     }
+    },
+    "oadec_joc::qmf::Analysis::step": {
+     "bytes": 1544,
+     "scalar": 22,
+     "packed": 16,
+     "moves_between_halves": 36,
+     "instructions": {
+      "addpd": 4,
+      "addsd": 8,
+      "movhlps": 1,
+      "mulpd": 8,
+      "mulsd": 11,
+      "shufpd": 2,
+      "shufps": 30,
+      "subpd": 4,
+      "subsd": 3,
+      "unpckhpd": 1,
+      "unpcklpd": 2
+     }
+    },
+    "oadec_joc::qmf::Idft128::new": {
+     "bytes": 1386,
+     "scalar": 0,
+     "packed": 4,
+     "moves_between_halves": 6,
+     "instructions": {
+      "mulpd": 4,
+      "unpckhpd": 2,
+      "unpcklpd": 4
+     }
+    },
+    "oadec_joc::qmf::Synthesis::step": {
+     "bytes": 1475,
+     "scalar": 16,
+     "packed": 36,
+     "moves_between_halves": 4,
+     "instructions": {
+      "addpd": 13,
+      "addsd": 4,
+      "mulpd": 18,
+      "mulsd": 8,
+      "subpd": 5,
+      "subsd": 4,
+      "unpckhpd": 2,
+      "unpcklpd": 2
+     }
+    }
+   },
+   "reading": "The stages of the 64-point transform, whose size is known where they are compiled, are 400 packed instructions and no scalar one. The stages of the other sizes are inside the procedures that call them, with the loops of those."
+  },
+  "what_had_been_read": {
+   "how": "`cargo rustc --release --locked -p oadec-eac3 --lib -- --emit asm`, the same procedure",
+   "the_stages_of_the_inverse_fft_of_64_points": {
+    "instructions": 494,
+    "one number at a time": {
+     "mulsd": 72,
+     "addsd": 54,
+     "subsd": 54
+    },
+    "two numbers at a time": {
+     "mulpd": 0,
+     "addpd": 0,
+     "subpd": 0
+    }
+   },
+   "the_same_with_link_time_optimisation_off": {
+    "how": "`cargo rustc --release --locked -p oadec-eac3 --lib --config \"profile.release.lto='off'\" -- --emit asm`, the same procedure",
+    "the_stages_of_the_inverse_fft_of_64_points": {
+     "one number at a time": {
+      "mulsd": 0,
+      "addsd": 0,
+      "subsd": 0
+     },
+     "two numbers at a time": {
+      "mulpd": 160,
+      "addpd": 120,
+      "subpd": 120
+     }
+    }
+   },
+   "reading": "This is the assembly the crate is compiled to by itself. The workspace is linked with link-time optimisation (`lto = \"thin\"`), and under it that assembly has 180 scalar instructions where the binary has 400 packed ones for the same procedure. With link-time optimisation off the assembly of the crate has the 400 packed ones as well: the loops are made packed where the code is last optimised, which under link-time optimisation is at the link, after the file that was read is written."
+  },
+  "that_no_instruction_of_the_command_changes": {
+   "how": "the bytes of the `.text` section of the command built from this change and of the binary of main that the checks of the change before it ran on",
+   "sha256_of_the_code_section": "3f15c6d06241440d28ac043c07b5013ae287eb0e921ece7c692928fe06453118",
+   "bytes": 3025243,
+   "the_same_in_both": true
+  },
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 698 passed, 30 ignored (the media suite)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "what_this_corrects": "docs/performance.md, the comments of `Ifft` in crates/oadec-eac3/src/imdct.rs and of `Idft128` in crates/oadec-joc/src/qmf.rs, and the readings of evidence 43 and 44, said that the compiled code takes one number at a time and that the reason for the gain was not known. The measurements of those files stand: they are of linked binaries. What was wrong is what was said of the code.",
+ "reading": "With the real and the imaginary parts in arrays of their own the compiler takes the butterflies of a stage two at a time and has nothing to move for it: that is what the parts apart are worth. The document said otherwise because it read the assembly of a crate before link-time optimisation."
+}

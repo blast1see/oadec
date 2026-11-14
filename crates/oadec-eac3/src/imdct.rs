@@ -21,12 +21,14 @@ pub struct Complex {
 /// Radix-2 complex inverse FFT (positive exponent, no scaling) of `N` points,
 /// a power of two, over values whose real and imaginary parts are held apart.
 ///
-/// Held apart because that is what was measured to be fast, and for no
-/// better reason that is known. The same butterflies over an array of complex
-/// values, with everything else alike, take 1.6 times as long, and what the
-/// compiler makes of either takes one number at a time
-/// (`docs/performance.md`). What is computed for each value is what it was,
-/// operation for operation: no sample moves by a bit.
+/// Held apart because of what the compiler makes of that. It takes the
+/// butterflies of a stage two at a time either way, but two complex values
+/// that are each a real part and then an imaginary part have to be taken
+/// apart for it and put back after, and the same butterflies over an array
+/// of such values, with everything else alike, take 1.6 times as long
+/// (`docs/performance.md`; `tools/packed.py` counts it in the linked
+/// binary). What is computed for each value is what it was, operation for
+/// operation: no sample moves by a bit.
 #[derive(Debug, Clone)]
 struct Ifft<const N: usize> {
     /// Where the bit-reversal that opens the transform puts each value.

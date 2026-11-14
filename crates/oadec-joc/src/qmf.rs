@@ -67,10 +67,12 @@ impl Complex {
 /// Radix-2 complex inverse DFT (positive exponent, no scaling) of 128 points,
 /// over values whose real and imaginary parts are held apart.
 ///
-/// Held apart because that is what was measured to be fast, here as in the
-/// inverse transform of the AC-3 family, and for no better reason that is
-/// known (`docs/performance.md`). What is computed for each value is what it
-/// was, operation for operation: no sample moves by a bit.
+/// Held apart for the reason they are in the inverse transform of the AC-3
+/// family: over two arrays, with a table of twiddles for every stage, the
+/// compiler takes the butterflies of a stage two at a time, where it took the
+/// complex values of the transform there was one at a time
+/// (`docs/performance.md`). What is computed for each value is what it was,
+/// operation for operation: no sample moves by a bit.
 #[derive(Debug, Clone)]
 struct Idft128 {
     /// Where the bit-reversal that opens the transform puts each value.

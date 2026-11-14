@@ -8,6 +8,12 @@ Semantic Versioning.
 
 ### Added
 
+- **`tools/packed.py` reads what the compiler made of a procedure from the
+  linked binary.** For every procedure whose name holds a given string it
+  counts the floating-point instructions that take one number at a time,
+  those that take two, and those that only move numbers between the halves
+  of a register. It reads a Windows executable and the debug file beside it
+  with `llvm-pdbutil` and `llvm-objdump`.
 - **`tools/kernels.py` runs the kernels on cores of one kind.** It runs
   `cargo bench -p oadec-bench` several times, bound with `--affinity` to the
   processors of a mask, and gives every kernel as the least of the medians
@@ -823,6 +829,22 @@ Semantic Versioning.
 
 ### Fixed
 
+- **What the document said of the compiled transform had been read from the
+  wrong code.** `docs/performance.md` said that the inverse transform of the
+  AC-3 family is compiled to instructions that take one number at a time
+  whether its real and imaginary parts are apart or not, and that why the
+  parts apart are worth what they are was not known; two comments in the
+  code said the same. It had read the assembly the decoder crate is compiled
+  to by itself, which under link-time optimisation is the code before the
+  linker has optimised it. In the linked binary the stages as they were take
+  one butterfly at a time. Over complex values, with a table of twiddles for
+  every stage, they take two at a time, with ten instructions that only move
+  numbers between the halves of a register for the ten that compute. With
+  the parts apart they take two with nothing to move, and the stages of the
+  64-point transform of the command are 400 packed instructions and no
+  scalar one. The inverse DFT of the JOC filter banks is the same: scalar as
+  it was, packed with the parts apart. No code changes
+  (`docs/performance.md`, `docs/audit/evidence/engine-round-2026-11/46-what-the-compiler-makes-of-the-parts-apart.json`).
 - **The kernel figures of the performance baseline were of two kinds of
   core.** `cargo bench -p oadec-bench` runs in one process, and on a
   processor with fast and slow cores the system moves its thread to a slow
