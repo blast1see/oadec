@@ -167,7 +167,8 @@ says there is no easy factor left here.
 on 5.1 and 83 to 86 on 7.1, and FFmpeg decodes the same frames between 4.7
 and 6.8 times faster. `verify` of this family costs what a decode costs,
 because it decodes: 0.19 to 0.70 processor seconds a minute against 0.11 to
-0.41 for TrueHD.
+0.41 for TrueHD. (It no longer decodes: see "A stream of the AC-3 family,
+read and not listened to" below.)
 
 **Objects out of JOC cost three to four times the channels under them.** 26 to 42
 times real time for the object formats against 82 to 169 for the core. The
@@ -465,6 +466,86 @@ the section before this one tells.
 No sample of any presentation of any of the 131 streams of the corpus changes,
 and the fixture, a quarter of whose matrices move, holds both ways of summing
 to the samples they gave.
+
+### A stream of the AC-3 family, read and not listened to
+
+`verify` of this family decoded every frame to samples, and so did `info`,
+and so did the check of the stream that runs beside `emdf` and `oamd`. One
+figure of a report is of the samples: the level of the core under each clip
+gain of the JOC payloads (`JOC core level:`), a row `verify` and `info` print
+for a stream whose payloads carry more than one clip gain. Of the 76 streams
+of the family in the corpus, 52 carry no JOC, 22 carry one clip gain and 2
+more than one. For the other 74, and for the check, which is a verdict and a
+first problem, the transform made samples that nothing looked at.
+
+A decoder can be told that nobody listens (`Options::samples`). It parses
+every frame to its last bit and makes its checks, runs neither the synthesis
+of enhanced coupling nor the transform, and hands out the frames it would
+have, in the calls it would have, with their channels and no samples in them.
+`verify`, `info` and the check read a stream that way. Where a second clip
+gain shows, `verify` and `info` start over from the first frame with the
+samples, so that the row is the one every frame decoded gives. `verify
+--decode`, which this family took and did nothing with, makes the samples of
+every frame, and its report is the same.
+
+Measured on 14 November 2026. Inside one binary, `verify` and `verify
+--decode` turn and turn about, nine runs each, bound to the fast cores
+(`docs/audit/evidence/engine-round-2026-11/41-a-stream-read-without-listening.json`):
+
+| | × real time, with the samples | without | of the time, per cent |
+|---|---:|---:|---:|
+| AC-3, 2 channels | 1 017 | 1 712 | 59.4 |
+| AC-3, 6 channels | 429 | 808 | 53.1 |
+| E-AC-3, 5.1, two streams | 437 and 466 | 883 and 1 018 | 49.5 and 45.8 |
+| E-AC-3, 7.1, two streams | 239 and 233 | 441 and 412 | 54.3 and 56.6 |
+| E-AC-3 with JOC, 5.1 and 7.1 | 394 and 217 | 761 and 381 | 51.7 and 56.9 |
+
+The two streams that have the row pay for it. They are read without their
+samples up to the frame where the second clip gain shows, frame 117 of 976
+and frame 113 of 313, and then again from the first with them: 110 and 124
+per cent of the time. The figure is of every frame from the first, so nothing
+short of knowing beforehand that a stream has it would read it cheaper.
+
+Against the binary of `main`, `info`, `verify`, `emdf` and `oamd` on one
+stream of each kind take 46 to 58 per cent of the time they took, twenty
+measurements bound to the fast cores. `tools/bench.py --compare` over ten
+streams calls 12 of 33 commands faster and none slower: `verify` of the
+family takes 45 to 58 per cent, and the object formats and the two TrueHD
+streams that ran as a control are where they were.
+
+**A delivery was slower, and it was not the decoder.** The first time the
+two binaries were compared, `decode` to PCM was 3.5 to 12.2 per cent slower
+with the change, which changes nothing a delivery runs. Built with the
+decoder of the change alone, the binary delivered a two-channel AC-3 stream
+in 130.1 ms against 132.2 for `main`; with the commands of the change as
+well, in 146.4. All the commands had changed for a delivery was the pass
+around one loop, which keeps two counters more. The loop put the samples of
+a frame into the bytes of the file, a sample of every channel at a time,
+pushed onto a new vector, and not a line of it had changed. Written a channel
+at a time into a buffer of the size of the frame, in `main` and in the
+change, it left the two builds within 1.2 per cent of each other and both
+faster than `main`. That is how it is written now, as a function with a test
+of its own and one buffer for all the frames of a delivery, which is one per
+cent by itself inside one binary. A delivery to PCM takes 96.8 and 96.4 per
+cent of the time it took on `main`, on two streams, fifteen runs bound to the
+fast cores.
+
+This is the section on the checksums again: a difference between two builds
+that the change does not explain is where the compiler put something. This
+time what it put somewhere else was a loop that could be written so that it
+does not matter.
+
+Nothing a command says or writes has changed: the same reports and the same
+deliveries over the 131 streams of the corpus, and the same answers in the
+campaign of 200 000 damaged streams. In the fuzz target of the programme
+decoder a decoder that does not listen runs beside one that does, held to
+the same frames in the same calls, the same refusals and the same counts.
+
+Every stream of the family in the corpus has six blocks a frame, and so has
+the fixture. That a frame nobody listens to counts for the samples its blocks
+would have made is tested on the buffer by itself, for frames of one, two,
+three and six blocks; no stream of shorter frames has been through both
+decoders.
 
 ## What it does not say
 

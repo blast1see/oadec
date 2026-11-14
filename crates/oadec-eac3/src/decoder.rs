@@ -162,24 +162,37 @@ impl Decoder {
             self.ecpl.reset();
             self.post.reset();
         }
-        if frame.blocks.iter().any(|b| b.ecpl.is_some()) {
-            self.synthesize_ecpl(&mut frame.blocks, next);
-        }
-        let samples = frame.header.samples();
-        let mut pcm: Vec<Vec<f32>> = (0..nch).map(|_| Vec::with_capacity(samples)).collect();
-        let mut out = [0.0f64; N];
-        let nf = frame.header.nfchans();
-        for block in &frame.blocks {
-            if block.coeffs.len() != nch {
-                return Err(Eac3Error::Syntax("channel count changed inside a frame"));
+        // What the transform makes of the blocks of a frame, and what a
+        // frame nobody listens to is counted as.
+        let samples = frame.blocks.len() * N;
+        let pcm = if self.opts.samples {
+            if frame.blocks.iter().any(|b| b.ecpl.is_some()) {
+                self.synthesize_ecpl(&mut frame.blocks, next);
             }
-            for (ch, pcm_ch) in pcm.iter_mut().enumerate() {
-                let blksw = if ch < nf { block.blksw[ch] } else { false };
-                self.imdct
-                    .process(&block.coeffs[ch], blksw, &mut self.delay[ch], &mut out);
-                pcm_ch.extend(out.iter().map(|&v| v as f32));
+            let mut pcm: Vec<Vec<f32>> = (0..nch).map(|_| Vec::with_capacity(samples)).collect();
+            let mut out = [0.0f64; N];
+            let nf = frame.header.nfchans();
+            for block in &frame.blocks {
+                if block.coeffs.len() != nch {
+                    return Err(Eac3Error::Syntax("channel count changed inside a frame"));
+                }
+                for (ch, pcm_ch) in pcm.iter_mut().enumerate() {
+                    let blksw = if ch < nf { block.blksw[ch] } else { false };
+                    self.imdct
+                        .process(&block.coeffs[ch], blksw, &mut self.delay[ch], &mut out);
+                    pcm_ch.extend(out.iter().map(|&v| v as f32));
+                }
             }
-        }
+            debug_assert!(pcm.iter().all(|channel| channel.len() == samples));
+            Some(pcm)
+        } else if frame.blocks.iter().any(|block| block.coeffs.len() != nch) {
+            // Nobody listens, and the transform, which is half of a decode,
+            // is not run. The frame is refused for what it would have been
+            // refused for.
+            return Err(Eac3Error::Syntax("channel count changed inside a frame"));
+        } else {
+            None
+        };
         let meta = Decoded {
             used_bits: frame.end_bit,
             header: frame.header,
@@ -198,7 +211,10 @@ impl Decoder {
         } else {
             &[]
         };
-        self.post.push(meta, &pcm, transproc);
+        match &pcm {
+            Some(pcm) => self.post.push(meta, pcm, transproc),
+            None => self.post.push_unheard(meta, nch, samples, transproc),
+        }
         Ok(())
     }
 

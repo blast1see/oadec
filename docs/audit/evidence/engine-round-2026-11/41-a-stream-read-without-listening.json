@@ -1,0 +1,1960 @@
+{
+ "question": "What does `verify` of an AC-3 family stream want the samples of the stream for, and what is reading the stream without them worth?",
+ "method": "What the reports of the family have of the samples was read from the code and counted over the streams of the family in the corpus. A decoder was given a way of making no samples, and the commands that read a stream and do not listen to it were put onto it. What that is worth was measured inside one binary, as `verify` against `verify --decode`, which are the stream read without its samples and with them: turn and turn about, nine runs each, bound to the fast cores. The binary of the change was measured against the binary of main the same way for `info`, `verify`, `emdf` and `oamd`, and with `tools/bench.py --compare`, five runs, for every command of the comparison. That comparison first called a delivery to PCM slower, and what that was is followed here through the builds that told it apart. That no report and no delivery changed was looked for over the corpus (`tools/old_new.py --decode-all`) and in the campaign of evidence 22. The streams are media and are not in the repository.",
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "binaries": {
+  "main before the change": "b394fa2f850d7c726025e8c4820b53a946c1b1db2c7fb9c2a9c2d417ad506d58",
+  "the change": "d4fe0fbc1bffe52779701af2c8634c8d002a140ab9d96c646ab7853fdc170a35"
+ },
+ "result": {
+  "what_a_report_has_of_the_samples": {
+   "the_figure": "the level of the core under each clip gain of the JOC payloads (`JOC core level:`), which `verify` and `info` print for a stream whose payloads carry more than one clip gain; nothing else a command of this family reports, and nothing its verdict rests on, is of the samples",
+   "streams_of_the_family_in_the_corpus": 76,
+   "of_which": {
+    "carry no JOC": 52,
+    "carry one clip gain": 22,
+    "carry more than one, and have the row": 2
+   },
+   "and": {
+    "AC-3": 23,
+    "E-AC-3": 53,
+    "blocks a frame 6": 76,
+    "dependent substreams": 12,
+    "enhanced coupling": 4,
+    "exit 0": 67,
+    "exit 7": 9,
+    "transient pre-noise": 5
+   }
+  },
+  "the_change_inside_one_binary": {
+   "how": "`verify` over `verify --decode` of the binary of the change, medians of nine runs, bound to the fast cores",
+   "streams_of_the_comparison": {
+    "AC-3, 2 channels, 125 s, 3000000 bytes": {
+     "with_the_samples_ms": {
+      "runs": 9,
+      "median_ms": 122.9,
+      "least_ms": 121.0,
+      "most_ms": 128.0,
+      "spread": 0.0062
+     },
+     "without_ms": {
+      "runs": 9,
+      "median_ms": 73.0,
+      "least_ms": 69.6,
+      "most_ms": 76.0,
+      "spread": 0.0183
+     },
+     "without_over_with": 0.594,
+     "times_real_time": {
+      "with": 1017,
+      "without": 1712
+     }
+    },
+    "AC-3, 6 channels, 60 s, 3360000 bytes": {
+     "with_the_samples_ms": {
+      "runs": 9,
+      "median_ms": 140.0,
+      "least_ms": 138.8,
+      "most_ms": 149.2,
+      "spread": 0.0062
+     },
+     "without_ms": {
+      "runs": 9,
+      "median_ms": 74.3,
+      "least_ms": 72.6,
+      "most_ms": 75.5,
+      "spread": 0.0116
+     },
+     "without_over_with": 0.531,
+     "times_real_time": {
+      "with": 429,
+      "without": 808
+     }
+    },
+    "E-AC-3, 6 channels, 106 s, 5076480 bytes": {
+     "with_the_samples_ms": {
+      "runs": 9,
+      "median_ms": 241.9,
+      "least_ms": 238.8,
+      "most_ms": 250.0,
+      "spread": 0.0062
+     },
+     "without_ms": {
+      "runs": 9,
+      "median_ms": 119.8,
+      "least_ms": 117.8,
+      "most_ms": 123.1,
+      "spread": 0.0092
+     },
+     "without_over_with": 0.495,
+     "times_real_time": {
+      "with": 437,
+      "without": 883
+     }
+    },
+    "E-AC-3, 6 channels, 106 s, 2538240 bytes": {
+     "with_the_samples_ms": {
+      "runs": 9,
+      "median_ms": 227.0,
+      "least_ms": 223.2,
+      "most_ms": 229.2,
+      "spread": 0.0095
+     },
+     "without_ms": {
+      "runs": 9,
+      "median_ms": 103.9,
+      "least_ms": 102.0,
+      "most_ms": 105.7,
+      "spread": 0.0083
+     },
+     "without_over_with": 0.458,
+     "times_real_time": {
+      "with": 466,
+      "without": 1018
+     }
+    },
+    "E-AC-3 with a dependent substream, 8 channels, 60 s, 12480000 bytes": {
+     "with_the_samples_ms": {
+      "runs": 9,
+      "median_ms": 250.7,
+      "least_ms": 240.9,
+      "most_ms": 254.2,
+      "spread": 0.0121
+     },
+     "without_ms": {
+      "runs": 9,
+      "median_ms": 136.2,
+      "least_ms": 126.2,
+      "most_ms": 137.6,
+      "spread": 0.0104
+     },
+     "without_over_with": 0.543,
+     "times_real_time": {
+      "with": 239,
+      "without": 441
+     }
+    },
+    "E-AC-3 with a dependent substream, 8 channels, 60 s, 11520000 bytes": {
+     "with_the_samples_ms": {
+      "runs": 9,
+      "median_ms": 257.8,
+      "least_ms": 255.8,
+      "most_ms": 261.5,
+      "spread": 0.0079
+     },
+     "without_ms": {
+      "runs": 9,
+      "median_ms": 145.8,
+      "least_ms": 143.2,
+      "most_ms": 152.7,
+      "spread": 0.0053
+     },
+     "without_over_with": 0.566,
+     "times_real_time": {
+      "with": 233,
+      "without": 412
+     }
+    },
+    "E-AC-3 with JOC, 6 channels, 106 s, 5076480 bytes": {
+     "with_the_samples_ms": {
+      "runs": 9,
+      "median_ms": 268.7,
+      "least_ms": 265.2,
+      "most_ms": 271.5,
+      "spread": 0.0056
+     },
+     "without_ms": {
+      "runs": 9,
+      "median_ms": 139.0,
+      "least_ms": 136.9,
+      "most_ms": 141.3,
+      "spread": 0.01
+     },
+     "without_over_with": 0.517,
+     "times_real_time": {
+      "with": 394,
+      "without": 761
+     }
+    },
+    "E-AC-3 with JOC, 8 channels, 60 s, 11520000 bytes": {
+     "with_the_samples_ms": {
+      "runs": 9,
+      "median_ms": 276.6,
+      "least_ms": 267.0,
+      "most_ms": 282.2,
+      "spread": 0.0132
+     },
+     "without_ms": {
+      "runs": 9,
+      "median_ms": 157.5,
+      "least_ms": 149.5,
+      "most_ms": 160.5,
+      "spread": 0.0058
+     },
+     "without_over_with": 0.569,
+     "times_real_time": {
+      "with": 217,
+      "without": 381
+     }
+    }
+   },
+   "verify_takes_per_cent_of_the_time_of_verify_decode": {
+    "least": 45.8,
+    "most": 59.4
+   },
+   "streams_whose_report_has_the_level_of_the_core": {
+    "E-AC-3, 976 frames, 3000000 bytes, 3 clip gains": {
+     "with_the_samples_ms": {
+      "runs": 9,
+      "median_ms": 94.8,
+      "least_ms": 94.2,
+      "most_ms": 95.6,
+      "spread": 0.0056
+     },
+     "without_ms": {
+      "runs": 9,
+      "median_ms": 104.6,
+      "least_ms": 103.4,
+      "most_ms": 106.5,
+      "spread": 0.007
+     },
+     "without_over_with": 1.103,
+     "frames": 976,
+     "clip_gains": 3,
+     "first_frame_with_another_clip_gain": 117
+    },
+    "E-AC-3, 313 frames, 961536 bytes, 2 clip gains": {
+     "with_the_samples_ms": {
+      "runs": 9,
+      "median_ms": 33.9,
+      "least_ms": 33.4,
+      "most_ms": 40.7,
+      "spread": 0.0096
+     },
+     "without_ms": {
+      "runs": 9,
+      "median_ms": 42.0,
+      "least_ms": 41.5,
+      "most_ms": 48.2,
+      "spread": 0.006
+     },
+     "without_over_with": 1.239,
+     "frames": 313,
+     "clip_gains": 2,
+     "first_frame_with_another_clip_gain": 113
+    }
+   },
+   "which_take_per_cent_of_the_time": {
+    "least": 110.3,
+    "most": 123.9
+   },
+   "reading": "a stream that has the row is read without its samples up to the frame where a second clip gain shows, and then again from its first frame with them: the frames before that one are paid for twice. The figure is of every frame from the first, so there is no reading it cheaper without knowing beforehand that the stream has it"
+  },
+  "the_commands_that_read_and_do_not_listen": {
+   "how": "the binary of main and the binary of the change turn and turn about, nine runs each, bound to the fast cores; one stream of each kind",
+   "streams": {
+    "AC-3, 6 channels, 60 s, 3360000 bytes": {
+     "info": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 138.2,
+       "least_ms": 136.1,
+       "most_ms": 144.5,
+       "spread": 0.0118
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 72.9,
+       "least_ms": 71.9,
+       "most_ms": 78.7,
+       "spread": 0.0079
+      },
+      "after_over_before": 0.527
+     },
+     "verify": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 138.9,
+       "least_ms": 137.5,
+       "most_ms": 147.5,
+       "spread": 0.0091
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 72.8,
+       "least_ms": 71.6,
+       "most_ms": 76.3,
+       "spread": 0.0063
+      },
+      "after_over_before": 0.524
+     },
+     "emdf": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 139.9,
+       "least_ms": 137.7,
+       "most_ms": 141.3,
+       "spread": 0.0076
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 65.8,
+       "least_ms": 65.0,
+       "most_ms": 67.4,
+       "spread": 0.007
+      },
+      "after_over_before": 0.47
+     },
+     "oamd": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 140.9,
+       "least_ms": 137.3,
+       "most_ms": 165.7,
+       "spread": 0.0225
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 65.9,
+       "least_ms": 64.6,
+       "most_ms": 67.1,
+       "spread": 0.0117
+      },
+      "after_over_before": 0.468
+     }
+    },
+    "E-AC-3, 6 channels, 106 s, 5076480 bytes": {
+     "info": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 244.1,
+       "least_ms": 236.6,
+       "most_ms": 247.4,
+       "spread": 0.0007
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 119.4,
+       "least_ms": 115.8,
+       "most_ms": 123.3,
+       "spread": 0.0148
+      },
+      "after_over_before": 0.489
+     },
+     "verify": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 241.9,
+       "least_ms": 239.3,
+       "most_ms": 246.1,
+       "spread": 0.006
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 119.2,
+       "least_ms": 117.9,
+       "most_ms": 123.4,
+       "spread": 0.0113
+      },
+      "after_over_before": 0.493
+     },
+     "emdf": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 244.2,
+       "least_ms": 237.0,
+       "most_ms": 288.2,
+       "spread": 0.0158
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 111.5,
+       "least_ms": 108.3,
+       "most_ms": 131.0,
+       "spread": 0.0148
+      },
+      "after_over_before": 0.457
+     },
+     "oamd": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 245.2,
+       "least_ms": 241.6,
+       "most_ms": 252.9,
+       "spread": 0.0105
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 112.6,
+       "least_ms": 111.2,
+       "most_ms": 126.6,
+       "spread": 0.0097
+      },
+      "after_over_before": 0.459
+     }
+    },
+    "E-AC-3 with a dependent substream, 8 channels, 60 s, 12480000 bytes": {
+     "info": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 243.5,
+       "least_ms": 241.0,
+       "most_ms": 249.4,
+       "spread": 0.0068
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 129.0,
+       "least_ms": 125.6,
+       "most_ms": 133.3,
+       "spread": 0.0072
+      },
+      "after_over_before": 0.53
+     },
+     "verify": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 248.9,
+       "least_ms": 242.9,
+       "most_ms": 253.3,
+       "spread": 0.0098
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 133.3,
+       "least_ms": 129.2,
+       "most_ms": 140.0,
+       "spread": 0.0144
+      },
+      "after_over_before": 0.536
+     },
+     "emdf": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 246.8,
+       "least_ms": 244.4,
+       "most_ms": 298.3,
+       "spread": 0.0095
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 122.6,
+       "least_ms": 121.5,
+       "most_ms": 127.6,
+       "spread": 0.0081
+      },
+      "after_over_before": 0.497
+     },
+     "oamd": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 254.7,
+       "least_ms": 251.6,
+       "most_ms": 259.2,
+       "spread": 0.0057
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 126.7,
+       "least_ms": 124.7,
+       "most_ms": 128.9,
+       "spread": 0.0081
+      },
+      "after_over_before": 0.497
+     }
+    },
+    "E-AC-3 with JOC, 6 channels, 106 s, 5076480 bytes": {
+     "info": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 279.4,
+       "least_ms": 275.7,
+       "most_ms": 282.8,
+       "spread": 0.0041
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 143.8,
+       "least_ms": 141.4,
+       "most_ms": 145.5,
+       "spread": 0.0015
+      },
+      "after_over_before": 0.515
+     },
+     "verify": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 272.1,
+       "least_ms": 269.3,
+       "most_ms": 275.7,
+       "spread": 0.0061
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 140.5,
+       "least_ms": 139.5,
+       "most_ms": 143.0,
+       "spread": 0.0067
+      },
+      "after_over_before": 0.516
+     },
+     "emdf": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 275.4,
+       "least_ms": 274.0,
+       "most_ms": 283.2,
+       "spread": 0.0028
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 139.8,
+       "least_ms": 134.5,
+       "most_ms": 169.2,
+       "spread": 0.0376
+      },
+      "after_over_before": 0.508
+     },
+     "oamd": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 274.7,
+       "least_ms": 270.4,
+       "most_ms": 294.2,
+       "spread": 0.0076
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 136.1,
+       "least_ms": 132.9,
+       "most_ms": 155.6,
+       "spread": 0.0238
+      },
+      "after_over_before": 0.495
+     }
+    },
+    "E-AC-3 with JOC, 8 channels, 60 s, 11520000 bytes": {
+     "info": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 279.9,
+       "least_ms": 278.8,
+       "most_ms": 282.4,
+       "spread": 0.0021
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 162.5,
+       "least_ms": 160.6,
+       "most_ms": 164.2,
+       "spread": 0.0071
+      },
+      "after_over_before": 0.581
+     },
+     "verify": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 280.5,
+       "least_ms": 279.1,
+       "most_ms": 282.7,
+       "spread": 0.0025
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 160.5,
+       "least_ms": 158.1,
+       "most_ms": 161.7,
+       "spread": 0.0027
+      },
+      "after_over_before": 0.572
+     },
+     "emdf": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 279.9,
+       "least_ms": 278.1,
+       "most_ms": 282.6,
+       "spread": 0.0049
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 149.5,
+       "least_ms": 148.7,
+       "most_ms": 152.3,
+       "spread": 0.0054
+      },
+      "after_over_before": 0.534
+     },
+     "oamd": {
+      "exit_codes": [
+       0
+      ],
+      "main_ms": {
+       "runs": 9,
+       "median_ms": 280.5,
+       "least_ms": 278.5,
+       "most_ms": 338.9,
+       "spread": 0.0074
+      },
+      "the_change_ms": {
+       "runs": 9,
+       "median_ms": 150.6,
+       "least_ms": 149.6,
+       "most_ms": 152.6,
+       "spread": 0.007
+      },
+      "after_over_before": 0.537
+     }
+    }
+   },
+   "measurements": 20,
+   "after_over_before": {
+    "least": 0.457,
+    "most": 0.581
+   }
+  },
+  "the_binary_of_the_change_against_the_binary_of_main": {
+   "runs_a_command": 5,
+   "streams": 10,
+   "measurements": 33,
+   "by_the_verdict_of_the_tool": {
+    "faster": 12,
+    "same": 21,
+    "slower": 0
+   },
+   "by_family_and_command": {
+    "the AC-3 family: decode to PCM": {
+     "measurements": 8,
+     "least": 0.809,
+     "most": 0.991,
+     "faster": 4,
+     "same": 4,
+     "slower": 0
+    },
+    "the AC-3 family: verify": {
+     "measurements": 8,
+     "least": 0.447,
+     "most": 0.582,
+     "faster": 8,
+     "same": 0,
+     "slower": 0
+    },
+    "the AC-3 family: the object formats": {
+     "measurements": 4,
+     "least": 0.97,
+     "most": 1.016,
+     "faster": 0,
+     "same": 4,
+     "slower": 0
+    },
+    "TrueHD: decode to PCM": {
+     "measurements": 7,
+     "least": 0.978,
+     "most": 1.015,
+     "faster": 0,
+     "same": 7,
+     "slower": 0
+    },
+    "TrueHD: verify": {
+     "measurements": 2,
+     "least": 1.011,
+     "most": 1.026,
+     "faster": 0,
+     "same": 2,
+     "slower": 0
+    },
+    "TrueHD: verify --decode": {
+     "measurements": 2,
+     "least": 1.006,
+     "most": 1.015,
+     "faster": 0,
+     "same": 2,
+     "slower": 0
+    },
+    "TrueHD: the object formats": {
+     "measurements": 2,
+     "least": 0.984,
+     "most": 1.013,
+     "faster": 0,
+     "same": 2,
+     "slower": 0
+    }
+   },
+   "the_ones_that_are_slower": [],
+   "rows": [
+    {
+     "stream": "ac3-1, 125 s, 3000000 bytes",
+     "command": "decode (2 ch) pcm",
+     "times_real_time": {
+      "before": 836.1,
+      "after": 947.6
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.067,
+      "after": 0.06
+     },
+     "spread": {
+      "before": 0.037,
+      "after": 0.0168
+     },
+     "after_over_before": 0.882,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "ac3-1, 125 s, 3000000 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 894.1,
+      "after": 1686.8
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.067,
+      "after": 0.037
+     },
+     "spread": {
+      "before": 0.0041,
+      "after": 0.007
+     },
+     "after_over_before": 0.53,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "ac3-2, 60 s, 3360000 bytes",
+     "command": "decode (6 ch) pcm",
+     "times_real_time": {
+      "before": 328.4,
+      "after": 406.0
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.172,
+      "after": 0.141
+     },
+     "spread": {
+      "before": 0.0151,
+      "after": 0.0102
+     },
+     "after_over_before": 0.809,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "ac3-2, 60 s, 3360000 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 417.0,
+      "after": 819.7
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.141,
+      "after": 0.062
+     },
+     "spread": {
+      "before": 0.037,
+      "after": 0.02
+     },
+     "after_over_before": 0.509,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-1, 106 s, 5076480 bytes",
+     "command": "decode (6 ch) pcm",
+     "times_real_time": {
+      "before": 378.5,
+      "after": 420.7
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.151,
+      "after": 0.142
+     },
+     "spread": {
+      "before": 0.0642,
+      "after": 0.013
+     },
+     "after_over_before": 0.9,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "eac3-1, 106 s, 5076480 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 445.1,
+      "after": 899.3
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.133,
+      "after": 0.062
+     },
+     "spread": {
+      "before": 0.004,
+      "after": 0.005
+     },
+     "after_over_before": 0.495,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-2, 106 s, 2538240 bytes",
+     "command": "decode (6 ch) pcm",
+     "times_real_time": {
+      "before": 383.3,
+      "after": 456.8
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.151,
+      "after": 0.133
+     },
+     "spread": {
+      "before": 0.0472,
+      "after": 0.0042
+     },
+     "after_over_before": 0.839,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-2, 106 s, 2538240 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 475.5,
+      "after": 1062.9
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.124,
+      "after": 0.053
+     },
+     "spread": {
+      "before": 0.0028,
+      "after": 0.0008
+     },
+     "after_over_before": 0.447,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-7.1-1, 60 s, 12480000 bytes",
+     "command": "decode (8 ch) pcm",
+     "times_real_time": {
+      "before": 233.6,
+      "after": 235.8
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.25,
+      "after": 0.25
+     },
+     "spread": {
+      "before": 0.004,
+      "after": 0.0005
+     },
+     "after_over_before": 0.991,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "eac3-7.1-1, 60 s, 12480000 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 247.3,
+      "after": 452.5
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.234,
+      "after": 0.125
+     },
+     "spread": {
+      "before": 0.0049,
+      "after": 0.0148
+     },
+     "after_over_before": 0.547,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "eac3-7.1-2, 60 s, 11520000 bytes",
+     "command": "decode (8 ch) pcm",
+     "times_real_time": {
+      "before": 224.9,
+      "after": 227.7
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.266,
+      "after": 0.266
+     },
+     "spread": {
+      "before": 0.0024,
+      "after": 0.0039
+     },
+     "after_over_before": 0.988,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "eac3-7.1-2, 60 s, 11520000 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 236.3,
+      "after": 416.7
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.25,
+      "after": 0.141
+     },
+     "spread": {
+      "before": 0.003,
+      "after": 0.0181
+     },
+     "after_over_before": 0.567,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "joc-1, 106 s, 5076480 bytes",
+     "command": "decode (6 ch) pcm",
+     "times_real_time": {
+      "before": 368.8,
+      "after": 385.1
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.168,
+      "after": 0.151
+     },
+     "spread": {
+      "before": 0.0064,
+      "after": 0.0022
+     },
+     "after_over_before": 0.957,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "joc-1, 106 s, 5076480 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 399.8,
+      "after": 780.5
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.142,
+      "after": 0.071
+     },
+     "spread": {
+      "before": 0.0046,
+      "after": 0.0074
+     },
+     "after_over_before": 0.512,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "joc-1, 106 s, 5076480 bytes",
+     "command": "decode damf",
+     "times_real_time": {
+      "before": 46.3,
+      "after": 45.6
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.276,
+      "after": 1.268
+     },
+     "spread": {
+      "before": 0.0033,
+      "after": 0.0122
+     },
+     "after_over_before": 1.016,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "joc-1, 106 s, 5076480 bytes",
+     "command": "decode adm",
+     "times_real_time": {
+      "before": 46.8,
+      "after": 46.4
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.276,
+      "after": 1.241
+     },
+     "spread": {
+      "before": 0.0091,
+      "after": 0.0046
+     },
+     "after_over_before": 1.009,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "joc-2, 60 s, 11520000 bytes",
+     "command": "decode (8 ch) pcm",
+     "times_real_time": {
+      "before": 206.0,
+      "after": 209.1
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.297,
+      "after": 0.281
+     },
+     "spread": {
+      "before": 0.0049,
+      "after": 0.0038
+     },
+     "after_over_before": 0.985,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "joc-2, 60 s, 11520000 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 220.3,
+      "after": 378.3
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.266,
+      "after": 0.156
+     },
+     "spread": {
+      "before": 0.0067,
+      "after": 0.01
+     },
+     "after_over_before": 0.582,
+     "verdict_of_the_tool": "faster"
+    },
+    {
+     "stream": "joc-2, 60 s, 11520000 bytes",
+     "command": "decode damf",
+     "times_real_time": {
+      "before": 31.2,
+      "after": 31.6
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.875,
+      "after": 1.891
+     },
+     "spread": {
+      "before": 0.0023,
+      "after": 0.0044
+     },
+     "after_over_before": 0.986,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "joc-2, 60 s, 11520000 bytes",
+     "command": "decode adm",
+     "times_real_time": {
+      "before": 31.8,
+      "after": 32.7
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.859,
+      "after": 1.797
+     },
+     "spread": {
+      "before": 0.0106,
+      "after": 0.0053
+     },
+     "after_over_before": 0.97,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-8ch-1, 30 s, 24837264 bytes",
+     "command": "decode -p 0 (2 ch) pcm",
+     "times_real_time": {
+      "before": 153.4,
+      "after": 155.3
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.562,
+      "after": 0.594
+     },
+     "spread": {
+      "before": 0.0221,
+      "after": 0.0048
+     },
+     "after_over_before": 0.988,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-8ch-1, 30 s, 24837264 bytes",
+     "command": "decode -p 1 (6 ch) pcm",
+     "times_real_time": {
+      "before": 118.2,
+      "after": 120.8
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.844,
+      "after": 0.812
+     },
+     "spread": {
+      "before": 0.0088,
+      "after": 0.0108
+     },
+     "after_over_before": 0.978,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-8ch-1, 30 s, 24837264 bytes",
+     "command": "decode -p 2 (8 ch) pcm",
+     "times_real_time": {
+      "before": 105.6,
+      "after": 105.0
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.938,
+      "after": 0.938
+     },
+     "spread": {
+      "before": 0.0011,
+      "after": 0.003
+     },
+     "after_over_before": 1.006,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-8ch-1, 30 s, 24837264 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 153.7,
+      "after": 149.8
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.375,
+      "after": 0.375
+     },
+     "spread": {
+      "before": 0.007,
+      "after": 0.0107
+     },
+     "after_over_before": 1.026,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-8ch-1, 30 s, 24837264 bytes",
+     "command": "verify --decode",
+     "times_real_time": {
+      "before": 36.7,
+      "after": 36.5
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.562,
+      "after": 1.594
+     },
+     "spread": {
+      "before": 0.0035,
+      "after": 0.0045
+     },
+     "after_over_before": 1.006,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "decode -p 0 (2 ch) pcm",
+     "times_real_time": {
+      "before": 298.0,
+      "after": 299.4
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.301,
+      "after": 0.301
+     },
+     "spread": {
+      "before": 0.0011,
+      "after": 0.0061
+     },
+     "after_over_before": 0.995,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "decode -p 1 (6 ch) pcm",
+     "times_real_time": {
+      "before": 214.3,
+      "after": 215.7
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.47,
+      "after": 0.461
+     },
+     "spread": {
+      "before": 0.0035,
+      "after": 0.004
+     },
+     "after_over_before": 0.993,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "decode -p 2 (8 ch) pcm",
+     "times_real_time": {
+      "before": 156.3,
+      "after": 156.7
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.567,
+      "after": 0.567
+     },
+     "spread": {
+      "before": 0.0085,
+      "after": 0.0053
+     },
+     "after_over_before": 0.997,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "decode -p 3 (12 ch) pcm",
+     "times_real_time": {
+      "before": 105.3,
+      "after": 103.8
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.762,
+      "after": 0.771
+     },
+     "spread": {
+      "before": 0.0046,
+      "after": 0.0133
+     },
+     "after_over_before": 1.015,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "verify",
+     "times_real_time": {
+      "before": 303.9,
+      "after": 300.7
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.195,
+      "after": 0.195
+     },
+     "spread": {
+      "before": 0.0021,
+      "after": 0.0036
+     },
+     "after_over_before": 1.011,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "verify --decode",
+     "times_real_time": {
+      "before": 39.4,
+      "after": 38.8
+     },
+     "processor_seconds_per_minute": {
+      "before": 1.516,
+      "after": 1.525
+     },
+     "spread": {
+      "before": 0.0023,
+      "after": 0.0053
+     },
+     "after_over_before": 1.015,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "decode damf",
+     "times_real_time": {
+      "before": 89.5,
+      "after": 88.4
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.851,
+      "after": 0.842
+     },
+     "spread": {
+      "before": 0.0078,
+      "after": 0.0106
+     },
+     "after_over_before": 1.013,
+     "verdict_of_the_tool": "same"
+    },
+    {
+     "stream": "truehd-objects-12ch-1, 106 s, 50000000 bytes",
+     "command": "decode adm",
+     "times_real_time": {
+      "before": 88.2,
+      "after": 89.7
+     },
+     "processor_seconds_per_minute": {
+      "before": 0.869,
+      "after": 0.851
+     },
+     "spread": {
+      "before": 0.0092,
+      "after": 0.0029
+     },
+     "after_over_before": 0.984,
+     "verdict_of_the_tool": "same"
+    }
+   ]
+  },
+  "a_delivery_to_pcm": {
+   "what_the_first_comparison_said": {
+    "how": "`tools/bench.py --compare`, the binary of main against the change as it was then, which touched nothing a delivery runs",
+    "rows": [
+     {
+      "stream": "ac3-1, 125 s, 3000000 bytes",
+      "command": "decode (2 ch) pcm",
+      "after_over_before": 1.122,
+      "processor_time_after_over_before": 1.25,
+      "verdict_of_the_tool": "slower"
+     },
+     {
+      "stream": "ac3-2, 60 s, 3360000 bytes",
+      "command": "decode (6 ch) pcm",
+      "after_over_before": 1.035,
+      "processor_time_after_over_before": 1.101,
+      "verdict_of_the_tool": "same"
+     },
+     {
+      "stream": "eac3-1, 106 s, 5076480 bytes",
+      "command": "decode (6 ch) pcm",
+      "after_over_before": 1.096,
+      "processor_time_after_over_before": 1.118,
+      "verdict_of_the_tool": "slower"
+     },
+     {
+      "stream": "eac3-2, 106 s, 2538240 bytes",
+      "command": "decode (6 ch) pcm",
+      "after_over_before": 1.098,
+      "processor_time_after_over_before": 1.067,
+      "verdict_of_the_tool": "slower"
+     },
+     {
+      "stream": "eac3-7.1-1, 60 s, 12480000 bytes",
+      "command": "decode (8 ch) pcm",
+      "after_over_before": 1.051,
+      "processor_time_after_over_before": 1.059,
+      "verdict_of_the_tool": "slower"
+     },
+     {
+      "stream": "eac3-7.1-2, 60 s, 11520000 bytes",
+      "command": "decode (8 ch) pcm",
+      "after_over_before": 1.056,
+      "processor_time_after_over_before": 1.059,
+      "verdict_of_the_tool": "slower"
+     },
+     {
+      "stream": "joc-1, 106 s, 5076480 bytes",
+      "command": "decode (6 ch) pcm",
+      "after_over_before": 1.079,
+      "processor_time_after_over_before": 1.111,
+      "verdict_of_the_tool": "slower"
+     },
+     {
+      "stream": "joc-2, 60 s, 11520000 bytes",
+      "command": "decode (8 ch) pcm",
+      "after_over_before": 1.055,
+      "processor_time_after_over_before": 1.053,
+      "verdict_of_the_tool": "slower"
+     }
+    ],
+    "after_over_before": {
+     "least": 1.035,
+     "most": 1.122
+    }
+   },
+   "which_part_of_the_change": {
+    "how": "a delivery to PCM of two streams, three binaries turn and turn about, eleven runs each, bound to the fast cores",
+    "streams": {
+     "AC-3, 2 channels, 125 s": {
+      "main": {
+       "runs": 11,
+       "median_ms": 132.2,
+       "least_ms": 129.9,
+       "most_ms": 150.4,
+       "spread": 0.0137,
+       "over_the_first": 1.0
+      },
+      "main with the decoder of the change": {
+       "runs": 11,
+       "median_ms": 130.1,
+       "least_ms": 129.6,
+       "most_ms": 134.2,
+       "spread": 0.0041,
+       "over_the_first": 0.985
+      },
+      "the change, as it was then": {
+       "runs": 11,
+       "median_ms": 146.4,
+       "least_ms": 143.9,
+       "most_ms": 148.2,
+       "spread": 0.0028,
+       "over_the_first": 1.108
+      }
+     },
+     "E-AC-3, 6 channels, 106 s": {
+      "main": {
+       "runs": 11,
+       "median_ms": 304.0,
+       "least_ms": 261.0,
+       "most_ms": 316.4,
+       "spread": 0.0252,
+       "over_the_first": 1.0
+      },
+      "main with the decoder of the change": {
+       "runs": 11,
+       "median_ms": 268.2,
+       "least_ms": 262.1,
+       "most_ms": 289.1,
+       "spread": 0.0143,
+       "over_the_first": 0.882
+      },
+      "the change, as it was then": {
+       "runs": 11,
+       "median_ms": 288.1,
+       "least_ms": 280.1,
+       "most_ms": 319.9,
+       "spread": 0.0172,
+       "over_the_first": 0.947
+      }
+     }
+    },
+    "the_decoder_of_the_change_over_main": [
+     0.984,
+     0.882
+    ],
+    "the_whole_change_over_the_decoder_alone": [
+     1.125,
+     1.074
+    ],
+    "reading": "the decoder of the change does not slow a delivery; the binary with the commands of the change does, and the commands changed nothing a delivery runs but the pass around the loop that writes its bytes, which keeps two counters more"
+   },
+   "the_loop_that_writes_the_bytes": {
+    "how": "that loop pushed the samples of a frame onto a new vector, a sample of every channel at a time. Written a channel at a time into a buffer of the size of the frame, in main and in the change, four binaries turn and turn about",
+    "streams": {
+     "AC-3, 2 channels, 125 s": {
+      "main": {
+       "runs": 11,
+       "median_ms": 132.0,
+       "least_ms": 128.9,
+       "most_ms": 154.0,
+       "spread": 0.0117,
+       "over_the_first": 1.0
+      },
+      "the change, as it was then": {
+       "runs": 11,
+       "median_ms": 146.0,
+       "least_ms": 144.6,
+       "most_ms": 148.5,
+       "spread": 0.0055,
+       "over_the_first": 1.106
+      },
+      "main with the bytes written a channel at a time": {
+       "runs": 11,
+       "median_ms": 125.8,
+       "least_ms": 124.1,
+       "most_ms": 131.4,
+       "spread": 0.0091,
+       "over_the_first": 0.953
+      },
+      "the change with the bytes written a channel at a time": {
+       "runs": 11,
+       "median_ms": 127.3,
+       "least_ms": 125.0,
+       "most_ms": 130.9,
+       "spread": 0.0095,
+       "over_the_first": 0.964
+      }
+     },
+     "E-AC-3, 6 channels, 106 s": {
+      "main": {
+       "runs": 11,
+       "median_ms": 258.7,
+       "least_ms": 252.3,
+       "most_ms": 267.9,
+       "spread": 0.0122,
+       "over_the_first": 1.0
+      },
+      "the change, as it was then": {
+       "runs": 11,
+       "median_ms": 281.0,
+       "least_ms": 280.3,
+       "most_ms": 293.8,
+       "spread": 0.0023,
+       "over_the_first": 1.086
+      },
+      "main with the bytes written a channel at a time": {
+       "runs": 11,
+       "median_ms": 247.9,
+       "least_ms": 245.8,
+       "most_ms": 257.3,
+       "spread": 0.0052,
+       "over_the_first": 0.958
+      },
+      "the change with the bytes written a channel at a time": {
+       "runs": 11,
+       "median_ms": 250.5,
+       "least_ms": 246.5,
+       "most_ms": 254.1,
+       "spread": 0.0102,
+       "over_the_first": 0.968
+      }
+     }
+    },
+    "the_change_over_main_with_the_loop_rewritten_in_both": [
+     1.012,
+     1.01
+    ],
+    "reading": "the two builds that were a tenth apart are within some hundredths of each other, and both are faster than main: what was slower was what the compiler had made of that loop in one build and not in the other"
+   },
+   "two_ways_of_writing_it": {
+    "how": "the loop in the delivery with a buffer for every frame, and as a function of its own with one buffer kept, which a test can call",
+    "streams": {
+     "AC-3, 2 channels, 125 s": {
+      "main": {
+       "runs": 11,
+       "median_ms": 132.7,
+       "least_ms": 130.6,
+       "most_ms": 154.2,
+       "spread": 0.0122,
+       "over_the_first": 1.0
+      },
+      "the change, as it was then": {
+       "runs": 11,
+       "median_ms": 147.3,
+       "least_ms": 144.9,
+       "most_ms": 152.0,
+       "spread": 0.0095,
+       "over_the_first": 1.111
+      },
+      "the loop written in the delivery, a buffer for every frame": {
+       "runs": 11,
+       "median_ms": 127.9,
+       "least_ms": 125.3,
+       "most_ms": 130.1,
+       "spread": 0.0074,
+       "over_the_first": 0.964
+      },
+      "the loop a function of its own, one buffer kept": {
+       "runs": 11,
+       "median_ms": 127.8,
+       "least_ms": 125.0,
+       "most_ms": 134.0,
+       "spread": 0.0127,
+       "over_the_first": 0.964
+      }
+     },
+     "E-AC-3, 6 channels, 106 s": {
+      "main": {
+       "runs": 11,
+       "median_ms": 263.3,
+       "least_ms": 257.1,
+       "most_ms": 344.7,
+       "spread": 0.0216,
+       "over_the_first": 1.0
+      },
+      "the change, as it was then": {
+       "runs": 11,
+       "median_ms": 288.4,
+       "least_ms": 284.1,
+       "most_ms": 309.8,
+       "spread": 0.0148,
+       "over_the_first": 1.095
+      },
+      "the loop written in the delivery, a buffer for every frame": {
+       "runs": 11,
+       "median_ms": 257.3,
+       "least_ms": 250.7,
+       "most_ms": 293.7,
+       "spread": 0.0191,
+       "over_the_first": 0.977
+      },
+      "the loop a function of its own, one buffer kept": {
+       "runs": 11,
+       "median_ms": 254.7,
+       "least_ms": 248.7,
+       "most_ms": 298.7,
+       "spread": 0.0235,
+       "over_the_first": 0.968
+      }
+     }
+    },
+    "one_buffer_against_a_new_one_inside_one_binary": {
+     "AC-3, 2 channels, 125 s": {
+      "one buffer kept": {
+       "runs": 11,
+       "median_ms": 126.2,
+       "least_ms": 123.1,
+       "most_ms": 131.4,
+       "spread": 0.0081
+      },
+      "a new buffer every frame": {
+       "runs": 11,
+       "median_ms": 127.2,
+       "least_ms": 124.2,
+       "most_ms": 130.8,
+       "spread": 0.0121
+      },
+      "kept_over_new": 0.992
+     },
+     "E-AC-3, 6 channels, 106 s": {
+      "one buffer kept": {
+       "runs": 11,
+       "median_ms": 250.9,
+       "least_ms": 244.9,
+       "most_ms": 253.4,
+       "spread": 0.0086
+      },
+      "a new buffer every frame": {
+       "runs": 11,
+       "median_ms": 253.5,
+       "least_ms": 247.7,
+       "most_ms": 261.1,
+       "spread": 0.0057
+      },
+      "kept_over_new": 0.99
+     }
+    }
+   },
+   "the_three_trees_of_the_change": {
+    "how": "the binary of main, of main with the bytes written a channel at a time and nothing else, and of the whole change; fifteen runs each",
+    "streams": {
+     "AC-3, 2 channels, 125 s": {
+      "main": {
+       "runs": 15,
+       "median_ms": 131.4,
+       "least_ms": 129.8,
+       "most_ms": 134.5,
+       "spread": 0.0071,
+       "over_the_first": 1.0
+      },
+      "main with the bytes written a channel at a time": {
+       "runs": 15,
+       "median_ms": 127.4,
+       "least_ms": 124.8,
+       "most_ms": 131.1,
+       "spread": 0.0062,
+       "over_the_first": 0.97
+      },
+      "the change": {
+       "runs": 15,
+       "median_ms": 127.2,
+       "least_ms": 126.1,
+       "most_ms": 128.2,
+       "spread": 0.0052,
+       "over_the_first": 0.968
+      }
+     },
+     "E-AC-3, 6 channels, 106 s": {
+      "main": {
+       "runs": 15,
+       "median_ms": 261.6,
+       "least_ms": 259.5,
+       "most_ms": 266.4,
+       "spread": 0.0072,
+       "over_the_first": 1.0
+      },
+      "main with the bytes written a channel at a time": {
+       "runs": 15,
+       "median_ms": 252.2,
+       "least_ms": 249.1,
+       "most_ms": 254.2,
+       "spread": 0.0063,
+       "over_the_first": 0.964
+      },
+      "the change": {
+       "runs": 15,
+       "median_ms": 252.1,
+       "least_ms": 249.4,
+       "most_ms": 257.0,
+       "spread": 0.0065,
+       "over_the_first": 0.964
+      }
+     }
+    },
+    "the_bytes_alone_over_main": [
+     0.97,
+     0.964
+    ],
+    "the_whole_change_over_main": [
+     0.968,
+     0.964
+    ]
+   }
+  },
+  "the_kernel_of_the_decoder_that_listens": {
+   "command": "python tools/kernels.py --affinity FFFF --runs 5 --filter \"eac3:\"",
+   "kernels": [
+    {
+     "kernel": "eac3: decode the 5.1 core of the object stream",
+     "run": "main first",
+     "least_of_five_runs_ns": {
+      "before": 4103200.0,
+      "after": 4179455.6
+     },
+     "after_over_before": 1.019
+    },
+    {
+     "kernel": "eac3: decode the 5.1 core of the object stream",
+     "run": "the change first",
+     "least_of_five_runs_ns": {
+      "before": 4208090.0,
+      "after": 4109910.0
+     },
+     "after_over_before": 0.977
+    }
+   ],
+   "reading": "the kernel decodes with the samples, through the library and not through a command: it runs the decoder of the change and none of the rest. The two builds were measured twice, and each is the faster once: the kernel is where it was, to within what the same build gives from one run to the next"
+  },
+  "a_run_over_the_corpus_before_and_after": {
+   "streams": 131,
+   "streams_changed": 0,
+   "fields_added": [],
+   "lines_added": [],
+   "lines_of_reports_compared": 8794,
+   "fields_of_reports_compared": 57144,
+   "bytes_of_deliveries_compared": 104361687447,
+   "the_media_suite": {
+    "passed": 30,
+    "failed": 0
+   },
+   "the_media_regression": {
+    "steps": 8,
+    "passed": 8
+   }
+  },
+  "the_campaign": {
+   "seed": 0,
+   "rounds": 200000,
+   "clauses_broken": 0,
+   "panics": 0,
+   "kinds_of_answers": {
+    "main": 31,
+    "the_change": 31
+   },
+   "every_command_clean": {
+    "main": 27517,
+    "the_change": 27517
+   },
+   "rounds_whose_answers_moved": 0,
+   "answers_that_moved": {}
+  },
+  "a_decoder_that_does_not_listen_beside_one_that_does": {
+   "where": "the fuzz target `eac3_program`, which the scheduled fuzzing runs and the seeded test runs",
+   "command": "OADEC_FUZZ_ITERS=30000 cargo test --release --locked -p oadec-fuzz --test seeded eac3_program",
+   "rounds": 30000,
+   "held_to": "the same groups in the same calls, the same fields of every frame but for its samples, the same error where a frame is refused, and the same statistics",
+   "failed": 0
+  },
+  "mutations": {
+   "of_the_files_the_change_touches": 155,
+   "new_with_the_change": 23,
+   "survive": [],
+   "caught_by_a_test_that_failed": 155,
+   "each_new_one": [
+    {
+     "mutation": "a decoder nobody listens to making the samples all the same",
+     "caught_by": [
+      "eac3::tests::the_check_beside_another_command_makes_no_samples",
+      "eac3::tests::verify_makes_no_samples_where_its_report_has_no_figure_of_them"
+     ]
+    },
+    {
+     "mutation": "a frame counted a block short of what the transform makes of it",
+     "caught_by": [
+      "eac3::tests::a_frame_and_a_dependent_frame_are_filed_at_their_group",
+      "eac3::tests::a_stale_element_size_is_a_warning_filed_at_its_frame",
+      "eac3::tests::the_joc_sequence_counter_is_followed_from_payload_to_payload"
+     ]
+    },
+    {
+     "mutation": "a decoder making no samples unless it is asked to",
+     "caught_by": [
+      "eac3::tests::verify_starts_over_with_the_samples_when_a_second_clip_gain_shows"
+     ]
+    },
+    {
+     "mutation": "a frame nobody listens to not counted in the samples the buffer has seen",
+     "caught_by": [
+      "eac3::tests::the_check_beside_another_command_makes_no_samples",
+      "eac3::tests::verify_makes_no_samples_where_its_report_has_no_figure_of_them",
+      "eac3::tests::verify_starts_over_with_the_samples_when_a_second_clip_gain_shows"
+     ]
+    },
+    {
+     "mutation": "a frame nobody listens to released without waiting",
+     "caught_by": [
+      "tpnp::tests::a_reset_drops_the_frames_nobody_listened_to",
+      "tpnp::tests::another_number_of_channels_starts_over_whether_anybody_listens_or_not",
+      "tpnp::tests::frames_nobody_listens_to_are_released_when_frames_with_samples_are"
+     ]
+    },
+    {
+     "mutation": "a frame nobody listens to coming out without its channels",
+     "caught_by": [
+      "tpnp::tests::a_frame_of_the_other_kind_starts_the_buffer_over",
+      "tpnp::tests::another_number_of_channels_starts_over_whether_anybody_listens_or_not",
+      "tpnp::tests::frames_nobody_listens_to_are_released_when_frames_with_samples_are"
+     ]
+    },
+    {
+     "mutation": "a frame nobody listens to looked for in the buffer",
+     "caught_by": [
+      "eac3::tests::the_check_beside_another_command_makes_no_samples",
+      "eac3::tests::verify_makes_no_samples_where_its_report_has_no_figure_of_them",
+      "eac3::tests::verify_starts_over_with_the_samples_when_a_second_clip_gain_shows"
+     ]
+    },
+    {
+     "mutation": "a frame nobody listens to put into a buffer of frames with samples",
+     "caught_by": [
+      "tpnp::tests::a_frame_of_the_other_kind_starts_the_buffer_over"
+     ]
+    },
+    {
+     "mutation": "a frame with samples put into a buffer of frames nobody listened to",
+     "caught_by": [
+      "tpnp::tests::a_frame_of_the_other_kind_starts_the_buffer_over"
+     ]
+    },
+    {
+     "mutation": "a frame nobody listens to saying the tool was signalled when it was not",
+     "caught_by": [
+      "tpnp::tests::a_frame_nobody_listens_to_still_says_the_tool_was_signalled"
+     ]
+    },
+    {
+     "mutation": "verify listening to a stream whose report has no figure of the samples",
+     "caught_by": [
+      "eac3::tests::verify_makes_no_samples_where_its_report_has_no_figure_of_them"
+     ]
+    },
+    {
+     "mutation": "a stream read to its end without the samples its report has a figure of",
+     "caught_by": [
+      "eac3::tests::verify_starts_over_with_the_samples_when_a_second_clip_gain_shows"
+     ]
+    },
+    {
+     "mutation": "a pass given up for the samples taken for a pass that failed",
+     "caught_by": [
+      "eac3::tests::verify_starts_over_with_the_samples_when_a_second_clip_gain_shows"
+     ]
+    },
+    {
+     "mutation": "the stream read again without the samples",
+     "caught_by": [
+      "eac3::tests::verify_starts_over_with_the_samples_when_a_second_clip_gain_shows"
+     ]
+    },
+    {
+     "mutation": "the level of the core reported at the first clip gain",
+     "caught_by": [
+      "eac3::tests::verify_makes_no_samples_where_its_report_has_no_figure_of_them"
+     ]
+    },
+    {
+     "mutation": "a frame without samples counted in the level of the core",
+     "caught_by": [
+      "eac3::tests::the_check_beside_another_command_makes_no_samples",
+      "eac3::tests::verify_makes_no_samples_where_its_report_has_no_figure_of_them",
+      "eac3::tests::verify_starts_over_with_the_samples_when_a_second_clip_gain_shows"
+     ]
+    },
+    {
+     "mutation": "the samples not asked for where the report has a figure of them",
+     "caught_by": [
+      "eac3::tests::verify_starts_over_with_the_samples_when_a_second_clip_gain_shows"
+     ]
+    },
+    {
+     "mutation": "the check beside another command making the samples",
+     "caught_by": [
+      "eac3::tests::the_check_beside_another_command_makes_no_samples"
+     ]
+    },
+    {
+     "mutation": "verify --decode not asking for the samples of an AC-3 family stream",
+     "caught_by": [
+      "eac3::tests::verify_makes_no_samples_where_its_report_has_no_figure_of_them"
+     ]
+    },
+    {
+     "mutation": "every channel of a delivery written where the first one is",
+     "caught_by": [
+      "eac3::tests::the_bytes_of_a_frame_are_a_sample_of_every_channel_in_turn"
+     ]
+    },
+    {
+     "mutation": "the samples of a delivery with their high byte first",
+     "caught_by": [
+      "eac3::tests::the_bytes_of_a_frame_are_a_sample_of_every_channel_in_turn"
+     ]
+    },
+    {
+     "mutation": "the channels of a delivery in the order of the stream whatever was asked",
+     "caught_by": [
+      "eac3::tests::the_bytes_of_a_frame_are_a_sample_of_every_channel_in_turn"
+     ]
+    },
+    {
+     "mutation": "a frame of a delivery keeping the bytes of a longer frame before it",
+     "caught_by": [
+      "eac3::tests::the_bytes_of_a_frame_are_a_sample_of_every_channel_in_turn"
+     ]
+    }
+   ]
+  },
+  "what_is_not_covered": "Every stream of the family in the corpus, and the fixture, has six blocks a frame. That a frame nobody listens to is counted as the samples its blocks would have made is tested on the buffer by itself, for frames of one, two, three and six blocks, and the decoder that listens asserts in a debug build that the count is the one the transform made; no test puts a stream of shorter frames through both decoders. A stream that has the level of the core in its report is read twice up to its second clip gain: two streams of the corpus, which take 110.3 and 123.9 per cent of the time.",
+  "checks_on_the_final_state": {
+   "cargo fmt --all --check": "clean",
+   "cargo clippy --workspace --all-targets --locked -- -D warnings": "clean",
+   "cargo test --workspace --locked": "exit 0; 689 passed, 30 ignored (the media suite, which ran apart)",
+   "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+   "python tools/mutants.py --check": "the text of every mutation is in its file"
+  }
+ },
+ "reading": "Of the 76 streams of the family in the corpus, 2 have a figure of the samples in their report. `verify` of the others reads every frame to its last bit and makes no samples, in 45.8 to 59.4 per cent of the time it takes with them, inside one binary, on eight streams; `info`, `emdf` and `oamd` with it, 45.7 to 58.1 per cent of what they took on main. The two that have the figure are read twice up to their second clip gain and take 110.3 and 123.9 per cent. A delivery to PCM, which the first comparison had 3.5 to 12.2 per cent slower, was slower by what the compiler made of the loop that writes its bytes; written a channel at a time it takes 96.4 and 96.8 per cent of the time it took on main. No report and no delivery changes over the corpus."
+}

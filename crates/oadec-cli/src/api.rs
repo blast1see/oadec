@@ -178,7 +178,9 @@ pub fn info(source: &Source) -> Result<Info> {
 #[derive(Debug, Clone, Default)]
 pub struct VerifyOptions {
     /// Decode every presentation the stream carries and evaluate the lossless
-    /// check words. An AC-3 family stream is decoded whatever this says.
+    /// check words. Of an AC-3 family stream: make the samples of every
+    /// frame, which `verify` reads to its last bit without and which nothing
+    /// in such a stream checks, so the report is the same.
     pub decode: bool,
     /// The lightest severity that fails the run; `None` for the default,
     /// which is an error.
@@ -264,6 +266,7 @@ pub fn verify(source: &Source, options: &VerifyOptions) -> Result<Verified> {
             &eac3::ReportOptions {
                 fail_on: options.fail_on.unwrap_or(Severity::Error),
                 max_per_rule: options.max_per_rule.unwrap_or(Tally::DEFAULT_MAX_PER_RULE),
+                decode: options.decode,
             },
         )?));
     }

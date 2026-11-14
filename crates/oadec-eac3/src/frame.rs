@@ -147,6 +147,11 @@ pub struct Options {
     /// some twenty vectors a block, so it is made only where it is asked
     /// for.
     pub block_info: bool,
+    /// Make the samples of every frame. A caller that reads what a stream
+    /// says and does not listen to it turns this off: the decoder hands out
+    /// the frames it would, in the calls it would, with their channels and
+    /// no samples in them, and does not run the transform.
+    pub samples: bool,
 }
 
 impl Default for Options {
@@ -156,6 +161,7 @@ impl Default for Options {
             tpnp: true,
             ecpl_full: false,
             block_info: false,
+            samples: true,
         }
     }
 }

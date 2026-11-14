@@ -1679,3 +1679,119 @@ fn the_fixture_decodes_to_the_levels_it_gave() {
     }
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A copy of the fixture whose JOC payloads say a clip gain of 1.5 from the
+/// thirty-first frame on, where they said 1: `joc_clipgain_y`, five bits,
+/// fifteen bits into the payload. The frame checks are repaired.
+fn with_two_clip_gains(dir: &Path) -> PathBuf {
+    let mut bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let mut frame = 0;
+    let changed = rewrite_frames(&mut bytes, |parsed| {
+        frame += 1;
+        if frame <= 30 {
+            return Vec::new();
+        }
+        joc_payload_bits(parsed)
+            .into_iter()
+            .map(|at| (at + 15, 5, 16))
+            .collect()
+    });
+    assert_eq!(changed, 33);
+    let file = dir.join("two-clip-gains.ec3");
+    std::fs::write(&file, bytes).unwrap();
+    file
+}
+
+/// What `verify` prints of a stream, but for the line that is a time, and
+/// the code it leaves with.
+fn verify_lines(file: &Path, more: &[&str]) -> (Option<i32>, Vec<String>) {
+    let mut args = vec!["verify"];
+    args.extend_from_slice(more);
+    args.push(file.to_str().unwrap());
+    let out = oadec(&args);
+    let lines = String::from_utf8(out.stdout)
+        .expect("text")
+        .lines()
+        .filter(|line| !line.starts_with("Speed:"))
+        .map(str::to_string)
+        .collect();
+    (out.status.code(), lines)
+}
+
+/// The report of `verify --json`, but for the field that is a time.
+fn verify_fields(file: &Path, more: &[&str]) -> (Option<i32>, Value) {
+    let mut args = vec!["verify", "--json"];
+    args.extend_from_slice(more);
+    args.push(file.to_str().unwrap());
+    let out = oadec(&args);
+    let mut report: Value = serde_json::from_slice(&out.stdout).expect("JSON");
+    report
+        .as_object_mut()
+        .expect("an object")
+        .remove("seconds")
+        .expect("the time it took");
+    (out.status.code(), report)
+}
+
+/// `verify` reads what a stream says and does not listen to it, but for one
+/// figure: where the JOC payloads of a stream carry more than one clip gain,
+/// it says the peak of the core under each. That figure is of the samples,
+/// and it is the one a decode of every frame gives: the stream is read again
+/// with its samples from the first frame, so that the frame the second clip
+/// gain shows in has the frames before it behind it. `verify --decode`, which
+/// makes the samples of every frame because it is asked to, says the same.
+#[test]
+fn the_core_level_under_each_clip_gain_is_the_one_every_frame_decoded_gives() {
+    let dir = temp("clip-gains");
+    let file = with_two_clip_gains(&dir);
+    let (code, lines) = verify_lines(&file, &[]);
+    assert_eq!(code, Some(0), "{lines:?}");
+    let level = lines
+        .iter()
+        .find(|line| line.starts_with("JOC core level:"))
+        .expect("a stream with two clip gains has a line of the level of its core");
+    assert_eq!(
+        level,
+        "JOC core level:    1.000: core peak 0.080, mean 0.055, x gain 0.080 (30); 1.500: core peak 0.080, mean 0.053, x gain 0.120 (33)"
+    );
+    assert_eq!(verify_lines(&file, &["--decode"]), (code, lines));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// What `verify` says of a stream does not depend on whether it listens to
+/// it: with `--decode`, which makes the samples of every frame, it prints
+/// and reports what it does without, of a sound stream, of one with a frame
+/// whose check fails, of one cut off inside a frame and of one with a frame
+/// taken out.
+#[test]
+fn verify_says_the_same_whether_or_not_it_makes_the_samples() {
+    let dir = temp("unheard");
+    let clean = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let frame_bytes = FrameHeader::parse(&clean).unwrap().frame_bytes;
+    let mut failed_check = clean.clone();
+    failed_check[11 * frame_bytes - 1] ^= 0x01;
+    let cut_off = clean[..20 * frame_bytes + frame_bytes / 3].to_vec();
+    let mut one_out = clean[..10 * frame_bytes].to_vec();
+    one_out.extend_from_slice(&clean[11 * frame_bytes..]);
+    let streams = [
+        ("clean", clean, 0),
+        ("failed-check", failed_check, 7),
+        ("cut-off", cut_off, 7),
+        ("one-out", one_out, 0),
+    ];
+    for (name, bytes, code) in streams {
+        let file = dir.join(format!("{name}.ec3"));
+        std::fs::write(&file, bytes).unwrap();
+        let (said, lines) = verify_lines(&file, &[]);
+        assert_eq!(said, Some(code), "{name}: {lines:?}");
+        assert_eq!(verify_lines(&file, &["--decode"]), (said, lines), "{name}");
+        let (said, report) = verify_fields(&file, &[]);
+        assert_eq!(said, Some(code), "{name}");
+        assert_eq!(
+            verify_fields(&file, &["--decode"]),
+            (said, report),
+            "{name}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

@@ -82,8 +82,10 @@ enum Command {
         json: bool,
         /// TrueHD: also decode every presentation the stream carries and
         /// evaluate the lossless check word of every restart header, which
-        /// the integrity pass alone cannot; several times slower. (E-AC-3
-        /// verification decodes every frame already.)
+        /// the integrity pass alone cannot; several times slower. AC-3 and
+        /// E-AC-3: also make the samples of every frame. verify reads every
+        /// frame to its last bit without it and nothing in such a stream
+        /// checks its samples, so the report is the same and takes longer.
         #[arg(long)]
         decode: bool,
         /// TrueHD: the lightest severity that fails the run (exit 7). The
@@ -695,6 +697,7 @@ where
                                     tpnp: !no_tpnp,
                                     ecpl_full: ecpl_spec,
                                     block_info: false,
+                                    samples: true,
                                 },
                                 // refused above for E-AC-3
                                 on_error: None,
