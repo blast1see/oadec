@@ -540,6 +540,14 @@ impl Core {
             }
         }
         let recip = (1i64 << 16) / spa as i64;
+        // A `0x31EC` matrix is interpolated over the access unit by a delta
+        // for every coefficient, and most of the time it stands still: its
+        // deltas are zero then, the sum of the samples by them is zero
+        // whatever the samples are, and it is not multiplied out. Over the
+        // widest presentations of six object streams 83 to 100 per cent of
+        // the matrices applied stand still, and the deltas were half of what
+        // the stage multiplied.
+        let moving = moving_matrices(&sd.d, matrices, mmc);
         for n in n0..n1 {
             let row = &mut self.rematrix[n];
             let lsb = &buf.bypassed_lsb[n];
@@ -587,10 +595,16 @@ impl Core {
                         let out_ch = usize::from(ss.matrix_ch[pmi]);
                         let mut acc = 0i64;
                         let mut acc_delta = 0i64;
-                        for ch in 0..=mmc {
-                            let v = i64::from(row[ch]);
-                            acc += v * i64::from(sd.m[pmi][ch]);
-                            acc_delta += v * i64::from(sd.d[pmi][ch]);
+                        if moving[pmi] {
+                            for ch in 0..=mmc {
+                                let v = i64::from(row[ch]);
+                                acc += v * i64::from(sd.m[pmi][ch]);
+                                acc_delta += v * i64::from(sd.d[pmi][ch]);
+                            }
+                        } else {
+                            for ch in 0..=mmc {
+                                acc += i64::from(row[ch]) * i64::from(sd.m[pmi][ch]);
+                            }
                         }
                         let scale = ss.dither_scale[pmi];
                         if scale != 0 {
@@ -619,6 +633,23 @@ impl Core {
             sd.output_bits |= bits;
         }
     }
+}
+
+/// Which of the first `matrices` matrices move: which have, among the deltas
+/// the matrix stage reads, those of channels `0..=max_matrix_chan`, one that
+/// is not zero. A delta beyond those channels, or of a matrix beyond the
+/// ones in use, is read by nothing and moves nothing.
+#[inline(always)]
+fn moving_matrices(
+    d: &[[i32; MAX_CHANNELS]; MAX_MATRICES],
+    matrices: usize,
+    max_matrix_chan: usize,
+) -> [bool; MAX_MATRICES] {
+    let mut moving = [false; MAX_MATRICES];
+    for (moves, deltas) in moving.iter_mut().zip(d).take(matrices) {
+        *moves = deltas[..=max_matrix_chan].iter().any(|&delta| delta != 0);
+    }
+    moving
 }
 
 /// Final value of a matrix output: 18 fractional bits removed, the bits under
@@ -1204,6 +1235,37 @@ mod tests {
         buf.len = 1;
         sd.recorrelate(&ss, 0, 0, 1, &buf).unwrap();
         assert_eq!(sd.recorrelated[0][0], 16 + (0x123 & !0xF));
+    }
+
+    /// A matrix moves when one of the deltas the stage reads is set, and
+    /// only that matrix: a delta beyond the channels the matrices take, or
+    /// of a matrix beyond the ones in use, is read by nothing.
+    #[test]
+    fn a_matrix_moves_by_the_deltas_that_are_read() {
+        let still = [[0i32; MAX_CHANNELS]; MAX_MATRICES];
+        for mmc in 0..MAX_CHANNELS {
+            for matrices in 0..=MAX_MATRICES {
+                assert_eq!(
+                    moving_matrices(&still, matrices, mmc),
+                    [false; MAX_MATRICES]
+                );
+                for pmi in 0..MAX_MATRICES {
+                    for ch in 0..MAX_CHANNELS {
+                        for delta in [1, -1, i32::MIN, i32::MAX] {
+                            let mut d = still;
+                            d[pmi][ch] = delta;
+                            let mut expected = [false; MAX_MATRICES];
+                            expected[pmi] = pmi < matrices && ch <= mmc;
+                            assert_eq!(
+                                moving_matrices(&d, matrices, mmc),
+                                expected,
+                                "a delta of matrix {pmi} at channel {ch}, {matrices} matrices over 0..={mmc}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]

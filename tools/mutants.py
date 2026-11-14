@@ -312,6 +312,34 @@ MUTANTS = [
      '''                ^ u16::from(b[7]);
         }
         let _ = rest;'''),
+    ('a matrix that moves summed without its deltas',
+     'crates/oadec-truehd/src/decoder.rs',
+     '                        if moving[pmi] {',
+     '                        if !moving[pmi] {'),
+    ('a matrix that stands still summed over one channel less',
+     'crates/oadec-truehd/src/decoder.rs',
+     '''                        } else {
+                            for ch in 0..=mmc {
+                                acc += i64::from(row[ch]) * i64::from(sd.m[pmi][ch]);''',
+     '''                        } else {
+                            for ch in 0..mmc {
+                                acc += i64::from(row[ch]) * i64::from(sd.m[pmi][ch]);'''),
+    ('the delta of the last channel left out of whether a matrix moves',
+     'crates/oadec-truehd/src/decoder.rs',
+     '*moves = deltas[..=max_matrix_chan].iter().any(|&delta| delta != 0);',
+     '*moves = deltas[..max_matrix_chan].iter().any(|&delta| delta != 0);'),
+    ('the last matrix in use never taken for one that moves',
+     'crates/oadec-truehd/src/decoder.rs',
+     'for (moves, deltas) in moving.iter_mut().zip(d).take(matrices) {',
+     'for (moves, deltas) in moving.iter_mut().zip(d).take(matrices.saturating_sub(1)) {'),
+    ('whether a matrix moves asked of the deltas of the matrix after it',
+     'crates/oadec-truehd/src/decoder.rs',
+     'for (moves, deltas) in moving.iter_mut().zip(d).take(matrices) {',
+     'for (moves, deltas) in moving.iter_mut().zip(d.iter().skip(1)).take(matrices) {'),
+    ('a matrix taken to move by a delta that is zero',
+     'crates/oadec-truehd/src/decoder.rs',
+     '*moves = deltas[..=max_matrix_chan].iter().any(|&delta| delta != 0);',
+     '*moves = deltas[..=max_matrix_chan].iter().any(|&delta| delta == 0);'),
     ('the DAMF y coordinate, front and back swapped',
      'crates/oadec-spatial/src/program.rs',
      '    [(p[0] - 0.5) * 2.0, (0.5 - p[1]) * 2.0, p[2]]',
