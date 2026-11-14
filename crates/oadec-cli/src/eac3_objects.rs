@@ -41,6 +41,50 @@ fn to_i24(v: f64) -> i32 {
     (v * 8_388_608.0).round().clamp(-8_388_608.0, 8_388_607.0) as i32
 }
 
+/// Puts the samples of an element on its queue, but for the first `to_drop`
+/// of them, which are the delay of the decoder and are no part of the output.
+fn queue_up(
+    queue: &mut VecDeque<f64>,
+    to_drop: &mut usize,
+    mut samples: impl Iterator<Item = f64>,
+) {
+    while *to_drop > 0 {
+        if samples.next().is_none() {
+            return;
+        }
+        *to_drop -= 1;
+    }
+    queue.extend(samples);
+}
+
+/// Takes `n` rows off the queues into `rows`: a sample of every element in
+/// turn, as 24-bit values. A queue that has run short gives silence for what
+/// it does not have. `rows` is made the size of the rows and keeps what it
+/// has allocated: one buffer serves every frame of a delivery.
+fn rows_off(queues: &mut [VecDeque<f64>], n: usize, rows: &mut Vec<i32>) {
+    let elements = queues.len();
+    rows.clear();
+    rows.resize(n * elements, 0);
+    for (element, queue) in queues.iter_mut().enumerate() {
+        let have = n.min(queue.len());
+        for (row, sample) in rows.chunks_exact_mut(elements).zip(queue.drain(..have)) {
+            row[element] = to_i24(sample);
+        }
+    }
+}
+
+/// The element each of the `objects` JOC objects of a stream is written as,
+/// and none for an object the program does not use.
+fn object_elements(sources: &[Source], objects: usize) -> Vec<Option<usize>> {
+    (0..objects)
+        .map(|object| {
+            sources
+                .iter()
+                .position(|s| matches!(s, Source::Object(o) if *o == object))
+        })
+        .collect()
+}
+
 /// Where each output element comes from.
 #[derive(Debug, Clone, Copy)]
 enum Source {
@@ -57,6 +101,9 @@ struct Pipeline {
     /// Coded channel index of every JOC input channel.
     joc_inputs: Vec<usize>,
     sources: Vec<Source>,
+    /// Per JOC object: the element it is written as, where the program uses
+    /// it.
+    object_element: Vec<Option<usize>>,
     /// Per element: samples waiting to be written, already aligned.
     queues: Vec<VecDeque<f64>>,
     /// Per element: samples still to drop at the start for alignment.
@@ -363,6 +410,7 @@ impl Pipeline {
             )?;
         }
         let elements = sources.len();
+        let object_element = object_elements(&sources, joc.num_objects);
         let carry = carries(joc.dmx_config, joc.num_channels, flat_quadrature, overrides);
         // every stream goes through the filter bank, whether or not it
         // carries a phase shift, because the matrix alignment needs the delay
@@ -384,6 +432,7 @@ impl Pipeline {
             synthesis: (0..joc.num_objects).map(|_| Synthesis::new()).collect(),
             joc_inputs,
             sources,
+            object_element,
             queues: (0..elements).map(|_| VecDeque::new()).collect(),
             to_drop,
             slots_in: vec![[Complex::default(); BANDS]; joc.num_channels],
@@ -398,17 +447,6 @@ impl Pipeline {
             clip_gain: 1.0,
             apply_clip_gain: clip_gain,
         })
-    }
-
-    fn push(&mut self, element: usize, samples: impl Iterator<Item = f64>) {
-        let drop = &mut self.to_drop[element];
-        for s in samples {
-            if *drop > 0 {
-                *drop -= 1;
-            } else {
-                self.queues[element].push_back(s);
-            }
-        }
     }
 
     /// Feeds one frame of core PCM (per coded channel) and its JOC payload.
@@ -441,8 +479,15 @@ impl Pipeline {
             }
             None => self.joc.hold(num_ts),
         }
-        // objects: analysis -> matrix -> synthesis, per time slot
-        let mut object_out: Vec<Vec<f64>> = vec![Vec::with_capacity(samples); self.synthesis.len()];
+        // Clause 6.3.3.2 gives the clip gain and never says what to do with
+        // it. Encoding the same master at two levels shows the encoder
+        // divides the whole downmix, LFE included, by it: the coded core came
+        // out at exactly `scale / joc_clipgain` in every frame. The object
+        // program is therefore restored by multiplying it back, while the
+        // backwards-compatible core stays as coded. See `docs/joc.md`.
+        let g = self.clip_gain;
+        // objects: analysis -> matrix -> synthesis, per time slot, and from
+        // there onto the queue of the element the object is written as
         let mut chunk = [0.0f64; BANDS];
         let mut out = [0.0f64; BANDS];
         for ts in 0..num_ts {
@@ -459,20 +504,22 @@ impl Pipeline {
                 .reconstruct(ts, &self.slots_rot, &mut self.slots_out);
             for (obj, syn) in self.synthesis.iter_mut().enumerate() {
                 syn.step(&self.slots_out[obj], &mut out);
-                object_out[obj].extend_from_slice(&out);
+                if let Some(e) = self.object_element[obj] {
+                    queue_up(
+                        &mut self.queues[e],
+                        &mut self.to_drop[e],
+                        out.iter().map(|&v| v * g),
+                    );
+                }
             }
         }
-        // Clause 6.3.3.2 gives the clip gain and never says what to do with
-        // it. Encoding the same master at two levels shows the encoder
-        // divides the whole downmix, LFE included, by it: the coded core came
-        // out at exactly `scale / joc_clipgain` in every frame. The object
-        // program is therefore restored by multiplying it back, while the
-        // backwards-compatible core stays as coded. See `docs/joc.md`.
-        let g = self.clip_gain;
-        for (e, src) in self.sources.clone().iter().enumerate() {
-            match *src {
-                Source::Core(ch) => self.push(e, pcm[ch].iter().map(|&v| f64::from(v) * g)),
-                Source::Object(o) => self.push(e, object_out[o].iter().map(|&v| v * g)),
+        for (e, source) in self.sources.iter().enumerate() {
+            if let Source::Core(ch) = *source {
+                queue_up(
+                    &mut self.queues[e],
+                    &mut self.to_drop[e],
+                    pcm[ch].iter().map(|&v| f64::from(v) * g),
+                );
             }
         }
         self.frames += 1;
@@ -505,11 +552,7 @@ impl Pipeline {
                 .reconstruct(ts, &self.slots_rot, &mut self.slots_out);
             for (obj, syn) in self.synthesis.iter_mut().enumerate() {
                 syn.step(&self.slots_out[obj], &mut out);
-                let e = self
-                    .sources
-                    .iter()
-                    .position(|s| matches!(s, Source::Object(o) if *o == obj));
-                if let Some(e) = e {
+                if let Some(e) = self.object_element[obj] {
                     self.queues[e].extend(out.iter().copied());
                 }
             }
@@ -522,16 +565,11 @@ impl Pipeline {
         self.queues.iter().map(VecDeque::len).min().unwrap_or(0)
     }
 
-    fn take_rows(&mut self, n: usize) -> Vec<Vec<i32>> {
-        let mut rows = Vec::with_capacity(n);
-        for _ in 0..n {
-            let mut row = Vec::with_capacity(self.queues.len());
-            for q in &mut self.queues {
-                row.push(to_i24(q.pop_front().unwrap_or(0.0)));
-            }
-            rows.push(row);
-        }
-        rows
+    /// Takes `n` rows of the output into `rows`, and says how many elements
+    /// a row has.
+    fn take_rows(&mut self, n: usize, rows: &mut Vec<i32>) -> usize {
+        rows_off(&mut self.queues, n, rows);
+        self.queues.len()
     }
 }
 
@@ -830,6 +868,8 @@ pub fn write(
     let mut frames_without_oamd: u64 = 0;
     let mut rate = 48_000u32;
     let mut rows_written: u64 = 0;
+    // the rows of a frame, in a buffer every frame of the delivery uses
+    let mut rows: Vec<i32> = Vec::new();
 
     let mut handle = |frame: &ProgramFrame| -> Result<()> {
         let frame_index = frame.index;
@@ -996,8 +1036,8 @@ pub fn write(
         core_samples += frame.samples() as u64;
         let n = pl.ready_rows();
         if n > 0 {
-            let rows = pl.take_rows(n);
-            w.write_frames(rows.iter().map(Vec::as_slice), rows[0].len())?;
+            let elements = pl.take_rows(n, &mut rows);
+            w.write_frames(rows.chunks_exact(elements), elements)?;
             rows_written += n as u64;
         }
         Ok(())
@@ -1036,8 +1076,9 @@ pub fn write(
     }
     let mut sink = sink;
     if remaining > 0 {
-        let rows = pl.take_rows(remaining);
-        sink.write_frames(rows.iter().map(Vec::as_slice), rows[0].len())?;
+        let mut rows = Vec::new();
+        let elements = pl.take_rows(remaining, &mut rows);
+        sink.write_frames(rows.chunks_exact(elements), elements)?;
         rows_written += remaining as u64;
     }
     let summary = sink.finish(timeline.events)?;
@@ -1110,6 +1151,184 @@ mod tests {
         out.extend_from_slice(&(body.len() as u16).to_be_bytes());
         out.extend(body);
         out
+    }
+
+    /// The first samples of an element are the delay of the decoder and are
+    /// dropped, however many calls they come in; what follows is queued in
+    /// the order it came.
+    #[test]
+    fn the_samples_of_an_element_are_queued_after_the_delay_is_dropped() {
+        let mut queue = VecDeque::new();
+        let mut to_drop = 5;
+        // fewer than the delay: all dropped, and the delay is that much less
+        queue_up(&mut queue, &mut to_drop, [1.0, 2.0, 3.0].into_iter());
+        assert_eq!((queue.len(), to_drop), (0, 2));
+        // the rest of the delay, and the first samples that are kept
+        queue_up(&mut queue, &mut to_drop, [4.0, 5.0, 6.0, 7.0].into_iter());
+        assert_eq!((Vec::from(queue.clone()), to_drop), (vec![6.0, 7.0], 0));
+        // nothing is dropped after that
+        queue_up(&mut queue, &mut to_drop, [8.0].into_iter());
+        assert_eq!(
+            (Vec::from(queue.clone()), to_drop),
+            (vec![6.0, 7.0, 8.0], 0)
+        );
+        // and nothing queued is nothing changed
+        queue_up(&mut queue, &mut to_drop, std::iter::empty());
+        assert_eq!(queue.len(), 3);
+    }
+
+    /// Rows come off the queues a sample of every element in turn, as 24-bit
+    /// values, rounded and clipped. A queue that has run short gives silence,
+    /// and what was not taken stays for the next call. The buffer is the rows
+    /// it was last asked for, whatever it held.
+    #[test]
+    fn rows_come_off_the_queues_a_sample_of_every_element_in_turn() {
+        let mut queues = vec![
+            VecDeque::from(vec![0.25, 0.5, -1.0, 2.0]),
+            VecDeque::from(vec![-0.25, 1.0 / 16_777_216.0]),
+            VecDeque::from(vec![0.0, 0.0, 0.0, 0.75, 0.125]),
+        ];
+        let mut rows = vec![7; 40];
+        rows_off(&mut queues, 3, &mut rows);
+        assert_eq!(
+            rows,
+            [
+                2_097_152, -2_097_152, 0, // the first sample of each
+                4_194_304, 1, 0, // half a step rounds away from zero
+                -8_388_608, 0, 0, // the second queue has run short
+            ]
+        );
+        assert_eq!(Vec::from(queues[0].clone()), [2.0]);
+        assert!(queues[1].is_empty());
+        assert_eq!(Vec::from(queues[2].clone()), [0.75, 0.125]);
+        // a value beyond full scale is clipped, and fewer rows are fewer values
+        rows_off(&mut queues, 1, &mut rows);
+        assert_eq!(rows, [8_388_607, 0, 6_291_456]);
+        // no rows are no values
+        rows_off(&mut queues, 0, &mut rows);
+        assert!(rows.is_empty());
+        assert_eq!(Vec::from(queues[2].clone()), [0.125]);
+    }
+
+    /// An object is written as the element the program gives it: the beds
+    /// that are not an LFE first, then the objects, in their order, with an
+    /// LFE taken from the core in between. An object the program does not
+    /// use is written nowhere.
+    #[test]
+    fn an_object_is_written_as_the_element_the_program_gives_it() {
+        let sources = [
+            Source::Object(0),
+            Source::Object(1),
+            Source::Core(5),
+            Source::Object(2),
+            Source::Object(3),
+        ];
+        assert_eq!(
+            object_elements(&sources, 6),
+            [Some(0), Some(1), Some(3), Some(4), None, None]
+        );
+        assert_eq!(object_elements(&sources[..0], 2), [None, None]);
+        assert!(object_elements(&sources, 0).is_empty());
+    }
+
+    /// The first `n` frame groups of the committed E-AC-3 fixture, decoded.
+    fn fixture_groups(n: usize) -> Vec<ProgramFrame> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/authored-scene.ec3"
+        );
+        let source = crate::source::Source::file(Path::new(path));
+        let mut decoder = ProgramDecoder::new(oadec_eac3::Options::default());
+        let mut groups = Vec::new();
+        for_each_frame(&source, |_, bytes, header| {
+            decoder.push(bytes, header)?;
+            while let Some(group) = decoder.pop() {
+                if groups.len() < n {
+                    groups.push(group);
+                }
+            }
+            Ok(())
+        })
+        .expect("the fixture");
+        groups
+    }
+
+    /// The clip gain a JOC payload carries is what the encoder divided the
+    /// downmix by, the LFE with it, and it is put back into everything the
+    /// object path writes: every sample of every object and of the LFE is
+    /// that many times what it is without it. Switched off, the gain of the
+    /// payload changes nothing.
+    #[test]
+    fn the_clip_gain_of_a_payload_is_put_back_into_the_objects_and_the_lfe() {
+        let groups = fixture_groups(6);
+        let payloads = |group: &ProgramFrame| {
+            frame_payloads(
+                &group.metadata_part().decoded.skip_fields,
+                SparseReading::Measured,
+                true,
+            )
+        };
+        let first = payloads(&groups[0]);
+        let header = first.joc.as_ref().expect("a JOC payload").header();
+        let program = Program::from_oamd(&first.oamd[0].0);
+        let pipeline = |clip_gain: bool| {
+            Pipeline::new(
+                &header,
+                &program,
+                &groups[0].layout.channels,
+                clip_gain,
+                false,
+                SteepReading::Measured,
+                &JocOverrides::default(),
+                &mut std::io::sink(),
+            )
+            .expect("a pipeline")
+        };
+        let (mut plain, mut gained, mut switched_off) =
+            (pipeline(true), pipeline(true), pipeline(false));
+        for group in &groups {
+            let joc = payloads(group).joc.expect("a JOC payload");
+            assert!((joc.clipgain - 1.0).abs() < 1e-12);
+            let louder = Joc {
+                clipgain: 1.5,
+                ..joc.clone()
+            };
+            // the LFE of the fixture is silent: a ramp stands in for it
+            let lfe = group
+                .layout
+                .channels
+                .iter()
+                .position(|c| *c == ChannelLoc::Lfe)
+                .expect("an LFE");
+            let ramp: Vec<f32> = (0..group.samples())
+                .map(|i| (i as f32 - 700.0) / 4096.0)
+                .collect();
+            let channels: Vec<&[f32]> = (0..group.channels())
+                .map(|i| {
+                    if i == lfe {
+                        &ramp[..]
+                    } else {
+                        group.channel(i)
+                    }
+                })
+                .collect();
+            plain.frame(&channels, Some(&joc));
+            gained.frame(&channels, Some(&louder));
+            switched_off.frame(&channels, Some(&louder));
+        }
+        // an object and a channel of the core both carry signal
+        let mut loud = [false, false];
+        for (e, (with, without)) in gained.queues.iter().zip(&plain.queues).enumerate() {
+            assert_eq!(with.len(), without.len(), "element {e}");
+            assert!(with.len() > 4000, "element {e}: {} samples", with.len());
+            for (n, (a, b)) in with.iter().zip(without).enumerate() {
+                assert_eq!(*a, *b * 1.5, "element {e}, sample {n}");
+            }
+            let of_the_core = matches!(plain.sources[e], Source::Core(_));
+            loud[usize::from(of_the_core)] |= without.iter().any(|v| *v != 0.0);
+        }
+        assert_eq!(loud, [true, true]);
+        assert_eq!(switched_off.queues, plain.queues);
     }
 
     /// The object path loses a frame's metadata when the substream declares the
