@@ -468,6 +468,19 @@ Semantic Versioning.
 
 ### Changed
 
+- **The filter banks of JOC keep their real and imaginary parts apart.** The
+  analysis bank of every coded channel and the synthesis bank of every object
+  run an inverse DFT of 128 points a time slot, which was written the way the
+  one of the AC-3 transform was. With the real parts in one array and the
+  imaginary parts in another, a table of twiddles for every stage and the
+  values put straight into their places, a bank takes 58 per cent of the time
+  it took, inside one binary, and a delivery of objects (`decode --format
+  damf`, `--format adm`) 82 to 83 per cent, on one stream of each kind of JOC
+  stream in the corpus. Every operation on every value is what it was: a test
+  holds both banks to the clause computed the plain way, bit for bit, and the
+  audio of every object delivery of the corpus is the same byte for byte
+  (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/44-the-filter-banks-of-joc-real-and-imaginary-apart.json`).
 - **The inverse transform of the AC-3 family keeps its real and imaginary
   parts apart.** The transform is 44 to 48 per cent of a decode of this
   family. Its inverse FFT had a complex value for every element, in a slice

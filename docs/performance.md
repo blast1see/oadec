@@ -179,7 +179,9 @@ filter bank a frame, which alone would hold the whole to about 77 times real
 time: a third to a little over a half of what an object format took. This
 paragraph used to say 37 and 39 microseconds, 0.85 ms and 38 times, and so
 that the filter banks were all of it. Those were the figures of a slow core.
-Where the rest of the object path goes has not been measured.
+Where the rest of the object path goes has not been measured. (The banks take
+58 per cent of that now: see "The filter banks of JOC: real and imaginary
+parts apart" below.)
 
 **`verify --decode` is the sum of its presentations**, 30 to 131 times real
 time, because it decodes them one after another. (It no longer is: see
@@ -683,6 +685,50 @@ baseline had it at 4.7 to 6.8 times on E-AC-3.
 Nothing a command writes has changed: every delivery of every stream of the
 corpus is the same byte for byte, and the campaign of 200 000 damaged streams
 gives the answers it gave.
+
+### The filter banks of JOC: real and imaginary parts apart
+
+The baseline has objects out of JOC at three to four times the cost of the
+channels under them, and the filter banks as the part of that which is known:
+an analysis bank for every coded channel and a synthesis bank for every
+object, each with an inverse DFT of 128 points a time slot. Those inverse DFTs
+were written the way the one of the AC-3 transform was, a complex value for
+every element and one table of twiddles for all the stages. They were given
+what that one was given in the section above: the real parts in one array and
+the imaginary parts in another, a table for every stage, the values put
+straight into their bit-reversed places.
+
+Inside one binary, a kernel for each bank each way, bound to the fast cores
+(`docs/audit/evidence/engine-round-2026-11/44-the-filter-banks-of-joc-real-and-imaginary-apart.json`):
+
+| | µs a frame, as it was | the parts apart | of the time, per cent |
+|---|---:|---:|---:|
+| the analysis bank, one channel | 18.56 | 10.74 | 57.9 |
+| the synthesis bank, one object | 19.73 | 11.37 | 57.6 |
+
+Sixteen objects over a 5.1 core were 0.41 ms of filter bank a frame, and are
+0.24.
+
+A delivery of objects (`decode --format damf`) from one stream of each kind of
+JOC stream the corpus has, the binary of `main` and the binary of the change
+turn and turn about, five runs each bound to the fast cores:
+
+| | × real time, before | after | of the time, per cent |
+|---|---:|---:|---:|
+| 11 objects over 5.1, 12 parameter bands | 45.6 | 56.0 | 81.5 |
+| 15 objects over 5.1, 12 parameter bands | 36.1 | 43.8 | 82.4 |
+| 15 objects over 7.1, 15 parameter bands | 31.6 | 38.1 | 83.0 |
+
+`tools/bench.py --compare` has the object formats of its two JOC streams at 82
+to 83 per cent, and nothing else moved: 5 of 33 commands faster, none slower.
+
+The samples are the same to the last bit. A test holds both banks to the
+clause computed the plain way, one complex value at a time, over a signal,
+zeros of either sign and the smallest numbers there are; and the audio of
+every object delivery of the corpus is the same byte for byte.
+
+What a delivery of objects is made of beyond the banks has still not been
+measured. The banks were its largest known part, and they are smaller now.
 
 ## What it does not say
 

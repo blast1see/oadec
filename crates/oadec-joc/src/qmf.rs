@@ -62,60 +62,78 @@ impl Complex {
             im: self.re * o.im + self.im * o.re,
         }
     }
-
-    #[inline]
-    fn minus(self, o: Self) -> Self {
-        Self {
-            re: self.re - o.re,
-            im: self.im - o.im,
-        }
-    }
 }
 
-/// Radix-2 complex inverse DFT (positive exponent, no scaling) of 128 points.
+/// Radix-2 complex inverse DFT (positive exponent, no scaling) of 128 points,
+/// over values whose real and imaginary parts are held apart.
+///
+/// Held apart because that is what was measured to be fast, here as in the
+/// inverse transform of the AC-3 family, and for no better reason that is
+/// known (`docs/performance.md`). What is computed for each value is what it
+/// was, operation for operation: no sample moves by a bit.
 #[derive(Debug, Clone)]
 struct Idft128 {
-    twiddles: [Complex; 64],
-    rev: [u8; 128],
+    /// Where the bit-reversal that opens the transform puts each value.
+    rev: [usize; 128],
+    /// The twiddles of the stage of two points, then of the stage of four,
+    /// and so on, in a row: 127 of them.
+    stage_re: [f64; 128],
+    stage_im: [f64; 128],
 }
 
 impl Idft128 {
     fn new() -> Self {
-        let mut twiddles = [Complex::default(); 64];
-        for (k, t) in twiddles.iter_mut().enumerate() {
-            let a = 2.0 * PI * k as f64 / 128.0;
-            *t = Complex {
-                re: a.cos(),
-                im: a.sin(),
-            };
-        }
-        let mut rev = [0u8; 128];
-        for (i, r) in rev.iter_mut().enumerate() {
-            *r = (i as u8).reverse_bits() >> 1;
-        }
-        Self { twiddles, rev }
-    }
-
-    fn run(&self, data: &mut [Complex; 128]) {
-        for i in 0..128 {
-            let j = usize::from(self.rev[i]);
-            if j > i {
-                data.swap(i, j);
-            }
-        }
+        let mut stage_re = [0.0; 128];
+        let mut stage_im = [0.0; 128];
+        let mut at = 0;
         let mut len = 2;
         while len <= 128 {
             let step = 128 / len;
-            for start in (0..128).step_by(len) {
-                for k in 0..len / 2 {
-                    let w = self.twiddles[k * step];
-                    let a = data[start + k];
-                    let b = data[start + k + len / 2].times(w);
-                    data[start + k] = a.plus(b);
-                    data[start + k + len / 2] = a.minus(b);
-                }
+            for k in 0..len / 2 {
+                let a = 2.0 * PI * (k * step) as f64 / 128.0;
+                stage_re[at] = a.cos();
+                stage_im[at] = a.sin();
+                at += 1;
             }
             len *= 2;
+        }
+        Self {
+            rev: core::array::from_fn(|i| usize::from((i as u8).reverse_bits() >> 1)),
+            stage_re,
+            stage_im,
+        }
+    }
+
+    /// The stages of the transform, over values that are already where the
+    /// bit-reversal puts them: value `k` at `rev[k]`.
+    fn stages(&self, re: &mut [f64; 128], im: &mut [f64; 128]) {
+        let mut at = 0;
+        let mut half = 1;
+        while half < 128 {
+            let twiddle_re = &self.stage_re[at..at + half];
+            let twiddle_im = &self.stage_im[at..at + half];
+            for (re, im) in re
+                .chunks_exact_mut(2 * half)
+                .zip(im.chunks_exact_mut(2 * half))
+            {
+                let (low_re, high_re) = re.split_at_mut(half);
+                let (low_im, high_im) = im.split_at_mut(half);
+                let low = low_re.iter_mut().zip(low_im);
+                let high = high_re.iter_mut().zip(high_im);
+                let twiddles = twiddle_re.iter().zip(twiddle_im);
+                for (((ar, ai), (br, bi)), (wr, wi)) in low.zip(high).zip(twiddles) {
+                    // b times the twiddle: (br + j bi)(wr + j wi)
+                    let tr = *br * wr - *bi * wi;
+                    let ti = *br * wi + *bi * wr;
+                    let (xr, xi) = (*ar, *ai);
+                    *ar = xr + tr;
+                    *ai = xi + ti;
+                    *br = xr - tr;
+                    *bi = xi - ti;
+                }
+            }
+            at += half;
+            half *= 2;
         }
     }
 }
@@ -179,21 +197,27 @@ impl Analysis {
         for j in 0..BANDS {
             self.buf[j] = pcm[BANDS - 1 - j];
         }
-        // 3./4. window and fold to 128 values, with the half-band pre-twist
-        let mut v = [Complex::default(); 128];
-        for (j, vj) in v.iter_mut().enumerate() {
+        // 3./4. window and fold to 128 values, with the half-band pre-twist,
+        // each put where the inverse DFT begins with it
+        let mut re = [0.0f64; 128];
+        let mut im = [0.0f64; 128];
+        for (j, (pre, &to)) in self.pre.iter().zip(&self.idft.rev).enumerate() {
             let mut acc = 0.0;
             let mut k = j;
             while k < LENGTH {
                 acc += self.buf[k] * QWIN[k];
                 k += 2 * BANDS;
             }
-            *vj = self.pre[j].scale(acc);
+            re[to] = pre.re * acc;
+            im[to] = pre.im * acc;
         }
         // 5. modulate: exp(i pi sb (j - 1/2) / 64) = exp(2 pi i sb j / 128) exp(-i pi sb / 128)
-        self.idft.run(&mut v);
-        for (sb, o) in out.iter_mut().enumerate() {
-            *o = v[sb].times(self.post[sb]);
+        self.idft.stages(&mut re, &mut im);
+        for (((o, post), re), im) in out.iter_mut().zip(&self.post).zip(&re).zip(&im) {
+            *o = Complex {
+                re: re * post.re - im * post.im,
+                im: re * post.im + im * post.re,
+            };
         }
     }
 }
@@ -253,15 +277,22 @@ impl Synthesis {
     pub fn step(&mut self, q: &[Complex; BANDS], pcm: &mut [f64; BANDS]) {
         // 1. shift by 2n
         self.buf.copy_within(0..2 * LENGTH - 2 * BANDS, 2 * BANDS);
-        // 2. 128 new values through the inverse DFT
-        let mut v = [Complex::default(); 128];
-        for (sb, (vv, qq)) in v.iter_mut().zip(q.iter()).enumerate() {
-            *vv = qq.times(self.pre[sb]);
+        // 2. 128 new values through the inverse DFT: the 64 subbands, each
+        // put where the transform begins with it, and 64 zeros
+        let mut re = [0.0f64; 128];
+        let mut im = [0.0f64; 128];
+        for ((qq, pre), &to) in q.iter().zip(&self.pre).zip(&self.idft.rev) {
+            re[to] = qq.re * pre.re - qq.im * pre.im;
+            im[to] = qq.re * pre.im + qq.im * pre.re;
         }
-        self.idft.run(&mut v);
-        for (j, b) in self.buf[..2 * BANDS].iter_mut().enumerate() {
-            let t = v[j].times(self.post[j]);
-            *b = t.re;
+        self.idft.stages(&mut re, &mut im);
+        for (((b, post), re), im) in self.buf[..2 * BANDS]
+            .iter_mut()
+            .zip(&self.post)
+            .zip(&re)
+            .zip(&im)
+        {
+            *b = re * post.re - im * post.im;
         }
         // 3./4. gather and window
         let mut w = [0.0f64; LENGTH];
@@ -339,14 +370,12 @@ mod tests {
         }
         assert!(worst < 1e-10, "FFT versus direct modulation: {worst:e}");
         // synthesis: direct real sum of clause 7.3 with the matrix-equation phase
-        let syn = Synthesis::new();
-        let mut v = [Complex::default(); 128];
-        for (sb, (vv, qq)) in v.iter_mut().zip(slot.iter()).enumerate() {
-            *vv = qq.times(syn.pre[sb]);
-        }
-        syn.idft.run(&mut v);
+        // of the values a step puts at the head of its history
+        let mut syn = Synthesis::new();
+        let mut out = [0.0f64; BANDS];
+        syn.step(&slot, &mut out);
         for j in 0..128 {
-            let fast = v[j].times(syn.post[j]).re;
+            let fast = syn.buf[j];
             let mut direct = 0.0;
             for (sb, qq) in slot.iter().enumerate() {
                 let a = PI / (4.0 * BANDS as f64)
@@ -358,6 +387,181 @@ mod tests {
                 (fast - direct).abs() < 1e-10,
                 "synthesis j {j}: {fast} vs {direct}"
             );
+        }
+    }
+
+    impl Complex {
+        fn minus(self, o: Self) -> Self {
+            Self {
+                re: self.re - o.re,
+                im: self.im - o.im,
+            }
+        }
+    }
+
+    /// The inverse DFT of 128 points the plain way: one complex value at a
+    /// time, the values swapped into bit-reversed order, a twiddle computed
+    /// where it is used.
+    fn plain_idft(data: &mut [Complex; 128]) {
+        for i in 0..128usize {
+            let j = usize::from((i as u8).reverse_bits() >> 1);
+            if j > i {
+                data.swap(i, j);
+            }
+        }
+        let mut len = 2;
+        while len <= 128 {
+            let step = 128 / len;
+            for start in (0..128).step_by(len) {
+                for k in 0..len / 2 {
+                    let a = 2.0 * PI * (k * step) as f64 / 128.0;
+                    let w = Complex {
+                        re: a.cos(),
+                        im: a.sin(),
+                    };
+                    let x = data[start + k];
+                    let b = data[start + k + len / 2].times(w);
+                    data[start + k] = x.plus(b);
+                    data[start + k + len / 2] = x.minus(b);
+                }
+            }
+            len *= 2;
+        }
+    }
+
+    /// `exp(i a)`.
+    fn turn(a: f64) -> Complex {
+        Complex {
+            re: a.cos(),
+            im: a.sin(),
+        }
+    }
+
+    /// The analysis bank of clause 7.2 the plain way, with its own history.
+    struct PlainAnalysis {
+        buf: [f64; LENGTH],
+    }
+
+    impl PlainAnalysis {
+        fn step(&mut self, pcm: &[f64; BANDS]) -> [Complex; BANDS] {
+            self.buf.copy_within(0..LENGTH - BANDS, BANDS);
+            for j in 0..BANDS {
+                self.buf[j] = pcm[BANDS - 1 - j];
+            }
+            let mut v = [Complex::default(); 128];
+            for (j, vj) in v.iter_mut().enumerate() {
+                let mut acc = 0.0;
+                let mut k = j;
+                while k < LENGTH {
+                    acc += self.buf[k] * QWIN[k];
+                    k += 2 * BANDS;
+                }
+                *vj = turn(PI * (j as f64 - 0.5) / 128.0).scale(acc);
+            }
+            plain_idft(&mut v);
+            core::array::from_fn(|sb| v[sb].times(turn(-PI * sb as f64 / 128.0)))
+        }
+    }
+
+    /// The synthesis bank of clause 7.3 the plain way, with its own history.
+    struct PlainSynthesis {
+        buf: [f64; 2 * LENGTH],
+    }
+
+    impl PlainSynthesis {
+        fn step(&mut self, q: &[Complex; BANDS]) -> [f64; BANDS] {
+            self.buf.copy_within(0..2 * LENGTH - 2 * BANDS, 2 * BANDS);
+            let mut v = [Complex::default(); 128];
+            for (sb, (vv, qq)) in v.iter_mut().zip(q.iter()).enumerate() {
+                *vv = qq.times(turn(-PI * 255.0 * sb as f64 / 128.0));
+            }
+            plain_idft(&mut v);
+            for (j, b) in self.buf[..2 * BANDS].iter_mut().enumerate() {
+                let a = PI * (2.0 * j as f64 - 255.0) / 256.0;
+                let post = Complex {
+                    re: a.cos() / BANDS as f64,
+                    im: a.sin() / BANDS as f64,
+                };
+                *b = v[j].times(post).re;
+            }
+            let mut w = [0.0f64; LENGTH];
+            for j in 0..LENGTH / (2 * BANDS) {
+                for sb in 0..BANDS {
+                    w[2 * BANDS * j + sb] = self.buf[4 * BANDS * j + sb] * QWIN[2 * BANDS * j + sb];
+                    w[2 * BANDS * j + BANDS + sb] =
+                        self.buf[4 * BANDS * j + 3 * BANDS + sb] * QWIN[2 * BANDS * j + BANDS + sb];
+                }
+            }
+            core::array::from_fn(|ts| {
+                let mut acc = 0.0;
+                for j in 0..LENGTH / BANDS {
+                    acc += w[BANDS * j + ts];
+                }
+                acc
+            })
+        }
+    }
+
+    /// Slots of samples a bank meets and slots it does not: a signal, zeros
+    /// of either sign, the smallest numbers there are among them, and a
+    /// signal again, so that a history of each meets the next.
+    fn slots() -> Vec<[f64; BANDS]> {
+        let signal = test_signal(64 * 40);
+        let least = f64::from_bits(1);
+        let mut slots: Vec<[f64; BANDS]> = Vec::new();
+        for chunk in signal.chunks(BANDS).take(20) {
+            slots.push(core::array::from_fn(|i| chunk[i]));
+        }
+        for kind in 0..24usize {
+            slots.push(core::array::from_fn(|i| match (kind % 4, (i + kind) % 3) {
+                (0, _) => 0.0,
+                (1, _) => -0.0,
+                (2, 0) => least,
+                (2, 1) => -least,
+                (3, 0) => -0.0,
+                (3, 1) => least,
+                _ => 0.0,
+            }));
+        }
+        for chunk in signal.chunks(BANDS).skip(20) {
+            slots.push(core::array::from_fn(|i| chunk[i]));
+        }
+        slots
+    }
+
+    /// However the banks lay their numbers out, what they compute is the
+    /// clause computed the plain way, to the last bit and to the sign of a
+    /// zero: every subband of every slot of the analysis, and every sample
+    /// the synthesis makes of them.
+    #[test]
+    fn the_banks_are_the_plain_ones_bit_for_bit() {
+        let mut analysis = Analysis::new();
+        let mut synthesis = Synthesis::new();
+        let mut plain_analysis = PlainAnalysis { buf: [0.0; LENGTH] };
+        let mut plain_synthesis = PlainSynthesis {
+            buf: [0.0; 2 * LENGTH],
+        };
+        let mut bands = [Complex::default(); BANDS];
+        let mut pcm = [0.0f64; BANDS];
+        for (n, slot) in slots().iter().enumerate() {
+            analysis.step(slot, &mut bands);
+            let plain = plain_analysis.step(slot);
+            for (sb, (got, want)) in bands.iter().zip(&plain).enumerate() {
+                assert_eq!(
+                    (got.re.to_bits(), got.im.to_bits()),
+                    (want.re.to_bits(), want.im.to_bits()),
+                    "slot {n}, subband {sb}: {got:?} for {want:?}"
+                );
+            }
+            synthesis.step(&bands, &mut pcm);
+            let plain = plain_synthesis.step(&plain);
+            for (ts, (got, want)) in pcm.iter().zip(&plain).enumerate() {
+                assert_eq!(
+                    got.to_bits(),
+                    want.to_bits(),
+                    "slot {n}, sample {ts}: {got:e} for {want:e}"
+                );
+            }
         }
     }
 
