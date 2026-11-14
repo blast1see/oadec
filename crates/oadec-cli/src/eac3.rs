@@ -272,6 +272,27 @@ fn output_order(chans: &[ChannelLoc], order: Order) -> Vec<usize> {
     idx
 }
 
+/// The samples of a frame as the bytes of a delivery: a sample of every
+/// channel in turn, in `order`, each a 32-bit float with its low byte first.
+///
+/// `bytes` is made the size of the frame and every byte of it is written, so
+/// it can be the buffer of the frame before and is allocated once.
+fn interleave(bytes: &mut Vec<u8>, pcm: &[&[f32]], order: &[usize], samples: usize) {
+    let channels = order.len();
+    bytes.resize(samples * channels * 4, 0);
+    // A channel at a time: one run through the samples of a channel and one
+    // through the buffer, with nothing to grow and no length to keep. Pushed
+    // onto a vector a sample of every channel at a time, the same samples
+    // took a tenth longer to deliver in one build than in the next, with not
+    // a line of the loop changed.
+    for (at, &ch) in order.iter().enumerate() {
+        let slots = bytes.chunks_exact_mut(channels * 4);
+        for (slot, sample) in slots.zip(&pcm[ch][..samples]) {
+            slot[at * 4..at * 4 + 4].copy_from_slice(&sample.to_le_bytes());
+        }
+    }
+}
+
 /// WAVE channel mask bits in WAVE order.
 ///
 /// Zero when the programme holds a location WAVE cannot name (the
@@ -2335,6 +2356,8 @@ pub fn decode_into(
     let started = Instant::now();
     let mut header_written = false;
     let mut order: Vec<usize> = Vec::new();
+    // the bytes of a frame, in a buffer every frame of the delivery uses
+    let mut bytes: Vec<u8> = Vec::new();
     let (p, sync_errors, skipped) = pass(
         source,
         Options {
@@ -2362,15 +2385,8 @@ pub fn decode_into(
                 })?;
                 header_written = true;
             }
-            let n = frame.samples();
-            let ordered: Vec<&[f32]> = order.iter().map(|&ch| pcm[ch]).collect();
-            let mut buf = Vec::with_capacity(n * ordered.len() * 4);
-            for i in 0..n {
-                for c in &ordered {
-                    buf.extend_from_slice(&c[i].to_le_bytes());
-                }
-            }
-            sink.write(&buf)?;
+            interleave(&mut bytes, &pcm, &order, frame.samples());
+            sink.write(&bytes)?;
             Ok(())
         },
     )?;
@@ -3128,6 +3144,46 @@ mod tests {
         at = 5;
         assert!(!fill(&mut buf, &mut at, &mut from, 100).unwrap());
         assert_eq!((buf.as_slice(), at), (&[][..], 0));
+    }
+
+    /// The bytes of a delivery: a sample of every channel in turn, in the
+    /// order asked for, each a 32-bit float with its low byte first. The
+    /// buffer is the frame it was last given, whatever it held before.
+    #[test]
+    fn the_bytes_of_a_frame_are_a_sample_of_every_channel_in_turn() {
+        let channels: [&[f32]; 3] = [
+            &[1.0, 2.0, 3.0],
+            &[10.0, 20.0, 30.0],
+            &[100.0, 200.0, 300.0],
+        ];
+        let floats = |bytes: &[u8]| -> Vec<f32> {
+            let (floats, rest) = bytes.as_chunks::<4>();
+            assert!(rest.is_empty());
+            floats.iter().map(|b| f32::from_le_bytes(*b)).collect()
+        };
+        let mut bytes = Vec::new();
+        interleave(&mut bytes, &channels, &[2, 0, 1], 3);
+        assert_eq!(
+            floats(&bytes),
+            [100.0, 1.0, 10.0, 200.0, 2.0, 20.0, 300.0, 3.0, 30.0]
+        );
+        // a shorter frame of fewer channels, in the buffer of the longer one
+        interleave(&mut bytes, &channels, &[1, 0], 2);
+        assert_eq!(floats(&bytes), [10.0, 1.0, 20.0, 2.0]);
+        // and a longer one again: nothing of either is left in it
+        interleave(&mut bytes, &channels, &[0, 1, 2], 3);
+        assert_eq!(
+            floats(&bytes),
+            [1.0, 10.0, 100.0, 2.0, 20.0, 200.0, 3.0, 30.0, 300.0]
+        );
+        // no channels, and no samples, are no bytes
+        interleave(&mut bytes, &channels, &[], 3);
+        assert!(bytes.is_empty());
+        interleave(&mut bytes, &channels, &[0], 0);
+        assert!(bytes.is_empty());
+        // the low byte first
+        interleave(&mut bytes, &channels, &[0], 1);
+        assert_eq!(bytes, [0x00, 0x00, 0x80, 0x3f]);
     }
 
     /// The record of a block is made where it is asked for and nowhere else,

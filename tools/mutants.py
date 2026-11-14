@@ -340,6 +340,26 @@ MUTANTS = [
      'crates/oadec-truehd/src/decoder.rs',
      '*moves = deltas[..=max_matrix_chan].iter().any(|&delta| delta != 0);',
      '*moves = deltas[..=max_matrix_chan].iter().any(|&delta| delta == 0);'),
+    ('every channel of a delivery written where the first one is',
+     'crates/oadec-cli/src/eac3.rs',
+     'slot[at * 4..at * 4 + 4].copy_from_slice(&sample.to_le_bytes());',
+     'slot[..4].copy_from_slice(&sample.to_le_bytes());'),
+    ('the samples of a delivery with their high byte first',
+     'crates/oadec-cli/src/eac3.rs',
+     'slot[at * 4..at * 4 + 4].copy_from_slice(&sample.to_le_bytes());',
+     'slot[at * 4..at * 4 + 4].copy_from_slice(&sample.to_be_bytes());'),
+    ('the channels of a delivery in the order of the stream whatever was asked',
+     'crates/oadec-cli/src/eac3.rs',
+     '''        let slots = bytes.chunks_exact_mut(channels * 4);
+        for (slot, sample) in slots.zip(&pcm[ch][..samples]) {''',
+     '''        let slots = bytes.chunks_exact_mut(channels * 4);
+        for (slot, sample) in slots.zip(&pcm[at][..samples]) {'''),
+    ('a frame of a delivery keeping the bytes of a longer frame before it',
+     'crates/oadec-cli/src/eac3.rs',
+     '    bytes.resize(samples * channels * 4, 0);',
+     '''    if bytes.len() < samples * channels * 4 {
+        bytes.resize(samples * channels * 4, 0);
+    }'''),
     ('the DAMF y coordinate, front and back swapped',
      'crates/oadec-spatial/src/program.rs',
      '    [(p[0] - 0.5) * 2.0, (0.5 - p[1]) * 2.0, p[2]]',
