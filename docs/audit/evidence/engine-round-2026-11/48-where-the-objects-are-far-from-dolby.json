@@ -1,0 +1,3524 @@
+{
+ "question": "Where does the distance of our JOC objects to the objects of Dolby's decoder lie, and of what kind is it?",
+ "method": "Every E-AC-3 track of a library of films that carries JOC, forty seconds of it from ten minutes in, cut out as it is (`ffmpeg -c copy`). Dolby's decoder wrote its objects (`dlbac3dec out-ch-config=21`, `docs/dolby-tools.md`): it is run as it stands and only what it writes is read. This decoder wrote its own (`decode --format damf --no-bed-conform`), with its dither and without it (`--no-dither`). `tools/joc_bands.py` compared the two object by object: the signal-to-noise ratio in 64 bands of 375 Hz, the same after the best linear fit, and the fit itself. An object under -70 dBFS is not counted: it is the noise of two decoders. A track is named by a number. The films are not in the repository.",
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "result": {
+  "the_tool_against_signals_whose_answer_is_known": {
+   "a copy, the reference 100 samples late": {
+    "lag_samples": 100,
+    "snr_db": null,
+    "expected": "a lag of 100 and no difference at all"
+   },
+   "ours at half the level": {
+    "snr_db": 6.02,
+    "snr_after_a_filter_db": 175.03,
+    "gain_db": 6.02,
+    "phase_degrees": -0.0,
+    "expected": "a ratio of 6.02 dB, nothing left after the fit, a gain of 6.02 dB and no phase"
+   },
+   "ours through a filter of three taps": {
+    "snr_db": 10.84,
+    "snr_after_a_filter_db": 86.51,
+    "expected": "a low ratio, and a high one after the fit"
+   },
+   "ours with a noise of its own 30 dB down": {
+    "snr_db": 29.99,
+    "snr_after_a_filter_db": 30.09,
+    "expected": "30 dB before the fit and after it"
+   },
+   "ours with a noise below 300 Hz": {
+    "of_the_difference_in_the_lowest_band": 1.0,
+    "snr_lowest_band_db": 1.86,
+    "snr_next_band_db": 74.16,
+    "expected": "all of the difference in the lowest band, and no difference in the next"
+   },
+   "a channel of ours made mostly of another": {
+    "largest_difference_of_a_pair_lowest_band": 0.9886,
+    "the_same_on_a_copy": 0.0,
+    "expected": "a large difference of the correlation of a pair, and none on a copy"
+   },
+   "a channel of ours a quarter turn behind at every frequency": {
+    "lag_samples": 0,
+    "snr_db": -3.01,
+    "snr_after_a_filter_db": 49.95,
+    "snr_after_a_filter_lowest_band_db": 93.07,
+    "phase_degrees_lowest_band": 90.0,
+    "phase_degrees_band_20": 90.0,
+    "gain_db_lowest_band": -0.0,
+    "expected": "no lag, a ratio of -3.01 dB, a high one after the fit in the lowest band as in all of it, and a fit of +90 degrees and no gain, which turns ours onto the reference"
+   }
+  },
+  "the_library": {
+   "films_read": 546,
+   "tracks_with_joc": 129,
+   "by_downmix_configuration": {
+    "[3]": 122,
+    "[4]": 5,
+    "[0]": 2
+   },
+   "tracks_measured": 127,
+   "not_measured": [
+    {
+     "track": 71,
+     "downmix_configuration": [
+      0
+     ],
+     "parameter_bands": [
+      12
+     ],
+     "steep_updates": true,
+     "why": "Dolby's decoder wrote six channels and no objects"
+    },
+    {
+     "track": 105,
+     "downmix_configuration": [
+      0
+     ],
+     "parameter_bands": [
+      12
+     ],
+     "steep_updates": true,
+     "why": "Dolby's decoder wrote six channels and no objects"
+    }
+   ]
+  },
+  "over_the_tracks": {
+   "tracks_with_signal_in_the_lowest_band": 127,
+   "snr_of_the_lowest_band_db": {
+    "least": 29.4,
+    "first_quarter": 47.5,
+    "median": 55.9,
+    "third_quarter": 62.2,
+    "most": 138.4
+   },
+   "snr_of_bands_1_to_23_db": {
+    "least": 26.2,
+    "first_quarter": 58.1,
+    "median": 71.4,
+    "third_quarter": 82.3,
+    "most": 111.5
+   },
+   "the_lowest_band_short_of_them_by_db": {
+    "least": -73.0,
+    "first_quarter": 0.1,
+    "median": 13.8,
+    "third_quarter": 21.2,
+    "most": 50.8
+   },
+   "tracks_where_it_is_short_by_more_than_10_db": 71,
+   "tracks_where_it_is_short_by_more_than_20_db": 36,
+   "tracks_where_it_is_not_short": 32,
+   "what_the_best_filter_on_an_object_gains_in_the_lowest_band_db": {
+    "least": -0.7,
+    "first_quarter": 0.7,
+    "median": 1.9,
+    "third_quarter": 5.9,
+    "most": 18.7
+   },
+   "what_leaving_our_dither_out_gains_over_the_whole_band_db": {
+    "least": 0.0,
+    "first_quarter": 1.0,
+    "median": 2.2,
+    "third_quarter": 2.9,
+    "most": 3.1
+   }
+  },
+  "the_lfe_beside_the_objects": {
+   "how": "the LFE of a track comes of the core decode and goes through no matrix and no filter of JOC; its ratio in the lowest band, on the tracks where it is over -70 dBFS, beside that of every object that is",
+   "lfe_channels": 74,
+   "snr_of_the_lowest_band_db": {
+    "least": 42.9,
+    "first_quarter": 100.5,
+    "median": 115.9,
+    "third_quarter": 127.5,
+    "most": 142.1
+   },
+   "objects": 1080,
+   "objects_snr_of_the_lowest_band_db": {
+    "least": 19.1,
+    "first_quarter": 45.6,
+    "median": 54.8,
+    "third_quarter": 66.3,
+    "most": 142.8
+   }
+  },
+  "below_750_hz": {
+   "how": "the ratio in steps of 11,7 Hz, the median over every object with signal in the lowest band, of every track",
+   "snr_db_by_hz": {
+    "5.9": 27.9,
+    "17.6": 34.0,
+    "29.3": 40.6,
+    "41.0": 45.6,
+    "52.7": 48.5,
+    "64.5": 47.2,
+    "76.2": 53.8,
+    "87.9": 54.2,
+    "99.6": 59.5,
+    "111.3": 59.6,
+    "123.0": 59.2,
+    "134.8": 60.6,
+    "146.5": 61.9,
+    "158.2": 62.6,
+    "169.9": 64.4,
+    "181.6": 61.1,
+    "193.4": 63.9,
+    "205.1": 62.2,
+    "216.8": 63.4,
+    "228.5": 62.6,
+    "240.2": 62.0,
+    "252.0": 63.3,
+    "263.7": 61.7,
+    "275.4": 64.3,
+    "287.1": 64.3,
+    "298.8": 64.3,
+    "310.5": 63.7,
+    "322.3": 63.9,
+    "334.0": 63.8,
+    "345.7": 60.5,
+    "357.4": 63.9,
+    "369.1": 60.9,
+    "380.9": 65.2,
+    "392.6": 68.6,
+    "404.3": 68.1,
+    "416.0": 69.7,
+    "427.7": 69.3,
+    "439.5": 70.0,
+    "451.2": 69.3,
+    "462.9": 72.5,
+    "474.6": 72.7,
+    "486.3": 76.6,
+    "498.0": 79.8,
+    "509.8": 78.7,
+    "521.5": 84.0,
+    "533.2": 84.7,
+    "544.9": 84.8,
+    "556.6": 88.7,
+    "568.4": 89.0,
+    "580.1": 94.7,
+    "591.8": 100.0,
+    "603.5": 99.8,
+    "615.2": 99.6,
+    "627.0": 93.5,
+    "638.7": 85.3,
+    "650.4": 83.2,
+    "662.1": 84.9,
+    "673.8": 83.8,
+    "685.5": 82.4,
+    "697.3": 75.3,
+    "709.0": 69.2,
+    "720.7": 70.1,
+    "732.4": 79.7,
+    "744.1": 92.2
+   }
+  },
+  "tracks": [
+   {
+    "track": 1,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 8,
+    "objects_with_signal_in_the_lowest_band": 8,
+    "snr_db": {
+     "with_our_dither": 56.3,
+     "without_it": 58.5,
+     "without_it_after_a_filter": 60.0
+    },
+    "the_lowest_band": {
+     "snr_db": 58.3,
+     "snr_after_a_filter_db": 64.2,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 103.4,
+    "the_lowest_band_short_of_them_by_db": 42.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 2,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 50.0,
+     "without_it": 51.5,
+     "without_it_after_a_filter": 53.0
+    },
+    "the_lowest_band": {
+     "snr_db": 52.3,
+     "snr_after_a_filter_db": 58.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 70.8,
+    "the_lowest_band_short_of_them_by_db": 19.2,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0234
+   },
+   {
+    "track": 3,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 45.7,
+     "without_it": 47.6,
+     "without_it_after_a_filter": 49.5
+    },
+    "the_lowest_band": {
+     "snr_db": 50.5,
+     "snr_after_a_filter_db": 54.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 74.0,
+    "the_lowest_band_short_of_them_by_db": 22.9,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0005
+   },
+   {
+    "track": 4,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 60.4,
+     "without_it": 63.2,
+     "without_it_after_a_filter": 63.3
+    },
+    "the_lowest_band": {
+     "snr_db": 56.3,
+     "snr_after_a_filter_db": 61.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 55.4,
+    "the_lowest_band_short_of_them_by_db": -3.5,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 5,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 35.3,
+     "without_it": 35.4,
+     "without_it_after_a_filter": 35.8
+    },
+    "the_lowest_band": {
+     "snr_db": 35.2,
+     "snr_after_a_filter_db": 35.6,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 67.2,
+    "the_lowest_band_short_of_them_by_db": 38.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0021
+   },
+   {
+    "track": 6,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 54.0,
+     "without_it": 56.8,
+     "without_it_after_a_filter": 57.0
+    },
+    "the_lowest_band": {
+     "snr_db": 64.8,
+     "snr_after_a_filter_db": 71.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 79.5,
+    "the_lowest_band_short_of_them_by_db": 8.9,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 7,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 3,
+    "objects_with_signal_in_the_lowest_band": 3,
+    "snr_db": {
+     "with_our_dither": 41.8,
+     "without_it": 44.8,
+     "without_it_after_a_filter": 45.1
+    },
+    "the_lowest_band": {
+     "snr_db": 80.8,
+     "snr_after_a_filter_db": 81.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 93.9,
+    "the_lowest_band_short_of_them_by_db": 13.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 8,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 40.2,
+     "without_it": 43.1,
+     "without_it_after_a_filter": 43.6
+    },
+    "the_lowest_band": {
+     "snr_db": 57.8,
+     "snr_after_a_filter_db": 75.8,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 77.0,
+    "the_lowest_band_short_of_them_by_db": 18.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 9,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 46.3,
+     "without_it": 47.0,
+     "without_it_after_a_filter": 47.5
+    },
+    "the_lowest_band": {
+     "snr_db": 46.7,
+     "snr_after_a_filter_db": 47.1,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 69.5,
+    "the_lowest_band_short_of_them_by_db": 17.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0006
+   },
+   {
+    "track": 10,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 46.0,
+     "without_it": 48.8,
+     "without_it_after_a_filter": 49.0
+    },
+    "the_lowest_band": {
+     "snr_db": 59.4,
+     "snr_after_a_filter_db": 62.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 74.2,
+    "the_lowest_band_short_of_them_by_db": 14.8,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0004
+   },
+   {
+    "track": 11,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 44.8,
+     "without_it": 44.9,
+     "without_it_after_a_filter": 46.2
+    },
+    "the_lowest_band": {
+     "snr_db": 43.9,
+     "snr_after_a_filter_db": 45.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 50.6,
+    "the_lowest_band_short_of_them_by_db": 8.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0008
+   },
+   {
+    "track": 12,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 39.9,
+     "without_it": 42.9,
+     "without_it_after_a_filter": 43.0
+    },
+    "the_lowest_band": {
+     "snr_db": 60.7,
+     "snr_after_a_filter_db": 66.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 76.9,
+    "the_lowest_band_short_of_them_by_db": 15.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 13,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 10,
+    "objects_with_signal_in_the_lowest_band": 10,
+    "snr_db": {
+     "with_our_dither": 45.2,
+     "without_it": 48.2,
+     "without_it_after_a_filter": 48.2
+    },
+    "the_lowest_band": {
+     "snr_db": 59.9,
+     "snr_after_a_filter_db": 68.6,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 87.4,
+    "the_lowest_band_short_of_them_by_db": 25.9,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 14,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 47.4,
+     "without_it": 50.2,
+     "without_it_after_a_filter": 50.5
+    },
+    "the_lowest_band": {
+     "snr_db": 60.5,
+     "snr_after_a_filter_db": 71.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 71.4,
+    "the_lowest_band_short_of_them_by_db": 11.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.8365
+   },
+   {
+    "track": 15,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 51.5,
+     "without_it": 51.5,
+     "without_it_after_a_filter": 58.0
+    },
+    "the_lowest_band": {
+     "snr_db": 51.3,
+     "snr_after_a_filter_db": 57.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 73.2,
+    "the_lowest_band_short_of_them_by_db": 20.5,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 16,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 44.6,
+     "without_it": 47.3,
+     "without_it_after_a_filter": 48.4
+    },
+    "the_lowest_band": {
+     "snr_db": 56.5,
+     "snr_after_a_filter_db": 60.2,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 68.5,
+    "the_lowest_band_short_of_them_by_db": 12.3,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0004
+   },
+   {
+    "track": 17,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 40.5,
+     "without_it": 42.1,
+     "without_it_after_a_filter": 44.0
+    },
+    "the_lowest_band": {
+     "snr_db": 44.2,
+     "snr_after_a_filter_db": 46.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 43.9,
+    "the_lowest_band_short_of_them_by_db": 4.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0368
+   },
+   {
+    "track": 18,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 51.0,
+     "without_it": 52.4,
+     "without_it_after_a_filter": 54.2
+    },
+    "the_lowest_band": {
+     "snr_db": 53.5,
+     "snr_after_a_filter_db": 57.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 92.2,
+    "the_lowest_band_short_of_them_by_db": 40.3,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 19,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 48.3,
+     "without_it": 51.3,
+     "without_it_after_a_filter": 51.4
+    },
+    "the_lowest_band": {
+     "snr_db": 73.3,
+     "snr_after_a_filter_db": 76.4,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 36.9,
+    "the_lowest_band_short_of_them_by_db": -31.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0
+   },
+   {
+    "track": 20,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 42.5,
+     "without_it": 45.1,
+     "without_it_after_a_filter": 45.4
+    },
+    "the_lowest_band": {
+     "snr_db": 51.6,
+     "snr_after_a_filter_db": 52.8,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 76.2,
+    "the_lowest_band_short_of_them_by_db": 28.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.4643
+   },
+   {
+    "track": 21,
+    "downmix_configuration": [
+     4
+    ],
+    "parameter_bands": [
+     15
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 40.1,
+     "without_it": 43.0,
+     "without_it_after_a_filter": 43.3
+    },
+    "the_lowest_band": {
+     "snr_db": 51.7,
+     "snr_after_a_filter_db": 53.1,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 63.5,
+    "the_lowest_band_short_of_them_by_db": 20.9,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0209
+   },
+   {
+    "track": 22,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 15,
+    "objects_with_signal_in_the_lowest_band": 15,
+    "snr_db": {
+     "with_our_dither": 39.9,
+     "without_it": 40.4,
+     "without_it_after_a_filter": 41.5
+    },
+    "the_lowest_band": {
+     "snr_db": 36.7,
+     "snr_after_a_filter_db": 37.8,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 69.4,
+    "the_lowest_band_short_of_them_by_db": 28.8,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0046
+   },
+   {
+    "track": 23,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 31.6,
+     "without_it": 34.5,
+     "without_it_after_a_filter": 34.7
+    },
+    "the_lowest_band": {
+     "snr_db": 48.0,
+     "snr_after_a_filter_db": 50.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 60.7,
+    "the_lowest_band_short_of_them_by_db": 7.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0004
+   },
+   {
+    "track": 24,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 35.4,
+     "without_it": 35.4,
+     "without_it_after_a_filter": 38.8
+    },
+    "the_lowest_band": {
+     "snr_db": 36.1,
+     "snr_after_a_filter_db": 37.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 30.4,
+    "the_lowest_band_short_of_them_by_db": -5.2,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0047
+   },
+   {
+    "track": 25,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 52.5,
+     "without_it": 53.3,
+     "without_it_after_a_filter": 55.5
+    },
+    "the_lowest_band": {
+     "snr_db": 51.8,
+     "snr_after_a_filter_db": 54.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 70.1,
+    "the_lowest_band_short_of_them_by_db": 19.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0006
+   },
+   {
+    "track": 26,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 48.8,
+     "without_it": 51.3,
+     "without_it_after_a_filter": 51.5
+    },
+    "the_lowest_band": {
+     "snr_db": 58.5,
+     "snr_after_a_filter_db": 63.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 74.1,
+    "the_lowest_band_short_of_them_by_db": 15.3,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 27,
+    "downmix_configuration": [
+     4
+    ],
+    "parameter_bands": [
+     15
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 47.0,
+     "without_it": 50.0,
+     "without_it_after_a_filter": 50.1
+    },
+    "the_lowest_band": {
+     "snr_db": 69.6,
+     "snr_after_a_filter_db": 69.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 68.6,
+    "the_lowest_band_short_of_them_by_db": 0.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 28,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 47.3,
+     "without_it": 50.3,
+     "without_it_after_a_filter": 50.1
+    },
+    "the_lowest_band": {
+     "snr_db": 60.2,
+     "snr_after_a_filter_db": 67.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 87.6,
+    "the_lowest_band_short_of_them_by_db": 22.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 29,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 43.2,
+     "without_it": 46.2,
+     "without_it_after_a_filter": 46.3
+    },
+    "the_lowest_band": {
+     "snr_db": 61.7,
+     "snr_after_a_filter_db": 72.1,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 59.1,
+    "the_lowest_band_short_of_them_by_db": -3.5,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0005
+   },
+   {
+    "track": 30,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 15,
+    "objects_with_signal_in_the_lowest_band": 15,
+    "snr_db": {
+     "with_our_dither": 45.6,
+     "without_it": 45.6,
+     "without_it_after_a_filter": 47.5
+    },
+    "the_lowest_band": {
+     "snr_db": 45.5,
+     "snr_after_a_filter_db": 47.4,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 58.3,
+    "the_lowest_band_short_of_them_by_db": 13.9,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0008
+   },
+   {
+    "track": 31,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 15,
+    "objects_with_signal_in_the_lowest_band": 15,
+    "snr_db": {
+     "with_our_dither": 29.6,
+     "without_it": 29.6,
+     "without_it_after_a_filter": 30.1
+    },
+    "the_lowest_band": {
+     "snr_db": 29.7,
+     "snr_after_a_filter_db": 30.0,
+     "gain_of_the_fit_db": -0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 31.8,
+    "the_lowest_band_short_of_them_by_db": 1.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0069
+   },
+   {
+    "track": 32,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 42.4,
+     "without_it": 42.5,
+     "without_it_after_a_filter": 43.4
+    },
+    "the_lowest_band": {
+     "snr_db": 43.7,
+     "snr_after_a_filter_db": 44.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 46.6,
+    "the_lowest_band_short_of_them_by_db": 0.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0004
+   },
+   {
+    "track": 33,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 6,
+    "snr_db": {
+     "with_our_dither": 68.8,
+     "without_it": 71.3,
+     "without_it_after_a_filter": 72.0
+    },
+    "the_lowest_band": {
+     "snr_db": 81.5,
+     "snr_after_a_filter_db": 82.2,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 81.9,
+    "the_lowest_band_short_of_them_by_db": 6.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 34,
+    "downmix_configuration": [
+     4
+    ],
+    "parameter_bands": [
+     15
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 46.5,
+     "without_it": 49.4,
+     "without_it_after_a_filter": 49.4
+    },
+    "the_lowest_band": {
+     "snr_db": 55.0,
+     "snr_after_a_filter_db": 58.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 80.9,
+    "the_lowest_band_short_of_them_by_db": 19.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0006
+   },
+   {
+    "track": 35,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 52.0,
+     "without_it": 52.5,
+     "without_it_after_a_filter": 60.4
+    },
+    "the_lowest_band": {
+     "snr_db": 53.4,
+     "snr_after_a_filter_db": 66.9,
+     "gain_of_the_fit_db": -0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 81.7,
+    "the_lowest_band_short_of_them_by_db": 25.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0006
+   },
+   {
+    "track": 36,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 51.4,
+     "without_it": 53.7,
+     "without_it_after_a_filter": 54.8
+    },
+    "the_lowest_band": {
+     "snr_db": 56.0,
+     "snr_after_a_filter_db": 59.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 82.0,
+    "the_lowest_band_short_of_them_by_db": 23.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.5796
+   },
+   {
+    "track": 37,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 10,
+    "objects_with_signal_in_the_lowest_band": 10,
+    "snr_db": {
+     "with_our_dither": 45.7,
+     "without_it": 46.2,
+     "without_it_after_a_filter": 47.8
+    },
+    "the_lowest_band": {
+     "snr_db": 45.6,
+     "snr_after_a_filter_db": 47.4,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 79.9,
+    "the_lowest_band_short_of_them_by_db": 28.3,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0009
+   },
+   {
+    "track": 38,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 48.6,
+     "without_it": 48.8,
+     "without_it_after_a_filter": 51.3
+    },
+    "the_lowest_band": {
+     "snr_db": 48.6,
+     "snr_after_a_filter_db": 51.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 79.8,
+    "the_lowest_band_short_of_them_by_db": 30.3,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0005
+   },
+   {
+    "track": 39,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 51.3,
+     "without_it": 53.8,
+     "without_it_after_a_filter": 55.7
+    },
+    "the_lowest_band": {
+     "snr_db": 58.6,
+     "snr_after_a_filter_db": 73.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 95.8,
+    "the_lowest_band_short_of_them_by_db": 33.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 40,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 51.7,
+     "without_it": 54.7,
+     "without_it_after_a_filter": 55.0
+    },
+    "the_lowest_band": {
+     "snr_db": 60.8,
+     "snr_after_a_filter_db": 71.2,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 82.7,
+    "the_lowest_band_short_of_them_by_db": 19.5,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 41,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 46.6,
+     "without_it": 47.0,
+     "without_it_after_a_filter": 47.5
+    },
+    "the_lowest_band": {
+     "snr_db": 47.4,
+     "snr_after_a_filter_db": 47.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 49.5,
+    "the_lowest_band_short_of_them_by_db": 2.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 42,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 13,
+    "objects_with_signal_in_the_lowest_band": 13,
+    "snr_db": {
+     "with_our_dither": 59.1,
+     "without_it": 60.9,
+     "without_it_after_a_filter": 63.1
+    },
+    "the_lowest_band": {
+     "snr_db": 64.1,
+     "snr_after_a_filter_db": 72.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 91.3,
+    "the_lowest_band_short_of_them_by_db": 20.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 43,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 44.0,
+     "without_it": 45.9,
+     "without_it_after_a_filter": 48.1
+    },
+    "the_lowest_band": {
+     "snr_db": 47.5,
+     "snr_after_a_filter_db": 53.1,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.1
+    },
+    "bands_1_to_23_snr_db": 85.7,
+    "the_lowest_band_short_of_them_by_db": 38.2,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0008
+   },
+   {
+    "track": 44,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 64.9,
+     "without_it": 66.2,
+     "without_it_after_a_filter": 72.0
+    },
+    "the_lowest_band": {
+     "snr_db": 66.6,
+     "snr_after_a_filter_db": 80.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 90.5,
+    "the_lowest_band_short_of_them_by_db": 22.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 45,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 15,
+    "objects_with_signal_in_the_lowest_band": 15,
+    "snr_db": {
+     "with_our_dither": 48.3,
+     "without_it": 49.3,
+     "without_it_after_a_filter": 50.0
+    },
+    "the_lowest_band": {
+     "snr_db": 49.0,
+     "snr_after_a_filter_db": 49.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 62.5,
+    "the_lowest_band_short_of_them_by_db": 15.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 46,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 50.1,
+     "without_it": 52.9,
+     "without_it_after_a_filter": 53.9
+    },
+    "the_lowest_band": {
+     "snr_db": 65.1,
+     "snr_after_a_filter_db": 69.2,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 102.8,
+    "the_lowest_band_short_of_them_by_db": 24.3,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0006
+   },
+   {
+    "track": 47,
+    "downmix_configuration": [
+     4
+    ],
+    "parameter_bands": [
+     15
+    ],
+    "steep_updates": true,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 50.0,
+     "without_it": 52.9,
+     "without_it_after_a_filter": 53.8
+    },
+    "the_lowest_band": {
+     "snr_db": 65.2,
+     "snr_after_a_filter_db": 69.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 100.5,
+    "the_lowest_band_short_of_them_by_db": 6.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 48,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 45.1,
+     "without_it": 48.1,
+     "without_it_after_a_filter": 48.1
+    },
+    "the_lowest_band": {
+     "snr_db": 70.8,
+     "snr_after_a_filter_db": 73.1,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 73.3,
+    "the_lowest_band_short_of_them_by_db": 2.5,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0
+   },
+   {
+    "track": 49,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 40.5,
+     "without_it": 43.5,
+     "without_it_after_a_filter": 45.0
+    },
+    "the_lowest_band": {
+     "snr_db": 53.3,
+     "snr_after_a_filter_db": 54.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 60.9,
+    "the_lowest_band_short_of_them_by_db": 11.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 50,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 8,
+    "objects_with_signal_in_the_lowest_band": 8,
+    "snr_db": {
+     "with_our_dither": 43.0,
+     "without_it": 45.8,
+     "without_it_after_a_filter": 46.0
+    },
+    "the_lowest_band": {
+     "snr_db": 55.1,
+     "snr_after_a_filter_db": 57.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 81.1,
+    "the_lowest_band_short_of_them_by_db": 19.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0008
+   },
+   {
+    "track": 51,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 15,
+    "objects_with_signal_in_the_lowest_band": 15,
+    "snr_db": {
+     "with_our_dither": 39.4,
+     "without_it": 40.9,
+     "without_it_after_a_filter": 41.6
+    },
+    "the_lowest_band": {
+     "snr_db": 41.8,
+     "snr_after_a_filter_db": 42.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 52.4,
+    "the_lowest_band_short_of_them_by_db": 11.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0018
+   },
+   {
+    "track": 52,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 38.1,
+     "without_it": 40.7,
+     "without_it_after_a_filter": 40.9
+    },
+    "the_lowest_band": {
+     "snr_db": 47.4,
+     "snr_after_a_filter_db": 49.4,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 70.3,
+    "the_lowest_band_short_of_them_by_db": 21.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0015
+   },
+   {
+    "track": 53,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 22.0,
+     "without_it": 25.0,
+     "without_it_after_a_filter": 25.0
+    },
+    "the_lowest_band": {
+     "snr_db": 52.4,
+     "snr_after_a_filter_db": 70.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 67.7,
+    "the_lowest_band_short_of_them_by_db": 15.8,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 54,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 3,
+    "objects_with_signal_in_the_lowest_band": 3,
+    "snr_db": {
+     "with_our_dither": 59.6,
+     "without_it": 62.6,
+     "without_it_after_a_filter": 62.6
+    },
+    "the_lowest_band": {
+     "snr_db": 78.5,
+     "snr_after_a_filter_db": 79.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 99.5,
+    "the_lowest_band_short_of_them_by_db": 21.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0004
+   },
+   {
+    "track": 55,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 37.6,
+     "without_it": 39.3,
+     "without_it_after_a_filter": 39.8
+    },
+    "the_lowest_band": {
+     "snr_db": 39.9,
+     "snr_after_a_filter_db": 40.8,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 80.1,
+    "the_lowest_band_short_of_them_by_db": 40.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0026
+   },
+   {
+    "track": 56,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 42.9,
+     "without_it": 45.9,
+     "without_it_after_a_filter": 45.9
+    },
+    "the_lowest_band": {
+     "snr_db": 55.9,
+     "snr_after_a_filter_db": 57.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 58.6,
+    "the_lowest_band_short_of_them_by_db": 2.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0008
+   },
+   {
+    "track": 57,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 47.0,
+     "without_it": 49.9,
+     "without_it_after_a_filter": 50.0
+    },
+    "the_lowest_band": {
+     "snr_db": 62.7,
+     "snr_after_a_filter_db": 66.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 80.5,
+    "the_lowest_band_short_of_them_by_db": 16.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 58,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 44.7,
+     "without_it": 47.7,
+     "without_it_after_a_filter": 47.9
+    },
+    "the_lowest_band": {
+     "snr_db": 53.0,
+     "snr_after_a_filter_db": 60.4,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 81.0,
+    "the_lowest_band_short_of_them_by_db": 28.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0004
+   },
+   {
+    "track": 59,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 45.1,
+     "without_it": 47.8,
+     "without_it_after_a_filter": 48.2
+    },
+    "the_lowest_band": {
+     "snr_db": 54.8,
+     "snr_after_a_filter_db": 64.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 53.1,
+    "the_lowest_band_short_of_them_by_db": -0.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0012
+   },
+   {
+    "track": 60,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 51.0,
+     "without_it": 52.2,
+     "without_it_after_a_filter": 52.6
+    },
+    "the_lowest_band": {
+     "snr_db": 56.4,
+     "snr_after_a_filter_db": 59.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 93.4,
+    "the_lowest_band_short_of_them_by_db": 32.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 61,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 50.2,
+     "without_it": 51.2,
+     "without_it_after_a_filter": 55.4
+    },
+    "the_lowest_band": {
+     "snr_db": 52.8,
+     "snr_after_a_filter_db": 67.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 98.5,
+    "the_lowest_band_short_of_them_by_db": 22.8,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 62,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 54.5,
+     "without_it": 56.7,
+     "without_it_after_a_filter": 57.8
+    },
+    "the_lowest_band": {
+     "snr_db": 59.2,
+     "snr_after_a_filter_db": 75.1,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 91.3,
+    "the_lowest_band_short_of_them_by_db": 27.8,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 63,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 53.6,
+     "without_it": 55.7,
+     "without_it_after_a_filter": 56.4
+    },
+    "the_lowest_band": {
+     "snr_db": 58.1,
+     "snr_after_a_filter_db": 59.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 74.9,
+    "the_lowest_band_short_of_them_by_db": 17.2,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 64,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 3,
+    "objects_with_signal_in_the_lowest_band": 3,
+    "snr_db": {
+     "with_our_dither": 48.6,
+     "without_it": 51.6,
+     "without_it_after_a_filter": 52.7
+    },
+    "the_lowest_band": {
+     "snr_db": 71.2,
+     "snr_after_a_filter_db": 71.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 93.0,
+    "the_lowest_band_short_of_them_by_db": 13.8,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 65,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 3,
+    "objects_with_signal_in_the_lowest_band": 3,
+    "snr_db": {
+     "with_our_dither": 38.3,
+     "without_it": 41.3,
+     "without_it_after_a_filter": 41.4
+    },
+    "the_lowest_band": {
+     "snr_db": 83.5,
+     "snr_after_a_filter_db": 84.2,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 73.6,
+    "the_lowest_band_short_of_them_by_db": -9.9,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0017
+   },
+   {
+    "track": 66,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 2,
+    "snr_db": {
+     "with_our_dither": 61.3,
+     "without_it": 64.3,
+     "without_it_after_a_filter": 64.8
+    },
+    "the_lowest_band": {
+     "snr_db": 102.9,
+     "snr_after_a_filter_db": 103.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 111.5,
+    "the_lowest_band_short_of_them_by_db": 8.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 67,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 43.8,
+     "without_it": 43.9,
+     "without_it_after_a_filter": 43.8
+    },
+    "the_lowest_band": {
+     "snr_db": 44.1,
+     "snr_after_a_filter_db": 45.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 46.4,
+    "the_lowest_band_short_of_them_by_db": 6.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 68,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 49.4,
+     "without_it": 51.3,
+     "without_it_after_a_filter": 53.9
+    },
+    "the_lowest_band": {
+     "snr_db": 55.8,
+     "snr_after_a_filter_db": 72.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 90.2,
+    "the_lowest_band_short_of_them_by_db": 17.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0006
+   },
+   {
+    "track": 69,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 3,
+    "objects_with_signal_in_the_lowest_band": 3,
+    "snr_db": {
+     "with_our_dither": 60.1,
+     "without_it": 63.1,
+     "without_it_after_a_filter": 63.1
+    },
+    "the_lowest_band": {
+     "snr_db": 112.2,
+     "snr_after_a_filter_db": 112.2,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 84.6,
+    "the_lowest_band_short_of_them_by_db": -27.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.4646
+   },
+   {
+    "track": 70,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 49.4,
+     "without_it": 51.5,
+     "without_it_after_a_filter": 53.5
+    },
+    "the_lowest_band": {
+     "snr_db": 54.4,
+     "snr_after_a_filter_db": 66.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 65.2,
+    "the_lowest_band_short_of_them_by_db": 13.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 72,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 44.8,
+     "without_it": 44.9,
+     "without_it_after_a_filter": 45.0
+    },
+    "the_lowest_band": {
+     "snr_db": 42.5,
+     "snr_after_a_filter_db": 42.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 59.9,
+    "the_lowest_band_short_of_them_by_db": 17.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0017
+   },
+   {
+    "track": 73,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 48.8,
+     "without_it": 50.9,
+     "without_it_after_a_filter": 51.4
+    },
+    "the_lowest_band": {
+     "snr_db": 52.2,
+     "snr_after_a_filter_db": 54.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 73.9,
+    "the_lowest_band_short_of_them_by_db": 17.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0119
+   },
+   {
+    "track": 74,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 3,
+    "objects_with_signal_in_the_lowest_band": 3,
+    "snr_db": {
+     "with_our_dither": 65.7,
+     "without_it": 68.6,
+     "without_it_after_a_filter": 69.1
+    },
+    "the_lowest_band": {
+     "snr_db": 119.2,
+     "snr_after_a_filter_db": 119.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 86.1,
+    "the_lowest_band_short_of_them_by_db": -25.5,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0
+   },
+   {
+    "track": 75,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 57.4,
+     "without_it": 59.6,
+     "without_it_after_a_filter": 60.6
+    },
+    "the_lowest_band": {
+     "snr_db": 60.0,
+     "snr_after_a_filter_db": 63.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 67.1,
+    "the_lowest_band_short_of_them_by_db": 2.5,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 76,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 50.5,
+     "without_it": 51.0,
+     "without_it_after_a_filter": 51.0
+    },
+    "the_lowest_band": {
+     "snr_db": 47.9,
+     "snr_after_a_filter_db": 49.2,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 69.7,
+    "the_lowest_band_short_of_them_by_db": 23.2,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0011
+   },
+   {
+    "track": 77,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 56.7,
+     "without_it": 58.4,
+     "without_it_after_a_filter": 61.9
+    },
+    "the_lowest_band": {
+     "snr_db": 57.1,
+     "snr_after_a_filter_db": 75.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 85.9,
+    "the_lowest_band_short_of_them_by_db": 27.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 78,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 50.8,
+     "without_it": 51.3,
+     "without_it_after_a_filter": 52.0
+    },
+    "the_lowest_band": {
+     "snr_db": 50.2,
+     "snr_after_a_filter_db": 50.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 63.1,
+    "the_lowest_band_short_of_them_by_db": 13.3,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 79,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 49.5,
+     "without_it": 52.4,
+     "without_it_after_a_filter": 52.6
+    },
+    "the_lowest_band": {
+     "snr_db": 64.5,
+     "snr_after_a_filter_db": 73.8,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 56.2,
+    "the_lowest_band_short_of_them_by_db": -16.5,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 80,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 56.2,
+     "without_it": 58.8,
+     "without_it_after_a_filter": 59.5
+    },
+    "the_lowest_band": {
+     "snr_db": 64.6,
+     "snr_after_a_filter_db": 73.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 58.1,
+    "the_lowest_band_short_of_them_by_db": -18.2,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 81,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 45.8,
+     "without_it": 46.6,
+     "without_it_after_a_filter": 48.4
+    },
+    "the_lowest_band": {
+     "snr_db": 46.4,
+     "snr_after_a_filter_db": 48.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 67.8,
+    "the_lowest_band_short_of_them_by_db": 19.8,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 82,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 43.6,
+     "without_it": 43.9,
+     "without_it_after_a_filter": 44.4
+    },
+    "the_lowest_band": {
+     "snr_db": 47.8,
+     "snr_after_a_filter_db": 47.1,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 44.2,
+    "the_lowest_band_short_of_them_by_db": 0.5,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0927
+   },
+   {
+    "track": 83,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 43.6,
+     "without_it": 43.8,
+     "without_it_after_a_filter": 45.4
+    },
+    "the_lowest_band": {
+     "snr_db": 44.0,
+     "snr_after_a_filter_db": 45.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 43.0,
+    "the_lowest_band_short_of_them_by_db": -1.9,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0115
+   },
+   {
+    "track": 84,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 50.9,
+     "without_it": 52.2,
+     "without_it_after_a_filter": 52.4
+    },
+    "the_lowest_band": {
+     "snr_db": 54.8,
+     "snr_after_a_filter_db": 56.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 48.7,
+    "the_lowest_band_short_of_them_by_db": -4.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0005
+   },
+   {
+    "track": 85,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 60.4,
+     "without_it": 60.8,
+     "without_it_after_a_filter": 70.2
+    },
+    "the_lowest_band": {
+     "snr_db": 60.6,
+     "snr_after_a_filter_db": 78.1,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 76.0,
+    "the_lowest_band_short_of_them_by_db": 8.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 86,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 39.9,
+     "without_it": 42.9,
+     "without_it_after_a_filter": 43.0
+    },
+    "the_lowest_band": {
+     "snr_db": 76.4,
+     "snr_after_a_filter_db": 76.8,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 54.6,
+    "the_lowest_band_short_of_them_by_db": -19.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 87,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 13,
+    "objects_with_signal_in_the_lowest_band": 13,
+    "snr_db": {
+     "with_our_dither": 42.6,
+     "without_it": 44.8,
+     "without_it_after_a_filter": 46.0
+    },
+    "the_lowest_band": {
+     "snr_db": 47.6,
+     "snr_after_a_filter_db": 50.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 66.0,
+    "the_lowest_band_short_of_them_by_db": 14.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0009
+   },
+   {
+    "track": 88,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 45.6,
+     "without_it": 46.8,
+     "without_it_after_a_filter": 47.6
+    },
+    "the_lowest_band": {
+     "snr_db": 46.4,
+     "snr_after_a_filter_db": 46.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 85.7,
+    "the_lowest_band_short_of_them_by_db": 40.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0009
+   },
+   {
+    "track": 89,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 51.2,
+     "without_it": 52.6,
+     "without_it_after_a_filter": 53.2
+    },
+    "the_lowest_band": {
+     "snr_db": 49.9,
+     "snr_after_a_filter_db": 51.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 83.6,
+    "the_lowest_band_short_of_them_by_db": 32.2,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0005
+   },
+   {
+    "track": 90,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 48.9,
+     "without_it": 51.1,
+     "without_it_after_a_filter": 51.5
+    },
+    "the_lowest_band": {
+     "snr_db": 51.0,
+     "snr_after_a_filter_db": 51.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 95.0,
+    "the_lowest_band_short_of_them_by_db": 41.3,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 91,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 39.5,
+     "without_it": 42.4,
+     "without_it_after_a_filter": 44.2
+    },
+    "the_lowest_band": {
+     "snr_db": 57.2,
+     "snr_after_a_filter_db": 71.4,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 76.0,
+    "the_lowest_band_short_of_them_by_db": 15.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 92,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 39.2,
+     "without_it": 39.2,
+     "without_it_after_a_filter": 40.2
+    },
+    "the_lowest_band": {
+     "snr_db": 44.9,
+     "snr_after_a_filter_db": 44.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 34.4,
+    "the_lowest_band_short_of_them_by_db": -10.3,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0005
+   },
+   {
+    "track": 93,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 10,
+    "objects_with_signal_in_the_lowest_band": 10,
+    "snr_db": {
+     "with_our_dither": 53.5,
+     "without_it": 56.0,
+     "without_it_after_a_filter": 57.1
+    },
+    "the_lowest_band": {
+     "snr_db": 60.3,
+     "snr_after_a_filter_db": 74.1,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 82.5,
+    "the_lowest_band_short_of_them_by_db": 19.3,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 94,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 56.4,
+     "without_it": 58.4,
+     "without_it_after_a_filter": 60.6
+    },
+    "the_lowest_band": {
+     "snr_db": 58.8,
+     "snr_after_a_filter_db": 68.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 82.8,
+    "the_lowest_band_short_of_them_by_db": 23.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 95,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 42.1,
+     "without_it": 42.3,
+     "without_it_after_a_filter": 42.7
+    },
+    "the_lowest_band": {
+     "snr_db": 42.3,
+     "snr_after_a_filter_db": 42.6,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 83.0,
+    "the_lowest_band_short_of_them_by_db": 50.8,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0054
+   },
+   {
+    "track": 96,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 60.0,
+     "without_it": 60.2,
+     "without_it_after_a_filter": 63.9
+    },
+    "the_lowest_band": {
+     "snr_db": 56.6,
+     "snr_after_a_filter_db": 61.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 93.0,
+    "the_lowest_band_short_of_them_by_db": 30.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 97,
+    "downmix_configuration": [
+     4
+    ],
+    "parameter_bands": [
+     15
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 58.8,
+     "without_it": 59.8,
+     "without_it_after_a_filter": 61.9
+    },
+    "the_lowest_band": {
+     "snr_db": 69.0,
+     "snr_after_a_filter_db": 70.4,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 71.5,
+    "the_lowest_band_short_of_them_by_db": 5.5,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 98,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 53.1,
+     "without_it": 54.7,
+     "without_it_after_a_filter": 56.0
+    },
+    "the_lowest_band": {
+     "snr_db": 58.3,
+     "snr_after_a_filter_db": 63.7,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 74.7,
+    "the_lowest_band_short_of_them_by_db": 16.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 99,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 54.9,
+     "without_it": 57.2,
+     "without_it_after_a_filter": 57.7
+    },
+    "the_lowest_band": {
+     "snr_db": 60.3,
+     "snr_after_a_filter_db": 62.6,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 79.3,
+    "the_lowest_band_short_of_them_by_db": 15.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 100,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 51.9,
+     "without_it": 53.2,
+     "without_it_after_a_filter": 54.0
+    },
+    "the_lowest_band": {
+     "snr_db": 52.1,
+     "snr_after_a_filter_db": 53.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 93.4,
+    "the_lowest_band_short_of_them_by_db": 39.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 101,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 45.0,
+     "without_it": 47.9,
+     "without_it_after_a_filter": 48.1
+    },
+    "the_lowest_band": {
+     "snr_db": 58.5,
+     "snr_after_a_filter_db": 77.2,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 80.3,
+    "the_lowest_band_short_of_them_by_db": 19.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 102,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 52.0,
+     "without_it": 53.0,
+     "without_it_after_a_filter": 54.4
+    },
+    "the_lowest_band": {
+     "snr_db": 49.3,
+     "snr_after_a_filter_db": 51.4,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 82.1,
+    "the_lowest_band_short_of_them_by_db": 35.8,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 103,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 3,
+    "objects_with_signal_in_the_lowest_band": 3,
+    "snr_db": {
+     "with_our_dither": 26.9,
+     "without_it": 29.9,
+     "without_it_after_a_filter": 29.9
+    },
+    "the_lowest_band": {
+     "snr_db": 96.2,
+     "snr_after_a_filter_db": 96.2,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 81.2,
+    "the_lowest_band_short_of_them_by_db": -14.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0
+   },
+   {
+    "track": 104,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 13,
+    "objects_with_signal_in_the_lowest_band": 13,
+    "snr_db": {
+     "with_our_dither": 45.3,
+     "without_it": 46.2,
+     "without_it_after_a_filter": 48.4
+    },
+    "the_lowest_band": {
+     "snr_db": 41.8,
+     "snr_after_a_filter_db": 45.4,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 58.1,
+    "the_lowest_band_short_of_them_by_db": 14.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0067
+   },
+   {
+    "track": 106,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 40.8,
+     "without_it": 40.9,
+     "without_it_after_a_filter": 41.9
+    },
+    "the_lowest_band": {
+     "snr_db": 39.5,
+     "snr_after_a_filter_db": 41.4,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 42.7,
+    "the_lowest_band_short_of_them_by_db": 2.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0016
+   },
+   {
+    "track": 107,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 26.6,
+     "without_it": 26.6,
+     "without_it_after_a_filter": 27.3
+    },
+    "the_lowest_band": {
+     "snr_db": 29.4,
+     "snr_after_a_filter_db": 29.6,
+     "gain_of_the_fit_db": -0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 26.2,
+    "the_lowest_band_short_of_them_by_db": -3.6,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0087
+   },
+   {
+    "track": 108,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 11,
+    "objects_with_signal_in_the_lowest_band": 11,
+    "snr_db": {
+     "with_our_dither": 45.8,
+     "without_it": 46.6,
+     "without_it_after_a_filter": 48.4
+    },
+    "the_lowest_band": {
+     "snr_db": 46.4,
+     "snr_after_a_filter_db": 48.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 67.8,
+    "the_lowest_band_short_of_them_by_db": 19.8,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 109,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 42.0,
+     "without_it": 45.0,
+     "without_it_after_a_filter": 44.9
+    },
+    "the_lowest_band": {
+     "snr_db": 61.7,
+     "snr_after_a_filter_db": 70.6,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 40.0,
+    "the_lowest_band_short_of_them_by_db": -22.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0005
+   },
+   {
+    "track": 110,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 50.5,
+     "without_it": 53.5,
+     "without_it_after_a_filter": 53.5
+    },
+    "the_lowest_band": {
+     "snr_db": 129.9,
+     "snr_after_a_filter_db": 129.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 57.0,
+    "the_lowest_band_short_of_them_by_db": -72.2,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 111,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 61.1,
+     "without_it": 64.2,
+     "without_it_after_a_filter": 64.1
+    },
+    "the_lowest_band": {
+     "snr_db": 117.8,
+     "snr_after_a_filter_db": 117.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 76.8,
+    "the_lowest_band_short_of_them_by_db": -27.3,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0004
+   },
+   {
+    "track": 112,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 61.6,
+     "without_it": 64.6,
+     "without_it_after_a_filter": 66.3
+    },
+    "the_lowest_band": {
+     "snr_db": 127.5,
+     "snr_after_a_filter_db": 127.6,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 71.0,
+    "the_lowest_band_short_of_them_by_db": -52.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 113,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 49.9,
+     "without_it": 52.2,
+     "without_it_after_a_filter": 53.4
+    },
+    "the_lowest_band": {
+     "snr_db": 119.4,
+     "snr_after_a_filter_db": 119.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 59.5,
+    "the_lowest_band_short_of_them_by_db": -26.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0004
+   },
+   {
+    "track": 114,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 70.3,
+     "without_it": 73.2,
+     "without_it_after_a_filter": 73.6
+    },
+    "the_lowest_band": {
+     "snr_db": 138.4,
+     "snr_after_a_filter_db": 139.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 58.1,
+    "the_lowest_band_short_of_them_by_db": -73.0,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0008
+   },
+   {
+    "track": 115,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 54.5,
+     "without_it": 57.2,
+     "without_it_after_a_filter": 57.8
+    },
+    "the_lowest_band": {
+     "snr_db": 65.4,
+     "snr_after_a_filter_db": 74.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 71.2,
+    "the_lowest_band_short_of_them_by_db": 0.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0004
+   },
+   {
+    "track": 116,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 50.9,
+     "without_it": 53.9,
+     "without_it_after_a_filter": 54.0
+    },
+    "the_lowest_band": {
+     "snr_db": 106.4,
+     "snr_after_a_filter_db": 106.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 70.1,
+    "the_lowest_band_short_of_them_by_db": -25.3,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 117,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 49.4,
+     "without_it": 51.9,
+     "without_it_after_a_filter": 52.6
+    },
+    "the_lowest_band": {
+     "snr_db": 57.3,
+     "snr_after_a_filter_db": 60.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 87.8,
+    "the_lowest_band_short_of_them_by_db": 8.9,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0005
+   },
+   {
+    "track": 118,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 51.1,
+     "without_it": 54.2,
+     "without_it_after_a_filter": 54.6
+    },
+    "the_lowest_band": {
+     "snr_db": 136.6,
+     "snr_after_a_filter_db": 136.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 89.3,
+    "the_lowest_band_short_of_them_by_db": -35.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0003
+   },
+   {
+    "track": 119,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": false,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 48.4,
+     "without_it": 51.1,
+     "without_it_after_a_filter": 51.7
+    },
+    "the_lowest_band": {
+     "snr_db": 113.9,
+     "snr_after_a_filter_db": 113.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 64.2,
+    "the_lowest_band_short_of_them_by_db": -21.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 120,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 44.0,
+     "without_it": 46.4,
+     "without_it_after_a_filter": 46.6
+    },
+    "the_lowest_band": {
+     "snr_db": 47.1,
+     "snr_after_a_filter_db": 47.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 47.9,
+    "the_lowest_band_short_of_them_by_db": 0.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0042
+   },
+   {
+    "track": 121,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 42.6,
+     "without_it": 43.7,
+     "without_it_after_a_filter": 44.0
+    },
+    "the_lowest_band": {
+     "snr_db": 43.0,
+     "snr_after_a_filter_db": 43.3,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 40.4,
+    "the_lowest_band_short_of_them_by_db": -1.9,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0018
+   },
+   {
+    "track": 122,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 39.5,
+     "without_it": 39.7,
+     "without_it_after_a_filter": 40.5
+    },
+    "the_lowest_band": {
+     "snr_db": 45.7,
+     "snr_after_a_filter_db": 46.1,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 48.8,
+    "the_lowest_band_short_of_them_by_db": 2.2,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 123,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 7,
+    "objects_with_signal_in_the_lowest_band": 7,
+    "snr_db": {
+     "with_our_dither": 40.8,
+     "without_it": 43.8,
+     "without_it_after_a_filter": 43.9
+    },
+    "the_lowest_band": {
+     "snr_db": 60.9,
+     "snr_after_a_filter_db": 72.4,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 49.0,
+    "the_lowest_band_short_of_them_by_db": -16.7,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 124,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 5,
+    "objects_with_signal_in_the_lowest_band": 5,
+    "snr_db": {
+     "with_our_dither": 45.7,
+     "without_it": 48.7,
+     "without_it_after_a_filter": 48.8
+    },
+    "the_lowest_band": {
+     "snr_db": 106.8,
+     "snr_after_a_filter_db": 106.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 52.4,
+    "the_lowest_band_short_of_them_by_db": -52.4,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0001
+   },
+   {
+    "track": 125,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 41.4,
+     "without_it": 41.4,
+     "without_it_after_a_filter": 41.6
+    },
+    "the_lowest_band": {
+     "snr_db": 41.3,
+     "snr_after_a_filter_db": 41.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 37.5,
+    "the_lowest_band_short_of_them_by_db": -4.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0018
+   },
+   {
+    "track": 126,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 40.6,
+     "without_it": 43.6,
+     "without_it_after_a_filter": 43.8
+    },
+    "the_lowest_band": {
+     "snr_db": 45.9,
+     "snr_after_a_filter_db": 46.1,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 49.9,
+    "the_lowest_band_short_of_them_by_db": 3.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0016
+   },
+   {
+    "track": 127,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 32.4,
+     "without_it": 35.2,
+     "without_it_after_a_filter": 35.8
+    },
+    "the_lowest_band": {
+     "snr_db": 58.7,
+     "snr_after_a_filter_db": 64.5,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": 0.0
+    },
+    "bands_1_to_23_snr_db": 57.1,
+    "the_lowest_band_short_of_them_by_db": -5.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0002
+   },
+   {
+    "track": 128,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 44.9,
+     "without_it": 46.6,
+     "without_it_after_a_filter": 47.4
+    },
+    "the_lowest_band": {
+     "snr_db": 46.9,
+     "snr_after_a_filter_db": 48.0,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 39.8,
+    "the_lowest_band_short_of_them_by_db": -9.1,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0007
+   },
+   {
+    "track": 129,
+    "downmix_configuration": [
+     3
+    ],
+    "parameter_bands": [
+     12
+    ],
+    "steep_updates": true,
+    "objects_heard": 9,
+    "objects_with_signal_in_the_lowest_band": 9,
+    "snr_db": {
+     "with_our_dither": 44.7,
+     "without_it": 44.9,
+     "without_it_after_a_filter": 46.0
+    },
+    "the_lowest_band": {
+     "snr_db": 44.7,
+     "snr_after_a_filter_db": 45.9,
+     "gain_of_the_fit_db": 0.0,
+     "phase_of_the_fit_degrees": -0.0
+    },
+    "bands_1_to_23_snr_db": 44.6,
+    "the_lowest_band_short_of_them_by_db": -0.2,
+    "largest_difference_of_a_pair_in_the_lowest_band": 0.0025
+   }
+  ]
+ },
+ "reading": "Of 127 tracks with signal in the lowest band, 71 have that band more than 10 dB further from Dolby than the bands above it, and 36 more than 20: its ratio is 55.9 dB at the median where the bands from 375 Hz to 9 kHz have 71.4. The best filter on an object gains 1.9 dB of it at the median, so the two decoders do not differ by a filter on what they write. Inside the band the distance is largest at the bottom: 27.9 to 59.5 dB under 100 Hz, 68.1 to 100.0 between 400 and 750 Hz. The lowest subband is where this decoder takes the 90-degree phase shift of the downmix back out with a filter that was fitted to Dolby's decoder; what the fit left is this. The LFE, which goes through nothing of JOC, is at 115.9 dB in the same band on the 74 tracks that have one."
+}

@@ -180,6 +180,22 @@ that the decoder relies on. Clause numbers refer to that document.
   five library tracks carry it and Green Book's objects come out at 50,13 dB
   worst against Dolby's. Configurations 1 and 2 occur in no track of any file --
   0 of the 118 that carry JOC, across 111 films and 226 Dolby tracks.
+
+  **What that filter leaves, over a library.** `tools/joc_bands.py` compares
+  two decodes of the objects of a stream band by band of 375 Hz, and gives
+  the ratio after the best linear fit beside the plain one. Over the 127
+  tracks of a library that Dolby's decoder gives objects for, forty seconds
+  of each, with our dither left out: the lowest band is at 55.9 dB at the
+  median where the bands from 375 Hz to 9 kHz are at 71.4, more than 10 dB
+  short of them on 71 tracks and more than 20 dB on 36. The best filter on
+  an object gains 1.9 dB of that, so the distance is not a gain or a delay of
+  what is written. Inside the band it is largest at the bottom: 27.9 dB at
+  6 Hz and 48.5 at 53 Hz, against 59.2 to 64.4 from 100 Hz up. The filter
+  above was fitted between two readings on three titles; this is what the
+  fit leaves on every title. The LFE, which comes of the core and goes
+  through nothing of JOC, is at 115.9 dB in the same band on the 74 tracks
+  that have one.
+  `docs/audit/evidence/engine-round-2026-11/48-where-the-objects-are-far-from-dolby.json`.
 - **Configuration 0 is rare, and Dolby does upmix it.** It appears twice in the
   material read so far: Snatch, a hybrid disc remux, and Dredd. Dolby gives
   Snatch six channels rather than sixteen objects -- `Channel-based decoding
