@@ -468,6 +468,23 @@ Semantic Versioning.
 
 ### Changed
 
+- **The checksums go eight bytes at a step.** The CRC-16 of an AC-3
+  syncframe and the CRC-8 of a TrueHD substream segment went through a byte
+  table a byte at a time, every byte waiting for the look-up of the one
+  before it: 580 and 790 megabytes a second. They keep eight tables now and
+  take eight bytes at a step, and a megabyte takes 0.38 ms where it took
+  1.81, and 0.31 where it took 1.33 (`Crc8::update_bytes`,
+  `Crc16::update_bytes`; a byte at a time and a bit at a time are what they
+  were). Inside one binary that runs the checksums either way, `verify`
+  takes 89 to 97 per cent of the time and the widest `decode` 92 to 98, on
+  eight streams of both families. Against the binary of `main`, 65 of 88
+  commands are faster and 3 are slower, all three the 16-channel
+  presentation of one stream, by 3 to 5 per cent: the checks of that stream
+  are faster too, and what is slower is the matrix stage, which this change
+  does not touch and which the compiler placed differently in this build.
+  No report and no delivery changes over the corpus, nor an answer of the
+  campaign (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/39-checksums-eight-bytes-at-a-step.json`).
 - **The AC-3 decoder no longer does what it has done, or what nobody
   reads.** Timers around its stages showed three things that change no
   sample. The bit allocation of a channel, fixed-point arithmetic of its

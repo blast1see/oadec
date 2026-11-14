@@ -17,7 +17,13 @@ const fn bit_at(data: &[u8], pos: usize) -> bool {
 #[derive(Debug, Clone, Copy)]
 pub struct Crc8 {
     poly: u8,
-    table: [u8; 256],
+    /// `slices[k][x]` is the register `x` after `k + 1` bytes of zeros:
+    /// `slices[0]` is the byte table, and each of the others the byte table
+    /// applied to the one before it. A byte that entered the register
+    /// `k + 1` bytes ago has become `slices[k]` of itself, and the register
+    /// is the XOR of what each byte has become, so eight bytes are eight
+    /// look-ups that do not wait for one another.
+    slices: [[u8; 256]; 8],
 }
 
 impl Crc8 {
@@ -30,7 +36,18 @@ impl Crc8 {
             table[i] = Self::shift_only(poly, i as u8, 8);
             i += 1;
         }
-        Self { poly, table }
+        let mut slices = [[0u8; 256]; 8];
+        slices[0] = table;
+        let mut k = 1;
+        while k < 8 {
+            let mut i = 0;
+            while i < 256 {
+                slices[k][i] = table[slices[k - 1][i] as usize];
+                i += 1;
+            }
+            k += 1;
+        }
+        Self { poly, slices }
     }
 
     const fn shift_only(poly: u8, mut value: u8, steps: usize) -> u8 {
@@ -63,13 +80,31 @@ impl Crc8 {
     #[inline]
     #[must_use]
     pub const fn update_byte(&self, crc: u8, byte: u8) -> u8 {
-        self.table[crc as usize] ^ byte
+        self.slices[0][crc as usize] ^ byte
     }
 
-    /// Advances the register over `bytes`.
+    /// Advances the register over `bytes`, eight at a step and the rest one
+    /// by one: what [`Crc8::update_byte`] gives over the same bytes.
+    ///
+    /// A byte at a time, every byte waits for the look-up of the one before
+    /// it. Eight at a step, the register and seven bytes are looked up side
+    /// by side, each in the table of the zeros that follow it.
     #[must_use]
     pub fn update_bytes(&self, mut crc: u8, bytes: &[u8]) -> u8 {
-        for &b in bytes {
+        let t = &self.slices;
+        let (eights, rest) = bytes.as_chunks::<8>();
+        for b in eights {
+            crc = t[7][crc as usize]
+                ^ t[6][b[0] as usize]
+                ^ t[5][b[1] as usize]
+                ^ t[4][b[2] as usize]
+                ^ t[3][b[3] as usize]
+                ^ t[2][b[4] as usize]
+                ^ t[1][b[5] as usize]
+                ^ t[0][b[6] as usize]
+                ^ b[7];
+        }
+        for &b in rest {
             crc = self.update_byte(crc, b);
         }
         crc
@@ -105,7 +140,13 @@ impl Crc8 {
 #[derive(Debug, Clone, Copy)]
 pub struct Crc16 {
     poly: u16,
-    table: [u16; 256],
+    /// `slices[k][x]` is the register that held the byte `x` in its low
+    /// half, after `k + 2` bytes of zeros. `slices[0]` is the byte table,
+    /// which is that for the byte in the high half after one. A byte that
+    /// entered the register some bytes ago has become one of these of
+    /// itself, the two halves of the register have each become one, and the
+    /// register is the XOR of them all.
+    slices: [[u16; 256]; 8],
 }
 
 impl Crc16 {
@@ -118,7 +159,20 @@ impl Crc16 {
             table[i] = Self::shift_only(poly, (i as u16) << 8, 8);
             i += 1;
         }
-        Self { poly, table }
+        let mut slices = [[0u16; 256]; 8];
+        slices[0] = table;
+        let mut k = 1;
+        while k < 8 {
+            let mut i = 0;
+            while i < 256 {
+                // the register over one more byte of zeros
+                let r = slices[k - 1][i];
+                slices[k][i] = table[(r >> 8) as usize] ^ (r << 8);
+                i += 1;
+            }
+            k += 1;
+        }
+        Self { poly, slices }
     }
 
     const fn shift_only(poly: u16, mut value: u16, steps: usize) -> u16 {
@@ -151,13 +205,33 @@ impl Crc16 {
     #[inline]
     #[must_use]
     pub const fn update_byte(&self, crc: u16, byte: u8) -> u16 {
-        self.table[(crc >> 8) as usize] ^ (crc << 8) ^ (byte as u16)
+        self.slices[0][(crc >> 8) as usize] ^ (crc << 8) ^ (byte as u16)
     }
 
-    /// Advances the register over `bytes`.
+    /// Advances the register over `bytes`, eight at a step and the rest one
+    /// by one: what [`Crc16::update_byte`] gives over the same bytes.
+    ///
+    /// After eight bytes the high half of the register has been through
+    /// nine bytes of zeros and the low half through eight, the first byte
+    /// through seven, and so on down to the last two, which have not left
+    /// the register yet.
     #[must_use]
     pub fn update_bytes(&self, mut crc: u16, bytes: &[u8]) -> u16 {
-        for &b in bytes {
+        let t = &self.slices;
+        let (eights, rest) = bytes.as_chunks::<8>();
+        for b in eights {
+            crc = t[7][(crc >> 8) as usize]
+                ^ t[6][(crc & 0xFF) as usize]
+                ^ t[5][b[0] as usize]
+                ^ t[4][b[1] as usize]
+                ^ t[3][b[2] as usize]
+                ^ t[2][b[3] as usize]
+                ^ t[1][b[4] as usize]
+                ^ t[0][b[5] as usize]
+                ^ (u16::from(b[6]) << 8)
+                ^ u16::from(b[7]);
+        }
+        for &b in rest {
             crc = self.update_byte(crc, b);
         }
         crc
@@ -246,6 +320,84 @@ mod tests {
         let nearby = Crc16::new(0x002F);
         assert_ne!(nearby.update_bytes(0, b"123456789"), 0xC59E);
         assert_ne!(nearby.update_bytes(0, &zero_to_fifteen), 0x704A);
+    }
+
+    /// The registers eight bytes at a step are the registers a byte at a
+    /// time: for both widths, the polynomials of the streams and two others
+    /// each, every length up to four steps and a byte, and seven values the
+    /// register starts from.
+    #[test]
+    fn eight_bytes_at_a_step_is_a_byte_at_a_time() {
+        for poly in [0x1Du8, 0x63, 0x07, 0xFF] {
+            let crc = Crc8::new(poly);
+            for len in 0..=33 {
+                let bytes = noise(u32::from(poly) * 131 + len as u32, len);
+                for init in [0u8, 1, 0x80, 0xA2, 0xFF] {
+                    let slow = bytes.iter().fold(init, |r, &b| crc.update_byte(r, b));
+                    assert_eq!(
+                        crc.update_bytes(init, &bytes),
+                        slow,
+                        "{poly:#04x}, {len} bytes"
+                    );
+                }
+            }
+        }
+        for poly in [0x002Du16, 0x8005, 0x1021, 0xFFFF] {
+            let crc = Crc16::new(poly);
+            for len in 0..=33 {
+                let bytes = noise(u32::from(poly) * 131 + len as u32, len);
+                for init in [0u16, 1, 0x8000, 0x00FF, 0xFF00, 0xB752, 0xFFFF] {
+                    let slow = bytes.iter().fold(init, |r, &b| crc.update_byte(r, b));
+                    assert_eq!(
+                        crc.update_bytes(init, &bytes),
+                        slow,
+                        "{poly:#06x}, {len} bytes"
+                    );
+                }
+            }
+        }
+        // and a megabyte, where a step that loses a byte once in a while shows
+        let bytes = noise(7, 1 << 20);
+        let slow8 = bytes
+            .iter()
+            .fold(0xA2u8, |r, &b| CRC8_SUBSTREAM.update_byte(r, b));
+        assert_eq!(CRC8_SUBSTREAM.update_bytes(0xA2, &bytes), slow8);
+        let slow16 = bytes
+            .iter()
+            .fold(0u16, |r, &b| CRC16_MAJOR_SYNC.update_byte(r, b));
+        assert_eq!(CRC16_MAJOR_SYNC.update_bytes(0, &bytes), slow16);
+    }
+
+    /// The byte at a time the test above goes by is the bit at a time, for
+    /// every byte and every register of both widths: a table of a step that
+    /// was wrong in the same way as the byte table would pass the test above
+    /// and not this one.
+    #[test]
+    fn a_byte_at_a_time_is_a_bit_at_a_time_for_every_byte_and_register() {
+        for poly in [0x1Du8, 0x63] {
+            let crc = Crc8::new(poly);
+            for init in 0..=255u8 {
+                for byte in [0u8, 1, 0x80, 0x5A, 0xFF] {
+                    let mut slow = init;
+                    for i in 0..8 {
+                        slow = crc.step_bit(slow, (byte >> (7 - i)) & 1 != 0);
+                    }
+                    assert_eq!(crc.update_byte(init, byte), slow);
+                }
+            }
+        }
+        for poly in [0x002Du16, 0x8005] {
+            let crc = Crc16::new(poly);
+            for init in (0..=u16::MAX).step_by(257) {
+                for byte in [0u8, 1, 0x80, 0x5A, 0xFF] {
+                    let mut slow = init;
+                    for i in 0..8 {
+                        slow = crc.step_bit(slow, (byte >> (7 - i)) & 1 != 0);
+                    }
+                    assert_eq!(crc.update_byte(init, byte), slow);
+                }
+            }
+        }
     }
 
     /// Textbook (xor-then-shift) CRC-8, as computed by a generic library.

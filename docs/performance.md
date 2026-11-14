@@ -350,6 +350,74 @@ without media: none of them looked at the samples of a decoded E-AC-3
 stream, and the LFE of the fixture is silent. A test holds the fixture to
 the level and the peak of each of its six channels now.
 
+### The checksums, eight bytes at a step
+
+A syncframe of the AC-3 family carries a CRC-16 over all of its bytes, and a
+substream segment of TrueHD a CRC-8 and a parity over all of its own. Both
+CRCs went through a table of 256 entries a byte at a time, where every byte
+waits for the look-up of the one before it: 1.81 ms for a megabyte of CRC-16
+and 1.33 ms of CRC-8 on a fast core, 580 and 790 megabytes a second, against
+8 microseconds for the parity, which the compiler makes vector code of by
+itself. The CRC of the frame was 4 to 9 per cent of an AC-3 decode after the
+changes above.
+
+They keep eight tables now, the byte table and that table applied to itself
+up to seven times, and take eight bytes at a step: the register and seven
+bytes are looked up side by side, each in the table of the zeros that follow
+it. A megabyte takes 0.38 ms and 0.31 ms (`python tools/kernels.py --affinity
+FFFF --runs 5`, before and after).
+
+What that is worth to a command was measured inside one binary, built to run
+the checksums either way by a switch: the two ways turn and turn about, nine
+runs each, bound to the fast cores. Of the time the command takes a byte at
+a time, in per cent
+(`docs/audit/evidence/engine-round-2026-11/39-checksums-eight-bytes-at-a-step.json`):
+
+| | `verify` | `decode` of the widest presentation |
+|---|---:|---:|
+| AC-3, 6 channels | 95.0 | 94.5 |
+| E-AC-3, 5.1 | 97.0 | 97.4 |
+| E-AC-3, 7.1 | 91.6 | 92.4 |
+| TrueHD, 6 channels | 93.6 | 97.3 |
+| TrueHD, 8 channels | 89.6 | 95.5 |
+| TrueHD with objects, 12 channels | 89.2 | 97.8 |
+| TrueHD with objects, 16 channels, two streams | 88.8 and 88.8 | 94.6 and 97.0 |
+
+It was measured that way because two binaries do not differ by the change
+alone. The binary of the change against the binary of `main`, the usual
+comparison, over eighteen streams and 88 commands: 65 faster by more than
+the spread of their runs, 20 within it and 3 slower. `verify` of TrueHD takes
+87 to 95 per cent of the time it took and `verify --decode` 93 to 97, every
+one of twenty faster; `verify` and `decode` of the AC-3 family 92 to 99. The
+three that are slower are of one stream, one of the two with a 16-channel
+presentation: that presentation decodes 4.6 per cent slower to PCM and 3 to
+4 per cent slower to the object formats, and did so again when the stream
+was measured by itself, while the same commands of the other 16-channel
+stream are 3 to 4 per cent faster.
+
+A checksum does not slow a matrix down, so it was looked for. In a build
+with timers, the checks of that stream's segments take 17 ms on the thread
+that decodes where they took 48, and the matrix stage, which this change
+does not touch and which is 43 per cent of that decode, takes 404 ms in one
+build and 423 in the other, the slower one being the build *without* the
+change. In the one binary with the switch the same presentation of the same
+stream decodes in 97.0 per cent of the time when the checksums go eight
+bytes at a step. Keeping the checksum routines out of line, and making their
+tables statics, change nothing. What the two-binary comparison saw is where
+the compiler put the matrix loop in each build: it moves that stage by some
+per cent either way with every change anywhere in the program, and for this
+one stream it moved the wrong way in the build that is shipped. It is the
+stream that asks most of that stage: 14.2 matrices a sample with 86.5 per
+cent of their coefficients set, against 10.1 and 71.5 for the other
+16-channel stream. That is worth knowing about the matrix stage, which is the next
+thing to be worked on, and about every figure of a few per cent in this
+document.
+
+Nothing a command says or writes has changed: the same reports and the same
+deliveries over the 131 streams of the corpus, whose checksums other
+encoders wrote, and the same answers in the campaign of 200 000 damaged
+streams.
+
 ## What it does not say
 
 - One machine. The ratios between commands carry to another; the figures do
@@ -359,6 +427,11 @@ the level and the peak of each of its six channels now.
   kernels are of a process bound to the fast cores. The whole commands were
   not bound: commands of up to three seconds have been seen to stay on the
   fast cores, and a longer one has not been looked at.
+- One build. Where the compiler places a loop moves it by some per cent: the
+  matrix stage of TrueHD, from the same source, took 404 ms in one build and
+  423 in another that differed elsewhere. A difference of a few per cent
+  between two binaries, in one command of one stream, is within that. It is
+  told apart from the change itself by running both ways inside one binary.
 - Heads of about a minute. A command that takes a quarter of a second is
   measured to a few per cent at best, and the processor time of so short a
   run is counted by a clock that steps by a sixty-fourth of a second.
