@@ -449,6 +449,18 @@ MUTANTS = [
      '''    if bytes.len() < samples * channels * 4 {
         bytes.resize(samples * channels * 4, 0);
     }'''),
+    ('the first major sync of a stream told again at every unit',
+     'crates/oadec-cli/src/scan.rs',
+     """            first(sync);
+            told = true;""",
+     """            first(sync);
+            told = false;"""),
+    ('the first major sync of a stream told to nobody',
+     'crates/oadec-cli/src/scan.rs',
+     """            first(sync);
+            told = true;""",
+     """            let _ = first;
+            told = true;"""),
     ('the DAMF y coordinate, front and back swapped',
      'crates/oadec-spatial/src/program.rs',
      '    [(p[0] - 0.5) * 2.0, (0.5 - p[1]) * 2.0, p[2]]',

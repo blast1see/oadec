@@ -1336,16 +1336,35 @@ pub fn scan_while(
     keep_layouts: bool,
     go_on: &dyn Fn() -> bool,
 ) -> Result<Scan> {
+    scan_announcing(source, max_per_rule, keep_layouts, go_on, &|_| {})
+}
+
+/// [`scan_while`], telling `first` the first major sync of the stream as soon
+/// as the scan has it: once, when the unit that carries it has been taken.
+/// It is the one the scan keeps as [`Scan::first_major_sync`]. A stream
+/// without one is told nothing.
+pub fn scan_announcing(
+    source: &Source,
+    max_per_rule: usize,
+    keep_layouts: bool,
+    go_on: &dyn Fn() -> bool,
+    first: &dyn Fn(&MajorSync),
+) -> Result<Scan> {
     let mut scan = Scan::new(source, max_per_rule);
     if keep_layouts {
         scan.layouts = Some(Vec::new());
     }
     let mut since_major_sync = 0u64;
+    let mut told = false;
     let summary = input::for_each_unit(source, |unit| {
         if !go_on() {
             anyhow::bail!("the scan was given up");
         }
         scan.take_unit(&unit, &mut since_major_sync);
+        if !told && let Some(sync) = &scan.first_major_sync {
+            first(sync);
+            told = true;
+        }
         Ok(())
     })?;
     scan.finish(summary);
@@ -1430,6 +1449,55 @@ fn reserved_of_restart(header: &RestartHeader) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The first major sync of a stream is told as soon as the scan has it:
+    /// once, when the unit that carries it has been taken and before the
+    /// next is asked for, and it is the one the scan keeps. What decodes the
+    /// stream beside the scan is configured from it and does not wait for
+    /// the scan to end.
+    #[test]
+    fn the_first_major_sync_is_told_as_soon_as_the_scan_has_it() {
+        for name in ["truehd-20-44k.thd", "mlp-51-96k.mlp", "authored-scene.mlp"] {
+            let source = Source::file(
+                &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("tests")
+                    .join("fixtures")
+                    .join(name),
+            );
+            let asked = std::cell::Cell::new(0u64);
+            let told = std::cell::RefCell::new(Vec::new());
+            let scan = scan_announcing(
+                &source,
+                Tally::DEFAULT_MAX_PER_RULE,
+                false,
+                &|| {
+                    asked.set(asked.get() + 1);
+                    true
+                },
+                &|sync| told.borrow_mut().push((asked.get(), sync.clone())),
+            )
+            .expect("scanned");
+            let told = told.into_inner();
+            assert_eq!(told.len(), 1, "{name}");
+            let (units_asked_for, sync) = &told[0];
+            assert_eq!(*units_asked_for, 1, "{name}");
+            assert_eq!(Some(sync), scan.first_major_sync.as_ref(), "{name}");
+            assert!(scan.units > 1, "{name}");
+        }
+        // a file that holds no stream has none to tell
+        let nothing = Source::memory("no stream", vec![0u8; 1 << 16]);
+        let told = std::cell::Cell::new(0u32);
+        let scan = scan_announcing(
+            &nothing,
+            Tally::DEFAULT_MAX_PER_RULE,
+            false,
+            &|| true,
+            &|_| told.set(told.get() + 1),
+        )
+        .expect("scanned");
+        assert_eq!((scan.units, told.get()), (0, 0));
+        assert!(scan.first_major_sync.is_none());
+    }
 
     /// A bitstream may open with two major syncs in a row: at the start of the
     /// stream and at every clip a branch joins, as every branch of a full
