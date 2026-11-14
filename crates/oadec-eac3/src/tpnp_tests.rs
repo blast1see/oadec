@@ -256,3 +256,144 @@ fn a_reset_drops_everything() {
     assert_eq!(meta, 1);
     assert_eq!(pcm[0].len(), 1536);
 }
+
+/// What a buffer releases after each frame it is given and at the end of the
+/// stream, the frames by their number, and how many samples each came with.
+/// `heard` frames are ramps; the others are pushed with no samples at all.
+fn schedule(lens: &[usize], heard: bool) -> (Vec<Vec<usize>>, Vec<usize>, Vec<usize>) {
+    let mut post: Post<usize> = Post::new();
+    let mut after_each = Vec::new();
+    let mut samples = Vec::new();
+    let mut start = 0u64;
+    for (f, &len) in lens.iter().enumerate() {
+        if heard {
+            post.push(f, &ramp(start, len), &[]);
+        } else {
+            post.push_unheard(f, CH, len, &[]);
+        }
+        start += len as u64;
+        let mut out = Vec::new();
+        while let Some((frame, pcm)) = post.pop(false) {
+            assert_eq!(pcm.len(), CH);
+            samples.push(pcm[0].len());
+            out.push(frame);
+        }
+        after_each.push(out);
+    }
+    let mut at_the_end = Vec::new();
+    while let Some((frame, pcm)) = post.pop(true) {
+        assert_eq!(pcm.len(), CH);
+        samples.push(pcm[0].len());
+        at_the_end.push(frame);
+    }
+    (after_each, at_the_end, samples)
+}
+
+/// A frame nobody listens to is held back as long as one with samples and
+/// comes out in the same call, with its channels and no samples in them: for
+/// every length a frame has, a stream of one frame, a stream of none, and
+/// frames of lengths that change.
+#[test]
+fn frames_nobody_listens_to_are_released_when_frames_with_samples_are() {
+    let streams: [&[usize]; 7] = [
+        &[1536; 8],
+        &[768; 8],
+        &[512; 8],
+        &[256; 12],
+        &[1536],
+        &[],
+        &[256, 1536, 512, 768, 256, 256, 1536],
+    ];
+    for lens in streams {
+        let (each, end, samples) = schedule(lens, true);
+        let (each_unheard, end_unheard, samples_unheard) = schedule(lens, false);
+        assert_eq!(each_unheard, each, "{lens:?}");
+        assert_eq!(end_unheard, end, "{lens:?}");
+        assert_eq!(samples, lens, "{lens:?}");
+        assert_eq!(samples_unheard, vec![0; lens.len()], "{lens:?}");
+    }
+    // and the comparison is of something: a frame of six blocks waits for
+    // the next, and four frames of one block wait together
+    let (each, end, _) = schedule(&[1536; 8], false);
+    assert_eq!(each[0], Vec::<usize>::new());
+    assert_eq!(each[1], vec![0]);
+    assert_eq!(end, vec![7]);
+    let (each, end, _) = schedule(&[256; 12], false);
+    assert_eq!(&each[..4], &[vec![], vec![], vec![], vec![]]);
+    assert_eq!(each[4], vec![0]);
+    assert_eq!(end, vec![8, 9, 10, 11]);
+}
+
+/// A reset drops the frames nobody listened to as it drops the others, and
+/// the frame after it waits as the first of a stream does.
+#[test]
+fn a_reset_drops_the_frames_nobody_listened_to() {
+    let mut post: Post<usize> = Post::new();
+    post.push_unheard(0, CH, 1536, &[]);
+    post.push_unheard(1, CH, 1536, &[]);
+    assert_eq!(post.pop(false).map(|(frame, _)| frame), Some(0));
+    assert!(!post.is_empty());
+    post.reset();
+    assert!(post.is_empty());
+    assert!(post.pop(true).is_none());
+    post.push_unheard(2, CH, 1536, &[]);
+    assert!(post.pop(false).is_none());
+    assert_eq!(post.pop(true).map(|(frame, _)| frame), Some(2));
+}
+
+/// A frame of another number of channels starts the buffer over, whether
+/// anybody listens or not: the frame still waiting is gone.
+#[test]
+fn another_number_of_channels_starts_over_whether_anybody_listens_or_not() {
+    for heard in [true, false] {
+        let mut post: Post<usize> = Post::new();
+        let push = |post: &mut Post<usize>, frame: usize, channels: usize| {
+            if heard {
+                post.push(frame, &vec![vec![0.0; 1536]; channels], &[]);
+            } else {
+                post.push_unheard(frame, channels, 1536, &[]);
+            }
+        };
+        push(&mut post, 0, 2);
+        push(&mut post, 1, 6);
+        assert!(post.pop(false).is_none(), "heard {heard}");
+        let (frame, pcm) = post.pop(true).expect("the frame of six channels");
+        assert_eq!((frame, pcm.len()), (1, 6), "heard {heard}");
+        assert!(post.pop(true).is_none(), "heard {heard}");
+    }
+}
+
+/// A buffer holds frames of one kind. A frame of the other kind starts it
+/// over, as a frame of another number of channels does: the two are not
+/// mixed.
+#[test]
+fn a_frame_of_the_other_kind_starts_the_buffer_over() {
+    let mut post: Post<usize> = Post::new();
+    post.push(0, &ramp(0, 1536), &[]);
+    post.push_unheard(1, CH, 1536, &[]);
+    let (frame, pcm) = post.pop(true).expect("the frame nobody listens to");
+    assert_eq!((frame, pcm[0].len()), (1, 0));
+    assert!(post.pop(true).is_none());
+    post.push(2, &ramp(0, 1536), &[]);
+    let (frame, pcm) = post.pop(true).expect("the frame with samples");
+    assert_eq!((frame, pcm[0].len()), (2, 1536));
+    assert!(post.pop(true).is_none());
+    // and the other way round, with the frame before still waiting
+    post.push_unheard(3, CH, 1536, &[]);
+    post.push(4, &ramp(0, 1536), &[]);
+    let (frame, pcm) = post.pop(true).expect("the frame with samples");
+    assert_eq!((frame, pcm[0].len()), (4, 1536));
+    assert_eq!(pcm[0][7], 7.0);
+    assert!(post.pop(true).is_none());
+}
+
+/// A frame nobody listens to still says that the tool was signalled.
+#[test]
+fn a_frame_nobody_listens_to_still_says_the_tool_was_signalled() {
+    let mut post: Post<usize> = Post::new();
+    post.push_unheard(0, CH, 1536, &[None]);
+    assert!(!post.seen());
+    post.push_unheard(1, CH, 1536, &[Some(Transient { loc: 700, len: 0 })]);
+    assert!(post.seen());
+    assert_eq!(post.buffered(), 0);
+}

@@ -695,6 +695,7 @@ where
                                     tpnp: !no_tpnp,
                                     ecpl_full: ecpl_spec,
                                     block_info: false,
+                                    samples: true,
                                 },
                                 // refused above for E-AC-3
                                 on_error: None,

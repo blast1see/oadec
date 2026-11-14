@@ -2365,6 +2365,7 @@ pub fn decode_into(
             tpnp: opts.tpnp,
             ecpl_full: opts.ecpl_full,
             block_info: false,
+            samples: true,
         },
         |frame| {
             let (chans, pcm) = output_channels(frame, opts.core_only);
@@ -2575,6 +2576,7 @@ pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Resu
             tpnp: opts.tpnp,
             ecpl_full: opts.ecpl_full,
             block_info: false,
+            samples: true,
         },
         |frame| {
             let (chans, pcm) = output_channels(frame, opts.core_only);

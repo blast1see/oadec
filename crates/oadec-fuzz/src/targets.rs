@@ -372,6 +372,7 @@ pub fn eac3_frame(data: &[u8]) {
             tpnp: true,
             ecpl_full,
             block_info: true,
+            samples: true,
         };
         assert!(
             decode_frame(frame, options) == decode_frame(frame, options),
@@ -380,13 +381,48 @@ pub fn eac3_frame(data: &[u8]) {
     }
 }
 
-fn drain(decoder: &mut ProgramDecoder) {
-    while let Some(frame) = decoder.pop() {
+/// Takes the groups that are ready out of a programme decoder and out of one
+/// that was pushed the same frames and makes no samples. The second hands out
+/// a group where the first does and no other, the same group but for its
+/// samples.
+fn drain(decoder: &mut ProgramDecoder, unheard: &mut ProgramDecoder) {
+    loop {
+        let (frame, twin) = match (decoder.pop(), unheard.pop()) {
+            (None, None) => return,
+            (Some(frame), Some(twin)) => (frame, twin),
+            (a, b) => panic!(
+                "one programme handed out a group and the other none: {} and {}",
+                a.is_some(),
+                b.is_some()
+            ),
+        };
         let channels = frame.channels();
         assert!(channels <= MAX_PROGRAM_CHANNELS);
         let samples = frame.samples();
         for i in 0..channels {
             assert_eq!(frame.channel(i).len(), samples);
+        }
+        assert_eq!(twin.index, frame.index);
+        assert_eq!(twin.layout, frame.layout);
+        assert_eq!(twin.layout_changed, frame.layout_changed);
+        assert_eq!(twin.parts.len(), frame.parts.len());
+        for (b, a) in twin.parts.iter().zip(&frame.parts) {
+            assert_eq!(b.key, a.key);
+            assert_eq!(b.locations, a.locations);
+            assert_eq!(b.lfe_implied, a.lfe_implied);
+            let (b, a) = (&b.decoded, &a.decoded);
+            assert_eq!(b.header, a.header);
+            assert_eq!(b.bsi, a.bsi);
+            assert_eq!(b.skip_fields, a.skip_fields);
+            assert_eq!(b.auxdata, a.auxdata);
+            assert_eq!(b.auxdata_overrun, a.auxdata_overrun);
+            assert_eq!(b.coverage, a.coverage);
+            assert_eq!(b.crc_ok, a.crc_ok);
+            assert_eq!(b.used_bits, a.used_bits);
+            assert_eq!(b.transproc, a.transproc);
+            assert_eq!(b.tail_overrun, a.tail_overrun);
+            assert_eq!(b.pcm.len(), a.pcm.len());
+            assert!(b.pcm.iter().all(Vec::is_empty), "samples nobody asked for");
         }
     }
 }
@@ -395,15 +431,24 @@ fn drain(decoder: &mut ProgramDecoder) {
 /// and dependent substreams into frame groups. Whatever order the frames come
 /// in, and whatever is missing or repeated, the decoder keeps a bounded
 /// number of groups waiting and every group it hands out has the channels of
-/// its layout, all of one length.
+/// its layout, all of one length. And a decoder that makes no samples, which
+/// is what reads a stream without listening to it, makes of the same frames
+/// what the one that makes them does: the same groups in the same calls, and
+/// the same counts.
 pub fn eac3_program(data: &[u8]) {
-    let mut decoder = ProgramDecoder::new(Options {
+    let options = Options {
         dither: false,
         tpnp: true,
         ecpl_full: false,
         // the tools that print or rewrite a frame make the record of every
         // block from whatever they are given: it stays under the fuzzer
         block_info: true,
+        samples: true,
+    };
+    let mut decoder = ProgramDecoder::new(options);
+    let mut unheard = ProgramDecoder::new(Options {
+        samples: false,
+        ..options
     });
     let mut at = 0;
     let mut pushed = 0;
@@ -417,12 +462,26 @@ pub fn eac3_program(data: &[u8]) {
         };
         // a frame the core cannot read is the caller's to count; the
         // programme goes on with the next
-        let _ = decoder.push(frame, &header);
-        drain(&mut decoder);
+        let took = decoder.push(frame, &header);
+        let twin = unheard.push(frame, &header);
+        assert_eq!(
+            took.map_err(|e| e.to_string()),
+            twin.map_err(|e| e.to_string())
+        );
+        drain(&mut decoder, &mut unheard);
         at += header.frame_bytes.max(1);
         pushed += 1;
     }
-    let _ = decoder.finish();
-    drain(&mut decoder);
+    let ended = decoder.finish();
+    let twin = unheard.finish();
+    assert_eq!(
+        ended.map_err(|e| e.to_string()),
+        twin.map_err(|e| e.to_string())
+    );
+    drain(&mut decoder, &mut unheard);
     assert!(decoder.stats().max_pending_groups <= MAX_PENDING_GROUPS);
+    assert_eq!(
+        format!("{:?}", unheard.stats()),
+        format!("{:?}", decoder.stats())
+    );
 }

@@ -61,6 +61,8 @@ struct Held<T> {
     meta: T,
     start: u64,
     len: usize,
+    /// The frame came with its samples; one nobody listens to did not.
+    heard: bool,
 }
 
 /// The decoded samples the corrections run on.
@@ -83,6 +85,10 @@ pub struct Post<T> {
     /// Set by the first frame that signals the tool. Until then frames are
     /// still delayed, so the first correction has its history.
     seen: bool,
+    /// The frames in the buffer came with their samples. A buffer holds
+    /// frames of one kind, with samples or without: a frame of the other
+    /// kind starts it over.
+    listening: bool,
 }
 
 impl<T> Default for Post<T> {
@@ -120,6 +126,7 @@ impl<T> Post<T> {
             fade1,
             fade2,
             seen: false,
+            listening: true,
         }
     }
 
@@ -153,12 +160,15 @@ impl<T> Post<T> {
     /// Adds one decoded frame and its transient parameters. `meta` comes back
     /// from [`Post::pop`] with the frame's samples.
     pub fn push(&mut self, meta: T, pcm: &[Vec<f32>], transproc: &[Option<Transient>]) {
-        if self.buf.len() != pcm.len() {
+        if self.buf.len() != pcm.len() || !self.listening {
             // A channel count change invalidates every index into the buffer,
             // so start over rather than mix two layouts. `Decoder` resets on a
             // layout change already; this is the belt to that pair of braces.
+            // Frames nobody listened to have no samples in it to be mixed
+            // with.
             self.reset();
             self.buf = vec![Vec::new(); pcm.len()];
+            self.listening = true;
         }
         let start = self.end;
         let len = pcm.first().map_or(0, Vec::len);
@@ -177,7 +187,46 @@ impl<T> Post<T> {
             }
         }
         self.apply();
-        self.queue.push_back(Held { meta, start, len });
+        self.queue.push_back(Held {
+            meta,
+            start,
+            len,
+            heard: true,
+        });
+    }
+
+    /// Adds one frame of `len` samples in `channels` channels that nobody
+    /// listens to: its samples were not made and none are kept.
+    ///
+    /// The frame is counted as one with samples is. It waits as long and
+    /// comes out of [`Post::pop`] in the same call, with its channels and
+    /// nothing in them, so what reads a stream without listening to it gets
+    /// the frames a decode gets, when a decode gets them.
+    pub fn push_unheard(
+        &mut self,
+        meta: T,
+        channels: usize,
+        len: usize,
+        transproc: &[Option<Transient>],
+    ) {
+        if self.buf.len() != channels || self.listening {
+            self.reset();
+            self.buf = vec![Vec::new(); channels];
+            self.listening = false;
+        }
+        let start = self.end;
+        self.end += len as u64;
+        // none of its samples is in the buffer, which begins after them
+        self.base = self.end;
+        if transproc.iter().any(Option::is_some) {
+            self.seen = true;
+        }
+        self.queue.push_back(Held {
+            meta,
+            start,
+            len,
+            heard: false,
+        });
     }
 
     /// The next frame whose samples can no longer change, or `None` while the
@@ -193,7 +242,15 @@ impl<T> Post<T> {
         if head.start + head.len as u64 > final_upto {
             return None;
         }
-        let Held { meta, start, len } = self.queue.pop_front()?;
+        let Held {
+            meta,
+            start,
+            len,
+            heard,
+        } = self.queue.pop_front()?;
+        if !heard {
+            return Some((meta, vec![Vec::new(); self.buf.len()]));
+        }
         let lo = (start - self.base) as usize;
         let pcm = self
             .buf
