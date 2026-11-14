@@ -8,6 +8,18 @@ Semantic Versioning.
 
 ### Added
 
+- **`tools/joc_bands.py` says where two decodes of the objects of a stream
+  differ.** For every object: the signal-to-noise ratio in each of 64 bands
+  of 375 Hz; the same after the best linear fit, which is a gain for every
+  1,46 Hz and tells a difference a filter makes good from one that no filter
+  does; the gain and the phase of that fit; all of it again below 750 Hz in
+  steps of 11,7 Hz; and how far the correlation of every pair of objects is
+  from the reference's, band by band. It is held to seven pairs of signals
+  whose answer is known. Over the 127 tracks of a library that Dolby's decoder
+  gives objects for, the lowest band is where our objects are furthest from
+  Dolby's, 55.9 dB at the median against 71.4 for the bands above it,
+  and no filter on an object makes it good (`docs/joc.md`,
+  `docs/audit/evidence/engine-round-2026-11/48-where-the-objects-are-far-from-dolby.json`).
 - **`tools/packed.py` reads what the compiler made of a procedure from the
   linked binary.** For every procedure whose name holds a given string it
   counts the floating-point instructions that take one number at a time,
