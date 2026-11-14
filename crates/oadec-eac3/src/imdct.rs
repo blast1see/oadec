@@ -18,98 +18,87 @@ pub struct Complex {
     pub im: f64,
 }
 
-impl Complex {
-    #[inline]
-    pub(crate) fn mul(self, o: Complex) -> Complex {
-        Complex {
-            re: self.re * o.re - self.im * o.im,
-            im: self.re * o.im + self.im * o.re,
-        }
-    }
-    #[inline]
-    pub(crate) fn add(self, o: Complex) -> Complex {
-        Complex {
-            re: self.re + o.re,
-            im: self.im + o.im,
-        }
-    }
-    #[inline]
-    pub(crate) fn sub(self, o: Complex) -> Complex {
-        Complex {
-            re: self.re - o.re,
-            im: self.im - o.im,
-        }
-    }
-}
-
-/// Radix-2 complex inverse FFT (positive exponent, no scaling) of a fixed
-/// power-of-two size.
+/// Radix-2 complex inverse FFT (positive exponent, no scaling) of `N` points,
+/// a power of two, over values whose real and imaginary parts are held apart.
+///
+/// Held apart because that is what was measured to be fast, and for no
+/// better reason that is known. The same butterflies over an array of complex
+/// values, with everything else alike, take 1.6 times as long, and what the
+/// compiler makes of either takes one number at a time
+/// (`docs/performance.md`). What is computed for each value is what it was,
+/// operation for operation: no sample moves by a bit.
 #[derive(Debug, Clone)]
-struct Ifft {
-    n: usize,
-    twiddles: Vec<Complex>,
-    rev: Vec<usize>,
+struct Ifft<const N: usize> {
+    /// Where the bit-reversal that opens the transform puts each value.
+    rev: [usize; N],
+    /// The twiddles of the stage of two points, then of the stage of four,
+    /// and so on, in a row: `N - 1` of them.
+    stage_re: [f64; N],
+    stage_im: [f64; N],
 }
 
-impl Ifft {
-    fn new(n: usize) -> Self {
-        assert!(n.is_power_of_two());
-        let bits = n.trailing_zeros();
-        let rev = (0..n)
-            .map(|i| {
-                if bits == 0 {
-                    0
-                } else {
-                    i.reverse_bits() >> (usize::BITS - bits)
-                }
-            })
-            .collect();
-        let twiddles = (0..n / 2)
-            .map(|k| {
-                let a = 2.0 * PI * k as f64 / n as f64;
-                Complex {
-                    re: a.cos(),
-                    im: a.sin(),
-                }
-            })
-            .collect();
-        Self { n, twiddles, rev }
-    }
-
-    fn run(&self, data: &mut [Complex]) {
-        let n = self.n;
-        for i in 0..n {
-            let j = self.rev[i];
-            if j > i {
-                data.swap(i, j);
+impl<const N: usize> Ifft<N> {
+    fn new() -> Self {
+        assert!(N.is_power_of_two());
+        let bits = N.trailing_zeros();
+        let rev = core::array::from_fn(|i| {
+            if bits == 0 {
+                0
+            } else {
+                i.reverse_bits() >> (usize::BITS - bits)
             }
-        }
+        });
+        let mut stage_re = [0.0; N];
+        let mut stage_im = [0.0; N];
+        let mut at = 0;
         let mut len = 2;
-        while len <= n {
-            let step = n / len;
-            for start in (0..n).step_by(len) {
-                for k in 0..len / 2 {
-                    let w = self.twiddles[k * step];
-                    let a = data[start + k];
-                    let b = data[start + k + len / 2].mul(w);
-                    data[start + k] = a.add(b);
-                    data[start + k + len / 2] = a.sub(b);
-                }
+        while len <= N {
+            let step = N / len;
+            for k in 0..len / 2 {
+                let a = 2.0 * PI * (k * step) as f64 / N as f64;
+                stage_re[at] = a.cos();
+                stage_im[at] = a.sin();
+                at += 1;
             }
             len *= 2;
         }
+        Self {
+            rev,
+            stage_re,
+            stage_im,
+        }
     }
 
-    /// The forward transform `X[k] = sum_n x[n] e^(-2 pi i k n / n)`, no
-    /// scaling. `run` uses the positive exponent, so conjugating on the way
-    /// in and out turns it around without a second table.
-    fn run_forward(&self, data: &mut [Complex]) {
-        for c in data.iter_mut() {
-            c.im = -c.im;
-        }
-        self.run(data);
-        for c in data.iter_mut() {
-            c.im = -c.im;
+    /// The stages of the transform, over values that are already where the
+    /// bit-reversal puts them: value `k` at `rev[k]`.
+    fn stages(&self, re: &mut [f64; N], im: &mut [f64; N]) {
+        let mut at = 0;
+        let mut half = 1;
+        while half < N {
+            let twiddle_re = &self.stage_re[at..at + half];
+            let twiddle_im = &self.stage_im[at..at + half];
+            for (re, im) in re
+                .chunks_exact_mut(2 * half)
+                .zip(im.chunks_exact_mut(2 * half))
+            {
+                let (low_re, high_re) = re.split_at_mut(half);
+                let (low_im, high_im) = im.split_at_mut(half);
+                let low = low_re.iter_mut().zip(low_im);
+                let high = high_re.iter_mut().zip(high_im);
+                let twiddles = twiddle_re.iter().zip(twiddle_im);
+                for (((ar, ai), (br, bi)), (wr, wi)) in low.zip(high).zip(twiddles) {
+                    // b times the twiddle: (br + j bi)(wr + j wi)
+                    let tr = *br * wr - *bi * wi;
+                    let ti = *br * wi + *bi * wr;
+                    let (xr, xi) = (*ar, *ai);
+                    *ar = xr + tr;
+                    *ai = xi + ti;
+                    *br = xr - tr;
+                    *bi = xi - ti;
+                }
+            }
+            at += half;
+            half *= 2;
         }
     }
 }
@@ -119,7 +108,7 @@ impl Ifft {
 /// step 5). The clause divides by N; that scaling is applied here.
 #[derive(Debug, Clone)]
 pub struct Dft512 {
-    fft: Ifft,
+    fft: Ifft<512>,
 }
 
 impl Default for Dft512 {
@@ -132,17 +121,25 @@ impl Dft512 {
     /// Builds the tables.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            fft: Ifft::new(512),
-        }
+        Self { fft: Ifft::new() }
     }
 
     /// Transforms in place and scales by 1/512.
+    ///
+    /// The forward transform `X[k] = sum_n x[n] e^(-2 pi i k n / n)` is the
+    /// inverse one, which has the positive exponent, between two
+    /// conjugations: it turns around without a second table.
     pub fn forward(&self, data: &mut [Complex; 512]) {
-        self.fft.run_forward(data);
-        for c in data.iter_mut() {
-            c.re /= 512.0;
-            c.im /= 512.0;
+        let mut re = [0.0f64; 512];
+        let mut im = [0.0f64; 512];
+        for (c, &to) in data.iter().zip(&self.fft.rev) {
+            re[to] = c.re;
+            im[to] = -c.im;
+        }
+        self.fft.stages(&mut re, &mut im);
+        for ((c, re), im) in data.iter_mut().zip(&re).zip(&im) {
+            c.re = re / 512.0;
+            c.im = -im / 512.0;
         }
     }
 }
@@ -151,10 +148,14 @@ impl Dft512 {
 #[derive(Debug, Clone)]
 pub struct Imdct {
     window: [f64; N2],
-    x1: [Complex; 128],
-    x2: [Complex; 64],
-    ifft128: Ifft,
-    ifft64: Ifft,
+    /// The twiddles of the 512-sample transform, real and imaginary apart.
+    x1_re: [f64; 128],
+    x1_im: [f64; 128],
+    /// The twiddles of the 256-sample transforms of a block-switched block.
+    x2_re: [f64; 64],
+    x2_im: [f64; 64],
+    ifft128: Ifft<128>,
+    ifft64: Ifft<64>,
 }
 
 /// Modified Bessel function of the first kind, order zero (power series).
@@ -205,28 +206,16 @@ impl Imdct {
         let w = kbd_window(N2, 5.0);
         let mut window = [0.0; N2];
         window.copy_from_slice(&w);
-        let mut x1 = [Complex::default(); 128];
-        for (k, x) in x1.iter_mut().enumerate() {
-            let a = 2.0 * PI * (8.0 * k as f64 + 1.0) / (8.0 * 512.0);
-            *x = Complex {
-                re: -a.cos(),
-                im: -a.sin(),
-            };
-        }
-        let mut x2 = [Complex::default(); 64];
-        for (k, x) in x2.iter_mut().enumerate() {
-            let a = 2.0 * PI * (8.0 * k as f64 + 1.0) / (4.0 * 512.0);
-            *x = Complex {
-                re: -a.cos(),
-                im: -a.sin(),
-            };
-        }
+        // -(cos + j sin) of 2 pi (8k + 1) / (8 N) and of 2 pi (8k + 1) / (4 N)
+        let angle = |k: usize, of: f64| 2.0 * PI * (8.0 * k as f64 + 1.0) / (of * 512.0);
         Self {
             window,
-            x1,
-            x2,
-            ifft128: Ifft::new(128),
-            ifft64: Ifft::new(64),
+            x1_re: core::array::from_fn(|k| -angle(k, 8.0).cos()),
+            x1_im: core::array::from_fn(|k| -angle(k, 8.0).sin()),
+            x2_re: core::array::from_fn(|k| -angle(k, 4.0).cos()),
+            x2_im: core::array::from_fn(|k| -angle(k, 4.0).sin()),
+            ifft128: Ifft::new(),
+            ifft64: Ifft::new(),
         }
     }
 
@@ -267,70 +256,73 @@ impl Imdct {
 
     fn long(&self, xk: &[f64; N2], x: &mut [f64; 512]) {
         let w = &self.window;
-        let mut z = [Complex::default(); 128];
+        let (twiddle_re, twiddle_im) = (&self.x1_re, &self.x1_im);
+        let mut re = [0.0f64; 128];
+        let mut im = [0.0f64; 128];
+        // step 2, each value put where the inverse FFT begins with it
         for k in 0..128 {
-            let a = Complex {
-                re: xk[255 - 2 * k],
-                im: xk[2 * k],
-            };
-            z[k] = a.mul(self.x1[k]);
+            let (ar, ai) = (xk[255 - 2 * k], xk[2 * k]);
+            let to = self.ifft128.rev[k];
+            re[to] = ar * twiddle_re[k] - ai * twiddle_im[k];
+            im[to] = ar * twiddle_im[k] + ai * twiddle_re[k];
         }
-        self.ifft128.run(&mut z);
-        let mut y = [Complex::default(); 128];
+        self.ifft128.stages(&mut re, &mut im);
+        let mut y_re = [0.0f64; 128];
+        let mut y_im = [0.0f64; 128];
         for n in 0..128 {
-            y[n] = z[n].mul(self.x1[n]);
+            y_re[n] = re[n] * twiddle_re[n] - im[n] * twiddle_im[n];
+            y_im[n] = re[n] * twiddle_im[n] + im[n] * twiddle_re[n];
         }
         for n in 0..64 {
-            x[2 * n] = -y[64 + n].im * w[2 * n];
-            x[2 * n + 1] = y[63 - n].re * w[2 * n + 1];
-            x[128 + 2 * n] = -y[n].re * w[128 + 2 * n];
-            x[128 + 2 * n + 1] = y[127 - n].im * w[128 + 2 * n + 1];
-            x[256 + 2 * n] = -y[64 + n].re * w[255 - 2 * n];
-            x[256 + 2 * n + 1] = y[63 - n].im * w[254 - 2 * n];
-            x[384 + 2 * n] = y[n].im * w[127 - 2 * n];
-            x[384 + 2 * n + 1] = -y[127 - n].re * w[126 - 2 * n];
+            x[2 * n] = -y_im[64 + n] * w[2 * n];
+            x[2 * n + 1] = y_re[63 - n] * w[2 * n + 1];
+            x[128 + 2 * n] = -y_re[n] * w[128 + 2 * n];
+            x[128 + 2 * n + 1] = y_im[127 - n] * w[128 + 2 * n + 1];
+            x[256 + 2 * n] = -y_re[64 + n] * w[255 - 2 * n];
+            x[256 + 2 * n + 1] = y_im[63 - n] * w[254 - 2 * n];
+            x[384 + 2 * n] = y_im[n] * w[127 - 2 * n];
+            x[384 + 2 * n + 1] = -y_re[127 - n] * w[126 - 2 * n];
         }
     }
 
     fn short(&self, xk: &[f64; N2], x: &mut [f64; 512]) {
         let w = &self.window;
-        let mut x1 = [0.0f64; 128];
-        let mut x2 = [0.0f64; 128];
-        for k in 0..128 {
-            x1[k] = xk[2 * k];
-            x2[k] = xk[2 * k + 1];
-        }
-        let mut z1 = [Complex::default(); 64];
-        let mut z2 = [Complex::default(); 64];
+        let (twiddle_re, twiddle_im) = (&self.x2_re, &self.x2_im);
+        // the even coefficients are one transform and the odd ones the other
+        let mut re1 = [0.0f64; 64];
+        let mut im1 = [0.0f64; 64];
+        let mut re2 = [0.0f64; 64];
+        let mut im2 = [0.0f64; 64];
         for k in 0..64 {
-            z1[k] = Complex {
-                re: x1[127 - 2 * k],
-                im: x1[2 * k],
-            }
-            .mul(self.x2[k]);
-            z2[k] = Complex {
-                re: x2[127 - 2 * k],
-                im: x2[2 * k],
-            }
-            .mul(self.x2[k]);
+            let to = self.ifft64.rev[k];
+            let (ar, ai) = (xk[254 - 4 * k], xk[4 * k]);
+            re1[to] = ar * twiddle_re[k] - ai * twiddle_im[k];
+            im1[to] = ar * twiddle_im[k] + ai * twiddle_re[k];
+            let (ar, ai) = (xk[255 - 4 * k], xk[4 * k + 1]);
+            re2[to] = ar * twiddle_re[k] - ai * twiddle_im[k];
+            im2[to] = ar * twiddle_im[k] + ai * twiddle_re[k];
         }
-        self.ifft64.run(&mut z1);
-        self.ifft64.run(&mut z2);
-        let mut y1 = [Complex::default(); 64];
-        let mut y2 = [Complex::default(); 64];
+        self.ifft64.stages(&mut re1, &mut im1);
+        self.ifft64.stages(&mut re2, &mut im2);
+        let mut y1_re = [0.0f64; 64];
+        let mut y1_im = [0.0f64; 64];
+        let mut y2_re = [0.0f64; 64];
+        let mut y2_im = [0.0f64; 64];
         for n in 0..64 {
-            y1[n] = z1[n].mul(self.x2[n]);
-            y2[n] = z2[n].mul(self.x2[n]);
+            y1_re[n] = re1[n] * twiddle_re[n] - im1[n] * twiddle_im[n];
+            y1_im[n] = re1[n] * twiddle_im[n] + im1[n] * twiddle_re[n];
+            y2_re[n] = re2[n] * twiddle_re[n] - im2[n] * twiddle_im[n];
+            y2_im[n] = re2[n] * twiddle_im[n] + im2[n] * twiddle_re[n];
         }
         for n in 0..64 {
-            x[2 * n] = -y1[n].im * w[2 * n];
-            x[2 * n + 1] = y1[63 - n].re * w[2 * n + 1];
-            x[128 + 2 * n] = -y1[n].re * w[128 + 2 * n];
-            x[128 + 2 * n + 1] = y1[63 - n].im * w[128 + 2 * n + 1];
-            x[256 + 2 * n] = -y2[n].re * w[255 - 2 * n];
-            x[256 + 2 * n + 1] = y2[63 - n].im * w[254 - 2 * n];
-            x[384 + 2 * n] = y2[n].im * w[127 - 2 * n];
-            x[384 + 2 * n + 1] = -y2[63 - n].re * w[126 - 2 * n];
+            x[2 * n] = -y1_im[n] * w[2 * n];
+            x[2 * n + 1] = y1_re[63 - n] * w[2 * n + 1];
+            x[128 + 2 * n] = -y1_re[n] * w[128 + 2 * n];
+            x[128 + 2 * n + 1] = y1_im[63 - n] * w[128 + 2 * n + 1];
+            x[256 + 2 * n] = -y2_re[n] * w[255 - 2 * n];
+            x[256 + 2 * n + 1] = y2_im[63 - n] * w[254 - 2 * n];
+            x[384 + 2 * n] = y2_im[n] * w[127 - 2 * n];
+            x[384 + 2 * n + 1] = -y2_re[63 - n] * w[126 - 2 * n];
         }
     }
 }
@@ -344,6 +336,255 @@ mod tests {
     fn lcg(seed: &mut u64) -> f64 {
         *seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
         ((*seed >> 33) as f64 / (1u64 << 31) as f64) - 1.0
+    }
+
+    /// The arithmetic of complex values, written out once: what the
+    /// transform does to a pair of rows of numbers, it does to these.
+    impl Complex {
+        fn mul(self, o: Complex) -> Complex {
+            Complex {
+                re: self.re * o.re - self.im * o.im,
+                im: self.re * o.im + self.im * o.re,
+            }
+        }
+        fn add(self, o: Complex) -> Complex {
+            Complex {
+                re: self.re + o.re,
+                im: self.im + o.im,
+            }
+        }
+        fn sub(self, o: Complex) -> Complex {
+            Complex {
+                re: self.re - o.re,
+                im: self.im - o.im,
+            }
+        }
+    }
+
+    /// The inverse FFT the plain way: one complex value at a time, the
+    /// values swapped into bit-reversed order, one table of twiddles that
+    /// every stage steps through.
+    fn plain_ifft(data: &mut [Complex]) {
+        let n = data.len();
+        let bits = n.trailing_zeros();
+        for i in 0..n {
+            let j = i.reverse_bits() >> (usize::BITS - bits);
+            if j > i {
+                data.swap(i, j);
+            }
+        }
+        let twiddle = |k: usize| {
+            let a = 2.0 * PI * k as f64 / n as f64;
+            Complex {
+                re: a.cos(),
+                im: a.sin(),
+            }
+        };
+        let mut len = 2;
+        while len <= n {
+            let step = n / len;
+            for start in (0..n).step_by(len) {
+                for k in 0..len / 2 {
+                    let w = twiddle(k * step);
+                    let a = data[start + k];
+                    let b = data[start + k + len / 2].mul(w);
+                    data[start + k] = a.add(b);
+                    data[start + k + len / 2] = a.sub(b);
+                }
+            }
+            len *= 2;
+        }
+    }
+
+    /// The twiddle of clause 6.9.4: `-(cos + j sin)` of `2 pi (8k + 1) / of`.
+    fn plain_twiddle(k: usize, of: f64) -> Complex {
+        let a = 2.0 * PI * (8.0 * k as f64 + 1.0) / of;
+        Complex {
+            re: -a.cos(),
+            im: -a.sin(),
+        }
+    }
+
+    /// Clause 6.9.4.1, steps 1 to 5, as the clause writes them.
+    fn plain_long(w: &[f64; N2], xk: &[f64; N2]) -> [f64; 512] {
+        let mut z = [Complex::default(); 128];
+        for k in 0..128 {
+            let a = Complex {
+                re: xk[255 - 2 * k],
+                im: xk[2 * k],
+            };
+            z[k] = a.mul(plain_twiddle(k, 8.0 * 512.0));
+        }
+        plain_ifft(&mut z);
+        let mut y = [Complex::default(); 128];
+        for n in 0..128 {
+            y[n] = z[n].mul(plain_twiddle(n, 8.0 * 512.0));
+        }
+        let mut x = [0.0f64; 512];
+        for n in 0..64 {
+            x[2 * n] = -y[64 + n].im * w[2 * n];
+            x[2 * n + 1] = y[63 - n].re * w[2 * n + 1];
+            x[128 + 2 * n] = -y[n].re * w[128 + 2 * n];
+            x[128 + 2 * n + 1] = y[127 - n].im * w[128 + 2 * n + 1];
+            x[256 + 2 * n] = -y[64 + n].re * w[255 - 2 * n];
+            x[256 + 2 * n + 1] = y[63 - n].im * w[254 - 2 * n];
+            x[384 + 2 * n] = y[n].im * w[127 - 2 * n];
+            x[384 + 2 * n + 1] = -y[127 - n].re * w[126 - 2 * n];
+        }
+        x
+    }
+
+    /// Clause 6.9.4.2, the pair of 256-sample transforms of a block-switched
+    /// block, as the clause writes them.
+    fn plain_short(w: &[f64; N2], xk: &[f64; N2]) -> [f64; 512] {
+        let mut x1 = [0.0f64; 128];
+        let mut x2 = [0.0f64; 128];
+        for k in 0..128 {
+            x1[k] = xk[2 * k];
+            x2[k] = xk[2 * k + 1];
+        }
+        let mut z1 = [Complex::default(); 64];
+        let mut z2 = [Complex::default(); 64];
+        for k in 0..64 {
+            z1[k] = Complex {
+                re: x1[127 - 2 * k],
+                im: x1[2 * k],
+            }
+            .mul(plain_twiddle(k, 4.0 * 512.0));
+            z2[k] = Complex {
+                re: x2[127 - 2 * k],
+                im: x2[2 * k],
+            }
+            .mul(plain_twiddle(k, 4.0 * 512.0));
+        }
+        plain_ifft(&mut z1);
+        plain_ifft(&mut z2);
+        let mut y1 = [Complex::default(); 64];
+        let mut y2 = [Complex::default(); 64];
+        for n in 0..64 {
+            y1[n] = z1[n].mul(plain_twiddle(n, 4.0 * 512.0));
+            y2[n] = z2[n].mul(plain_twiddle(n, 4.0 * 512.0));
+        }
+        let mut x = [0.0f64; 512];
+        for n in 0..64 {
+            x[2 * n] = -y1[n].im * w[2 * n];
+            x[2 * n + 1] = y1[63 - n].re * w[2 * n + 1];
+            x[128 + 2 * n] = -y1[n].re * w[128 + 2 * n];
+            x[128 + 2 * n + 1] = y1[63 - n].im * w[128 + 2 * n + 1];
+            x[256 + 2 * n] = -y2[n].re * w[255 - 2 * n];
+            x[256 + 2 * n + 1] = y2[63 - n].im * w[254 - 2 * n];
+            x[384 + 2 * n] = y2[n].im * w[127 - 2 * n];
+            x[384 + 2 * n + 1] = -y2[63 - n].re * w[126 - 2 * n];
+        }
+        x
+    }
+
+    /// Blocks of coefficients a decoder meets: noise over the whole band,
+    /// noise with a top that is zero, a single bin, nothing at all, and the
+    /// zeros of each with their sign turned. And blocks no decoder meets,
+    /// which the arithmetic has to come through all the same.
+    fn blocks() -> Vec<[f64; N2]> {
+        let mut seed = 0x0000_dd5e_ed50_fac3_u64;
+        let mut blocks = Vec::new();
+        for kind in 0..48 {
+            let mut block = [0.0f64; N2];
+            match kind % 4 {
+                0 => block.iter_mut().for_each(|c| *c = lcg(&mut seed)),
+                1 => block[..40 + 4 * kind]
+                    .iter_mut()
+                    .for_each(|c| *c = lcg(&mut seed)),
+                2 => block[5 * kind] = lcg(&mut seed),
+                _ => {}
+            }
+            if kind % 8 >= 4 {
+                for c in &mut block {
+                    if *c == 0.0 {
+                        *c = -0.0;
+                    }
+                }
+            }
+            blocks.push(block);
+        }
+        // Numbers too small to come through a multiplication: the smallest
+        // there is, here and there in a block of zeros of either sign. A
+        // product of one is a zero with a sign, and the two ways have to
+        // agree on the sign of every zero they make of them.
+        let least = f64::from_bits(1);
+        for kind in 0..32 {
+            let zero = if kind % 2 == 0 { 0.0 } else { -0.0 };
+            let mut block = [zero; N2];
+            for bin in (kind..N2).step_by(3 + kind % 5) {
+                block[bin] = if (bin / 7) % 2 == 0 { least } else { -least };
+            }
+            blocks.push(block);
+        }
+        // and the same among zeros whose sign goes by the bin: negative in
+        // the even bins and positive in the odd ones, or the other way round
+        for kind in 0..32 {
+            let mut block: [f64; N2] =
+                core::array::from_fn(|bin| if (bin + kind) % 2 == 0 { -0.0 } else { 0.0 });
+            for bin in ((kind / 2)..N2).step_by(2 + kind % 7) {
+                block[bin] = if (bin / 5) % 2 == 0 { least } else { -least };
+            }
+            blocks.push(block);
+        }
+        blocks
+    }
+
+    /// However the transform lays its numbers out, what it computes is the
+    /// transform of the clause computed the plain way, to the last bit and
+    /// to the sign of a zero: no sample of any decode may move.
+    #[test]
+    fn the_transform_is_the_plain_one_bit_for_bit() {
+        let imdct = Imdct::new();
+        let w = *imdct.window();
+        for (n, block) in blocks().iter().enumerate() {
+            for blksw in [false, true] {
+                let plain = if blksw {
+                    plain_short(&w, block)
+                } else {
+                    plain_long(&w, block)
+                };
+                let mut x = [f64::NAN; 512];
+                imdct.windowed(block, blksw, &mut x);
+                for (i, (got, want)) in x.iter().zip(&plain).enumerate() {
+                    assert_eq!(
+                        got.to_bits(),
+                        want.to_bits(),
+                        "block {n}, block switch {blksw}, sample {i}: {got:e} for {want:e}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// And the forward transform of enhanced coupling is the plain one turned
+    /// around, bit for bit.
+    #[test]
+    fn the_forward_transform_is_the_plain_one_bit_for_bit() {
+        let mut seed = 0x5eed_f0f0_5eed_u64;
+        for _ in 0..8 {
+            let mut data = [Complex::default(); 512];
+            for c in data.iter_mut() {
+                c.re = lcg(&mut seed);
+                c.im = lcg(&mut seed);
+            }
+            let mut plain = data;
+            for c in plain.iter_mut() {
+                c.im = -c.im;
+            }
+            plain_ifft(&mut plain);
+            for c in plain.iter_mut() {
+                c.im = -c.im;
+                c.re /= 512.0;
+                c.im /= 512.0;
+            }
+            Dft512::new().forward(&mut data);
+            for (k, (got, want)) in data.iter().zip(&plain).enumerate() {
+                assert_eq!(got.re.to_bits(), want.re.to_bits(), "k {k}");
+                assert_eq!(got.im.to_bits(), want.im.to_bits(), "k {k}");
+            }
+        }
     }
 
     #[test]
@@ -380,7 +621,7 @@ mod tests {
         }
         let src = data;
         Dft512::new().forward(&mut data);
-        Ifft::new(512).run(&mut data);
+        plain_ifft(&mut data);
         for (got, want) in data.iter().zip(src.iter()) {
             assert!((got.re - want.re).abs() < 1e-9 && (got.im - want.im).abs() < 1e-9);
         }

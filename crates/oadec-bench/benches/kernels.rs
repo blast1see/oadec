@@ -185,6 +185,38 @@ fn main() {
         &mut || eac3(&joc_frames),
     );
 
+    // The inverse transform by itself, which is nearly half of that decode:
+    // 1 536 long blocks, a channel of 256 frames, of coefficients that are
+    // noise up to the bin a coded channel ends at.
+    let transform = oadec_eac3::imdct::Imdct::new();
+    let blocks: Vec<[f64; 256]> = noise(1536 * 256)
+        .as_chunks::<256>()
+        .0
+        .iter()
+        .map(|chunk| {
+            core::array::from_fn(|bin| {
+                if bin < 200 {
+                    f64::from(chunk[bin]) / 256.0 - 0.5
+                } else {
+                    0.0
+                }
+            })
+        })
+        .collect();
+    let seconds = blocks.len() as f64 * 256.0 / 48_000.0;
+    let mut delay = [0.0f64; 256];
+    let mut block_out = [0.0f64; 256];
+    run(
+        "eac3: the inverse transform of 1 536 blocks".to_string(),
+        Some(seconds),
+        &mut || {
+            for block in &blocks {
+                transform.process(black_box(block), false, &mut delay, &mut block_out);
+            }
+            black_box(&block_out).len()
+        },
+    );
+
     let input = slots();
     let seconds = input.len() as f64 * BANDS as f64 / 48_000.0;
     let mut analysis = Analysis::new();

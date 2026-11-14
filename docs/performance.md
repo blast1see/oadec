@@ -604,6 +604,86 @@ A stream of four presentations runs six threads. This was measured on a
 machine of twenty-eight processors; on fewer than the command has threads it
 does the same work and gains less.
 
+### The inverse transform of the AC-3 family: real and imaginary parts apart
+
+Timers around the stages of the AC-3 decoder again, in a throwaway build,
+this time over a decode that makes its samples (`verify --decode`). On three
+streams the inverse transform is 44 to 48 per cent of a decode, the mantissas
+25 to 32, and the bit allocation, which was a quarter before it was kept, 5
+to 6.
+
+Two things that would have been cheap were counted first, and are not there.
+A block whose coefficients are all zero needs no transform: over nine streams
+such blocks are under one per cent of what the transform is given in seven,
+and 7 and 12 per cent in the other two. The top half of a block is zero in 10
+to 18 per cent of the blocks of a stream that has an LFE channel, which is
+that channel; but the first step of the transform folds the top of a block
+onto its bottom, and a half that is zero saves it nothing.
+
+What there was is in how the numbers lie. The inverse FFT inside the
+transform had a complex value for every element, in a slice whose length it
+learned when it ran, and one table of twiddles that every stage stepped
+through. Four ways of writing it, inside one binary, the transform of 1 536
+blocks bound to the fast cores
+(`docs/audit/evidence/engine-round-2026-11/43-the-inverse-transform-real-and-imaginary-apart.json`):
+
+| | ms | of the time, per cent |
+|---|---:|---:|
+| as it was | 1.427 | 100 |
+| a table of twiddles for every stage, and a butterfly over the two halves of a block | 1.254 | 88 |
+| that, over an array of a known size, the values put straight into bit-reversed places | 1.172 | 82 |
+| that, with the real parts in one array and the imaginary parts in another | 0.740 | 52 |
+
+The last is the one taken. Why the parts apart are worth what they are is
+not known. The compiled code takes one number at a time in every one of the
+four: the stages of the 64-point transform, in the form taken, are 72 scalar
+multiplications and 108 scalar additions and subtractions, and not one
+instruction that takes two.
+The window and the overlap-add in one pass, with no 512 samples in between,
+were tried on top of it and measured 0.717 to 0.759 ms against 0.745 to
+0.754, which is nothing, so they are as they were.
+
+Every operation on every value is what it was, in the order it was, and so
+the samples are the same to the last bit and to the sign of a zero. A test
+holds the transform, long and block-switched, to the clause computed the
+plain way: one complex value at a time, a twiddle computed where it is used,
+on blocks of noise, noise with a top that is zero, single bins and nothing at
+all, with the zeros of each in both signs. The forward transform of enhanced
+coupling goes through the same stages and is held the same way.
+
+The benchmark has the transform as a kernel of its own now. On `main` and
+with the change, bound to the fast cores, the least of five runs: 1.495 ms
+and 0.787 for the 1 536 blocks, and 4.105 ms and 3.062 for the decode of the
+5.1 core of the fixture. (These are of a run of their own, hours after the
+table above: one kernel moves by some per cent from run to run, and the
+figures of one run are the ones to hold against each other.)
+
+The binary of the change against the binary of `main`, five runs each
+(`tools/bench.py --compare`):
+
+| `decode` to PCM | × real time, before | after | of the time, per cent |
+|---|---:|---:|---:|
+| AC-3, 2 channels | 1 022 | 1 225 | 83.4 |
+| AC-3, 6 channels | 421 | 528 | 79.6 |
+| E-AC-3, 5.1, two streams | 431 and 466 | 551 and 604 | 78.1 and 77.2 |
+| E-AC-3, 7.1, two streams | 239 and 231 | 295 and 281 | 81.0 and 82.1 |
+| E-AC-3 with JOC, the channels, 5.1 and 7.1 | 393 and 214 | 496 and 260 | 79.3 and 82.3 |
+
+Bound to the fast cores, fifteen runs each, a two-channel AC-3 stream is
+delivered in 104.9 ms where it took 125.8, and a 5.1 E-AC-3 stream in 194.8
+where it took 246.8.
+
+`verify` is where it was, because it makes no samples: 96 to 103 per cent,
+and the one the tool calls slower, by 2.5 per cent, takes 99.9 measured again
+on the fast cores. The object formats take 97 to 99 per cent of the time; the
+transform of the core is a small part of them. FFmpeg, measured again on the
+same eight streams, decodes them 1.3 to 2.1 times faster than this, where the
+baseline had it at 4.7 to 6.8 times on E-AC-3.
+
+Nothing a command writes has changed: every delivery of every stream of the
+corpus is the same byte for byte, and the campaign of 200 000 damaged streams
+gives the answers it gave.
+
 ## What it does not say
 
 - One machine. The ratios between commands carry to another; the figures do
