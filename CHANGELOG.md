@@ -468,6 +468,21 @@ Semantic Versioning.
 
 ### Changed
 
+- **The inverse transform of the AC-3 family keeps its real and imaginary
+  parts apart.** The transform is 44 to 48 per cent of a decode of this
+  family. Its inverse FFT had a complex value for every element, in a slice
+  whose length it learned when it ran; it has the real parts in one array
+  and the imaginary parts in another now, of a size the compiler knows, with
+  a table of twiddles for every stage, and the transform of 1 536 blocks
+  takes 0.79 ms where it took 1.50 (`cargo bench -p oadec-bench`, which has
+  the transform as a kernel of its own). `decode` to PCM takes 77 to 83 per
+  cent of the time it took, on eight streams, and FFmpeg decodes the same
+  streams 1.3 to 2.1 times faster than this, where the baseline had it at
+  4.7 to 6.8. Every operation on every value is what it was, in the order it
+  was: a test holds the transform to the clause computed the plain way, bit
+  for bit and to the sign of a zero, and no byte of any delivery of the
+  corpus changes (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/43-the-inverse-transform-real-and-imaginary-apart.json`).
 - **`verify --decode` of a TrueHD stream runs its scan and its presentations
   side by side.** It scanned the stream and then decoded every presentation
   it carries, one after another on one thread. The scan has a thread of its
