@@ -352,18 +352,19 @@ impl AdmWriter {
         rows: impl Iterator<Item = &'a [i32]>,
         elements: usize,
     ) -> io::Result<()> {
+        // three bytes a sample, the low byte first, a row of channels after
+        // another; a channel no element is written to stays the zeros the
+        // buffer is grown with, which is silence
         self.frame.clear();
-        let mut samples = vec![0i32; self.channels];
         for row in rows {
-            samples.iter_mut().for_each(|s| *s = 0);
+            let start = self.frame.len();
+            self.frame.resize(start + self.channels * 3, 0);
             for (i, &slot) in self.slots.iter().enumerate().take(elements) {
                 if let (Slot::Channel(c), Some(&v)) = (slot, row.get(i)) {
-                    samples[c] = v;
+                    let [low, middle, high, _] = crate::clamp_i24(v).0.to_le_bytes();
+                    self.frame[start + c * 3..start + c * 3 + 3]
+                        .copy_from_slice(&[low, middle, high]);
                 }
-            }
-            for &v in &samples {
-                let b = crate::clamp_i24(v).0.to_le_bytes();
-                self.frame.extend_from_slice(&b[..3]);
             }
             self.frames += 1;
         }

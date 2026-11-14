@@ -115,6 +115,8 @@ pub struct DamfWriter {
     events: u64,
     seen: BTreeSet<u32>,
     frame: Vec<i32>,
+    /// The channels of the rows of one call of `write_frames`.
+    rows: Vec<i32>,
     paths: [PathBuf; 3],
     losses: LossLedger,
     /// Last sample position written per element: the metadata is streamed,
@@ -242,6 +244,7 @@ impl DamfWriter {
             events: 0,
             seen: BTreeSet::new(),
             frame: vec![0; channels],
+            rows: Vec::new(),
             paths: [atmos_path, metadata_path, audio_path],
             losses,
             last_pos: BTreeMap::new(),
@@ -279,17 +282,19 @@ impl DamfWriter {
         rows: impl Iterator<Item = &'a [i32]>,
         elements: usize,
     ) -> io::Result<()> {
-        let mut buf: Vec<i32> = Vec::with_capacity(160 * self.channels);
+        // the channels of every row in one buffer, which is kept from call
+        // to call; a channel no element is written to is silence
+        self.rows.clear();
         for row in rows {
-            let start = buf.len();
-            buf.resize(start + self.channels, 0);
+            let start = self.rows.len();
+            self.rows.resize(start + self.channels, 0);
             for (i, &slot) in self.slots.iter().enumerate().take(elements) {
                 if let (Slot::Channel(c), Some(&v)) = (slot, row.get(i)) {
-                    buf[start + c] = v;
+                    self.rows[start + c] = v;
                 }
             }
         }
-        self.audio.write_samples(&buf)
+        self.audio.write_samples(&self.rows)
     }
 
     /// Writes one event (full on the first occurrence of an element, changed

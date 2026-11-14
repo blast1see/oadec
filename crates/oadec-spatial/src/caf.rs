@@ -70,11 +70,13 @@ impl CafWriter {
     /// the channel count); values outside the 24-bit range are clipped.
     pub fn write_samples(&mut self, samples: &[i32]) -> io::Result<()> {
         debug_assert!(samples.len().is_multiple_of(self.channels));
-        self.buf.clear();
-        for &s in samples {
-            let (v, _) = crate::clamp_i24(s);
-            let b = v.to_be_bytes();
-            self.buf.extend_from_slice(&b[1..4]);
+        // three bytes a sample, the high byte first, into a buffer of the
+        // size of the samples: every byte of it is written
+        self.buf
+            .resize(samples.len() * BYTES_PER_SAMPLE as usize, 0);
+        for (bytes, &s) in self.buf.as_chunks_mut::<3>().0.iter_mut().zip(samples) {
+            let [_, high, middle, low] = crate::clamp_i24(s).0.to_be_bytes();
+            *bytes = [high, middle, low];
         }
         self.out.write_all(&self.buf)?;
         self.frames += (samples.len() / self.channels) as u64;
