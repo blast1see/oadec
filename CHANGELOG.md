@@ -468,6 +468,21 @@ Semantic Versioning.
 
 ### Changed
 
+- **The rows of a delivery of objects go through one buffer.** A delivery of
+  objects out of JOC (`decode --format damf`, `--format adm`) handed its
+  samples from the pipeline to the file one at a time: onto a queue for every
+  element, off the queues into a vector made for every row, and from there
+  into the bytes of the file. With the writing that was a quarter of the
+  command. The rows of a frame are taken into one buffer now, the samples of
+  an object go from its bank straight onto its queue, and the writers of the
+  two formats put their bytes into buffers that are given their size first.
+  A delivery takes 83.5 to 85 per cent of the time it took, on one stream of
+  each kind of JOC stream in the corpus, and the object deliveries of TrueHD
+  streams, which the writers serve as well, 97 to 99. No byte of any delivery
+  of the corpus changes. Two tests are new for what a mutation run found no
+  test held in the pipeline: the element an object is written as, and the
+  clip gain put back into the objects and the LFE (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/45-the-rows-of-an-object-delivery-in-one-buffer.json`).
 - **The filter banks of JOC keep their real and imaginary parts apart.** The
   analysis bank of every coded channel and the synthesis bank of every object
   run an inverse DFT of 128 points a time slot, which was written the way the

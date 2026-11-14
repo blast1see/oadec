@@ -180,8 +180,9 @@ time: a third to a little over a half of what an object format took. This
 paragraph used to say 37 and 39 microseconds, 0.85 ms and 38 times, and so
 that the filter banks were all of it. Those were the figures of a slow core.
 Where the rest of the object path goes has not been measured. (The banks take
-58 per cent of that now: see "The filter banks of JOC: real and imaginary
-parts apart" below.)
+58 per cent of that now, and the rest has been measured: see "The filter
+banks of JOC: real and imaginary parts apart" and "A delivery of objects: the
+rows in one buffer" below.)
 
 **`verify --decode` is the sum of its presentations**, 30 to 131 times real
 time, because it decodes them one after another. (It no longer is: see
@@ -729,6 +730,110 @@ every object delivery of the corpus is the same byte for byte.
 
 What a delivery of objects is made of beyond the banks has still not been
 measured. The banks were its largest known part, and they are smaller now.
+
+### A delivery of objects: the rows in one buffer
+
+The section above left what a delivery of objects is made of beyond the banks
+unmeasured. Timers around its stages, in a throwaway build, over one stream of
+each kind of JOC stream the corpus has (`decode --format damf`), in per cent
+of the command, the least and the most of the three streams:
+
+| | on `main` | with the change |
+|---|---:|---:|
+| the synthesis banks | 27.5 to 32.2 | 29.8 to 34.6 |
+| the rows taken off the queues | 11.9 to 13.1 | 7.1 to 8.0 |
+| the rows written | 9.5 to 11.1 | 9.1 to 13.6 |
+| the core decoded | 9.1 to 14.2 | 10.2 to 15.4 |
+| the analysis banks | 8.5 to 11.3 | 10.1 to 12.9 |
+| the matrices updated from the payload | 8.9 to 11.0 | 10.1 to 12.7 |
+| the matrix applied | 5.3 to 6.2 | 5.7 to 7.1 |
+| the samples put on the queues | 2.0 to 2.4 | 0.1 |
+| the payloads read, the quadrature, the metadata, the rest of the pipeline | 2.8 to 3.4 | 3.0 to 3.7 |
+| everything else of the command | 4.5 to 5.0 | 2.4 to 3.3 |
+
+The samples of every element wait on a queue until every element has them,
+because the objects come out of the banks later than the core does. They were
+put on the queues one at a time. They were taken off one at a time into a
+vector made for every row, 1 536 vectors a frame, which were freed after the
+frame was written, where no timer runs: that is in the last line. None of it
+is signal processing, and with the writing it was a quarter of the command.
+
+The rows of a frame are taken into one buffer now, an element at a time, and
+every frame of the delivery uses that buffer again. The samples of an object
+go from its bank straight onto its queue, a time slot at a time, where a
+frame of them was collected first. A queue is extended by what it is given,
+once the delay of the decoder has been dropped from the front of it. Putting
+the samples on the queues, taking the rows off and writing them took 4.7 to
+6.1 ms a second of audio in the build with the timers, and take 3.3 to 3.8.
+
+A delivery (`decode --format damf`), the binary of `main` and the binary of
+the change turn and turn about, five runs each bound to the fast cores
+(`docs/audit/evidence/engine-round-2026-11/45-the-rows-of-an-object-delivery-in-one-buffer.json`):
+
+| | × real time, before | after | of the time, per cent |
+|---|---:|---:|---:|
+| 11 objects over 5.1, 12 parameter bands | 55.1 | 65.6 | 84.1 |
+| 15 objects over 5.1, 12 parameter bands | 43.0 | 51.4 | 83.5 |
+| 15 objects over 7.1, 15 parameter bands | 37.7 | 44.4 | 85.0 |
+
+(The figures before are of this run. The section above has the same binary at
+56.0, 43.8 and 38.1.)
+
+The writers of the two object formats were changed with it. They pushed the
+three bytes of every sample onto a vector, one sample at a time; they put
+them into a buffer that is given its size first, and the DAMF writer keeps
+the buffer it gathers the channels of its rows in. Inside one binary, a frame
+of 1 536 rows of sixteen elements, bound to the fast cores, in kernels of a
+throwaway worktree:
+
+| | µs a frame, as it was | with the change | of the time, per cent |
+|---|---:|---:|---:|
+| the bytes of a CAF, which is the audio of a DAMF delivery | 14.9 | 11.7 | 79 |
+| a frame of DAMF rows: the channels gathered, then those bytes | 35.8 | 24.0 | 67 |
+| a frame of ADM rows into its bytes | 28.1 | 24.2 | 86 |
+
+The second has an allocation in it that grew four times a frame and is kept
+now, and a kernel measures an allocation of a heap that holds nothing else.
+In a delivery the stage that writes the rows has the disk in it, and what the
+writers gained cannot be told there from what the disk does: it took 63 to 81
+µs a frame on `main` and takes 64 to 74.
+
+`tools/bench.py --compare` wrote its object files to a disk that was doing
+something else in this run, and the object formats show it. Its two JOC
+streams have theirs at 76 to 80 per cent of the time and 80 to 86 of the
+processor time. Those of the TrueHD streams, which go through the same
+writers an access unit at a call, go from 0.72 to 1.38 of what they were, and
+the tool calls two of them slower: `decode --format damf` at 1.32 and 1.38
+times, with spreads of 9 and 10 per cent. Of the 88 measurements it has 1
+faster, 85 where they were and those 2 slower. Bound to the fast cores, nine
+runs each, the two take 99.2 and 98.6 per cent of the time they took, and the
+ADM delivery of the second 97.3.
+
+A mutation run over the files of the change found three things of the
+pipeline that no test held, all of them older than the change: the clip gain
+put back into the objects, the clip gain put back into a channel of the core,
+and which element an object is written as. The fixture has a clip gain of one
+and an LFE that is silent, and the two object formats were held to each
+other, which they are when an object is in the wrong element of both. A test
+puts frames of the fixture through a pipeline with a payload that says
+another clip gain and a ramp for an LFE, and another holds the element of
+every object.
+
+One thing was seen and left as it is. When the stream ends, the pipeline runs
+zeros through the banks so that the objects catch up with the core, and puts
+what comes out on the queues without the clip gain every frame before it was
+multiplied by. In 22 of the 24 JOC streams of the corpus every payload says a
+gain of one, and there it is nothing. Whether it is right is a question for
+the decoder this one is measured against, and not for a change that moves no
+byte.
+
+Nothing a command writes has changed: every delivery of every stream of the
+corpus is the same byte for byte, and the campaign of 200 000 damaged streams
+gives the answers it gave.
+
+The synthesis banks are 30 to 35 per cent of a delivery now, the analysis
+banks and the matrices they feed 10 to 13 each, and the rows, taken off and
+written, 16 to 22.
 
 ## What it does not say
 
