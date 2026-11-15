@@ -14,6 +14,22 @@
 //! they stand on, the commands as calls: family by family the report a
 //! command prints, and what it refuses in the words the command says.
 //!
+//! ```
+//! use oadec_engine::Error;
+//! use oadec_engine::api::Source;
+//!
+//! // zeros are no stream, and the call says so by the kind of its error
+//! let source = Source::memory("zeros", vec![0u8; 1 << 16]);
+//! match oadec_engine::probe(&source) {
+//!     Ok(probe) => panic!("a stream of {}", probe.format),
+//!     Err(Error::NoStream(e)) => assert_eq!(
+//!         e.to_string(),
+//!         "no TrueHD access unit or E-AC-3 syncframe found in zeros"
+//!     ),
+//!     Err(e) => panic!("{e}"),
+//! }
+//! ```
+//!
 //! Nothing here knows of a command line, and nothing here prints. A report
 //! is a value; the text of one is written to the writer its caller hands
 //! over, and how far a walk has got is told to the watcher of its source.
