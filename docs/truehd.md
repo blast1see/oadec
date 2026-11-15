@@ -481,7 +481,11 @@ four FBB streams. Two bits the
 syntax calls reserved are no rule, because encoders set them all the time:
 the reserved bit of a directory entry (in 47 of the 55 streams and in all
 157 tracks, millions of entries) and `hires_output_timing` (the same
-streams). A rule that fires on every stream says nothing of any.
+streams). A rule that fires on every stream says nothing of any. The
+bit of the directory is not even the programme's: Dolby's encoder set it in
+other access units each of the four times it encoded one master, and nothing
+else of the stream differed but the check nibbles that go with it
+(`docs/audit/evidence/engine-round-2026-11/54-scenes-through-the-encoders-and-back.json`).
 
 Ignoring them was not what this decoder did everywhere. A test sets each bit
 in the first access unit of the fixture and puts the checksums right; the

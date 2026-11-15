@@ -78,6 +78,22 @@ the E-AC-3 tracks carry EMDF payloads 1 (programme loudness, 372 tracks) and 2
 (programme information, 140); `oadec emdf` reads both, and `docs/dolby-tools.md` says
 what they are worth.
 
+## What an encoder writes
+
+The streams Dolby's encoders made of 51 authored scenes, each five ways
+(`tools/interop.py`; `docs/dolby-tools.md`, *A matrix of round trips*), say the same
+as the library of the fields above and add what a library cannot: what went in.
+None of 269 streams, and none of the 66 of the probes beside them, carries an
+object gain, a size, a lock or a zone, though the masters of 35 of the 51 rows
+said one of them of an object, as 27 of the 33 probes did: the encoder renders the
+lock, the zone and the size and drops the gain (`docs/dolby-tools.md`, *What the
+encoders do with what a master says of an object*). The programme is an LFE and
+dynamic objects in every stream. Every E-AC-3 stream has the trim element and no
+TrueHD one has; an E-AC-3 payload has a sample offset of 0 and a block offset
+factor of 0 where a TrueHD one goes round 0, 8, 16 and 24 with a factor of 0 or 1;
+and a ramp is 1536 samples but for one shorter one in 6 E-AC-3 streams of 51 and in
+49 TrueHD ones of 51.
+
 ## What the corpus exercises
 
 | Film | Payloads | Objects | Elements | Notes |

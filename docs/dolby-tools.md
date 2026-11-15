@@ -910,7 +910,10 @@ gst-launch-1.0 filesrc location=in.ec3 ! dlbac3parse enable-metadata=true \
 
 The result is headerless 32-bit float, one channel per element of the OAMD
 programme: for a 5.1 JOC stream with 15 objects that is the LFE bed and then
-the 15 objects, in the order the programme lists them. `drc-suppress` and
+the 15 objects, in the order the programme lists them. The element writes
+sixteen channels whatever the programme has: a stream of an LFE and eleven
+objects leaves the last four silent (7 such streams of the matrix of round
+trips below, and 44 with fifteen). `drc-suppress` and
 `drc-mode=custom-0` keep dynamic range control and dialogue normalisation
 out; `drop-delay=true` removes the decoder's start-up samples, after which
 the objects line up with `oadec decode --format damf --no-bed-conform` at
@@ -1136,6 +1139,148 @@ static positions come back exact, the same as the online mode at configuration 3
 and against the Dolby object decoder the worst object is 52.34 dB and the median
 94.08 dB, against 51.80 and 95.47 (`07-config-4-authored.json`). It gave no two
 data points and no EMDF in the auxiliary data. Configurations 1 and 2 remain unseen.
+
+## What the encoders do with what a master says of an object
+
+A state of an object in a master says more than a place: a gain, a size, a lock to
+the nearest channel (`snap`) and a zone to keep to. No stream carries any of the
+four. Over the 269 streams of the matrix below and the 66 of these probes
+`oadec oamd` counts no object gain, no size, no lock and no zone but "all", as the
+census of a library found no gain, size or lock (`docs/oamd.md`). What the encoders
+do with them was asked of one object alone over a silent LFE, with one thing said
+of it, at 768 kbit/s and as TrueHD (`tools/interop.py probe`, 33 probes through
+each encoder). The two encoders do the same to every probe: the element with most
+of the object is at the same place in all 33 and has the same share of it to
+0,02. The figures are the E-AC-3 ones, and a distance is the largest difference
+in a coordinate of the room.
+
+| The master says | What comes back |
+|---|---|
+| a place and nothing else, at six places | one element at that place, 0,05 dB from the tone at most |
+| `snap: true` at the six | the two that are 0,10 and 0,39 from a speaker of a 7.1 layout come back at the speaker; the four that are 0,42 or more from every one come back where they were put. One element either way |
+| `zones`, five values at three places | the object is where the zone lets it be: `screen only` on the front wall at the same x, in one element; the other four in two to four elements at speakers' places, the one with most of it 0,42 to 0,97 from where the object was put. The power over the elements stays within 0,19 dB of the tone |
+| `size` 0.1, 0.4, 1.0 | 4, 9 and 11 elements, of which the one with most has 52, 37 and 21 per cent of the power. The power over them is 3,2, 0,8 and 1,1 dB under the tone and their sum 2,4, 7,7 and 8,7 dB over it: they carry it in phase |
+| `gain` -6, -20, +6 dB | one element at the place and at the level of the tone, -0,04 dB each time: the gain is neither applied nor carried |
+
+So a lock, a zone and a size are rendered by the encoder into places and elements,
+and a gain is dropped, which the audit found of the gain and the size on one scene
+(`docs/audit/conformance-matrix.md`, *Controlled object gain* and *size*). It is
+the encoders' doing and not the master's: the Conversion Tool carries the same
+-6 dB into ADM as `0.5011872053` (above), and the encoder makes the same bytes of
+that ADM as of the master. `oadec` reads what a stream says, so none of the four
+comes back from a decode, and a master made from a stream has none to lose in a
+second encode. Evidence: `docs/audit/evidence/engine-round-2026-11/54-scenes-through-the-encoders-and-back.json`.
+
+## A matrix of round trips
+
+`tools/interop.py` runs scenes through these tools and back and holds what comes
+back to the scene (`docs/testing-tools.md`). A row is one value of each of seven
+things a programme and its encode can be:
+
+| Axis | Values |
+|---|---|
+| the frame rate the master names | 23.976, 24, 25, 29.97, 30 |
+| the bed | the LFE alone, 2.0, 5.1, 7.1, 7.1.2, 5.0 |
+| objects | 1, 6, 15, 20 |
+| how the first three move | not at all; twice; there and back; round a circle, a new place every 2048 samples |
+| what the first object says besides its place | nothing, a gain, a size, a lock, a zone; or the master names the Lo/Ro warp mode |
+| how the elements sound | together, or in turn, each alone |
+| the encoder | 384, 448, 576, 640, 768, 1024 kbit/s; `--encoder bluray` at 1536 |
+
+51 rows have every pair of values in them, of 40 320 combinations. Every object and
+every channel of a bed has a tone of its own under 3,2 kHz, so it is known by its
+sound whatever the encoder numbers it. Each row went five ways: to E-AC-3 JOC; to
+the same encoder through the Conversion Tool's ADM; as a second generation, the
+first stream decoded by `oadec` to a master and to ADM and encoded again; and to
+TrueHD, where the encoder axis picks 12, 14 or 16 elements. That is 269 streams,
+218 of them E-AC-3, with the second generations of the Lo/Ro rows made twice.
+
+**Every master is taken and every stream is clean.** Both encoders and the
+Conversion Tool took all 51 masters, and the encoder took `oadec`'s ADM of all 51
+streams (written with `--dolby-origin-tag`; without it the encoder says "Content
+was not authored with Dolby tools"). `verify`, `info`, `oamd` and `emdf` exit 0 on
+all 269 streams and every decode exits 0. One thing was refused, by both encoders,
+and it is no row: a master at 96 kHz ("Unsupported sample-rate: 96000").
+
+**What a rate writes.** The bed of the stream is the LFE in every row, whatever
+the bed of the master.
+
+| Encoder | Rows | Core | Objects | JOC configuration | Parameter bands | Complexity index | Core tools in every stream |
+|---|---:|---|---:|---:|---:|---:|---|
+| 384 | 7 | E-AC-3 | 11 | 3 | 12 | 12 | coupling and the hybrid transform |
+| 448, 576 | 16 | E-AC-3 | 15 | 3 | 12 | 16 | coupling |
+| 640, 768, 1024 | 21 | E-AC-3 | 15 | 3 | 12 | 16 | neither |
+| `bluray`, 1536 | 7 | an AC-3 core at 640 kbit/s and a dependent E-AC-3 substream | 15 | 4 | 15 | 16 | neither |
+
+A channel of a bed comes back as an object at its speaker's place, 128 of 128 where
+the elements sound in turn, and the LFE as the LFE, 16 of 16. Every stream has
+one interpolation branch, smooth with one data point, and a clip gain of 1; none
+has two data points or a steep object, and 18 have sparse ones, all of them rows
+whose elements sound together. Configurations 1 and 2 stay unseen. As TrueHD the
+stream has an LFE and 11, 13 or 15 objects for 12, 14 or 16 elements asked.
+
+**What a stream says of the programme.** Every E-AC-3 stream has a trim element
+and no TrueHD one has, as in a library. The warp mode is warping unless the master
+names one, and Lo/Ro in the 7 rows whose master names that; a TrueHD stream has
+none. In E-AC-3 the sample offset and the block offset factor are 0 in every
+payload and every ramp is 1536 samples but one of 512 or 1024 in 6 of the 7 `bluray`
+streams; in TrueHD the offsets go round 0, 8, 16 and 24, the factor is 0 or 1, and
+49 of 51 streams have one ramp that is not 1536, of 96 to 1344 samples. The dialogue
+normalisation is the encoder's own measurement, 9 to 31.
+
+**The two decoders make the same elements.** Dolby's object decode lines up with
+`oadec decode --format damf --no-bed-conform` at lag 0 in all 51 rows, and in both
+second generations. The element furthest from Dolby's is 54,85 to 110,76 dB
+from it (median 65,28), and in 34 of the 51 rows it is one that carries a tone under
+375 Hz, the lowest subband, where `docs/joc.md` says what is left; a second
+generation stands at 70,13 to 109,89.
+
+**What comes back.** A rest is a stretch an object stays at a place for; the
+figures are of the objects a scene says nothing of but a place, and "at the place"
+is within 0,05 of it.
+
+| | E-AC-3 JOC | TrueHD |
+|---|---|---|
+| elements that sound in turn | 296 rests: 296 at the place, 296 in one element, -0,21 to +0,22 dB from the tone (median -0,01); 54 of 54 moves made, 896 to 3776 samples after the master's (median 2720) | 296 rests: 296 at the place, 296 in one element, at the level of the tone to the hundredth of a dB; 54 of 54 moves made, 1152 to 4032 samples after the master's (median 2976) |
+| together, in a scene of no more elements than the stream has | 84 rests: 84 at the place, 58 in one element, -3,45 to +0,27 dB from the tone (median -0,19); 27 of 27 moves made, 128 to 3584 samples after the master's (median 3200) | 66 rests: 66 at the place, 66 in one element, at the level of the tone to the hundredth of a dB; 23 of 23 moves made, 384 to 3840 samples after the master's (median 3456) |
+| together, in a larger scene | 257 rests: 133 at the place, 44 in one element, -7,28 to +0,37 dB from the tone (median -1,34); 21 of 36 moves made, 1664 to 5120 samples after the master's (median 3200) | 275 rests: 122 at the place, 161 in one element, -4,28 to 0,00 dB from the tone (median -0,35); 16 of 40 moves made, 1920 to 5376 samples after the master's (median 3456) |
+
+What sounds alone comes back whole, however many elements the scene has: the
+encoder's spatial coding gives what is sounding an element of its own. Elements
+that sound together and fit come back at their places, in TrueHD untouched and in
+JOC with a part of a tone in other elements, as a coder that rebuilds the objects
+from a downmix band by band does to steady tones that share a band: it has twelve
+or fifteen bands and the scenes up to thirty tones. A scene larger than the stream
+is put into clusters, and an object is then where its cluster is.
+
+**Between the ways.**
+
+- The same master encoded again is the same E-AC-3 bytes, 116 of 116.
+- Through the Conversion Tool the stream is the same bytes as from the master,
+  51 of 51.
+- The second generation made from `oadec`'s master and the one made from its ADM
+  are the same bytes, 51 of 51: the two outputs say one programme.
+- A second generation keeps what the first kept where the elements sound in turn:
+  310 of 329 rests at the place as in the first, each within 0,23 dB of its
+  level there. Where they sound together it is a second coding of a coded scene:
+  234 at the place against 238, and -2,46 to +0,60 dB (median -0,25).
+- The warp mode is lost by a decode that names none: all 7 Lo/Ro rows come back
+  as warping, and all 7 as Lo/Ro with `--warp-mode stream` (above).
+- The dialogue normalisation is the encoder's measurement, made anew of the
+  decode: a second generation has another than the first in 19 of 51 rows, its
+  field 8 less to 7 more, and the same DRC profiles in all 51. This encoder
+  takes none on its command line (`--loudness-management` has `measure_only` and
+  nothing else), so what a first stream says cannot be handed on to it.
+- The frame rate a master names changes no byte of an E-AC-3 stream, and of a
+  TrueHD stream no more than encoding the same master again does. That encoder's
+  streams of one master differ from run to run, here in 6 to 10 bytes of 501 144: the
+  check nibble of an access unit and the bit of its first directory entry that
+  the syntax reserves, which these streams set in about 1650 of 3 600 units. They decode
+  to the same samples in every presentation and to the same objects, and so do
+  the five frame rates, which differ in 2 to 12 such bytes.
+- The whole matrix was run twice. Every E-AC-3 stream was the same bytes both
+  times, 204 of 204 over the four ways, and no TrueHD stream was, 0 of 51; every
+  figure of what came back was the same, for all 255 rows.
 
 ## What the object refusals are not
 

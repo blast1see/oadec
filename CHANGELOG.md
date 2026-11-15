@@ -8,6 +8,44 @@ Semantic Versioning.
 
 ### Added
 
+- **`tools/interop.py` runs scenes through Dolby's encoders and back, and
+  holds what comes back to the scene.** 51 scenes have every pair of values of
+  seven axes in them: the frame rate a master names, its bed, the number of
+  its objects, how they move, what is said of one besides its place, whether
+  the elements sound together or in turn, and what the encoder is told. Each
+  went five ways: to E-AC-3 JOC, to the same through the Conversion Tool, as
+  a second generation through `oadec`'s master and through its ADM, and to
+  TrueHD. Every master was taken, and all 269 streams are clean to `verify` and
+  decode at exit 0. Dolby's object decode lines up with ours at lag 0 on all
+  51 E-AC-3 streams, the furthest element 54,85 to 110,76 dB from it. An
+  object that sounds alone and of which the scene says nothing but a place
+  comes back in one element and at the place, 296 rests of 296, within
+  0,22 dB of its tone, and its 54 moves are all made, 896 to 3776 samples
+  after the master's. Through the Conversion Tool the stream is the same
+  bytes as from the master, and the second generations made from our master
+  and from our ADM are the same bytes as each other, 51 of 51 both.
+
+  A stream carries none of what a master says of an object besides its
+  place. The encoders render a lock to a channel, a zone and a size into
+  places and elements and drop a gain; 33 probes of one object alone say how,
+  through each encoder. The bed of every stream is the LFE: the other
+  channels of a master's bed come back as objects at their speakers' places.
+  A rate of 384 kbit/s writes eleven objects and every other fifteen; a
+  master at 96 kHz is refused by both encoders. A second generation has the
+  dialogue normalisation the encoder measures of it, another than the first
+  in 19 rows of 51. The TrueHD encoder's streams
+  of one master are not the same bytes from run to run, in a reserved bit of
+  the directory, and decode to the same samples
+  (`docs/dolby-tools.md`, `docs/testing-tools.md`,
+  `docs/audit/evidence/engine-round-2026-11/54-scenes-through-the-encoders-and-back.json`).
+
+- **A scene of `oadec atmos-author` can say more of its master**: the frame
+  rate and the warp mode it names, a lock to a channel and a zone in a state
+  of an object, a signal for a channel of the bed, and for a tone the sample
+  it begins at and the sample it has ended by, between which it comes and
+  goes over a hundredth of a second. A scene that says none of these writes
+  the master it wrote.
+
 - **What Dolby's decoders do to the coupled channels of an E-AC-3 stream is
   measured, and `tools/coupling_mix.py` measures it.** With the dither of
   both decoders the same, the coupled region of an E-AC-3 stream stood far
