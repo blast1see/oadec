@@ -1982,3 +1982,215 @@ fn verify_says_the_same_whether_or_not_it_makes_the_samples() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// What the decoder puts in the coefficients of one channel that got no
+/// bits, frame by frame and block by block: the coefficient, and the value
+/// over its exponent as a whole number of `2^-15`, which is the unit of the
+/// dither.
+fn dither_of(bytes: &[u8], ch: usize) -> Vec<Vec<Vec<(usize, i64)>>> {
+    let mut noise = Noise::default();
+    let opts = FrameOptions {
+        block_info: true,
+        ..FrameOptions::default()
+    };
+    let mut frames = Vec::new();
+    let mut pos = 0;
+    while pos < bytes.len() {
+        let n = FrameHeader::parse(&bytes[pos..])
+            .expect("a frame header")
+            .frame_bytes;
+        let frame = Frame::parse(&bytes[pos..pos + n], &mut noise, opts).expect("the frame parses");
+        frames.push(
+            frame
+                .blocks
+                .iter()
+                .map(|block| {
+                    let info = block.info.as_ref().expect("the record was asked for");
+                    (0..info.endmant[ch])
+                        .filter(|&bin| info.bap[ch][bin] == 0)
+                        .map(|bin| {
+                            let scaled = block.coeffs[ch][bin]
+                                * 2f64.powi(i32::from(info.exps[ch][bin]) + 15);
+                            assert!(scaled == scaled.round(), "coefficient {bin}: {scaled}");
+                            (bin, scaled as i64)
+                        })
+                        .collect()
+                })
+                .collect(),
+        );
+        pos += n;
+    }
+    frames
+}
+
+fn values(block: &[(usize, i64)], count: usize) -> Vec<i64> {
+    block[..count].iter().map(|&(_, v)| v).collect()
+}
+
+/// The dither. The scene leaves the centre channel silent, so where a frame
+/// has no bits for one of its coefficients the decoder writes its dither
+/// over the exponent and nothing else. Dolby's decoder writes these numbers
+/// there: its decode of this file, less a decode without dither, taken back
+/// through the transform. Every frame of an independent E-AC-3 substream
+/// starts its dither from the 16 bits that end 18 bits before its end; the
+/// second and the third frame of the file end in 0x150A and 0xB7AB.
+#[test]
+fn the_dither_of_a_frame_is_the_one_dolbys_decoder_draws_for_it() {
+    let bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let got = dither_of(&bytes, 1);
+    assert_eq!((got[1][0].len(), got[1][0][0].0), (42, 79));
+    assert_eq!(
+        values(&got[1][0], 10),
+        [
+            5160, 644, 6368, -14688, -344, 19623, 10367, -4308, 5918, 2579
+        ]
+    );
+    assert_eq!(
+        values(&got[1][3], 10),
+        [
+            -4102, -2311, 3430, -2540, 8292, -13041, 9759, -5577, 18694, 13336
+        ]
+    );
+    assert_eq!((got[2][0].len(), got[2][0][0].0), (24, 85));
+    assert_eq!(
+        values(&got[2][0], 10),
+        [
+            4005, 10990, -795, -15871, 8027, -4855, 784, -3025, 5714, 480
+        ]
+    );
+    assert_eq!(
+        values(&got[2][4], 10),
+        [
+            -13732, -1339, -1742, -912, 7215, -8223, -4961, -12412, 1553, 8968
+        ]
+    );
+}
+
+/// The tail word is what a frame starts from, and all it starts from: a copy
+/// of the file in which the third frame ends in the word of the second draws,
+/// in the third frame, what the second drew, and the frames around it draw
+/// what they drew before. Dolby's decode of such a copy does the same.
+#[test]
+fn a_frame_given_the_tail_word_of_another_draws_what_that_one_drew() {
+    let mut bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let before = dither_of(&bytes, 1);
+    let mut index = 0;
+    let changed = rewrite_frames(&mut bytes, |frame| {
+        index += 1;
+        if index == 3 {
+            // the 16 bits before `auxdatae`, the bit after it and the CRC
+            vec![(frame.header.frame_bytes * 8 - 34, 16, 0x150A)]
+        } else {
+            Vec::new()
+        }
+    });
+    assert_eq!(changed, 1);
+    let got = dither_of(&bytes, 1);
+    // the third frame has 24 such coefficients where the second has 42
+    for blk in 0..6 {
+        assert_eq!(
+            values(&got[2][blk], 24),
+            values(&before[1][blk], 24),
+            "block {blk}"
+        );
+        assert_ne!(values(&got[2][blk], 24), values(&before[2][blk], 24));
+    }
+    assert_eq!(got[1], before[1]);
+    assert_eq!(got[3], before[3]);
+}
+
+/// The coefficients of every block of one frame, with the dither and without.
+fn coefficients_of_frame(
+    bytes: &[u8],
+    index: usize,
+    dither: bool,
+) -> (Vec<Vec<[f64; 256]>>, Vec<usize>) {
+    let mut noise = Noise::default();
+    let opts = FrameOptions {
+        dither,
+        block_info: true,
+        ..FrameOptions::default()
+    };
+    let mut pos = 0;
+    for _ in 0..index {
+        pos += FrameHeader::parse(&bytes[pos..])
+            .expect("a frame header")
+            .frame_bytes;
+    }
+    let n = FrameHeader::parse(&bytes[pos..])
+        .expect("a frame header")
+        .frame_bytes;
+    let frame = Frame::parse(&bytes[pos..pos + n], &mut noise, opts).expect("the frame parses");
+    let first = frame.blocks[0]
+        .info
+        .as_ref()
+        .expect("the record was asked for");
+    assert!(first.cplinu && !first.ecplinu, "the frame is not coupled");
+    (
+        frame.blocks.iter().map(|b| b.coeffs.clone()).collect(),
+        first.endmant.clone(),
+    )
+}
+
+/// The coupled part of a channel. Where the coupling channel has no bits for
+/// a coefficient, each channel coupled into it takes a dither of its own,
+/// from the second of its two states, scaled by the exponent of the coupling
+/// channel and by the channel's coupling coordinate, which is one number over
+/// a sub-band of twelve coefficients. So what two channels get there, each
+/// over the run of its own second state, stand in one ratio over a sub-band:
+/// the ratio of their coordinates. They do not if a channel draws from
+/// another state, or out of order, or if the frame is not seeded from its
+/// word (0x150A, the second frame of the file).
+#[test]
+fn the_coupled_part_of_a_channel_draws_the_run_of_its_second_state() {
+    let bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
+    let (on, endmant) = coefficients_of_frame(&bytes, 1, true);
+    let (off, _) = coefficients_of_frame(&bytes, 1, false);
+    // left and right, the first and the third coded channel
+    let (a, b) = (0usize, 2usize);
+    let start = endmant[a];
+    assert_eq!(
+        endmant[b], start,
+        "the two channels are coupled from one coefficient on"
+    );
+    let mut dither = oadec_eac3::dither::Dither::new();
+    dither.seed_from_frame(0x150A);
+    let (mut judged, mut bands) = (0usize, 0usize);
+    for blk in 0..6 {
+        // the coefficients of the coupling channel that got no bits: where
+        // the dither changes anything in any channel
+        let bare: Vec<usize> = (start..256)
+            .filter(|&bin| (0..5).any(|ch| on[blk][ch][bin] != off[blk][ch][bin]))
+            .collect();
+        let mut ratio_of_band: Option<(usize, f64)> = None;
+        for &bin in &bare {
+            let (va, vb) = (dither.coupled(blk, a), dither.coupled(blk, b));
+            let (da, db) = (
+                on[blk][a][bin] - off[blk][a][bin],
+                on[blk][b][bin] - off[blk][b][bin],
+            );
+            if va == 0.0 || vb == 0.0 || da == 0.0 || db == 0.0 {
+                continue;
+            }
+            let ratio = (da / va) / (db / vb);
+            let band = (bin - start) / 12;
+            match ratio_of_band {
+                Some((of, known)) if of == band => {
+                    assert!(
+                        (ratio / known - 1.0).abs() < 1e-9,
+                        "block {blk}, coefficient {bin}: {ratio} where the sub-band had {known}"
+                    );
+                    judged += 1;
+                }
+                _ => {
+                    ratio_of_band = Some((band, ratio));
+                    bands += 1;
+                }
+            }
+        }
+    }
+    assert!(
+        judged >= 60 && bands >= 6,
+        "only {judged} coefficients of {bands} sub-bands to go by"
+    );
+}
