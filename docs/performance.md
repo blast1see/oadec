@@ -498,10 +498,11 @@ every frame to its last bit and makes its checks, runs neither the synthesis
 of enhanced coupling nor the transform, and hands out the frames it would
 have, in the calls it would have, with their channels and no samples in them.
 `verify`, `info` and the check read a stream that way. Where a second clip
-gain shows, `verify` and `info` start over from the first frame with the
-samples, so that the row is the one every frame decoded gives. `verify
---decode`, which this family took and did nothing with, makes the samples of
-every frame, and its report is the same.
+gain showed, `verify` and `info` started over from the first frame with the
+samples, so that the row was the one every frame decoded gives (they no
+longer do: the row went to `verify --decode`, below). `verify --decode`,
+which this family took and did nothing with, makes the samples of every
+frame, and its report was the same.
 
 Measured on 14 November 2026. Inside one binary, `verify` and `verify
 --decode` turn and turn about, nine runs each, bound to the fast cores
@@ -520,6 +521,17 @@ samples up to the frame where the second clip gain shows, frame 117 of 976
 and frame 113 of 313, and then again from the first with them: 110 and 124
 per cent of the time. The figure is of every frame from the first, so nothing
 short of knowing beforehand that a stream has it would read it cheaper.
+
+**The row is `verify --decode`'s since.** A report that is of the stream had
+one row that is of the samples, and read a stream twice for it. The row is
+printed now by the report whose samples are made, which is `verify
+--decode`, and by no other. `verify` and `info` read every stream of the
+family once and listen to none, and what they say no longer moves with the
+dither. The three streams of the corpus that have the row take 68 to 77
+per cent of the time under `verify` and 69 to 72 under `info`, in runs
+of 30 to 110 ms of which a part is the start of the process; `verify
+--decode` takes what it took (97 to 101 per cent) and says what it
+said (`docs/audit/evidence/engine-round-2026-11/53-the-core-level-where-the-samples-are-made.json`).
 
 Against the binary of `main`, `info`, `verify`, `emdf` and `oamd` on one
 stream of each kind take 46 to 58 per cent of the time they took, twenty
