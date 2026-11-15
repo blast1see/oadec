@@ -48,7 +48,7 @@ use clap::{Parser, Subcommand};
 use crate::compare::RefFormat;
 use crate::damf::{InterpolationArg, IsfArg, WarpArg};
 use crate::decode::{Format, OnError, Order};
-use crate::eac3_objects::{JocLowBand, JocOverrides, JocPhase};
+use crate::eac3_objects::{JocLowBand, JocLowFir, JocOverrides, JocPhase};
 use crate::integrity::Verdict;
 use crate::source::Source;
 use oadec_truehd::Severity;
@@ -302,6 +302,18 @@ enum Command {
         /// report.
         #[arg(long, hide = true, value_name = "CH,CH:+|-|none", value_parser = JocPhase::parse)]
         joc_phase: Option<JocPhase>,
+        /// JOC measurement: an operator on the lowest subband of the
+        /// phase-shifted channels instead of the one measured on the Dolby
+        /// decoder, from a file of a tap a line (real part, imaginary part);
+        /// announced on stderr and recorded in the loss report.
+        #[arg(
+            long,
+            hide = true,
+            value_name = "FILE",
+            value_parser = JocLowFir::read,
+            conflicts_with_all = ["flat_quadrature", "joc_low_band"]
+        )]
+        joc_low_fir: Option<JocLowFir>,
     },
     /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
     /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
@@ -567,6 +579,7 @@ where
             joc_lag,
             joc_low_band,
             joc_phase,
+            joc_low_fir,
         } => {
             // An option that is absent is told from one given at its default,
             // which is what lets one that does not apply be refused.
@@ -609,7 +622,10 @@ where
                         "--warp-mode names a warp mode in an object output: it applies to \
                      --format damf or adm"
                     ))
-                } else if (joc_lag.is_some() || joc_low_band.is_some() || joc_phase.is_some())
+                } else if (joc_lag.is_some()
+                    || joc_low_band.is_some()
+                    || joc_phase.is_some()
+                    || joc_low_fir.is_some())
                     && !(eac3::is_eac3(&source).unwrap_or(false)
                         && matches!(format, Format::Damf | Format::Adm))
                 {
@@ -691,6 +707,7 @@ where
                                     lag: joc_lag,
                                     low_band: joc_low_band,
                                     phase: joc_phase,
+                                    low_fir: joc_low_fir,
                                 },
                                 core: oadec_eac3::Options {
                                     dither: !no_dither,

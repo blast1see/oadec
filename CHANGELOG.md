@@ -8,6 +8,18 @@ Semantic Versioning.
 
 ### Added
 
+- **`--joc-low-fir`, hidden, puts an operator from a file on the lowest
+  subband**, and `tools/gen_joc_quadrature.py` solves for the one Dolby's
+  decoder applies. The file is a tap a line, real part then imaginary part,
+  an odd number of them and 21 or more; every channel is held back by half
+  its length and the matrices follow. It is announced on stderr and recorded
+  in the loss report as the other measurement overrides are, refused beside
+  `--flat-quadrature` or `--joc-low-band`, and refused where there is no JOC
+  decode to reach. The tool decodes a stream with one tap at a time and
+  takes the combination that comes closest to Dolby's objects; asked for an
+  operator drawn at random out of this decoder's own objects, it gives the
+  taps back to a part in a hundred million.
+
 - **`tools/joc_bands.py` says where two decodes of the objects of a stream
   differ.** For every object: the signal-to-noise ratio in each of 64 bands
   of 375 Hz; the same after the best linear fit, which is a gain for every
@@ -485,6 +497,32 @@ Semantic Versioning.
   nothing, and counts what each kind of delivery compared.
 
 ### Changed
+
+- **The lowest subband of a phase-shifted channel goes through the operator
+  Dolby's decoder applies.** Downmix configurations 3 and 4 hand the surround
+  pair over with a 90-degree phase shift that the standard does not describe,
+  and in the subband that holds direct current taking it back out is a filter
+  across time slots. The decoder carried a turn and a real filter of 37 taps,
+  fitted between two readings on three titles. It carries now the 21 complex
+  taps that were solved for by least squares on what Dolby's decoder writes
+  for fourteen streams of both configurations, the same from every one.
+  Over the 127 tracks of a library that Dolby's decoder gives objects for,
+  the lowest band of the objects stands at 115,2 dB from Dolby's at the median
+  where it stood at 55,9, which is where the LFE of those tracks is (115,9);
+  it was more than 10 dB short of the bands above it on 71 tracks and is on
+  none; the whole band stands at 53,5 dB against 49,3; and of 1080 objects
+  none is further from Dolby's than it was. The objects of every stream of
+  those two configurations change: in the lowest band, and above it by 25 dB
+  less at 750 Hz and less the further up, since the filter banks reconstruct
+  to 78 dB and what a low frequency of the surround pair leaves in the other
+  subbands depends on what the lowest one was given. The filter reaches ten
+  slots either side, which is the matrix alignment that was measured before
+  it: the samples are held back by the filter and the matrices not at all,
+  512 samples less of delay inside the decoder and none in what it writes.
+  One thing moves with it: where the clip gain of a stream changes, its step
+  comes 512 samples later in the objects, nearer to where Dolby's decoder
+  has it (`docs/joc.md`,
+  `docs/audit/evidence/engine-round-2026-11/49-the-operator-on-the-lowest-subband.json`).
 
 - **The synthesis bank of JOC keeps its history in a ring.** A step of the
   bank moved a history of 1 280 values along by 128 every time slot,

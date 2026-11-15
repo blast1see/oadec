@@ -1,0 +1,7652 @@
+{
+ "question": "What does Dolby's decoder do to the lowest subband of a downmix channel that carries the 90-degree phase shift, and what does doing the same leave between our objects and its?",
+ "method": "A decode is linear in the taps of a filter across time slots on the lowest subband of the shifted channels, and the hidden `--joc-low-fir` puts any such filter in. `tools/gen_joc_quadrature.py` decoded each of fourteen streams with no filter and with one pair of taps at a time set to 1 and to j (23 decodes a stream, our dither left out), and solved by least squares for the taps that bring the objects closest to those of Dolby's decoder below 450 Hz: on the first half of every stream, held to its second half and to the second half of every other, and on all of them together, each weighed by its own power. The streams are forty seconds from ten minutes into fourteen tracks of the library of evidence 48, cut out as they are; Dolby's decoder wrote its objects (`dlbac3dec out-ch-config=21`, `docs/dolby-tools.md`) and is run as it stands: only what it writes is read. With the taps in the decoder, the 129 tracks of evidence 48 were screened again the same way (`tools/joc_bands.py`), and the corpus of 131 streams was decoded by the binary of main and by the binary of the change (`tools/old_new.py --decode-all`). A track of the library is a number; the films are not in the repository.",
+ "commands": [
+  "python tools/gen_joc_quadrature.py --work <dir> --pair clips/001.ec3 dolby/001.f32 ... (fourteen pairs) --out gen-14.json",
+  "python tools/gen_joc_quadrature.py --work <dir> --self-check clips/quietplace-web-head.ec3 [--free]",
+  "python tools/joc_bands.py <ours>.atmos.audio <dolby>.f32   (every track, before and after)",
+  "python tools/old_new.py --old <main> --new <change> --decode-all <thd> <ec3> <clips> <fixtures>",
+  "OADEC_MEDIA=<work> cargo test --release --locked -p oadec-cli --test real -- --ignored the_lowest_band the_matrix_alignment"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "binaries": {
+  "how": "both built from the tree of main and of the change by `cargo build --release --locked`; the library was screened, the corpus compared and the clips measured with the second",
+  "main": {
+   "name": "oadec-main-59.exe",
+   "sha256": "74ff07cafe5318e38ae1674ae7704225224c8b1b6ca00a4c3bd2e60b56c9c868"
+  },
+  "the_change": {
+   "name": "oadec-operator-4.exe",
+   "sha256": "d51fff0bdf43aeba0f4f02074ea3f7a363f8cc0fd6655d2a857a9a704a874e24"
+  }
+ },
+ "result": {
+  "the_method_asked_for_an_operator_it_was_given": {
+   "how": "the reference is this decoder with 21 taps drawn at random, a tenth in size; the taps that come back are held to the ones drawn. The reference is a file of 24 bits.",
+   "taps_tied_in_pairs": {
+    "self_check": true,
+    "taps_drawn": 21,
+    "tied_in_pairs": true,
+    "objects": 11,
+    "seconds": 27.2,
+    "largest_error_of_a_tap": 1.0631785138718903e-08,
+    "what_the_taps_found_leave_db": 122.6
+   },
+   "taps_free": {
+    "self_check": true,
+    "taps_drawn": 21,
+    "tied_in_pairs": false,
+    "objects": 11,
+    "seconds": 27.2,
+    "largest_error_of_a_tap": 2.701653192575375e-05,
+    "what_the_taps_found_leave_db": 119.9
+   }
+  },
+  "the_operator": {
+   "taps_from_the_middle_outwards": {
+    "real": [
+     0.0944003487,
+     0.0921512591,
+     0.0856681317,
+     0.0756999021,
+     0.0633580907,
+     0.0499404357,
+     0.0367349393,
+     0.0248387909,
+     0.0150252577,
+     0.0076781607,
+     0.0027993617
+    ],
+    "imaginary": [
+     -1.1958746899,
+     -0.1834494144,
+     -0.1513654863,
+     -0.1115513849,
+     -0.0751446394,
+     -0.0475197033,
+     -0.0286544005,
+     -0.0163365358,
+     -0.0085310104,
+     -0.0038468887,
+     -0.0012484503
+    ]
+   },
+   "as_the_source_has_them": "ten decimals, `OPERATOR` in crates/oadec-joc/src/quadrature.rs",
+   "the_sum_of_the_21": [
+    1.002189007679805,
+    -2.451170518070841
+   ],
+   "response": {
+    "how": "theta is the frequency of the slot rate, pi at 375 Hz; the response is the same at -theta",
+    "by_theta": [
+     {
+      "theta_over_pi": 0.0,
+      "hz": 0.0,
+      "real": 1.00218901,
+      "imaginary": -2.45117052,
+      "off_minus_j": 1.764
+     },
+     {
+      "theta_over_pi": 0.05,
+      "hz": 18.75,
+      "real": 0.82485051,
+      "imaginary": -2.28874082,
+      "off_minus_j": 1.53
+     },
+     {
+      "theta_over_pi": 0.1,
+      "hz": 37.5,
+      "real": 0.44002641,
+      "imaginary": -1.90677745,
+      "off_minus_j": 1.008
+     },
+     {
+      "theta_over_pi": 0.15,
+      "hz": 56.25,
+      "real": 0.1230013,
+      "imaginary": -1.51790967,
+      "off_minus_j": 0.5323
+     },
+     {
+      "theta_over_pi": 0.2,
+      "hz": 75.0,
+      "real": -0.00021272,
+      "imaginary": -1.25821598,
+      "off_minus_j": 0.2582
+     },
+     {
+      "theta_over_pi": 0.25,
+      "hz": 93.75,
+      "real": -0.00364011,
+      "imaginary": -1.12566726,
+      "off_minus_j": 0.1257
+     },
+     {
+      "theta_over_pi": 0.3,
+      "hz": 112.5,
+      "real": 0.00462526,
+      "imaginary": -1.05990447,
+      "off_minus_j": 0.06008
+     },
+     {
+      "theta_over_pi": 0.35,
+      "hz": 131.25,
+      "real": -0.00105249,
+      "imaginary": -1.02386397,
+      "off_minus_j": 0.02389
+     },
+     {
+      "theta_over_pi": 0.4,
+      "hz": 150.0,
+      "real": -0.00216154,
+      "imaginary": -1.00767284,
+      "off_minus_j": 0.007971
+     },
+     {
+      "theta_over_pi": 0.45,
+      "hz": 168.75,
+      "real": 0.00169488,
+      "imaginary": -1.00293342,
+      "off_minus_j": 0.003388
+     },
+     {
+      "theta_over_pi": 0.5,
+      "hz": 187.5,
+      "real": 0.00076218,
+      "imaginary": -1.00068932,
+      "off_minus_j": 0.001028
+     },
+     {
+      "theta_over_pi": 0.6,
+      "hz": 225.0,
+      "real": 3.082e-05,
+      "imaginary": -0.99993707,
+      "off_minus_j": 7.007e-05
+     },
+     {
+      "theta_over_pi": 0.8,
+      "hz": 300.0,
+      "real": 0.00076689,
+      "imaginary": -1.00026939,
+      "off_minus_j": 0.0008128
+     },
+     {
+      "theta_over_pi": 1.0,
+      "hz": 375.0,
+      "real": 0.00095481,
+      "imaginary": -1.00035481,
+      "off_minus_j": 0.001019
+     }
+    ],
+    "furthest_from_minus_j_beyond_0.45_pi": 0.003388,
+    "furthest_from_minus_j_beyond_0.5_pi": 0.001715
+   }
+  },
+  "fourteen_streams": {
+   "streams": [
+    {
+     "stream": 1,
+     "track_of_the_screening": 1,
+     "downmix_configuration": [
+      3
+     ],
+     "objects": 8,
+     "seconds": 36.6,
+     "through_the_operator_db_each_half": [
+      -7.7,
+      -3.1
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 125.9,
+     "the_joint_taps_db": 125.9,
+     "own_taps_of_each_half_off_the_joint_by": [
+      1.5203801379112467e-07,
+      1.5308734546692904e-07
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      125.9,
+      130.3,
+      94.2,
+      116.7,
+      108.2,
+      107.9,
+      117.3,
+      121.1,
+      120.3,
+      119.0,
+      122.0,
+      129.6,
+      102.8,
+      122.6
+     ]
+    },
+    {
+     "stream": 2,
+     "track_of_the_screening": 5,
+     "downmix_configuration": [
+      3
+     ],
+     "objects": 11,
+     "seconds": 36.4,
+     "through_the_operator_db_each_half": [
+      -7.2,
+      -4.7
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 130.6,
+     "the_joint_taps_db": 130.1,
+     "own_taps_of_each_half_off_the_joint_by": [
+      1.5386124566649576e-07,
+      1.571908108169949e-07
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      125.9,
+      130.6,
+      94.2,
+      116.7,
+      108.2,
+      107.9,
+      117.3,
+      121.1,
+      120.3,
+      119.0,
+      122.0,
+      129.6,
+      102.8,
+      122.6
+     ]
+    },
+    {
+     "stream": 3,
+     "track_of_the_screening": 18,
+     "downmix_configuration": [
+      3
+     ],
+     "objects": 11,
+     "seconds": 36.7,
+     "through_the_operator_db_each_half": [
+      -8.2,
+      -3.3
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 94.2,
+     "the_joint_taps_db": 96.3,
+     "own_taps_of_each_half_off_the_joint_by": [
+      1.5077844298409457e-07,
+      1.709370321290038e-06
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      125.9,
+      130.4,
+      94.2,
+      116.7,
+      108.2,
+      107.9,
+      117.3,
+      121.1,
+      120.3,
+      119.0,
+      122.0,
+      129.6,
+      102.8,
+      122.6
+     ]
+    },
+    {
+     "stream": 4,
+     "track_of_the_screening": 22,
+     "downmix_configuration": [
+      3
+     ],
+     "objects": 15,
+     "seconds": 36.8,
+     "through_the_operator_db_each_half": [
+      -6.0,
+      -11.2
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 116.7,
+     "the_joint_taps_db": 121.4,
+     "own_taps_of_each_half_off_the_joint_by": [
+      1.458477757684297e-07,
+      1.559301900317181e-07
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      125.9,
+      130.6,
+      94.2,
+      116.7,
+      108.2,
+      107.9,
+      117.3,
+      121.1,
+      120.3,
+      119.0,
+      122.0,
+      129.6,
+      102.8,
+      122.6
+     ]
+    },
+    {
+     "stream": 5,
+     "track_of_the_screening": 2,
+     "downmix_configuration": [
+      3
+     ],
+     "objects": 15,
+     "seconds": 36.8,
+     "through_the_operator_db_each_half": [
+      -83.4,
+      -7.2
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 58.1,
+     "the_joint_taps_db": 111.4,
+     "own_taps_of_each_half_off_the_joint_by": [
+      0.004475298737023348,
+      1.4956878139314733e-07
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      59.6,
+      46.6,
+      57.6,
+      58.8,
+      58.1,
+      59.7,
+      84.2,
+      67.3,
+      68.2,
+      74.7,
+      91.0,
+      65.9,
+      64.3,
+      80.6
+     ]
+    },
+    {
+     "stream": 6,
+     "track_of_the_screening": 9,
+     "downmix_configuration": [
+      3
+     ],
+     "objects": 9,
+     "seconds": 36.9,
+     "through_the_operator_db_each_half": [
+      -16.3,
+      -8.8
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 107.9,
+     "the_joint_taps_db": 109.4,
+     "own_taps_of_each_half_off_the_joint_by": [
+      2.9233758414015654e-07,
+      2.40976628429479e-07
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      125.0,
+      126.4,
+      94.2,
+      116.6,
+      108.2,
+      107.9,
+      117.3,
+      121.1,
+      120.2,
+      119.0,
+      122.0,
+      129.0,
+      102.8,
+      122.6
+     ]
+    },
+    {
+     "stream": 7,
+     "track_of_the_screening": 13,
+     "downmix_configuration": [
+      3
+     ],
+     "objects": 11,
+     "seconds": 36.9,
+     "through_the_operator_db_each_half": [
+      -28.0,
+      -26.1
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 117.3,
+     "the_joint_taps_db": 116.1,
+     "own_taps_of_each_half_off_the_joint_by": [
+      7.187664285979167e-07,
+      2.646204506056432e-07
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      123.0,
+      112.7,
+      94.2,
+      115.9,
+      108.1,
+      107.8,
+      117.3,
+      120.9,
+      120.1,
+      119.0,
+      122.0,
+      127.6,
+      102.8,
+      122.5
+     ]
+    },
+    {
+     "stream": 8,
+     "track_of_the_screening": 21,
+     "downmix_configuration": [
+      4
+     ],
+     "objects": 15,
+     "seconds": 36.6,
+     "through_the_operator_db_each_half": [
+      -18.0,
+      -15.3
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 121.1,
+     "the_joint_taps_db": 118.9,
+     "own_taps_of_each_half_off_the_joint_by": [
+      2.2894700202336082e-07,
+      1.7268525152880354e-07
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      125.4,
+      128.1,
+      94.2,
+      116.6,
+      108.2,
+      107.9,
+      117.3,
+      121.1,
+      120.2,
+      119.0,
+      122.0,
+      129.3,
+      102.8,
+      122.6
+     ]
+    },
+    {
+     "stream": 9,
+     "track_of_the_screening": 27,
+     "downmix_configuration": [
+      4
+     ],
+     "objects": 9,
+     "seconds": 36.2,
+     "through_the_operator_db_each_half": [
+      -16.2,
+      -13.4
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 120.3,
+     "the_joint_taps_db": 121.1,
+     "own_taps_of_each_half_off_the_joint_by": [
+      1.8184901904704648e-07,
+      1.6575676486203436e-07
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      125.8,
+      129.6,
+      94.2,
+      116.7,
+      108.2,
+      107.9,
+      117.3,
+      121.1,
+      120.3,
+      119.0,
+      122.0,
+      129.5,
+      102.8,
+      122.6
+     ]
+    },
+    {
+     "stream": 10,
+     "track_of_the_screening": 34,
+     "downmix_configuration": [
+      4
+     ],
+     "objects": 11,
+     "seconds": 37.1,
+     "through_the_operator_db_each_half": [
+      -22.2,
+      -21.2
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 119.0,
+     "the_joint_taps_db": 119.8,
+     "own_taps_of_each_half_off_the_joint_by": [
+      2.994232028707966e-07,
+      2.2846982312280106e-07
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      124.2,
+      125.3,
+      94.2,
+      116.5,
+      108.2,
+      107.9,
+      117.3,
+      121.1,
+      120.2,
+      119.0,
+      122.0,
+      128.9,
+      102.8,
+      122.6
+     ]
+    },
+    {
+     "stream": 11,
+     "track_of_the_screening": 47,
+     "downmix_configuration": [
+      4
+     ],
+     "objects": 9,
+     "seconds": 36.2,
+     "through_the_operator_db_each_half": [
+      -14.5,
+      -33.9
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 122.0,
+     "the_joint_taps_db": 124.0,
+     "own_taps_of_each_half_off_the_joint_by": [
+      1.846688597456625e-07,
+      1.1793356289868662e-06
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      125.7,
+      130.4,
+      94.2,
+      116.7,
+      108.2,
+      107.9,
+      117.3,
+      121.1,
+      120.2,
+      119.0,
+      122.0,
+      129.5,
+      102.8,
+      122.6
+     ]
+    },
+    {
+     "stream": 12,
+     "track_of_the_screening": 60,
+     "downmix_configuration": [
+      3
+     ],
+     "objects": 11,
+     "seconds": 36.7,
+     "through_the_operator_db_each_half": [
+      -14.9,
+      -9.1
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 129.6,
+     "the_joint_taps_db": 130.5,
+     "own_taps_of_each_half_off_the_joint_by": [
+      1.5261195096278463e-07,
+      1.5961681716462894e-07
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      125.9,
+      130.6,
+      94.2,
+      116.7,
+      108.2,
+      107.9,
+      117.3,
+      121.1,
+      120.3,
+      119.0,
+      122.0,
+      129.6,
+      102.8,
+      122.6
+     ]
+    },
+    {
+     "stream": 13,
+     "track_of_the_screening": 75,
+     "downmix_configuration": [
+      3
+     ],
+     "objects": 11,
+     "seconds": 36.4,
+     "through_the_operator_db_each_half": [
+      -29.2,
+      -6.7
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 102.7,
+     "the_joint_taps_db": 105.8,
+     "own_taps_of_each_half_off_the_joint_by": [
+      7.5035434566606e-06,
+      6.661821481124264e-07
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      115.1,
+      98.1,
+      94.1,
+      108.8,
+      105.5,
+      104.8,
+      117.3,
+      117.3,
+      118.2,
+      118.6,
+      122.0,
+      120.4,
+      102.7,
+      122.4
+     ]
+    },
+    {
+     "stream": 14,
+     "track_of_the_screening": 80,
+     "downmix_configuration": [
+      3
+     ],
+     "objects": 9,
+     "seconds": 37.0,
+     "through_the_operator_db_each_half": [
+      -37.2,
+      -22.8
+     ],
+     "own_taps_of_the_first_half_on_the_second_db": 122.6,
+     "the_joint_taps_db": 124.2,
+     "own_taps_of_each_half_off_the_joint_by": [
+      2.094938828189896e-06,
+      2.7740789489971718e-06
+     ],
+     "the_taps_of_this_stream_on_the_second_half_of_each_db": [
+      122.1,
+      106.3,
+      94.2,
+      114.1,
+      107.9,
+      107.5,
+      117.3,
+      120.3,
+      120.0,
+      119.0,
+      122.0,
+      126.9,
+      102.8,
+      122.6
+     ]
+    }
+   ],
+   "the_joint_taps_leave_db": {
+    "least": 96.3,
+    "median": 121.1,
+    "most": 130.5
+   },
+   "halves": {
+    "how": "what goes through the operator, as a share of what the objects of a half have below 450 Hz, and how far the taps the half gives alone are from the joint ones (the largest difference of a real or an imaginary part)",
+    "halves": 28,
+    "with_more_than_a_ten_thousandth_through_the_operator": 27,
+    "of_those_the_furthest_off_the_joint_taps": 7.5035434566606e-06,
+    "of_those_the_median_off_the_joint_taps": 1.846688597456625e-07,
+    "the_others": [
+     {
+      "through_the_operator_db": -83.4,
+      "own_taps_off_the_joint_by": 0.004475298737023348
+     }
+    ]
+   },
+   "the_same_data_with_fewer_unknowns": {
+    "how": "the lowest and the median over the streams of what the taps leave, solved on all streams together with the outermost pairs of taps held at zero, with real taps, and with the form the decoder had before, a turn by -j and a real correction times 1 + j within the same 21 slots",
+    "21 taps, the same either side": {
+     "lowest_db": 96.3,
+     "median_db": 121.1
+    },
+    "19 taps (the outermost held at zero)": {
+     "lowest_db": 53.2,
+     "median_db": 62.1
+    },
+    "17 taps (the outermost held at zero)": {
+     "lowest_db": 43.0,
+     "median_db": 52.7
+    },
+    "real taps": {
+     "lowest_db": 4.7,
+     "median_db": 13.3
+    },
+    "a turn by -j and a real correction times 1 + j": {
+     "lowest_db": 13.8,
+     "median_db": 31.9
+    }
+   }
+  },
+  "a_real_tone": {
+   "how": "a tone through an analysis bank, the operator on the lowest subband with -j on the others, and a synthesis bank, in a model of the two banks written in numpy apart from the crate; gain and phase over a second, against the tone that went in. `before` is the turn and the real filter of 37 taps. A unit test holds six rows of it to the crate.",
+   "by_hz": [
+    {
+     "hz": 1,
+     "gain_before": 0.9971103261383881,
+     "phase_before": -1.8862165333307221,
+     "gain": 1.002340099485753,
+     "phase": -1.8682707754543708
+    },
+    {
+     "hz": 3,
+     "gain_before": 0.9973305557166008,
+     "phase_before": -5.653411444190675,
+     "gain": 1.0022328788278971,
+     "phase": -5.602336312479777
+    },
+    {
+     "hz": 6,
+     "gain_before": 0.9979868539026271,
+     "phase_before": -11.272550475438514,
+     "gain": 1.0018813507917774,
+     "phase": -11.187886950280554
+    },
+    {
+     "hz": 12,
+     "gain_before": 0.9994906988007404,
+     "phase_before": -22.300069063060207,
+     "gain": 1.0006298288011892,
+     "phase": -22.239262032795292
+    },
+    {
+     "hz": 25,
+     "gain_before": 0.9966594289640781,
+     "phase_before": -44.83878815429306,
+     "gain": 0.9976024205183369,
+     "phase": -44.9803149437023
+    },
+    {
+     "hz": 40,
+     "gain_before": 0.9958837520079841,
+     "phase_before": -67.19243329344852,
+     "gain": 0.998531961157999,
+     "phase": -67.09418873116343
+    },
+    {
+     "hz": 60,
+     "gain_before": 1.003911247108278,
+     "phase_before": -85.04853942643607,
+     "gain": 1.000867394084932,
+     "phase": -85.23937757182179
+    },
+    {
+     "hz": 80,
+     "gain_before": 0.9973878224097577,
+     "phase_before": -90.48352647431291,
+     "gain": 0.9970922630242538,
+     "phase": -90.42606885885344
+    },
+    {
+     "hz": 100,
+     "gain_before": 0.9999152771570811,
+     "phase_before": -89.94000488823912,
+     "gain": 0.9995299449651547,
+     "phase": -89.9469502261249
+    },
+    {
+     "hz": 141,
+     "gain_before": 0.9982981450726512,
+     "phase_before": -90.14242671954219,
+     "gain": 0.997958688049373,
+     "phase": -90.16460138824444
+    },
+    {
+     "hz": 200,
+     "gain_before": 0.9988105666366912,
+     "phase_before": -90.09528000337018,
+     "gain": 0.9991980103812326,
+     "phase": -90.06665644566556
+    },
+    {
+     "hz": 300,
+     "gain_before": 1.0006021182401235,
+     "phase_before": -89.93821853813101,
+     "gain": 1.0001232972951928,
+     "phase": -89.96061604134599
+    },
+    {
+     "hz": 500,
+     "gain_before": 1.0001498292770281,
+     "phase_before": -90.00052995168603,
+     "gain": 1.0001646046398918,
+     "phase": -89.99920398552106
+    },
+    {
+     "hz": 1000,
+     "gain_before": 1.0001582862183995,
+     "phase_before": -89.9999999998161,
+     "gain": 1.0001582862141003,
+     "phase": -89.99999999940172
+    }
+   ]
+  },
+  "the_library_before_and_after": {
+   "how": "the 129 tracks of evidence 48, of which Dolby's decoder gives objects for 127; ours with our dither left out unless said; an object under -70 dBFS is not counted",
+   "before": {
+    "tracks_measured": 127,
+    "tracks_with_signal_in_the_lowest_band": 127,
+    "snr_of_the_lowest_band_db": {
+     "least": 29.4,
+     "first_quarter": 47.5,
+     "median": 55.9,
+     "third_quarter": 62.2,
+     "most": 138.4
+    },
+    "snr_of_the_worst_object_in_the_lowest_band_db": {
+     "least": 19.1,
+     "first_quarter": 38.7,
+     "median": 48.5,
+     "third_quarter": 55.0,
+     "most": 110.6
+    },
+    "snr_of_bands_1_to_23_db": {
+     "least": 26.2,
+     "first_quarter": 58.1,
+     "median": 71.4,
+     "third_quarter": 82.3,
+     "most": 111.5
+    },
+    "the_lowest_band_short_of_them_by_db": {
+     "least": -73.0,
+     "first_quarter": 0.1,
+     "median": 13.8,
+     "third_quarter": 21.2,
+     "most": 50.8
+    },
+    "tracks_where_it_is_short_by_more_than_10_db": 71,
+    "tracks_where_it_is_short_by_more_than_20_db": 36,
+    "tracks_where_it_is_not_short": 32,
+    "what_the_best_filter_on_an_object_gains_in_the_lowest_band_db": {
+     "least": -0.7,
+     "first_quarter": 0.7,
+     "median": 1.9,
+     "third_quarter": 5.9,
+     "most": 18.7
+    },
+    "whole_band_db": {
+     "least": 25.0,
+     "first_quarter": 44.3,
+     "median": 49.3,
+     "third_quarter": 53.4,
+     "most": 73.2
+    },
+    "whole_band_with_our_dither_db": {
+     "least": 22.0,
+     "first_quarter": 42.6,
+     "median": 47.0,
+     "third_quarter": 51.5,
+     "most": 70.3
+    },
+    "largest_difference_of_a_pair_in_the_lowest_band": {
+     "least": 0.0,
+     "first_quarter": 0.0,
+     "median": 0.0,
+     "third_quarter": 0.0,
+     "most": 0.8
+    },
+    "lfe": {
+     "channels": 74,
+     "snr_of_the_lowest_band_db": {
+      "least": 42.9,
+      "first_quarter": 100.5,
+      "median": 115.9,
+      "third_quarter": 127.5,
+      "most": 142.1
+     }
+    },
+    "objects": {
+     "count": 1080,
+     "snr_of_the_lowest_band_db": {
+      "least": 19.1,
+      "first_quarter": 45.6,
+      "median": 54.8,
+      "third_quarter": 66.3,
+      "most": 142.8
+     }
+    },
+    "below_750_hz_snr_db_by_hz": {
+     "5.9": 27.9,
+     "17.6": 34.0,
+     "29.3": 40.6,
+     "41.0": 45.6,
+     "52.7": 48.5,
+     "64.5": 47.2,
+     "76.2": 53.8,
+     "87.9": 54.2,
+     "99.6": 59.5,
+     "111.3": 59.6,
+     "123.0": 59.2,
+     "134.8": 60.6,
+     "146.5": 61.9,
+     "158.2": 62.6,
+     "169.9": 64.4,
+     "181.6": 61.1,
+     "193.4": 63.9,
+     "205.1": 62.2,
+     "216.8": 63.4,
+     "228.5": 62.6,
+     "240.2": 62.0,
+     "252.0": 63.3,
+     "263.7": 61.7,
+     "275.4": 64.3,
+     "287.1": 64.3,
+     "298.8": 64.3,
+     "310.5": 63.7,
+     "322.3": 63.9,
+     "334.0": 63.8,
+     "345.7": 60.5,
+     "357.4": 63.9,
+     "369.1": 60.9,
+     "380.9": 65.2,
+     "392.6": 68.6,
+     "404.3": 68.1,
+     "416.0": 69.7,
+     "427.7": 69.3,
+     "439.5": 70.0,
+     "451.2": 69.3,
+     "462.9": 72.5,
+     "474.6": 72.7,
+     "486.3": 76.6,
+     "498.0": 79.8,
+     "509.8": 78.7,
+     "521.5": 84.0,
+     "533.2": 84.7,
+     "544.9": 84.8,
+     "556.6": 88.7,
+     "568.4": 89.0,
+     "580.1": 94.7,
+     "591.8": 100.0,
+     "603.5": 99.8,
+     "615.2": 99.6,
+     "627.0": 93.5,
+     "638.7": 85.3,
+     "650.4": 83.2,
+     "662.1": 84.9,
+     "673.8": 83.8,
+     "685.5": 82.4,
+     "697.3": 75.3,
+     "709.0": 69.2,
+     "720.7": 70.1,
+     "732.4": 79.7,
+     "744.1": 92.2
+    }
+   },
+   "after": {
+    "tracks_measured": 127,
+    "tracks_with_signal_in_the_lowest_band": 127,
+    "snr_of_the_lowest_band_db": {
+     "least": 30.9,
+     "first_quarter": 106.8,
+     "median": 115.2,
+     "third_quarter": 124.5,
+     "most": 138.4
+    },
+    "snr_of_the_worst_object_in_the_lowest_band_db": {
+     "least": 24.5,
+     "first_quarter": 98.2,
+     "median": 106.2,
+     "third_quarter": 114.1,
+     "most": 127.5
+    },
+    "snr_of_bands_1_to_23_db": {
+     "least": 28.8,
+     "first_quarter": 58.1,
+     "median": 75.1,
+     "third_quarter": 86.8,
+     "most": 112.7
+    },
+    "the_lowest_band_short_of_them_by_db": {
+     "least": -87.8,
+     "first_quarter": -51.9,
+     "median": -31.9,
+     "third_quarter": -23.4,
+     "most": 8.9
+    },
+    "tracks_where_it_is_short_by_more_than_10_db": 0,
+    "tracks_where_it_is_short_by_more_than_20_db": 0,
+    "tracks_where_it_is_not_short": 123,
+    "what_the_best_filter_on_an_object_gains_in_the_lowest_band_db": {
+     "least": -1.3,
+     "first_quarter": 0.1,
+     "median": 0.4,
+     "third_quarter": 1.3,
+     "most": 6.9
+    },
+    "whole_band_db": {
+     "least": 25.0,
+     "first_quarter": 48.2,
+     "median": 53.5,
+     "third_quarter": 58.0,
+     "most": 79.9
+    },
+    "whole_band_with_our_dither_db": {
+     "least": 22.0,
+     "first_quarter": 45.2,
+     "median": 50.8,
+     "third_quarter": 55.0,
+     "most": 76.9
+    },
+    "largest_difference_of_a_pair_in_the_lowest_band": {
+     "least": 0.0,
+     "first_quarter": 0.0,
+     "median": 0.0,
+     "third_quarter": 0.0,
+     "most": 0.8
+    },
+    "lfe": {
+     "channels": 74,
+     "snr_of_the_lowest_band_db": {
+      "least": 42.9,
+      "first_quarter": 100.5,
+      "median": 115.9,
+      "third_quarter": 127.5,
+      "most": 142.1
+     }
+    },
+    "objects": {
+     "count": 1080,
+     "snr_of_the_lowest_band_db": {
+      "least": 24.5,
+      "first_quarter": 105.0,
+      "median": 116.0,
+      "third_quarter": 126.3,
+      "most": 142.8
+     }
+    },
+    "below_750_hz_snr_db_by_hz": {
+     "5.9": 90.2,
+     "17.6": 95.8,
+     "29.3": 104.6,
+     "41.0": 110.9,
+     "52.7": 113.1,
+     "64.5": 114.1,
+     "76.2": 115.0,
+     "87.9": 115.7,
+     "99.6": 115.7,
+     "111.3": 115.5,
+     "123.0": 113.8,
+     "134.8": 113.3,
+     "146.5": 113.0,
+     "158.2": 112.9,
+     "169.9": 115.0,
+     "181.6": 113.8,
+     "193.4": 114.9,
+     "205.1": 113.5,
+     "216.8": 114.3,
+     "228.5": 112.9,
+     "240.2": 112.1,
+     "252.0": 112.5,
+     "263.7": 113.6,
+     "275.4": 111.7,
+     "287.1": 111.8,
+     "298.8": 113.7,
+     "310.5": 110.4,
+     "322.3": 110.9,
+     "334.0": 114.7,
+     "345.7": 112.7,
+     "357.4": 111.1,
+     "369.1": 110.9,
+     "380.9": 109.4,
+     "392.6": 114.7,
+     "404.3": 110.3,
+     "416.0": 110.6,
+     "427.7": 109.0,
+     "439.5": 114.1,
+     "451.2": 109.4,
+     "462.9": 109.1,
+     "474.6": 108.4,
+     "486.3": 108.4,
+     "498.0": 110.7,
+     "509.8": 106.6,
+     "521.5": 112.0,
+     "533.2": 109.1,
+     "544.9": 107.2,
+     "556.6": 109.2,
+     "568.4": 106.1,
+     "580.1": 108.3,
+     "591.8": 111.2,
+     "603.5": 106.1,
+     "615.2": 106.5,
+     "627.0": 107.9,
+     "638.7": 105.8,
+     "650.4": 107.8,
+     "662.1": 110.6,
+     "673.8": 106.0,
+     "685.5": 105.7,
+     "697.3": 108.9,
+     "709.0": 107.0,
+     "720.7": 104.6,
+     "732.4": 106.4,
+     "744.1": 107.3
+    }
+   },
+   "track_by_track": {
+    "lowest_band_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 33.8,
+      "median": 56.2,
+      "third_quarter": 69.7,
+      "most": 92.5
+     },
+     "better_by_more_than_a_tenth": 116,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    },
+    "lowest_band_worst_object_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 42.5,
+      "median": 55.9,
+      "third_quarter": 69.4,
+      "most": 86.9
+     },
+     "better_by_more_than_a_tenth": 125,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    },
+    "band_1_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 19.9,
+      "median": 36.5,
+      "third_quarter": 48.5,
+      "most": 77.4
+     },
+     "better_by_more_than_a_tenth": 115,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    },
+    "bands_1_to_23_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": -1.3,
+      "first_quarter": 0.0,
+      "median": 1.2,
+      "third_quarter": 3.8,
+      "most": 27.0
+     },
+     "better_by_more_than_a_tenth": 86,
+     "worse_by_more_than_a_tenth": 2,
+     "the_worse_ones": [
+      {
+       "track": 72,
+       "before": 59.9,
+       "after": 58.6
+      },
+      {
+       "track": 127,
+       "before": 57.1,
+       "after": 57.0
+      }
+     ]
+    },
+    "whole_band_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 0.2,
+      "median": 1.6,
+      "third_quarter": 5.8,
+      "most": 28.4
+     },
+     "better_by_more_than_a_tenth": 104,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    },
+    "whole_band_worst_object_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 0.1,
+      "median": 1.2,
+      "third_quarter": 4.9,
+      "most": 31.3
+     },
+     "better_by_more_than_a_tenth": 94,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    },
+    "whole_band_with_our_dither_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 0.0,
+      "median": 1.1,
+      "third_quarter": 4.1,
+      "most": 25.4
+     },
+     "better_by_more_than_a_tenth": 92,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    }
+   },
+   "tracks": [
+    {
+     "track": 1,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 8,
+     "objects_with_signal_in_the_lowest_band": 8,
+     "lowest_band_db": {
+      "before": 58.3,
+      "after": 126.4
+     },
+     "lowest_band_worst_object_db": {
+      "before": 55.56,
+      "after": 114.82
+     },
+     "band_1_db": {
+      "before": 75.0,
+      "after": 133.0
+     },
+     "bands_1_to_23_db": {
+      "before": 103.4,
+      "after": 112.7
+     },
+     "whole_band_db": {
+      "before": 58.5,
+      "after": 60.1
+     },
+     "whole_band_worst_object_db": {
+      "before": 55.56,
+      "after": 56.69
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 56.3,
+      "after": 57.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 2,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 52.3,
+      "after": 108.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 39.65,
+      "after": 106.79
+     },
+     "band_1_db": {
+      "before": 70.1,
+      "after": 103.5
+     },
+     "bands_1_to_23_db": {
+      "before": 70.8,
+      "after": 75.1
+     },
+     "whole_band_db": {
+      "before": 51.5,
+      "after": 58.6
+     },
+     "whole_band_worst_object_db": {
+      "before": 40.15,
+      "after": 49.87
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 50.0,
+      "after": 55.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0234,
+      "after": 0.0238
+     }
+    },
+    {
+     "track": 3,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 50.5,
+      "after": 126.3
+     },
+     "lowest_band_worst_object_db": {
+      "before": 42.2,
+      "after": 118.14
+     },
+     "band_1_db": {
+      "before": 63.8,
+      "after": 119.1
+     },
+     "bands_1_to_23_db": {
+      "before": 74.0,
+      "after": 91.6
+     },
+     "whole_band_db": {
+      "before": 47.6,
+      "after": 61.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 42.83,
+      "after": 49.19
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 45.7,
+      "after": 58.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0005,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 4,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 56.3,
+      "after": 105.3
+     },
+     "lowest_band_worst_object_db": {
+      "before": 49.74,
+      "after": 101.94
+     },
+     "band_1_db": {
+      "before": 79.5,
+      "after": 115.4
+     },
+     "bands_1_to_23_db": {
+      "before": 55.4,
+      "after": 55.4
+     },
+     "whole_band_db": {
+      "before": 63.2,
+      "after": 64.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 59.16,
+      "after": 61.06
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 60.4,
+      "after": 61.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 5,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 35.2,
+      "after": 127.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 24.23,
+      "after": 108.15
+     },
+     "band_1_db": {
+      "before": 45.6,
+      "after": 123.0
+     },
+     "bands_1_to_23_db": {
+      "before": 67.2,
+      "after": 94.2
+     },
+     "whole_band_db": {
+      "before": 35.4,
+      "after": 58.6
+     },
+     "whole_band_worst_object_db": {
+      "before": 27.35,
+      "after": 36.05
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 35.3,
+      "after": 55.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0021,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 6,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 64.8,
+      "after": 108.1
+     },
+     "lowest_band_worst_object_db": {
+      "before": 52.97,
+      "after": 100.3
+     },
+     "band_1_db": {
+      "before": 79.5,
+      "after": 102.0
+     },
+     "bands_1_to_23_db": {
+      "before": 79.5,
+      "after": 80.0
+     },
+     "whole_band_db": {
+      "before": 56.8,
+      "after": 57.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 47.33,
+      "after": 48.54
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 54.0,
+      "after": 54.2
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 7,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 3,
+     "objects_with_signal_in_the_lowest_band": 3,
+     "lowest_band_db": {
+      "before": 80.8,
+      "after": 114.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 79.39,
+      "after": 114.69
+     },
+     "band_1_db": {
+      "before": 104.1,
+      "after": 115.5
+     },
+     "bands_1_to_23_db": {
+      "before": 93.9,
+      "after": 94.0
+     },
+     "whole_band_db": {
+      "before": 44.8,
+      "after": 44.8
+     },
+     "whole_band_worst_object_db": {
+      "before": 42.05,
+      "after": 42.05
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 41.8,
+      "after": 41.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 8,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 57.8,
+      "after": 109.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 53.79,
+      "after": 108.1
+     },
+     "band_1_db": {
+      "before": 76.2,
+      "after": 105.9
+     },
+     "bands_1_to_23_db": {
+      "before": 77.0,
+      "after": 84.0
+     },
+     "whole_band_db": {
+      "before": 43.1,
+      "after": 43.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 41.0,
+      "after": 41.08
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 40.2,
+      "after": 40.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 9,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 46.7,
+      "after": 111.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 39.84,
+      "after": 105.99
+     },
+     "band_1_db": {
+      "before": 64.6,
+      "after": 106.8
+     },
+     "bands_1_to_23_db": {
+      "before": 69.5,
+      "after": 72.2
+     },
+     "whole_band_db": {
+      "before": 47.0,
+      "after": 56.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 41.36,
+      "after": 50.44
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 46.3,
+      "after": 53.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0006,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 10,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 59.4,
+      "after": 103.0
+     },
+     "lowest_band_worst_object_db": {
+      "before": 50.73,
+      "after": 99.88
+     },
+     "band_1_db": {
+      "before": 78.7,
+      "after": 102.8
+     },
+     "bands_1_to_23_db": {
+      "before": 74.2,
+      "after": 75.2
+     },
+     "whole_band_db": {
+      "before": 48.8,
+      "after": 49.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 46.17,
+      "after": 46.52
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 46.0,
+      "after": 46.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0004,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 11,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 43.9,
+      "after": 54.6
+     },
+     "lowest_band_worst_object_db": {
+      "before": 35.88,
+      "after": 44.73
+     },
+     "band_1_db": {
+      "before": 50.0,
+      "after": 52.6
+     },
+     "bands_1_to_23_db": {
+      "before": 50.6,
+      "after": 52.3
+     },
+     "whole_band_db": {
+      "before": 44.9,
+      "after": 50.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 39.4,
+      "after": 44.92
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 44.8,
+      "after": 49.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0008,
+      "after": 0.0004
+     }
+    },
+    {
+     "track": 12,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 60.7,
+      "after": 108.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 46.37,
+      "after": 101.07
+     },
+     "band_1_db": {
+      "before": 77.4,
+      "after": 109.7
+     },
+     "bands_1_to_23_db": {
+      "before": 76.9,
+      "after": 77.2
+     },
+     "whole_band_db": {
+      "before": 42.9,
+      "after": 42.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 39.61,
+      "after": 39.89
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 39.9,
+      "after": 39.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 13,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 10,
+     "objects_with_signal_in_the_lowest_band": 10,
+     "lowest_band_db": {
+      "before": 59.9,
+      "after": 102.2
+     },
+     "lowest_band_worst_object_db": {
+      "before": 52.84,
+      "after": 94.19
+     },
+     "band_1_db": {
+      "before": 70.9,
+      "after": 91.7
+     },
+     "bands_1_to_23_db": {
+      "before": 87.4,
+      "after": 88.1
+     },
+     "whole_band_db": {
+      "before": 48.2,
+      "after": 48.4
+     },
+     "whole_band_worst_object_db": {
+      "before": 40.55,
+      "after": 40.65
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 45.2,
+      "after": 45.2
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 14,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 60.5,
+      "after": 102.6
+     },
+     "lowest_band_worst_object_db": {
+      "before": 59.47,
+      "after": 98.25
+     },
+     "band_1_db": {
+      "before": 73.6,
+      "after": 97.7
+     },
+     "bands_1_to_23_db": {
+      "before": 71.4,
+      "after": 71.4
+     },
+     "whole_band_db": {
+      "before": 50.2,
+      "after": 50.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 40.04,
+      "after": 40.04
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 47.4,
+      "after": 47.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.8365,
+      "after": 0.8365
+     }
+    },
+    {
+     "track": 15,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 51.3,
+      "after": 125.2
+     },
+     "lowest_band_worst_object_db": {
+      "before": 44.12,
+      "after": 124.6
+     },
+     "band_1_db": {
+      "before": 62.9,
+      "after": 120.1
+     },
+     "bands_1_to_23_db": {
+      "before": 73.2,
+      "after": 83.8
+     },
+     "whole_band_db": {
+      "before": 51.5,
+      "after": 79.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 44.46,
+      "after": 63.86
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 51.5,
+      "after": 76.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 16,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 56.5,
+      "after": 127.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 50.2,
+      "after": 121.25
+     },
+     "band_1_db": {
+      "before": 73.5,
+      "after": 115.9
+     },
+     "bands_1_to_23_db": {
+      "before": 68.5,
+      "after": 68.5
+     },
+     "whole_band_db": {
+      "before": 47.3,
+      "after": 48.4
+     },
+     "whole_band_worst_object_db": {
+      "before": 40.7,
+      "after": 40.77
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 44.6,
+      "after": 45.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0004,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 17,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 44.2,
+      "after": 52.2
+     },
+     "lowest_band_worst_object_db": {
+      "before": 38.76,
+      "after": 40.69
+     },
+     "band_1_db": {
+      "before": 50.3,
+      "after": 52.5
+     },
+     "bands_1_to_23_db": {
+      "before": 43.9,
+      "after": 45.2
+     },
+     "whole_band_db": {
+      "before": 42.1,
+      "after": 43.8
+     },
+     "whole_band_worst_object_db": {
+      "before": 38.81,
+      "after": 40.66
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 40.5,
+      "after": 41.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0368,
+      "after": 0.0368
+     }
+    },
+    {
+     "track": 18,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 53.5,
+      "after": 124.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 48.77,
+      "after": 117.69
+     },
+     "band_1_db": {
+      "before": 72.1,
+      "after": 127.2
+     },
+     "bands_1_to_23_db": {
+      "before": 92.2,
+      "after": 105.0
+     },
+     "whole_band_db": {
+      "before": 52.4,
+      "after": 56.6
+     },
+     "whole_band_worst_object_db": {
+      "before": 44.82,
+      "after": 45.13
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 51.0,
+      "after": 53.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 19,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 73.3,
+      "after": 113.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 64.96,
+      "after": 111.15
+     },
+     "band_1_db": {
+      "before": 79.1,
+      "after": 111.1
+     },
+     "bands_1_to_23_db": {
+      "before": 36.9,
+      "after": 36.9
+     },
+     "whole_band_db": {
+      "before": 51.3,
+      "after": 51.4
+     },
+     "whole_band_worst_object_db": {
+      "before": 45.41,
+      "after": 45.44
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 48.3,
+      "after": 48.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 20,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 51.6,
+      "after": 119.6
+     },
+     "lowest_band_worst_object_db": {
+      "before": 36.8,
+      "after": 97.42
+     },
+     "band_1_db": {
+      "before": 71.5,
+      "after": 117.5
+     },
+     "bands_1_to_23_db": {
+      "before": 76.2,
+      "after": 83.7
+     },
+     "whole_band_db": {
+      "before": 45.1,
+      "after": 45.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 35.06,
+      "after": 36.76
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 42.5,
+      "after": 42.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.4643,
+      "after": 0.4643
+     }
+    },
+    {
+     "track": 21,
+     "downmix_configuration": [
+      4
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 51.7,
+      "after": 119.3
+     },
+     "lowest_band_worst_object_db": {
+      "before": 36.65,
+      "after": 97.01
+     },
+     "band_1_db": {
+      "before": 70.5,
+      "after": 116.1
+     },
+     "bands_1_to_23_db": {
+      "before": 63.5,
+      "after": 67.4
+     },
+     "whole_band_db": {
+      "before": 43.0,
+      "after": 43.3
+     },
+     "whole_band_worst_object_db": {
+      "before": 33.86,
+      "after": 35.13
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 40.1,
+      "after": 40.2
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0209,
+      "after": 0.0209
+     }
+    },
+    {
+     "track": 22,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 15,
+     "objects_with_signal_in_the_lowest_band": 15,
+     "lowest_band_db": {
+      "before": 36.7,
+      "after": 115.0
+     },
+     "lowest_band_worst_object_db": {
+      "before": 31.17,
+      "after": 109.84
+     },
+     "band_1_db": {
+      "before": 53.8,
+      "after": 115.2
+     },
+     "bands_1_to_23_db": {
+      "before": 69.4,
+      "after": 87.1
+     },
+     "whole_band_db": {
+      "before": 40.4,
+      "after": 54.4
+     },
+     "whole_band_worst_object_db": {
+      "before": 34.54,
+      "after": 48.25
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 39.9,
+      "after": 51.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0046,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 23,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 48.0,
+      "after": 106.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 45.04,
+      "after": 100.75
+     },
+     "band_1_db": {
+      "before": 63.2,
+      "after": 91.2
+     },
+     "bands_1_to_23_db": {
+      "before": 60.7,
+      "after": 65.8
+     },
+     "whole_band_db": {
+      "before": 34.5,
+      "after": 34.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 24.86,
+      "after": 24.9
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 31.6,
+      "after": 31.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0004,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 24,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 36.1,
+      "after": 37.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 30.84,
+      "after": 31.71
+     },
+     "band_1_db": {
+      "before": 37.5,
+      "after": 38.7
+     },
+     "bands_1_to_23_db": {
+      "before": 30.4,
+      "after": 31.9
+     },
+     "whole_band_db": {
+      "before": 35.4,
+      "after": 36.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 30.01,
+      "after": 30.95
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 35.4,
+      "after": 36.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0047,
+      "after": 0.0034
+     }
+    },
+    {
+     "track": 25,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 51.8,
+      "after": 122.3
+     },
+     "lowest_band_worst_object_db": {
+      "before": 44.37,
+      "after": 111.96
+     },
+     "band_1_db": {
+      "before": 76.1,
+      "after": 124.0
+     },
+     "bands_1_to_23_db": {
+      "before": 70.1,
+      "after": 70.6
+     },
+     "whole_band_db": {
+      "before": 53.3,
+      "after": 60.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 45.87,
+      "after": 56.97
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 52.5,
+      "after": 57.2
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0006,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 26,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 58.5,
+      "after": 119.4
+     },
+     "lowest_band_worst_object_db": {
+      "before": 53.6,
+      "after": 108.12
+     },
+     "band_1_db": {
+      "before": 69.5,
+      "after": 113.7
+     },
+     "bands_1_to_23_db": {
+      "before": 74.1,
+      "after": 80.5
+     },
+     "whole_band_db": {
+      "before": 51.3,
+      "after": 52.3
+     },
+     "whole_band_worst_object_db": {
+      "before": 38.54,
+      "after": 38.57
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 48.8,
+      "after": 49.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 27,
+     "downmix_configuration": [
+      4
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 69.6,
+      "after": 119.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 54.86,
+      "after": 107.29
+     },
+     "band_1_db": {
+      "before": 81.5,
+      "after": 112.7
+     },
+     "bands_1_to_23_db": {
+      "before": 68.6,
+      "after": 68.6
+     },
+     "whole_band_db": {
+      "before": 50.0,
+      "after": 50.0
+     },
+     "whole_band_worst_object_db": {
+      "before": 42.92,
+      "after": 43.04
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 47.0,
+      "after": 47.0
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 28,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 60.2,
+      "after": 119.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 55.2,
+      "after": 114.97
+     },
+     "band_1_db": {
+      "before": 73.7,
+      "after": 115.4
+     },
+     "bands_1_to_23_db": {
+      "before": 87.6,
+      "after": 88.8
+     },
+     "whole_band_db": {
+      "before": 50.3,
+      "after": 50.3
+     },
+     "whole_band_worst_object_db": {
+      "before": 48.29,
+      "after": 48.52
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 47.3,
+      "after": 47.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 29,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 61.7,
+      "after": 102.1
+     },
+     "lowest_band_worst_object_db": {
+      "before": 60.48,
+      "after": 94.51
+     },
+     "band_1_db": {
+      "before": 73.1,
+      "after": 101.8
+     },
+     "bands_1_to_23_db": {
+      "before": 59.1,
+      "after": 59.1
+     },
+     "whole_band_db": {
+      "before": 46.2,
+      "after": 46.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 44.58,
+      "after": 44.63
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 43.2,
+      "after": 43.2
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0005,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 30,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 15,
+     "objects_with_signal_in_the_lowest_band": 15,
+     "lowest_band_db": {
+      "before": 45.5,
+      "after": 54.1
+     },
+     "lowest_band_worst_object_db": {
+      "before": 32.83,
+      "after": 46.9
+     },
+     "band_1_db": {
+      "before": 55.0,
+      "after": 59.2
+     },
+     "bands_1_to_23_db": {
+      "before": 58.3,
+      "after": 61.7
+     },
+     "whole_band_db": {
+      "before": 45.6,
+      "after": 54.4
+     },
+     "whole_band_worst_object_db": {
+      "before": 33.01,
+      "after": 46.78
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 45.6,
+      "after": 54.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0008,
+      "after": 0.0002
+     }
+    },
+    {
+     "track": 31,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 15,
+     "objects_with_signal_in_the_lowest_band": 15,
+     "lowest_band_db": {
+      "before": 29.7,
+      "after": 31.0
+     },
+     "lowest_band_worst_object_db": {
+      "before": 23.38,
+      "after": 25.16
+     },
+     "band_1_db": {
+      "before": 28.2,
+      "after": 29.5
+     },
+     "bands_1_to_23_db": {
+      "before": 31.8,
+      "after": 32.8
+     },
+     "whole_band_db": {
+      "before": 29.6,
+      "after": 30.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 25.17,
+      "after": 26.88
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 29.6,
+      "after": 30.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0069,
+      "after": 0.0056
+     }
+    },
+    {
+     "track": 32,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 43.7,
+      "after": 125.2
+     },
+     "lowest_band_worst_object_db": {
+      "before": 39.57,
+      "after": 121.77
+     },
+     "band_1_db": {
+      "before": 68.4,
+      "after": 111.3
+     },
+     "bands_1_to_23_db": {
+      "before": 46.6,
+      "after": 46.6
+     },
+     "whole_band_db": {
+      "before": 42.5,
+      "after": 48.3
+     },
+     "whole_band_worst_object_db": {
+      "before": 41.73,
+      "after": 42.05
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 42.4,
+      "after": 45.4
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0004,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 33,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 6,
+     "lowest_band_db": {
+      "before": 81.5,
+      "after": 113.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 59.88,
+      "after": 103.6
+     },
+     "band_1_db": {
+      "before": 98.2,
+      "after": 122.5
+     },
+     "bands_1_to_23_db": {
+      "before": 81.9,
+      "after": 81.9
+     },
+     "whole_band_db": {
+      "before": 71.3,
+      "after": 72.3
+     },
+     "whole_band_worst_object_db": {
+      "before": 55.19,
+      "after": 55.41
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 68.8,
+      "after": 69.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 34,
+     "downmix_configuration": [
+      4
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 55.0,
+      "after": 114.0
+     },
+     "lowest_band_worst_object_db": {
+      "before": 51.02,
+      "after": 105.1
+     },
+     "band_1_db": {
+      "before": 71.8,
+      "after": 97.8
+     },
+     "bands_1_to_23_db": {
+      "before": 80.9,
+      "after": 85.8
+     },
+     "whole_band_db": {
+      "before": 49.4,
+      "after": 49.6
+     },
+     "whole_band_worst_object_db": {
+      "before": 39.77,
+      "after": 39.98
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 46.5,
+      "after": 46.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0006,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 35,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 53.4,
+      "after": 113.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 52.55,
+      "after": 105.01
+     },
+     "band_1_db": {
+      "before": 63.9,
+      "after": 97.7
+     },
+     "bands_1_to_23_db": {
+      "before": 81.7,
+      "after": 85.2
+     },
+     "whole_band_db": {
+      "before": 52.5,
+      "after": 61.4
+     },
+     "whole_band_worst_object_db": {
+      "before": 48.96,
+      "after": 49.41
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 52.0,
+      "after": 58.4
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0006,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 36,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 56.0,
+      "after": 107.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 47.49,
+      "after": 98.24
+     },
+     "band_1_db": {
+      "before": 71.5,
+      "after": 103.6
+     },
+     "bands_1_to_23_db": {
+      "before": 82.0,
+      "after": 85.9
+     },
+     "whole_band_db": {
+      "before": 53.7,
+      "after": 55.3
+     },
+     "whole_band_worst_object_db": {
+      "before": 47.1,
+      "after": 51.01
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 51.4,
+      "after": 52.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.5796,
+      "after": 0.5796
+     }
+    },
+    {
+     "track": 37,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 10,
+     "objects_with_signal_in_the_lowest_band": 10,
+     "lowest_band_db": {
+      "before": 45.6,
+      "after": 126.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 32.93,
+      "after": 112.57
+     },
+     "band_1_db": {
+      "before": 62.8,
+      "after": 125.6
+     },
+     "bands_1_to_23_db": {
+      "before": 79.9,
+      "after": 99.4
+     },
+     "whole_band_db": {
+      "before": 46.2,
+      "after": 58.4
+     },
+     "whole_band_worst_object_db": {
+      "before": 41.87,
+      "after": 54.3
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 45.7,
+      "after": 55.4
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0009,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 38,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 48.6,
+      "after": 119.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 45.32,
+      "after": 118.59
+     },
+     "band_1_db": {
+      "before": 63.3,
+      "after": 112.1
+     },
+     "bands_1_to_23_db": {
+      "before": 79.8,
+      "after": 85.9
+     },
+     "whole_band_db": {
+      "before": 48.8,
+      "after": 57.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 45.44,
+      "after": 52.37
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 48.6,
+      "after": 54.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0005,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 39,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 58.6,
+      "after": 124.1
+     },
+     "lowest_band_worst_object_db": {
+      "before": 51.88,
+      "after": 117.72
+     },
+     "band_1_db": {
+      "before": 75.7,
+      "after": 124.5
+     },
+     "bands_1_to_23_db": {
+      "before": 95.8,
+      "after": 100.6
+     },
+     "whole_band_db": {
+      "before": 53.8,
+      "after": 55.1
+     },
+     "whole_band_worst_object_db": {
+      "before": 50.62,
+      "after": 53.53
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 51.3,
+      "after": 52.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 40,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 60.8,
+      "after": 114.0
+     },
+     "lowest_band_worst_object_db": {
+      "before": 59.39,
+      "after": 108.09
+     },
+     "band_1_db": {
+      "before": 76.1,
+      "after": 117.0
+     },
+     "bands_1_to_23_db": {
+      "before": 82.7,
+      "after": 84.9
+     },
+     "whole_band_db": {
+      "before": 54.7,
+      "after": 55.0
+     },
+     "whole_band_worst_object_db": {
+      "before": 52.37,
+      "after": 52.6
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 51.7,
+      "after": 51.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 41,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 47.4,
+      "after": 49.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 45.2,
+      "after": 46.81
+     },
+     "band_1_db": {
+      "before": 47.5,
+      "after": 49.1
+     },
+     "bands_1_to_23_db": {
+      "before": 49.5,
+      "after": 51.0
+     },
+     "whole_band_db": {
+      "before": 47.0,
+      "after": 48.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 44.07,
+      "after": 44.96
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 46.6,
+      "after": 48.0
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0002
+     }
+    },
+    {
+     "track": 42,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 13,
+     "objects_with_signal_in_the_lowest_band": 13,
+     "lowest_band_db": {
+      "before": 64.1,
+      "after": 121.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 58.46,
+      "after": 105.13
+     },
+     "band_1_db": {
+      "before": 80.8,
+      "after": 115.1
+     },
+     "bands_1_to_23_db": {
+      "before": 91.3,
+      "after": 91.6
+     },
+     "whole_band_db": {
+      "before": 60.9,
+      "after": 65.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 56.75,
+      "after": 56.8
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 59.1,
+      "after": 62.2
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 43,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 47.5,
+      "after": 120.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 40.49,
+      "after": 111.21
+     },
+     "band_1_db": {
+      "before": 62.8,
+      "after": 117.2
+     },
+     "bands_1_to_23_db": {
+      "before": 85.7,
+      "after": 98.6
+     },
+     "whole_band_db": {
+      "before": 45.9,
+      "after": 50.8
+     },
+     "whole_band_worst_object_db": {
+      "before": 41.18,
+      "after": 47.69
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 44.0,
+      "after": 47.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0008,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 44,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 66.6,
+      "after": 120.0
+     },
+     "lowest_band_worst_object_db": {
+      "before": 61.87,
+      "after": 118.99
+     },
+     "band_1_db": {
+      "before": 78.4,
+      "after": 112.5
+     },
+     "bands_1_to_23_db": {
+      "before": 90.5,
+      "after": 91.9
+     },
+     "whole_band_db": {
+      "before": 66.2,
+      "after": 73.4
+     },
+     "whole_band_worst_object_db": {
+      "before": 63.96,
+      "after": 70.68
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 64.9,
+      "after": 70.4
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 45,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 15,
+     "objects_with_signal_in_the_lowest_band": 15,
+     "lowest_band_db": {
+      "before": 49.0,
+      "after": 126.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 38.73,
+      "after": 112.1
+     },
+     "band_1_db": {
+      "before": 61.5,
+      "after": 116.8
+     },
+     "bands_1_to_23_db": {
+      "before": 62.5,
+      "after": 64.2
+     },
+     "whole_band_db": {
+      "before": 49.3,
+      "after": 57.1
+     },
+     "whole_band_worst_object_db": {
+      "before": 41.64,
+      "after": 45.48
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 48.3,
+      "after": 54.2
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 46,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 65.1,
+      "after": 127.3
+     },
+     "lowest_band_worst_object_db": {
+      "before": 53.14,
+      "after": 117.9
+     },
+     "band_1_db": {
+      "before": 81.5,
+      "after": 122.3
+     },
+     "bands_1_to_23_db": {
+      "before": 102.8,
+      "after": 109.2
+     },
+     "whole_band_db": {
+      "before": 52.9,
+      "after": 53.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 51.38,
+      "after": 53.04
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 50.1,
+      "after": 50.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0006,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 47,
+     "downmix_configuration": [
+      4
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 65.2,
+      "after": 127.3
+     },
+     "lowest_band_worst_object_db": {
+      "before": 53.16,
+      "after": 117.65
+     },
+     "band_1_db": {
+      "before": 83.2,
+      "after": 122.3
+     },
+     "bands_1_to_23_db": {
+      "before": 100.5,
+      "after": 107.9
+     },
+     "whole_band_db": {
+      "before": 52.9,
+      "after": 52.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 43.88,
+      "after": 44.19
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 50.0,
+      "after": 50.0
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 48,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 70.8,
+      "after": 104.2
+     },
+     "lowest_band_worst_object_db": {
+      "before": 63.94,
+      "after": 102.0
+     },
+     "band_1_db": {
+      "before": 74.7,
+      "after": 99.0
+     },
+     "bands_1_to_23_db": {
+      "before": 73.3,
+      "after": 73.3
+     },
+     "whole_band_db": {
+      "before": 48.1,
+      "after": 48.1
+     },
+     "whole_band_worst_object_db": {
+      "before": 47.18,
+      "after": 47.23
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 45.1,
+      "after": 45.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 49,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 53.3,
+      "after": 117.4
+     },
+     "lowest_band_worst_object_db": {
+      "before": 32.4,
+      "after": 114.34
+     },
+     "band_1_db": {
+      "before": 77.3,
+      "after": 113.8
+     },
+     "bands_1_to_23_db": {
+      "before": 60.9,
+      "after": 63.6
+     },
+     "whole_band_db": {
+      "before": 43.5,
+      "after": 43.6
+     },
+     "whole_band_worst_object_db": {
+      "before": 36.28,
+      "after": 41.27
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 40.5,
+      "after": 40.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 50,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 8,
+     "objects_with_signal_in_the_lowest_band": 8,
+     "lowest_band_db": {
+      "before": 55.1,
+      "after": 118.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 30.87,
+      "after": 102.54
+     },
+     "band_1_db": {
+      "before": 70.9,
+      "after": 115.7
+     },
+     "bands_1_to_23_db": {
+      "before": 81.1,
+      "after": 85.9
+     },
+     "whole_band_db": {
+      "before": 45.8,
+      "after": 49.1
+     },
+     "whole_band_worst_object_db": {
+      "before": 32.21,
+      "after": 39.84
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 43.0,
+      "after": 46.2
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0008,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 51,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 15,
+     "objects_with_signal_in_the_lowest_band": 15,
+     "lowest_band_db": {
+      "before": 41.8,
+      "after": 124.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 29.5,
+      "after": 97.41
+     },
+     "band_1_db": {
+      "before": 55.3,
+      "after": 108.1
+     },
+     "bands_1_to_23_db": {
+      "before": 52.4,
+      "after": 52.4
+     },
+     "whole_band_db": {
+      "before": 40.9,
+      "after": 54.3
+     },
+     "whole_band_worst_object_db": {
+      "before": 31.23,
+      "after": 39.31
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 39.4,
+      "after": 51.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0018,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 52,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 47.4,
+      "after": 114.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 30.29,
+      "after": 98.7
+     },
+     "band_1_db": {
+      "before": 60.8,
+      "after": 108.2
+     },
+     "bands_1_to_23_db": {
+      "before": 70.3,
+      "after": 77.1
+     },
+     "whole_band_db": {
+      "before": 40.7,
+      "after": 48.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 37.35,
+      "after": 41.09
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 38.1,
+      "after": 45.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0015,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 53,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 52.4,
+      "after": 97.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 51.89,
+      "after": 97.61
+     },
+     "band_1_db": {
+      "before": 62.8,
+      "after": 89.8
+     },
+     "bands_1_to_23_db": {
+      "before": 67.7,
+      "after": 69.4
+     },
+     "whole_band_db": {
+      "before": 25.0,
+      "after": 25.0
+     },
+     "whole_band_worst_object_db": {
+      "before": 21.74,
+      "after": 21.74
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 22.0,
+      "after": 22.0
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 54,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 3,
+     "objects_with_signal_in_the_lowest_band": 3,
+     "lowest_band_db": {
+      "before": 78.5,
+      "after": 115.2
+     },
+     "lowest_band_worst_object_db": {
+      "before": 78.31,
+      "after": 115.14
+     },
+     "band_1_db": {
+      "before": 102.5,
+      "after": 118.2
+     },
+     "bands_1_to_23_db": {
+      "before": 99.5,
+      "after": 99.5
+     },
+     "whole_band_db": {
+      "before": 62.6,
+      "after": 62.6
+     },
+     "whole_band_worst_object_db": {
+      "before": 62.6,
+      "after": 62.63
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 59.6,
+      "after": 59.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0004,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 55,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 39.9,
+      "after": 113.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 30.12,
+      "after": 106.38
+     },
+     "band_1_db": {
+      "before": 50.8,
+      "after": 102.4
+     },
+     "bands_1_to_23_db": {
+      "before": 80.1,
+      "after": 90.2
+     },
+     "whole_band_db": {
+      "before": 39.3,
+      "after": 43.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 30.44,
+      "after": 35.22
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 37.6,
+      "after": 40.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0026,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 56,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 55.9,
+      "after": 106.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 36.28,
+      "after": 87.13
+     },
+     "band_1_db": {
+      "before": 72.0,
+      "after": 97.3
+     },
+     "bands_1_to_23_db": {
+      "before": 58.6,
+      "after": 58.6
+     },
+     "whole_band_db": {
+      "before": 45.9,
+      "after": 45.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 30.0,
+      "after": 30.05
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 42.9,
+      "after": 42.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0008,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 57,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 62.7,
+      "after": 112.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 59.06,
+      "after": 109.01
+     },
+     "band_1_db": {
+      "before": 71.3,
+      "after": 108.3
+     },
+     "bands_1_to_23_db": {
+      "before": 80.5,
+      "after": 81.9
+     },
+     "whole_band_db": {
+      "before": 49.9,
+      "after": 50.1
+     },
+     "whole_band_worst_object_db": {
+      "before": 38.02,
+      "after": 38.02
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 47.0,
+      "after": 47.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 58,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 53.0,
+      "after": 116.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 50.34,
+      "after": 114.67
+     },
+     "band_1_db": {
+      "before": 62.5,
+      "after": 107.9
+     },
+     "bands_1_to_23_db": {
+      "before": 81.0,
+      "after": 94.1
+     },
+     "whole_band_db": {
+      "before": 47.7,
+      "after": 47.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 39.56,
+      "after": 39.75
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 44.7,
+      "after": 44.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0004,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 59,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 54.8,
+      "after": 107.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 47.9,
+      "after": 104.98
+     },
+     "band_1_db": {
+      "before": 67.1,
+      "after": 102.2
+     },
+     "bands_1_to_23_db": {
+      "before": 53.1,
+      "after": 57.0
+     },
+     "whole_band_db": {
+      "before": 47.8,
+      "after": 48.8
+     },
+     "whole_band_worst_object_db": {
+      "before": 45.6,
+      "after": 46.75
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 45.1,
+      "after": 45.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0012,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 60,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 56.4,
+      "after": 125.4
+     },
+     "lowest_band_worst_object_db": {
+      "before": 50.55,
+      "after": 120.79
+     },
+     "band_1_db": {
+      "before": 68.9,
+      "after": 124.8
+     },
+     "bands_1_to_23_db": {
+      "before": 93.4,
+      "after": 102.6
+     },
+     "whole_band_db": {
+      "before": 52.2,
+      "after": 58.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 50.43,
+      "after": 51.22
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 51.0,
+      "after": 55.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 61,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 52.8,
+      "after": 124.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 39.6,
+      "after": 116.33
+     },
+     "band_1_db": {
+      "before": 60.8,
+      "after": 118.0
+     },
+     "bands_1_to_23_db": {
+      "before": 98.5,
+      "after": 102.2
+     },
+     "whole_band_db": {
+      "before": 51.2,
+      "after": 55.4
+     },
+     "whole_band_worst_object_db": {
+      "before": 31.64,
+      "after": 31.88
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 50.2,
+      "after": 52.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 62,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 59.2,
+      "after": 120.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 57.14,
+      "after": 118.02
+     },
+     "band_1_db": {
+      "before": 72.9,
+      "after": 122.8
+     },
+     "bands_1_to_23_db": {
+      "before": 91.3,
+      "after": 95.0
+     },
+     "whole_band_db": {
+      "before": 56.7,
+      "after": 57.6
+     },
+     "whole_band_worst_object_db": {
+      "before": 52.87,
+      "after": 52.87
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 54.5,
+      "after": 54.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 63,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 58.1,
+      "after": 130.3
+     },
+     "lowest_band_worst_object_db": {
+      "before": 47.03,
+      "after": 122.52
+     },
+     "band_1_db": {
+      "before": 75.5,
+      "after": 129.1
+     },
+     "bands_1_to_23_db": {
+      "before": 74.9,
+      "after": 76.1
+     },
+     "whole_band_db": {
+      "before": 55.7,
+      "after": 58.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 49.46,
+      "after": 56.22
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 53.6,
+      "after": 55.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 64,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 3,
+     "objects_with_signal_in_the_lowest_band": 3,
+     "lowest_band_db": {
+      "before": 71.2,
+      "after": 104.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 67.81,
+      "after": 103.21
+     },
+     "band_1_db": {
+      "before": 91.8,
+      "after": 102.7
+     },
+     "bands_1_to_23_db": {
+      "before": 93.0,
+      "after": 93.2
+     },
+     "whole_band_db": {
+      "before": 51.6,
+      "after": 51.6
+     },
+     "whole_band_worst_object_db": {
+      "before": 50.08,
+      "after": 50.1
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 48.6,
+      "after": 48.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 65,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 3,
+     "objects_with_signal_in_the_lowest_band": 3,
+     "lowest_band_db": {
+      "before": 83.5,
+      "after": 96.0
+     },
+     "lowest_band_worst_object_db": {
+      "before": 68.11,
+      "after": 95.19
+     },
+     "band_1_db": {
+      "before": 103.2,
+      "after": 103.2
+     },
+     "bands_1_to_23_db": {
+      "before": 73.6,
+      "after": 73.7
+     },
+     "whole_band_db": {
+      "before": 41.3,
+      "after": 41.3
+     },
+     "whole_band_worst_object_db": {
+      "before": 40.07,
+      "after": 40.07
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 38.3,
+      "after": 38.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0017,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 66,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 2,
+     "lowest_band_db": {
+      "before": 102.9,
+      "after": 128.4
+     },
+     "lowest_band_worst_object_db": {
+      "before": 70.33,
+      "after": 121.32
+     },
+     "band_1_db": {
+      "before": 113.1,
+      "after": 134.3
+     },
+     "bands_1_to_23_db": {
+      "before": 111.5,
+      "after": 112.4
+     },
+     "whole_band_db": {
+      "before": 64.3,
+      "after": 64.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 56.76,
+      "after": 56.78
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 61.3,
+      "after": 61.4
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 67,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 44.1,
+      "after": 48.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 36.23,
+      "after": 37.58
+     },
+     "band_1_db": {
+      "before": 47.4,
+      "after": 48.7
+     },
+     "bands_1_to_23_db": {
+      "before": 46.4,
+      "after": 47.5
+     },
+     "whole_band_db": {
+      "before": 43.9,
+      "after": 49.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 37.76,
+      "after": 39.14
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 43.8,
+      "after": 49.0
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0006
+     }
+    },
+    {
+     "track": 68,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 55.8,
+      "after": 123.0
+     },
+     "lowest_band_worst_object_db": {
+      "before": 51.8,
+      "after": 120.68
+     },
+     "band_1_db": {
+      "before": 75.7,
+      "after": 125.5
+     },
+     "bands_1_to_23_db": {
+      "before": 90.2,
+      "after": 100.3
+     },
+     "whole_band_db": {
+      "before": 51.3,
+      "after": 53.8
+     },
+     "whole_band_worst_object_db": {
+      "before": 50.3,
+      "after": 50.61
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 49.4,
+      "after": 50.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0006,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 69,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 3,
+     "objects_with_signal_in_the_lowest_band": 3,
+     "lowest_band_db": {
+      "before": 112.2,
+      "after": 112.2
+     },
+     "lowest_band_worst_object_db": {
+      "before": 110.62,
+      "after": 110.62
+     },
+     "band_1_db": {
+      "before": 109.1,
+      "after": 109.1
+     },
+     "bands_1_to_23_db": {
+      "before": 84.6,
+      "after": 84.6
+     },
+     "whole_band_db": {
+      "before": 63.1,
+      "after": 63.1
+     },
+     "whole_band_worst_object_db": {
+      "before": 61.47,
+      "after": 61.47
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 60.1,
+      "after": 60.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.4646,
+      "after": 0.4646
+     }
+    },
+    {
+     "track": 70,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 54.4,
+      "after": 108.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 47.2,
+      "after": 97.62
+     },
+     "band_1_db": {
+      "before": 69.7,
+      "after": 96.8
+     },
+     "bands_1_to_23_db": {
+      "before": 65.2,
+      "after": 66.4
+     },
+     "whole_band_db": {
+      "before": 51.5,
+      "after": 53.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 50.41,
+      "after": 51.73
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 49.4,
+      "after": 50.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 72,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 42.5,
+      "after": 51.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 38.21,
+      "after": 43.51
+     },
+     "band_1_db": {
+      "before": 52.7,
+      "after": 55.5
+     },
+     "bands_1_to_23_db": {
+      "before": 59.9,
+      "after": 58.6
+     },
+     "whole_band_db": {
+      "before": 44.9,
+      "after": 51.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 40.35,
+      "after": 43.95
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 44.8,
+      "after": 51.0
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0017,
+      "after": 0.0014
+     }
+    },
+    {
+     "track": 73,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 52.2,
+      "after": 110.4
+     },
+     "lowest_band_worst_object_db": {
+      "before": 42.38,
+      "after": 98.06
+     },
+     "band_1_db": {
+      "before": 71.2,
+      "after": 109.5
+     },
+     "bands_1_to_23_db": {
+      "before": 73.9,
+      "after": 76.4
+     },
+     "whole_band_db": {
+      "before": 50.9,
+      "after": 52.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 41.78,
+      "after": 49.05
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 48.8,
+      "after": 49.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0119,
+      "after": 0.012
+     }
+    },
+    {
+     "track": 74,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 3,
+     "objects_with_signal_in_the_lowest_band": 3,
+     "lowest_band_db": {
+      "before": 119.2,
+      "after": 119.2
+     },
+     "lowest_band_worst_object_db": {
+      "before": 101.2,
+      "after": 113.14
+     },
+     "band_1_db": {
+      "before": 117.7,
+      "after": 117.7
+     },
+     "bands_1_to_23_db": {
+      "before": 86.1,
+      "after": 86.1
+     },
+     "whole_band_db": {
+      "before": 68.6,
+      "after": 68.6
+     },
+     "whole_band_worst_object_db": {
+      "before": 66.76,
+      "after": 66.76
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 65.7,
+      "after": 65.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 75,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 60.0,
+      "after": 101.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 58.29,
+      "after": 96.51
+     },
+     "band_1_db": {
+      "before": 72.5,
+      "after": 103.3
+     },
+     "bands_1_to_23_db": {
+      "before": 67.1,
+      "after": 67.4
+     },
+     "whole_band_db": {
+      "before": 59.6,
+      "after": 61.4
+     },
+     "whole_band_worst_object_db": {
+      "before": 45.54,
+      "after": 45.63
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 57.4,
+      "after": 58.4
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 76,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 47.9,
+      "after": 111.6
+     },
+     "lowest_band_worst_object_db": {
+      "before": 41.16,
+      "after": 102.48
+     },
+     "band_1_db": {
+      "before": 72.7,
+      "after": 111.4
+     },
+     "bands_1_to_23_db": {
+      "before": 69.7,
+      "after": 73.5
+     },
+     "whole_band_db": {
+      "before": 51.0,
+      "after": 58.1
+     },
+     "whole_band_worst_object_db": {
+      "before": 45.57,
+      "after": 52.11
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 50.5,
+      "after": 55.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0011,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 77,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 57.1,
+      "after": 124.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 56.8,
+      "after": 121.52
+     },
+     "band_1_db": {
+      "before": 74.0,
+      "after": 126.8
+     },
+     "bands_1_to_23_db": {
+      "before": 85.9,
+      "after": 96.5
+     },
+     "whole_band_db": {
+      "before": 58.4,
+      "after": 61.8
+     },
+     "whole_band_worst_object_db": {
+      "before": 55.04,
+      "after": 55.04
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 56.7,
+      "after": 58.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 78,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 50.2,
+      "after": 124.6
+     },
+     "lowest_band_worst_object_db": {
+      "before": 45.72,
+      "after": 114.0
+     },
+     "band_1_db": {
+      "before": 68.6,
+      "after": 123.9
+     },
+     "bands_1_to_23_db": {
+      "before": 63.1,
+      "after": 63.1
+     },
+     "whole_band_db": {
+      "before": 51.3,
+      "after": 56.3
+     },
+     "whole_band_worst_object_db": {
+      "before": 48.33,
+      "after": 52.36
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 50.8,
+      "after": 53.3
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 79,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 64.5,
+      "after": 110.3
+     },
+     "lowest_band_worst_object_db": {
+      "before": 62.38,
+      "after": 102.93
+     },
+     "band_1_db": {
+      "before": 72.5,
+      "after": 110.2
+     },
+     "bands_1_to_23_db": {
+      "before": 56.2,
+      "after": 56.2
+     },
+     "whole_band_db": {
+      "before": 52.4,
+      "after": 52.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 46.48,
+      "after": 46.53
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 49.5,
+      "after": 49.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 80,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 64.6,
+      "after": 110.3
+     },
+     "lowest_band_worst_object_db": {
+      "before": 62.53,
+      "after": 103.03
+     },
+     "band_1_db": {
+      "before": 72.4,
+      "after": 110.2
+     },
+     "bands_1_to_23_db": {
+      "before": 58.1,
+      "after": 58.1
+     },
+     "whole_band_db": {
+      "before": 58.8,
+      "after": 59.6
+     },
+     "whole_band_worst_object_db": {
+      "before": 53.87,
+      "after": 54.17
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 56.2,
+      "after": 56.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 81,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 46.4,
+      "after": 125.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 37.47,
+      "after": 111.49
+     },
+     "band_1_db": {
+      "before": 70.1,
+      "after": 118.6
+     },
+     "bands_1_to_23_db": {
+      "before": 67.8,
+      "after": 68.5
+     },
+     "whole_band_db": {
+      "before": 46.6,
+      "after": 56.0
+     },
+     "whole_band_worst_object_db": {
+      "before": 42.11,
+      "after": 46.96
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 45.8,
+      "after": 52.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 82,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 47.8,
+      "after": 49.0
+     },
+     "lowest_band_worst_object_db": {
+      "before": 43.3,
+      "after": 44.42
+     },
+     "band_1_db": {
+      "before": 46.7,
+      "after": 48.3
+     },
+     "bands_1_to_23_db": {
+      "before": 44.2,
+      "after": 45.8
+     },
+     "whole_band_db": {
+      "before": 43.9,
+      "after": 45.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 42.12,
+      "after": 42.63
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 43.6,
+      "after": 44.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0927,
+      "after": 0.0927
+     }
+    },
+    {
+     "track": 83,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 44.0,
+      "after": 45.0
+     },
+     "lowest_band_worst_object_db": {
+      "before": 37.65,
+      "after": 39.8
+     },
+     "band_1_db": {
+      "before": 43.8,
+      "after": 44.9
+     },
+     "bands_1_to_23_db": {
+      "before": 43.0,
+      "after": 44.3
+     },
+     "whole_band_db": {
+      "before": 43.8,
+      "after": 44.8
+     },
+     "whole_band_worst_object_db": {
+      "before": 37.54,
+      "after": 39.62
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 43.6,
+      "after": 44.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0115,
+      "after": 0.0115
+     }
+    },
+    {
+     "track": 84,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 54.8,
+      "after": 58.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 40.68,
+      "after": 41.69
+     },
+     "band_1_db": {
+      "before": 58.0,
+      "after": 60.2
+     },
+     "bands_1_to_23_db": {
+      "before": 48.7,
+      "after": 48.9
+     },
+     "whole_band_db": {
+      "before": 52.2,
+      "after": 52.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 33.41,
+      "after": 33.57
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 50.9,
+      "after": 51.4
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0005,
+      "after": 0.0004
+     }
+    },
+    {
+     "track": 85,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 60.6,
+      "after": 125.6
+     },
+     "lowest_band_worst_object_db": {
+      "before": 50.88,
+      "after": 103.17
+     },
+     "band_1_db": {
+      "before": 76.0,
+      "after": 120.6
+     },
+     "bands_1_to_23_db": {
+      "before": 76.0,
+      "after": 76.8
+     },
+     "whole_band_db": {
+      "before": 60.8,
+      "after": 70.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 56.37,
+      "after": 57.99
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 60.4,
+      "after": 67.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 86,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 76.4,
+      "after": 101.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 52.37,
+      "after": 97.96
+     },
+     "band_1_db": {
+      "before": 93.8,
+      "after": 102.2
+     },
+     "bands_1_to_23_db": {
+      "before": 54.6,
+      "after": 54.6
+     },
+     "whole_band_db": {
+      "before": 42.9,
+      "after": 42.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 29.11,
+      "after": 29.12
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 39.9,
+      "after": 39.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 87,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 13,
+     "objects_with_signal_in_the_lowest_band": 13,
+     "lowest_band_db": {
+      "before": 47.6,
+      "after": 118.1
+     },
+     "lowest_band_worst_object_db": {
+      "before": 41.71,
+      "after": 111.67
+     },
+     "band_1_db": {
+      "before": 70.4,
+      "after": 111.3
+     },
+     "bands_1_to_23_db": {
+      "before": 66.0,
+      "after": 66.0
+     },
+     "whole_band_db": {
+      "before": 44.8,
+      "after": 47.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 42.39,
+      "after": 43.57
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 42.6,
+      "after": 44.2
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0009,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 88,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 46.4,
+      "after": 125.3
+     },
+     "lowest_band_worst_object_db": {
+      "before": 38.4,
+      "after": 122.62
+     },
+     "band_1_db": {
+      "before": 57.2,
+      "after": 127.5
+     },
+     "bands_1_to_23_db": {
+      "before": 85.7,
+      "after": 104.0
+     },
+     "whole_band_db": {
+      "before": 46.8,
+      "after": 54.3
+     },
+     "whole_band_worst_object_db": {
+      "before": 39.49,
+      "after": 49.88
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 45.6,
+      "after": 51.2
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0009,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 89,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 49.9,
+      "after": 111.1
+     },
+     "lowest_band_worst_object_db": {
+      "before": 46.44,
+      "after": 101.55
+     },
+     "band_1_db": {
+      "before": 67.8,
+      "after": 102.4
+     },
+     "bands_1_to_23_db": {
+      "before": 83.6,
+      "after": 86.5
+     },
+     "whole_band_db": {
+      "before": 52.6,
+      "after": 56.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 52.03,
+      "after": 55.09
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 51.2,
+      "after": 53.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0005,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 90,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 51.0,
+      "after": 124.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 38.89,
+      "after": 104.96
+     },
+     "band_1_db": {
+      "before": 66.7,
+      "after": 123.2
+     },
+     "bands_1_to_23_db": {
+      "before": 95.0,
+      "after": 98.1
+     },
+     "whole_band_db": {
+      "before": 51.1,
+      "after": 52.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 43.94,
+      "after": 47.17
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 48.9,
+      "after": 49.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 91,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 57.2,
+      "after": 101.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 55.95,
+      "after": 95.93
+     },
+     "band_1_db": {
+      "before": 77.4,
+      "after": 100.8
+     },
+     "bands_1_to_23_db": {
+      "before": 76.0,
+      "after": 77.0
+     },
+     "whole_band_db": {
+      "before": 42.4,
+      "after": 42.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 40.41,
+      "after": 40.46
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 39.5,
+      "after": 39.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 92,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 44.9,
+      "after": 46.3
+     },
+     "lowest_band_worst_object_db": {
+      "before": 43.89,
+      "after": 46.02
+     },
+     "band_1_db": {
+      "before": 42.5,
+      "after": 43.9
+     },
+     "bands_1_to_23_db": {
+      "before": 34.4,
+      "after": 36.2
+     },
+     "whole_band_db": {
+      "before": 39.2,
+      "after": 40.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 33.72,
+      "after": 34.96
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 39.2,
+      "after": 40.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0005,
+      "after": 0.0002
+     }
+    },
+    {
+     "track": 93,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 10,
+     "objects_with_signal_in_the_lowest_band": 10,
+     "lowest_band_db": {
+      "before": 60.3,
+      "after": 113.6
+     },
+     "lowest_band_worst_object_db": {
+      "before": 47.73,
+      "after": 104.52
+     },
+     "band_1_db": {
+      "before": 70.0,
+      "after": 114.2
+     },
+     "bands_1_to_23_db": {
+      "before": 82.5,
+      "after": 84.0
+     },
+     "whole_band_db": {
+      "before": 56.0,
+      "after": 57.0
+     },
+     "whole_band_worst_object_db": {
+      "before": 43.27,
+      "after": 44.11
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 53.5,
+      "after": 54.0
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 94,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 58.8,
+      "after": 118.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 53.63,
+      "after": 107.27
+     },
+     "band_1_db": {
+      "before": 75.1,
+      "after": 118.0
+     },
+     "bands_1_to_23_db": {
+      "before": 82.8,
+      "after": 84.4
+     },
+     "whole_band_db": {
+      "before": 58.4,
+      "after": 60.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 49.1,
+      "after": 49.97
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 56.4,
+      "after": 57.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 95,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 42.3,
+      "after": 127.4
+     },
+     "lowest_band_worst_object_db": {
+      "before": 19.06,
+      "after": 103.46
+     },
+     "band_1_db": {
+      "before": 43.9,
+      "after": 117.6
+     },
+     "bands_1_to_23_db": {
+      "before": 83.0,
+      "after": 107.1
+     },
+     "whole_band_db": {
+      "before": 42.3,
+      "after": 55.6
+     },
+     "whole_band_worst_object_db": {
+      "before": 21.3,
+      "after": 52.58
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 42.1,
+      "after": 52.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0054,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 96,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 56.6,
+      "after": 126.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 41.61,
+      "after": 113.69
+     },
+     "band_1_db": {
+      "before": 69.5,
+      "after": 131.9
+     },
+     "bands_1_to_23_db": {
+      "before": 93.0,
+      "after": 105.5
+     },
+     "whole_band_db": {
+      "before": 60.2,
+      "after": 66.0
+     },
+     "whole_band_worst_object_db": {
+      "before": 47.88,
+      "after": 53.13
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 60.0,
+      "after": 63.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 97,
+     "downmix_configuration": [
+      4
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 69.0,
+      "after": 126.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 55.81,
+      "after": 114.24
+     },
+     "band_1_db": {
+      "before": 78.4,
+      "after": 130.5
+     },
+     "bands_1_to_23_db": {
+      "before": 71.5,
+      "after": 71.6
+     },
+     "whole_band_db": {
+      "before": 59.8,
+      "after": 61.8
+     },
+     "whole_band_worst_object_db": {
+      "before": 54.31,
+      "after": 54.31
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 58.8,
+      "after": 58.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 98,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 58.3,
+      "after": 114.0
+     },
+     "lowest_band_worst_object_db": {
+      "before": 54.65,
+      "after": 110.55
+     },
+     "band_1_db": {
+      "before": 72.9,
+      "after": 106.7
+     },
+     "bands_1_to_23_db": {
+      "before": 74.7,
+      "after": 77.5
+     },
+     "whole_band_db": {
+      "before": 54.7,
+      "after": 56.3
+     },
+     "whole_band_worst_object_db": {
+      "before": 47.49,
+      "after": 47.51
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 53.1,
+      "after": 53.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 99,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 60.3,
+      "after": 115.1
+     },
+     "lowest_band_worst_object_db": {
+      "before": 57.94,
+      "after": 109.66
+     },
+     "band_1_db": {
+      "before": 77.5,
+      "after": 115.2
+     },
+     "bands_1_to_23_db": {
+      "before": 79.3,
+      "after": 80.9
+     },
+     "whole_band_db": {
+      "before": 57.2,
+      "after": 59.0
+     },
+     "whole_band_worst_object_db": {
+      "before": 56.65,
+      "after": 57.3
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 54.9,
+      "after": 56.0
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 100,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 52.1,
+      "after": 118.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 43.32,
+      "after": 107.24
+     },
+     "band_1_db": {
+      "before": 74.8,
+      "after": 120.2
+     },
+     "bands_1_to_23_db": {
+      "before": 93.4,
+      "after": 96.9
+     },
+     "whole_band_db": {
+      "before": 53.2,
+      "after": 57.8
+     },
+     "whole_band_worst_object_db": {
+      "before": 47.11,
+      "after": 51.11
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 51.9,
+      "after": 54.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 101,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 58.5,
+      "after": 114.7
+     },
+     "lowest_band_worst_object_db": {
+      "before": 57.94,
+      "after": 107.44
+     },
+     "band_1_db": {
+      "before": 74.3,
+      "after": 111.1
+     },
+     "bands_1_to_23_db": {
+      "before": 80.3,
+      "after": 82.6
+     },
+     "whole_band_db": {
+      "before": 47.9,
+      "after": 48.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 43.43,
+      "after": 43.44
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 45.0,
+      "after": 45.0
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 102,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 49.3,
+      "after": 116.2
+     },
+     "lowest_band_worst_object_db": {
+      "before": 40.27,
+      "after": 97.41
+     },
+     "band_1_db": {
+      "before": 71.5,
+      "after": 115.9
+     },
+     "bands_1_to_23_db": {
+      "before": 82.1,
+      "after": 82.3
+     },
+     "whole_band_db": {
+      "before": 53.0,
+      "after": 60.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 41.98,
+      "after": 43.98
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 52.0,
+      "after": 57.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 103,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 3,
+     "objects_with_signal_in_the_lowest_band": 3,
+     "lowest_band_db": {
+      "before": 96.2,
+      "after": 96.2
+     },
+     "lowest_band_worst_object_db": {
+      "before": 93.73,
+      "after": 93.73
+     },
+     "band_1_db": {
+      "before": 93.5,
+      "after": 93.5
+     },
+     "bands_1_to_23_db": {
+      "before": 81.2,
+      "after": 81.2
+     },
+     "whole_band_db": {
+      "before": 29.9,
+      "after": 29.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 25.43,
+      "after": 25.43
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 26.9,
+      "after": 26.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 104,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 13,
+     "objects_with_signal_in_the_lowest_band": 13,
+     "lowest_band_db": {
+      "before": 41.8,
+      "after": 119.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 35.94,
+      "after": 109.99
+     },
+     "band_1_db": {
+      "before": 65.6,
+      "after": 114.1
+     },
+     "bands_1_to_23_db": {
+      "before": 58.1,
+      "after": 61.1
+     },
+     "whole_band_db": {
+      "before": 46.2,
+      "after": 53.8
+     },
+     "whole_band_worst_object_db": {
+      "before": 36.61,
+      "after": 45.77
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 45.3,
+      "after": 50.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0067,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 106,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 39.5,
+      "after": 45.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 37.87,
+      "after": 39.91
+     },
+     "band_1_db": {
+      "before": 45.9,
+      "after": 47.3
+     },
+     "bands_1_to_23_db": {
+      "before": 42.7,
+      "after": 43.5
+     },
+     "whole_band_db": {
+      "before": 40.9,
+      "after": 44.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 39.13,
+      "after": 41.02
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 40.8,
+      "after": 44.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0016,
+      "after": 0.0007
+     }
+    },
+    {
+     "track": 107,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 29.4,
+      "after": 30.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 23.44,
+      "after": 24.5
+     },
+     "band_1_db": {
+      "before": 27.6,
+      "after": 31.3
+     },
+     "bands_1_to_23_db": {
+      "before": 26.2,
+      "after": 28.8
+     },
+     "whole_band_db": {
+      "before": 26.6,
+      "after": 28.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 21.57,
+      "after": 23.82
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 26.6,
+      "after": 28.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0087,
+      "after": 0.0072
+     }
+    },
+    {
+     "track": 108,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 11,
+     "objects_with_signal_in_the_lowest_band": 11,
+     "lowest_band_db": {
+      "before": 46.4,
+      "after": 125.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 37.47,
+      "after": 111.49
+     },
+     "band_1_db": {
+      "before": 70.1,
+      "after": 118.6
+     },
+     "bands_1_to_23_db": {
+      "before": 67.8,
+      "after": 68.5
+     },
+     "whole_band_db": {
+      "before": 46.6,
+      "after": 56.0
+     },
+     "whole_band_worst_object_db": {
+      "before": 42.11,
+      "after": 46.96
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 45.8,
+      "after": 52.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 109,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 61.7,
+      "after": 102.4
+     },
+     "lowest_band_worst_object_db": {
+      "before": 59.57,
+      "after": 94.55
+     },
+     "band_1_db": {
+      "before": 73.3,
+      "after": 102.0
+     },
+     "bands_1_to_23_db": {
+      "before": 40.0,
+      "after": 40.0
+     },
+     "whole_band_db": {
+      "before": 45.0,
+      "after": 45.1
+     },
+     "whole_band_worst_object_db": {
+      "before": 43.14,
+      "after": 43.19
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 42.0,
+      "after": 42.0
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0005,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 110,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 129.9,
+      "after": 129.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 48.89,
+      "after": 123.12
+     },
+     "band_1_db": {
+      "before": 122.0,
+      "after": 122.0
+     },
+     "bands_1_to_23_db": {
+      "before": 57.0,
+      "after": 57.0
+     },
+     "whole_band_db": {
+      "before": 53.5,
+      "after": 56.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 50.88,
+      "after": 53.47
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 50.5,
+      "after": 53.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 111,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 117.8,
+      "after": 117.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 52.07,
+      "after": 109.89
+     },
+     "band_1_db": {
+      "before": 106.2,
+      "after": 106.2
+     },
+     "bands_1_to_23_db": {
+      "before": 76.8,
+      "after": 76.8
+     },
+     "whole_band_db": {
+      "before": 64.2,
+      "after": 64.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 51.71,
+      "after": 59.34
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 61.1,
+      "after": 61.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0004,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 112,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 127.5,
+      "after": 128.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 50.38,
+      "after": 127.43
+     },
+     "band_1_db": {
+      "before": 105.4,
+      "after": 105.4
+     },
+     "bands_1_to_23_db": {
+      "before": 71.0,
+      "after": 71.0
+     },
+     "whole_band_db": {
+      "before": 64.6,
+      "after": 72.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 50.36,
+      "after": 64.62
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 61.6,
+      "after": 69.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 113,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 119.4,
+      "after": 119.4
+     },
+     "lowest_band_worst_object_db": {
+      "before": 53.27,
+      "after": 113.16
+     },
+     "band_1_db": {
+      "before": 114.7,
+      "after": 115.8
+     },
+     "bands_1_to_23_db": {
+      "before": 59.5,
+      "after": 59.5
+     },
+     "whole_band_db": {
+      "before": 52.2,
+      "after": 53.0
+     },
+     "whole_band_worst_object_db": {
+      "before": 50.85,
+      "after": 51.63
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 49.9,
+      "after": 50.0
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0004,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 114,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 138.4,
+      "after": 138.4
+     },
+     "lowest_band_worst_object_db": {
+      "before": 50.19,
+      "after": 127.51
+     },
+     "band_1_db": {
+      "before": 116.5,
+      "after": 116.5
+     },
+     "bands_1_to_23_db": {
+      "before": 58.1,
+      "after": 58.1
+     },
+     "whole_band_db": {
+      "before": 73.2,
+      "after": 77.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 50.19,
+      "after": 73.18
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 70.3,
+      "after": 74.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0008,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 115,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 65.4,
+      "after": 119.2
+     },
+     "lowest_band_worst_object_db": {
+      "before": 50.93,
+      "after": 97.02
+     },
+     "band_1_db": {
+      "before": 75.0,
+      "after": 110.2
+     },
+     "bands_1_to_23_db": {
+      "before": 71.2,
+      "after": 71.2
+     },
+     "whole_band_db": {
+      "before": 57.2,
+      "after": 57.8
+     },
+     "whole_band_worst_object_db": {
+      "before": 50.97,
+      "after": 55.24
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 54.5,
+      "after": 54.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0004,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 116,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 106.4,
+      "after": 106.4
+     },
+     "lowest_band_worst_object_db": {
+      "before": 51.92,
+      "after": 99.05
+     },
+     "band_1_db": {
+      "before": 87.6,
+      "after": 87.6
+     },
+     "bands_1_to_23_db": {
+      "before": 70.1,
+      "after": 70.1
+     },
+     "whole_band_db": {
+      "before": 53.9,
+      "after": 53.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 49.09,
+      "after": 51.32
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 50.9,
+      "after": 50.9
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 117,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 57.3,
+      "after": 123.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 48.86,
+      "after": 121.1
+     },
+     "band_1_db": {
+      "before": 73.6,
+      "after": 118.2
+     },
+     "bands_1_to_23_db": {
+      "before": 87.8,
+      "after": 98.0
+     },
+     "whole_band_db": {
+      "before": 51.9,
+      "after": 53.5
+     },
+     "whole_band_worst_object_db": {
+      "before": 48.47,
+      "after": 48.79
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 49.4,
+      "after": 50.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0005,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 118,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 136.6,
+      "after": 136.6
+     },
+     "lowest_band_worst_object_db": {
+      "before": 52.65,
+      "after": 126.33
+     },
+     "band_1_db": {
+      "before": 121.0,
+      "after": 121.0
+     },
+     "bands_1_to_23_db": {
+      "before": 89.3,
+      "after": 89.3
+     },
+     "whole_band_db": {
+      "before": 54.2,
+      "after": 54.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 49.0,
+      "after": 50.78
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 51.1,
+      "after": 51.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0003,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 119,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 113.9,
+      "after": 113.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 58.75,
+      "after": 106.21
+     },
+     "band_1_db": {
+      "before": 104.3,
+      "after": 104.3
+     },
+     "bands_1_to_23_db": {
+      "before": 64.2,
+      "after": 64.2
+     },
+     "whole_band_db": {
+      "before": 51.1,
+      "after": 51.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 48.73,
+      "after": 49.07
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 48.4,
+      "after": 48.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 120,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 47.1,
+      "after": 127.0
+     },
+     "lowest_band_worst_object_db": {
+      "before": 24.24,
+      "after": 107.43
+     },
+     "band_1_db": {
+      "before": 64.9,
+      "after": 116.1
+     },
+     "bands_1_to_23_db": {
+      "before": 47.9,
+      "after": 47.9
+     },
+     "whole_band_db": {
+      "before": 46.4,
+      "after": 48.6
+     },
+     "whole_band_worst_object_db": {
+      "before": 29.57,
+      "after": 46.9
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 44.0,
+      "after": 45.5
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0042,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 121,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 43.0,
+      "after": 128.9
+     },
+     "lowest_band_worst_object_db": {
+      "before": 31.59,
+      "after": 118.51
+     },
+     "band_1_db": {
+      "before": 52.2,
+      "after": 110.1
+     },
+     "bands_1_to_23_db": {
+      "before": 40.4,
+      "after": 40.4
+     },
+     "whole_band_db": {
+      "before": 43.7,
+      "after": 51.9
+     },
+     "whole_band_worst_object_db": {
+      "before": 32.76,
+      "after": 45.54
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 42.6,
+      "after": 48.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0018,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 122,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 45.7,
+      "after": 128.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 36.3,
+      "after": 114.59
+     },
+     "band_1_db": {
+      "before": 53.3,
+      "after": 112.8
+     },
+     "bands_1_to_23_db": {
+      "before": 48.8,
+      "after": 48.9
+     },
+     "whole_band_db": {
+      "before": 39.7,
+      "after": 46.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 37.7,
+      "after": 37.95
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 39.5,
+      "after": 43.4
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 123,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 7,
+     "objects_with_signal_in_the_lowest_band": 7,
+     "lowest_band_db": {
+      "before": 60.9,
+      "after": 104.5
+     },
+     "lowest_band_worst_object_db": {
+      "before": 58.85,
+      "after": 100.18
+     },
+     "band_1_db": {
+      "before": 75.7,
+      "after": 94.7
+     },
+     "bands_1_to_23_db": {
+      "before": 49.0,
+      "after": 49.0
+     },
+     "whole_band_db": {
+      "before": 43.8,
+      "after": 43.8
+     },
+     "whole_band_worst_object_db": {
+      "before": 24.03,
+      "after": 24.03
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 40.8,
+      "after": 40.8
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 124,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 5,
+     "objects_with_signal_in_the_lowest_band": 5,
+     "lowest_band_db": {
+      "before": 106.8,
+      "after": 106.8
+     },
+     "lowest_band_worst_object_db": {
+      "before": 62.03,
+      "after": 98.31
+     },
+     "band_1_db": {
+      "before": 109.7,
+      "after": 109.7
+     },
+     "bands_1_to_23_db": {
+      "before": 52.4,
+      "after": 52.4
+     },
+     "whole_band_db": {
+      "before": 48.7,
+      "after": 48.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 44.33,
+      "after": 44.36
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 45.7,
+      "after": 45.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0001,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 125,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 41.3,
+      "after": 129.1
+     },
+     "lowest_band_worst_object_db": {
+      "before": 29.95,
+      "after": 112.77
+     },
+     "band_1_db": {
+      "before": 48.4,
+      "after": 116.8
+     },
+     "bands_1_to_23_db": {
+      "before": 37.5,
+      "after": 37.5
+     },
+     "whole_band_db": {
+      "before": 41.4,
+      "after": 64.4
+     },
+     "whole_band_worst_object_db": {
+      "before": 30.26,
+      "after": 46.22
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 41.4,
+      "after": 61.6
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0018,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 126,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 45.9,
+      "after": 121.1
+     },
+     "lowest_band_worst_object_db": {
+      "before": 34.61,
+      "after": 101.22
+     },
+     "band_1_db": {
+      "before": 59.3,
+      "after": 108.0
+     },
+     "bands_1_to_23_db": {
+      "before": 49.9,
+      "after": 49.9
+     },
+     "whole_band_db": {
+      "before": 43.6,
+      "after": 44.1
+     },
+     "whole_band_worst_object_db": {
+      "before": 34.39,
+      "after": 41.73
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 40.6,
+      "after": 41.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0016,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 127,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 58.7,
+      "after": 109.6
+     },
+     "lowest_band_worst_object_db": {
+      "before": 48.48,
+      "after": 99.64
+     },
+     "band_1_db": {
+      "before": 70.9,
+      "after": 100.7
+     },
+     "bands_1_to_23_db": {
+      "before": 57.1,
+      "after": 57.0
+     },
+     "whole_band_db": {
+      "before": 35.2,
+      "after": 35.2
+     },
+     "whole_band_worst_object_db": {
+      "before": 25.27,
+      "after": 25.27
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 32.4,
+      "after": 32.4
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0002,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 128,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 46.9,
+      "after": 118.1
+     },
+     "lowest_band_worst_object_db": {
+      "before": 41.61,
+      "after": 102.86
+     },
+     "band_1_db": {
+      "before": 65.9,
+      "after": 108.4
+     },
+     "bands_1_to_23_db": {
+      "before": 39.8,
+      "after": 39.8
+     },
+     "whole_band_db": {
+      "before": 46.6,
+      "after": 49.0
+     },
+     "whole_band_worst_object_db": {
+      "before": 40.02,
+      "after": 42.52
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 44.9,
+      "after": 46.1
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0007,
+      "after": 0.0
+     }
+    },
+    {
+     "track": 129,
+     "downmix_configuration": [
+      3
+     ],
+     "objects_heard": 9,
+     "objects_with_signal_in_the_lowest_band": 9,
+     "lowest_band_db": {
+      "before": 44.7,
+      "after": 118.2
+     },
+     "lowest_band_worst_object_db": {
+      "before": 32.04,
+      "after": 96.4
+     },
+     "band_1_db": {
+      "before": 60.0,
+      "after": 108.0
+     },
+     "bands_1_to_23_db": {
+      "before": 44.6,
+      "after": 44.8
+     },
+     "whole_band_db": {
+      "before": 44.9,
+      "after": 55.7
+     },
+     "whole_band_worst_object_db": {
+      "before": 33.04,
+      "after": 47.72
+     },
+     "whole_band_with_our_dither_db": {
+      "before": 44.7,
+      "after": 52.7
+     },
+     "largest_difference_of_a_pair_in_the_lowest_band": {
+      "before": 0.0025,
+      "after": 0.0
+     }
+    }
+   ]
+  },
+  "the_tracks_that_stay_under_90_db_in_the_lowest_band": {
+   "tracks": [
+    {
+     "track": 11,
+     "lowest_band_db": 54.6,
+     "lfe_lowest_band_db": 65.27,
+     "clip_gains_x1000": [
+      1000,
+      1031,
+      1063
+     ]
+    },
+    {
+     "track": 17,
+     "lowest_band_db": 52.2,
+     "lfe_lowest_band_db": null,
+     "clip_gains_x1000": [
+      1000,
+      1031,
+      1063
+     ]
+    },
+    {
+     "track": 24,
+     "lowest_band_db": 37.5,
+     "lfe_lowest_band_db": 42.9,
+     "clip_gains_x1000": [
+      1000,
+      1031,
+      1063,
+      1094,
+      1125,
+      1156,
+      1188,
+      1219,
+      1250,
+      1281,
+      1313,
+      1344
+     ]
+    },
+    {
+     "track": 30,
+     "lowest_band_db": 54.1,
+     "lfe_lowest_band_db": 107.59,
+     "clip_gains_x1000": [
+      1000,
+      1031
+     ]
+    },
+    {
+     "track": 31,
+     "lowest_band_db": 31.0,
+     "lfe_lowest_band_db": 49.08,
+     "clip_gains_x1000": [
+      1000,
+      1031,
+      1063,
+      1094,
+      1125,
+      1156,
+      1188,
+      1219,
+      1250,
+      1281,
+      1313,
+      1344,
+      1375,
+      1406,
+      1438,
+      1469,
+      1500,
+      1531,
+      1563,
+      1594,
+      1625,
+      1656,
+      1688,
+      1719,
+      1750,
+      1781,
+      1813,
+      1844,
+      1875,
+      1906,
+      1938,
+      1969,
+      2000,
+      2063,
+      2125,
+      2188,
+      2250,
+      2313,
+      2375
+     ]
+    },
+    {
+     "track": 41,
+     "lowest_band_db": 49.5,
+     "lfe_lowest_band_db": 62.07,
+     "clip_gains_x1000": [
+      1000,
+      1031,
+      1063
+     ]
+    },
+    {
+     "track": 67,
+     "lowest_band_db": 48.9,
+     "lfe_lowest_band_db": 61.18,
+     "clip_gains_x1000": [
+      1000,
+      1031,
+      1063
+     ]
+    },
+    {
+     "track": 72,
+     "lowest_band_db": 51.8,
+     "lfe_lowest_band_db": 58.34,
+     "clip_gains_x1000": [
+      1000,
+      1031
+     ]
+    },
+    {
+     "track": 82,
+     "lowest_band_db": 49.0,
+     "lfe_lowest_band_db": 54.89,
+     "clip_gains_x1000": [
+      1000,
+      1031,
+      1063
+     ]
+    },
+    {
+     "track": 83,
+     "lowest_band_db": 45.0,
+     "lfe_lowest_band_db": 62.72,
+     "clip_gains_x1000": [
+      1000,
+      1031,
+      1063
+     ]
+    },
+    {
+     "track": 84,
+     "lowest_band_db": 58.5,
+     "lfe_lowest_band_db": 79.21,
+     "clip_gains_x1000": [
+      1000,
+      1031
+     ]
+    },
+    {
+     "track": 92,
+     "lowest_band_db": 46.3,
+     "lfe_lowest_band_db": 59.2,
+     "clip_gains_x1000": [
+      1000,
+      1031,
+      1063,
+      1094,
+      1125,
+      1156
+     ]
+    },
+    {
+     "track": 106,
+     "lowest_band_db": 45.5,
+     "lfe_lowest_band_db": 57.3,
+     "clip_gains_x1000": [
+      1000,
+      1031,
+      1063
+     ]
+    },
+    {
+     "track": 107,
+     "lowest_band_db": 30.9,
+     "lfe_lowest_band_db": 50.99,
+     "clip_gains_x1000": [
+      1000,
+      1031,
+      1063,
+      1094,
+      1125,
+      1156,
+      1188,
+      1219,
+      1250,
+      1281,
+      1313,
+      1344,
+      1375,
+      1406,
+      1438,
+      1469,
+      1500,
+      1531
+     ]
+    }
+   ],
+   "tracks_of_the_library_whose_clip_gain_changes_within_the_clip": [
+    11,
+    17,
+    24,
+    30,
+    31,
+    41,
+    67,
+    72,
+    82,
+    83,
+    84,
+    92,
+    106,
+    107
+   ],
+   "they_are_the_same_tracks": true
+  },
+  "the_clip_gain_in_dolbys_output": {
+   "how": "the decode without the clip gain is what the gain is applied to; Dolby's objects over it, solved in steps over every channel, around every change of the gain that stands alone; 0 is the value before and 1 the value after",
+   "three_tracks_in_steps_of_64_samples": {
+    "31": {
+     "changes_read": 60,
+     "dolbys_gain_from_old_to_new_in_steps_of_64_samples_from_1024_after_our_step": [
+      0.0003,
+      0.0001,
+      0.0008,
+      0.1206,
+      0.3724,
+      0.6122,
+      0.8626,
+      0.9982,
+      0.9987,
+      1.0017
+     ]
+    },
+    "107": {
+     "changes_read": 10,
+     "dolbys_gain_from_old_to_new_in_steps_of_64_samples_from_1024_after_our_step": [
+      0.0004,
+      0.0016,
+      0.0021,
+      0.1243,
+      0.3753,
+      0.6137,
+      0.8848,
+      1.004,
+      1.0056,
+      1.006
+     ]
+    },
+    "24": {
+     "changes_read": 8,
+     "dolbys_gain_from_old_to_new_in_steps_of_64_samples_from_1024_after_our_step": [
+      -0.0003,
+      -0.0004,
+      -0.0002,
+      0.0916,
+      0.3359,
+      0.5907,
+      0.8247,
+      1.0016,
+      1.0059,
+      1.0001
+     ]
+    }
+   },
+   "one_track_in_steps_of_16_samples": {
+    "changes": 65,
+    "by_sample_of_the_frame_the_new_gain_comes_with": {
+     "the_lfe": {
+      "-64": 0.0,
+      "-48": 0.0,
+      "-32": 0.0,
+      "-16": 0.0,
+      "0": 0.029,
+      "16": 0.092,
+      "32": 0.154,
+      "48": 0.217,
+      "64": 0.279,
+      "80": 0.342,
+      "96": 0.404,
+      "112": 0.467,
+      "128": 0.529,
+      "144": 0.592,
+      "160": 0.654,
+      "176": 0.717,
+      "192": 0.779,
+      "208": 0.842,
+      "224": 0.904,
+      "240": 0.967,
+      "256": 1.0,
+      "272": 1.0,
+      "288": 1.0,
+      "304": 1.0
+     },
+     "the_objects": {
+      "-64": 0.001,
+      "-48": 0.001,
+      "-32": 0.0,
+      "-16": 0.002,
+      "0": 0.033,
+      "16": 0.085,
+      "32": 0.154,
+      "48": 0.214,
+      "64": 0.277,
+      "80": 0.341,
+      "96": 0.402,
+      "112": 0.468,
+      "128": 0.527,
+      "144": 0.584,
+      "160": 0.651,
+      "176": 0.711,
+      "192": 0.773,
+      "208": 0.834,
+      "224": 0.903,
+      "240": 0.961,
+      "256": 0.994,
+      "272": 0.997,
+      "288": 0.997,
+      "304": 0.996
+     }
+    }
+   },
+   "the_same_track_with_the_gain_as_read": {
+    "how": "the decode without the clip gain times a gain that goes in a straight line from the value of the frame before to the value of the frame over the first 256 samples the frame decodes to; against Dolby's objects with `tools/joc_bands.py`",
+    "frames_where_the_gain_changes": 76,
+    "no_gain_at_all": {
+     "lfe_lowest_band_db": 16.41,
+     "lowest_band_db": 13.0,
+     "bands_375_hz_to_9_khz_db": 14.5,
+     "whole_band_db": 13.4,
+     "whole_band_worst_object_db": 7.54
+    },
+    "as_this_decoder_applies_it": {
+     "lfe_lowest_band_db": 49.08,
+     "lowest_band_db": 31.0,
+     "bands_375_hz_to_9_khz_db": 32.8,
+     "whole_band_db": 30.9,
+     "whole_band_worst_object_db": 26.88
+    },
+    "as_modelled": {
+     "lfe_lowest_band_db": 135.76,
+     "lowest_band_db": 57.1,
+     "bands_375_hz_to_9_khz_db": 69.6,
+     "whole_band_db": 51.6,
+     "whole_band_worst_object_db": 48.16
+    },
+    "frames": 1259,
+    "what_it_says": "for the LFE the gain is what was read: with it the LFE is where it is on a track whose gain does not change. For the objects it leaves the lowest band well short of the bands above, so the gain does not meet the objects where they leave the decoder; where it does is for the next change to measure."
+   },
+   "what_this_change_does_to_it": "this decoder steps the gain where the objects leave it, which was 1 728 samples before the start of Dolby's ramp and is 1 216 samples before it since the hold is 512 samples shorter"
+  },
+  "the_clips_of_the_media_suite": {
+   "how": "the clips of `tools/joc_object_gate.py` and the two of the reference player, with `tools/joc_bands.py`: medians over the objects, and the worst object",
+   "clips": [
+    {
+     "clip": "clips/quietplace-web-head.ec3",
+     "reference": "ref-oar/quietplace-web-obj.f32",
+     "before": {
+      "objects": 11,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 39.52,
+      "lowest_band_worst_db": 35.63,
+      "bands_375_hz_to_9_khz_median_db": 39.69,
+      "whole_band_median_db": 39.6,
+      "whole_band_worst_db": 35.99
+     },
+     "after": {
+      "objects": 11,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 125.98,
+      "lowest_band_worst_db": 116.39,
+      "bands_375_hz_to_9_khz_median_db": 43.76,
+      "whole_band_median_db": 70.93,
+      "whole_band_worst_db": 63.71
+     }
+    },
+    {
+     "clip": "clips/kingsman-joc-head.ec3",
+     "reference": "ref-oar/kingsman-joc-head-obj.f32",
+     "before": {
+      "objects": 13,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 50.29,
+      "lowest_band_worst_db": 42.85,
+      "bands_375_hz_to_9_khz_median_db": 60.63,
+      "whole_band_median_db": 42.02,
+      "whole_band_worst_db": 38.38
+     },
+     "after": {
+      "objects": 13,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 119.62,
+      "lowest_band_worst_db": 113.07,
+      "bands_375_hz_to_9_khz_median_db": 60.63,
+      "whole_band_median_db": 43.27,
+      "whole_band_worst_db": 38.93
+     }
+    },
+    {
+     "clip": "clips/knivesout-joc-head.ec3",
+     "reference": "ref-oar/knivesout-joc-obj.f32",
+     "before": {
+      "objects": 3,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 104.2,
+      "lowest_band_worst_db": 102.81,
+      "bands_375_hz_to_9_khz_median_db": 63.63,
+      "whole_band_median_db": 55.2,
+      "whole_band_worst_db": 52.32
+     },
+     "after": {
+      "objects": 3,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 104.2,
+      "lowest_band_worst_db": 102.81,
+      "bands_375_hz_to_9_khz_median_db": 63.63,
+      "whole_band_median_db": 55.2,
+      "whole_band_worst_db": 52.32
+     }
+    },
+    {
+     "clip": "clips/fifthelement-joc-head.ec3",
+     "reference": "ref-oar/fifthelement-joc-obj.f32",
+     "before": {
+      "objects": 10,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 53.12,
+      "lowest_band_worst_db": 37.29,
+      "bands_375_hz_to_9_khz_median_db": 50.38,
+      "whole_band_median_db": 52.61,
+      "whole_band_worst_db": 37.38
+     },
+     "after": {
+      "objects": 10,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 126.09,
+      "lowest_band_worst_db": 120.05,
+      "bands_375_hz_to_9_khz_median_db": 57.62,
+      "whole_band_median_db": 59.95,
+      "whole_band_worst_db": 50.59
+     }
+    },
+    {
+     "clip": "clips/shaun-joc1024-head.ec3",
+     "reference": "ref-oar/shaun-joc1024-obj.f32",
+     "before": {
+      "objects": 11,
+      "lag": 0,
+      "seconds": 20.89,
+      "lowest_band_median_db": 52.02,
+      "lowest_band_worst_db": 47.54,
+      "bands_375_hz_to_9_khz_median_db": 84.57,
+      "whole_band_median_db": 54.97,
+      "whole_band_worst_db": 47.31
+     },
+     "after": {
+      "objects": 11,
+      "lag": 0,
+      "seconds": 20.89,
+      "lowest_band_median_db": 113.57,
+      "lowest_band_worst_db": 108.39,
+      "bands_375_hz_to_9_khz_median_db": 88.61,
+      "whole_band_median_db": 59.75,
+      "whole_band_worst_db": 47.47
+     }
+    },
+    {
+     "clip": "clips/br2049-joc-head.ec3",
+     "reference": "ref-oar/br2049-obj.f32",
+     "before": {
+      "objects": 11,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 38.68,
+      "lowest_band_worst_db": 35.15,
+      "bands_375_hz_to_9_khz_median_db": 24.2,
+      "whole_band_median_db": 38.62,
+      "whole_band_worst_db": 34.82
+     },
+     "after": {
+      "objects": 11,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 42.92,
+      "lowest_band_worst_db": 37.26,
+      "bands_375_hz_to_9_khz_median_db": 21.31,
+      "whole_band_median_db": 42.78,
+      "whole_band_worst_db": 36.78
+     }
+    },
+    {
+     "clip": "clips/joc-steep-jackal.ec3",
+     "reference": "ref-drp/joc/joc-steep-jackal.f32",
+     "before": {
+      "objects": 9,
+      "lag": 0,
+      "seconds": 26.27,
+      "lowest_band_median_db": 50.0,
+      "lowest_band_worst_db": 34.25,
+      "bands_375_hz_to_9_khz_median_db": 44.4,
+      "whole_band_median_db": 40.95,
+      "whole_band_worst_db": 34.82
+     },
+     "after": {
+      "objects": 9,
+      "lag": 0,
+      "seconds": 26.27,
+      "lowest_band_median_db": 119.08,
+      "lowest_band_worst_db": 109.49,
+      "bands_375_hz_to_9_khz_median_db": 45.13,
+      "whole_band_median_db": 45.04,
+      "whole_band_worst_db": 39.72
+     }
+    },
+    {
+     "clip": "clips/joc-onset-steep.ec3",
+     "reference": "ref-drp/joc/joc-onset-steep.f32",
+     "before": {
+      "objects": 5,
+      "lag": 0,
+      "seconds": 7.49,
+      "lowest_band_median_db": 34.18,
+      "lowest_band_worst_db": 25.74,
+      "bands_375_hz_to_9_khz_median_db": 101.62,
+      "whole_band_median_db": 51.31,
+      "whole_band_worst_db": 43.24
+     },
+     "after": {
+      "objects": 5,
+      "lag": 0,
+      "seconds": 7.49,
+      "lowest_band_median_db": 65.05,
+      "lowest_band_worst_db": 57.98,
+      "bands_375_hz_to_9_khz_median_db": 103.44,
+      "whole_band_median_db": 81.9,
+      "whole_band_worst_db": 75.06
+     }
+    }
+   ],
+   "two_that_stay_far": "the clip gain changes in br2049-joc-head (and 1 728 bytes of it are skipped) and in one frame of joc-onset-steep; where it does not, their lowest band is at 96 to 136 dB",
+   "the_media_test_of_the_lowest_band": {
+    "measure": "the worst object below 375 Hz through a plain low pass, from two seconds in",
+    "bar_db": 95,
+    "before_db": {
+     "quietplace-web-head": 35.04,
+     "kingsman-joc-head": 36.11,
+     "fifthelement-joc-head": 35.38,
+     "shaun-joc1024-head": 38.7,
+     "joc-steep-jackal": 34.88
+    },
+    "after_db": {
+     "quietplace-web-head": 119.86,
+     "kingsman-joc-head": 110.5,
+     "fifthelement-joc-head": 123.34,
+     "shaun-joc1024-head": 104.66,
+     "joc-steep-jackal": 111.23
+    }
+   },
+   "the_guard_of_the_matrix_alignment": {
+    "in_use_db": 46.18,
+    "one_slot_early_db": 42.01,
+    "one_slot_late_db": 41.79,
+    "elements": 10,
+    "how": "the neighbours are the operator with an empty tap either side, a slot more of hold, with the matrices put a slot either way; with its own lag that operator writes the objects the default writes, sample for sample"
+   }
+  },
+  "the_corpus_old_and_new": {
+   "summary": {
+    "streams": 131,
+    "truehd": 55,
+    "ac3_family": 76,
+    "with_joc": 24,
+    "with_joc_of_configuration_3_or_4": 23,
+    "changed": 23,
+    "changed_that_carry_no_joc_of_configuration_3_or_4": 0,
+    "of_configuration_3_or_4_that_did_not_change": 0,
+    "what_changed": [
+     "decode (adm): output bytes",
+     "decode (damf): output bytes"
+    ],
+    "the_rounding_of_two_files_of_24_bits_dbfs": {
+     "over_the_whole_band": -146.3,
+     "a_band_of_375_hz": -164.3
+    }
+   },
+   "streams_that_changed": [
+    {
+     "stream": 61,
+     "bytes": 5760000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 10,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -88.8,
+       "375_to_750_hz": -110.3,
+       "750_to_1125_hz": -138.4,
+       "1125_to_1500_hz": -139.5,
+       "the_loudest_band_from_1500_hz": -143.6
+      }
+     }
+    },
+    {
+     "stream": 63,
+     "bytes": 7680000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 6,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -97.5,
+       "375_to_750_hz": -119.2,
+       "750_to_1125_hz": -128.1,
+       "1125_to_1500_hz": -136.1,
+       "the_loudest_band_from_1500_hz": -141.3
+      }
+     }
+    },
+    {
+     "stream": 70,
+     "bytes": 7680000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 6,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -96.6,
+       "375_to_750_hz": -117.2,
+       "750_to_1125_hz": -140.7,
+       "1125_to_1500_hz": -146.9,
+       "the_loudest_band_from_1500_hz": -151.5
+      }
+     }
+    },
+    {
+     "stream": 73,
+     "bytes": 7680000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 8,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -89.9,
+       "375_to_750_hz": -116.7,
+       "750_to_1125_hz": -130.1,
+       "1125_to_1500_hz": -136.3,
+       "the_loudest_band_from_1500_hz": -141.3
+      }
+     }
+    },
+    {
+     "stream": 80,
+     "bytes": 7680000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 11,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -87.5,
+       "375_to_750_hz": -113.5,
+       "750_to_1125_hz": -129.8,
+       "1125_to_1500_hz": -139.4,
+       "the_loudest_band_from_1500_hz": -142.3
+      }
+     }
+    },
+    {
+     "stream": 81,
+     "bytes": 7680000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 8,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -74.2,
+       "375_to_750_hz": -106.4,
+       "750_to_1125_hz": -111.9,
+       "1125_to_1500_hz": -127.1,
+       "the_loudest_band_from_1500_hz": -123.2
+      }
+     }
+    },
+    {
+     "stream": 83,
+     "bytes": 7680000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 7,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -114.7,
+       "375_to_750_hz": -142.9,
+       "750_to_1125_hz": -155.9,
+       "1125_to_1500_hz": -162.2,
+       "the_loudest_band_from_1500_hz": -165.8
+      }
+     }
+    },
+    {
+     "stream": 86,
+     "bytes": 7680000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 8,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -129.0,
+       "375_to_750_hz": -150.5,
+       "750_to_1125_hz": -164.4,
+       "1125_to_1500_hz": -164.5,
+       "the_loudest_band_from_1500_hz": -164.4
+      }
+     }
+    },
+    {
+     "stream": 89,
+     "bytes": 7680000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 11,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -80.9,
+       "375_to_750_hz": -106.0,
+       "750_to_1125_hz": -123.5,
+       "1125_to_1500_hz": -133.2,
+       "the_loudest_band_from_1500_hz": -135.7
+      }
+     }
+    },
+    {
+     "stream": 91,
+     "bytes": 7680000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 11,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -108.0,
+       "375_to_750_hz": -125.0,
+       "750_to_1125_hz": -152.1,
+       "1125_to_1500_hz": -160.0,
+       "the_loudest_band_from_1500_hz": -161.4
+      }
+     }
+    },
+    {
+     "stream": 93,
+     "bytes": 7680000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 6,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -131.3,
+       "375_to_750_hz": -147.9,
+       "750_to_1125_hz": -168.1,
+       "1125_to_1500_hz": -168.5,
+       "the_loudest_band_from_1500_hz": -168.4
+      }
+     }
+    },
+    {
+     "stream": 96,
+     "bytes": 5076480,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 21,
+      "elements_that_differ": 11,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -78.2,
+       "375_to_750_hz": -94.6,
+       "750_to_1125_hz": -117.0,
+       "1125_to_1500_hz": -128.9,
+       "the_loudest_band_from_1500_hz": -129.1
+      }
+     }
+    },
+    {
+     "stream": 99,
+     "bytes": 3000000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000,
+       1031,
+       1063
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 11,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -65.1,
+       "375_to_750_hz": -82.5,
+       "750_to_1125_hz": -88.0,
+       "1125_to_1500_hz": -92.0,
+       "the_loudest_band_from_1500_hz": -94.1
+      }
+     }
+    },
+    {
+     "stream": 105,
+     "bytes": 3000000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 10,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -81.2,
+       "375_to_750_hz": -110.2,
+       "750_to_1125_hz": -119.7,
+       "1125_to_1500_hz": -130.3,
+       "the_loudest_band_from_1500_hz": -132.2
+      }
+     }
+    },
+    {
+     "stream": 106,
+     "bytes": 11520000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       4
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 6,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -98.1,
+       "375_to_750_hz": -116.1,
+       "750_to_1125_hz": -126.4,
+       "1125_to_1500_hz": -136.8,
+       "the_loudest_band_from_1500_hz": -138.9
+      }
+     }
+    },
+    {
+     "stream": 108,
+     "bytes": 961536,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000,
+       1063
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 5,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -101.9,
+       "375_to_750_hz": -117.2,
+       "750_to_1125_hz": -142.8,
+       "1125_to_1500_hz": -153.4,
+       "the_loudest_band_from_1500_hz": -152.9
+      }
+     }
+    },
+    {
+     "stream": 109,
+     "bytes": 2304000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 8,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -86.2,
+       "375_to_750_hz": -102.5,
+       "750_to_1125_hz": -132.0,
+       "1125_to_1500_hz": -142.3,
+       "the_loudest_band_from_1500_hz": -144.3
+      }
+     }
+    },
+    {
+     "stream": 110,
+     "bytes": 3000000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 13,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -92.5,
+       "375_to_750_hz": -122.2,
+       "750_to_1125_hz": -135.4,
+       "1125_to_1500_hz": -145.2,
+       "the_loudest_band_from_1500_hz": -146.8
+      }
+     }
+    },
+    {
+     "stream": 111,
+     "bytes": 3000000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 6,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -109.4,
+       "375_to_750_hz": -139.4,
+       "750_to_1125_hz": -146.2,
+       "1125_to_1500_hz": -159.6,
+       "the_loudest_band_from_1500_hz": -156.8
+      }
+     }
+    },
+    {
+     "stream": 114,
+     "bytes": 3000000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 11,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -75.4,
+       "375_to_750_hz": -104.3,
+       "750_to_1125_hz": -110.3,
+       "1125_to_1500_hz": -123.5,
+       "the_loudest_band_from_1500_hz": -122.1
+      }
+     }
+    },
+    {
+     "stream": 115,
+     "bytes": 3000000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 11,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -98.3,
+       "375_to_750_hz": -120.6,
+       "750_to_1125_hz": -130.8,
+       "1125_to_1500_hz": -138.6,
+       "the_loudest_band_from_1500_hz": -143.7
+      }
+     }
+    },
+    {
+     "stream": 117,
+     "bytes": 3000000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 14,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -74.2,
+       "375_to_750_hz": -104.8,
+       "750_to_1125_hz": -111.2,
+       "1125_to_1500_hz": -129.0,
+       "the_loudest_band_from_1500_hz": -120.9
+      }
+     }
+    },
+    {
+     "stream": 122,
+     "bytes": 112896,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 5,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -141.2,
+       "375_to_750_hz": -168.3,
+       "750_to_1125_hz": -168.1,
+       "1125_to_1500_hz": -168.2,
+       "the_loudest_band_from_1500_hz": -167.6
+      }
+     }
+    }
+   ],
+   "the_first_run": "the comparison was first run with three mutation runs and three other measurements on the machine. In it one TrueHD stream of 2.6 GB ended with an access violation (0xC0000005) in the sample decode of both binaries, three times in four minutes, in the rematrixing of the TrueHD decoder, which this change does not touch and which is safe code; the code section of the binary of main is byte for byte that of the binary of earlier comparisons, which decoded the stream. Decoded again alone, both binaries wrote the same bytes in every delivery, and the comparison recorded here, run again on a quieter machine with the final binary, found that stream unchanged.",
+   "above_the_lowest_band": {
+    "how": "the filter banks reconstruct to 78 dB: an analysis leaves a little of a low frequency in every other subband, and the synthesis takes it back out only if every subband was given the same treatment. The lowest is given another, so what is left depends on which. A model of the two banks, noise below 300 Hz, once with the operator the decoder had and once with the measured one: the difference of the two by band of 375 Hz, against its lowest band",
+    "in_the_model_db": {
+     "the_difference_of_the_two_operators_by_band_against_its_lowest_band_db": [
+      0.0,
+      -21.2,
+      -25.5,
+      -39.6,
+      -35.8,
+      -44.8,
+      -39.5,
+      -48.5,
+      -43.1,
+      -51.7,
+      -45.9,
+      -54.1,
+      -48.1,
+      -56.1,
+      -50.0,
+      -57.7
+     ],
+     "the_same_against_the_signal_db": [
+      -55.3,
+      -76.4,
+      -80.7,
+      -94.8,
+      -91.1,
+      -100.0,
+      -94.8,
+      -103.7,
+      -98.4,
+      -107.0,
+      -101.1,
+      -109.3,
+      -103.4,
+      -111.3,
+      -105.3,
+      -113.0
+     ],
+     "the_loudest_band_from_1500_hz_against_the_lowest_db": -35.8
+    },
+    "a_signal_in_the_lowest_subband_alone_through_the_synthesis_db": {
+     "band_1_375_to_750_hz_db": -11.2,
+     "band_2_750_to_1125_hz_db": -77.7,
+     "band_3_1125_to_1500_hz_db": -86.4,
+     "the_loudest_band_from_1500_hz_db": -90.3,
+     "every_band_from_750_hz_together_db": -76.5
+    },
+    "in_the_streams": "the_difference_dbfs_worst_element of every stream that changed, above"
+   }
+  },
+  "mutations": {
+   "run": 88,
+   "caught": 88,
+   "survived": [],
+   "new_with_this_change": 25,
+   "run_again": {
+    "which": [
+     "--start accepted on E-AC-3 and the object outputs instead of refused",
+     "a tap of the low-band operator, off by a millionth"
+    ],
+    "why": "in the first pass one mutation did not build: the linker could not open its file (LNK1104) on a machine that was running three such passes and three other measurements; run again alone it built and was caught. The other is the mutation of a tap, whose text moved when the table took the last digits of the run of the tool itself; it was run again on the table as committed."
+   },
+   "the_matrix_alignment": "the mutation of `MATRIX_ALIGN` that was expected to survive every unit test is caught by the tests of the lag"
+  }
+ },
+ "reading": "Fourteen streams of both configurations give the same 21 complex taps, the same either side of the middle: the taps of all together leave the objects 96.3 to 130.5 dB from Dolby's below 450 Hz, 121.1 at the median, and a half of a stream alone gives them to 7.5e-06 at worst wherever more than a ten-thousandth of its lowest band goes through the operator. With 19 taps the median is 62.1 dB, with real taps 13.3, and with the form the decoder had 31.9. With the taps in the decoder the lowest band of the objects of 127 library tracks is 115.2 dB from Dolby's at the median where it was 55.9, which is where the LFE of those tracks is (115.9); it is more than 10 dB short of the bands above it on 0 tracks where it was on 71; and no object of 1080 is further from Dolby's than it was, in the lowest band or over the whole band. The 14 tracks that stay under 90 dB there are the 14 whose clip gain changes: Dolby's decoder takes the gain from one value to the next in a straight line over the first 256 samples a frame decodes to, where this decoder steps it 1 216 samples earlier in the objects. Of the corpus of 131 streams 23 changed, every one of them a JOC stream of configuration 3 or 4 and in its object deliveries alone."
+}

@@ -153,49 +153,106 @@ that the decoder relies on. Clause numbers refer to that document.
   objects the optimum is symmetric and about 1 dB per slot: sweeping the
   offset against Dolby's objects gives 37,2 dB at 0, 47,2 at 9, 48,2 at 10,
   47,2 at 11 and 38,5 at 18, 11 dB better than the literal reading; a second,
-  independent guard on a clip the constant was never fitted to gives 44,7 dB
+  independent guard on a clip the constant was never fitted to gave 44,7 dB
   in use against 42,0 and 41,8 one slot either side. Ten slots is 640
-  samples, the length of the analysis prototype. `MATRIX_ALIGN` in
-  `oadec-joc` holds the samples back accordingly. Reading it literally costs
-  11 dB on the mean and far more on the objects whose bands the core decode
-  gets exactly, which no channel-domain comparison can see.
+  samples, the length of the analysis prototype, and it is what the operator
+  on the lowest subband delays by (below). A decoder that holds every subband
+  back by that filter and applies the matrix of a slot to what the filter
+  hands over in that slot comes to this alignment and no other, and that is
+  how this one is built since the operator was measured: the samples are held
+  back ten slots and the matrices not at all. The guard stands at 46,2 dB in
+  use against 42,0 and 41,8. Reading the clause literally costs 11 dB on the
+  mean and far more on the objects whose bands the core decode gets exactly,
+  which no channel-domain comparison can see.
 - **Downmix configurations 3 and 4** (table 47, "with 90 degree phase
   shift") carry the surround pair phase-shifted. Clause 6.6 says nothing
   more, and what the shift is the standard never says at all. Rotating Ls
-  and Rs by −j in the QMF domain is right above 141 Hz, where our objects
-  and the Dolby decoder's agree to the dither floor. It is wrong below it:
-  subband 0 spans 0 to 375 Hz, so it straddles direct current, the image of
-  the negative frequencies of a real signal sits inside its passband, and
-  one rotation turns both halves the same way so that they cancel. The loss
-  reaches 14 dB below 50 Hz.
+  and Rs by −j in the QMF domain is right in every subband but the lowest,
+  where our objects and the Dolby decoder's agree to the dither floor. It is
+  wrong in the lowest: subband 0 spans 0 to 375 Hz, so it straddles direct
+  current, the image of the negative frequencies of a real signal sits inside
+  its passband, and one rotation turns both halves the same way so that they
+  cancel. The loss reaches 14 dB below 50 Hz.
 
-  What Dolby does was measured, bracketed between the two readings (rotate
-  every subband, rotate every subband but the lowest): the operator is the
-  identity at direct current and reaches −j by about 141 Hz, the same on all
-  three titles. One time slot of delay in a subband is 64 output samples
-  exactly, so the operator is a real 37-tap filter across time slots;
-  `quadrature.rs` carries it and `tools/gen_joc_quadrature.py` regenerates
-  it. `--flat-quadrature` restores the plain reading for measurement.
+  What Dolby does there is a filter across time slots, and it is measured.
+  One time slot of delay in a subband is 64 output samples exactly, and a
+  decode is linear in the taps of a filter put on the lowest subband of the
+  two channels. So the taps can be solved for: decode a stream with no filter
+  there and then with one tap at a time, and take the combination of those
+  that comes closest to the objects Dolby's decoder writes for the stream,
+  below 450 Hz, by least squares. `tools/gen_joc_quadrature.py` does that,
+  and the hidden `--joc-low-fir` is what lets it: it puts an operator from a
+  file in the place of the measured one. Fourteen streams of a library, ten
+  of configuration 3 and four of configuration 4, forty seconds of each, give
+  the same 21 complex taps, the same either side of the middle one. Half a
+  stream alone gives them to a hundred-thousandth, and most halves to a few
+  parts in ten million, wherever what goes through the operator is more than
+  a ten-thousandth of what the objects have below 450 Hz; one half of the 28
+  has next to nothing there and says nothing. The taps of all fourteen
+  together leave that band 96,3 to 130,5 dB from Dolby's, 121,1 at the
+  median. Nothing less does: held to 19 taps the median is 62,1 dB, to 17
+  taps 52,7, to real taps 13,3. `quadrature.rs` carries the taps as they
+  were measured; no closed form was found for them.
+
+  From 169 Hz up the operator is the turn by −j of the other subbands, to
+  four parts in a thousand, on the image of the negative frequencies as on
+  the signal. Below, it is no turn: 1,0022 − 2,4512j at direct current.
+  Signal and image meet again in the synthesis, and a real tone comes through
+  at its own level, within a third of a per cent, with a phase that goes from
+  nothing at direct current through 45 degrees at 25 Hz to the quarter turn
+  at 80 Hz. The operator reaches ten slots either side of its middle, and
+  those are the ten slots of the matrix alignment above.
+
+  Until 2026-11 the decoder carried something else there: the turn, and a
+  real filter of 37 taps fitted between two readings (rotate every subband,
+  rotate every subband but the lowest) on three titles. It does to a steady
+  real tone what the measured operator does, to 0,2 degrees and 0,6 per cent,
+  which is why it measured well on what it was fitted to, and it is another
+  operator all the same: 1 at direct current, where the measured one is
+  1,0022 − 2,4512j. Within the 21 slots nothing of its form, a turn and a
+  real correction times 1 + j, comes nearer to Dolby than 31,9 dB at the
+  median. `--flat-quadrature` and the hidden `--joc-low-band untouched` are
+  the two readings, kept for measurement.
   Configuration 4 behaves like 3, and that is now measured rather than assumed:
   five library tracks carry it and Green Book's objects come out at 50,13 dB
   worst against Dolby's. Configurations 1 and 2 occur in no track of any file --
   0 of the 118 that carry JOC, across 111 films and 226 Dolby tracks.
 
-  **What that filter leaves, over a library.** `tools/joc_bands.py` compares
-  two decodes of the objects of a stream band by band of 375 Hz, and gives
-  the ratio after the best linear fit beside the plain one. Over the 127
-  tracks of a library that Dolby's decoder gives objects for, forty seconds
-  of each, with our dither left out: the lowest band is at 55.9 dB at the
-  median where the bands from 375 Hz to 9 kHz are at 71.4, more than 10 dB
-  short of them on 71 tracks and more than 20 dB on 36. The best filter on
-  an object gains 1.9 dB of that, so the distance is not a gain or a delay of
-  what is written. Inside the band it is largest at the bottom: 27.9 dB at
-  6 Hz and 48.5 at 53 Hz, against 59.2 to 64.4 from 100 Hz up. The filter
-  above was fitted between two readings on three titles; this is what the
-  fit leaves on every title. The LFE, which comes of the core and goes
-  through nothing of JOC, is at 115.9 dB in the same band on the 74 tracks
-  that have one.
-  `docs/audit/evidence/engine-round-2026-11/48-where-the-objects-are-far-from-dolby.json`.
+
+  **What each leaves, over a library.** `tools/joc_bands.py` compares two
+  decodes of the objects of a stream band by band of 375 Hz, and gives the
+  ratio after the best linear fit beside the plain one. Over the 127 tracks
+  of a library that Dolby's decoder gives objects for, forty seconds of
+  each, with our dither left out, the filter of 37 taps left the lowest band
+  at 55,9 dB at the median where the bands from 375 Hz to 9 kHz were at
+  71,4, more than 10 dB short of them on 71 tracks and more than 20 dB on 36.
+  The best filter on an object gained 1,9 dB of that, so the distance was not
+  a gain or a delay of what was written, and inside the band it was largest
+  at the bottom: 27,9 dB at 6 Hz and 48,5 at 53 Hz
+  (`docs/audit/evidence/engine-round-2026-11/48-where-the-objects-are-far-from-dolby.json`).
+
+  With the measured operator the same tracks stand at 115,2 dB in the lowest
+  band at the median, 106,8 to 124,5 between the quarters, and at 90,2 dB at
+  6 Hz. That is where the LFE of those tracks is, 115,9 dB, which comes of
+  the core and goes through nothing of JOC: over every object heard the
+  median is 116,0. The lowest band is short of the bands above it by more
+  than 10 dB on no track. The band next to it, 375 to 750 Hz, gains 36,5 dB
+  at the median, the whole band stands at 53,5 dB against 49,3, and with
+  our dither at 50,8 against 47,0. Of the 1080 objects heard none is
+  further from Dolby's than it was, in the lowest band or over the whole
+  band.
+
+  Fourteen tracks stay under 90 dB in the lowest band, and they are the
+  fourteen whose clip gain changes within the forty seconds. Read off its
+  output, Dolby's decoder takes the gain from one value to the next in a
+  straight line over the first 256 samples a frame decodes to, and holds it
+  for the rest of the frame; this decoder steps it, 1 216 samples earlier in
+  the objects. The shorter hold of the operator moved that step 512 samples
+  later, nearer to where Dolby has it: on thirteen of the fourteen the bands
+  above the lowest gain by it, 1,4 dB at the median of the fourteen, and on
+  one they lose 1,3 dB. Putting the gain where Dolby has it is the next
+  change.
+  `docs/audit/evidence/engine-round-2026-11/49-the-operator-on-the-lowest-subband.json`.
 - **Configuration 0 is rare, and Dolby does upmix it.** It appears twice in the
   material read so far: Snatch, a hybrid disc remux, and Dredd. Dolby gives
   Snatch six channels rather than sixteen objects -- `Channel-based decoding

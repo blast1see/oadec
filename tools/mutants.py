@@ -222,16 +222,121 @@ MUTANTS = [
      'crates/oadec-emdf/src/oamd.rs',
      '    32, 64, 128, 256, 320, 480, 1000, 1001, 1024, 1600, 1601, 1602, 1920, 2000, 2002, 2048,',
      '    33, 64, 128, 256, 320, 480, 1000, 1001, 1024, 1600, 1601, 1602, 1920, 2000, 2002, 2048,'),
-    # The one that survives this pass on purpose. `MATRIX_ALIGN` has no clause
-    # behind it, so no unit test can judge it without writing down the number
-    # the code already holds. Two media tests do judge it, differentially
-    # against Dolby: `the_steep_switch_is_measured_where_the_branch_is_the
-    # _common_case` and `the_matrix_alignment_is_the_best_one_on_a_clip_it_was
-    # _not_fitted_on`.
+    # `MATRIX_ALIGN` has no clause behind it, and while a sweep against Dolby
+    # was all that stood behind the number this one survived every unit test
+    # on purpose: none could judge it without writing down the number the code
+    # already held. The operator on the lowest subband accounts for it since:
+    # the alignment is the delay of that filter, so the matrices are not held
+    # back at all, and the tests of the lag say so. Two media tests judge it
+    # against Dolby as before: `the_steep_switch_is_measured_where_the_branch
+    # _is_the_common_case` and `the_matrix_alignment_is_the_best_one_on_a_clip
+    # _it_was_not_fitted_on`.
     ('the matrix alignment, 10 -> 9',
      'crates/oadec-joc/src/quadrature.rs',
      'pub const MATRIX_ALIGN: usize = 10;',
      'pub const MATRIX_ALIGN: usize = 9;'),
+    ('a tap of the low-band operator, off by a millionth',
+     'crates/oadec-joc/src/quadrature.rs',
+     '    tap(0.092_151_259_1, -0.183_449_414_4),',
+     '    tap(0.092_152_259_1, -0.183_449_414_4),'),
+    ('the low-band operator, one side of it flat',
+     'crates/oadec-joc/src/quadrature.rs',
+     'std::array::from_fn(|i| OPERATOR[i.abs_diff(LOW_DELAY)])',
+     'std::array::from_fn(|i| OPERATOR[LOW_DELAY - i.min(LOW_DELAY)])'),
+    ('the low-band operator of the other direction, not mirrored',
+     'crates/oadec-joc/src/quadrature.rs',
+     '.map(|t| if mirrored { tap(t.re, -t.im) } else { *t })',
+     '.map(|t| if mirrored { tap(t.re, t.im) } else { *t })'),
+    ('the low-band operator mirrored for the usual direction',
+     'crates/oadec-joc/src/quadrature.rs',
+     'let mirrored = matches!(carry, Carry::Shifted { plus: true });',
+     'let mirrored = matches!(carry, Carry::Shifted { plus: false });'),
+    ('a channel held back a slot longer than the operator reaches',
+     'crates/oadec-joc/src/quadrature.rs',
+     '[Complex::default(); BANDS]; taps.len() / 2 + 1]',
+     '[Complex::default(); BANDS]; taps.len() / 2 + 2]'),
+    ('the delay of a channel, said a slot long',
+     'crates/oadec-joc/src/quadrature.rs',
+     '        self.hold.len() - 1\n',
+     '        self.hold.len()\n'),
+    ('an operator without a middle, taken',
+     'crates/oadec-joc/src/quadrature.rs',
+     '            taps.len() % 2 == 1,',
+     '            taps.len() % 2 <= 1,'),
+    ('the low-band operator run along the slots instead of against them',
+     'crates/oadec-joc/src/quadrature.rs',
+     'for (t, x) in self.taps.iter().zip(self.low.iter().rev()) {',
+     'for (t, x) in self.taps.iter().zip(self.low.iter()) {'),
+    ('a shifted channel, its second subband left unturned',
+     'crates/oadec-joc/src/quadrature.rs',
+     '                out[0] = acc;\n                for s in &mut out[1..] {',
+     '                out[0] = acc;\n                for s in &mut out[2..] {'),
+    ('a shifted channel, its upper subbands turned the other way',
+     'crates/oadec-joc/src/quadrature.rs',
+     '                out[0] = acc;\n                for s in &mut out[1..] {\n'
+     '                    *s = rotate(*s, plus);',
+     '                out[0] = acc;\n                for s in &mut out[1..] {\n'
+     '                    *s = rotate(*s, !plus);'),
+    ('a channel reset with its lowest subband remembered',
+     'crates/oadec-joc/src/quadrature.rs',
+     '        self.low.fill(Complex::default());\n',
+     ''),
+    ('an operator from a file, an even number of taps taken',
+     'crates/oadec-cli/src/eac3_objects.rs',
+     'if taps.len().is_multiple_of(2) || taps.len() < LOW_TAPS {',
+     'if taps.len() < LOW_TAPS {'),
+    ('an operator from a file, shorter than the hold, taken',
+     'crates/oadec-cli/src/eac3_objects.rs',
+     'if taps.len().is_multiple_of(2) || taps.len() < LOW_TAPS {',
+     'if taps.len().is_multiple_of(2) {'),
+    ('an operator from a file, an imaginary part that is no number',
+     'crates/oadec-cli/src/eac3_objects.rs',
+     '(Some(Ok(re)), Some(Ok(im)), None) if re.is_finite() && im.is_finite() => {',
+     '(Some(Ok(re)), Some(Ok(im)), None) if re.is_finite() => {'),
+    ('an operator from a file, a real part that is no number',
+     'crates/oadec-cli/src/eac3_objects.rs',
+     '(Some(Ok(re)), Some(Ok(im)), None) if re.is_finite() && im.is_finite() => {',
+     '(Some(Ok(re)), Some(Ok(im)), None) if im.is_finite() => {'),
+    ('an operator from a file, a third number on a line',
+     'crates/oadec-cli/src/eac3_objects.rs',
+     '(Some(Ok(re)), Some(Ok(im)), None) if re.is_finite() && im.is_finite() => {',
+     '(Some(Ok(re)), Some(Ok(im)), _) if re.is_finite() && im.is_finite() => {'),
+    ('an operator from a file, the line of a fault counted from nought',
+     'crates/oadec-cli/src/eac3_objects.rs',
+     '                        line: i + 1,',
+     '                        line: i,'),
+    ('an operator from a file, an empty line read as a tap',
+     'crates/oadec-cli/src/eac3_objects.rs',
+     '            if line.trim().is_empty() {\n                continue;\n            }\n',
+     ''),
+    ('the reach of an operator from a file, a slot long',
+     'crates/oadec-cli/src/eac3_objects.rs',
+     '        self.taps.len() / 2\n',
+     '        self.taps.len() / 2 + 1\n'),
+    ('the hold of the channels, the usual one under a longer operator',
+     'crates/oadec-cli/src/eac3_objects.rs',
+     'let low_delay = overrides.reach() * BANDS;',
+     'let low_delay = LOW_DELAY * BANDS;'),
+    ('the lag of the matrices, none under a longer operator',
+     'crates/oadec-cli/src/eac3_objects.rs',
+     'let lag = overrides.lag.unwrap_or_else(|| overrides.default_lag());',
+     'let lag = overrides.lag.unwrap_or(0);'),
+    ('an operator from a file, announced and not applied',
+     'crates/oadec-cli/src/eac3_objects.rs',
+     'Some(fir) => Quadrature::with_operator(*c, &fir.taps),',
+     'Some(_) => Quadrature::new(*c),'),
+    ('an operator from a file on a decode it does not reach',
+     'crates/oadec-cli/src/lib.rs',
+     '                    || joc_phase.is_some()\n                    || joc_low_fir.is_some())',
+     '                    || joc_phase.is_some())'),
+    ('an operator from a file beside the plain turn',
+     'crates/oadec-cli/src/lib.rs',
+     'conflicts_with_all = ["flat_quadrature", "joc_low_band"]',
+     'conflicts_with_all = ["joc_low_band"]'),
+    ('an operator from a file beside the lowest subband left alone',
+     'crates/oadec-cli/src/lib.rs',
+     'conflicts_with_all = ["flat_quadrature", "joc_low_band"]',
+     'conflicts_with_all = ["flat_quadrature"]'),
     ('the sparse chain, measured -> as printed',
      'crates/oadec-emdf/src/joc.rs',
      '(_, SparseReading::Measured) => chained as u8,',
@@ -2431,11 +2536,10 @@ MUTANTS = [
 
 
 # The mutations that survive the unit tests on purpose, and why. Anything else
-# that survives is a hole in the suite.
-EXPECTED_SURVIVORS = {
-    'the matrix alignment, 10 -> 9':
-        'no clause states it; two media tests judge it against another decoder',
-}
+# that survives is a hole in the suite. There is none at present: the one
+# there was, the matrix alignment, is held by the tests of the lag since the
+# operator on the lowest subband accounted for it.
+EXPECTED_SURVIVORS: dict[str, str] = {}
 
 
 def run(cmd):

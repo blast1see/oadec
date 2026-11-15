@@ -21,8 +21,8 @@ use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::joc::{Joc, JocError, JocHeader, SparseReading};
 use oadec_emdf::oamd::{BedChannel, Oamd};
 use oadec_joc::{
-    Analysis, BANDS, Carry, Complex, DELAY, JocDecoder, LOW_DELAY, MATRIX_ALIGN, Quadrature,
-    SteepReading, Synthesis,
+    Analysis, BANDS, Carry, Complex, DELAY, JocDecoder, LOW_DELAY, LOW_TAPS, MATRIX_ALIGN,
+    Quadrature, SteepReading, Synthesis,
 };
 use oadec_spatial::{LossLedger, Program, Timeline, declared_warp};
 use serde_json::{Value, json};
@@ -134,12 +134,6 @@ struct Pipeline {
     apply_clip_gain: bool,
 }
 
-/// Time slots the matrices are held back by when `--joc-lag` does not say
-/// otherwise: what the low-band filter costs, less the measured alignment.
-/// `MATRIX_ALIGN` has this one consumer, so the flag moves the alignment
-/// without touching the source.
-const DEFAULT_LAG: usize = LOW_DELAY - MATRIX_ALIGN;
-
 /// `--joc-low-band`: how the lowest subband of a channel that carries the
 /// 90-degree phase shift is treated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -236,6 +230,101 @@ impl fmt::Display for JocPhase {
     }
 }
 
+/// `--joc-low-fir`: an operator on the lowest subband of the channels that
+/// carry the 90-degree phase shift, instead of the one measured on the Dolby
+/// decoder. A file of a tap a line, real part then imaginary part, the first
+/// line the tap that meets the newest time slot. There is an odd number of
+/// them, so that one is the middle, and at least as many as the operator
+/// there is has: every channel is held back by half the length, and a matrix
+/// cannot be had before its frame is read.
+#[derive(Debug, Clone, PartialEq)]
+pub struct JocLowFir {
+    /// The file as it was named.
+    file: String,
+    taps: Vec<Complex>,
+}
+
+/// Why a `--joc-low-fir` was refused.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum JocLowFirError {
+    /// The file could not be read.
+    Read { file: String, why: String },
+    /// A line that is not two finite numbers.
+    Line { line: usize, text: String },
+    /// A number of taps without a middle, or too few.
+    Taps(usize),
+}
+
+impl fmt::Display for JocLowFirError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Read { file, why } => write!(f, "cannot read {file}: {why}"),
+            Self::Line { line, text } => write!(
+                f,
+                "line {line} is not a real part and an imaginary part: {text:?}"
+            ),
+            Self::Taps(n) => write!(
+                f,
+                "{n} taps: an operator has an odd number of them, {LOW_TAPS} or more"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for JocLowFirError {}
+
+impl JocLowFir {
+    /// Reads the file a `--joc-low-fir` names.
+    pub fn read(file: &str) -> Result<Self, JocLowFirError> {
+        let text = std::fs::read_to_string(file).map_err(|e| JocLowFirError::Read {
+            file: file.to_string(),
+            why: e.to_string(),
+        })?;
+        Self::parse(file, &text)
+    }
+
+    /// The operator a text holds; `file` is what the announcement calls it.
+    /// Empty lines are passed over.
+    pub fn parse(file: &str, text: &str) -> Result<Self, JocLowFirError> {
+        let mut taps = Vec::new();
+        for (i, line) in text.lines().enumerate() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let mut parts = line.split_whitespace().map(str::parse::<f64>);
+            match (parts.next(), parts.next(), parts.next()) {
+                (Some(Ok(re)), Some(Ok(im)), None) if re.is_finite() && im.is_finite() => {
+                    taps.push(Complex { re, im });
+                }
+                _ => {
+                    return Err(JocLowFirError::Line {
+                        line: i + 1,
+                        text: line.to_string(),
+                    });
+                }
+            }
+        }
+        Self::new(file, taps)
+    }
+
+    /// An operator that did not come of a file; `name` is what the
+    /// announcement calls it.
+    pub fn new(name: &str, taps: Vec<Complex>) -> Result<Self, JocLowFirError> {
+        if taps.len().is_multiple_of(2) || taps.len() < LOW_TAPS {
+            return Err(JocLowFirError::Taps(taps.len()));
+        }
+        Ok(Self {
+            file: name.to_string(),
+            taps,
+        })
+    }
+
+    /// Time slots it reaches either side of its middle.
+    fn reach(&self) -> usize {
+        self.taps.len() / 2
+    }
+}
+
 /// One measurement override, as the stderr line and the loss report name it.
 #[derive(Debug, Clone, PartialEq)]
 struct Override {
@@ -252,7 +341,7 @@ fn plain(v: &Value) -> String {
 /// Measurement overrides of the JOC reconstruction, none by default. They were
 /// environment variables that changed the decode without a word; as flags they
 /// are announced on stderr and recorded in the loss report.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct JocOverrides {
     /// `--joc-lag`: time slots the matrices are held back by.
     pub lag: Option<usize>,
@@ -260,9 +349,27 @@ pub struct JocOverrides {
     pub low_band: Option<JocLowBand>,
     /// `--joc-phase`.
     pub phase: Option<JocPhase>,
+    /// `--joc-low-fir`.
+    pub low_fir: Option<JocLowFir>,
 }
 
 impl JocOverrides {
+    /// Time slots every channel is held back by: the reach of the operator
+    /// on the lowest subband.
+    fn reach(&self) -> usize {
+        self.low_fir.as_ref().map_or(LOW_DELAY, JocLowFir::reach)
+    }
+
+    /// Time slots the matrices are held back by when `--joc-lag` does not say
+    /// otherwise: what the operator holds the samples back by, less the
+    /// measured alignment. With the operator there is that is nothing; a
+    /// longer one from `--joc-low-fir` holds the samples back further and the
+    /// matrices follow. `MATRIX_ALIGN` has this one consumer, so the flag
+    /// moves the alignment without touching the source.
+    fn default_lag(&self) -> usize {
+        self.reach() - MATRIX_ALIGN
+    }
+
     /// The overrides given, as the stderr line and the loss report name them.
     fn list(&self) -> Vec<Override> {
         let mut out = Vec::new();
@@ -270,7 +377,7 @@ impl JocOverrides {
             out.push(Override {
                 flag: "joc-lag",
                 value: json!(lag),
-                default: json!(DEFAULT_LAG),
+                default: json!(self.default_lag()),
             });
         }
         if let Some(band) = self.low_band {
@@ -285,6 +392,13 @@ impl JocOverrides {
                 flag: "joc-phase",
                 value: json!(phase.to_string()),
                 default: json!("3,4:- for downmix configurations 3 and 4, none otherwise"),
+            });
+        }
+        if let Some(fir) = &self.low_fir {
+            out.push(Override {
+                flag: "joc-low-fir",
+                value: json!(format!("{} ({} taps)", fir.file, fir.taps.len())),
+                default: json!(format!("the {LOW_TAPS} taps measured on the Dolby decoder")),
             });
         }
         out
@@ -414,7 +528,7 @@ impl Pipeline {
         let carry = carries(joc.dmx_config, joc.num_channels, flat_quadrature, overrides);
         // every stream goes through the filter bank, whether or not it
         // carries a phase shift, because the matrix alignment needs the delay
-        let low_delay = LOW_DELAY * BANDS;
+        let low_delay = overrides.reach() * BANDS;
         let to_drop = sources
             .iter()
             .map(|s| match s {
@@ -423,7 +537,7 @@ impl Pipeline {
             })
             .collect();
         let mut joc_decoder = JocDecoder::new(joc.num_channels, joc.num_objects);
-        let lag = overrides.lag.unwrap_or(DEFAULT_LAG);
+        let lag = overrides.lag.unwrap_or_else(|| overrides.default_lag());
         joc_decoder.set_lag(lag);
         joc_decoder.set_steep_reading(steep);
         Ok(Self {
@@ -441,7 +555,13 @@ impl Pipeline {
             splices: 0,
             seq_gaps: 0,
             last_seq: None,
-            quad: carry.iter().map(|c| Quadrature::new(*c)).collect(),
+            quad: carry
+                .iter()
+                .map(|c| match &overrides.low_fir {
+                    Some(fir) => Quadrature::with_operator(*c, &fir.taps),
+                    None => Quadrature::new(*c),
+                })
+                .collect(),
             slots_rot: vec![[Complex::default(); BANDS]; joc.num_channels],
             low_delay,
             clip_gain: 1.0,
@@ -1517,6 +1637,107 @@ mod tests {
         assert_eq!(
             JocPhase::parse("3,Ls:-"),
             Err(JocPhaseError::Channel("Ls".to_string()))
+        );
+    }
+
+    /// `--joc-low-fir` reads a tap a line and says what is wrong with anything
+    /// else: a line that is not two numbers, a count without a middle, an
+    /// operator shorter than the hold the alignment needs.
+    #[test]
+    fn a_joc_low_fir_is_read_once_with_a_typed_error() {
+        let lines = |n: usize| -> String { (0..n).map(|i| format!("{i} -0.5\n")).collect() };
+        let fir = JocLowFir::parse("taps.txt", &lines(LOW_TAPS)).unwrap();
+        assert_eq!(fir.taps.len(), LOW_TAPS);
+        assert_eq!(fir.taps[3], Complex { re: 3.0, im: -0.5 });
+        assert_eq!(fir.reach(), LOW_DELAY);
+        assert_eq!(
+            JocLowFir::parse("f", &lines(LOW_TAPS + 2)).unwrap().reach(),
+            11
+        );
+        // exponents, tabs and empty lines are a matter of how it was written
+        let spaced = format!("\n  1e-3\t-2.5E0  \n\n{}", lines(LOW_TAPS - 1));
+        let fir = JocLowFir::parse("f", &spaced).unwrap();
+        assert_eq!(
+            fir.taps[0],
+            Complex {
+                re: 0.001,
+                im: -2.5
+            }
+        );
+
+        for (n, why) in [(LOW_TAPS + 1, "even"), (LOW_TAPS - 2, "short"), (0, "none")] {
+            assert_eq!(
+                JocLowFir::parse("f", &lines(n)),
+                Err(JocLowFirError::Taps(n)),
+                "{why}"
+            );
+        }
+        for bad in ["1", "1 2 3", "1 x", "nan 0", "0 inf"] {
+            let text = format!("{}{bad}\n", lines(4));
+            assert_eq!(
+                JocLowFir::parse("f", &text),
+                Err(JocLowFirError::Line {
+                    line: 5,
+                    text: bad.to_string()
+                }),
+                "{bad:?}"
+            );
+        }
+        assert_eq!(
+            JocLowFirError::Taps(20).to_string(),
+            "20 taps: an operator has an odd number of them, 21 or more"
+        );
+        assert_eq!(
+            JocLowFirError::Line {
+                line: 5,
+                text: "1 x".to_string()
+            }
+            .to_string(),
+            "line 5 is not a real part and an imaginary part: \"1 x\""
+        );
+        let missing = JocLowFir::read("no-such-directory/taps.txt").unwrap_err();
+        assert!(
+            matches!(&missing, JocLowFirError::Read { file, .. } if file == "no-such-directory/taps.txt"),
+            "{missing:?}"
+        );
+        assert!(
+            missing
+                .to_string()
+                .starts_with("cannot read no-such-directory/taps.txt: "),
+            "{missing}"
+        );
+    }
+
+    /// The matrices are held back by what the operator holds the samples back
+    /// by beyond the measured alignment: by nothing with the operator there
+    /// is, and by a slot for every pair of taps a longer one adds.
+    #[test]
+    fn the_matrices_follow_the_reach_of_the_operator() {
+        let none = JocOverrides::default();
+        assert_eq!(none.reach(), LOW_DELAY);
+        assert_eq!(none.default_lag(), 0);
+        let longer = |taps: usize| JocOverrides {
+            low_fir: Some(JocLowFir::new("longer", vec![Complex::default(); taps]).unwrap()),
+            ..JocOverrides::default()
+        };
+        assert_eq!(longer(LOW_TAPS).default_lag(), 0);
+        assert_eq!(longer(LOW_TAPS + 2).reach(), LOW_DELAY + 1);
+        assert_eq!(longer(LOW_TAPS + 2).default_lag(), 1);
+        assert_eq!(longer(37).default_lag(), 18 - MATRIX_ALIGN);
+        assert_eq!(
+            longer(23).line().unwrap(),
+            "measurement overrides: joc-low-fir longer (23 taps) \
+             (default the 21 taps measured on the Dolby decoder)"
+        );
+        // the default a lag is announced against is the one in force
+        let both = JocOverrides {
+            lag: Some(4),
+            ..longer(25)
+        };
+        assert!(
+            both.line().unwrap().contains("joc-lag 4 (default 2); "),
+            "{:?}",
+            both.line()
         );
     }
 
