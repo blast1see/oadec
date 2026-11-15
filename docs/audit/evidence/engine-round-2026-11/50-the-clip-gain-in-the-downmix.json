@@ -1,0 +1,1417 @@
+{
+ "question": "Where does Dolby's decoder put the clip gain of a JOC payload back, how does it get from one value to the next, and what does doing the same leave between our objects and its?",
+ "method": "A JOC payload carries the gain the encoder took off the downmix; the standard gives it a value and no use. `decode --no-clip-gain` writes the objects without it, so the objects Dolby's decoder wrote for the stream over that decode are the gain as Dolby applies it. `tools/joc_clip_gain.py` solves for it by least squares in steps of 16 samples around every change of the gain that stands alone (the same gain in the two frames before and in the frame after, a change of 3 per cent or more), for the LFE and for the objects apart, and where the gain holds it reads the value. The stream is forty seconds of a film in which the gain takes 39 values; Dolby's decoder is run as it stands (`dlbac3dec out-ch-config=21`, `docs/dolby-tools.md`) and only what it writes is read. With the gain put back that way, the 129 tracks of evidence 48 were screened again (`tools/joc_bands.py`, ours with our dither left out), and the corpus was decoded by the binary of main and by the binary of the change (`tools/old_new.py --decode-all`). A track of the library is a number; the films are not in the repository.",
+ "commands": [
+  "python tools/joc_clip_gain.py clips/joc-clip-gain.ec3 ref-drp/joc/joc-clip-gain.f32 --out gain-dolby.json",
+  "python tools/joc_clip_gain.py clips/joc-clip-gain.ec3 --self-check",
+  "python tools/joc_bands.py <ours>.atmos.audio <dolby>.f32   (every track, before and after)",
+  "python tools/old_new.py --old <main> --new <change> --decode-all <thd> <ec3> <clips> <fixtures>",
+  "OADEC_MEDIA=<work> cargo test --release --locked -p oadec-cli --test real -- --ignored the_clip_gain"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "binaries": {
+  "main": {
+   "name": "oadec-main-60.exe",
+   "sha256": "8b8ac029d5ea620b5cea0bd5c60f04de75b3f3279eec8d239441c3a26fe9d192"
+  },
+  "the_change": {
+   "name": "oadec-gain-2.exe",
+   "sha256": "30c30a525e7dff2af46825533c0724d4f20504bda10685552049f8f601d86f52"
+  }
+ },
+ "result": {
+  "the_gain_in_dolbys_output": {
+   "how": "0 is the gain of the frame before and 1 the gain of the frame; a position is a sample of the frame the new gain comes with, as the core decodes it, and a value is the median over the changes of a step of 16 samples from that position",
+   "frames": 1256,
+   "frames_whose_gain_was_read": 1255,
+   "values_the_gain_takes": 39,
+   "least": 1.0,
+   "most": 2.375,
+   "frames_where_it_changes": 76,
+   "changes_that_stand_alone": 65,
+   "where_it_holds_its_largest_distance_to_the_value_of_the_payload": 3.5166123650842707e-06,
+   "the_lfe": {
+    "-64": 0.0,
+    "-48": 0.0,
+    "-32": 0.0,
+    "-16": 0.0,
+    "0": 0.029,
+    "16": 0.092,
+    "32": 0.154,
+    "48": 0.217,
+    "64": 0.279,
+    "80": 0.342,
+    "96": 0.404,
+    "112": 0.467,
+    "128": 0.529,
+    "144": 0.592,
+    "160": 0.654,
+    "176": 0.717,
+    "192": 0.779,
+    "208": 0.842,
+    "224": 0.904,
+    "240": 0.967,
+    "256": 1.0,
+    "272": 1.0,
+    "288": 1.0,
+    "304": 1.0
+   },
+   "the_objects": {
+    "-64": 0.001,
+    "-48": 0.001,
+    "-32": 0.0,
+    "-16": 0.002,
+    "0": 0.033,
+    "16": 0.085,
+    "32": 0.154,
+    "48": 0.214,
+    "64": 0.277,
+    "80": 0.341,
+    "96": 0.402,
+    "112": 0.468,
+    "128": 0.527,
+    "144": 0.584,
+    "160": 0.651,
+    "176": 0.711,
+    "192": 0.773,
+    "208": 0.834,
+    "224": 0.903,
+    "240": 0.961,
+    "256": 0.994,
+    "272": 0.997,
+    "288": 0.997,
+    "304": 0.996
+   }
+  },
+  "the_tool_asked_of_this_decoders_own_decode": {
+   "how": "the reference is this decoder's decode with the gain, after the change: the line it draws has to come back. Its objects come back as Dolby's do, step for step.",
+   "largest_distance_to_the_line": 0.007796875000000036,
+   "steps_read": 96,
+   "the_lfe": {
+    "-64": 0.0,
+    "-48": 0.0,
+    "-32": 0.0,
+    "-16": 0.0,
+    "0": 0.029,
+    "16": 0.092,
+    "32": 0.154,
+    "48": 0.217,
+    "64": 0.279,
+    "80": 0.342,
+    "96": 0.404,
+    "112": 0.467,
+    "128": 0.529,
+    "144": 0.592,
+    "160": 0.654,
+    "176": 0.717,
+    "192": 0.779,
+    "208": 0.842,
+    "224": 0.904,
+    "240": 0.967,
+    "256": 1.0,
+    "272": 1.0,
+    "288": 1.0,
+    "304": 1.0
+   },
+   "the_objects": {
+    "-64": 0.001,
+    "-48": 0.001,
+    "-32": 0.0,
+    "-16": 0.003,
+    "0": 0.033,
+    "16": 0.088,
+    "32": 0.154,
+    "48": 0.211,
+    "64": 0.276,
+    "80": 0.339,
+    "96": 0.401,
+    "112": 0.467,
+    "128": 0.526,
+    "144": 0.588,
+    "160": 0.648,
+    "176": 0.711,
+    "192": 0.773,
+    "208": 0.834,
+    "224": 0.903,
+    "240": 0.962,
+    "256": 0.994,
+    "272": 0.997,
+    "288": 0.997,
+    "304": 0.997
+   }
+  },
+  "where_in_the_decoder": {
+   "how": "the same stream against Dolby's objects, medians over the objects: the gain stepped where the objects leave the decoder (the decoder before the change); the line of the measurement applied to what leaves the decoder (the decode without the gain times that line, not a decoder); and the line applied to the downmix before the objects are made of it (the decoder after the change)",
+   "stepped_at_the_output": {
+    "objects": 15,
+    "lag": 0,
+    "seconds": 37.73,
+    "lowest_band_median_db": 31.04,
+    "lowest_band_worst_db": 25.16,
+    "bands_375_hz_to_9_khz_median_db": 32.76,
+    "whole_band_median_db": 30.93,
+    "whole_band_worst_db": 26.88
+   },
+   "the_line_at_the_output": {
+    "lfe_lowest_band_db": 135.76,
+    "lowest_band_db": 57.1,
+    "bands_375_hz_to_9_khz_db": 69.6,
+    "whole_band_db": 51.6,
+    "whole_band_worst_object_db": 48.16
+   },
+   "the_line_in_the_downmix": {
+    "objects": 15,
+    "lag": 0,
+    "seconds": 37.73,
+    "lowest_band_median_db": 125.94,
+    "lowest_band_worst_db": 122.16,
+    "bands_375_hz_to_9_khz_median_db": 79.38,
+    "whole_band_median_db": 57.17,
+    "whole_band_worst_db": 51.21
+   }
+  },
+  "the_library_before_and_after": {
+   "how": "the 129 tracks of evidence 48, of which Dolby's decoder gives objects for 127; before is the decoder of evidence 49",
+   "the_fourteen_tracks_whose_gain_changes": {
+    "tracks": [
+     11,
+     17,
+     24,
+     30,
+     31,
+     41,
+     67,
+     72,
+     82,
+     83,
+     84,
+     92,
+     106,
+     107
+    ],
+    "figures": {
+     "lowest_band_db": {
+      "before": {
+       "least": 30.9,
+       "median": 49.0,
+       "most": 58.5
+      },
+      "after": {
+       "least": 112.7,
+       "median": 126.4,
+       "most": 128.9
+      }
+     },
+     "lowest_band_worst_object_db": {
+      "before": {
+       "least": 24.5,
+       "median": 41.2,
+       "most": 46.9
+      },
+      "after": {
+       "least": 103.08,
+       "median": 114.7,
+       "most": 124.99
+      }
+     },
+     "bands_1_to_23_db": {
+      "before": {
+       "least": 28.8,
+       "median": 45.5,
+       "most": 61.7
+      },
+      "after": {
+       "least": 55.2,
+       "median": 83.3,
+       "most": 107.7
+      }
+     },
+     "whole_band_db": {
+      "before": {
+       "least": 28.9,
+       "median": 45.0,
+       "most": 54.4
+      },
+      "after": {
+       "least": 46.5,
+       "median": 58.5,
+       "most": 68.2
+      }
+     },
+     "whole_band_worst_object_db": {
+      "before": {
+       "least": 23.82,
+       "median": 40.1,
+       "most": 46.78
+      },
+      "after": {
+       "least": 34.24,
+       "median": 51.8,
+       "most": 61.17
+      }
+     },
+     "whole_band_with_our_dither_db": {
+      "before": {
+       "least": 28.9,
+       "median": 44.7,
+       "most": 54.3
+      },
+      "after": {
+       "least": 43.4,
+       "median": 55.6,
+       "most": 64.3
+      }
+     }
+    },
+    "table": [
+     {
+      "track": 11,
+      "clip_gains": 3,
+      "lowest_band_db": {
+       "before": 54.6,
+       "after": 125.9
+      },
+      "bands_1_to_23_db": {
+       "before": 52.3,
+       "after": 101.3
+      },
+      "whole_band_db": {
+       "before": 50.9,
+       "after": 59.3
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 49.3,
+       "after": 56.4
+      },
+      "lfe_lowest_band_db": {
+       "before": 65.27,
+       "after": 139.58
+      }
+     },
+     {
+      "track": 17,
+      "clip_gains": 3,
+      "lowest_band_db": {
+       "before": 52.2,
+       "after": 112.7
+      },
+      "bands_1_to_23_db": {
+       "before": 45.2,
+       "after": 83.3
+      },
+      "whole_band_db": {
+       "before": 43.8,
+       "after": 46.5
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 41.6,
+       "after": 43.4
+      },
+      "lfe_lowest_band_db": {
+       "before": null,
+       "after": null
+      }
+     },
+     {
+      "track": 24,
+      "clip_gains": 12,
+      "lowest_band_db": {
+       "before": 37.5,
+       "after": 128.7
+      },
+      "bands_1_to_23_db": {
+       "before": 31.9,
+       "after": 83.3
+      },
+      "whole_band_db": {
+       "before": 36.5,
+       "after": 65.0
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 36.5,
+       "after": 61.9
+      },
+      "lfe_lowest_band_db": {
+       "before": 42.9,
+       "after": 139.15
+      }
+     },
+     {
+      "track": 30,
+      "clip_gains": 2,
+      "lowest_band_db": {
+       "before": 54.1,
+       "after": 126.5
+      },
+      "bands_1_to_23_db": {
+       "before": 61.7,
+       "after": 85.5
+      },
+      "whole_band_db": {
+       "before": 54.4,
+       "after": 68.2
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 54.3,
+       "after": 64.3
+      },
+      "lfe_lowest_band_db": {
+       "before": 107.59,
+       "after": 139.41
+      }
+     },
+     {
+      "track": 31,
+      "clip_gains": 39,
+      "lowest_band_db": {
+       "before": 31.0,
+       "after": 125.9
+      },
+      "bands_1_to_23_db": {
+       "before": 32.8,
+       "after": 79.4
+      },
+      "whole_band_db": {
+       "before": 30.9,
+       "after": 57.2
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 30.9,
+       "after": 54.1
+      },
+      "lfe_lowest_band_db": {
+       "before": 49.08,
+       "after": 136.42
+      }
+     },
+     {
+      "track": 41,
+      "clip_gains": 3,
+      "lowest_band_db": {
+       "before": 49.5,
+       "after": 125.0
+      },
+      "bands_1_to_23_db": {
+       "before": 51.0,
+       "after": 107.7
+      },
+      "whole_band_db": {
+       "before": 48.5,
+       "after": 57.8
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 48.0,
+       "after": 54.9
+      },
+      "lfe_lowest_band_db": {
+       "before": 62.07,
+       "after": 127.95
+      }
+     },
+     {
+      "track": 67,
+      "clip_gains": 3,
+      "lowest_band_db": {
+       "before": 48.9,
+       "after": 126.5
+      },
+      "bands_1_to_23_db": {
+       "before": 47.5,
+       "after": 106.9
+      },
+      "whole_band_db": {
+       "before": 49.2,
+       "after": 60.9
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 49.0,
+       "after": 57.9
+      },
+      "lfe_lowest_band_db": {
+       "before": 61.18,
+       "after": 140.83
+      }
+     },
+     {
+      "track": 72,
+      "clip_gains": 2,
+      "lowest_band_db": {
+       "before": 51.8,
+       "after": 126.6
+      },
+      "bands_1_to_23_db": {
+       "before": 58.6,
+       "after": 106.0
+      },
+      "whole_band_db": {
+       "before": 51.7,
+       "after": 59.6
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 51.0,
+       "after": 56.7
+      },
+      "lfe_lowest_band_db": {
+       "before": 58.34,
+       "after": 141.79
+      }
+     },
+     {
+      "track": 82,
+      "clip_gains": 3,
+      "lowest_band_db": {
+       "before": 49.0,
+       "after": 125.3
+      },
+      "bands_1_to_23_db": {
+       "before": 45.8,
+       "after": 57.6
+      },
+      "whole_band_db": {
+       "before": 45.2,
+       "after": 55.3
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 44.8,
+       "after": 52.3
+      },
+      "lfe_lowest_band_db": {
+       "before": 54.89,
+       "after": 137.35
+      }
+     },
+     {
+      "track": 83,
+      "clip_gains": 3,
+      "lowest_band_db": {
+       "before": 45.0,
+       "after": 128.9
+      },
+      "bands_1_to_23_db": {
+       "before": 44.3,
+       "after": 55.2
+      },
+      "whole_band_db": {
+       "before": 44.8,
+       "after": 57.0
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 44.6,
+       "after": 54.0
+      },
+      "lfe_lowest_band_db": {
+       "before": 62.72,
+       "after": 137.16
+      }
+     },
+     {
+      "track": 84,
+      "clip_gains": 2,
+      "lowest_band_db": {
+       "before": 58.5,
+       "after": 124.2
+      },
+      "bands_1_to_23_db": {
+       "before": 48.9,
+       "after": 60.1
+      },
+      "whole_band_db": {
+       "before": 52.9,
+       "after": 55.8
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 51.4,
+       "after": 52.8
+      },
+      "lfe_lowest_band_db": {
+       "before": 79.21,
+       "after": 137.25
+      }
+     },
+     {
+      "track": 92,
+      "clip_gains": 6,
+      "lowest_band_db": {
+       "before": 46.3,
+       "after": 126.9
+      },
+      "bands_1_to_23_db": {
+       "before": 36.2,
+       "after": 97.6
+      },
+      "whole_band_db": {
+       "before": 40.7,
+       "after": 62.4
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 40.7,
+       "after": 59.4
+      },
+      "lfe_lowest_band_db": {
+       "before": 59.2,
+       "after": 133.74
+      }
+     },
+     {
+      "track": 106,
+      "clip_gains": 3,
+      "lowest_band_db": {
+       "before": 45.5,
+       "after": 126.3
+      },
+      "bands_1_to_23_db": {
+       "before": 43.5,
+       "after": 66.1
+      },
+      "whole_band_db": {
+       "before": 44.9,
+       "after": 57.8
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 44.6,
+       "after": 54.9
+      },
+      "lfe_lowest_band_db": {
+       "before": 57.3,
+       "after": 140.44
+      }
+     },
+     {
+      "track": 107,
+      "clip_gains": 18,
+      "lowest_band_db": {
+       "before": 30.9,
+       "after": 126.5
+      },
+      "bands_1_to_23_db": {
+       "before": 28.8,
+       "after": 68.4
+      },
+      "whole_band_db": {
+       "before": 28.9,
+       "after": 59.2
+      },
+      "whole_band_with_our_dither_db": {
+       "before": 28.9,
+       "after": 56.3
+      },
+      "lfe_lowest_band_db": {
+       "before": 50.99,
+       "after": 139.97
+      }
+     }
+    ],
+    "lfe_lowest_band_db": {
+     "before": {
+      "tracks": 13,
+      "least": 42.9,
+      "median": 59.2,
+      "most": 107.59
+     },
+     "after": {
+      "tracks": 13,
+      "least": 127.95,
+      "median": 139.2,
+      "most": 141.79
+     }
+    }
+   },
+   "the_other_tracks": {
+    "tracks": 113,
+    "with_every_figure_the_same": 113
+   },
+   "tracks_under_90_db_in_the_lowest_band": {
+    "before": 14,
+    "after": 0
+   },
+   "before": {
+    "tracks_measured": 127,
+    "tracks_with_signal_in_the_lowest_band": 127,
+    "snr_of_the_lowest_band_db": {
+     "least": 30.9,
+     "first_quarter": 106.8,
+     "median": 115.2,
+     "third_quarter": 124.5,
+     "most": 138.4
+    },
+    "snr_of_the_worst_object_in_the_lowest_band_db": {
+     "least": 24.5,
+     "first_quarter": 98.2,
+     "median": 106.2,
+     "third_quarter": 114.1,
+     "most": 127.5
+    },
+    "snr_of_bands_1_to_23_db": {
+     "least": 28.8,
+     "first_quarter": 58.1,
+     "median": 75.1,
+     "third_quarter": 86.8,
+     "most": 112.7
+    },
+    "the_lowest_band_short_of_them_by_db": {
+     "least": -87.8,
+     "first_quarter": -51.9,
+     "median": -31.9,
+     "third_quarter": -23.4,
+     "most": 8.9
+    },
+    "tracks_where_it_is_short_by_more_than_10_db": 0,
+    "tracks_where_it_is_short_by_more_than_20_db": 0,
+    "tracks_where_it_is_not_short": 123,
+    "what_the_best_filter_on_an_object_gains_in_the_lowest_band_db": {
+     "least": -1.3,
+     "first_quarter": 0.1,
+     "median": 0.4,
+     "third_quarter": 1.3,
+     "most": 6.9
+    },
+    "whole_band_db": {
+     "least": 25.0,
+     "first_quarter": 48.2,
+     "median": 53.5,
+     "third_quarter": 58.0,
+     "most": 79.9
+    },
+    "whole_band_with_our_dither_db": {
+     "least": 22.0,
+     "first_quarter": 45.2,
+     "median": 50.8,
+     "third_quarter": 55.0,
+     "most": 76.9
+    },
+    "largest_difference_of_a_pair_in_the_lowest_band": {
+     "least": 0.0,
+     "first_quarter": 0.0,
+     "median": 0.0,
+     "third_quarter": 0.0,
+     "most": 0.8
+    },
+    "lfe": {
+     "channels": 74,
+     "snr_of_the_lowest_band_db": {
+      "least": 42.9,
+      "first_quarter": 100.5,
+      "median": 115.9,
+      "third_quarter": 127.5,
+      "most": 142.1
+     }
+    },
+    "objects": {
+     "count": 1080,
+     "snr_of_the_lowest_band_db": {
+      "least": 24.5,
+      "first_quarter": 105.0,
+      "median": 116.0,
+      "third_quarter": 126.3,
+      "most": 142.8
+     }
+    },
+    "below_750_hz_snr_db_by_hz": {
+     "5.9": 90.2,
+     "17.6": 95.8,
+     "29.3": 104.6,
+     "41.0": 110.9,
+     "52.7": 113.1,
+     "64.5": 114.1,
+     "76.2": 115.0,
+     "87.9": 115.7,
+     "99.6": 115.7,
+     "111.3": 115.5,
+     "123.0": 113.8,
+     "134.8": 113.3,
+     "146.5": 113.0,
+     "158.2": 112.9,
+     "169.9": 115.0,
+     "181.6": 113.8,
+     "193.4": 114.9,
+     "205.1": 113.5,
+     "216.8": 114.3,
+     "228.5": 112.9,
+     "240.2": 112.1,
+     "252.0": 112.5,
+     "263.7": 113.6,
+     "275.4": 111.7,
+     "287.1": 111.8,
+     "298.8": 113.7,
+     "310.5": 110.4,
+     "322.3": 110.9,
+     "334.0": 114.7,
+     "345.7": 112.7,
+     "357.4": 111.1,
+     "369.1": 110.9,
+     "380.9": 109.4,
+     "392.6": 114.7,
+     "404.3": 110.3,
+     "416.0": 110.6,
+     "427.7": 109.0,
+     "439.5": 114.1,
+     "451.2": 109.4,
+     "462.9": 109.1,
+     "474.6": 108.4,
+     "486.3": 108.4,
+     "498.0": 110.7,
+     "509.8": 106.6,
+     "521.5": 112.0,
+     "533.2": 109.1,
+     "544.9": 107.2,
+     "556.6": 109.2,
+     "568.4": 106.1,
+     "580.1": 108.3,
+     "591.8": 111.2,
+     "603.5": 106.1,
+     "615.2": 106.5,
+     "627.0": 107.9,
+     "638.7": 105.8,
+     "650.4": 107.8,
+     "662.1": 110.6,
+     "673.8": 106.0,
+     "685.5": 105.7,
+     "697.3": 108.9,
+     "709.0": 107.0,
+     "720.7": 104.6,
+     "732.4": 106.4,
+     "744.1": 107.3
+    }
+   },
+   "after": {
+    "tracks_measured": 127,
+    "tracks_with_signal_in_the_lowest_band": 127,
+    "snr_of_the_lowest_band_db": {
+     "least": 96.0,
+     "first_quarter": 111.5,
+     "median": 119.3,
+     "third_quarter": 125.8,
+     "most": 138.4
+    },
+    "snr_of_the_worst_object_in_the_lowest_band_db": {
+     "least": 87.1,
+     "first_quarter": 102.0,
+     "median": 109.0,
+     "third_quarter": 115.1,
+     "most": 127.5
+    },
+    "snr_of_bands_1_to_23_db": {
+     "least": 36.9,
+     "first_quarter": 65.0,
+     "median": 77.5,
+     "third_quarter": 90.9,
+     "most": 112.7
+    },
+    "the_lowest_band_short_of_them_by_db": {
+     "least": -87.8,
+     "first_quarter": -54.6,
+     "median": -35.5,
+     "third_quarter": -27.5,
+     "most": -14.7
+    },
+    "tracks_where_it_is_short_by_more_than_10_db": 0,
+    "tracks_where_it_is_short_by_more_than_20_db": 0,
+    "tracks_where_it_is_not_short": 127,
+    "what_the_best_filter_on_an_object_gains_in_the_lowest_band_db": {
+     "least": -0.5,
+     "first_quarter": 0.1,
+     "median": 0.5,
+     "third_quarter": 2.2,
+     "most": 9.0
+    },
+    "whole_band_db": {
+     "least": 25.0,
+     "first_quarter": 48.9,
+     "median": 55.3,
+     "third_quarter": 59.1,
+     "most": 79.9
+    },
+    "whole_band_with_our_dither_db": {
+     "least": 22.0,
+     "first_quarter": 46.0,
+     "median": 52.3,
+     "third_quarter": 56.1,
+     "most": 76.9
+    },
+    "largest_difference_of_a_pair_in_the_lowest_band": {
+     "least": 0.0,
+     "first_quarter": 0.0,
+     "median": 0.0,
+     "third_quarter": 0.0,
+     "most": 0.8
+    },
+    "lfe": {
+     "channels": 74,
+     "snr_of_the_lowest_band_db": {
+      "least": 98.0,
+      "first_quarter": 110.7,
+      "median": 125.7,
+      "third_quarter": 136.0,
+      "most": 142.1
+     }
+    },
+    "objects": {
+     "count": 1080,
+     "snr_of_the_lowest_band_db": {
+      "least": 87.1,
+      "first_quarter": 111.1,
+      "median": 120.4,
+      "third_quarter": 127.8,
+      "most": 142.8
+     }
+    },
+    "below_750_hz_snr_db_by_hz": {
+     "5.9": 95.4,
+     "17.6": 101.3,
+     "29.3": 110.2,
+     "41.0": 116.1,
+     "52.7": 118.1,
+     "64.5": 119.5,
+     "76.2": 120.1,
+     "87.9": 121.4,
+     "99.6": 121.3,
+     "111.3": 120.9,
+     "123.0": 118.4,
+     "134.8": 117.1,
+     "146.5": 116.6,
+     "158.2": 116.9,
+     "169.9": 119.5,
+     "181.6": 118.1,
+     "193.4": 119.7,
+     "205.1": 117.9,
+     "216.8": 119.2,
+     "228.5": 117.3,
+     "240.2": 116.3,
+     "252.0": 116.9,
+     "263.7": 118.0,
+     "275.4": 115.7,
+     "287.1": 116.3,
+     "298.8": 118.7,
+     "310.5": 115.2,
+     "322.3": 115.6,
+     "334.0": 118.2,
+     "345.7": 117.4,
+     "357.4": 116.2,
+     "369.1": 115.3,
+     "380.9": 113.7,
+     "392.6": 118.7,
+     "404.3": 113.8,
+     "416.0": 114.3,
+     "427.7": 112.7,
+     "439.5": 117.5,
+     "451.2": 113.1,
+     "462.9": 112.8,
+     "474.6": 111.9,
+     "486.3": 112.3,
+     "498.0": 114.9,
+     "509.8": 110.7,
+     "521.5": 116.0,
+     "533.2": 113.1,
+     "544.9": 111.2,
+     "556.6": 113.7,
+     "568.4": 110.4,
+     "580.1": 112.8,
+     "591.8": 115.2,
+     "603.5": 110.3,
+     "615.2": 110.8,
+     "627.0": 112.8,
+     "638.7": 110.3,
+     "650.4": 112.3,
+     "662.1": 114.8,
+     "673.8": 110.4,
+     "685.5": 109.8,
+     "697.3": 112.9,
+     "709.0": 110.9,
+     "720.7": 108.6,
+     "732.4": 110.2,
+     "744.1": 111.0
+    }
+   },
+   "track_by_track": {
+    "lowest_band_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 0.0,
+      "median": 0.0,
+      "third_quarter": 0.0,
+      "most": 95.6
+     },
+     "better_by_more_than_a_tenth": 14,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    },
+    "lowest_band_worst_object_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 0.0,
+      "median": 0.0,
+      "third_quarter": 0.0,
+      "most": 97.0
+     },
+     "better_by_more_than_a_tenth": 14,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    },
+    "band_1_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 0.0,
+      "median": 0.0,
+      "third_quarter": 0.0,
+      "most": 92.4
+     },
+     "better_by_more_than_a_tenth": 14,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    },
+    "bands_1_to_23_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 0.0,
+      "median": 0.0,
+      "third_quarter": 0.0,
+      "most": 61.4
+     },
+     "better_by_more_than_a_tenth": 14,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    },
+    "whole_band_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 0.0,
+      "median": 0.0,
+      "third_quarter": 0.0,
+      "most": 30.3
+     },
+     "better_by_more_than_a_tenth": 14,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    },
+    "whole_band_worst_object_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 0.0,
+      "median": 0.0,
+      "third_quarter": 0.0,
+      "most": 34.3
+     },
+     "better_by_more_than_a_tenth": 13,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    },
+    "whole_band_with_our_dither_db": {
+     "tracks": 127,
+     "change_db": {
+      "least": 0.0,
+      "first_quarter": 0.0,
+      "median": 0.0,
+      "third_quarter": 0.0,
+      "most": 27.4
+     },
+     "better_by_more_than_a_tenth": 14,
+     "worse_by_more_than_a_tenth": 0,
+     "the_worse_ones": []
+    }
+   }
+  },
+  "the_clips_of_the_media_suite": {
+   "how": "with `tools/joc_bands.py`: medians over the objects, and the worst object",
+   "clips": [
+    {
+     "clip": "clips/quietplace-web-head.ec3",
+     "reference": "ref-oar/quietplace-web-obj.f32",
+     "before": {
+      "objects": 11,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 125.98,
+      "lowest_band_worst_db": 116.39,
+      "bands_375_hz_to_9_khz_median_db": 43.76,
+      "whole_band_median_db": 70.93,
+      "whole_band_worst_db": 63.71
+     },
+     "after": {
+      "objects": 11,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 125.98,
+      "lowest_band_worst_db": 116.39,
+      "bands_375_hz_to_9_khz_median_db": 43.76,
+      "whole_band_median_db": 70.93,
+      "whole_band_worst_db": 63.71
+     }
+    },
+    {
+     "clip": "clips/kingsman-joc-head.ec3",
+     "reference": "ref-oar/kingsman-joc-head-obj.f32",
+     "before": {
+      "objects": 13,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 119.62,
+      "lowest_band_worst_db": 113.07,
+      "bands_375_hz_to_9_khz_median_db": 60.63,
+      "whole_band_median_db": 43.27,
+      "whole_band_worst_db": 38.93
+     },
+     "after": {
+      "objects": 13,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 119.62,
+      "lowest_band_worst_db": 113.07,
+      "bands_375_hz_to_9_khz_median_db": 60.63,
+      "whole_band_median_db": 43.27,
+      "whole_band_worst_db": 38.93
+     }
+    },
+    {
+     "clip": "clips/knivesout-joc-head.ec3",
+     "reference": "ref-oar/knivesout-joc-obj.f32",
+     "before": {
+      "objects": 3,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 104.2,
+      "lowest_band_worst_db": 102.81,
+      "bands_375_hz_to_9_khz_median_db": 63.63,
+      "whole_band_median_db": 55.2,
+      "whole_band_worst_db": 52.32
+     },
+     "after": {
+      "objects": 3,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 104.2,
+      "lowest_band_worst_db": 102.81,
+      "bands_375_hz_to_9_khz_median_db": 63.63,
+      "whole_band_median_db": 55.2,
+      "whole_band_worst_db": 52.32
+     }
+    },
+    {
+     "clip": "clips/fifthelement-joc-head.ec3",
+     "reference": "ref-oar/fifthelement-joc-obj.f32",
+     "before": {
+      "objects": 10,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 126.09,
+      "lowest_band_worst_db": 120.05,
+      "bands_375_hz_to_9_khz_median_db": 57.62,
+      "whole_band_median_db": 59.95,
+      "whole_band_worst_db": 50.59
+     },
+     "after": {
+      "objects": 10,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 126.09,
+      "lowest_band_worst_db": 120.05,
+      "bands_375_hz_to_9_khz_median_db": 57.62,
+      "whole_band_median_db": 59.95,
+      "whole_band_worst_db": 50.59
+     }
+    },
+    {
+     "clip": "clips/shaun-joc1024-head.ec3",
+     "reference": "ref-oar/shaun-joc1024-obj.f32",
+     "before": {
+      "objects": 11,
+      "lag": 0,
+      "seconds": 20.89,
+      "lowest_band_median_db": 113.57,
+      "lowest_band_worst_db": 108.39,
+      "bands_375_hz_to_9_khz_median_db": 88.61,
+      "whole_band_median_db": 59.75,
+      "whole_band_worst_db": 47.47
+     },
+     "after": {
+      "objects": 11,
+      "lag": 0,
+      "seconds": 20.89,
+      "lowest_band_median_db": 113.57,
+      "lowest_band_worst_db": 108.39,
+      "bands_375_hz_to_9_khz_median_db": 88.61,
+      "whole_band_median_db": 59.75,
+      "whole_band_worst_db": 47.47
+     }
+    },
+    {
+     "clip": "clips/br2049-joc-head.ec3",
+     "reference": "ref-oar/br2049-obj.f32",
+     "before": {
+      "objects": 11,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 42.92,
+      "lowest_band_worst_db": 37.26,
+      "bands_375_hz_to_9_khz_median_db": 21.31,
+      "whole_band_median_db": 42.78,
+      "whole_band_worst_db": 36.78
+     },
+     "after": {
+      "objects": 11,
+      "lag": 0,
+      "seconds": 28.7,
+      "lowest_band_median_db": 130.13,
+      "lowest_band_worst_db": 127.96,
+      "bands_375_hz_to_9_khz_median_db": 43.58,
+      "whole_band_median_db": 86.55,
+      "whole_band_worst_db": 82.91
+     }
+    },
+    {
+     "clip": "clips/joc-steep-jackal.ec3",
+     "reference": "ref-drp/joc/joc-steep-jackal.f32",
+     "before": {
+      "objects": 9,
+      "lag": 0,
+      "seconds": 26.27,
+      "lowest_band_median_db": 119.08,
+      "lowest_band_worst_db": 109.49,
+      "bands_375_hz_to_9_khz_median_db": 45.13,
+      "whole_band_median_db": 45.04,
+      "whole_band_worst_db": 39.72
+     },
+     "after": {
+      "objects": 9,
+      "lag": 0,
+      "seconds": 26.27,
+      "lowest_band_median_db": 119.08,
+      "lowest_band_worst_db": 109.49,
+      "bands_375_hz_to_9_khz_median_db": 45.13,
+      "whole_band_median_db": 45.04,
+      "whole_band_worst_db": 39.72
+     }
+    },
+    {
+     "clip": "clips/joc-onset-steep.ec3",
+     "reference": "ref-drp/joc/joc-onset-steep.f32",
+     "before": {
+      "objects": 5,
+      "lag": 0,
+      "seconds": 7.49,
+      "lowest_band_median_db": 65.05,
+      "lowest_band_worst_db": 57.98,
+      "bands_375_hz_to_9_khz_median_db": 103.44,
+      "whole_band_median_db": 81.9,
+      "whole_band_worst_db": 75.06
+     },
+     "after": {
+      "objects": 5,
+      "lag": 0,
+      "seconds": 7.49,
+      "lowest_band_median_db": 99.15,
+      "lowest_band_worst_db": 93.21,
+      "bands_375_hz_to_9_khz_median_db": 109.31,
+      "whole_band_median_db": 93.07,
+      "whole_band_worst_db": 84.29
+     }
+    },
+    {
+     "clip": "clips/joc-clip-gain.ec3",
+     "reference": "ref-drp/joc/joc-clip-gain.f32",
+     "before": {
+      "objects": 15,
+      "lag": 0,
+      "seconds": 37.73,
+      "lowest_band_median_db": 31.04,
+      "lowest_band_worst_db": 25.16,
+      "bands_375_hz_to_9_khz_median_db": 32.76,
+      "whole_band_median_db": 30.93,
+      "whole_band_worst_db": 26.88
+     },
+     "after": {
+      "objects": 15,
+      "lag": 0,
+      "seconds": 37.73,
+      "lowest_band_median_db": 125.94,
+      "lowest_band_worst_db": 122.16,
+      "bands_375_hz_to_9_khz_median_db": 79.38,
+      "whole_band_median_db": 57.17,
+      "whole_band_worst_db": 51.21
+     }
+    }
+   ],
+   "the_media_test_of_the_clip_gain": {
+    "measure": "the worst object below 375 Hz through a plain low pass, and the LFE over the whole band, from two seconds in",
+    "joc-clip-gain": {
+     "bar_db": 100,
+     "bar_of_the_lfe_db": 100,
+     "before_db": 25.7,
+     "before_lfe_db": 48.55,
+     "after_db": 124.1,
+     "after_lfe_db": 119.89
+    },
+    "joc-onset-steep": {
+     "bar_db": 80,
+     "before_db": 51.37,
+     "after_db": 91.58
+    }
+   }
+  },
+  "the_corpus_old_and_new": {
+   "summary": {
+    "streams": 132,
+    "truehd": 55,
+    "ac3_family": 77,
+    "with_joc": 25,
+    "changed": 3,
+    "what_changed": [
+     "decode (adm): output bytes",
+     "decode (damf): output bytes"
+    ],
+    "the_rounding_of_two_files_of_24_bits_dbfs": {
+     "over_the_whole_band": -146.3,
+     "a_band_of_375_hz": -164.3
+    }
+   },
+   "streams_with_joc_whose_gain_is_not_1_throughout": 3,
+   "they_are_the_streams_that_changed": true,
+   "streams_that_changed": [
+    {
+     "stream": 99,
+     "bytes": 3000000,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000,
+       1031,
+       1063
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 12,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -60.3,
+       "375_to_750_hz": -78.7,
+       "750_to_1125_hz": -87.7,
+       "1125_to_1500_hz": -91.0,
+       "the_loudest_band_from_1500_hz": -93.3
+      }
+     }
+    },
+    {
+     "stream": 107,
+     "bytes": 3864576,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000,
+       1031,
+       1063,
+       1094,
+       1125,
+       1156,
+       1188,
+       1219,
+       1250,
+       1281,
+       1313,
+       1344,
+       1375,
+       1406,
+       1438,
+       1469,
+       1500,
+       1531,
+       1563,
+       1594,
+       1625,
+       1656,
+       1688,
+       1719,
+       1750,
+       1781,
+       1813,
+       1844,
+       1875,
+       1906,
+       1938,
+       1969,
+       2000,
+       2063,
+       2125,
+       2188,
+       2250,
+       2313,
+       2375
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 16,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -47.7,
+       "375_to_750_hz": -53.1,
+       "750_to_1125_hz": -54.1,
+       "1125_to_1500_hz": -54.2,
+       "the_loudest_band_from_1500_hz": -60.8
+      }
+     }
+    },
+    {
+     "stream": 109,
+     "bytes": 961536,
+     "kind": "AC-3 family",
+     "changed": true,
+     "what_changed": [
+      "decode (adm): output bytes",
+      "decode (damf): output bytes"
+     ],
+     "joc": {
+      "downmix_configurations": [
+       3
+      ],
+      "clip_gains_x1000": [
+       1000,
+       1063
+      ]
+     },
+     "bands": {
+      "elements": 25,
+      "elements_that_differ": 5,
+      "the_difference_dbfs_worst_element": {
+       "0_to_375_hz": -124.4,
+       "375_to_750_hz": -148.8,
+       "750_to_1125_hz": -153.7,
+       "1125_to_1500_hz": -156.7,
+       "the_loudest_band_from_1500_hz": -159.0
+      }
+     }
+    }
+   ]
+  },
+  "the_tail": "what the banks give out after the last frame came without the gain; a unit test holds it to twice the tail of the same stream without a gain, for a gain of two",
+  "mutations": {
+   "run": 26,
+   "caught": 26,
+   "of_the_clip_gain": 9
+  }
+ },
+ "reading": "On 65 changes of one stream Dolby's decoder takes the clip gain from the value of the frame before to the value of the frame in a straight line over the first 256 samples the frame decodes to: 0.029, 0.092 and 0.154 of the way in the first three steps of 16 samples on the LFE, 0.967 in the sixteenth and all of it from sample 256, the objects the same; where it holds it is the value of the payload to 3.5e-06 in 1255 frames. That line applied to what leaves the decoder brings the LFE to Dolby's and the lowest band of the objects only to 57.1 dB; applied to the downmix before the objects are made of it, it brings that band to 125.94 dB, where the step at the output left 31.04. Over the library the fourteen tracks whose gain changes stand at 126.4 dB in the lowest band at the median where they stood at 49.0, and at 58.5 over the whole band where they stood at 45.0; the lowest band is under 90 dB on 0 tracks where it was on 14; every figure of the other 113 tracks is what it was. Of the corpus of 132 streams 3 changed, the 3 that carry JOC with a gain that is not 1 throughout."
+}
