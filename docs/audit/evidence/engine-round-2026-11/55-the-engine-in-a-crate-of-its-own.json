@@ -57,6 +57,35 @@
    "allowances_of_printing": 0,
    "places_that_name_stdout_or_stderr": 0
   },
+  "what_a_caller_that_is_no_command_line_locks": {
+   "what": "fuzz/Cargo.lock: the workspace of the libFuzzer wrappers, whose targets call `api`",
+   "packages_before": 53,
+   "packages_now": 36,
+   "gone": [
+    "anstream",
+    "anstyle",
+    "anstyle-parse",
+    "anstyle-query",
+    "anstyle-wincon",
+    "clap",
+    "clap_builder",
+    "clap_derive",
+    "clap_lex",
+    "colorchoice",
+    "heck",
+    "is_terminal_polyfill",
+    "oadec-cli",
+    "once_cell_polyfill",
+    "strsim",
+    "utf8parse",
+    "windows-link",
+    "windows-sys"
+   ],
+   "new": [
+    "oadec-engine"
+   ],
+   "the_lock_is_what_cargo_resolves": "cargo metadata --locked --offline --manifest-path fuzz/Cargo.toml: exit 0"
+  },
   "the_command_line": {
    "crate": "crates/oadec-cli",
    "modules": [

@@ -606,7 +606,9 @@ Semantic Versioning.
   line on the terminal is the command line's watcher (`Source::watched`). And
   the engine prints nothing: the 214 lines its modules printed are written
   to a writer the function is handed, which the command line gives stdout
-  and stderr.
+  and stderr. The lock of the fuzz workspace, whose targets call `api` and
+  nothing of the command line, named 53 packages and names 36: clap and the
+  sixteen it brings are not among them.
 
   What a command says and writes is what it said and wrote. The help of all
   fifteen commands and the answer to a value that is no value are the same
