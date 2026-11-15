@@ -159,7 +159,7 @@ for a measurement that is a wrong number under a right name.
 | Option | Applies to | Refused on |
 |---|---|---|
 | `--core-only`, `--no-dither`, `--no-tpnp`, `--ecpl-spec` (`decode`, `compare`) | an AC-3 or E-AC-3 stream | a TrueHD stream |
-| `--no-clip-gain`, `--flat-quadrature`, `--sparse-as-printed`, `--steep-as-printed`, and the hidden `--joc-lag`, `--joc-low-band`, `--joc-phase` | the object decode of an E-AC-3 stream (`--format damf` or `adm`) | a TrueHD stream, and the sample outputs of an E-AC-3 one |
+| `--no-clip-gain`, `--flat-quadrature`, `--sparse-as-printed`, `--steep-as-printed`, and the hidden `--joc-lag`, `--joc-low-band`, `--joc-low-fir`, `--joc-phase` | the object decode of an E-AC-3 stream (`--format damf` or `adm`) | a TrueHD stream, and the sample outputs of an E-AC-3 one |
 | `-p`, `--presentation` (`decode` to samples, `compare`) | a TrueHD stream | an AC-3 or E-AC-3 stream, which has one programme (`--core-only` writes the channels of its independent substream alone) |
 | `--keep-duplicates` (`decode`, `compare`) | a TrueHD stream | an AC-3 or E-AC-3 stream |
 | `--on-error` | a TrueHD stream | an AC-3 or E-AC-3 stream |
