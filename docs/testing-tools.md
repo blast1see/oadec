@@ -412,3 +412,50 @@ outside, FFmpeg's and Dolby's, and a reference needs both. `--record` writes
 `specs/ac3.tsv` with the other two files, a line a stream, references and
 probes together; the samples themselves are not in it, because the writer
 works them out afresh and the tests compare this decoder's with those.
+
+# Scenes through the encoders and back
+
+Everything above asks whether a decode is right by another decode or by the
+bytes. `tools/interop.py` asks what comes back of a programme whose every number
+is known, after Dolby's encoders have had it, and asks it across what a programme
+can be. It needs the Dolby Media Encoder; the Reference Player and the
+Conversion Tool are used where they are installed.
+
+```sh
+python tools/interop.py --self-check                       # the design, the scenes and the measures, on known answers
+python tools/interop.py plan                               # the 51 rows
+python tools/interop.py run --work <dir> --path stream     # every row to E-AC-3 JOC and back; --rows 0-9 for some
+python tools/interop.py run --work <dir> --path truehd     # or conversion, own-adm, second
+python tools/interop.py probe --work <dir>                 # one object alone and one thing said of it
+python tools/interop.py report <dir>/rows-*.json           # the rows counted, and the paths held to each other
+```
+
+A row is one value of each of seven axes, and the rows are a pairwise design:
+every value of every axis is with every value of every other in some row. The
+scene of a row is written by the hidden command `oadec atmos-author`, whose
+scenes can say for this what a master says besides places: `fps`, `warp_mode`,
+`snap` and `zones` in a state of an object, a signal for a channel of the bed
+(`bed_signals`), and for a tone the sample it begins at and the sample it has
+ended by (`from`, `until`), so that the elements of a scene can sound one after
+another. A tone that sounds alone is told from every other by when it sounds;
+tones that sound together are told apart by pitch alone, and a coder that rebuilds
+objects from a downmix band by band does not keep apart what shares a band. Both
+kinds of scene are in the design, and the report counts them apart.
+
+What is held to the scene is, for every stretch an object rests at a place, the
+power of its tone in every element of the decode, the element with most of it and
+its share, where that element says it is, what it says of gain, size, lock and
+zone, and when it first says a place the object was told to move to. What is held
+to the other decoder is every element, sample by sample, after lining the two up
+by where the programme begins: a steady tone lines up with itself every period.
+The stream is asked what it says of itself with `info`, `oamd`, `emdf` and
+`verify`. What the 269 streams of the first run said is in `docs/dolby-tools.md`,
+*A matrix of round trips*, and in
+`docs/audit/evidence/engine-round-2026-11/54-scenes-through-the-encoders-and-back.json`.
+
+One thing the run taught about the method. Five TrueHD streams of masters that
+differed only in the frame rate they name differed in a few bytes, and that read
+as the frame rate's doing until the same master was encoded twice: that encoder's
+streams of one master differ as much from run to run. A difference between two
+encodes says something of what was changed only beside two encodes of nothing
+changed.

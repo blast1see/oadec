@@ -1,0 +1,3571 @@
+{
+ "question": "What comes back of a programme whose every number is known, when it goes through Dolby's encoders and `oadec` reads the stream: across the frame rate a master names, its bed, the number of its objects, how they move, what is said of them besides a place, whether the elements sound together or one after another, and what the encoder is told to make of it? Do the tools take what `oadec` writes in every one of those, is every stream they make of it clean, do the two decoders make the same elements of every stream, and what does a second encode of a decode keep?",
+ "method": "A row is one value of each of seven axes; 51 rows are a pairwise design, every value of every axis with every value of every other in some row, of 40 320 combinations (`tools/interop.py plan`). The scene of a row gives every object and every channel of the bed a tone of its own, 60 Hz for the LFE, 150 to 550 Hz for the bed and 600 Hz to 3,2 kHz for the objects, none nearer another than 50 Hz and all below the lowest frequency a core can begin to couple its channels at, so that an element is known by its sound whatever the encoder numbers it. The first three objects move as the row says, the first says what the row says besides its place, and the elements sound together through nine seconds or in turn, each alone for 0,75 s at every place it rests at. `oadec atmos-author` writes the master. Each row goes five ways: to E-AC-3 JOC (`dee_ddpjoc_encoder` of the Dolby Media Encoder, at the rate of the row); through Dolby's Conversion Tool to ADM BWF and then to that encoder; as a second generation, the first stream decoded by `oadec decode` with its defaults to a master and to ADM BWF (`--dolby-origin-tag`) and encoded again; and to TrueHD (`dee_dthd_encoder`, the encoder axis picking 12, 14 or 16 elements). The seven rows whose master names the Lo/Ro warp mode make their second generations once more with `--warp-mode stream`. Of every stream: what `info`, `oamd`, `emdf` and `verify` say; `oadec decode --format damf --no-bed-conform`; for the E-AC-3 ones the object decode of the Dolby Reference Player (`dlbac3dec out-ch-config=21`), lined up by where the programme begins and held to oadec's sample by sample, element by element; and the decode held to the scene: for every stretch an object rests at a place (a rest), the power of its tone in every element, the element that has most of it (the carrier) and its share, where the carrier says it is against where the scene put it (the largest difference in a coordinate; \"at the place\" is within 0,05), and when the carrier first says a place the object was told to move to. Beside the matrix, 33 probes: one object alone over a silent LFE with one thing said of it, through both encoders. Dolby's tools are run as they stand and only what they write is read.",
+ "commands": [
+  "python tools/interop.py --self-check",
+  "python tools/interop.py plan",
+  "python tools/interop.py run --work <dir>/<path> --path stream|conversion|own-adm|second|truehd",
+  "python tools/interop.py run --work <dir>/<path>-warp --path own-adm|second --rows 1,3,14,21,30,31,44 --warp-mode-of-the-stream",
+  "python tools/interop.py probe --work <dir>/probes; python tools/interop.py probe --path truehd --work <dir>/probes-truehd",
+  "python tools/interop.py report <dir>/*/rows-*.json",
+  "dee_ddpjoc_encoder -l <licence> --input-format atmos_mezz -i <master.atmos | adm.wav> -o <out.ec3> --overwrite 1 --start 0 --data-rate <384..1024>   (or --encoder bluray --data-rate 1536)",
+  "dee_dthd_encoder -l <licence> --presentation atmos:number_of_elements=<12|14|16> --input <master.atmos> -o <out.mlp> --overwrite 1 --start 0",
+  "cmdline_atmos_conversion_tool -i <master.atmos> -o <dir> -f wav",
+  "gst-launch-1.0 filesrc location=<in.ec3> ! dlbac3parse enable-metadata=true ! dlbac3dec out-ch-config=21 drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true ! \"audio/x-raw(meta:DlbObjectAudioMeta),format=F32LE\" ! identity ! filesink location=<objects.f32>",
+  "oadec atmos-author <scene.json> -o <master>; oadec decode --format damf --no-bed-conform -o <base> <stream>; oadec decode --format damf|adm [--dolby-origin-tag] [--warp-mode stream] -o <base> <stream>"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "tools": {
+  "oadec": {
+   "name": "oadec-interop-3.exe",
+   "sha256": "bb8adbee1ffae53a42cd7b8db2c86ae8228ec99fa92c219a9bae074e137547e4",
+   "what": "the binary of this change"
+  },
+  "dolby": [
+   "Dolby Media Encoder: dee_ddpjoc_encoder and dee_dthd_encoder of the Dolby Encoding Engine 5.7.2",
+   "Dolby Atmos Conversion Tool 2.1.2",
+   "Dolby Reference Player 3.2.0.8040 (dlbac3dec)"
+  ]
+ },
+ "result": {
+  "the_rows": {
+   "axes": {
+    "fps": [
+     "23.976",
+     "24",
+     "25",
+     "29.97",
+     "30"
+    ],
+    "bed": [
+     "lfe",
+     "2.0",
+     "5.1",
+     "7.1",
+     "7.1.2",
+     "5.0"
+    ],
+    "objects": [
+     1,
+     6,
+     15,
+     20
+    ],
+    "motion": [
+     "still",
+     "slow",
+     "jump",
+     "fast"
+    ],
+    "metadata": [
+     "plain",
+     "gain",
+     "size",
+     "snap",
+     "zones",
+     "warp"
+    ],
+    "sounding": [
+     "together",
+     "in turn"
+    ],
+    "encoder": [
+     "384",
+     "448",
+     "576",
+     "640",
+     "768",
+     "1024",
+     "bluray"
+    ]
+   },
+   "rows": 51,
+   "combinations": 40320,
+   "pairs_of_values_in_no_row": 0,
+   "truehd_elements_by_encoder_value": {
+    "384": 12,
+    "448": 14,
+    "576": 16,
+    "640": 12,
+    "768": 14,
+    "1024": 16,
+    "bluray": 16
+   }
+  },
+  "streams": {
+   "in_all": 269,
+   "e_ac_3": 218,
+   "truehd": 51,
+   "of_the_probes": {
+    "e_ac_3": 33,
+    "truehd": 33
+   },
+   "with_an_object_gain_a_size_a_lock_or_a_zone": 0
+  },
+  "paths": {
+   "stream": {
+    "rows": 51,
+    "streams": 51,
+    "held_to_their_scene": 51,
+    "refused": [],
+    "exit_codes": {
+     "info": {
+      "0": 51
+     },
+     "oamd": {
+      "0": 51
+     },
+     "emdf": {
+      "0": 51
+     },
+     "verify": {
+      "0": 51
+     }
+    },
+    "decode_exit_codes": {
+     "0": 51
+    },
+    "interpolation_branches": {
+     "smooth-1": 51
+    },
+    "streams_with_two_data_points": 0,
+    "streams_with_steep_objects": 0,
+    "streams_with_sparse_objects": 18,
+    "clip_gains": {
+     "1000": 51
+    },
+    "programmes": {
+     "[[\"LFE\"]]": 51
+    },
+    "streams_with_a_trim": 51,
+    "warp_modes": {
+     "1": 44,
+     "3": 7
+    },
+    "ramps": {
+     "1024": 1,
+     "1536": 51,
+     "512": 5
+    },
+    "streams_with_a_ramp_that_is_not_1536": 6,
+    "sample_offsets": {
+     "[\"0\"]": 51
+    },
+    "block_offset_factors": {
+     "[\"0\"]": 51
+    },
+    "dialnorm": {
+     "10": 7,
+     "11": 6,
+     "14": 2,
+     "15": 5,
+     "21": 1,
+     "22": 3,
+     "23": 7,
+     "24": 10,
+     "25": 2,
+     "26": 1,
+     "27": 1,
+     "31": 5,
+     "9": 1
+    },
+    "decoders": {
+     "rows_compared": 51,
+     "rows_not_compared": {},
+     "lags": {
+      "0": 51
+     },
+     "rows_with_a_sound_past_the_elements": 0,
+     "worst_db": {
+      "least": 54.85,
+      "median": 65.28,
+      "most": 110.76,
+      "of": 51
+     },
+     "median_db": {
+      "least": 65.58,
+      "median": 68.62,
+      "most": 125.56,
+      "of": 51
+     },
+     "rows_whose_worst_element_carries_a_tone_below_375_hz": 34
+    },
+    "by_encoder": {
+     "384": {
+      "rows": 7,
+      "bit_rates": {
+       "384000": 7
+      },
+      "core": {
+       "[\"E-AC-3\"]": 7
+      },
+      "substreams": {
+       "[\"independent 0\"]": 7
+      },
+      "downmix_configs": {
+       "3": 7
+      },
+      "bands": {
+       "12": 7
+      },
+      "objects": {
+       "11": 7
+      },
+      "complexity_index": {
+       "12": 7
+      },
+      "coverage": {
+       "aht": 7,
+       "block-switching": 1,
+       "coupling": 7,
+       "dither": 7,
+       "skip-fields": 7
+      }
+     },
+     "448": {
+      "rows": 8,
+      "bit_rates": {
+       "448000": 8
+      },
+      "core": {
+       "[\"E-AC-3\"]": 8
+      },
+      "substreams": {
+       "[\"independent 0\"]": 8
+      },
+      "downmix_configs": {
+       "3": 8
+      },
+      "bands": {
+       "12": 8
+      },
+      "objects": {
+       "15": 8
+      },
+      "complexity_index": {
+       "16": 8
+      },
+      "coverage": {
+       "block-switching": 1,
+       "coupling": 8,
+       "dither": 8,
+       "skip-fields": 8
+      }
+     },
+     "576": {
+      "rows": 8,
+      "bit_rates": {
+       "576000": 8
+      },
+      "core": {
+       "[\"E-AC-3\"]": 8
+      },
+      "substreams": {
+       "[\"independent 0\"]": 8
+      },
+      "downmix_configs": {
+       "3": 8
+      },
+      "bands": {
+       "12": 8
+      },
+      "objects": {
+       "15": 8
+      },
+      "complexity_index": {
+       "16": 8
+      },
+      "coverage": {
+       "block-switching": 4,
+       "coupling": 8,
+       "dither": 8,
+       "skip-fields": 8
+      }
+     },
+     "640": {
+      "rows": 7,
+      "bit_rates": {
+       "640000": 7
+      },
+      "core": {
+       "[\"E-AC-3\"]": 7
+      },
+      "substreams": {
+       "[\"independent 0\"]": 7
+      },
+      "downmix_configs": {
+       "3": 7
+      },
+      "bands": {
+       "12": 7
+      },
+      "objects": {
+       "15": 7
+      },
+      "complexity_index": {
+       "16": 7
+      },
+      "coverage": {
+       "block-switching": 2,
+       "dither": 7,
+       "skip-fields": 7
+      }
+     },
+     "768": {
+      "rows": 7,
+      "bit_rates": {
+       "768000": 7
+      },
+      "core": {
+       "[\"E-AC-3\"]": 7
+      },
+      "substreams": {
+       "[\"independent 0\"]": 7
+      },
+      "downmix_configs": {
+       "3": 7
+      },
+      "bands": {
+       "12": 7
+      },
+      "objects": {
+       "15": 7
+      },
+      "complexity_index": {
+       "16": 7
+      },
+      "coverage": {
+       "block-switching": 1,
+       "dither": 7,
+       "skip-fields": 7
+      }
+     },
+     "1024": {
+      "rows": 7,
+      "bit_rates": {
+       "1024000": 7
+      },
+      "core": {
+       "[\"E-AC-3\"]": 7
+      },
+      "substreams": {
+       "[\"independent 0\"]": 7
+      },
+      "downmix_configs": {
+       "3": 7
+      },
+      "bands": {
+       "12": 7
+      },
+      "objects": {
+       "15": 7
+      },
+      "complexity_index": {
+       "16": 7
+      },
+      "coverage": {
+       "block-switching": 3,
+       "dither": 7,
+       "skip-fields": 7
+      }
+     },
+     "bluray": {
+      "rows": 7,
+      "bit_rates": {
+       "640000": 7
+      },
+      "core": {
+       "[\"AC-3\", \"E-AC-3\"]": 7
+      },
+      "substreams": {
+       "[\"independent 0\", \"dependent 0\"]": 7
+      },
+      "downmix_configs": {
+       "4": 7
+      },
+      "bands": {
+       "15": 7
+      },
+      "objects": {
+       "15": 7
+      },
+      "complexity_index": {
+       "16": 7
+      },
+      "coverage": {
+       "dither": 7,
+       "skip-fields": 7
+      }
+     }
+    },
+    "held": {
+     "together": {
+      "every row": {
+       "rows": 26,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 26
+       },
+       "rests_of_objects": 388,
+       "heard": 388,
+       "carried_by_one_element": 112,
+       "carrier_at_the_authored_place": 238,
+       "level_minus_authored_db": {
+        "least": -7.28,
+        "median": -0.95,
+        "most": 0.47,
+        "of": 388
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 341,
+        "carried_by_one_element": 102,
+        "carrier_at_the_authored_place": 217,
+        "level_minus_authored_db": {
+         "least": -7.28,
+         "median": -1.03,
+         "most": 0.37,
+         "of": 341
+        },
+        "moves": 63,
+        "moves_the_carrier_makes": 48,
+        "carrier_gets_there_after_samples": {
+         "least": 128,
+         "median": 3200,
+         "most": 5120,
+         "of": 48
+        }
+       },
+       "bed_channels": 136,
+       "bed_channels_heard": 136,
+       "bed_channels_kept_as_bed": 19,
+       "bed_level_minus_authored_db": {
+        "least": -3.86,
+        "median": -0.2,
+        "most": 0.39,
+        "of": 136
+       },
+       "bed_channels_with_a_place": 117,
+       "bed_carrier_at_the_speaker": 71
+      },
+      "rows with no more elements than came back": {
+       "rows": 12,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 12
+       },
+       "rests_of_objects": 105,
+       "heard": 105,
+       "carried_by_one_element": 67,
+       "carrier_at_the_authored_place": 97,
+       "level_minus_authored_db": {
+        "least": -3.45,
+        "median": -0.19,
+        "most": 0.27,
+        "of": 105
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 84,
+        "carried_by_one_element": 58,
+        "carrier_at_the_authored_place": 84,
+        "level_minus_authored_db": {
+         "least": -3.45,
+         "median": -0.19,
+         "most": 0.27,
+         "of": 84
+        },
+        "moves": 27,
+        "moves_the_carrier_makes": 27,
+        "carrier_gets_there_after_samples": {
+         "least": 128,
+         "median": 3200,
+         "most": 3584,
+         "of": 27
+        }
+       },
+       "bed_channels": 52,
+       "bed_channels_heard": 52,
+       "bed_channels_kept_as_bed": 10,
+       "bed_level_minus_authored_db": {
+        "least": -1.92,
+        "median": -0.2,
+        "most": 0.01,
+        "of": 52
+       },
+       "bed_channels_with_a_place": 42,
+       "bed_carrier_at_the_speaker": 42
+      },
+      "rows with more elements than came back": {
+       "rows": 14,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 14
+       },
+       "rests_of_objects": 283,
+       "heard": 283,
+       "carried_by_one_element": 45,
+       "carrier_at_the_authored_place": 141,
+       "level_minus_authored_db": {
+        "least": -7.28,
+        "median": -1.36,
+        "most": 0.47,
+        "of": 283
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 257,
+        "carried_by_one_element": 44,
+        "carrier_at_the_authored_place": 133,
+        "level_minus_authored_db": {
+         "least": -7.28,
+         "median": -1.34,
+         "most": 0.37,
+         "of": 257
+        },
+        "moves": 36,
+        "moves_the_carrier_makes": 21,
+        "carrier_gets_there_after_samples": {
+         "least": 1664,
+         "median": 3200,
+         "most": 5120,
+         "of": 21
+        }
+       },
+       "bed_channels": 84,
+       "bed_channels_heard": 84,
+       "bed_channels_kept_as_bed": 9,
+       "bed_level_minus_authored_db": {
+        "least": -3.86,
+        "median": -0.2,
+        "most": 0.39,
+        "of": 84
+       },
+       "bed_channels_with_a_place": 75,
+       "bed_carrier_at_the_speaker": 29
+      }
+     },
+     "in turn": {
+      "every row": {
+       "rows": 25,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 25
+       },
+       "rests_of_objects": 329,
+       "heard": 329,
+       "carried_by_one_element": 314,
+       "carrier_at_the_authored_place": 310,
+       "level_minus_authored_db": {
+        "least": -2.33,
+        "median": -0.01,
+        "most": 0.53,
+        "of": 329
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 296,
+        "carried_by_one_element": 296,
+        "carrier_at_the_authored_place": 296,
+        "level_minus_authored_db": {
+         "least": -0.21,
+         "median": -0.01,
+         "most": 0.22,
+         "of": 296
+        },
+        "moves": 54,
+        "moves_the_carrier_makes": 54,
+        "carrier_gets_there_after_samples": {
+         "least": 896,
+         "median": 2720,
+         "most": 3776,
+         "of": 54
+        }
+       },
+       "bed_channels": 144,
+       "bed_channels_heard": 144,
+       "bed_channels_kept_as_bed": 16,
+       "bed_level_minus_authored_db": {
+        "least": -0.22,
+        "median": -0.07,
+        "most": 0.04,
+        "of": 144
+       },
+       "bed_channels_with_a_place": 128,
+       "bed_carrier_at_the_speaker": 128
+      },
+      "rows with no more elements than came back": {
+       "rows": 13,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 13
+       },
+       "rests_of_objects": 83,
+       "heard": 83,
+       "carried_by_one_element": 77,
+       "carrier_at_the_authored_place": 77,
+       "level_minus_authored_db": {
+        "least": -2.33,
+        "median": -0.01,
+        "most": 0.16,
+        "of": 83
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 70,
+        "carried_by_one_element": 70,
+        "carrier_at_the_authored_place": 70,
+        "level_minus_authored_db": {
+         "least": -0.21,
+         "median": -0.01,
+         "most": 0.16,
+         "of": 70
+        },
+        "moves": 29,
+        "moves_the_carrier_makes": 29,
+        "carrier_gets_there_after_samples": {
+         "least": 896,
+         "median": 2816,
+         "most": 3776,
+         "of": 29
+        }
+       },
+       "bed_channels": 75,
+       "bed_channels_heard": 75,
+       "bed_channels_kept_as_bed": 9,
+       "bed_level_minus_authored_db": {
+        "least": -0.22,
+        "median": -0.07,
+        "most": 0.04,
+        "of": 75
+       },
+       "bed_channels_with_a_place": 66,
+       "bed_carrier_at_the_speaker": 66
+      },
+      "rows with more elements than came back": {
+       "rows": 12,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 12
+       },
+       "rests_of_objects": 246,
+       "heard": 246,
+       "carried_by_one_element": 237,
+       "carrier_at_the_authored_place": 233,
+       "level_minus_authored_db": {
+        "least": -1.59,
+        "median": -0.01,
+        "most": 0.53,
+        "of": 246
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 226,
+        "carried_by_one_element": 226,
+        "carrier_at_the_authored_place": 226,
+        "level_minus_authored_db": {
+         "least": -0.12,
+         "median": -0.01,
+         "most": 0.22,
+         "of": 226
+        },
+        "moves": 25,
+        "moves_the_carrier_makes": 25,
+        "carrier_gets_there_after_samples": {
+         "least": 896,
+         "median": 2624,
+         "most": 3776,
+         "of": 25
+        }
+       },
+       "bed_channels": 69,
+       "bed_channels_heard": 69,
+       "bed_channels_kept_as_bed": 7,
+       "bed_level_minus_authored_db": {
+        "least": -0.22,
+        "median": -0.07,
+        "most": 0.01,
+        "of": 69
+       },
+       "bed_channels_with_a_place": 62,
+       "bed_carrier_at_the_speaker": 62
+      }
+     }
+    }
+   },
+   "conversion": {
+    "rows": 51,
+    "streams": 51,
+    "held_to_their_scene": 51,
+    "refused": [],
+    "exit_codes": {
+     "info": {
+      "0": 51
+     },
+     "oamd": {
+      "0": 51
+     },
+     "emdf": {
+      "0": 51
+     },
+     "verify": {
+      "0": 51
+     }
+    },
+    "decode_exit_codes": {
+     "0": 51
+    },
+    "warp_modes": {
+     "1": 44,
+     "3": 7
+    },
+    "decoders": {
+     "rows_compared": 51,
+     "rows_not_compared": {},
+     "lags": {
+      "0": 51
+     },
+     "rows_with_a_sound_past_the_elements": 0,
+     "worst_db": {
+      "least": 54.85,
+      "median": 65.28,
+      "most": 110.76,
+      "of": 51
+     },
+     "median_db": {
+      "least": 65.58,
+      "median": 68.62,
+      "most": 125.56,
+      "of": 51
+     },
+     "rows_whose_worst_element_carries_a_tone_below_375_hz": 34
+    },
+    "its_streams": "the same bytes as those of the stream path, row for row (below), and so everything said of them"
+   },
+   "second": {
+    "rows": 51,
+    "streams": 51,
+    "held_to_their_scene": 51,
+    "refused": [],
+    "exit_codes": {
+     "info": {
+      "0": 51
+     },
+     "oamd": {
+      "0": 51
+     },
+     "emdf": {
+      "0": 51
+     },
+     "verify": {
+      "0": 51
+     }
+    },
+    "decode_exit_codes": {
+     "0": 51
+    },
+    "interpolation_branches": {
+     "smooth-1": 51
+    },
+    "streams_with_two_data_points": 0,
+    "streams_with_steep_objects": 0,
+    "streams_with_sparse_objects": 12,
+    "clip_gains": {
+     "1000": 51,
+     "1031": 1
+    },
+    "programmes": {
+     "[[\"LFE\"]]": 51
+    },
+    "streams_with_a_trim": 51,
+    "warp_modes": {
+     "1": 51
+    },
+    "ramps": {
+     "1536": 51
+    },
+    "streams_with_a_ramp_that_is_not_1536": 0,
+    "sample_offsets": {
+     "[\"0\"]": 51
+    },
+    "block_offset_factors": {
+     "[\"0\"]": 51
+    },
+    "dialnorm": {
+     "10": 3,
+     "11": 3,
+     "14": 1,
+     "15": 6,
+     "20": 1,
+     "23": 10,
+     "24": 9,
+     "25": 2,
+     "26": 1,
+     "27": 1,
+     "31": 6,
+     "8": 2,
+     "9": 6
+    },
+    "decoders": {
+     "rows_compared": 51,
+     "rows_not_compared": {},
+     "lags": {
+      "0": 51
+     },
+     "rows_with_a_sound_past_the_elements": 0,
+     "worst_db": {
+      "least": 70.13,
+      "median": 79.25,
+      "most": 109.89,
+      "of": 51
+     },
+     "median_db": {
+      "least": 79.05,
+      "median": 84.0,
+      "most": 125.47,
+      "of": 51
+     },
+     "rows_whose_worst_element_carries_a_tone_below_375_hz": 33
+    },
+    "by_encoder": {
+     "384": {
+      "rows": 7,
+      "bit_rates": {
+       "384000": 7
+      },
+      "core": {
+       "[\"E-AC-3\"]": 7
+      },
+      "substreams": {
+       "[\"independent 0\"]": 7
+      },
+      "downmix_configs": {
+       "3": 7
+      },
+      "bands": {
+       "12": 7
+      },
+      "objects": {
+       "11": 7
+      },
+      "complexity_index": {
+       "12": 7
+      },
+      "coverage": {
+       "aht": 7,
+       "block-switching": 1,
+       "coupling": 7,
+       "dither": 7,
+       "skip-fields": 7
+      }
+     },
+     "448": {
+      "rows": 8,
+      "bit_rates": {
+       "448000": 8
+      },
+      "core": {
+       "[\"E-AC-3\"]": 8
+      },
+      "substreams": {
+       "[\"independent 0\"]": 8
+      },
+      "downmix_configs": {
+       "3": 8
+      },
+      "bands": {
+       "12": 8
+      },
+      "objects": {
+       "15": 8
+      },
+      "complexity_index": {
+       "16": 8
+      },
+      "coverage": {
+       "coupling": 8,
+       "dither": 8,
+       "skip-fields": 8
+      }
+     },
+     "576": {
+      "rows": 8,
+      "bit_rates": {
+       "576000": 8
+      },
+      "core": {
+       "[\"E-AC-3\"]": 8
+      },
+      "substreams": {
+       "[\"independent 0\"]": 8
+      },
+      "downmix_configs": {
+       "3": 8
+      },
+      "bands": {
+       "12": 8
+      },
+      "objects": {
+       "15": 8
+      },
+      "complexity_index": {
+       "16": 8
+      },
+      "coverage": {
+       "block-switching": 2,
+       "coupling": 8,
+       "dither": 8,
+       "skip-fields": 8
+      }
+     },
+     "640": {
+      "rows": 7,
+      "bit_rates": {
+       "640000": 7
+      },
+      "core": {
+       "[\"E-AC-3\"]": 7
+      },
+      "substreams": {
+       "[\"independent 0\"]": 7
+      },
+      "downmix_configs": {
+       "3": 7
+      },
+      "bands": {
+       "12": 7
+      },
+      "objects": {
+       "15": 7
+      },
+      "complexity_index": {
+       "16": 7
+      },
+      "coverage": {
+       "block-switching": 1,
+       "dither": 7,
+       "skip-fields": 7
+      }
+     },
+     "768": {
+      "rows": 7,
+      "bit_rates": {
+       "768000": 7
+      },
+      "core": {
+       "[\"E-AC-3\"]": 7
+      },
+      "substreams": {
+       "[\"independent 0\"]": 7
+      },
+      "downmix_configs": {
+       "3": 7
+      },
+      "bands": {
+       "12": 7
+      },
+      "objects": {
+       "15": 7
+      },
+      "complexity_index": {
+       "16": 7
+      },
+      "coverage": {
+       "dither": 7,
+       "skip-fields": 7
+      }
+     },
+     "1024": {
+      "rows": 7,
+      "bit_rates": {
+       "1024000": 7
+      },
+      "core": {
+       "[\"E-AC-3\"]": 7
+      },
+      "substreams": {
+       "[\"independent 0\"]": 7
+      },
+      "downmix_configs": {
+       "3": 7
+      },
+      "bands": {
+       "12": 7
+      },
+      "objects": {
+       "15": 7
+      },
+      "complexity_index": {
+       "16": 7
+      },
+      "coverage": {
+       "block-switching": 3,
+       "dither": 7,
+       "skip-fields": 7
+      }
+     },
+     "bluray": {
+      "rows": 7,
+      "bit_rates": {
+       "640000": 7
+      },
+      "core": {
+       "[\"AC-3\", \"E-AC-3\"]": 7
+      },
+      "substreams": {
+       "[\"independent 0\", \"dependent 0\"]": 7
+      },
+      "downmix_configs": {
+       "4": 7
+      },
+      "bands": {
+       "15": 7
+      },
+      "objects": {
+       "15": 7
+      },
+      "complexity_index": {
+       "16": 7
+      },
+      "coverage": {
+       "dither": 7,
+       "skip-fields": 7
+      }
+     }
+    },
+    "held": {
+     "together": {
+      "every row": {
+       "rows": 26,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 26
+       },
+       "rests_of_objects": 388,
+       "heard": 388,
+       "carried_by_one_element": 83,
+       "carrier_at_the_authored_place": 234,
+       "level_minus_authored_db": {
+        "least": -7.55,
+        "median": -1.39,
+        "most": 0.36,
+        "of": 388
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 341,
+        "carried_by_one_element": 78,
+        "carrier_at_the_authored_place": 213,
+        "level_minus_authored_db": {
+         "least": -7.55,
+         "median": -1.46,
+         "most": 0.33,
+         "of": 341
+        },
+        "moves": 63,
+        "moves_the_carrier_makes": 46,
+        "carrier_gets_there_after_samples": {
+         "least": 128,
+         "median": 3584,
+         "most": 4736,
+         "of": 46
+        }
+       },
+       "bed_channels": 136,
+       "bed_channels_heard": 136,
+       "bed_channels_kept_as_bed": 19,
+       "bed_level_minus_authored_db": {
+        "least": -4.71,
+        "median": -0.4,
+        "most": 0.87,
+        "of": 136
+       },
+       "bed_channels_with_a_place": 117,
+       "bed_carrier_at_the_speaker": 69
+      },
+      "rows with no more elements than came back": {
+       "rows": 12,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 12
+       },
+       "rests_of_objects": 105,
+       "heard": 105,
+       "carried_by_one_element": 53,
+       "carrier_at_the_authored_place": 96,
+       "level_minus_authored_db": {
+        "least": -4.65,
+        "median": -0.35,
+        "most": 0.36,
+        "of": 105
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 84,
+        "carried_by_one_element": 48,
+        "carrier_at_the_authored_place": 83,
+        "level_minus_authored_db": {
+         "least": -4.65,
+         "median": -0.35,
+         "most": 0.33,
+         "of": 84
+        },
+        "moves": 27,
+        "moves_the_carrier_makes": 27,
+        "carrier_gets_there_after_samples": {
+         "least": 128,
+         "median": 3584,
+         "most": 4736,
+         "of": 27
+        }
+       },
+       "bed_channels": 52,
+       "bed_channels_heard": 52,
+       "bed_channels_kept_as_bed": 10,
+       "bed_level_minus_authored_db": {
+        "least": -1.89,
+        "median": -0.4,
+        "most": 0.01,
+        "of": 52
+       },
+       "bed_channels_with_a_place": 42,
+       "bed_carrier_at_the_speaker": 41
+      },
+      "rows with more elements than came back": {
+       "rows": 14,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 14
+       },
+       "rests_of_objects": 283,
+       "heard": 283,
+       "carried_by_one_element": 30,
+       "carrier_at_the_authored_place": 138,
+       "level_minus_authored_db": {
+        "least": -7.55,
+        "median": -1.76,
+        "most": 0.27,
+        "of": 283
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 257,
+        "carried_by_one_element": 30,
+        "carrier_at_the_authored_place": 130,
+        "level_minus_authored_db": {
+         "least": -7.55,
+         "median": -1.78,
+         "most": 0.27,
+         "of": 257
+        },
+        "moves": 36,
+        "moves_the_carrier_makes": 19,
+        "carrier_gets_there_after_samples": {
+         "least": 1664,
+         "median": 3584,
+         "most": 4736,
+         "of": 19
+        }
+       },
+       "bed_channels": 84,
+       "bed_channels_heard": 84,
+       "bed_channels_kept_as_bed": 9,
+       "bed_level_minus_authored_db": {
+        "least": -4.71,
+        "median": -0.4,
+        "most": 0.87,
+        "of": 84
+       },
+       "bed_channels_with_a_place": 75,
+       "bed_carrier_at_the_speaker": 28
+      }
+     },
+     "in turn": {
+      "every row": {
+       "rows": 25,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 25
+       },
+       "rests_of_objects": 329,
+       "heard": 329,
+       "carried_by_one_element": 314,
+       "carrier_at_the_authored_place": 310,
+       "level_minus_authored_db": {
+        "least": -2.37,
+        "median": -0.02,
+        "most": 0.49,
+        "of": 329
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 296,
+        "carried_by_one_element": 296,
+        "carrier_at_the_authored_place": 296,
+        "level_minus_authored_db": {
+         "least": -0.28,
+         "median": -0.01,
+         "most": 0.45,
+         "of": 296
+        },
+        "moves": 54,
+        "moves_the_carrier_makes": 54,
+        "carrier_gets_there_after_samples": {
+         "least": 1376,
+         "median": 3392,
+         "most": 4832,
+         "of": 54
+        }
+       },
+       "bed_channels": 144,
+       "bed_channels_heard": 144,
+       "bed_channels_kept_as_bed": 16,
+       "bed_level_minus_authored_db": {
+        "least": -0.43,
+        "median": -0.15,
+        "most": 0.08,
+        "of": 144
+       },
+       "bed_channels_with_a_place": 128,
+       "bed_carrier_at_the_speaker": 128
+      },
+      "rows with no more elements than came back": {
+       "rows": 13,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 13
+       },
+       "rests_of_objects": 83,
+       "heard": 83,
+       "carried_by_one_element": 77,
+       "carrier_at_the_authored_place": 77,
+       "level_minus_authored_db": {
+        "least": -2.37,
+        "median": -0.02,
+        "most": 0.2,
+        "of": 83
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 70,
+        "carried_by_one_element": 70,
+        "carrier_at_the_authored_place": 70,
+        "level_minus_authored_db": {
+         "least": -0.28,
+         "median": -0.01,
+         "most": 0.2,
+         "of": 70
+        },
+        "moves": 29,
+        "moves_the_carrier_makes": 29,
+        "carrier_gets_there_after_samples": {
+         "least": 1376,
+         "median": 3296,
+         "most": 4832,
+         "of": 29
+        }
+       },
+       "bed_channels": 75,
+       "bed_channels_heard": 75,
+       "bed_channels_kept_as_bed": 9,
+       "bed_level_minus_authored_db": {
+        "least": -0.43,
+        "median": -0.15,
+        "most": 0.08,
+        "of": 75
+       },
+       "bed_channels_with_a_place": 66,
+       "bed_carrier_at_the_speaker": 66
+      },
+      "rows with more elements than came back": {
+       "rows": 12,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 12
+       },
+       "rests_of_objects": 246,
+       "heard": 246,
+       "carried_by_one_element": 237,
+       "carrier_at_the_authored_place": 233,
+       "level_minus_authored_db": {
+        "least": -1.61,
+        "median": -0.01,
+        "most": 0.49,
+        "of": 246
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 226,
+        "carried_by_one_element": 226,
+        "carrier_at_the_authored_place": 226,
+        "level_minus_authored_db": {
+         "least": -0.23,
+         "median": -0.01,
+         "most": 0.45,
+         "of": 226
+        },
+        "moves": 25,
+        "moves_the_carrier_makes": 25,
+        "carrier_gets_there_after_samples": {
+         "least": 1760,
+         "median": 3488,
+         "most": 4832,
+         "of": 25
+        }
+       },
+       "bed_channels": 69,
+       "bed_channels_heard": 69,
+       "bed_channels_kept_as_bed": 7,
+       "bed_level_minus_authored_db": {
+        "least": -0.43,
+        "median": -0.15,
+        "most": 0.01,
+        "of": 69
+       },
+       "bed_channels_with_a_place": 62,
+       "bed_carrier_at_the_speaker": 62
+      }
+     }
+    }
+   },
+   "own-adm": {
+    "rows": 51,
+    "streams": 51,
+    "held_to_their_scene": 51,
+    "refused": [],
+    "exit_codes": {
+     "info": {
+      "0": 51
+     },
+     "oamd": {
+      "0": 51
+     },
+     "emdf": {
+      "0": 51
+     },
+     "verify": {
+      "0": 51
+     }
+    },
+    "decode_exit_codes": {
+     "0": 51
+    },
+    "warp_modes": {
+     "1": 51
+    },
+    "decoders": {
+     "rows_compared": 51,
+     "rows_not_compared": {},
+     "lags": {
+      "0": 51
+     },
+     "rows_with_a_sound_past_the_elements": 0,
+     "worst_db": {
+      "least": 70.13,
+      "median": 79.25,
+      "most": 109.89,
+      "of": 51
+     },
+     "median_db": {
+      "least": 79.05,
+      "median": 84.0,
+      "most": 125.47,
+      "of": 51
+     },
+     "rows_whose_worst_element_carries_a_tone_below_375_hz": 33
+    },
+    "its_streams": "the same bytes as those of the second path, row for row (below)"
+   },
+   "second, the warp mode named": {
+    "rows": 7,
+    "streams": 7,
+    "held_to_their_scene": 7,
+    "refused": [],
+    "exit_codes": {
+     "info": {
+      "0": 7
+     },
+     "oamd": {
+      "0": 7
+     },
+     "emdf": {
+      "0": 7
+     },
+     "verify": {
+      "0": 7
+     }
+    },
+    "decode_exit_codes": {
+     "0": 7
+    },
+    "warp_modes": {
+     "3": 7
+    },
+    "decoders": {
+     "rows_compared": 7,
+     "rows_not_compared": {},
+     "lags": {
+      "0": 7
+     },
+     "rows_with_a_sound_past_the_elements": 0,
+     "worst_db": {
+      "least": 74.7,
+      "median": 79.44,
+      "most": 109.74,
+      "of": 7
+     },
+     "median_db": {
+      "least": 79.32,
+      "median": 82.84,
+      "most": 125.45,
+      "of": 7
+     },
+     "rows_whose_worst_element_carries_a_tone_below_375_hz": 4
+    }
+   },
+   "own-adm, the warp mode named": {
+    "rows": 7,
+    "streams": 7,
+    "held_to_their_scene": 7,
+    "refused": [],
+    "exit_codes": {
+     "info": {
+      "0": 7
+     },
+     "oamd": {
+      "0": 7
+     },
+     "emdf": {
+      "0": 7
+     },
+     "verify": {
+      "0": 7
+     }
+    },
+    "decode_exit_codes": {
+     "0": 7
+    },
+    "warp_modes": {
+     "3": 7
+    },
+    "decoders": {
+     "rows_compared": 7,
+     "rows_not_compared": {},
+     "lags": {
+      "0": 7
+     },
+     "rows_with_a_sound_past_the_elements": 0,
+     "worst_db": {
+      "least": 74.7,
+      "median": 79.44,
+      "most": 109.74,
+      "of": 7
+     },
+     "median_db": {
+      "least": 79.32,
+      "median": 82.84,
+      "most": 125.45,
+      "of": 7
+     },
+     "rows_whose_worst_element_carries_a_tone_below_375_hz": 4
+    }
+   },
+   "truehd": {
+    "rows": 51,
+    "streams": 51,
+    "held_to_their_scene": 51,
+    "refused": [],
+    "exit_codes": {
+     "info": {
+      "0": 51
+     },
+     "oamd": {
+      "0": 51
+     },
+     "emdf": {
+      "0": 51
+     },
+     "verify": {
+      "0": 51
+     }
+    },
+    "decode_exit_codes": {
+     "0": 51
+    },
+    "interpolation_branches": {},
+    "streams_with_two_data_points": 0,
+    "streams_with_steep_objects": 0,
+    "streams_with_sparse_objects": 0,
+    "clip_gains": {},
+    "programmes": {
+     "[[\"LFE\"]]": 51
+    },
+    "streams_with_a_trim": 0,
+    "warp_modes": {},
+    "ramps": {
+     "1152": 4,
+     "1344": 2,
+     "1536": 51,
+     "288": 1,
+     "384": 28,
+     "576": 3,
+     "672": 1,
+     "768": 2,
+     "864": 5,
+     "96": 2,
+     "960": 1
+    },
+    "streams_with_a_ramp_that_is_not_1536": 49,
+    "sample_offsets": {
+     "[\"0\", \"8\", \"16\", \"24\"]": 51
+    },
+    "block_offset_factors": {
+     "[\"0\", \"1\"]": 51
+    },
+    "dialnorm": {},
+    "decoders": {
+     "rows_compared": 0,
+     "rows_not_compared": {},
+     "lags": {},
+     "rows_with_a_sound_past_the_elements": 0,
+     "worst_db": null,
+     "median_db": null,
+     "rows_whose_worst_element_carries_a_tone_below_375_hz": 0
+    },
+    "objects_back_by_elements_asked": {
+     "12": {
+      "11": 14
+     },
+     "14": {
+      "13": 15
+     },
+     "16": {
+      "15": 22
+     }
+    },
+    "held": {
+     "together": {
+      "every row": {
+       "rows": 26,
+       "objects_back": {
+        "least": 11,
+        "median": 13,
+        "most": 15,
+        "of": 26
+       },
+       "rests_of_objects": 388,
+       "heard": 388,
+       "carried_by_one_element": 251,
+       "carrier_at_the_authored_place": 208,
+       "level_minus_authored_db": {
+        "least": -4.28,
+        "median": -0.13,
+        "most": 1.93,
+        "of": 388
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 341,
+        "carried_by_one_element": 227,
+        "carrier_at_the_authored_place": 188,
+        "level_minus_authored_db": {
+         "least": -4.28,
+         "median": -0.16,
+         "most": 0.0,
+         "of": 341
+        },
+        "moves": 63,
+        "moves_the_carrier_makes": 39,
+        "carrier_gets_there_after_samples": {
+         "least": 384,
+         "median": 3456,
+         "most": 5376,
+         "of": 39
+        }
+       },
+       "bed_channels": 136,
+       "bed_channels_heard": 136,
+       "bed_channels_kept_as_bed": 19,
+       "bed_level_minus_authored_db": {
+        "least": -3.31,
+        "median": 0.0,
+        "most": 0.0,
+        "of": 136
+       },
+       "bed_channels_with_a_place": 117,
+       "bed_carrier_at_the_speaker": 69
+      },
+      "rows with no more elements than came back": {
+       "rows": 11,
+       "objects_back": {
+        "least": 11,
+        "median": 13,
+        "most": 15,
+        "of": 11
+       },
+       "rests_of_objects": 84,
+       "heard": 84,
+       "carried_by_one_element": 76,
+       "carrier_at_the_authored_place": 76,
+       "level_minus_authored_db": {
+        "least": 0.0,
+        "median": 0.0,
+        "most": 0.0,
+        "of": 84
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 66,
+        "carried_by_one_element": 66,
+        "carrier_at_the_authored_place": 66,
+        "level_minus_authored_db": {
+         "least": 0.0,
+         "median": 0.0,
+         "most": 0.0,
+         "of": 66
+        },
+        "moves": 23,
+        "moves_the_carrier_makes": 23,
+        "carrier_gets_there_after_samples": {
+         "least": 384,
+         "median": 3456,
+         "most": 3840,
+         "of": 23
+        }
+       },
+       "bed_channels": 51,
+       "bed_channels_heard": 51,
+       "bed_channels_kept_as_bed": 9,
+       "bed_level_minus_authored_db": {
+        "least": -0.07,
+        "median": 0.0,
+        "most": 0.0,
+        "of": 51
+       },
+       "bed_channels_with_a_place": 42,
+       "bed_carrier_at_the_speaker": 42
+      },
+      "rows with more elements than came back": {
+       "rows": 15,
+       "objects_back": {
+        "least": 11,
+        "median": 13,
+        "most": 15,
+        "of": 15
+       },
+       "rests_of_objects": 304,
+       "heard": 304,
+       "carried_by_one_element": 175,
+       "carrier_at_the_authored_place": 132,
+       "level_minus_authored_db": {
+        "least": -4.28,
+        "median": -0.33,
+        "most": 1.93,
+        "of": 304
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 275,
+        "carried_by_one_element": 161,
+        "carrier_at_the_authored_place": 122,
+        "level_minus_authored_db": {
+         "least": -4.28,
+         "median": -0.35,
+         "most": 0.0,
+         "of": 275
+        },
+        "moves": 40,
+        "moves_the_carrier_makes": 16,
+        "carrier_gets_there_after_samples": {
+         "least": 1920,
+         "median": 3456,
+         "most": 5376,
+         "of": 16
+        }
+       },
+       "bed_channels": 85,
+       "bed_channels_heard": 85,
+       "bed_channels_kept_as_bed": 10,
+       "bed_level_minus_authored_db": {
+        "least": -3.31,
+        "median": 0.0,
+        "most": 0.0,
+        "of": 85
+       },
+       "bed_channels_with_a_place": 75,
+       "bed_carrier_at_the_speaker": 27
+      }
+     },
+     "in turn": {
+      "every row": {
+       "rows": 25,
+       "objects_back": {
+        "least": 11,
+        "median": 13,
+        "most": 15,
+        "of": 25
+       },
+       "rests_of_objects": 329,
+       "heard": 329,
+       "carried_by_one_element": 314,
+       "carrier_at_the_authored_place": 310,
+       "level_minus_authored_db": {
+        "least": -2.15,
+        "median": 0.0,
+        "most": 0.51,
+        "of": 329
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 296,
+        "carried_by_one_element": 296,
+        "carrier_at_the_authored_place": 296,
+        "level_minus_authored_db": {
+         "least": 0.0,
+         "median": 0.0,
+         "most": 0.0,
+         "of": 296
+        },
+        "moves": 54,
+        "moves_the_carrier_makes": 54,
+        "carrier_gets_there_after_samples": {
+         "least": 1152,
+         "median": 2976,
+         "most": 4032,
+         "of": 54
+        }
+       },
+       "bed_channels": 144,
+       "bed_channels_heard": 144,
+       "bed_channels_kept_as_bed": 16,
+       "bed_level_minus_authored_db": {
+        "least": 0.0,
+        "median": 0.0,
+        "most": 0.0,
+        "of": 144
+       },
+       "bed_channels_with_a_place": 128,
+       "bed_carrier_at_the_speaker": 128
+      },
+      "rows with no more elements than came back": {
+       "rows": 11,
+       "objects_back": {
+        "least": 11,
+        "median": 15,
+        "most": 15,
+        "of": 11
+       },
+       "rests_of_objects": 62,
+       "heard": 62,
+       "carried_by_one_element": 56,
+       "carrier_at_the_authored_place": 56,
+       "level_minus_authored_db": {
+        "least": -2.15,
+        "median": 0.0,
+        "most": 0.05,
+        "of": 62
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 49,
+        "carried_by_one_element": 49,
+        "carrier_at_the_authored_place": 49,
+        "level_minus_authored_db": {
+         "least": 0.0,
+         "median": 0.0,
+         "most": 0.0,
+         "of": 49
+        },
+        "moves": 20,
+        "moves_the_carrier_makes": 20,
+        "carrier_gets_there_after_samples": {
+         "least": 1152,
+         "median": 3072,
+         "most": 4032,
+         "of": 20
+        }
+       },
+       "bed_channels": 59,
+       "bed_channels_heard": 59,
+       "bed_channels_kept_as_bed": 7,
+       "bed_level_minus_authored_db": {
+        "least": 0.0,
+        "median": 0.0,
+        "most": 0.0,
+        "of": 59
+       },
+       "bed_channels_with_a_place": 52,
+       "bed_carrier_at_the_speaker": 52
+      },
+      "rows with more elements than came back": {
+       "rows": 14,
+       "objects_back": {
+        "least": 11,
+        "median": 13,
+        "most": 15,
+        "of": 14
+       },
+       "rests_of_objects": 267,
+       "heard": 267,
+       "carried_by_one_element": 258,
+       "carrier_at_the_authored_place": 254,
+       "level_minus_authored_db": {
+        "least": -1.62,
+        "median": 0.0,
+        "most": 0.51,
+        "of": 267
+       },
+       "objects_with_a_place_and_nothing_else": {
+        "rests_heard": 247,
+        "carried_by_one_element": 247,
+        "carrier_at_the_authored_place": 247,
+        "level_minus_authored_db": {
+         "least": 0.0,
+         "median": 0.0,
+         "most": 0.0,
+         "of": 247
+        },
+        "moves": 34,
+        "moves_the_carrier_makes": 34,
+        "carrier_gets_there_after_samples": {
+         "least": 1152,
+         "median": 2976,
+         "most": 4032,
+         "of": 34
+        }
+       },
+       "bed_channels": 85,
+       "bed_channels_heard": 85,
+       "bed_channels_kept_as_bed": 9,
+       "bed_level_minus_authored_db": {
+        "least": 0.0,
+        "median": 0.0,
+        "most": 0.0,
+        "of": 85
+       },
+       "bed_channels_with_a_place": 76,
+       "bed_carrier_at_the_speaker": 76
+      }
+     }
+    }
+   }
+  },
+  "the_matrix_run_twice": {
+   "what": "every row of the five paths was run twice; the second run is the one reported",
+   "stream": {
+    "rows": 51,
+    "streams_of_the_same_bytes": 51,
+    "the_same_figures_of_what_came_back": 51,
+    "the_same_figures_against_dolbys_decode": 51
+   },
+   "conversion": {
+    "rows": 51,
+    "streams_of_the_same_bytes": 51,
+    "the_same_figures_of_what_came_back": 51,
+    "the_same_figures_against_dolbys_decode": 51
+   },
+   "own-adm": {
+    "rows": 51,
+    "streams_of_the_same_bytes": 51,
+    "the_same_figures_of_what_came_back": 51,
+    "the_same_figures_against_dolbys_decode": 51
+   },
+   "second": {
+    "rows": 51,
+    "streams_of_the_same_bytes": 51,
+    "the_same_figures_of_what_came_back": 51,
+    "the_same_figures_against_dolbys_decode": 51
+   },
+   "truehd": {
+    "rows": 51,
+    "streams_of_the_same_bytes": 0,
+    "the_same_figures_of_what_came_back": 51
+   }
+  },
+  "what_the_first_object_says_and_what_comes_back": {
+   "stream": {
+    "plain": {
+     "rows": 9,
+     "streams_with_a_gain": 0,
+     "streams_with_a_size": 0,
+     "streams_with_a_lock": 0,
+     "streams_with_a_zone": 0,
+     "warp_modes": {
+      "1": 9
+     },
+     "carrier_gain": {
+      "0": 9
+     },
+     "carrier_size": {
+      "0.0": 9
+     },
+     "carrier_snap": {
+      "False": 9
+     },
+     "carrier_zones": {
+      "all": 9
+     },
+     "first_object_level_minus_authored_db": {
+      "least": -2.76,
+      "median": -0.01,
+      "most": 0.04,
+      "of": 9
+     }
+    },
+    "gain": {
+     "rows": 8,
+     "streams_with_a_gain": 0,
+     "streams_with_a_size": 0,
+     "streams_with_a_lock": 0,
+     "streams_with_a_zone": 0,
+     "warp_modes": {
+      "1": 8
+     },
+     "carrier_gain": {
+      "0": 8
+     },
+     "carrier_size": {
+      "0.0": 8
+     },
+     "carrier_snap": {
+      "False": 8
+     },
+     "carrier_zones": {
+      "all": 8
+     },
+     "first_object_level_minus_authored_db": {
+      "least": -4.86,
+      "median": -0.02,
+      "most": 0.05,
+      "of": 8
+     }
+    },
+    "size": {
+     "rows": 8,
+     "streams_with_a_gain": 0,
+     "streams_with_a_size": 0,
+     "streams_with_a_lock": 0,
+     "streams_with_a_zone": 0,
+     "warp_modes": {
+      "1": 8
+     },
+     "carrier_gain": {
+      "0": 8
+     },
+     "carrier_size": {
+      "0.0": 8
+     },
+     "carrier_snap": {
+      "False": 8
+     },
+     "carrier_zones": {
+      "all": 8
+     },
+     "first_object_level_minus_authored_db": {
+      "least": -2.8,
+      "median": -0.42,
+      "most": 0.47,
+      "of": 8
+     }
+    },
+    "snap": {
+     "rows": 8,
+     "streams_with_a_gain": 0,
+     "streams_with_a_size": 0,
+     "streams_with_a_lock": 0,
+     "streams_with_a_zone": 0,
+     "warp_modes": {
+      "1": 8
+     },
+     "carrier_gain": {
+      "0": 8
+     },
+     "carrier_size": {
+      "0.0": 8
+     },
+     "carrier_snap": {
+      "False": 8
+     },
+     "carrier_zones": {
+      "all": 8
+     },
+     "first_object_level_minus_authored_db": {
+      "least": -1.75,
+      "median": -0.69,
+      "most": 0.18,
+      "of": 8
+     }
+    },
+    "zones": {
+     "rows": 11,
+     "streams_with_a_gain": 0,
+     "streams_with_a_size": 0,
+     "streams_with_a_lock": 0,
+     "streams_with_a_zone": 0,
+     "warp_modes": {
+      "1": 11
+     },
+     "carrier_gain": {
+      "0": 11
+     },
+     "carrier_size": {
+      "0.0": 11
+     },
+     "carrier_snap": {
+      "False": 11
+     },
+     "carrier_zones": {
+      "all": 11
+     },
+     "first_object_level_minus_authored_db": {
+      "least": -2.0,
+      "median": -0.03,
+      "most": 0.2,
+      "of": 11
+     }
+    },
+    "warp": {
+     "rows": 7,
+     "streams_with_a_gain": 0,
+     "streams_with_a_size": 0,
+     "streams_with_a_lock": 0,
+     "streams_with_a_zone": 0,
+     "warp_modes": {
+      "3": 7
+     },
+     "carrier_gain": {
+      "0": 7
+     },
+     "carrier_size": {
+      "0.0": 7
+     },
+     "carrier_snap": {
+      "False": 7
+     },
+     "carrier_zones": {
+      "all": 7
+     },
+     "first_object_level_minus_authored_db": {
+      "least": -1.15,
+      "median": -0.31,
+      "most": -0.01,
+      "of": 7
+     }
+    }
+   },
+   "truehd": {
+    "plain": {
+     "rows": 9,
+     "streams_with_a_gain": 0,
+     "streams_with_a_size": 0,
+     "streams_with_a_lock": 0,
+     "streams_with_a_zone": 0,
+     "warp_modes": {},
+     "carrier_gain": {
+      "0": 9
+     },
+     "carrier_size": {
+      "0.0": 9
+     },
+     "carrier_snap": {
+      "False": 9
+     },
+     "carrier_zones": {
+      "all": 9
+     },
+     "first_object_level_minus_authored_db": {
+      "least": -0.36,
+      "median": 0.0,
+      "most": 0.0,
+      "of": 9
+     }
+    },
+    "gain": {
+     "rows": 8,
+     "streams_with_a_gain": 0,
+     "streams_with_a_size": 0,
+     "streams_with_a_lock": 0,
+     "streams_with_a_zone": 0,
+     "warp_modes": {},
+     "carrier_gain": {
+      "0": 8
+     },
+     "carrier_size": {
+      "0.0": 8
+     },
+     "carrier_snap": {
+      "False": 8
+     },
+     "carrier_zones": {
+      "all": 8
+     },
+     "first_object_level_minus_authored_db": {
+      "least": -3.55,
+      "median": 0.0,
+      "most": 0.0,
+      "of": 8
+     }
+    },
+    "size": {
+     "rows": 8,
+     "streams_with_a_gain": 0,
+     "streams_with_a_size": 0,
+     "streams_with_a_lock": 0,
+     "streams_with_a_zone": 0,
+     "warp_modes": {},
+     "carrier_gain": {
+      "0": 8
+     },
+     "carrier_size": {
+      "0.0": 8
+     },
+     "carrier_snap": {
+      "False": 8
+     },
+     "carrier_zones": {
+      "all": 8
+     },
+     "first_object_level_minus_authored_db": {
+      "least": -2.87,
+      "median": -0.34,
+      "most": 0.79,
+      "of": 8
+     }
+    },
+    "snap": {
+     "rows": 8,
+     "streams_with_a_gain": 0,
+     "streams_with_a_size": 0,
+     "streams_with_a_lock": 0,
+     "streams_with_a_zone": 0,
+     "warp_modes": {},
+     "carrier_gain": {
+      "0": 8
+     },
+     "carrier_size": {
+      "0.0": 8
+     },
+     "carrier_snap": {
+      "False": 8
+     },
+     "carrier_zones": {
+      "all": 8
+     },
+     "first_object_level_minus_authored_db": {
+      "least": -0.71,
+      "median": 0.0,
+      "most": 0.0,
+      "of": 8
+     }
+    },
+    "zones": {
+     "rows": 11,
+     "streams_with_a_gain": 0,
+     "streams_with_a_size": 0,
+     "streams_with_a_lock": 0,
+     "streams_with_a_zone": 0,
+     "warp_modes": {},
+     "carrier_gain": {
+      "0": 11
+     },
+     "carrier_size": {
+      "0.0": 11
+     },
+     "carrier_snap": {
+      "False": 11
+     },
+     "carrier_zones": {
+      "all": 11
+     },
+     "first_object_level_minus_authored_db": {
+      "least": -0.5,
+      "median": 0.0,
+      "most": 0.0,
+      "of": 11
+     }
+    },
+    "warp": {
+     "rows": 7,
+     "streams_with_a_gain": 0,
+     "streams_with_a_size": 0,
+     "streams_with_a_lock": 0,
+     "streams_with_a_zone": 0,
+     "warp_modes": {},
+     "carrier_gain": {
+      "0": 7
+     },
+     "carrier_size": {
+      "0.0": 7
+     },
+     "carrier_snap": {
+      "False": 7
+     },
+     "carrier_zones": {
+      "all": 7
+     },
+     "first_object_level_minus_authored_db": {
+      "least": -0.84,
+      "median": 0.0,
+      "most": 0.0,
+      "of": 7
+     }
+    }
+   }
+  },
+  "between_the_paths": {
+   "the_same_master_encoded_again": {
+    "rows": 116,
+    "the_same_bytes": 116
+   },
+   "through_the_conversion_tool_and_direct": {
+    "rows": 51,
+    "the_same_bytes": 51
+   },
+   "a_second_generation_through_a_master": {
+    "rows": 51,
+    "together": {
+     "rows": 26,
+     "rests_heard_in_both": 388,
+     "rests_heard": {
+      "first": 388,
+      "second": 388
+     },
+     "carrier_at_the_authored_place": {
+      "first": 238,
+      "second": 234
+     },
+     "level_second_minus_first_db": {
+      "least": -2.46,
+      "median": -0.25,
+      "most": 0.6,
+      "of": 388
+     },
+     "share_of_the_carrier_second_minus_first": {
+      "least": -0.3639,
+      "median": -0.0262,
+      "most": 0.0814,
+      "of": 388
+     },
+     "bed_channels_heard_in_both": 136,
+     "bed_level_second_minus_first_db": {
+      "least": -3.21,
+      "median": -0.08,
+      "most": 1.76,
+      "of": 136
+     }
+    },
+    "in turn": {
+     "rows": 25,
+     "rests_heard_in_both": 329,
+     "rests_heard": {
+      "first": 329,
+      "second": 329
+     },
+     "carrier_at_the_authored_place": {
+      "first": 310,
+      "second": 310
+     },
+     "level_second_minus_first_db": {
+      "least": -0.22,
+      "median": -0.01,
+      "most": 0.23,
+      "of": 329
+     },
+     "share_of_the_carrier_second_minus_first": {
+      "least": -0.0059,
+      "median": 0.0,
+      "most": 0.0199,
+      "of": 329
+     },
+     "bed_channels_heard_in_both": 144,
+     "bed_level_second_minus_first_db": {
+      "least": -0.21,
+      "median": -0.08,
+      "most": 0.04,
+      "of": 144
+     }
+    }
+   },
+   "a_second_generation_through_adm": {
+    "rows": 51,
+    "together": {
+     "rows": 26,
+     "rests_heard_in_both": 388,
+     "rests_heard": {
+      "first": 388,
+      "second": 388
+     },
+     "carrier_at_the_authored_place": {
+      "first": 238,
+      "second": 234
+     },
+     "level_second_minus_first_db": {
+      "least": -2.46,
+      "median": -0.25,
+      "most": 0.6,
+      "of": 388
+     },
+     "share_of_the_carrier_second_minus_first": {
+      "least": -0.3639,
+      "median": -0.0262,
+      "most": 0.0814,
+      "of": 388
+     },
+     "bed_channels_heard_in_both": 136,
+     "bed_level_second_minus_first_db": {
+      "least": -3.21,
+      "median": -0.08,
+      "most": 1.76,
+      "of": 136
+     }
+    },
+    "in turn": {
+     "rows": 25,
+     "rests_heard_in_both": 329,
+     "rests_heard": {
+      "first": 329,
+      "second": 329
+     },
+     "carrier_at_the_authored_place": {
+      "first": 310,
+      "second": 310
+     },
+     "level_second_minus_first_db": {
+      "least": -0.22,
+      "median": -0.01,
+      "most": 0.23,
+      "of": 329
+     },
+     "share_of_the_carrier_second_minus_first": {
+      "least": -0.0059,
+      "median": 0.0,
+      "most": 0.0199,
+      "of": 329
+     },
+     "bed_channels_heard_in_both": 144,
+     "bed_level_second_minus_first_db": {
+      "least": -0.21,
+      "median": -0.08,
+      "most": 0.04,
+      "of": 144
+     }
+    }
+   },
+   "the_two_second_generations": {
+    "rows": 51,
+    "the_same_bytes": 51,
+    "rows_whose_first_stream_says_lo_ro": 7,
+    "and_whose_second_says_it": {
+     "through_a_master": 0,
+     "through_adm": 0
+    },
+    "warp_modes_of_the_second": {
+     "through_a_master": {
+      "1": 51
+     },
+     "through_adm": {
+      "1": 51
+     }
+    }
+   },
+   "the_two_second_generations_with_the_warp_mode_named": {
+    "rows": 7,
+    "the_same_bytes": 7,
+    "rows_whose_first_stream_says_lo_ro": 7,
+    "and_whose_second_says_it": {
+     "through_a_master": 7,
+     "through_adm": 7
+    },
+    "warp_modes_of_the_second": {
+     "through_a_master": {
+      "3": 7
+     },
+     "through_adm": {
+      "3": 7
+     }
+    }
+   }
+  },
+  "probes": {
+   "what": "one object alone over a silent LFE, 600 Hz at -20 dBFS for two seconds, with one thing said of it; E-AC-3 at 768 kbit/s, TrueHD at 14 elements",
+   "the_one_with_most_at_the_same_place_in_both_encoders": 33,
+   "the_largest_difference_of_its_share_between_them": 0.017,
+   "streams_that_say_a_gain_a_size_a_lock_or_a_zone": 0,
+   "against_dolby_worst_element_db": {
+    "least": 48.57,
+    "median": 58.94,
+    "most": 59.15,
+    "of": 33
+   },
+   "lags": {
+    "0": 33
+   },
+   "e_ac_3": [
+    {
+     "probe": "plain, inside the room",
+     "level_minus_authored_db": -0.04,
+     "sum_minus_authored_db": -0.04,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.3548,
+      0.0323,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "plain, near the left rear corner",
+     "level_minus_authored_db": -0.05,
+     "sum_minus_authored_db": -0.05,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      -0.9032,
+      -0.9355,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "plain, near the right wall",
+     "level_minus_authored_db": 0.04,
+     "sum_minus_authored_db": 0.04,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.6129,
+      -0.0968,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "plain, at the back",
+     "level_minus_authored_db": 0.05,
+     "sum_minus_authored_db": 0.05,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      -0.2581,
+      -0.871,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "plain, front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.5806,
+      0.8065,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "plain, overhead",
+     "level_minus_authored_db": -0.02,
+     "sum_minus_authored_db": -0.02,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.0,
+      0.4839,
+      1.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "locked to a channel, inside the room",
+     "level_minus_authored_db": -0.04,
+     "sum_minus_authored_db": -0.04,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.3548,
+      0.0323,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "locked to a channel, near the left rear corner",
+     "level_minus_authored_db": -0.07,
+     "sum_minus_authored_db": -0.07,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      -1.0,
+      -1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0968,
+     "centre_error": 0.0968
+    },
+    {
+     "probe": "locked to a channel, near the right wall",
+     "level_minus_authored_db": -0.21,
+     "sum_minus_authored_db": -0.21,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.3871,
+     "centre_error": 0.3871
+    },
+    {
+     "probe": "locked to a channel, at the back",
+     "level_minus_authored_db": 0.05,
+     "sum_minus_authored_db": 0.05,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      -0.2581,
+      -0.871,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "locked to a channel, front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.5806,
+      0.8065,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "locked to a channel, overhead",
+     "level_minus_authored_db": -0.02,
+     "sum_minus_authored_db": -0.02,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.0,
+      0.4839,
+      1.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "kept to \"no back\", inside the room",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 3.09,
+     "elements_with_a_hundredth_of_it": 2,
+     "share_of_the_one_with_most": 0.7631,
+     "the_one_with_most_is_at": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.6452,
+     "centre_error": 0.1746
+    },
+    {
+     "probe": "kept to \"no back\", at the back",
+     "level_minus_authored_db": -0.19,
+     "sum_minus_authored_db": 2.64,
+     "elements_with_a_hundredth_of_it": 2,
+     "share_of_the_one_with_most": 0.6938,
+     "the_one_with_most_is_at": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.871,
+     "centre_error": 0.871
+    },
+    {
+     "probe": "kept to \"no back\", front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 4.7,
+     "elements_with_a_hundredth_of_it": 3,
+     "share_of_the_one_with_most": 0.5695,
+     "the_one_with_most_is_at": [
+      1.0,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.4194,
+     "centre_error": 0.1043
+    },
+    {
+     "probe": "kept to \"no sides\", inside the room",
+     "level_minus_authored_db": -0.03,
+     "sum_minus_authored_db": 5.71,
+     "elements_with_a_hundredth_of_it": 4,
+     "share_of_the_one_with_most": 0.3811,
+     "the_one_with_most_is_at": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.9677,
+     "centre_error": 0.0408
+    },
+    {
+     "probe": "kept to \"no sides\", at the back",
+     "level_minus_authored_db": -0.02,
+     "sum_minus_authored_db": 3.57,
+     "elements_with_a_hundredth_of_it": 2,
+     "share_of_the_one_with_most": 0.6889,
+     "the_one_with_most_is_at": [
+      -1.0,
+      -1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.7419,
+     "centre_error": 0.1317
+    },
+    {
+     "probe": "kept to \"no sides\", front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 3.96,
+     "elements_with_a_hundredth_of_it": 3,
+     "share_of_the_one_with_most": 0.6113,
+     "the_one_with_most_is_at": [
+      1.0,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.4194,
+     "centre_error": 0.1484
+    },
+    {
+     "probe": "kept to \"center back\", inside the room",
+     "level_minus_authored_db": 0.01,
+     "sum_minus_authored_db": 4.42,
+     "elements_with_a_hundredth_of_it": 3,
+     "share_of_the_one_with_most": 0.5244,
+     "the_one_with_most_is_at": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.9677,
+     "centre_error": 0.0985
+    },
+    {
+     "probe": "kept to \"center back\", at the back",
+     "level_minus_authored_db": -0.07,
+     "sum_minus_authored_db": 3.33,
+     "elements_with_a_hundredth_of_it": 3,
+     "share_of_the_one_with_most": 0.6899,
+     "the_one_with_most_is_at": [
+      -1.0,
+      -1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.7419,
+     "centre_error": 0.1321
+    },
+    {
+     "probe": "kept to \"center back\", front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 1.44,
+     "elements_with_a_hundredth_of_it": 2,
+     "share_of_the_one_with_most": 0.9775,
+     "the_one_with_most_is_at": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.5806,
+     "centre_error": 0.5628
+    },
+    {
+     "probe": "kept to \"screen only\", inside the room",
+     "level_minus_authored_db": 0.05,
+     "sum_minus_authored_db": 0.05,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.3548,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.9677,
+     "centre_error": 0.9677
+    },
+    {
+     "probe": "kept to \"screen only\", at the back",
+     "level_minus_authored_db": 0.1,
+     "sum_minus_authored_db": 0.1,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      -0.2581,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 1.871,
+     "centre_error": 1.871
+    },
+    {
+     "probe": "kept to \"screen only\", front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.5806,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.1935,
+     "centre_error": 0.1935
+    },
+    {
+     "probe": "kept to \"surround only\", inside the room",
+     "level_minus_authored_db": -0.05,
+     "sum_minus_authored_db": 2.6,
+     "elements_with_a_hundredth_of_it": 2,
+     "share_of_the_one_with_most": 0.7734,
+     "the_one_with_most_is_at": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.6452,
+     "centre_error": 0.1921
+    },
+    {
+     "probe": "kept to \"surround only\", at the back",
+     "level_minus_authored_db": -0.11,
+     "sum_minus_authored_db": 4.3,
+     "elements_with_a_hundredth_of_it": 4,
+     "share_of_the_one_with_most": 0.6519,
+     "the_one_with_most_is_at": [
+      -1.0,
+      -1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.7419,
+     "centre_error": 0.1179
+    },
+    {
+     "probe": "kept to \"surround only\", front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 2.04,
+     "elements_with_a_hundredth_of_it": 2,
+     "share_of_the_one_with_most": 0.9005,
+     "the_one_with_most_is_at": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.8065,
+     "centre_error": 0.8065
+    },
+    {
+     "probe": "size 0.1, inside the room",
+     "level_minus_authored_db": -3.17,
+     "sum_minus_authored_db": 2.37,
+     "elements_with_a_hundredth_of_it": 4,
+     "share_of_the_one_with_most": 0.5197,
+     "the_one_with_most_is_at": [
+      0.3548,
+      0.0323,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0474
+    },
+    {
+     "probe": "size 0.4, inside the room",
+     "level_minus_authored_db": -0.8,
+     "sum_minus_authored_db": 7.74,
+     "elements_with_a_hundredth_of_it": 9,
+     "share_of_the_one_with_most": 0.3682,
+     "the_one_with_most_is_at": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.6452,
+     "centre_error": 0.0565
+    },
+    {
+     "probe": "size 1.0, inside the room",
+     "level_minus_authored_db": -1.1,
+     "sum_minus_authored_db": 8.67,
+     "elements_with_a_hundredth_of_it": 11,
+     "share_of_the_one_with_most": 0.2094,
+     "the_one_with_most_is_at": [
+      1.0,
+      -1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 1.0323,
+     "centre_error": 0.4151
+    },
+    {
+     "probe": "gain -6 dB, inside the room",
+     "level_minus_authored_db": -0.04,
+     "sum_minus_authored_db": -0.04,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.3548,
+      0.0323,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "gain -20 dB, inside the room",
+     "level_minus_authored_db": -0.04,
+     "sum_minus_authored_db": -0.04,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.3548,
+      0.0323,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "gain 6 dB, inside the room",
+     "level_minus_authored_db": -0.04,
+     "sum_minus_authored_db": -0.04,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.3548,
+      0.0323,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    }
+   ],
+   "truehd": [
+    {
+     "probe": "plain, inside the room",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.3548,
+      0.0323,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "plain, near the left rear corner",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      -0.9032,
+      -0.9355,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "plain, near the right wall",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.6129,
+      -0.0968,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "plain, at the back",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      -0.2581,
+      -0.871,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "plain, front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.5806,
+      0.8065,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "plain, overhead",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.0,
+      0.4839,
+      1.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "locked to a channel, inside the room",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.3548,
+      0.0323,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "locked to a channel, near the left rear corner",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      -1.0,
+      -1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0968,
+     "centre_error": 0.0968
+    },
+    {
+     "probe": "locked to a channel, near the right wall",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.3871,
+     "centre_error": 0.3871
+    },
+    {
+     "probe": "locked to a channel, at the back",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      -0.2581,
+      -0.871,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "locked to a channel, front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.5806,
+      0.8065,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "locked to a channel, overhead",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.0,
+      0.4839,
+      1.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "kept to \"no back\", inside the room",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 3.09,
+     "elements_with_a_hundredth_of_it": 2,
+     "share_of_the_one_with_most": 0.7626,
+     "the_one_with_most_is_at": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.6452,
+     "centre_error": 0.1736
+    },
+    {
+     "probe": "kept to \"no back\", at the back",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 2.83,
+     "elements_with_a_hundredth_of_it": 2,
+     "share_of_the_one_with_most": 0.6972,
+     "the_one_with_most_is_at": [
+      -1.0,
+      0.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.871,
+     "centre_error": 0.871
+    },
+    {
+     "probe": "kept to \"no back\", front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 4.7,
+     "elements_with_a_hundredth_of_it": 3,
+     "share_of_the_one_with_most": 0.5693,
+     "the_one_with_most_is_at": [
+      1.0,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.4194,
+     "centre_error": 0.1039
+    },
+    {
+     "probe": "kept to \"no sides\", inside the room",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 5.73,
+     "elements_with_a_hundredth_of_it": 4,
+     "share_of_the_one_with_most": 0.3783,
+     "the_one_with_most_is_at": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.9677,
+     "centre_error": 0.0433
+    },
+    {
+     "probe": "kept to \"no sides\", at the back",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 3.59,
+     "elements_with_a_hundredth_of_it": 2,
+     "share_of_the_one_with_most": 0.69,
+     "the_one_with_most_is_at": [
+      -1.0,
+      -1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.7419,
+     "centre_error": 0.1338
+    },
+    {
+     "probe": "kept to \"no sides\", front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 3.97,
+     "elements_with_a_hundredth_of_it": 3,
+     "share_of_the_one_with_most": 0.611,
+     "the_one_with_most_is_at": [
+      1.0,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.4194,
+     "centre_error": 0.1476
+    },
+    {
+     "probe": "kept to \"center back\", inside the room",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 4.41,
+     "elements_with_a_hundredth_of_it": 3,
+     "share_of_the_one_with_most": 0.5253,
+     "the_one_with_most_is_at": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.9677,
+     "centre_error": 0.1037
+    },
+    {
+     "probe": "kept to \"center back\", at the back",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 3.4,
+     "elements_with_a_hundredth_of_it": 3,
+     "share_of_the_one_with_most": 0.69,
+     "the_one_with_most_is_at": [
+      -1.0,
+      -1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.7419,
+     "centre_error": 0.1322
+    },
+    {
+     "probe": "kept to \"center back\", front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 1.44,
+     "elements_with_a_hundredth_of_it": 2,
+     "share_of_the_one_with_most": 0.9771,
+     "the_one_with_most_is_at": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.5806,
+     "centre_error": 0.5625
+    },
+    {
+     "probe": "kept to \"screen only\", inside the room",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.3548,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.9677,
+     "centre_error": 0.9677
+    },
+    {
+     "probe": "kept to \"screen only\", at the back",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      -0.2581,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 1.871,
+     "centre_error": 1.871
+    },
+    {
+     "probe": "kept to \"screen only\", front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.5806,
+      1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.1935,
+     "centre_error": 0.1935
+    },
+    {
+     "probe": "kept to \"surround only\", inside the room",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 2.67,
+     "elements_with_a_hundredth_of_it": 2,
+     "share_of_the_one_with_most": 0.7645,
+     "the_one_with_most_is_at": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.6452,
+     "centre_error": 0.1742
+    },
+    {
+     "probe": "kept to \"surround only\", at the back",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 4.27,
+     "elements_with_a_hundredth_of_it": 4,
+     "share_of_the_one_with_most": 0.6689,
+     "the_one_with_most_is_at": [
+      -1.0,
+      -1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.7419,
+     "centre_error": 0.1362
+    },
+    {
+     "probe": "kept to \"surround only\", front right",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 2.07,
+     "elements_with_a_hundredth_of_it": 2,
+     "share_of_the_one_with_most": 0.8954,
+     "the_one_with_most_is_at": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.8065,
+     "centre_error": 0.8065
+    },
+    {
+     "probe": "size 0.1, inside the room",
+     "level_minus_authored_db": -3.16,
+     "sum_minus_authored_db": 2.55,
+     "elements_with_a_hundredth_of_it": 5,
+     "share_of_the_one_with_most": 0.5171,
+     "the_one_with_most_is_at": [
+      0.3548,
+      0.0323,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0433
+    },
+    {
+     "probe": "size 0.4, inside the room",
+     "level_minus_authored_db": -0.78,
+     "sum_minus_authored_db": 7.7,
+     "elements_with_a_hundredth_of_it": 10,
+     "share_of_the_one_with_most": 0.3714,
+     "the_one_with_most_is_at": [
+      1.0,
+      0.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.6452,
+     "centre_error": 0.0762
+    },
+    {
+     "probe": "size 1.0, inside the room",
+     "level_minus_authored_db": -1.22,
+     "sum_minus_authored_db": 8.51,
+     "elements_with_a_hundredth_of_it": 11,
+     "share_of_the_one_with_most": 0.2049,
+     "the_one_with_most_is_at": [
+      1.0,
+      -1.0,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 1.0323,
+     "centre_error": 0.4238
+    },
+    {
+     "probe": "gain -6 dB, inside the room",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.3548,
+      0.0323,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "gain -20 dB, inside the room",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.3548,
+      0.0323,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    },
+    {
+     "probe": "gain 6 dB, inside the room",
+     "level_minus_authored_db": 0.0,
+     "sum_minus_authored_db": 0.0,
+     "elements_with_a_hundredth_of_it": 1,
+     "share_of_the_one_with_most": 1.0,
+     "the_one_with_most_is_at": [
+      0.3548,
+      0.0323,
+      0.0
+     ],
+     "which_is_from_where_it_was_put": 0.0,
+     "centre_error": 0.0
+    }
+   ]
+  },
+  "beside_the_matrix": {
+   "a_master_at_96_khz": {
+    "e_ac_3_encoder": {
+     "exit": 1,
+     "said": [
+      "ERROR: Unsupported sample-rate: 96000."
+     ]
+    },
+    "truehd_encoder": {
+     "exit": 1,
+     "said": [
+      "ERROR: Validation failed for inputs of presentation atmos: Invalid input. Unsupported sample-rate: 96000."
+     ]
+    }
+   },
+   "one_master_encoded_again": {
+    "what": "the master that names 24, encoded three times more by each encoder, against its first encode",
+    "e_ac_3_streams_of_the_same_bytes": true,
+    "truehd": {
+     "differences": [
+      {
+       "bytes_that_differ": 10,
+       "in_access_units": 5,
+       "every_one_is_the_check_nibble_or_the_first_directory_entry": true,
+       "the_bits_that_differ_in_the_directory_entry": [
+        "0x10"
+       ]
+      },
+      {
+       "bytes_that_differ": 8,
+       "in_access_units": 4,
+       "every_one_is_the_check_nibble_or_the_first_directory_entry": true,
+       "the_bits_that_differ_in_the_directory_entry": [
+        "0x10"
+       ]
+      },
+      {
+       "bytes_that_differ": 6,
+       "in_access_units": 3,
+       "every_one_is_the_check_nibble_or_the_first_directory_entry": true,
+       "the_bits_that_differ_in_the_directory_entry": [
+        "0x10"
+       ]
+      }
+     ],
+     "the_same_objects": true,
+     "the_same_samples_in_every_presentation": true
+    }
+   },
+   "five_masters_that_differ_in_the_frame_rate_they_name": {
+    "the_masters_say": {
+     "23.976": "23.976",
+     "24": "24",
+     "25": "25",
+     "29.97": "29.97",
+     "30": "30"
+    },
+    "e_ac_3_streams_of_the_same_bytes": true,
+    "truehd": {
+     "bytes": 501144,
+     "access_units": 3600,
+     "units_whose_first_directory_entry_has_the_bit_set": {
+      "23.976": 1653,
+      "24": 1654,
+      "25": 1653,
+      "29.97": 1650,
+      "30": 1651
+     },
+     "differences_from_the_stream_of_24": {
+      "23.976": {
+       "bytes_that_differ": 2,
+       "in_access_units": 1,
+       "every_one_is_the_check_nibble_or_the_first_directory_entry": true,
+       "the_bits_that_differ_in_the_directory_entry": [
+        "0x10"
+       ]
+      },
+      "25": {
+       "bytes_that_differ": 6,
+       "in_access_units": 3,
+       "every_one_is_the_check_nibble_or_the_first_directory_entry": true,
+       "the_bits_that_differ_in_the_directory_entry": [
+        "0x10"
+       ]
+      },
+      "29.97": {
+       "bytes_that_differ": 12,
+       "in_access_units": 6,
+       "every_one_is_the_check_nibble_or_the_first_directory_entry": true,
+       "the_bits_that_differ_in_the_directory_entry": [
+        "0x10"
+       ]
+      },
+      "30": {
+       "bytes_that_differ": 10,
+       "in_access_units": 5,
+       "every_one_is_the_check_nibble_or_the_first_directory_entry": true,
+       "the_bits_that_differ_in_the_directory_entry": [
+        "0x10"
+       ]
+      }
+     },
+     "the_same_objects": true,
+     "the_same_samples_in_every_presentation": true
+    }
+   },
+   "a_gain_through_the_conversion_tool": {
+    "the_master_says": -6,
+    "the_conversion_tool_writes_into_adm": [
+     "0.5011872053"
+    ],
+    "the_same_bytes_from_the_master_and_from_the_adm": true,
+    "what_comes_back": {
+     "from-master.ec3": {
+      "the object with the gain": {
+       "level_dbfs": -20.04,
+       "elements_with_a_hundredth_of_it": 1
+      },
+      "the object without": {
+       "level_dbfs": -20.05,
+       "elements_with_a_hundredth_of_it": 1
+      },
+      "gains_the_stream_says": [
+       0
+      ]
+     },
+     "from-adm.ec3": {
+      "the object with the gain": {
+       "level_dbfs": -20.04,
+       "elements_with_a_hundredth_of_it": 1
+      },
+      "the object without": {
+       "level_dbfs": -20.05,
+       "elements_with_a_hundredth_of_it": 1
+      },
+      "gains_the_stream_says": [
+       0
+      ]
+     },
+     "from-master.mlp": {
+      "the object with the gain": {
+       "level_dbfs": -20.0,
+       "elements_with_a_hundredth_of_it": 1
+      },
+      "the object without": {
+       "level_dbfs": -20.0,
+       "elements_with_a_hundredth_of_it": 1
+      },
+      "gains_the_stream_says": [
+       0
+      ]
+     }
+    }
+   }
+  },
+  "a_scene_that_says_none_of_the_new_things": {
+   "what": "the scenes the repository has, authored by the binary of main and by the binary of the change",
+   "main": {
+    "name": "oadec-core-level-2.exe",
+    "sha256": "dd7527ddd9063a5a0fe3ffc23676dab799bbfd8f91b76101622bc54c40c21d1c"
+   },
+   "masters": [
+    {
+     "scene": "crates/oadec-cli/tests/fixtures/authored-scene.json",
+     "the_same_audio": true,
+     "the_same_metadata": true,
+     "the_same_header_but_for_its_name": true
+    },
+    {
+     "scene": "docs/audit/evidence/remediation/controlled-atmos-fast-scene.json",
+     "the_same_audio": true,
+     "the_same_metadata": true,
+     "the_same_header_but_for_its_name": true
+    },
+    {
+     "scene": "docs/audit/evidence/remediation/controlled-atmos-gain-size-scene.json",
+     "the_same_audio": true,
+     "the_same_metadata": true,
+     "the_same_header_but_for_its_name": true
+    },
+    {
+     "scene": "docs/audit/evidence/remediation/controlled-atmos-onset-scene.json",
+     "the_same_audio": true,
+     "the_same_metadata": true,
+     "the_same_header_but_for_its_name": true
+    }
+   ]
+  },
+  "tests": {
+   "cargo_fmt_check_clippy_with_warnings_denied_and_cargo_deny": "clean",
+   "cargo_test_workspace": "55 test binaries",
+   "passed": 743,
+   "failed": 0,
+   "ignored": 35,
+   "media_passed": 35,
+   "media_failed": 0,
+   "media_regression": "all 8 steps passed (media-suite, media-negative, truehd-gates, joc-object-gate, replay-joc, replay-truehd, adm-harness-build, adm-harness)",
+   "mutations_run": 15,
+   "mutations_caught": 15,
+   "the_mutations_run": [
+    "a state of a scene that locks to a channel written unlocked",
+    "the zone a state of a scene names written as every zone",
+    "a zone no master has taken for every zone",
+    "the frame rate a scene names left at 24",
+    "the warp mode a scene names not written",
+    "a channel of the bed silent though its scene gives it a signal",
+    "the signal of a channel that is not of the bed given to its first",
+    "a tone sounding before it begins",
+    "a tone sounding after it has ended",
+    "a tone that begins inside a scene beginning at once",
+    "a tone that names no beginning coming in over an edge",
+    "a tone that names its end ending at once",
+    "a tone that ends where it begins written",
+    "the edge of a tone twice as long",
+    "the edge of a tone a straight sine and not a raised cosine"
+   ],
+   "mutations_in_all": 584,
+   "the_binary_of_main_and_of_the_change_over_the_corpus": {
+    "what": "`tools/old_new.py --decode-all`: every report and every delivery of every stream",
+    "streams": 136,
+    "streams_changed": 0,
+    "fields_added": "none",
+    "lines_added": "none"
+   },
+   "tools_interop_self_check": "21 of 21"
+  }
+ },
+ "reading": "Dolby's encoders and Conversion Tool take what `oadec` writes in every row of the design, every stream they make of it is clean, and the two decoders make the same elements of every E-AC-3 one at lag 0. What sounds alone comes back whole: in one element, at its place and at its level, with every move made, whatever the frame rate, the bed, the number of objects and the rate. What sounds together is the encoder's to code: at its place where the scene is no larger than the stream, in clusters where it is larger, and in JOC with a part of a tone in other elements. Nothing a master says of an object besides its place is in a stream: the encoders render a lock, a zone and a size and drop a gain, so a decode has none of them to give back. The bed of a stream is the LFE and the other channels of a master's bed are objects at their speakers' places. The Conversion Tool's ADM and the master encode to the same bytes, and so do this decoder's master and its ADM of a stream; a second generation keeps what the first kept where the elements sound in turn, and loses the warp mode unless the decode names it. The TrueHD encoder's streams of one master are not the same bytes from run to run and decode to the same samples, so two TrueHD encodes that differ say nothing of what was changed without two encodes of nothing changed. Not asked here: trims, which the scenes cannot say; more than twenty objects; material that is not tones; and 96 kHz, which the encoders refuse."
+}
