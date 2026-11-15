@@ -8,6 +8,14 @@ Semantic Versioning.
 
 ### Added
 
+- **`tools/joc_clip_gain.py` reads off a decode when and how the clip gain
+  was put back.** The decode without the gain is what the gain is applied to,
+  so another decoder's objects over it are the gain as that decoder applies
+  it. The tool solves for it in steps of a few samples around every change
+  that stands alone, the LFE and the objects apart, and says whether the gain
+  is the value of the payload where it holds. Asked of this decoder's own
+  decode it gives back the line this decoder draws.
+
 - **`--joc-low-fir`, hidden, puts an operator from a file on the lowest
   subband**, and `tools/gen_joc_quadrature.py` solves for the one Dolby's
   decoder applies. The file is a tap a line, real part then imaginary part,
@@ -498,6 +506,23 @@ Semantic Versioning.
 
 ### Changed
 
+- **The clip gain is put back where Dolby's decoder puts it back.** A JOC
+  payload carries the gain the encoder took off the downmix, and the standard
+  gives it a value and no use. oadec multiplied it back where the objects
+  left the decoder, in a step when the frame was read. Read off the object
+  output of Dolby's decoder on 65 changes of one stream, the gain goes into the
+  downmix as the core decodes it, before the objects are made of it, and from
+  the gain of the frame before to the gain of the frame in a straight line
+  over the first 256 samples of the frame; oadec does that now. The fourteen
+  tracks of a library whose gain changes within forty seconds stand at
+  126,4 dB from Dolby's in the lowest band of the objects at the median
+  where they stood at 49,0, at 58,5 over the whole band where they stood at
+  45,0, and their LFE, which is given the gain too, at 139,2 where it stood at
+  59,2; no track of the library is under 90 dB in the lowest band where
+  fourteen were. What is written for a stream whose gain is 1 throughout is
+  the same to the byte (`docs/joc.md`,
+  `docs/audit/evidence/engine-round-2026-11/50-the-clip-gain-in-the-downmix.json`).
+
 - **The lowest subband of a phase-shifted channel goes through the operator
   Dolby's decoder applies.** Downmix configurations 3 and 4 hand the surround
   pair over with a 90-degree phase shift that the standard does not describe,
@@ -892,6 +917,12 @@ Semantic Versioning.
   (`docs/audit/evidence/engine-round-2026-11/03-lib-and-bin-old-new.json`).
 
 ### Fixed
+
+- **The last samples of the objects came without the clip gain.** What the
+  filter banks still hold when the last frame is in, some 1 200 samples of
+  every object, was written without the gain of the stream: the gain was put
+  on frame by frame where the objects left the decoder, and the tail leaves
+  it after the last frame. It is in the downmix the tail is made of now.
 
 - **A test that an earlier run of the suite could fail.** A test of the
   command line makes its files in a directory under the temporary directory

@@ -242,16 +242,14 @@ that the decoder relies on. Clause numbers refer to that document.
   further from Dolby's than it was, in the lowest band or over the whole
   band.
 
-  Fourteen tracks stay under 90 dB in the lowest band, and they are the
-  fourteen whose clip gain changes within the forty seconds. Read off its
-  output, Dolby's decoder takes the gain from one value to the next in a
-  straight line over the first 256 samples a frame decodes to, and holds it
-  for the rest of the frame; this decoder steps it, 1 216 samples earlier in
-  the objects. The shorter hold of the operator moved that step 512 samples
-  later, nearer to where Dolby has it: on thirteen of the fourteen the bands
-  above the lowest gain by it, 1,4 dB at the median of the fourteen, and on
-  one they lose 1,3 dB. Putting the gain where Dolby has it is the next
-  change.
+  Fourteen tracks stayed under 90 dB in the lowest band with it, and they
+  are the fourteen whose clip gain changes within the forty seconds: this
+  decoder stepped the gain where the objects left it, 1 216 samples before
+  Dolby's decoder begins to move it. The shorter hold of the operator had
+  moved that step 512 samples later, nearer to where Dolby has it: on thirteen
+  of the fourteen the bands above the lowest gained by it, 1,4 dB at the
+  median of the fourteen, and on one they lost 1,3 dB. The clip gain below is
+  what was left of them.
   `docs/audit/evidence/engine-round-2026-11/49-the-operator-on-the-lowest-subband.json`.
 - **Configuration 0 is rare, and Dolby does upmix it.** It appears twice in the
   material read so far: Snatch, a hybrid disc remux, and Dredd. Dolby gives
@@ -318,6 +316,44 @@ that the decoder relies on. Clause numbers refer to that document.
   So oadec multiplies the object program, bed and objects alike, by the clip
   gain, and leaves the backwards-compatible core exactly as coded.
   `--no-clip-gain` turns it off.
+
+  Where it is multiplied back, and how it gets from one value to the next,
+  was read off the object output of Dolby's decoder, which is run as it
+  stands (`tools/joc_clip_gain.py`). The decode without the gain is what the
+  gain is applied to, so Dolby's objects over it are the gain as Dolby applies
+  it, and around a change that stands alone they show the way from one value
+  to the other. Forty seconds of a film in which the gain takes
+  39 values and changes at 76 frames have 65 such changes. In steps of 16
+  samples, counted from the first sample the frame with the new gain decodes
+  to, the LFE is 0,029, 0,092 and 0,154 of the way in the first three steps,
+  0,967 in the sixteenth, and there from sample 256: a straight line over the
+  first 256 samples of the frame, from the gain of the frame before. Where
+  the gain holds it is the value of the payload, to four parts in a million
+  in every one of 1 255 frames. The objects give the same line
+  (0,033, 0,085, 0,154 and on to 0,961).
+
+  The line does not say where in the decoder the gain is. Put on what leaves
+  the decoder, with that line, it brings the LFE of the stream to Dolby's
+  (135,8 dB) and the lowest band of the objects only to 57,1 dB, short of
+  the bands above it: the objects are made of the downmix by a filter bank
+  and, in the lowest subband, by a filter 21 slots long, and a gain that
+  moves is not the same thing in front of them and behind. Put into the
+  downmix as the core decodes it, before the objects are made of it, it
+  brings the lowest band of the objects of that stream to 125,9 dB from
+  Dolby's, where the step left 31,0. That is where oadec puts it, and what
+  its own objects then show of the gain is what Dolby's show, step for step.
+
+  Over the 127 tracks of the library the fourteen whose gain changes stood at
+  49,0 dB in the lowest band at the median and 45,0 over the whole band, and
+  stand at 126,4 and 58,5; their LFE went from 59,2 to 139,2 dB. The
+  lowest band is under 90 dB on no track where it was on 14. Every figure
+  of the other 113 tracks is what it was.
+
+  The last samples of an object are what the banks still hold when the last
+  frame is in. They came without the gain while it was put on frame by frame
+  where the objects left the decoder; made of a downmix that has the gain,
+  they have it.
+  `docs/audit/evidence/engine-round-2026-11/50-the-clip-gain-in-the-downmix.json`.
 
   Two other readings are refuted. It is not a matrix range extender: the peak
   quantized coefficient already sits at the 9,61 ceiling when the gain is 1,
