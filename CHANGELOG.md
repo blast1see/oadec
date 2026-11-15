@@ -8,6 +8,27 @@ Semantic Versioning.
 
 ### Added
 
+- **`tools/dither_probe.py` reads off a decode what a decoder draws where a
+  stream has no bits.** A decoder that writes the same samples every time
+  draws a sequence that can be read: for a stream in which no mantissa has a
+  bit the output is the dither and nothing else, and the transform takes it
+  back to the coefficients it was made of. `read` says of such a decode how
+  fine the values are, how they are spread, after how many the run comes
+  round again, the rule that takes the rank of one value to the next, which
+  generator of 16 bits gives every block of every channel as a run, and the
+  state each block starts from. `against` takes any stream: another
+  decoder's decode, this one's with its dither and without, and for every
+  channel what each adds and what is left of the other's once this one's is
+  taken out. Asked of a decode made from the generator it holds, it gives
+  the generator, the states and the seeds back.
+
+- **`oadec-synth` writes AC-3 frames that ask for dither**, and the stream a
+  decoder's dither is read off. `Ac3Layout::dither` names the channels whose
+  blocks set `dithflag`; `write_without_a_bit` writes a stream in which no
+  mantissa has a bit, at one exponent; and the example `dither_probe` writes
+  it to a file (`cargo run -p oadec-synth --example dither_probe`). The
+  recipes and the probes of the crate ask for none and are the same bytes.
+
 - **`tools/joc_clip_gain.py` reads off a decode when and how the clip gain
   was put back.** The decode without the gain is what the gain is applied to,
   so another decoder's objects over it are the gain as that decoder applies
@@ -505,6 +526,52 @@ Semantic Versioning.
   nothing, and counts what each kind of delivery compared.
 
 ### Changed
+
+- **The dither is the one Dolby's decoder draws.** Where a mantissa has no
+  bits a decoder puts a random value, and the standard leaves the sequence
+  to it. oadec drew an even spread within 0,5 from a generator of its own,
+  so a decode here and Dolby's decode agreed only as far down as the dither
+  of either. Dolby's decoder draws the same values every time, and they were
+  read off what it writes, for a stream in which no mantissa has a bit and
+  for streams of a library; nothing of it was opened. A generator of 16 bits,
+  `x -> x * 47989 + 3`, two draws a value: a triangle within 0,7071, of the
+  power the even spread had. A state for each block of a frame and each
+  channel, and a second for the coefficients the channel takes from the
+  coupling channel. States that go on from frame to frame in an AC-3 stream
+  and in a dependent substream, and that every frame of an independent
+  E-AC-3 substream seeds anew from the 16 bits before its `auxdatae`. One
+  value a block, `sqrt(6)` as large, for a coefficient without bits of a
+  channel coded with the adaptive hybrid transform, where six went through
+  the transform. oadec draws that now.
+
+  Every decode of an AC-3 or E-AC-3 stream with the dither on changes, the
+  channels and the objects made of them: 81 of the 136 streams of the
+  corpus, and no verdict and no exit code with them. One line of the
+  reports is read off the decoded samples, the level of the core under each
+  clip gain (`JOC core level`), and moves in its last digit on the one
+  stream of the corpus whose gains it lists. A decode with `--no-dither` is
+  the same to the byte, and so is every TrueHD decode.
+  Against Dolby's decode, a stream of `oadec-synth` without a bit comes out
+  the same to the rounding of a 32-bit float (138 dB); over 45 streams of
+  the corpus the band from 12 to 18 kHz stands at 77,2 to 107,8 dB where it
+  stood at -3,0 to 31,4; and over the 127 tracks of a library that Dolby's
+  decoder gives objects for, the objects stand at 104,2 dB from Dolby's over
+  the whole band at the median where they stood at 52,3, at 61,4 in the
+  band at 18 kHz where they stood at -2,8, and of 1080 objects none is
+  further from Dolby's than it was.
+
+  It does not reach the coupled region of an E-AC-3 stream. The states are
+  right there too, but Dolby's decoder has something more in every coupled
+  coefficient of an E-AC-3 stream that its decode of an AC-3 stream has not
+  and that neither this decoder nor FFmpeg's makes: one source encoded by
+  FFmpeg both ways stands at 79 to 92 dB against Dolby's in the coupled
+  region as AC-3 and at 7 to 9 as E-AC-3. It was under the dither of two
+  decoders until the dither was the same, and what it is is not known. The
+  noise of spectral extension is still this decoder's own, and another run
+  of it than it was, since the dither no longer draws from its generator: a
+  band that a few transients carry stands a few dB elsewhere against
+  Dolby's, either way (`docs/eac3.md`,
+  `docs/audit/evidence/engine-round-2026-11/51-the-dither-dolbys-decoder-draws.json`).
 
 - **The clip gain is put back where Dolby's decoder puts it back.** A JOC
   payload carries the gain the encoder took off the downmix, and the standard
