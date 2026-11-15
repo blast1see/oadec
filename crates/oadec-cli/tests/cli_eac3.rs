@@ -225,6 +225,190 @@ fn a_joc_lag_override_is_announced_and_recorded() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// An operator as `--joc-low-fir` reads one: a tap a line, real part then
+/// imaginary part, written so that reading it gives the same numbers back.
+fn operator_file(path: &Path, taps: &[oadec_joc::Complex]) {
+    let text: String = taps
+        .iter()
+        .map(|t| format!("{:?} {:?}\n", t.re, t.im))
+        .collect();
+    std::fs::write(path, text).unwrap();
+}
+
+/// `--joc-low-fir` puts an operator from a file where the measured one is, so
+/// that the measured one can be measured again. Four files with a known
+/// answer: the operator there is writes the objects the default writes; the
+/// same with an empty tap either side writes them too, a slot later inside
+/// the decoder and with the matrices held back to match; the plain turn
+/// writes what `--flat-quadrature` writes; and all three are announced.
+#[test]
+fn a_joc_low_fir_override_is_announced_recorded_and_reaches_the_reconstruction() {
+    let dir = temp("low-fir");
+    let file = fixture("authored-scene.ec3");
+    let run = |name: &str, flags: &[&str]| {
+        let report = dir.join(format!("{name}.json"));
+        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["decode", file.to_str().unwrap(), "--format", "damf"])
+            .args(flags)
+            .arg("--loss-report")
+            .arg(&report)
+            .arg("-o")
+            .arg(dir.join(name))
+            .output()
+            .expect("run oadec");
+        assert_eq!(out.status.code(), Some(0), "{name}: {}", stderr(&out));
+        let audio = std::fs::read(dir.join(format!("{name}.atmos.audio"))).unwrap();
+        let report: Value = serde_json::from_slice(&std::fs::read(&report).unwrap()).unwrap();
+        (stderr(&out), audio, report)
+    };
+    let (_, default_audio, _) = run("default", &[]);
+
+    let usual = dir.join("usual.txt");
+    let usual = usual.to_str().unwrap();
+    operator_file(Path::new(usual), &oadec_joc::operator());
+    let (err, audio, report) = run("usual", &["--joc-low-fir", usual]);
+    assert!(
+        err.contains(&format!(
+            "measurement overrides: joc-low-fir {usual} (21 taps) \
+             (default the 21 taps measured on the Dolby decoder)"
+        )),
+        "{err}"
+    );
+    assert_eq!(report["overrides"][0]["flag"], "joc-low-fir", "{report}");
+    assert_eq!(
+        report["overrides"][0]["value"],
+        format!("{usual} (21 taps)"),
+        "{report}"
+    );
+    assert!(
+        audio == default_audio,
+        "the operator there is, from a file, wrote other objects"
+    );
+
+    let mut taps = vec![oadec_joc::Complex::default()];
+    taps.extend(oadec_joc::operator());
+    taps.push(oadec_joc::Complex::default());
+    let longer = dir.join("longer.txt");
+    let longer = longer.to_str().unwrap();
+    operator_file(Path::new(longer), &taps);
+    let (err, audio, _) = run("longer", &["--joc-low-fir", longer]);
+    assert!(err.contains("(23 taps)"), "{err}");
+    assert!(
+        audio == default_audio,
+        "an empty tap either side of the operator wrote other objects"
+    );
+    // the matrices followed the longer hold by themselves: left where they
+    // are for the operator there is, they meet the wrong samples
+    let (err, audio, _) = run(
+        "longer-unheld",
+        &["--joc-low-fir", longer, "--joc-lag", "0"],
+    );
+    assert!(err.contains("joc-lag 0 (default 1)"), "{err}");
+    assert!(
+        audio != default_audio,
+        "a longer hold without its lag wrote the same objects"
+    );
+
+    let mut taps = [oadec_joc::Complex::default(); oadec_joc::LOW_TAPS];
+    taps[oadec_joc::LOW_DELAY] = oadec_joc::Complex { re: 0.0, im: -1.0 };
+    let turn = dir.join("turn.txt");
+    let turn = turn.to_str().unwrap();
+    operator_file(Path::new(turn), &taps);
+    let (_, audio, _) = run("turn", &["--joc-low-fir", turn]);
+    let (_, flat, _) = run("flat", &["--flat-quadrature"]);
+    assert!(
+        flat != default_audio,
+        "the fixture carries no phase shift, so it cannot show the operator"
+    );
+    assert!(
+        audio == flat,
+        "the plain turn from a file is not what --flat-quadrature writes"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// What is not an operator is refused before anything is decoded, and so is
+/// the operator beside a flag that would put the lowest subband through
+/// something else.
+#[test]
+fn a_joc_low_fir_that_cannot_be_applied_is_refused() {
+    let dir = temp("low-fir-refused");
+    let file = fixture("authored-scene.ec3");
+    let target = dir.join("refused");
+    let decode = |flags: &[&str]| {
+        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["decode", file.to_str().unwrap(), "--format", "damf"])
+            .args(flags)
+            .arg("-o")
+            .arg(&target)
+            .output()
+            .expect("run oadec");
+        assert!(
+            !dir.join("refused.atmos.audio").exists(),
+            "{flags:?} was refused and still wrote"
+        );
+        (out.status.code(), stderr(&out))
+    };
+
+    let short = dir.join("short.txt");
+    let short = short.to_str().unwrap();
+    operator_file(
+        Path::new(short),
+        &[oadec_joc::Complex::default(); oadec_joc::LOW_TAPS - 2],
+    );
+    let (code, said) = decode(&["--joc-low-fir", short]);
+    assert_eq!(code, Some(2), "{said}");
+    assert!(
+        said.contains("19 taps: an operator has an odd number of them, 21 or more"),
+        "{said}"
+    );
+
+    let words = dir.join("words.txt");
+    let words = words.to_str().unwrap();
+    std::fs::write(words, "0.5 -0.5\nhalf a turn\n").unwrap();
+    let (code, said) = decode(&["--joc-low-fir", words]);
+    assert_eq!(code, Some(2), "{said}");
+    assert!(
+        said.contains("line 2 is not a real part and an imaginary part: \"half a turn\""),
+        "{said}"
+    );
+
+    let missing = dir.join("missing.txt");
+    let (code, said) = decode(&["--joc-low-fir", missing.to_str().unwrap()]);
+    assert_eq!(code, Some(2), "{said}");
+    assert!(said.contains("cannot read "), "{said}");
+
+    let usual = dir.join("usual.txt");
+    let usual = usual.to_str().unwrap();
+    operator_file(Path::new(usual), &oadec_joc::operator());
+    for other in [
+        &["--flat-quadrature"][..],
+        &["--joc-low-band", "untouched"][..],
+    ] {
+        let mut flags = vec!["--joc-low-fir", usual];
+        flags.extend(other);
+        let (code, said) = decode(&flags);
+        assert_eq!(code, Some(2), "{other:?}: {said}");
+        assert!(said.contains("cannot be used with"), "{other:?}: {said}");
+    }
+
+    // and it measures the JOC decode alone: samples have no lowest subband
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", file.to_str().unwrap(), "--format", "wav"])
+        .args(["--joc-low-fir", usual, "-o"])
+        .arg(dir.join("samples.wav"))
+        .output()
+        .expect("run oadec");
+    let said = stderr(&out);
+    assert_eq!(out.status.code(), Some(2), "{said}");
+    assert!(
+        said.contains("--joc-lag, --joc-low-band, --joc-low-fir and --joc-phase measure"),
+        "{said}"
+    );
+    assert!(!dir.join("samples.wav").exists(), "refused and still wrote");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// The committed encode looks like every JOC stream measured: its OAMD and JOC
 /// payload configurations meet table 56 of TS 103 420 as far as it is enforced,
 /// and its `complexity_index_type_a` is the OAMD object total of clause 8.3,

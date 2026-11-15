@@ -12,7 +12,7 @@ pub mod quadrature;
 use oadec_emdf::joc::{Joc, JocObject, MAX_BANDS, MAX_CHANNELS, MAX_OBJECTS, Slope};
 
 pub use qmf::{Analysis, BANDS, Complex, DELAY, Synthesis};
-pub use quadrature::{Carry, LOW_DELAY, MATRIX_ALIGN, Quadrature};
+pub use quadrature::{Carry, LOW_DELAY, LOW_TAPS, MATRIX_ALIGN, OPERATOR, Quadrature, operator};
 
 /// Parameter band of every QMF subband for a given band count (table 54).
 #[must_use]

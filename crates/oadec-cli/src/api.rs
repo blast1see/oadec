@@ -38,7 +38,8 @@ pub use crate::decode::{
 };
 pub use crate::eac3::Report as Ac3Report;
 pub use crate::eac3_objects::{
-    JocLowBand, JocOverrides, JocPhase, JocPhaseError, Written as Ac3Objects,
+    JocLowBand, JocLowFir, JocLowFirError, JocOverrides, JocPhase, JocPhaseError,
+    Written as Ac3Objects,
 };
 pub use crate::emdf::Report as EmdfReport;
 pub use crate::info::Report as InfoReport;
@@ -68,7 +69,7 @@ pub(crate) const START_IS_TRUEHD_SAMPLES: &str = "--start begins a TrueHD decode
 
 /// What the JOC measurement overrides on anything but the object decode of an
 /// E-AC-3 stream are told.
-pub(crate) const JOC_MEASURES_EAC3_OBJECTS: &str = "--joc-lag, --joc-low-band and --joc-phase measure \
+pub(crate) const JOC_MEASURES_EAC3_OBJECTS: &str = "--joc-lag, --joc-low-band, --joc-low-fir and --joc-phase measure \
      the JOC object decode: they apply to an E-AC-3 stream with --format damf or adm";
 
 /// What the options of an AC-3 family decode on a TrueHD stream are told.

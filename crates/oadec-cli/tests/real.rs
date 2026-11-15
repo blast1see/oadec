@@ -1821,23 +1821,28 @@ fn a_first_payload_with_a_stale_size_is_read_and_reported() {
 ///
 /// `MATRIX_ALIGN` has no clause behind it. Clause 6.6.6 pairs matrix slot `ts`
 /// with subband slot `ts` and never mentions that the analysis bank the decoder
-/// runs is not the one the encoder ran, so there is no normative value and a
-/// unit test could only assert that the code holds the number the code holds.
-/// It was measured instead, swept against Dolby's object decoder on three
-/// titles, and a mutation pass finds it undetectable by every unit test for
-/// exactly that reason.
+/// runs is not the one the encoder ran, so there is no normative value. It was
+/// measured instead, swept against Dolby's object decoder on three titles, and
+/// the operator on the lowest subband has since accounted for the number: ten
+/// slots is what that filter delays by.
 ///
-/// So it is guarded the only way it can be: differentially, against another
-/// decoder. This is the second such guard and the independent one. The clip is
-/// a real web stream cut clean from its head, carrying 480 steep objects,
-/// and it played no part in fitting the constant.
+/// It is guarded the way a measured number has to be: differentially, against
+/// another decoder. This is the second such guard and the independent one. The
+/// clip is a real web stream cut clean from its head, carrying 480 steep
+/// objects, and it played no part in fitting the constant.
 ///
 /// The assertion is an ordering, not a threshold: the value in use must score
 /// better against Dolby than either neighbouring slot. Nothing is tuned, and if
 /// the override below ever stopped working all three decodes would be identical
-/// and the strict comparison would fail rather than pass quietly. When written
-/// the margins were 2,83 dB over one slot early and 2,66 dB over one slot late,
-/// on a mean of 44,66 dB across ten elements.
+/// and the strict comparison would fail rather than pass quietly.
+///
+/// The alignment is the delay of the operator on the lowest subband, so the
+/// decoder as it stands holds no matrix back and has none to bring forward. The
+/// neighbours are asked of the same operator with an empty tap either side: a
+/// slot more of hold, which leaves a slot either way to put the matrices, and
+/// which with its own lag is the decoder as it stands, so that is asserted too.
+/// When written the alignment in use scored 46,18 dB on the mean of ten
+/// elements, one slot early 42,01 and one slot late 41,79.
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn the_matrix_alignment_is_the_best_one_on_a_clip_it_was_not_fitted_on() {
@@ -1852,17 +1857,29 @@ fn the_matrix_alignment_is_the_best_one_on_a_clip_it_was_not_fitted_on() {
     );
     let reference = floats(&dolby);
 
-    // `MATRIX_ALIGN` has one consumer, the default of this override, so moving
-    // the override moves the alignment without touching the source
-    let score = |lag: Option<&str>| -> (f64, usize) {
-        let tag = lag.unwrap_or("default");
+    let mut taps = vec![oadec_joc::Complex::default()];
+    taps.extend(oadec_joc::operator());
+    taps.push(oadec_joc::Complex::default());
+    let held = std::env::temp_dir().join(format!("oadec-align-{}.txt", std::process::id()));
+    let text: String = taps
+        .iter()
+        .map(|t| format!("{:?} {:?}\n", t.re, t.im))
+        .collect();
+    std::fs::write(&held, text).expect("write the operator");
+
+    // `MATRIX_ALIGN` has one consumer, the default of the lag, so moving the
+    // lag moves the alignment without touching the source
+    let score = |lag: Option<usize>| -> (f64, usize, Vec<f64>) {
+        let tag = lag.map_or_else(|| "default".to_string(), |l| l.to_string());
         let base = std::env::temp_dir().join(format!("oadec-align-{tag}"));
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_oadec"));
         cmd.args(["decode", "--format", "damf", "--no-bed-conform", "-o"])
             .arg(&base)
             .arg(&file);
-        if let Some(v) = lag {
-            cmd.args(["--joc-lag", v]);
+        if let Some(lag) = lag {
+            cmd.arg("--joc-low-fir")
+                .arg(&held)
+                .args(["--joc-lag", &lag.to_string()]);
         }
         let out = cmd.output().expect("run oadec decode");
         assert!(
@@ -1892,24 +1909,170 @@ fn the_matrix_alignment_is_the_best_one_on_a_clip_it_was_not_fitted_on() {
             counted += 1;
         }
         assert!(counted >= 4, "only {counted} elements carried audio");
-        (total / counted as f64, counted)
+        (total / counted as f64, counted, ours)
     };
 
     // the neighbours are derived from the constant rather than written down, so
     // the comparison stays "this value beats the slots either side of it" even
     // if the value is ever re-measured. That is not circular: the constant picks
     // which three alignments to try, and Dolby's output picks the winner
-    let default_lag = oadec_joc::LOW_DELAY - oadec_joc::MATRIX_ALIGN;
-    let (in_use, elements) = score(None);
-    let (one_slot_late, _) = score(Some(&(default_lag - 1).to_string()));
-    let (one_slot_early, _) = score(Some(&(default_lag + 1).to_string()));
+    let lag_of_the_longer = oadec_joc::LOW_DELAY + 1 - oadec_joc::MATRIX_ALIGN;
+    let (in_use, elements, as_it_stands) = score(None);
+    let (same, _, with_the_longer) = score(Some(lag_of_the_longer));
+    let (one_slot_late, _, _) = score(Some(lag_of_the_longer - 1));
+    let (one_slot_early, _, _) = score(Some(lag_of_the_longer + 1));
+    let _ = std::fs::remove_file(&held);
 
+    assert!(
+        as_it_stands == with_the_longer,
+        "an empty tap either side of the operator, with the lag that goes with it, is not the \
+         decoder as it stands ({in_use:.2} dB against {same:.2}), so the neighbours it gives \
+         are not neighbours of the alignment in use"
+    );
     assert!(
         in_use > one_slot_early && in_use > one_slot_late,
         "over {elements} elements the alignment in use scores {in_use:.2} dB against Dolby, \
          one slot early {one_slot_early:.2} and one slot late {one_slot_late:.2}; the fitted \
          value is no longer the best one and the constant needs re-measuring, not a nudge"
     );
+}
+
+/// A plain low pass: four box cars of 128 samples one after another, which has
+/// a null at every multiple of 375 Hz and is more than 50 dB down between them.
+/// Nothing of the decoder's own filter bank is in it.
+fn below_the_first_subband(x: &[f64]) -> Vec<f64> {
+    let mut y = x.to_vec();
+    for _ in 0..4 {
+        let mut sum = 0.0;
+        let mut out = Vec::with_capacity(y.len());
+        for i in 0..y.len() {
+            sum += y[i];
+            if i >= 128 {
+                sum -= y[i - 128];
+            }
+            out.push(sum / 128.0);
+        }
+        y = out;
+    }
+    y
+}
+
+/// The lowest band of the objects, held to Dolby's.
+///
+/// Downmix configurations 3 and 4 hand the surround pair over with a 90-degree
+/// phase shift that the standard never describes, and in the lowest subband
+/// taking it back out is a filter across time slots that no clause gives
+/// (`crates/oadec-joc/src/quadrature.rs`). Its 21 taps were measured on
+/// Dolby's decoder, on streams of a library that are not in this suite. Here
+/// they are asked of five others: four titles of the object gate and the web
+/// stream of the alignment guard.
+///
+/// The measure is the worst object of a clip, below 375 Hz, with our dither
+/// left out: Dolby's object against the difference to ours, both through a
+/// plain low pass. With the filter the decoder had before the measurement the
+/// five clips stood at 34,9 to 38,7 dB; when written they stand at 104,7 to
+/// 123,3. The bar is far under what they reach and far over what the filter
+/// before reached, or a shorter one does: 19 of the 21 taps leave 62 dB at the
+/// median of the streams they were measured on.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn the_lowest_band_of_the_objects_is_the_one_dolby_writes() {
+    let media = media_dir();
+    for (clip, dump) in [
+        (
+            "clips/quietplace-web-head.ec3",
+            "ref-oar/quietplace-web-obj.f32",
+        ),
+        (
+            "clips/kingsman-joc-head.ec3",
+            "ref-oar/kingsman-joc-head-obj.f32",
+        ),
+        (
+            "clips/fifthelement-joc-head.ec3",
+            "ref-oar/fifthelement-joc-obj.f32",
+        ),
+        (
+            "clips/shaun-joc1024-head.ec3",
+            "ref-oar/shaun-joc1024-obj.f32",
+        ),
+        (
+            "clips/joc-steep-jackal.ec3",
+            "ref-drp/joc/joc-steep-jackal.f32",
+        ),
+    ] {
+        let file = media.join(clip);
+        require(&file);
+        let dolby = media.join(dump);
+        assert!(
+            dolby.exists(),
+            "{} is missing, so the lowest band of {clip} cannot be judged",
+            dolby.display()
+        );
+        let reference = floats(&dolby);
+        let base = std::env::temp_dir().join(format!("oadec-low-band-{}", std::process::id()));
+        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args([
+                "decode",
+                "--format",
+                "damf",
+                "--no-bed-conform",
+                "--no-dither",
+                "-o",
+            ])
+            .arg(&base)
+            .arg(&file)
+            .output()
+            .expect("run oadec decode");
+        assert!(
+            matches!(out.status.code(), Some(0) | Some(7)),
+            "{clip} did not decode: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let (ours, channels) = caf(&base.with_extension("atmos.audio"));
+        for ext in ["atmos", "atmos.metadata", "atmos.audio"] {
+            let _ = std::fs::remove_file(base.with_extension(ext));
+        }
+        assert_eq!(
+            reference.len() % channels,
+            0,
+            "{dump} is not rows of {channels}"
+        );
+        let n = (reference.len() / channels).min(ours.len() / channels);
+        // the start of a decode is two decoders coming out of silence their own way
+        let (from, to) = (2 * 48_000, n - 24_000);
+        assert!(to > from + 5 * 48_000, "{clip}: only {n} rows to compare");
+
+        // element 0 is the LFE, which comes of the core and goes through nothing of this
+        let mut worst = f64::INFINITY;
+        let mut judged = 0usize;
+        for ch in 1..channels {
+            let theirs: Vec<f64> = (0..n).map(|i| reference[i * channels + ch]).collect();
+            let apart: Vec<f64> = (0..n)
+                .map(|i| ours[i * channels + ch] - theirs[i])
+                .collect();
+            let (theirs, apart) = (
+                below_the_first_subband(&theirs),
+                below_the_first_subband(&apart),
+            );
+            let level: f64 = theirs[from..to].iter().map(|v| v * v).sum::<f64>();
+            // an object with nothing down there has nothing to be judged on: -90 dBFS
+            if level / ((to - from) as f64) < 1e-9 {
+                continue;
+            }
+            let left: f64 = apart[from..to].iter().map(|v| v * v).sum::<f64>();
+            worst = worst.min(10.0 * (level / left.max(1e-300)).log10());
+            judged += 1;
+        }
+        assert!(
+            judged >= 4,
+            "{clip}: only {judged} objects carry a lowest band"
+        );
+        assert!(
+            worst >= 95.0,
+            "{clip}: the worst of {judged} objects is {worst:.2} dB from Dolby's below 375 Hz; \
+             the operator on the lowest subband is no longer the one Dolby's decoder applies"
+        );
+    }
 }
 
 /// SHA-256 (FIPS 180-4) as lowercase hex, streamed over `data`, so the gate
