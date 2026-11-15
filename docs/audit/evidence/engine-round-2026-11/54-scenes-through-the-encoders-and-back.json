@@ -2234,6 +2234,17 @@
    },
    "a_second_generation_through_a_master": {
     "rows": 51,
+    "what_the_programme_says": {
+     "rows_with_the_same_dialogue_normalisation": 32,
+     "rows_with_another": 19,
+     "its_field_second_minus_first": {
+      "least": -8,
+      "median": -1,
+      "most": 7,
+      "of": 19
+     },
+     "rows_with_the_same_drc_profiles": 51
+    },
     "together": {
      "rows": 26,
      "rests_heard_in_both": 388,
@@ -2299,6 +2310,17 @@
    },
    "a_second_generation_through_adm": {
     "rows": 51,
+    "what_the_programme_says": {
+     "rows_with_the_same_dialogue_normalisation": 32,
+     "rows_with_another": 19,
+     "its_field_second_minus_first": {
+      "least": -8,
+      "median": -1,
+      "most": 7,
+      "of": 19
+     },
+     "rows_with_the_same_drc_profiles": 51
+    },
     "together": {
      "rows": 26,
      "rests_heard_in_both": 388,
@@ -3564,7 +3586,7 @@
     "fields_added": "none",
     "lines_added": "none"
    },
-   "tools_interop_self_check": "21 of 21"
+   "tools_interop_self_check": "22 of 22"
   }
  },
  "reading": "Dolby's encoders and Conversion Tool take what `oadec` writes in every row of the design, every stream they make of it is clean, and the two decoders make the same elements of every E-AC-3 one at lag 0. What sounds alone comes back whole: in one element, at its place and at its level, with every move made, whatever the frame rate, the bed, the number of objects and the rate. What sounds together is the encoder's to code: at its place where the scene is no larger than the stream, in clusters where it is larger, and in JOC with a part of a tone in other elements. Nothing a master says of an object besides its place is in a stream: the encoders render a lock, a zone and a size and drop a gain, so a decode has none of them to give back. The bed of a stream is the LFE and the other channels of a master's bed are objects at their speakers' places. The Conversion Tool's ADM and the master encode to the same bytes, and so do this decoder's master and its ADM of a stream; a second generation keeps what the first kept where the elements sound in turn, and loses the warp mode unless the decode names it. The TrueHD encoder's streams of one master are not the same bytes from run to run and decode to the same samples, so two TrueHD encodes that differ say nothing of what was changed without two encodes of nothing changed. Not asked here: trims, which the scenes cannot say; more than twenty objects; material that is not tones; and 96 kHz, which the encoders refuse."

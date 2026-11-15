@@ -927,6 +927,23 @@ def generations(first, later):
         return sum(s.get('carrier_error') is not None and s['carrier_error'] <= TOLERANCE
                    for n in names for s in rests(n) if s.get('heard'))
 
+    def dialnorm(record):
+        values = record['stream'].get('dialnorm') or []
+        return values[0] if len(values) == 1 else None
+
+    def profiles(record):
+        said = record['stream'].get('programme_information') or {}
+        return sorted(said.get('drc_line') or {}), sorted(said.get('drc_rf') or {})
+
+    # what an encoder measures or is told and a master does not carry
+    norms = [(dialnorm(first[n]), dialnorm(later[n])) for n in names]
+    norms = [(a, b) for a, b in norms if a is not None and b is not None]
+    out['what_the_programme_says'] = {
+        'rows_with_the_same_dialogue_normalisation': sum(a == b for a, b in norms),
+        'rows_with_another': sum(a != b for a, b in norms),
+        'its_field_second_minus_first': spread(b - a for a, b in norms if a != b),
+        'rows_with_the_same_drc_profiles': sum(profiles(first[n]) == profiles(later[n]) for n in names),
+    }
     for value in AXES['sounding']:
         mine = [n for n in names if first[n]['row']['sounding'] == value]
         pairs = [(a, b) for n in mine for a, b in zip(rests(first[n]), rests(later[n]))
@@ -1058,7 +1075,14 @@ def self_check():
                       'stream': {'sha256': 'two', 'oamd': {'warp_modes': {'1': 1}}}},
                      {**made, 'path': 'own-adm', 'first_stream_sha256': 'other',
                       'stream': {'sha256': 'two', 'oamd': {'warp_modes': {'1': 1}}}}])
+    nothing = {'objects': [], 'bed': [], 'decoded_bed': [], 'decoded_objects': 0}
+    said = generations(
+        {'a': {**made, 'held': nothing, 'stream': {'dialnorm': [31], 'programme_information': {}}}},
+        {'a': {**made, 'held': nothing, 'stream': {'dialnorm': [23], 'programme_information': {}}}})
     checks.update({
+        'a dialogue normalisation a second generation was given anew is counted':
+            said['what_the_programme_says']['rows_with_another'] == 1
+            and said['what_the_programme_says']['its_field_second_minus_first']['least'] == -8,
         'streams of the same bytes by two paths are counted the same':
             paths['through_the_conversion_tool_and_direct'] == {'rows': 1, 'the_same_bytes': 1}
             and paths['the_two_second_generations']['the_same_bytes'] == 1,

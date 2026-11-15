@@ -31,7 +31,9 @@ Semantic Versioning.
   through each encoder. The bed of every stream is the LFE: the other
   channels of a master's bed come back as objects at their speakers' places.
   A rate of 384 kbit/s writes eleven objects and every other fifteen; a
-  master at 96 kHz is refused by both encoders. The TrueHD encoder's streams
+  master at 96 kHz is refused by both encoders. A second generation has the
+  dialogue normalisation the encoder measures of it, another than the first
+  in 19 rows of 51. The TrueHD encoder's streams
   of one master are not the same bytes from run to run, in a reserved bit of
   the directory, and decode to the same samples
   (`docs/dolby-tools.md`, `docs/testing-tools.md`,

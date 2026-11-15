@@ -1266,6 +1266,11 @@ is put into clusters, and an object is then where its cluster is.
   234 at the place against 238, and -2,46 to +0,60 dB (median -0,25).
 - The warp mode is lost by a decode that names none: all 7 Lo/Ro rows come back
   as warping, and all 7 as Lo/Ro with `--warp-mode stream` (above).
+- The dialogue normalisation is the encoder's measurement, made anew of the
+  decode: a second generation has another than the first in 19 of 51 rows, its
+  field 8 less to 7 more, and the same DRC profiles in all 51. This encoder
+  takes none on its command line (`--loudness-management` has `measure_only` and
+  nothing else), so what a first stream says cannot be handed on to it.
 - The frame rate a master names changes no byte of an E-AC-3 stream, and of a
   TrueHD stream no more than encoding the same master again does. That encoder's
   streams of one master differ from run to run, here in 6 to 10 bytes of 501 144: the
