@@ -1920,28 +1920,47 @@ fn verify_fields(file: &Path, more: &[&str]) -> (Option<i32>, Value) {
     (out.status.code(), report)
 }
 
-/// `verify` reads what a stream says and does not listen to it, but for one
-/// figure: where the JOC payloads of a stream carry more than one clip gain,
-/// it says the peak of the core under each. That figure is of the samples,
-/// and it is the one a decode of every frame gives: the stream is read again
-/// with its samples from the first frame, so that the frame the second clip
-/// gain shows in has the frames before it behind it. `verify --decode`, which
-/// makes the samples of every frame because it is asked to, says the same.
+/// `verify` reads what a stream says and does not listen to it. One figure a
+/// report can have is of the samples: where the JOC payloads of a stream
+/// carry more than one clip gain, the peak of the core under each. A report
+/// has it where the samples are made, which is `verify --decode`, and is the
+/// same without them line for line but for that one. `info` never listens,
+/// and does not have it. What the payloads say of the clip gains, both have.
 #[test]
-fn the_core_level_under_each_clip_gain_is_the_one_every_frame_decoded_gives() {
+fn the_core_level_under_each_clip_gain_is_said_where_the_samples_are_made() {
     let dir = temp("clip-gains");
     let file = with_two_clip_gains(&dir);
     let (code, lines) = verify_lines(&file, &[]);
     assert_eq!(code, Some(0), "{lines:?}");
-    let level = lines
+    assert!(
+        lines.iter().any(|line| line.starts_with("JOC clip gain:")),
+        "{lines:?}"
+    );
+    assert!(
+        !lines.iter().any(|line| line.starts_with("JOC core level:")),
+        "a report made without the samples has a figure of them: {lines:?}"
+    );
+    let (decoded_code, decoded) = verify_lines(&file, &["--decode"]);
+    assert_eq!(decoded_code, code);
+    let level: Vec<&String> = decoded
         .iter()
-        .find(|line| line.starts_with("JOC core level:"))
-        .expect("a stream with two clip gains has a line of the level of its core");
+        .filter(|line| line.starts_with("JOC core level:"))
+        .collect();
     assert_eq!(
         level,
-        "JOC core level:    1.000: core peak 0.080, mean 0.055, x gain 0.080 (30); 1.500: core peak 0.080, mean 0.053, x gain 0.120 (33)"
+        [
+            "JOC core level:    1.000: core peak 0.080, mean 0.055, x gain 0.080 (30); 1.500: core peak 0.080, mean 0.053, x gain 0.120 (33)"
+        ]
     );
-    assert_eq!(verify_lines(&file, &["--decode"]), (code, lines));
+    let but_for_it: Vec<String> = decoded
+        .into_iter()
+        .filter(|line| !line.starts_with("JOC core level:"))
+        .collect();
+    assert_eq!(but_for_it, lines);
+    let info = oadec(&["info", file.to_str().unwrap()]);
+    let info = String::from_utf8(info.stdout).expect("text");
+    assert!(info.contains("JOC clip gain:"), "{info}");
+    assert!(!info.contains("JOC core level:"), "{info}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
