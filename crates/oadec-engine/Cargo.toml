@@ -1,0 +1,25 @@
+[package]
+name = "oadec-engine"
+description = "oadec engine: reads, checks and decodes TrueHD Atmos and E-AC-3 JOC streams for whoever calls it"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+oadec-bits.workspace = true
+oadec-diag.workspace = true
+oadec-emdf.workspace = true
+oadec-truehd.workspace = true
+oadec-eac3.workspace = true
+oadec-joc.workspace = true
+oadec-spatial.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

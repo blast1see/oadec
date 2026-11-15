@@ -176,7 +176,7 @@ With an object output a presentation names the object programme of either
 family, and is held to that as it was. An option given at its default is
 refused as one given away from it (`--fps 24` with an ADM file, `--isf error`
 with a WAVE output, `--order interchange` with a DAMF set): what is refused
-is that it was given. A call of `oadec_cli::api` can tell an option only by
+is that it was given. A call of `oadec_engine::api` can tell an option only by
 its value, so it refuses the ones that are away from their default, in the
 same words. `verify --decode` is taken on a stream of the AC-3 family.
 `verify` reads every frame of such a stream to its last bit and makes no

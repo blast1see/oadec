@@ -1397,7 +1397,7 @@ mod tests {
     fn fixture_groups(n: usize) -> Vec<ProgramFrame> {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/authored-scene.ec3"
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
         );
         let source = crate::source::Source::file(Path::new(path));
         let mut decoder = ProgramDecoder::new(oadec_eac3::Options::default());

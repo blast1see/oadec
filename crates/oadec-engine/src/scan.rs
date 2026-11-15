@@ -1462,8 +1462,7 @@ mod tests {
         for name in ["truehd-20-44k.thd", "mlp-51-96k.mlp", "authored-scene.mlp"] {
             let source = Source::file(
                 &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("tests")
-                    .join("fixtures")
+                    .join("../oadec-cli/tests/fixtures")
                     .join(name),
             );
             let asked = std::cell::Cell::new(0u64);

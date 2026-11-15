@@ -8,9 +8,9 @@
 use clap::ValueEnum;
 use oadec_spatial::{Interpolation, IsfPolicy};
 
-use crate::damf::Warp;
-use crate::decode::{Format, OnError, Order};
-use crate::eac3_objects::JocLowBand;
+use oadec_engine::damf::Warp;
+use oadec_engine::decode::{Format, OnError, Order};
+use oadec_engine::eac3_objects::JocLowBand;
 
 /// `--format`: the output container.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]

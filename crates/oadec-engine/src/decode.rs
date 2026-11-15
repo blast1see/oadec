@@ -116,6 +116,7 @@ pub struct Frame<'a> {
 }
 
 /// A decoder plus the bookkeeping the commands share.
+#[derive(Debug)]
 pub struct Session {
     presentation: usize,
     keep_duplicates: bool,
@@ -646,7 +647,7 @@ pub fn print_summary(session: &Summary, elapsed: f64, err: &mut dyn Write) -> io
 #[derive(Debug, Clone)]
 pub struct Options {
     /// The presentation asked for; `None` for the default (see
-    /// [`default_presentation`]).
+    /// `default_presentation`).
     pub presentation: Option<usize>,
     pub format: Format,
     pub order: Order,

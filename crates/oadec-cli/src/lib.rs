@@ -1,45 +1,33 @@
 //! The `oadec` command line: its arguments and what each command runs.
 //!
-//! The binary is this crate's [`run`] and nothing else, so that what a command
-//! does can be reached without starting a process.
+//! What a command does is the engine's (`oadec-engine`): it reads the stream,
+//! checks it and decodes it, and hands back values. This crate is what makes
+//! a command line of that: it parses the arguments, hands the engine stdout
+//! and stderr to write its reports and remarks to, draws the line that says
+//! how far a walk has got, and turns a verdict into an exit code. The tools
+//! that rewrite a stream for a measurement are here too.
+//!
+//! The binary is this crate's [`run`] and nothing else.
 
-// the `verify --json` report is one big `json!` literal
-#![recursion_limit = "256"]
 // What a command finds is a value, and printing it is a step of its own. A
-// function that prints says so, with an `allow` of its own; no other can,
-// which is what lets `api` promise that a call says nothing.
+// function that prints says so, with an `allow` of its own; no other can.
 #![deny(clippy::print_stdout, clippy::print_stderr)]
 // Whatever a call takes or hands back, its caller can write the type of: one
 // that is reachable from outside the crate and has no path there is a
 // warning, and the lints of this repository let none through.
 #![warn(unnameable_types)]
 
-pub mod api;
 mod args;
 mod au_dump;
 mod author;
 mod catalog;
-mod census;
 mod compare;
-mod damf;
-mod decode;
-mod eac3;
-mod eac3_objects;
 mod ecpl_inject;
-mod emdf;
-mod info;
-mod input;
-mod integrity;
 mod joc_config;
 mod joc_offset;
-mod oamd;
 mod progress;
-mod protection;
 mod repair;
-mod scan;
-pub mod source;
 mod thd_demux;
-mod verify;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -50,11 +38,12 @@ use crate::args::{
     FormatArg, InterpolationArg, IsfArg, JocLowBandArg, OnErrorArg, OrderArg, WarpArg,
 };
 use crate::compare::RefFormat;
-use crate::damf::Warp;
-use crate::decode::{Format, OnError, Order};
-use crate::eac3_objects::{JocLowBand, JocLowFir, JocOverrides, JocPhase};
-use crate::integrity::Verdict;
-use crate::source::Source;
+use oadec_engine::damf::Warp;
+use oadec_engine::decode::{Format, OnError, Order};
+use oadec_engine::eac3_objects::{JocLowBand, JocLowFir, JocOverrides, JocPhase};
+use oadec_engine::integrity::Verdict;
+use oadec_engine::source::Source;
+use oadec_engine::{api, damf, decode, eac3, eac3_objects, emdf, oamd};
 use oadec_truehd::Severity;
 
 /// Object-audio decoder engine for Dolby TrueHD Atmos and E-AC-3 JOC streams.

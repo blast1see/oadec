@@ -10,8 +10,8 @@ use oadec_emdf::container;
 use oadec_truehd::{AccessUnit, ExtraKind, ParserState, SampleBuffer, Segment, StreamConfig};
 use serde_json::{Value, json};
 
-use crate::input;
-use crate::source::Source;
+use oadec_engine::input;
+use oadec_engine::source::Source;
 
 /// The walk stops once the unit is described; this is how it says so.
 #[derive(Debug)]

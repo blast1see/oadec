@@ -86,7 +86,7 @@ fn truehd_start(head: &[u8]) -> Option<usize> {
 
 /// Streams the syncframes of a file: `on_frame(offset, bytes, header)`.
 /// Returns `(frames, sync_errors, skipped_bytes)`.
-pub(crate) fn for_each_frame(
+pub fn for_each_frame(
     source: &Source,
     on_frame: impl FnMut(u64, &[u8], &FrameHeader) -> Result<()>,
 ) -> Result<(u64, u64, u64)> {
@@ -2871,6 +2871,36 @@ pub fn compare(
 mod tests {
     use super::*;
 
+    /// Writes `n` bits of `value` at bit offset `at`.
+    fn put_bits(buf: &mut [u8], at: usize, n: u32, value: u32) {
+        for i in 0..n as usize {
+            let bit = (value >> (n as usize - 1 - i)) & 1 == 1;
+            let p = at + i;
+            let mask = 1u8 << (7 - p % 8);
+            if bit {
+                buf[p / 8] |= mask;
+            } else {
+                buf[p / 8] &= !mask;
+            }
+        }
+    }
+
+    /// Bit offset in the frame of the first field of its JOC payload, if it
+    /// carries one.
+    fn joc_payload_bit(frame: &oadec_eac3::Frame) -> Option<usize> {
+        for (skip, &skip_bit) in frame.skip_fields.iter().zip(&frame.skip_bits) {
+            for (i, candidate) in oadec_emdf::container::candidates(skip) {
+                let Ok((c, _)) = candidate else { continue };
+                for p in &c.payloads {
+                    if p.id == oadec_emdf::container::PAYLOAD_ID_JOC {
+                        return Some(skip_bit + 8 * i + p.data_bit);
+                    }
+                }
+            }
+        }
+        None
+    }
+
     /// A substream that declares the JOC extension in its `addbsi` carries an
     /// EMDF container in every frame (TS 103 420 clauses 8.2 and 8.3.1), so a
     /// frame with no skip field at all has lost one. The scan returned before
@@ -3164,7 +3194,7 @@ mod tests {
     fn the_frames_of_a_stream_do_not_depend_on_how_it_is_read() {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/authored-scene.ec3"
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
         );
         let stream = std::fs::read(path).expect("the fixture");
         let whole = read_in_pieces(&stream, READ_BYTES);
@@ -3192,7 +3222,7 @@ mod tests {
     fn the_gaps_of_a_stream_do_not_depend_on_how_it_is_read() {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/authored-scene.ec3"
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
         );
         let clean = std::fs::read(path).expect("the fixture");
         const FRAME: usize = 1792;
@@ -3313,7 +3343,7 @@ mod tests {
     fn a_block_keeps_its_record_only_where_it_is_asked_for() {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/authored-scene.ec3"
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
         );
         let stream = std::fs::read(path).expect("the fixture");
         let parsed = |options: Options| {
@@ -3344,7 +3374,7 @@ mod tests {
     fn fixture_bytes() -> Vec<u8> {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/authored-scene.ec3"
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
         );
         std::fs::read(path).expect("the fixture")
     }
@@ -3362,8 +3392,8 @@ mod tests {
         for (n, frame) in stream.as_chunks_mut::<1792>().0.iter_mut().enumerate() {
             let parsed = oadec_eac3::Frame::parse(frame, &mut noise, quiet).expect("a frame");
             if n >= from {
-                let at = crate::joc_config::config_bit(&parsed).expect("a JOC payload");
-                crate::joc_config::put_bits(frame, at + 15, 5, 16);
+                let at = joc_payload_bit(&parsed).expect("a JOC payload");
+                put_bits(frame, at + 15, 5, 16);
                 oadec_eac3::repair::fix_crcs(frame);
             }
         }
@@ -3472,7 +3502,7 @@ mod tests {
     fn first_groups(n: usize) -> Vec<ProgramFrame> {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/authored-scene.ec3"
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
         );
         let stream = std::fs::read(path).expect("the fixture");
         let mut dec = ProgramDecoder::new(Options::default());

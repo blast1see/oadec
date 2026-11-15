@@ -1246,8 +1246,7 @@ mod tests {
     fn fixture(name: &str) -> Source {
         Source::file(
             &Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("tests")
-                .join("fixtures")
+                .join("../oadec-cli/tests/fixtures")
                 .join(name),
         )
     }

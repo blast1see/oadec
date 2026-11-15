@@ -1,4 +1,4 @@
-//! The calls of `oadec_cli::api` against the commands they are the inside of.
+//! The calls of `oadec_engine::api` against the commands they are the inside of.
 //!
 //! For every fixture a call hands back the report the command prints, the
 //! verdict the command ends with and the bytes the command writes; a stream
@@ -9,7 +9,7 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use oadec_cli::api::{
+use oadec_engine::api::{
     self, Disc, Interpolation, JocOverrides, ObjectOptions, OnError, Order, PcmBytes, PcmFile,
     PcmOptions, Severity, Source, VerifyOptions,
 };

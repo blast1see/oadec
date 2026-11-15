@@ -34,7 +34,7 @@ use anyhow::{Context, Result, bail};
 use oadec_bits::BitWriter;
 use oadec_eac3::{BlockInfo, Frame, Noise, Options, StreamType, Syntax};
 
-use crate::eac3::for_each_frame;
+use oadec_engine::eac3::for_each_frame;
 
 /// Where `frmsiz` sits in the syncframe: after the sync word, `strmtyp` and
 /// `substreamid`.
@@ -289,7 +289,7 @@ pub fn run(path: &Path, out: &Path, shape: Shape) -> Result<()> {
     let mut noise = Noise::default();
     let mut converted = 0u64;
     let mut copied = 0u64;
-    let source = crate::progress::watched(crate::source::Source::file(path));
+    let source = crate::progress::watched(oadec_engine::source::Source::file(path));
     let (frames, sync_errors, skipped) = for_each_frame(&source, |_offset, bytes, header| {
         if header.syntax != Syntax::Eac3
             || header.stream_type == StreamType::Dependent

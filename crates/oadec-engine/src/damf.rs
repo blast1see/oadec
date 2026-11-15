@@ -23,7 +23,7 @@ use crate::source::Source;
 
 /// The object formats always decode the object presentation (3); a
 /// `--presentation` that says otherwise used to be accepted and ignored.
-pub(crate) fn check_presentation(format: Format, presentation: Option<usize>) -> Result<()> {
+pub fn check_presentation(format: Format, presentation: Option<usize>) -> Result<()> {
     let name = match format {
         Format::Damf => "damf",
         Format::Adm => "adm",
@@ -39,10 +39,7 @@ pub(crate) fn check_presentation(format: Format, presentation: Option<usize>) ->
 
 /// A file with the source ramps is outside the Dolby profile and cannot claim
 /// Dolby authorship.
-pub(crate) fn check_interpolation(
-    interpolation: Interpolation,
-    dolby_origin_tag: bool,
-) -> Result<()> {
+pub fn check_interpolation(interpolation: Interpolation, dolby_origin_tag: bool) -> Result<()> {
     if interpolation == Interpolation::Real && dolby_origin_tag {
         bail!(
             "--adm-interpolation real writes a file outside the Dolby Atmos master ADM profile and cannot carry the Dolby origin tag; drop --dolby-origin-tag"

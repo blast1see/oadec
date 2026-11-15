@@ -34,8 +34,8 @@ use oadec_eac3::frame::{Frame, Noise, Options as FrameOptions};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC};
 use oadec_emdf::joc::Joc;
 
-use crate::eac3::for_each_frame;
 use crate::joc_config::put_bits;
+use oadec_engine::eac3::for_each_frame;
 
 /// Bits of `joc_offset_ts_bits` (clause 6.3.4.4).
 const OFFSET_BITS: u32 = 5;
@@ -68,7 +68,7 @@ pub fn run(path: &Path, out: &Path, offset: u8) -> Result<()> {
     let mut noise = Noise::default();
     let mut fields = 0u64;
     let mut frames_touched = 0u64;
-    let source = crate::progress::watched(crate::source::Source::file(path));
+    let source = crate::progress::watched(oadec_engine::source::Source::file(path));
     let (frames, sync_errors, skipped) = for_each_frame(&source, |_offset, bytes, header| {
         let mut frame = bytes.to_vec();
         if header.syntax == Syntax::Eac3 {

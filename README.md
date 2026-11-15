@@ -152,7 +152,7 @@ comes from a measurement that can be repeated:
   repository at random, asks every command about each, and holds the answers
   to the policy of the exit codes; what it turned up is fixed and kept as
   test streams ([`docs/testing-tools.md`](docs/testing-tools.md)).
-- **Without a process.** `oadec_cli::api` is the commands as calls: a test
+- **Without a process.** `oadec_engine::api` is the commands as calls: a test
   hands a stream over, in a file or in memory, and gets back the report the
   command prints and the verdict it exits with, from the code that gives
   them on the command line, with nothing printed. The tests hold every call

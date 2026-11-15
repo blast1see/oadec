@@ -33,7 +33,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use crate::source::{Source, Walk, Watcher};
+use oadec_engine::source::{Source, Walk, Watcher};
 
 /// The command line's watcher: every walk it is told of gets a [`Progress`],
 /// which decides for itself whether it draws.

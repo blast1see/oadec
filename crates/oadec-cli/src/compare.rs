@@ -14,9 +14,9 @@ use std::io::Write;
 
 use clap::ValueEnum;
 
-use crate::decode::{Order, Session, format_duration, print_summary};
-use crate::input;
-use crate::source::Source;
+use oadec_engine::decode::{Order, Session, format_duration, print_summary};
+use oadec_engine::input;
+use oadec_engine::source::Source;
 
 /// Sample format of the reference file (interleaved).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -145,7 +145,7 @@ pub fn run(source: &Source, reference: &Path, opts: &Options, err: &mut dyn Writ
     // the checks of `verify` read the stream in a pass of their own, beside the
     // decode: a presentation reads only its substreams, and only some outputs
     // parse the object metadata
-    let check = crate::verify::spawn_stream_check(source);
+    let check = oadec_engine::verify::spawn_stream_check(source);
     let mut reference = RefReader::open(reference, opts.format, opts.skip)?;
     let mut session = Session::new(opts.presentation, opts.keep_duplicates, opts.order);
     let mut compared: u64 = 0;
@@ -190,7 +190,7 @@ pub fn run(source: &Source, reference: &Path, opts: &Options, err: &mut dyn Writ
     if session.stats().is_none() {
         // Nothing framed: the file is not a stream to judge but an unsupported
         // input, exit 2, as it is for every command that reports one.
-        return Err(crate::info::no_stream(source));
+        return Err(oadec_engine::info::no_stream(source));
     }
     let elapsed = started.elapsed().as_secs_f64();
     print_summary(&session.summary(), elapsed, err)?;
@@ -216,8 +216,8 @@ pub fn run(source: &Source, reference: &Path, opts: &Options, err: &mut dyn Writ
     }
     let equal = mismatches == 0 && !reference_short && leftover_samples == 0 && compared > 0;
     println!("result: {}", if equal { "BIT-EXACT" } else { "DIFFERENT" });
-    let stream = crate::verify::join_stream_check(check)?;
+    let stream = oadec_engine::verify::join_stream_check(check)?;
     let clean =
-        crate::decode::truehd_findings(&pass, session.stats(), &stream).report_clean(err)?;
+        oadec_engine::decode::truehd_findings(&pass, session.stats(), &stream).report_clean(err)?;
     Ok(equal && clean)
 }

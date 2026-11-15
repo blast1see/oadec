@@ -338,7 +338,7 @@ fn print_text(scan: &Scan, out: &mut dyn Write) -> io::Result<()> {
 /// megabyte of random bytes and exited 0, and `oamd` reported "0 in 0 of 0
 /// access units". A file that is not a stream is an unsupported input, exit 2
 /// (`docs/exit-codes.md`).
-pub(crate) fn no_stream(source: &Source) -> anyhow::Error {
+pub fn no_stream(source: &Source) -> anyhow::Error {
     anyhow::anyhow!(
         "no TrueHD access unit or E-AC-3 syncframe found in {}",
         source.name()

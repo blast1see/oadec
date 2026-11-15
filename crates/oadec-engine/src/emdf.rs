@@ -6,7 +6,7 @@
 //! words and their own headers, AC-3 and E-AC-3 alike, and each one is parsed
 //! far enough to reach its skip fields, which is where the containers are; no
 //! audio comes out. It settles where the encoder places metadata relative to
-//! the 1536-sample frames. The walk ([`for_each_container`]) is shared with
+//! the 1536-sample frames. The walk (`for_each_container`) is shared with
 //! `oadec oamd`, which reads the same containers for what the objects carry.
 
 use std::collections::BTreeMap;

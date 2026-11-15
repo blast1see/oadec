@@ -2,7 +2,7 @@
 //! them.
 //!
 //! A stream goes to every command that reads one, through the calls of
-//! `oadec_cli::api`, and what each made of it is put side by side. The
+//! `oadec_engine::api`, and what each made of it is put side by side. The
 //! policy of the exit codes says how the answers hang together
 //! (`docs/exit-codes.md`): every command that delivers audio or metadata
 //! decides between clean and faulty with the list of faults `verify` uses.
@@ -16,7 +16,9 @@
 
 use std::path::Path;
 
-use oadec_cli::api::{self, ObjectOptions, PcmBytes, PcmOptions, Source, Verdict, VerifyOptions};
+use oadec_engine::api::{
+    self, ObjectOptions, PcmBytes, PcmOptions, Source, Verdict, VerifyOptions,
+};
 
 use crate::mutate::{Rng, mutate};
 use crate::seeds::fnv1a;

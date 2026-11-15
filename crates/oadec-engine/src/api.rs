@@ -1,8 +1,8 @@
 //! The commands without the command line.
 //!
 //! Each function here does what a command does and hands back what it found.
-//! Nothing is printed and no process is ended: [`crate::run`] is these calls,
-//! or the functions under them, with the printing after. So a test, a fuzz
+//! Nothing is printed and no process is ended: the command line (`oadec-cli`)
+//! is these calls, or the functions under them, with the printing after. So a test, a fuzz
 //! target or a campaign that changes bytes and asks two commands about them
 //! gets the verdicts the command line gives, from the code that gives them
 //! there.
@@ -50,71 +50,71 @@ pub use crate::verify::Report as VerifyReport;
 use crate::{damf, decode, eac3, eac3_objects, emdf, info, oamd, verify};
 
 /// What `--census` on an AC-3 family stream is told.
-pub(crate) const CENSUS_IS_TRUEHD: &str = "--census counts the TrueHD syntax; the report of an AC-3 \
+pub const CENSUS_IS_TRUEHD: &str = "--census counts the TrueHD syntax; the report of an AC-3 \
      or E-AC-3 stream names its coding tools as it is";
 
 /// What the options of the TrueHD checks on an AC-3 family stream are told.
-pub(crate) const BUFFER_AND_DISC_ARE_TRUEHD: &str = "--trace-fifo and --require-disc are about the \
+pub const BUFFER_AND_DISC_ARE_TRUEHD: &str = "--trace-fifo and --require-disc are about the \
      decoder buffer and the disc formats of a TrueHD stream; they do not apply to an AC-3 or \
      E-AC-3 stream";
 
 /// What `--on-error` on an AC-3 family stream is told.
-pub(crate) const ON_ERROR_IS_TRUEHD: &str = "--on-error chooses what a TrueHD decode does with an \
+pub const ON_ERROR_IS_TRUEHD: &str = "--on-error chooses what a TrueHD decode does with an \
      access unit it cannot read; it does not apply to an E-AC-3 stream";
 
 /// What `--start` on an AC-3 family stream, or with an object output, is told.
-pub(crate) const START_IS_TRUEHD_SAMPLES: &str = "--start begins a TrueHD decode at a major sync, which \
+pub const START_IS_TRUEHD_SAMPLES: &str = "--start begins a TrueHD decode at a major sync, which \
      is exact because a restart header re-initialises every substream: it applies to a TrueHD \
      stream with --format pcm or wav";
 
 /// What the JOC measurement overrides on anything but the object decode of an
 /// E-AC-3 stream are told.
-pub(crate) const JOC_MEASURES_EAC3_OBJECTS: &str = "--joc-lag, --joc-low-band, --joc-low-fir and --joc-phase measure \
+pub const JOC_MEASURES_EAC3_OBJECTS: &str = "--joc-lag, --joc-low-band, --joc-low-fir and --joc-phase measure \
      the JOC object decode: they apply to an E-AC-3 stream with --format damf or adm";
 
 /// What the options of an AC-3 family decode on a TrueHD stream are told.
-pub(crate) const CORE_DECODE_IS_AC3: &str = "--core-only, --no-dither, --no-tpnp and --ecpl-spec are \
+pub const CORE_DECODE_IS_AC3: &str = "--core-only, --no-dither, --no-tpnp and --ecpl-spec are \
      about the decode of an AC-3 or E-AC-3 stream; they do not apply to a TrueHD stream";
 
 /// What the readings of the JOC decode on anything but the object decode of
 /// an E-AC-3 stream are told.
-pub(crate) const JOC_READINGS_ARE_EAC3_OBJECTS: &str = "--no-clip-gain, --flat-quadrature, \
+pub const JOC_READINGS_ARE_EAC3_OBJECTS: &str = "--no-clip-gain, --flat-quadrature, \
      --sparse-as-printed and --steep-as-printed are about the JOC object decode: they apply to an \
      E-AC-3 stream with --format damf or adm";
 
 /// What `--presentation` on an AC-3 family stream with a sample output is
 /// told.
-pub(crate) const PRESENTATION_IS_TRUEHD: &str = "--presentation names one of the presentations of a \
+pub const PRESENTATION_IS_TRUEHD: &str = "--presentation names one of the presentations of a \
      TrueHD stream; an AC-3 or E-AC-3 stream has one programme, and --core-only writes the channels \
      of its independent substream alone";
 
 /// What `--keep-duplicates` on an AC-3 family stream is told.
-pub(crate) const KEEP_DUPLICATES_IS_TRUEHD: &str = "--keep-duplicates keeps the access units a TrueHD \
+pub const KEEP_DUPLICATES_IS_TRUEHD: &str = "--keep-duplicates keeps the access units a TrueHD \
      stream flags as duplicates at a seamless branch; it does not apply to an AC-3 or E-AC-3 stream";
 
 /// What the options of an object output with a sample output are told.
-pub(crate) const OBJECT_OPTIONS_ARE_OBJECTS: &str = "--no-bed-conform, --all-events, --loss-report, \
+pub const OBJECT_OPTIONS_ARE_OBJECTS: &str = "--no-bed-conform, --all-events, --loss-report, \
      --isf, --fps, --dolby-origin-tag, --adm-allow-non-profile-rate and --adm-interpolation are \
      about an object output: they apply to --format damf or adm";
 
 /// What the options of an ADM BWF file with a DAMF set are told.
-pub(crate) const ADM_OPTIONS_ARE_ADM: &str = "--dolby-origin-tag, --adm-allow-non-profile-rate and \
+pub const ADM_OPTIONS_ARE_ADM: &str = "--dolby-origin-tag, --adm-allow-non-profile-rate and \
      --adm-interpolation are about an ADM BWF file: they apply to --format adm";
 
 /// What `--fps` with an ADM BWF file is told.
-pub(crate) const FPS_IS_DAMF: &str = "--fps is the frame rate in the header of a DAMF set: it applies \
+pub const FPS_IS_DAMF: &str = "--fps is the frame rate in the header of a DAMF set: it applies \
      to --format damf";
 
 /// What a channel order with an object output is told.
-pub(crate) const ORDER_IS_SAMPLES: &str = "--order names the channel order of a sample output; an \
+pub const ORDER_IS_SAMPLES: &str = "--order names the channel order of a sample output; an \
      object output has the order of its format";
 
 /// What the options of a TrueHD comparison on an AC-3 family stream are told.
-pub(crate) const REFERENCE_IS_FLOAT: &str = "--reference-format names the integer format of the \
+pub const REFERENCE_IS_FLOAT: &str = "--reference-format names the integer format of the \
      reference of a TrueHD stream; the reference of an AC-3 or E-AC-3 stream is 32-bit float";
 
 /// What `--worst` on a TrueHD stream is told.
-pub(crate) const WORST_IS_AC3: &str = "--worst lists the blocks of an AC-3 or E-AC-3 stream that \
+pub const WORST_IS_AC3: &str = "--worst lists the blocks of an AC-3 or E-AC-3 stream that \
      deviate most; a TrueHD comparison is exact and lists its mismatches (--report)";
 
 /// Whether `source` is an AC-3 or E-AC-3 stream, and not a TrueHD or MLP one.

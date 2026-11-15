@@ -208,9 +208,11 @@ segment of every fixture unit to every length and repairs each twice
 # The commands as calls
 
 Asking a command about a stream took a process and a file: start `oadec`,
-read what it printed, read its exit code. `oadec_cli::api` is the commands
+read what it printed, read its exit code. `oadec_engine::api` is the commands
 without the command line. Each function does what a command does and hands
-back what it found; none prints, and none ends the process.
+back what it found; none prints, and none ends the process. The engine is a
+crate of its own, with no command line in it: `oadec-cli` parses arguments,
+hands the engine stdout and stderr, and turns a verdict into an exit code.
 
 | The call | The command | What it hands back |
 |---|---|---|
@@ -230,7 +232,7 @@ goes to `remarks`, a line at a time: `std::io::stderr()` to hear it as the
 command says it, `std::io::sink()` not to.
 
 ```rust
-use oadec_cli::api::{self, PcmBytes, PcmOptions, Source, VerifyOptions};
+use oadec_engine::api::{self, PcmBytes, PcmOptions, Source, VerifyOptions};
 
 let source = Source::memory("changed.thd", bytes);
 let clean = api::verify(&source, &VerifyOptions::default())?.clean();

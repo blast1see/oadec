@@ -36,7 +36,7 @@ use oadec_eac3::Syntax;
 use oadec_eac3::frame::{Frame, Noise, Options as FrameOptions};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC};
 
-use crate::eac3::for_each_frame;
+use oadec_engine::eac3::for_each_frame;
 
 /// Bits of `joc_dmx_config_idx` (clause 6.3.2.2).
 const CONFIG_BITS: u32 = 3;
@@ -80,7 +80,7 @@ pub fn run(path: &Path, out: &Path, config: u8) -> Result<()> {
     let mut noise = Noise::default();
     let mut changed = 0u64;
     let mut untouched = 0u64;
-    let source = crate::progress::watched(crate::source::Source::file(path));
+    let source = crate::progress::watched(oadec_engine::source::Source::file(path));
     let (frames, sync_errors, skipped) = for_each_frame(&source, |_offset, bytes, header| {
         let mut frame = bytes.to_vec();
         // Dependent substreams are rewritten too: with one present, clause 8.2
