@@ -1,0 +1,1756 @@
+{
+ "question": "What does Dolby's decoder draw where a mantissa has no bits; can this decoder draw the same; and what is then left between the two decodes?",
+ "method": "A mantissa without bits takes a random value when its channel asks for dither (ATSC A/52 clause 7.3.4) and the standard leaves the sequence to the decoder. Dolby's decoder writes the same bytes every time it decodes a stream, so what it draws can be read off what it writes. The decoder was run as it stands (`gst-launch-1.0 filesrc ! dlbac3parse ! dlbac3dec out-ch-config=<0, 7 or 11> drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true ! audio/x-raw,format=F32LE ! filesink` of Dolby Reference Player 3.2, `docs/dolby-tools.md`); nothing of it was opened, and only its output was read. First on a stream written for the purpose: `oadec-synth` writes an AC-3 stream of two channels in which no mantissa has a bit, every exponent is 8 and every block asks for dither (`cargo run -p oadec-synth --example dither_probe`), so that a decode of it is the dither and nothing else. `tools/dither_probe.py read` takes the decode back through the transform (windowed overlap-add makes that exact) and says how fine the values are, when the run of them closes, the rule their ranks follow, which generator of 16 bits gives every block of every channel as a run, and the state each block starts from. The same stream was written with 73 and with 133 coefficients a channel and with the dither flag of one channel clear. Then on real streams, where Dolby's decode less this decoder's decode without dither is Dolby's dither alone: a copy of this decoder that wrote down, for every block, which coefficients had no bits, their exponents and the coupling coordinates gave the values over their scale, and the state that gives a run of values was looked for among all 65 536. That is how the coupled states (an AC-3 stream of two coupled channels), the seed of a frame of an independent E-AC-3 substream (the states of eight frames against the 16-bit word at every bit offset of the frame) and the rule of the adaptive hybrid transform were read. The rule was then put into the decoder and held against Dolby's decode: the streams of the corpus (a minute of each), the clips of the media suite, the objects of the gate clips and of the tracks of a library (`tools/joc_bands.py`, forty seconds of each, with the dither on), and one source encoded twice by FFmpeg, as AC-3 and as E-AC-3. The corpus was decoded by the binary of main and by the binary of the change (`tools/old_new.py --decode-all`). A track of the library is a number; the films are not in the repository.",
+ "commands": [
+  "cargo run --release -p oadec-synth --example dither_probe -- probe.ac3   (and: probe.ac3 60 133 73, probe.ac3 60 253 253 10)",
+  "gst-launch-1.0 filesrc location=probe.ac3 ! dlbac3parse ! dlbac3dec out-ch-config=0 drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true ! audio/x-raw,format=F32LE ! filesink location=probe.f32",
+  "python tools/dither_probe.py read probe.f32 --out probe-read.json",
+  "python tools/dither_probe.py --self-check",
+  "python tools/dither_probe.py against <dolby>.f32 <oadec decode>.wav <oadec decode --no-dither>.wav --channels <n>",
+  "python tools/band_compare.py <oadec decode>.wav <dolby>.f32 --channels <n>   (the bands of the corpus; here with the lag known, 256 samples, since noise gives a lag search nothing to hold)",
+  "python tools/joc_bands.py <ours>.atmos.audio <dolby>.f32   (every gate clip and every track, before and after)",
+  "python tools/old_new.py --old <main> --new <change> --decode-all <thd> <ec3> <clips> <fixtures>",
+  "OADEC_MEDIA=<work> cargo test --release --locked -p oadec-cli --test real -- --ignored the_dither_is the_objects_are a_hybrid_transform",
+  "python tools/mutants.py --only <the mutations of the files the change touches>",
+  "OADEC_CAMPAIGN_ITERS=200000 cargo test --release --locked -p oadec-fuzz --test campaign -- the_commands_agree_on_every_changed_stream   (on main and on the change)",
+  "bash tools/media_regression.sh <work> <logs>"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "binaries": {
+  "main": {
+   "name": "oadec-gain-2.exe",
+   "sha256": "30c30a525e7dff2af46825533c0724d4f20504bda10685552049f8f601d86f52",
+   "what": "the binary evidence 50 names as its change, which is the code of main"
+  },
+  "the_change": {
+   "name": "oadec-dolby-dither-2.exe",
+   "sha256": "1cf1c6a260156544afbec85054626c711ff6005d12d60ed476cc490deb857231"
+  }
+ },
+ "result": {
+  "the_stream_without_a_bit": {
+   "stream": {
+    "what": "AC-3, two channels, 48 kHz, 40 frames of 768 bytes, 253 coefficients a channel, every exponent 8, no mantissa with a bit, every block asking for dither",
+    "sha256": "b1464330ed8d9156c65e786dda88e5c7950cdebb54de2f59cefb2e6f1a1ea571"
+   },
+   "dolbys_decode_read_by_the_tool": {
+    "blocks_read": 237,
+    "channels": 2,
+    "whole_numbers_at_two_to_the_minus": 15,
+    "furthest_from_one": 0.0054232094043982215,
+    "spread": {
+     "least": -0.703338623046875,
+     "most": 0.703369140625,
+     "power": 0.08349997682974332,
+     "share_within_0.2071": 0.49905772085188704,
+     "of_an_even_spread_within_0.5": {
+      "power": 0.08333333333333333,
+      "share_within_0.2071": 0.4142
+     },
+     "of_a_sum_of_two_within_0.7071": {
+      "power": 0.08333333333333333,
+      "share_within_0.2071": 0.5
+     }
+    },
+    "run": {
+     "closes_after": 16384,
+     "stretches_laid_out": 474,
+     "of": 474,
+     "places_read": 16384,
+     "places_with_two_readings": 6212
+    },
+    "rule_of_the_ranks": {
+     "two_readings_differ_by": 23170,
+     "the_value_modulo_it_is_floor_of_rank_times_it_over_the_period": true,
+     "multiplier": 9081,
+     "increment": 8719,
+     "places_that_follow_the_rule": 16384,
+     "places": 16384
+    },
+    "generators_tried": 64,
+    "generators": [
+     {
+      "multiplier": 47989,
+      "increment": 3,
+      "stretches_that_are_a_run_of_it": 474
+     },
+     {
+      "multiplier": 7029,
+      "increment": 3,
+      "stretches_that_are_a_run_of_it": 0
+     },
+     {
+      "multiplier": 7029,
+      "increment": 9359,
+      "stretches_that_are_a_run_of_it": 0
+     },
+     {
+      "multiplier": 7029,
+      "increment": 16387,
+      "stretches_that_are_a_run_of_it": 0
+     }
+    ],
+    "the_generator_of_this_decoder": {
+     "multiplier": 47989,
+     "increment": 3,
+     "stretches_that_are_a_run_of_it": 474,
+     "of": 474
+    },
+    "states_of_the_first_frame": [
+     {
+      "block": 1,
+      "channel": 0,
+      "state": 12916,
+      "steps_of_the_seed_generator_from_0": 12
+     },
+     {
+      "block": 1,
+      "channel": 1,
+      "state": 28746,
+      "steps_of_the_seed_generator_from_0": 14
+     },
+     {
+      "block": 2,
+      "channel": 0,
+      "state": 4546,
+      "steps_of_the_seed_generator_from_0": 22
+     },
+     {
+      "block": 2,
+      "channel": 1,
+      "state": 42536,
+      "steps_of_the_seed_generator_from_0": 24
+     },
+     {
+      "block": 3,
+      "channel": 0,
+      "state": 3296,
+      "steps_of_the_seed_generator_from_0": 32
+     },
+     {
+      "block": 3,
+      "channel": 1,
+      "state": 29014,
+      "steps_of_the_seed_generator_from_0": 34
+     },
+     {
+      "block": 4,
+      "channel": 0,
+      "state": 52046,
+      "steps_of_the_seed_generator_from_0": 42
+     },
+     {
+      "block": 4,
+      "channel": 1,
+      "state": 32084,
+      "steps_of_the_seed_generator_from_0": 44
+     },
+     {
+      "block": 5,
+      "channel": 0,
+      "state": 51340,
+      "steps_of_the_seed_generator_from_0": 52
+     },
+     {
+      "block": 5,
+      "channel": 1,
+      "state": 43426,
+      "steps_of_the_seed_generator_from_0": 54
+     }
+    ],
+    "values_a_block_moves_in_a_frame": [
+     {
+      "channel": 0,
+      "values": 253,
+      "coefficients_of_the_channel": 253,
+      "blocks": 231
+     },
+     {
+      "channel": 1,
+      "values": 253,
+      "coefficients_of_the_channel": 253,
+      "blocks": 231
+     }
+    ]
+   },
+   "what_it_says": "whole numbers of 2^-15, spread as a sum of two; the run closes after 16 384 values and two readings of a place differ by 23 170 or not at all; the ranks of the values modulo that go q -> 9081 q + 8719 modulo 16 384; of the generators of 16 bits the rule allows one gives every block of every channel as a run, x -> x * 47989 + 3 with a value of (((a >> 1) + (b >> 1)) * 23170) >> 15; the blocks of the first frame start 12, 14, 22, 24 ... steps of g -> g * 47989 + 1 from 0, and a block is as many values on one frame later as its channel has coefficients",
+   "narrower_channels_and_one_channel_without_dither": {
+    "what": "the same stream with 133 and 73 coefficients, with 73 and 73, and with the dither flag of either channel clear, 60 frames each, decoded by Dolby's decoder and by the change",
+    "this_decoders_decode_against_dolbys_db": {
+     "253 and 253 coefficients, 40 frames": {
+      "written_by": "dither_probe <out.ac3>",
+      "bytes": 30720,
+      "sha256": "b1464330ed8d9156c65e786dda88e5c7950cdebb54de2f59cefb2e6f1a1ea571",
+      "the_bytes_dolbys_decoder_was_given": true,
+      "samples_compared": 61152,
+      "dolbys_decode_over_the_difference_db": [
+       138.4,
+       138.4
+      ]
+     },
+     "253 and 253 coefficients, 60 frames": {
+      "written_by": "dither_probe <out.ac3> 60 253 253",
+      "bytes": 46080,
+      "sha256": "f181b0bb4cff52504a25c7dadff9fc2cb2362ea68593e6155d4252760f3cff2c",
+      "the_bytes_dolbys_decoder_was_given": true,
+      "samples_compared": 91872,
+      "dolbys_decode_over_the_difference_db": [
+       138.4,
+       138.4
+      ]
+     },
+     "133 and 73 coefficients": {
+      "written_by": "dither_probe <out.ac3> 60 133 73",
+      "bytes": 46080,
+      "sha256": "0a6a942f4999a252173cb9c8b3c6623de0752ce0c475a0e63de20ab2f0e9d532",
+      "the_bytes_dolbys_decoder_was_given": true,
+      "samples_compared": 91872,
+      "dolbys_decode_over_the_difference_db": [
+       138.6,
+       138.9
+      ]
+     },
+     "73 and 73 coefficients": {
+      "written_by": "dither_probe <out.ac3> 60 73 73",
+      "bytes": 46080,
+      "sha256": "794662a0a40d56e3819d357fa276b27e5b5d49f6269481e5373eec7bb3039190",
+      "the_bytes_dolbys_decoder_was_given": true,
+      "samples_compared": 91872,
+      "dolbys_decode_over_the_difference_db": [
+       138.8,
+       138.9
+      ]
+     },
+     "the right channel does not ask": {
+      "written_by": "dither_probe <out.ac3> 60 253 253 10",
+      "bytes": 46080,
+      "sha256": "ad194505bf01c9402d36a6cffde6a6ffad481aab1d90c68679b5bec07ff4cb4e",
+      "the_bytes_dolbys_decoder_was_given": true,
+      "samples_compared": 91872,
+      "dolbys_decode_over_the_difference_db": [
+       138.4,
+       "silent in both"
+      ]
+     },
+     "the left channel does not ask": {
+      "written_by": "dither_probe <out.ac3> 60 253 253 01",
+      "bytes": 46080,
+      "sha256": "d31dad0304cb0c3cfad533af6535996ee3d5a8329003857b6f6c110ababc7540",
+      "the_bytes_dolbys_decoder_was_given": true,
+      "samples_compared": 91872,
+      "dolbys_decode_over_the_difference_db": [
+       "silent in both",
+       138.4
+      ]
+     }
+    },
+    "the_channel_that_does_not_ask": "silent in both decodes, and the other channel the same samples as when both ask"
+   }
+  },
+  "what_was_read_on_real_streams": {
+   "the_coupled_states": {
+    "stream": "AC-3, two channels, coupling and rematrixing (the clip `ac3-20-coupled` of the media suite)",
+    "what": "in the blocks of the first frames, the coefficients of the coupling channel without bits give, for each coupled channel, a run of 36 values of the generator, exact to the whole number, from the state one step of the seed generator after the channel's own; the channel's own state does not move for them"
+   },
+   "the_seed_of_a_frame": {
+    "stream": "E-AC-3, 5.1, an independent substream alone (the clip `eac3-51-plain`)",
+    "what": "within a frame every block of every channel starts one step of the seed generator after the one before, block by block and channel by channel; between frames the chain jumps. The state before the first of a frame is the 16-bit word that ends 18 bits before the end of the frame: of every bit offset from the start or the end of the frame, of this frame, the one before and the one after, that one alone fits the eight frames tried",
+    "the_words": "in every stream of the corpus whose independent substream is E-AC-3 a word that changes from frame to frame, and in most of them the same run of words from the first frame on (17f4 150a b7ab e15e 1d75 bedb); in the dependent substreams nought in most frames; in a stream of FFmpeg's encoder nought",
+    "the_coupled_states_of_such_a_frame": "a stream of two coupled channels: the coupled runs of blocks 1 to 4 of the first frame start 36, 37, 41, 42, 46, 47, 51 and 52 steps after the word, which is 30 after the own state of the same block and channel"
+   },
+   "the_committed_encode": {
+    "stream": "crates/oadec-cli/tests/fixtures/authored-scene.ec3",
+    "what": "in the second and the third frame every block of every channel whose coefficients without bits could be read starts 5 * block + channel + 1 steps after the word of its frame; the centre, which the scene leaves silent, gives whole numbers, and four runs of them are the numbers of the test `the_dither_of_a_frame_is_the_one_dolbys_decoder_draws_for_it`"
+   },
+   "the_adaptive_hybrid_transform": {
+    "stream": "E-AC-3, 5.1, 384 kbit/s, the transform in nearly every frame (`ec3/pi-head-aht384.ec3`)",
+    "what": "Dolby's decode less the decode without dither, in the coefficients without bits of a channel that uses the transform, is a whole number in every block, spread as the ordinary dither and sqrt(6) as wide: in each block the run of that block's own state, each value 2 * ((s * 28378) >> 15) of the sum s the ordinary value is made of",
+    "values_paired_with_the_generator": 952,
+    "of_them_given_by_the_rule": 952
+   },
+   "dependent_substreams": {
+    "eac3-71-dependent": {
+     "frames_of_the_dependent_substream": 1875,
+     "frames_compared": 1874,
+     "of_them_with_a_tail_word_that_is_not_nought": 88,
+     "above_9_khz_the_worst_of_its_channels_frame_by_frame_db": {
+      "least": 70.7,
+      "fifth_percentile": 90.8,
+      "median": 95.9
+     },
+     "in_the_frames_with_such_a_word_db": {
+      "least": 84.4,
+      "median": 94.6
+     }
+    },
+    "ac3-core-with-a-dependent-substream": {
+     "frames_of_the_dependent_substream": 1875,
+     "frames_compared": 1874,
+     "of_them_with_a_tail_word_that_is_not_nought": 138,
+     "above_9_khz_the_worst_of_its_channels_frame_by_frame_db": {
+      "least": 72.8,
+      "fifth_percentile": 83.8,
+      "median": 95.2
+     },
+     "in_the_frames_with_such_a_word_db": {
+      "least": 72.8,
+      "median": 94.7
+     }
+    }
+   },
+   "what_they_say": "a dependent substream goes on from frame to frame through the frames that end in something as through the ones that end in nought, on an independent substream of E-AC-3 and on one of AC-3"
+  },
+  "against_dolbys_decode": {
+   "the_corpus": {
+    "how": "a minute of each stream; per stream the median over its channels (the LFE left out) of Dolby's decode over the difference, in bands of 6 kHz; over the streams of a kind the least, the median and the most",
+    "streams": 55,
+    "ac3": 11,
+    "e_ac3": 44,
+    "ac3_and_the_e_ac3_without_coupling_spectral_extension_or_the_hybrid_transform": {
+     "streams": 45,
+     "0_to_6_khz": {
+      "before": {
+       "least": 56.6,
+       "median": 134.9,
+       "most": 144.3
+      },
+      "after": {
+       "least": 95.4,
+       "median": 138.2,
+       "most": 144.3
+      }
+     },
+     "6_to_12_khz": {
+      "before": {
+       "least": 2.1,
+       "median": 66.4,
+       "most": 115.2
+      },
+      "after": {
+       "least": 86.9,
+       "median": 103.6,
+       "most": 119.0
+      }
+     },
+     "12_to_18_khz": {
+      "before": {
+       "least": -3.0,
+       "median": 12.7,
+       "most": 31.4
+      },
+      "after": {
+       "least": 77.2,
+       "median": 93.6,
+       "most": 107.8
+      }
+     },
+     "18_to_24_khz": {
+      "before": {
+       "least": -3.1,
+       "median": -3.0,
+       "most": 30.6
+      },
+      "after": {
+       "least": 31.9,
+       "median": 90.9,
+       "most": 101.8
+      }
+     },
+     "streams_further_in_some_band_by_more_than_1_db": []
+    },
+    "the_e_ac3_with_coupling_most_of_them_with_spectral_extension_or_the_hybrid_transform_as_well": {
+     "streams": 10,
+     "0_to_6_khz": {
+      "before": {
+       "least": 21.7,
+       "median": 44.8,
+       "most": 56.0
+      },
+      "after": {
+       "least": 21.8,
+       "median": 87.4,
+       "most": 101.8
+      }
+     },
+     "6_to_12_khz": {
+      "before": {
+       "least": -0.1,
+       "median": 6.6,
+       "most": 31.0
+      },
+      "after": {
+       "least": -0.1,
+       "median": 6.8,
+       "most": 90.3
+      }
+     },
+     "12_to_18_khz": {
+      "before": {
+       "least": -1.8,
+       "median": 0.3,
+       "most": 18.3
+      },
+      "after": {
+       "least": -1.8,
+       "median": 0.5,
+       "most": 22.5
+      }
+     },
+     "18_to_24_khz": {
+      "before": {
+       "least": 0.7,
+       "median": 22.0,
+       "most": 47.8
+      },
+      "after": {
+       "least": 2.2,
+       "median": 24.6,
+       "most": 48.0
+      }
+     },
+     "streams_further_in_some_band_by_more_than_1_db": []
+    }
+   },
+   "the_clips_of_the_media_suite": {
+    "how": "the measure of the tests `the_dither_is_the_one_dolbys_decoder_draws`, `a_hybrid_transform_channel_takes_the_dither_dolbys_decoder_gives_it` and `the_objects_are_dolbys_over_the_whole_band_with_the_dither_on` of the media suite, made by a script for the binary of main and for the binary of the change: Dolby's decode over the difference from ours over the whole band, in dB, from two seconds in, for every channel or object that carries anything (above -90 dBFS); a channel in the order of a WAVE file, null where it carries nothing",
+    "channels": {
+     "ac3-51-coupled": {
+      "what": "AC-3, 5.1, with coupling",
+      "the_bar_of_the_test_db": 120.0,
+      "before": [
+       61.3,
+       63.8,
+       51.8,
+       139.0,
+       57.4,
+       57.9
+      ],
+      "after": [
+       138.3,
+       138.8,
+       133.6,
+       139.0,
+       136.2,
+       136.2
+      ]
+     },
+     "ac3-20-coupled": {
+      "what": "AC-3, 2.0, with coupling and rematrixing",
+      "the_bar_of_the_test_db": 85.0,
+      "before": [
+       56.7,
+       57.0
+      ],
+      "after": [
+       94.6,
+       112.4
+      ]
+     },
+     "eac3-51-plain": {
+      "what": "E-AC-3, 5.1, an independent substream alone, neither coupling nor spectral extension nor the hybrid transform",
+      "the_bar_of_the_test_db": 120.0,
+      "before": [
+       45.2,
+       50.8,
+       46.9,
+       null,
+       48.1,
+       50.5
+      ],
+      "after": [
+       137.8,
+       138.3,
+       137.8,
+       null,
+       136.7,
+       137.6
+      ]
+     },
+     "eac3-71-dependent": {
+      "what": "E-AC-3, 7.1, an independent substream and a dependent one",
+      "the_bar_of_the_test_db": 95.0,
+      "before": [
+       39.1,
+       39.0,
+       33.7,
+       132.4,
+       31.4,
+       31.5,
+       34.4,
+       34.2
+      ],
+      "after": [
+       110.3,
+       109.6,
+       107.2,
+       132.4,
+       105.6,
+       105.4,
+       108.1,
+       108.0
+      ]
+     },
+     "pi-head-aht384": {
+      "what": "E-AC-3, 5.1, the adaptive hybrid transform in nearly every frame; the test judges the centre, the third channel, since the others are coupled",
+      "the_bar_of_the_test_db": 65.0,
+      "before": [
+       32.9,
+       33.1,
+       49.8,
+       86.6,
+       29.3,
+       28.9
+      ],
+      "after": [
+       33.1,
+       33.3,
+       72.6,
+       86.6,
+       29.8,
+       29.4
+      ]
+     }
+    },
+    "objects": {
+     "quietplace-web-head": {
+      "before": {
+       "objects": 11,
+       "the_middle_one_db": 67.9,
+       "the_worst_db": 60.6,
+       "the_best_db": 75.4
+      },
+      "after": {
+       "objects": 11,
+       "the_middle_one_db": 109.9,
+       "the_worst_db": 99.4,
+       "the_best_db": 118.1
+      }
+     },
+     "kingsman-joc-head": {
+      "before": {
+       "objects": 13,
+       "the_middle_one_db": 40.3,
+       "the_worst_db": 35.9,
+       "the_best_db": 47.5
+      },
+      "after": {
+       "objects": 13,
+       "the_middle_one_db": 104.7,
+       "the_worst_db": 98.6,
+       "the_best_db": 109.1
+      }
+     },
+     "shaun-joc1024-head": {
+      "before": {
+       "objects": 11,
+       "the_middle_one_db": 56.7,
+       "the_worst_db": 44.6,
+       "the_best_db": 69.8
+      },
+      "after": {
+       "objects": 11,
+       "the_middle_one_db": 106.0,
+       "the_worst_db": 100.5,
+       "the_best_db": 113.0
+      }
+     },
+     "joc-steep-jackal": {
+      "before": {
+       "objects": 9,
+       "the_middle_one_db": 41.9,
+       "the_worst_db": 36.6,
+       "the_best_db": 44.7
+      },
+      "after": {
+       "objects": 9,
+       "the_middle_one_db": 108.2,
+       "the_worst_db": 93.0,
+       "the_best_db": 113.7
+      }
+     },
+     "joc-clip-gain": {
+      "before": {
+       "objects": 15,
+       "the_middle_one_db": 54.1,
+       "the_worst_db": 48.2,
+       "the_best_db": 73.6
+      },
+      "after": {
+       "objects": 15,
+       "the_middle_one_db": 114.5,
+       "the_worst_db": 109.5,
+       "the_best_db": 121.2
+      }
+     }
+    },
+    "the_bars_of_the_objects_db": {
+     "the_middle_one": 95.0,
+     "the_worst": 85.0
+    }
+   },
+   "what_is_added_where_a_stream_has_no_bits": {
+    "how": "`tools/dither_probe.py against`: per channel the level of what Dolby's decode adds to this decoder's decode without dither, of what this decoder adds, and Dolby's over what is left of it once this decoder's is taken out",
+    "clips": {
+     "ac3-51-coupled": [
+      {
+       "channel": 0,
+       "the_reference_adds_dbfs": -105.34,
+       "this_decoder_adds_dbfs": -105.34,
+       "the_reference_over_what_is_left_db": 73.94
+      },
+      {
+       "channel": 1,
+       "the_reference_adds_dbfs": -105.9,
+       "this_decoder_adds_dbfs": -105.9,
+       "the_reference_over_what_is_left_db": 72.06
+      },
+      {
+       "channel": 2,
+       "the_reference_adds_dbfs": -107.52,
+       "this_decoder_adds_dbfs": -107.52,
+       "the_reference_over_what_is_left_db": 78.77
+      },
+      {
+       "channel": 3,
+       "the_reference_adds_dbfs": -185.25,
+       "this_decoder_adds_dbfs": null,
+       "the_reference_over_what_is_left_db": 0.0
+      },
+      {
+       "channel": 4,
+       "the_reference_adds_dbfs": -107.06,
+       "this_decoder_adds_dbfs": -107.06,
+       "the_reference_over_what_is_left_db": 75.79
+      },
+      {
+       "channel": 5,
+       "the_reference_adds_dbfs": -107.34,
+       "this_decoder_adds_dbfs": -107.34,
+       "the_reference_over_what_is_left_db": 75.29
+      }
+     ],
+     "ac3-20-coupled": [
+      {
+       "channel": 0,
+       "the_reference_adds_dbfs": -75.1,
+       "this_decoder_adds_dbfs": -75.1,
+       "the_reference_over_what_is_left_db": 34.73
+      },
+      {
+       "channel": 1,
+       "the_reference_adds_dbfs": -75.86,
+       "this_decoder_adds_dbfs": -75.86,
+       "the_reference_over_what_is_left_db": 52.41
+      }
+     ],
+     "eac3-51-plain": [
+      {
+       "channel": 0,
+       "the_reference_adds_dbfs": -87.61,
+       "this_decoder_adds_dbfs": -87.61,
+       "the_reference_over_what_is_left_db": 89.58
+      },
+      {
+       "channel": 1,
+       "the_reference_adds_dbfs": -90.88,
+       "this_decoder_adds_dbfs": -90.88,
+       "the_reference_over_what_is_left_db": 84.48
+      },
+      {
+       "channel": 2,
+       "the_reference_adds_dbfs": -90.71,
+       "this_decoder_adds_dbfs": -90.71,
+       "the_reference_over_what_is_left_db": 87.93
+      },
+      {
+       "channel": 3,
+       "the_reference_adds_dbfs": -251.75,
+       "this_decoder_adds_dbfs": null,
+       "the_reference_over_what_is_left_db": 0.0
+      },
+      {
+       "channel": 4,
+       "the_reference_adds_dbfs": -98.66,
+       "this_decoder_adds_dbfs": -98.66,
+       "the_reference_over_what_is_left_db": 85.72
+      },
+      {
+       "channel": 5,
+       "the_reference_adds_dbfs": -98.65,
+       "this_decoder_adds_dbfs": -98.65,
+       "the_reference_over_what_is_left_db": 84.21
+      }
+     ],
+     "eac3-71-dependent": [
+      {
+       "channel": 0,
+       "the_reference_adds_dbfs": -73.11,
+       "this_decoder_adds_dbfs": -73.11,
+       "the_reference_over_what_is_left_db": 68.23
+      },
+      {
+       "channel": 1,
+       "the_reference_adds_dbfs": -73.26,
+       "this_decoder_adds_dbfs": -73.26,
+       "the_reference_over_what_is_left_db": 67.62
+      },
+      {
+       "channel": 2,
+       "the_reference_adds_dbfs": -79.02,
+       "this_decoder_adds_dbfs": -79.02,
+       "the_reference_over_what_is_left_db": 70.46
+      },
+      {
+       "channel": 3,
+       "the_reference_adds_dbfs": -162.16,
+       "this_decoder_adds_dbfs": null,
+       "the_reference_over_what_is_left_db": 0.0
+      },
+      {
+       "channel": 4,
+       "the_reference_adds_dbfs": -74.17,
+       "this_decoder_adds_dbfs": -74.17,
+       "the_reference_over_what_is_left_db": 71.19
+      },
+      {
+       "channel": 5,
+       "the_reference_adds_dbfs": -73.19,
+       "this_decoder_adds_dbfs": -73.19,
+       "the_reference_over_what_is_left_db": 71.02
+      },
+      {
+       "channel": 6,
+       "the_reference_adds_dbfs": -74.77,
+       "this_decoder_adds_dbfs": -74.77,
+       "the_reference_over_what_is_left_db": 70.78
+      },
+      {
+       "channel": 7,
+       "the_reference_adds_dbfs": -74.22,
+       "this_decoder_adds_dbfs": -74.22,
+       "the_reference_over_what_is_left_db": 70.74
+      }
+     ]
+    },
+    "one_sample": "in the left channel of `ac3-20-coupled` one sample is 1,0054 in this decoder's decode and 1,0 in Dolby's, which keeps a sample at full scale; it is most of what is left of that channel"
+   }
+  },
+  "the_objects": {
+   "the_gate_clips": {
+    "how": "`tools/joc_bands.py`, the dither on: the median over the objects heard of the ratio in the bands of 375 Hz that start at the frequencies named, and over the whole band",
+    "clips": [
+     {
+      "clip": "clips/quietplace-web-head.ec3",
+      "reference": "ref-oar/quietplace-web-obj.f32",
+      "old": {
+       "objects": 11,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 125.9,
+        "6": 87.5,
+        "16": 27.2,
+        "24": 20.4,
+        "32": 24.8,
+        "40": 3.4,
+        "48": -3.0,
+        "56": 16.4
+       },
+       "whole_median_db": 68.0
+      },
+      "new": {
+       "objects": 11,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 126.0,
+        "6": 87.5,
+        "16": 65.2,
+        "24": 53.0,
+        "32": 50.3,
+        "40": 47.6,
+        "48": 45.5,
+        "56": 16.5
+       },
+       "whole_median_db": 110.0
+      }
+     },
+     {
+      "clip": "clips/kingsman-joc-head.ec3",
+      "reference": "ref-oar/kingsman-joc-head-obj.f32",
+      "old": {
+       "objects": 13,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 120.2,
+        "6": 79.6,
+        "16": 50.2,
+        "24": 50.4,
+        "32": 39.1,
+        "40": 24.0,
+        "48": -2.9,
+        "56": 10.8
+       },
+       "whole_median_db": 40.3
+      },
+      "new": {
+       "objects": 13,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 120.1,
+        "6": 103.6,
+        "16": 93.6,
+        "24": 89.8,
+        "32": 85.4,
+        "40": 80.6,
+        "48": 69.5,
+        "56": 11.0
+       },
+       "whole_median_db": 104.7
+      }
+     },
+     {
+      "clip": "clips/knivesout-joc-head.ec3",
+      "reference": "ref-oar/knivesout-joc-obj.f32",
+      "old": {
+       "objects": 3,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 104.4,
+        "6": 74.7,
+        "16": 53.9,
+        "24": 18.4,
+        "32": 32.2,
+        "40": 3.4,
+        "48": -3.0,
+        "56": -8.4
+       },
+       "whole_median_db": 52.2
+      },
+      "new": {
+       "objects": 3,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 105.0,
+        "6": 75.2,
+        "16": 54.8,
+        "24": 48.4,
+        "32": 47.3,
+        "40": 46.1,
+        "48": 44.1,
+        "56": -8.4
+       },
+       "whole_median_db": 91.4
+      }
+     },
+     {
+      "clip": "clips/fifthelement-joc-head.ec3",
+      "reference": "ref-oar/fifthelement-joc-obj.f32",
+      "old": {
+       "objects": 10,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 126.1,
+        "6": 71.8,
+        "16": 56.4,
+        "24": 24.6,
+        "32": 52.6,
+        "40": 19.1,
+        "48": -2.9,
+        "56": 15.8
+       },
+       "whole_median_db": 56.9
+      },
+      "new": {
+       "objects": 10,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 126.1,
+        "6": 71.9,
+        "16": 56.4,
+        "24": 56.5,
+        "32": 57.7,
+        "40": 60.9,
+        "48": 61.1,
+        "56": 15.8
+       },
+       "whole_median_db": 113.0
+      }
+     },
+     {
+      "clip": "clips/shaun-joc1024-head.ec3",
+      "reference": "ref-oar/shaun-joc1024-obj.f32",
+      "old": {
+       "objects": 11,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 113.6,
+        "6": 95.0,
+        "16": 80.0,
+        "24": 72.3,
+        "32": 36.9,
+        "40": 33.5,
+        "48": -2.9,
+        "56": 9.6
+       },
+       "whole_median_db": 56.9
+      },
+      "new": {
+       "objects": 11,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 113.6,
+        "6": 95.0,
+        "16": 81.6,
+        "24": 75.6,
+        "32": 65.8,
+        "40": 63.2,
+        "48": 58.1,
+        "56": 9.5
+       },
+       "whole_median_db": 106.0
+      }
+     },
+     {
+      "clip": "clips/br2049-joc-head.ec3",
+      "reference": "ref-oar/br2049-obj.f32",
+      "old": {
+       "objects": 11,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 130.1,
+        "6": 53.1,
+        "16": 20.1,
+        "24": 25.7,
+        "32": 29.3,
+        "40": 8.3,
+        "48": -2.7,
+        "56": 30.9
+       },
+       "whole_median_db": 83.5
+      },
+      "new": {
+       "objects": 11,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 130.2,
+        "6": 89.3,
+        "16": 62.1,
+        "24": 49.9,
+        "32": 46.5,
+        "40": 44.4,
+        "48": 40.1,
+        "56": 30.9
+       },
+       "whole_median_db": 122.3
+      }
+     },
+     {
+      "clip": "clips/joc-steep-jackal.ec3",
+      "reference": "ref-drp/joc/joc-steep-jackal.f32",
+      "old": {
+       "objects": 9,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 119.2,
+        "6": 99.1,
+        "16": 35.6,
+        "24": 16.4,
+        "32": 25.6,
+        "40": 15.3,
+        "48": -2.5,
+        "56": 14.5
+       },
+       "whole_median_db": 41.9
+      },
+      "new": {
+       "objects": 9,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 119.2,
+        "6": 103.3,
+        "16": 91.6,
+        "24": 83.7,
+        "32": 85.7,
+        "40": 81.6,
+        "48": 75.1,
+        "56": 14.9
+       },
+       "whole_median_db": 108.1
+      }
+     },
+     {
+      "clip": "clips/joc-onset-steep.ec3",
+      "reference": "ref-drp/joc/joc-onset-steep.f32",
+      "old": {
+       "objects": 5,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 99.1,
+        "6": 110.0,
+        "16": 110.7,
+        "24": 94.8,
+        "32": 97.5,
+        "40": 87.2,
+        "48": 82.7,
+        "56": 105.5
+       },
+       "whole_median_db": 89.8
+      },
+      "new": {
+       "objects": 5,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 99.1,
+        "6": 110.0,
+        "16": 111.1,
+        "24": 110.8,
+        "32": 111.2,
+        "40": 111.8,
+        "48": 112.1,
+        "56": 105.6
+       },
+       "whole_median_db": 109.4
+      }
+     },
+     {
+      "clip": "clips/joc-clip-gain.ec3",
+      "reference": "ref-drp/joc/joc-clip-gain.f32",
+      "old": {
+       "objects": 15,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 125.9,
+        "6": 112.8,
+        "16": 54.5,
+        "24": 39.6,
+        "32": 37.6,
+        "40": 18.8,
+        "48": 1.4,
+        "56": 26.3
+       },
+       "whole_median_db": 54.1
+      },
+      "new": {
+       "objects": 15,
+       "lag": 0,
+       "bands_median_db": {
+        "0": 125.9,
+        "6": 114.5,
+        "16": 96.8,
+        "24": 94.3,
+        "32": 91.6,
+        "40": 88.3,
+        "48": 81.1,
+        "56": 27.8
+       },
+       "whole_median_db": 114.5
+      }
+     }
+    ]
+   },
+   "the_library": {
+    "tracks": 127,
+    "whole_band_with_dither": {
+     "before": {
+      "tracks": 127,
+      "least": 22.0,
+      "first_quarter": 45.9,
+      "median": 52.3,
+      "third_quarter": 56.2,
+      "most": 76.9
+     },
+     "after": {
+      "tracks": 127,
+      "least": 80.5,
+      "first_quarter": 96.2,
+      "median": 104.2,
+      "third_quarter": 112.4,
+      "most": 122.7
+     }
+    },
+    "band_16": {
+     "before": {
+      "tracks": 127,
+      "least": 23.8,
+      "first_quarter": 50.3,
+      "median": 63.9,
+      "third_quarter": 84.2,
+      "most": 107.2
+     },
+     "after": {
+      "tracks": 127,
+      "least": 55.0,
+      "first_quarter": 76.8,
+      "median": 85.2,
+      "third_quarter": 95.3,
+      "most": 107.7
+     }
+    },
+    "band_32": {
+     "before": {
+      "tracks": 127,
+      "least": 8.3,
+      "first_quarter": 31.0,
+      "median": 42.0,
+      "third_quarter": 55.5,
+      "most": 94.2
+     },
+     "after": {
+      "tracks": 127,
+      "least": 49.2,
+      "first_quarter": 61.5,
+      "median": 74.1,
+      "third_quarter": 85.6,
+      "most": 94.5
+     }
+    },
+    "band_48": {
+     "before": {
+      "tracks": 127,
+      "least": -3.2,
+      "first_quarter": -3.0,
+      "median": -2.8,
+      "third_quarter": -1.6,
+      "most": 12.1
+     },
+     "after": {
+      "tracks": 127,
+      "least": 33.7,
+      "first_quarter": 50.8,
+      "median": 61.4,
+      "third_quarter": 70.2,
+      "most": 89.5
+     }
+    },
+    "whole_band_without_dither": {
+     "before": {
+      "tracks": 127,
+      "least": 25.0,
+      "first_quarter": 48.9,
+      "median": 55.3,
+      "third_quarter": 59.1,
+      "most": 79.9
+     },
+     "after": {
+      "tracks": 127,
+      "least": 25.0,
+      "first_quarter": 48.9,
+      "median": 55.3,
+      "third_quarter": 59.1,
+      "most": 79.9
+     }
+    },
+    "lowest_band_with_dither": {
+     "before": {
+      "tracks": 127,
+      "least": 96.0,
+      "first_quarter": 111.3,
+      "median": 119.2,
+      "third_quarter": 125.7,
+      "most": 138.5
+     },
+     "after": {
+      "tracks": 127,
+      "least": 96.1,
+      "first_quarter": 111.3,
+      "median": 119.3,
+      "third_quarter": 125.8,
+      "most": 138.6
+     }
+    },
+    "objects_with_dither_over_the_whole_band": {
+     "objects": 1080,
+     "nearer": 1080,
+     "further": 0,
+     "further_by_more_than_1_db": 0,
+     "gain_db": {
+      "tracks": 1080,
+      "least": 0.1,
+      "first_quarter": 45.7,
+      "median": 54.4,
+      "third_quarter": 62.5,
+      "most": 74.8
+     }
+    },
+    "objects_further_by_more_than_1_db": [],
+    "tracks_nearer": 127,
+    "tracks_further": 0,
+    "track_gain_db": {
+     "tracks": 127,
+     "least": 31.1,
+     "first_quarter": 46.1,
+     "median": 54.6,
+     "third_quarter": 59.8,
+     "most": 64.8
+    },
+    "tracks_under_80_db_after": []
+   }
+  },
+  "what_it_does_not_reach": {
+   "the_coupled_region_of_an_e_ac_3_stream": {
+    "one_source_encoded_by_ffmpeg_both_ways": {
+     "as E-AC-3": {
+      "coverage": [
+       "coupling",
+       "dither",
+       "rematrixing"
+      ],
+      "frames": 626,
+      "dolbys_decode_over_the_difference_by_sixteen_coefficients_db": [
+       [
+        103.9,
+        92.6,
+        90.1,
+        9.1,
+        7.6,
+        7.0,
+        7.6,
+        7.5,
+        7.1,
+        7.1,
+        -0.3,
+        -0.2,
+        -0.3,
+        -0.3,
+        -0.3,
+        -0.4
+       ],
+       [
+        103.7,
+        92.8,
+        90.4,
+        9.1,
+        7.7,
+        7.5,
+        8.1,
+        7.7,
+        8.2,
+        8.5,
+        -0.3,
+        -0.3,
+        -0.3,
+        -0.3,
+        -0.3,
+        -0.3
+       ]
+      ]
+     },
+     "as AC-3": {
+      "coverage": [
+       "coupling",
+       "dither",
+       "rematrixing"
+      ],
+      "frames": 626,
+      "dolbys_decode_over_the_difference_by_sixteen_coefficients_db": [
+       [
+        104.2,
+        92.4,
+        90.3,
+        91.6,
+        91.6,
+        91.3,
+        92.2,
+        88.8,
+        88.8,
+        78.9,
+        -0.3,
+        -0.3,
+        -0.3,
+        -0.3,
+        -0.3,
+        -0.3
+       ],
+       [
+        104.1,
+        92.5,
+        90.4,
+        91.4,
+        91.2,
+        90.8,
+        92.6,
+        89.1,
+        88.8,
+        78.5,
+        -0.3,
+        -0.3,
+        -0.2,
+        -0.3,
+        -0.3,
+        -0.3
+       ]
+      ]
+     }
+    },
+    "what_they_say": "the coupling begins at coefficient 49 in both. As AC-3 the coupled region stands at 79 to 92 dB against Dolby's decode; as E-AC-3 at 7 to 9, with the channels' own region at 90 to 104 either way",
+    "what_dolbys_decode_has_more": {
+     "stream": "the E-AC-3 one of the pair, 300 blocks from the hundredth on, by an instrumented copy of the decoder",
+     "in_the_coefficients_with_bits": {
+      "this_decoder_and_ffmpegs": "the same numbers",
+      "what_dolbys_has_more_rms_in_units_of_the_exponent": [
+       0.11,
+       0.107
+      ],
+      "our_coefficients_there_rms": 0.234,
+      "left_against_right": -0.881,
+      "rms_of_the_sum_of_the_two": 0.053,
+      "rms_of_their_difference": 0.21
+     },
+     "in_the_coefficients_without_bits": {
+      "a_channels_values_are": "its own coupled run times its coupling coordinate, sub-band by sub-band, and something more of the same kind on top",
+      "left_against_right": -0.535
+     },
+     "on_another_stream_of_two_coupled_channels": "nought in the first block read and growing from there; with the same coefficient one block before -0,37, one block after 0,00",
+     "a_stream_whose_coupling_channel_has_bits_everywhere": "three test signals encoded the same way stand at 91 to 94 dB in the coupled region as E-AC-3 and as AC-3"
+    },
+    "tried_and_not_it": [
+     "the dither of the channel's own coefficients running on into the coupled region",
+     "the coupled region rematrixed",
+     "other coupling coordinates",
+     "a share of the same coefficient of the block before"
+    ]
+   },
+   "the_noise_of_spectral_extension": {
+    "what": "this decoder's own, as before, and another run of it than before: the dither drew from the same generator and no longer does. At the median of its channels no stream of the corpus is further from Dolby's in any band; channel by channel three channels are, by more than 1 dB, all in the band from 18 kHz up of two streams with spectral extension: the left and the right of `pi-head-spx192.ec3` (35,5 to 25,3 dB and 9,9 to 2,3) and the right of `eac3033.ec3` (2,4 to -3,0). In that band of the first a few transients carry the whole difference of the two channels (the ten worst of 2478 windows of 2048 samples hold 0,99 of it or more), and the figure is the luck of the run of the noise, before the change as after it",
+    "how": "each stream decoded from its first frame and from 1, 2, 3, 5, 8, 13 and 21 frames in, which gives eight runs of the noise against the same content (the dither of an independent E-AC-3 substream is seeded by each frame and stays what it was), each laid on Dolby's decode of the whole stream where its frames belong and compared from frame 40 on; per channel, in the order of a WAVE file, the least and the most of the eight, in dB",
+    "streams": {
+     "pi-head-spx192.ec3": {
+      "main": {
+       "from_18_khz_up": {
+        "least_by_channel": [
+         19.1,
+         3.4,
+         20.8,
+         31.9,
+         8.6,
+         7.7
+        ],
+        "most_by_channel": [
+         35.0,
+         14.7,
+         22.2,
+         31.9,
+         9.3,
+         8.6
+        ]
+       },
+       "below_6_khz": {
+        "least_by_channel": [
+         23.5,
+         24.0,
+         27.6,
+         84.3,
+         12.1,
+         12.3
+        ],
+        "most_by_channel": [
+         23.6,
+         24.0,
+         28.0,
+         84.3,
+         12.1,
+         12.4
+        ]
+       }
+      },
+      "the_change": {
+       "from_18_khz_up": {
+        "least_by_channel": [
+         21.2,
+         7.1,
+         23.3,
+         31.9,
+         9.1,
+         8.1
+        ],
+        "most_by_channel": [
+         31.8,
+         13.5,
+         24.1,
+         31.9,
+         9.6,
+         8.7
+        ]
+       },
+       "below_6_khz": {
+        "least_by_channel": [
+         23.7,
+         24.1,
+         66.3,
+         84.3,
+         12.4,
+         12.6
+        ],
+        "most_by_channel": [
+         23.7,
+         24.1,
+         66.3,
+         84.3,
+         12.4,
+         12.6
+        ]
+       }
+      }
+     },
+     "eac3033.ec3": {
+      "main": {
+       "from_18_khz_up": {
+        "least_by_channel": [
+         16.2,
+         1.9,
+         6.3,
+         36.0,
+         12.6,
+         12.5
+        ],
+        "most_by_channel": [
+         17.1,
+         13.2,
+         12.4,
+         36.0,
+         12.7,
+         12.6
+        ]
+       },
+       "below_6_khz": {
+        "least_by_channel": [
+         31.5,
+         36.9,
+         45.2,
+         84.2,
+         24.4,
+         25.5
+        ],
+        "most_by_channel": [
+         31.8,
+         37.3,
+         46.2,
+         84.2,
+         24.8,
+         25.9
+        ]
+       }
+      },
+      "the_change": {
+       "from_18_khz_up": {
+        "least_by_channel": [
+         16.7,
+         5.1,
+         5.5,
+         36.0,
+         13.2,
+         13.0
+        ],
+        "most_by_channel": [
+         17.3,
+         14.5,
+         10.6,
+         36.0,
+         13.3,
+         13.2
+        ]
+       },
+       "below_6_khz": {
+        "least_by_channel": [
+         86.5,
+         67.8,
+         84.6,
+         84.2,
+         88.6,
+         87.3
+        ],
+        "most_by_channel": [
+         86.5,
+         75.8,
+         84.8,
+         84.2,
+         88.6,
+         87.3
+        ]
+       }
+      }
+     }
+    }
+   },
+   "not_read": [
+    "the noise of spectral extension",
+    "a coupling channel coded with the hybrid transform",
+    "frames of fewer than six blocks",
+    "a substream converted from AC-3"
+   ]
+  },
+  "what_changes": {
+   "how": "`tools/old_new.py --decode-all` over the corpus: every report and every delivery of every stream by both binaries",
+   "streams": 136,
+   "streams_changed": 81,
+   "kinds_of_stream_that_change": [
+    ".ac3",
+    ".ec3"
+   ],
+   "what_changes_in_them": [
+    "decode (adm): output bytes (25)",
+    "decode (damf): output bytes (25)",
+    "decode (pcm --core-only): output bytes (81)",
+    "decode (pcm --core-only): text on stdout (1)",
+    "decode (pcm): output bytes (81)",
+    "decode (pcm): text on stdout (1)",
+    "decode (wav): output bytes (81)",
+    "decode (wav): text on stdout (1)",
+    "info: text on stdout (1)",
+    "verify: text on stdout (1)"
+   ],
+   "fields_added": [],
+   "lines_added": [],
+   "the_text_that_changes": "one line of one stream, in `info`, `verify` and the three channel decodes: the level of the core under each clip gain (`JOC core level`), which is read off the decoded samples; of its 39 entries 18 move, by one or two units of the third decimal. No verdict and no exit code moves",
+   "reports": {
+    "info": {
+     "runs": 136,
+     "lines": 2288,
+     "fields": 0,
+     "exit_codes": {
+      "0": 136
+     }
+    },
+    "info --json": {
+     "runs": 136,
+     "lines": 0,
+     "fields": 24600,
+     "exit_codes": {
+      "0": 136
+     }
+    },
+    "verify": {
+     "runs": 136,
+     "lines": 2650,
+     "fields": 0,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "verify --json": {
+     "runs": 136,
+     "lines": 0,
+     "fields": 23339,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "emdf": {
+     "runs": 136,
+     "lines": 1609,
+     "fields": 0,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "emdf --json": {
+     "runs": 136,
+     "lines": 0,
+     "fields": 6074,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "oamd": {
+     "runs": 136,
+     "lines": 2558,
+     "fields": 0,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "oamd --json": {
+     "runs": 136,
+     "lines": 0,
+     "fields": 5757,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    }
+   },
+   "deliveries": {
+    "pcm -p N": {
+     "runs": 220,
+     "wrote_output": 202,
+     "bytes": 30402893100,
+     "lines": 1036,
+     "exit_codes": {
+      "0": 198,
+      "2": 18,
+      "7": 4
+     }
+    },
+    "wav": {
+     "runs": 136,
+     "wrote_output": 136,
+     "bytes": 13278776996,
+     "lines": 1617,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "damf": {
+     "runs": 136,
+     "wrote_output": 66,
+     "bytes": 26500118207,
+     "lines": 507,
+     "exit_codes": {
+      "0": 58,
+      "2": 70,
+      "7": 8
+     }
+    },
+    "adm": {
+     "runs": 136,
+     "wrote_output": 66,
+     "bytes": 26516523822,
+     "lines": 580,
+     "exit_codes": {
+      "0": 58,
+      "2": 70,
+      "7": 8
+     }
+    },
+    "pcm": {
+     "runs": 81,
+     "wrote_output": 81,
+     "bytes": 4555364352,
+     "lines": 1340,
+     "exit_codes": {
+      "0": 72,
+      "7": 9
+     }
+    },
+    "pcm --core-only": {
+     "runs": 81,
+     "wrote_output": 81,
+     "bytes": 4274276352,
+     "lines": 1340,
+     "exit_codes": {
+      "0": 72,
+      "7": 9
+     }
+    }
+   },
+   "a_decode_without_dither": {
+    "how": "every AC-3 and E-AC-3 stream of the corpus decoded with `--no-dither` by both binaries, to a WAVE file and, where it carries objects, to object audio as well; the bytes compared",
+    "streams": 81,
+    "the_same_bytes": 81,
+    "object_decodes": 25,
+    "of_them_the_same_bytes": 25
+   }
+  },
+  "the_commands_agree": {
+   "seed": 0,
+   "rounds": 200000,
+   "clauses_broken": 0,
+   "panics": 0,
+   "kinds_of_answers": {
+    "main": 31,
+    "the_change": 31
+   },
+   "every_command_clean": {
+    "main": 27517,
+    "the_change": 27517
+   },
+   "rounds_whose_answers_moved": 0,
+   "answers_that_moved": {}
+  },
+  "tests": {
+   "cargo_fmt_check_clippy_with_warnings_denied_and_cargo_deny": "clean",
+   "cargo_test_workspace": "54 test binaries",
+   "passed": 738,
+   "failed": 0,
+   "ignored": 35,
+   "media_passed": 35,
+   "media_failed": 0,
+   "mutations_touched": 53,
+   "mutations_in_all": 570,
+   "media_regression": "all 8 steps passed (media-suite, media-negative, truehd-gates, joc-object-gate, replay-joc, replay-truehd, adm-harness-build, adm-harness)",
+   "object_gate": "6 of 6 titles measured, 0 regressed, 1 held out",
+   "object_gate_titles": {
+    "how": "`tools/joc_object_gate.py`: per title the worst and the median object against Dolby's over the whole band, in dB; main is the run of the gate for the change before this one, whose binary is the code of main. The worst object of `fifthelement-joc-head` is silent for 92 % of the clip and stands at -114 dBFS",
+    "titles": {
+     "quietplace-web-head": {
+      "the_worst_object_db": {
+       "main": 60.68,
+       "the_change": 99.65
+      },
+      "the_median_object_db": {
+       "main": 68.18,
+       "the_change": 110.29
+      }
+     },
+     "kingsman-joc-head": {
+      "the_worst_object_db": {
+       "main": 35.7,
+       "the_change": 98.75
+      },
+      "the_median_object_db": {
+       "main": 39.72,
+       "the_change": 104.29
+      }
+     },
+     "knivesout-joc-head": {
+      "the_worst_object_db": {
+       "main": 39.8,
+       "the_change": 73.52
+      },
+      "the_median_object_db": {
+       "main": 41.69,
+       "the_change": 77.29
+      }
+     },
+     "fifthelement-joc-head": {
+      "the_worst_object_db": {
+       "main": 8.16,
+       "the_change": 45.77
+      },
+      "the_median_object_db": {
+       "main": 52.66,
+       "the_change": 108.9
+      }
+     },
+     "shaun-joc1024-head": {
+      "the_worst_object_db": {
+       "main": 43.69,
+       "the_change": 101.11
+      },
+      "the_median_object_db": {
+       "main": 56.23,
+       "the_change": 105.85
+      }
+     },
+     "br2049-joc-head": {
+      "the_worst_object_db": {
+       "main": 78.38,
+       "the_change": 112.96
+      },
+      "the_median_object_db": {
+       "main": 82.39,
+       "the_change": 122.32
+      }
+     }
+    }
+   },
+   "dither_probe_self_check": "11 of 11"
+  },
+  "mutations": {
+   "of_the_files_the_change_touches": 53,
+   "caught": 53,
+   "new_with_the_change": 32,
+   "in_all": 570
+  }
+ },
+ "reading": "Dolby's decoder draws its dither from a generator of 16 bits, x -> x * 47989 + 3, two draws a value, with a state for each block of a frame and each channel and a second one for the coefficients the channel takes from the coupling channel; in an AC-3 stream and in a dependent substream the states go on from frame to frame, and a frame of an independent E-AC-3 substream seeds them from the 16 bits before its auxdatae. Of the 64 generators the measured rule allows, one gives all 474 blocks of Dolby's decode of a stream without a bit as runs. With the same in this decoder, that stream decodes to Dolby's samples to the rounding of a 32-bit float; over 45 streams of the corpus the band from 12 to 18 kHz stands at 77.2 to 107.8 dB from Dolby's where it stood at -3.0 to 31.4; and over 127 tracks of a library the objects stand at 104.2 dB over the whole band at the median where they stood at 52.3, with 0 of 1080 objects further from Dolby's than it was. At the median of its channels no stream of the corpus is further from Dolby's in any band. What is left is not the dither: in the coupled region of an E-AC-3 stream Dolby's decode has something its decode of the same source as AC-3 has not, which neither this decoder nor FFmpeg's makes and which was under the dither of two decoders until now."
+}

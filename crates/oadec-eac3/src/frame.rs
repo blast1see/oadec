@@ -12,6 +12,7 @@ use oadec_bits::BitReader;
 
 use crate::bitalloc::{self, AllocParams, DeltaBa};
 use crate::bsi::Bsi;
+use crate::dither::Dither;
 use crate::error::{Eac3Error, Result};
 use crate::header::{FrameHeader, StreamType, Syntax};
 use crate::tables::{
@@ -47,11 +48,16 @@ pub fn ecpl_amplitude(code: u8) -> f64 {
     f64::from(ECPL_AMP_MANT[i]) / 32.0 / f64::from(1u32 << ECPL_AMP_EXP[i])
 }
 
-/// Pseudo-random source for dither and spectral extension noise (clause
-/// 6.3.4 leaves the sequence to the implementation).
+/// What a decoder draws for one substream: the dither of the mantissas
+/// without bits, which is the sequence Dolby's decoder draws
+/// ([`crate::dither`]), and the noise of spectral extension and of enhanced
+/// coupling, which is this decoder's own (clause 6.3.4 leaves the sequence
+/// to the implementation).
 #[derive(Debug, Clone)]
 pub struct Noise {
     state: u32,
+    /// The dither of the mantissas without bits.
+    pub dither: Dither,
 }
 
 impl Default for Noise {
@@ -61,10 +67,14 @@ impl Default for Noise {
 }
 
 impl Noise {
-    /// A generator seeded with `seed`.
+    /// A source whose own noise is seeded with `seed`. The dither starts
+    /// where it starts for every stream.
     #[must_use]
     pub const fn new(seed: u32) -> Self {
-        Self { state: seed }
+        Self {
+            state: seed,
+            dither: Dither::new(),
+        }
     }
 
     #[inline]
@@ -84,26 +94,32 @@ impl Noise {
         f64::from(self.next_u32() as i32) / 2_147_483_648.0
     }
 
-    /// Dither value for a zero-bit mantissa: uniform in `[-0.5, 0.5)`.
-    ///
-    /// Clause 7.3.4 of ATSC A/52 calls 0,707 the optimum scaling and 0,5
-    /// "also acceptable", and leaves the sequence itself to the
-    /// implementation. Dolby takes the second: decoding a stream with the
-    /// dither on and off and subtracting gives our dither, and subtracting
-    /// the same silent decode from the Dolby one gives theirs. The power
-    /// ratio is 2,00 on fifteen channels of three streams, so their scaling
-    /// is 0,707 / sqrt(2) = 0,5. Matching it is worth about 2 dB against
-    /// Dolby and costs nothing the standard asks for.
-    #[inline]
-    pub fn dither(&mut self) -> f64 {
-        self.uniform() * 0.5
-    }
-
     /// Zero-mean, unit-variance noise for spectral extension.
     #[inline]
     pub fn unit(&mut self) -> f64 {
         self.uniform() * 3f64.sqrt()
     }
+}
+
+/// The 16 bits that end 18 bits before the end of a frame: what stands
+/// before `auxdatae`, the bit after it and the CRC. Dolby's decoder seeds the
+/// dither of a frame of an independent E-AC-3 substream from them
+/// ([`crate::dither`]).
+fn tail_word(frame: &[u8]) -> Option<u16> {
+    let last = frame.len().checked_sub(5)?;
+    let tail = frame[last..]
+        .iter()
+        .fold(0u64, |acc, &byte| acc << 8 | u64::from(byte));
+    Some(((tail >> 18) & 0xFFFF) as u16)
+}
+
+/// Whether a frame starts its dither anew from its own tail word. A frame of
+/// an independent E-AC-3 substream does; an AC-3 frame and a frame of a
+/// dependent substream go on from the frame before ([`crate::dither`]). A
+/// substream converted from AC-3 is an independent one and is taken as one:
+/// no stream at hand has it, so that is not measured.
+fn seeds_its_dither(header: &FrameHeader) -> bool {
+    header.syntax == Syntax::Eac3 && header.stream_type != StreamType::Dependent
 }
 
 /// Which coding tools a frame used; the sum over a stream is the coverage
@@ -454,6 +470,9 @@ struct Parser<'a> {
     allocated: [bitalloc::Allocation; NCH],
     /// AHT: the six blocks of pre-IDCT mantissas per channel slot.
     pre_mant: Vec<Vec<[f64; N]>>,
+    /// The coefficients of each hybrid-transform channel that got no bits,
+    /// in order: they take their dither block by block.
+    aht_bare: Vec<Vec<usize>>,
     // ---- outputs ----
     out_blocks: Vec<Block>,
     skip_fields: Vec<Vec<u8>>,
@@ -569,6 +588,7 @@ impl<'a> Parser<'a> {
             bap: [[0; N]; NCH],
             allocated: std::array::from_fn(|_| bitalloc::Allocation::new()),
             pre_mant: Vec::new(),
+            aht_bare: Vec::new(),
             out_blocks: Vec::with_capacity(usize::from(h.blocks)),
             skip_fields: Vec::with_capacity(usize::from(h.blocks)),
             skip_bits: Vec::with_capacity(usize::from(h.blocks)),
@@ -691,6 +711,7 @@ impl<'a> Parser<'a> {
             }
             if self.ahtinu.contains(&1) {
                 self.pre_mant = vec![vec![[0.0; N]; MAX_BLOCKS]; NCH];
+                self.aht_bare = vec![Vec::new(); NCH];
             }
         }
         // frame SNR offsets
@@ -1333,22 +1354,24 @@ impl<'a> Parser<'a> {
         let mut cpl_vals: Vec<Option<f64>> = Vec::new();
         for ch in 0..nf {
             let dith = self.dithflag[ch] && self.opts.dither;
-            match self.ahtinu[ch] {
-                0 => self.read_channel_mantissas(
+            if self.ahtinu[ch] == 0 {
+                self.read_channel_mantissas(
                     ch,
+                    blk,
                     0,
                     self.endmant[ch],
                     &mut mant,
                     dith,
                     noise,
                     &mut coef[ch],
-                )?,
-                1 => {
-                    self.read_aht_mantissas(ch, 0, self.endmant[ch], noise, dith)?;
+                )?;
+            } else {
+                if self.ahtinu[ch] == 1 {
+                    self.read_aht_mantissas(ch, 0, self.endmant[ch])?;
                     self.ahtinu[ch] = -1;
-                    self.aht_block(ch, blk, &mut coef[ch]);
                 }
-                _ => self.aht_block(ch, blk, &mut coef[ch]),
+                self.aht_block(ch, blk, &mut coef[ch]);
+                self.aht_dither(ch, blk, dith, noise, &mut coef[ch]);
             }
             if cplinu && self.chincpl[ch] && !cpl_read {
                 cpl_read = true;
@@ -1357,7 +1380,7 @@ impl<'a> Parser<'a> {
                         cpl_vals = self.read_coupling_mantissas(&mut mant)?;
                     }
                     1 => {
-                        self.read_aht_mantissas(CPL, self.cplstrt, self.cplend, noise, false)?;
+                        self.read_aht_mantissas(CPL, self.cplstrt, self.cplend)?;
                         self.ahtinu[CPL] = -1;
                         cpl_vals = self.aht_coupling_block(blk);
                     }
@@ -1371,6 +1394,7 @@ impl<'a> Parser<'a> {
             match self.ahtinu[LFE] {
                 0 => self.read_channel_mantissas(
                     LFE,
+                    blk,
                     0,
                     7,
                     &mut mant,
@@ -1379,7 +1403,7 @@ impl<'a> Parser<'a> {
                     &mut coef[lfe_at],
                 )?,
                 1 => {
-                    self.read_aht_mantissas(LFE, 0, 7, noise, false)?;
+                    self.read_aht_mantissas(LFE, 0, 7)?;
                     self.ahtinu[LFE] = -1;
                     self.aht_block(LFE, blk, &mut coef[lfe_at]);
                 }
@@ -1406,7 +1430,8 @@ impl<'a> Parser<'a> {
                             Some(v) => v,
                             None => {
                                 if dith {
-                                    noise.dither() * EXP_SCALE[usize::from(self.exps[CPL][bin])]
+                                    noise.dither.coupled(blk, ch)
+                                        * EXP_SCALE[usize::from(self.exps[CPL][bin])]
                                 } else {
                                     0.0
                                 }
@@ -1458,7 +1483,8 @@ impl<'a> Parser<'a> {
                             Some(v) => v,
                             None => {
                                 if dith {
-                                    noise.dither() * EXP_SCALE[usize::from(self.exps[CPL][bin])]
+                                    noise.dither.coupled(blk, ch)
+                                        * EXP_SCALE[usize::from(self.exps[CPL][bin])]
                                 } else {
                                     0.0
                                 }
@@ -1696,18 +1722,11 @@ impl<'a> Parser<'a> {
         );
     }
 
-    /// Reads one mantissa with the given bap, using the shared groups.
-    fn read_mantissa(
-        &mut self,
-        bap: u8,
-        m: &mut Mantissas,
-        dith: bool,
-        noise: &mut Noise,
-    ) -> Result<Option<f64>> {
+    /// Reads one mantissa with the given bap, using the shared groups; `None`
+    /// for one that has no bits.
+    fn read_mantissa(&mut self, bap: u8, m: &mut Mantissas) -> Result<Option<f64>> {
         Ok(Some(match bap {
-            0 => {
-                return Ok(if dith { Some(noise.dither()) } else { None });
-            }
+            0 => return Ok(None),
             1 => {
                 if m.b1.left == 0 {
                     let g = self.bits(5)? as usize;
@@ -1774,6 +1793,7 @@ impl<'a> Parser<'a> {
     fn read_channel_mantissas(
         &mut self,
         slot: usize,
+        blk: usize,
         start: usize,
         end: usize,
         m: &mut Mantissas,
@@ -1783,7 +1803,11 @@ impl<'a> Parser<'a> {
     ) -> Result<()> {
         for bin in start..end {
             let bap = self.bap[slot][bin];
-            let v = self.read_mantissa(bap, m, dith, noise)?.unwrap_or(0.0);
+            let v = match self.read_mantissa(bap, m)? {
+                Some(v) => v,
+                None if dith => noise.dither.own(blk, slot),
+                None => 0.0,
+            };
             out[bin] = v * EXP_SCALE[usize::from(self.exps[slot][bin])];
         }
         Ok(())
@@ -1793,10 +1817,9 @@ impl<'a> Parser<'a> {
     /// whose dither belongs to each coupled channel.
     fn read_coupling_mantissas(&mut self, m: &mut Mantissas) -> Result<Vec<Option<f64>>> {
         let mut out = Vec::with_capacity(self.cplend - self.cplstrt);
-        let mut none = Noise::new(1);
         for bin in self.cplstrt..self.cplend {
             let bap = self.bap[CPL][bin];
-            let v = self.read_mantissa(bap, m, false, &mut none)?;
+            let v = self.read_mantissa(bap, m)?;
             out.push(v.map(|v| v * EXP_SCALE[usize::from(self.exps[CPL][bin])]));
         }
         Ok(out)
@@ -1809,14 +1832,7 @@ impl<'a> Parser<'a> {
         clippy::needless_range_loop,
         reason = "bin indices address several parallel arrays"
     )]
-    fn read_aht_mantissas(
-        &mut self,
-        slot: usize,
-        start: usize,
-        end: usize,
-        noise: &mut Noise,
-        dith: bool,
-    ) -> Result<()> {
+    fn read_aht_mantissas(&mut self, slot: usize, start: usize, end: usize) -> Result<()> {
         let gaqmod = self.bits(2)? as u8;
         let endbap: u8 = if gaqmod < 2 { 12 } else { 17 };
         // which bins carry a gain word
@@ -1863,12 +1879,16 @@ impl<'a> Parser<'a> {
             }
         }
         let mut gain_index = 0usize;
+        self.aht_bare[slot].clear();
         for bin in start..end {
             let hb = self.bap[slot][bin];
             let scale = EXP_SCALE[usize::from(self.exps[slot][bin])];
             if hb == 0 {
+                // nothing goes through the transform across the blocks: a
+                // channel takes its dither block by block (`aht_dither`)
+                self.aht_bare[slot].push(bin);
                 for n in 0..MAX_BLOCKS {
-                    self.pre_mant[slot][n][bin] = if dith { noise.dither() * scale } else { 0.0 };
+                    self.pre_mant[slot][n][bin] = 0.0;
                 }
             } else if hb <= 7 {
                 let idx = self.bits(u32::from(HEBAP_BITS[usize::from(hb)]))? as usize;
@@ -1950,6 +1970,18 @@ impl<'a> Parser<'a> {
                 acc += sqrt2 * pre[j][bin] * phase.cos();
             }
             out[bin] = acc;
+        }
+    }
+
+    /// The dither of a hybrid-transform channel in one block, where the
+    /// channel asks for dither: every coefficient that got no bits takes the
+    /// next value of the block ([`crate::dither`]).
+    fn aht_dither(&self, ch: usize, blk: usize, dith: bool, noise: &mut Noise, out: &mut [f64; N]) {
+        if !dith {
+            return;
+        }
+        for &bin in &self.aht_bare[ch] {
+            out[bin] = noise.dither.hybrid(blk, ch) * EXP_SCALE[usize::from(self.exps[ch][bin])];
         }
     }
 
@@ -2129,6 +2161,11 @@ impl Frame {
             Ok(b) => b,
             Err(e) => return Err(fail(e, Some(header), None, Vec::new(), 0)),
         };
+        if seeds_its_dither(&header)
+            && let Some(word) = tail_word(frame)
+        {
+            noise.dither.seed_from_frame(word);
+        }
         let mut p = Parser::new(frame, &header, opts);
         if let Err(e) = p.r.seek(bsi.end_bit) {
             return Err(fail(e.into(), Some(header), Some(bsi), Vec::new(), 0));
@@ -2316,17 +2353,153 @@ mod tests {
     #[test]
     fn noise_is_bounded_and_not_constant() {
         let mut n = Noise::default();
-        let vals: Vec<f64> = (0..1000).map(|_| n.dither()).collect();
-        // the scaling the Dolby decoder uses, measured; clause 7.3.4 allows it
-        assert!(vals.iter().all(|v| v.abs() <= 0.5));
-        assert!(vals.iter().any(|v| *v > 0.3) && vals.iter().any(|v| *v < -0.3));
+        let vals: Vec<f64> = (0..1000).map(|_| n.uniform()).collect();
+        assert!(vals.iter().all(|v| v.abs() <= 1.0));
+        assert!(vals.iter().any(|v| *v > 0.6) && vals.iter().any(|v| *v < -0.6));
         let rms = (vals.iter().map(|v| v * v).sum::<f64>() / 1000.0).sqrt();
-        assert!(
-            (rms - 0.5 / 3f64.sqrt()).abs() < 0.02,
-            "dither rms {rms:.4}"
-        );
+        assert!((rms - 1.0 / 3f64.sqrt()).abs() < 0.04, "rms {rms:.4}");
         let mean: f64 = vals.iter().sum::<f64>() / 1000.0;
         assert!(mean.abs() < 0.1);
+    }
+
+    fn header_of(syntax: Syntax, stream_type: StreamType) -> FrameHeader {
+        FrameHeader {
+            syntax,
+            stream_type,
+            substream_id: 0,
+            frame_bytes: 768,
+            fscod: 0,
+            fscod2: None,
+            sample_rate: 48_000,
+            blocks: 6,
+            acmod: 7,
+            lfeon: true,
+            bsid: if syntax == Syntax::Ac3 { 8 } else { 16 },
+            frmsizecod: None,
+        }
+    }
+
+    /// Measured on Dolby's decoder: a frame of an independent E-AC-3
+    /// substream draws the run of its own tail word, and an AC-3 stream and
+    /// a dependent substream go on from frame to frame, whatever stands at
+    /// the tail of their frames.
+    #[test]
+    fn only_a_frame_of_an_independent_e_ac_3_substream_seeds_its_dither() {
+        assert!(seeds_its_dither(&header_of(
+            Syntax::Eac3,
+            StreamType::Independent
+        )));
+        assert!(!seeds_its_dither(&header_of(
+            Syntax::Eac3,
+            StreamType::Dependent
+        )));
+        assert!(!seeds_its_dither(&header_of(
+            Syntax::Ac3,
+            StreamType::Independent
+        )));
+        // not measured: an independent substream like the first
+        assert!(seeds_its_dither(&header_of(
+            Syntax::Eac3,
+            StreamType::Converted
+        )));
+    }
+
+    /// The third channel of a frame of a 5.1 E-AC-3 stream whose tail word is
+    /// 0x150A: its coefficients 79, 80 and 83 got no bits, and Dolby's decode
+    /// has these numbers there, in units of `2^-15` over the exponent, in
+    /// the first block and in the fourth. A coefficient with bits keeps what
+    /// the transform across the blocks gave it, and a channel that does not
+    /// ask for dither gets none.
+    #[test]
+    fn a_hybrid_transform_channel_takes_its_dither_block_by_block() {
+        let h = header_of(Syntax::Eac3, StreamType::Independent);
+        let frame = [0u8; 768];
+        let mut p = Parser::new(&frame, &h, Options::default());
+        p.aht_bare = vec![Vec::new(); NCH];
+        p.aht_bare[2] = vec![79, 80, 83];
+        p.exps[2][79] = 10;
+        p.exps[2][80] = 12;
+        p.exps[2][83] = 7;
+        let mut noise = Noise::default();
+        noise.dither.seed_from_frame(0x150A);
+        let mut first = [0.25f64; N];
+        p.aht_dither(2, 0, true, &mut noise, &mut first);
+        let whole = |v: f64, exp: i32| (v * 2f64.powi(exp + 15)).round() as i64;
+        assert_eq!(
+            [
+                whole(first[79], 10),
+                whole(first[80], 12),
+                whole(first[83], 7)
+            ],
+            [-1676, 31064, -7890]
+        );
+        assert!(
+            first
+                .iter()
+                .enumerate()
+                .all(|(bin, &v)| [79, 80, 83].contains(&bin) || v == 0.25)
+        );
+        let mut fourth = [0.0f64; N];
+        p.aht_dither(2, 3, true, &mut noise, &mut fourth);
+        assert_eq!(
+            [
+                whole(fourth[79], 10),
+                whole(fourth[80], 12),
+                whole(fourth[83], 7)
+            ],
+            [-35220, -35862, -9648]
+        );
+        // a second time in the first block: the block goes on, it does not start again
+        let mut again = [0.0f64; N];
+        p.aht_dither(2, 0, true, &mut noise, &mut again);
+        assert_eq!(
+            [
+                whole(again[79], 10),
+                whole(again[80], 12),
+                whole(again[83], 7)
+            ],
+            [11602, 1524, -17946]
+        );
+        let mut silent = [0.25f64; N];
+        let before = noise.dither.clone();
+        p.aht_dither(2, 1, false, &mut noise, &mut silent);
+        assert!(silent.iter().all(|&v| v == 0.25));
+        assert_eq!(noise.dither, before, "a channel without dither drew");
+    }
+
+    /// The coefficients of a hybrid-transform channel that got no bits are
+    /// put down when its mantissas are read, in order and for this frame
+    /// only, and nothing is left for the transform across the blocks.
+    #[test]
+    fn the_coefficients_without_bits_of_a_hybrid_transform_channel_are_noted() {
+        let h = header_of(Syntax::Eac3, StreamType::Independent);
+        // two bits of `gaqmod`, and no mantissa has any
+        let frame = [0u8; 768];
+        let mut p = Parser::new(&frame, &h, Options::default());
+        p.pre_mant = vec![vec![[0.5; N]; MAX_BLOCKS]; NCH];
+        p.aht_bare = vec![Vec::new(); NCH];
+        p.aht_bare[2] = vec![1, 2, 3];
+        p.read_aht_mantissas(2, 70, 76).unwrap();
+        assert_eq!(p.aht_bare[2], [70, 71, 72, 73, 74, 75]);
+        assert!(p.aht_bare[1].is_empty());
+        for n in 0..MAX_BLOCKS {
+            assert!(p.pre_mant[2][n][70..76].iter().all(|&v| v == 0.0));
+            assert!(p.pre_mant[2][n][76] == 0.5 && p.pre_mant[2][n][69] == 0.5);
+        }
+    }
+
+    /// The 16 bits before `auxdatae`, the bit after it and the CRC: the end
+    /// of the first frame of a 5.1 E-AC-3 stream, whose word is 0x17F4.
+    #[test]
+    fn the_tail_word_is_the_16_bits_that_end_18_bits_before_the_end() {
+        let end = [0xFF, 0xFF, 0x00, 0x5F, 0xD0, 0x09, 0x02];
+        assert_eq!(tail_word(&end), Some(0x17F4));
+        // every bit of it, and none of its neighbours
+        assert_eq!(tail_word(&[0x03, 0xFF, 0xFC, 0x00, 0x00]), Some(0xFFFF));
+        assert_eq!(tail_word(&[0xFC, 0x00, 0x03, 0xFF, 0xFF]), Some(0));
+        assert_eq!(tail_word(&[0x02, 0x00, 0x04, 0x00, 0x00]), Some(0x8001));
+        // a frame cannot be this short, and is not read past its start
+        assert_eq!(tail_word(&[0x5F, 0xD0, 0x09, 0x02]), None);
     }
 
     /// What each code of `deltbae` leaves in force. A "reuse" keeps the state

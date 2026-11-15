@@ -30,22 +30,130 @@ four are the same specification, and for enhanced coupling they disagree.
   is relative to `cplbegf`. With `cplbegf = 11` the default gives 2 coupling
   bands out of 4 sub-bands. Copying the table by relative index desynchronised
   every frame of the stereo stream (measured, then fixed).
-- **Dither.** Zero-bit mantissas take random values when `dithflag` is set;
-  the sequence is the implementation's (clause 6.3.4). Two conforming
-  decoders therefore never produce the same samples; they agree to 35–55 dB
-  depending on the content, and to float precision where no bin is
-  dithered. The dither of coupled bins is scaled by the coupling coordinate
-  (up to 8x), which is where most of the residual of stereo streams lies.
+- **Dither.** Zero-bit mantissas take random values when `dithflag` is set,
+  and the standard leaves the sequence to the decoder (clause 6.3.4). Two
+  decoders with sequences of their own never write the same samples: they
+  agree as far down as the dither of either, 35 to 55 dB below the signal.
+  Dolby's decoder draws the same values every time it decodes a stream, so
+  its sequence can be read off what it writes, and oadec draws it
+  (`crates/oadec-eac3/src/dither.rs`). With the dither on, a decode here is
+  then the decode of Dolby's decoder wherever the two read the coded
+  coefficients alike. Nothing of that decoder was opened: it was run, on
+  streams written for the purpose and on streams of a library, and what it
+  wrote was read.
 
-  The *scaling* is not free, though, and it is measurable without knowing
-  anyone's sequence. ATSC A/52 clause 7.3.4 calls 0,707 optimum, 0,75 close
-  enough and 0,5 also acceptable. Decoding a stream with the dither on and
-  off gives our dither by subtraction; subtracting the same silent decode
-  from the Dolby one gives theirs. The power ratio is 2,00 on fifteen
-  channels of three streams, so Dolby scales by 0,5, and oadec now does too.
-  It is worth 1,76 dB on every channel of every stream. The Dolby decode is
-  also repeatable to the byte, so their sequence is seeded rather than
-  sampled; recovering it, and with it bit-exactness, has not been tried.
+  What it draws:
+
+  - **The generator.** A state of 16 bits, `x -> x * 47989 + 3`. A value
+    takes two draws `a` and `b`, read as signed numbers, and is
+    `(((a >> 1) + (b >> 1)) * 23170) >> 15` in units of `2^-15`, times
+    `2^-exponent`. That is the mean of two draws times `1/sqrt(2)`: within
+    0,7071, spread as a triangle, with the power of an even spread within
+    0,5.
+  - **Sixty states.** For each of the six blocks of a frame and each of the
+    five full-bandwidth channels, one for the channel's own coefficients and
+    one for those it takes from the coupling channel. A state moves by what
+    is drawn from it and by nothing else. A channel whose `dithflag` is clear
+    draws nothing, and the LFE is not dithered.
+  - **AC-3, and a dependent substream.** The states go on from frame to
+    frame: block 0 of a channel takes up where block 0 of the frame before
+    stopped. They start as the run of a second generator, `g -> g * 47989 +
+    1` from 1: block by block and channel by channel, a step for the own
+    state and a step for the coupled one.
+  - **An independent E-AC-3 substream.** Every frame seeds all sixty anew,
+    from the 16 bits that end 18 bits before its end: what stands before
+    `auxdatae`, the bit after it and `crc2`. The second generator runs from
+    that word, through the thirty own states and then the thirty coupled
+    ones. The encoders behind a library write a different word there in
+    every frame and the same run of words in every stream (`17f4 150a b7ab
+    e15e` ...); FFmpeg's encoder leaves nought there, and Dolby's decoder
+    seeds from the nought. A dependent substream is not seeded from its
+    frames, whatever stands there: 226 of its frames in two streams have
+    something, and it goes on through them.
+  - **The adaptive hybrid transform.** A coefficient without bits takes no
+    dither before the transform across the blocks. In each block it takes
+    the next draw of that block's own state, `2 * ((s * 28378) >> 15)` with
+    `s = (a >> 1) + (b >> 1)`: the ordinary value times `sqrt(6)`, the size
+    the transform would have given six of them. Before, this decoder put six
+    values through the transform, as FFmpeg's does.
+
+  How it was read. `oadec-synth` writes an AC-3 stream in which no mantissa
+  has a bit, every exponent is 8 and every block asks for dither (`cargo run
+  -p oadec-synth --example dither_probe`), so that what a decoder writes for
+  it is its dither and nothing else. Taken back through the transform, which
+  windowed overlap-add makes exact, Dolby's decode of it is whole numbers of
+  `2^-15`. The run of them closes after 16 384 values. Two readings of one
+  place differ by 23 170 or not at all, and the values modulo that are one
+  for every place: the states of a generator that visits each state once.
+  Their ranks go `q -> 9081 q + 8719` modulo 16 384, which is two steps of a
+  generator whose multiplier squares to 9081, and of the 64 generators of 16
+  bits that the rule allows one gives every block of every channel of the
+  decode as a run of its own, 474 of 474 (`tools/dither_probe.py read`). The
+  states the blocks of the first frame start from are then 12, 14, 22, 24 ...
+  steps of the second generator from 0, and a block is 253 values on one
+  frame later, or 133, or 73: as many as its channel has coefficients. On a
+  real stream, Dolby's decode less this decoder's decode without dither is
+  Dolby's dither alone. The coupled states were read that way on an AC-3
+  stream, the tail word by trying every bit offset of the frame against the
+  states of eight frames (one offset fits all eight), and the hybrid rule on
+  952 values, all of which it gives.
+
+  What it gives, against Dolby's decode. On the stream without a bit, every
+  sample to the rounding of a 32-bit float: 138 dB. On a minute of each of
+  45 streams of the corpus (11 AC-3 and the 34 E-AC-3 that use neither
+  coupling nor spectral extension nor the hybrid transform; two, six and
+  eight channels), the band from 12 to 18 kHz stood at -3,0 to 31,4 dB at
+  the median of a stream's channels and stands at 77,2 to 107,8, and the
+  band from 6 to 12 kHz at 86,9 to 119,0 where it stood at 2,1 to 115,2.
+  Over the whole band a channel of the four clips of the media test, the
+  LFE aside, stood at 31 to 64 dB and stands at 95 to 139. What this decoder
+  adds where a stream has no bits is at the level of what Dolby's adds to a
+  hundredth of a dB in every channel, and of Dolby's the part that is not
+  this decoder's is 68 to 90 dB under it, which is the rounding of Dolby's
+  floats (`tools/dither_probe.py against`). One sample of one clip is apart
+  for another reason: Dolby's decoder holds a sample at full scale where
+  this one writes 1,0054. The objects of a JOC stream are made of these
+  channels, and stand with them (`docs/joc.md`).
+  `docs/audit/evidence/engine-round-2026-11/51-the-dither-dolbys-decoder-draws.json` is the record.
+
+  What it does not reach:
+
+  - **The coupled region of an E-AC-3 stream.** The states are right there
+    too: what a channel gets in a sub-band is its own run times its coupling
+    coordinate. But Dolby's decoder has something more in every coefficient
+    of the coupled region of an E-AC-3 stream, with bits or without, that
+    its decode of an AC-3 stream does not have and that neither this decoder
+    nor FFmpeg's makes. One source encoded twice by FFmpeg, as AC-3 and as
+    E-AC-3 with the same coupling, shows it: the coupled region of the AC-3
+    stream stands at 79 to 92 dB against Dolby's decode and that of the
+    E-AC-3 stream at 7 to 9, while the channels' own region stands at 90 to
+    104 in both. In the coefficients with bits this decoder and FFmpeg's
+    give the same numbers. What Dolby's has more is of opposite sign in the
+    two channels of a stereo stream (correlation -0,88), is there where the
+    coupling channel is nought, goes with the block before (-0,37) and is
+    nought at the start of a stream; a stream whose coupling channel has
+    bits for every coefficient does not show it (93 dB). What it is is not
+    known. The 10 streams of the corpus that use coupling in E-AC-3, most
+    of them with spectral extension or the hybrid transform as well, gain
+    in the channels' own region and stand where they stood above it.
+  - **The noise of spectral extension** is still this decoder's own. It is
+    another run of it than it was: the dither drew from the same generator
+    and no longer does. Where a few transients carry a band, a figure
+    against Dolby's decode is the luck of that run. The band above 18 kHz of
+    the left channel of `pi-head-spx192.ec3` stands at 21 to 32 dB over
+    eight decodes that start at different frames, and stood at 19 to 35.
+  - **A coupling channel coded with the hybrid transform** gets no dither
+    for its coefficients without bits, as before; what Dolby's decoder gives
+    them was not read.
+  - **Frames of fewer than six blocks** and **a substream converted from
+    AC-3** are in no stream at hand. The first take the states of the blocks
+    they have; the second is taken as the independent substream it is.
+
+  Before this the decoder drew an even spread within 0,5 from a generator of
+  its own. The scale had been measured, as a power ratio of 2,00 to a spread
+  within 0,707, and read as "Dolby scales by 0,5". The power was right and
+  the reading was not: a triangle within 0,707 has the power of an even
+  spread within 0,5.
 - **Decoder delay.** The first 256 output samples are the first block's
   half window over silence. The Dolby decoder drops them; FFmpeg and oadec
   keep them. Object metadata counts time from the first frame's first
@@ -70,8 +178,9 @@ four are the same specification, and for enhanced coupling they disagree.
   gives AHT in almost every frame, and at 192 kbit/s spectral extension in
   every frame as well; below 192 the encoder refuses 5.1. Measured in
   `docs/evidence/2026-09-09.md`.
-- **Spectral extension noise** is drawn by the decoder, like the dither of
-  clause 6.3.4, so decoders differ audibly less than the raw ratio
+- **Spectral extension noise** is drawn by the decoder, and is not the one
+  Dolby's decoder draws (the dither of clause 6.3.4 is, since it was read
+  off that decoder), so decoders differ audibly less than the raw ratio
   suggests: on a stream with SPX in every frame two conforming decoders sit
   15-19 dB apart on the surround channels. The *level* is right, though, and
   that is checkable: against both Dolby decoders on `pi-head-spx192.ec3` the

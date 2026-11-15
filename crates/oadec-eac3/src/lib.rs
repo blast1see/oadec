@@ -11,6 +11,7 @@
 pub mod bitalloc;
 pub mod bsi;
 pub mod decoder;
+pub mod dither;
 pub mod ecpl;
 pub mod error;
 pub mod frame;

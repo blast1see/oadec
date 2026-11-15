@@ -242,6 +242,18 @@ that the decoder relies on. Clause numbers refer to that document.
   further from Dolby's than it was, in the lowest band or over the whole
   band.
 
+  **With Dolby's dither in the core.** Above the lowest bands what was left
+  between the two decoders was the dither of the mantissas without bits,
+  which each drew for itself. The core draws the values Dolby's decoder
+  draws since they were read off it (`docs/eac3.md`), and the objects are
+  made of the core. Over the same tracks, forty seconds of each, with the
+  dither on as a decode has it: the whole band stands at 104,2 dB at the
+  median, 96,2 to 112,4 between the quarters, where it stood at 52,3; the
+  band at 12 kHz at 74,1 where it stood at 42,0, and the band at 18 kHz at
+  61,4 where it stood at -2,8. Every one of the 1080 objects heard on the
+  127 tracks is nearer to Dolby's over the whole band than it was.
+  `docs/audit/evidence/engine-round-2026-11/51-the-dither-dolbys-decoder-draws.json`.
+
   Fourteen tracks stayed under 90 dB in the lowest band with it, and they
   are the fourteen whose clip gain changes within the forty seconds: this
   decoder stepped the gain where the objects left it, 1 216 samples before

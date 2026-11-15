@@ -12,7 +12,8 @@
 //!
 //! What is written is a narrow part of the syntax: `bsid` 8, two channels
 //! (`acmod` 2), no coupling, no rematrixing, long blocks, exponents sent
-//! whole (D15) or reused, no dither. Nothing here is an encoder. There is no
+//! whole (D15) or reused, and dither only where a layout asks for it. Nothing
+//! here is an encoder. There is no
 //! transform and no model of hearing: a block is told its exponents and what
 //! each mantissa is to be, the bit allocation the decoder will arrive at is
 //! worked out (the routine of clause 6.2.2, written a second time), and each
@@ -75,6 +76,11 @@ pub struct Ac3Layout {
     /// is the part of them that is within: the pseudo code of clause 6.2.2.6
     /// with a bound it does not have. For a probe.
     pub segments_past_the_bands: bool,
+    /// The channels whose blocks ask for dither where a mantissa has no bits
+    /// (`dithflag`). What a decoder puts there is its own, so the
+    /// coefficients and the samples the writer states for such a channel
+    /// are those of a decoder that puts nothing.
+    pub dither: [bool; CHANNELS],
 }
 
 impl Ac3Layout {
@@ -88,6 +94,7 @@ impl Ac3Layout {
             reuse_keeps_none: false,
             segments_outlive_frame: false,
             segments_past_the_bands: false,
+            dither: [false; CHANNELS],
         }
     }
 
@@ -685,9 +692,12 @@ fn frame(
     let mut coded = Vec::with_capacity(BLOCKS);
     for (b, block) in blocks.iter().enumerate() {
         let here = |e: String| format!("block {b}: {e}");
-        // long blocks, and no dither where a mantissa has no bits
+        // long blocks, and dither where a mantissa has no bits for the
+        // channels the layout names
         w.put(CHANNELS as u32, 0);
-        w.put(CHANNELS as u32, 0);
+        for asks in layout.dither {
+            w.put(1, u64::from(asks));
+        }
         // A dynamic range word of no gain in the first block, which the rest
         // of the frame keeps; no coupling, stated once; no rematrixing in
         // any of its four bands, stated once.
@@ -868,6 +878,57 @@ fn frame(
         *sent = channel.segments;
     }
     Ok((out, coded))
+}
+
+/// A stream in which no mantissa has a bit: every exponent is `exponent`
+/// (sent in the first block of a frame and kept), the parameters of the bit
+/// allocation are the usual ones and its offsets are nought, so that every
+/// pointer is 0. With [`Ac3Layout::dither`] set, what a decoder writes for
+/// it is its dither and nothing else, at an exponent that is known: the
+/// stream `tools/dither_probe.py` reads a decoder's dither off.
+pub fn write_without_a_bit(
+    layout: &Ac3Layout,
+    frames: usize,
+    coefficients: [usize; CHANNELS],
+    exponent: u8,
+) -> Result<Ac3Stream, String> {
+    let usual = Allocation {
+        slow_decay: 2,
+        fast_decay: 1,
+        slow_gain: 1,
+        db_per_bit: 2,
+        floor: 7,
+    };
+    let nothing = Offsets {
+        coarse: 0,
+        fine: [0; CHANNELS],
+        fast_gain: [0; CHANNELS],
+    };
+    let blocks: Vec<Vec<Ac3Block>> = (0..frames)
+        .map(|_| {
+            (0..BLOCKS)
+                .map(|b| Ac3Block {
+                    channels: std::array::from_fn(|ch| Ac3Channel {
+                        exponents: (b == 0).then(|| vec![exponent; coefficients[ch]]),
+                        mantissas: vec![0; coefficients[ch]],
+                    }),
+                    allocation: (b == 0).then_some(usual),
+                    offsets: (b == 0).then_some(nothing),
+                    delta: None,
+                })
+                .collect()
+        })
+        .collect();
+    let stream = write_ac3(layout, &blocks)?;
+    if stream
+        .frames
+        .iter()
+        .flatten()
+        .any(|coded| coded.pointers.iter().flatten().any(|&p| p != 0))
+    {
+        return Err("a mantissa got a bit".to_owned());
+    }
+    Ok(stream)
 }
 
 /// Writes a stream of frames, each of six blocks.

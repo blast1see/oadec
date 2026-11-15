@@ -13,7 +13,7 @@
 use oadec_eac3::{Decoder, Frame, Noise, Options, Syntax};
 use oadec_synth::ac3::{
     Ac3Block, Ac3Channel, Ac3Layout, Ac3Stream, Allocation, BLOCKS, CHANNELS, COEFFICIENTS, Delta,
-    Offsets, Segment, write_ac3,
+    Offsets, Segment, write_ac3, write_without_a_bit,
 };
 use oadec_synth::ac3_recipe::{AC3_PROBES, AC3_RECIPES, Read};
 use oadec_synth::sha256;
@@ -302,6 +302,201 @@ fn decoded(stream: &Ac3Stream, options: Options) -> Result<Vec<Vec<f32>>, String
         take(Some(decoded));
     }
     Ok(got)
+}
+
+/// A stream in which no mantissa has a bit: every exponent is 8, and the
+/// channels `dither` names ask for dither. What a decoder writes for it is
+/// its dither and nothing else.
+fn without_a_bit(
+    frames: usize,
+    coefficients: [usize; CHANNELS],
+    dither: [bool; CHANNELS],
+) -> Ac3Stream {
+    // 192 kbit/s at 48 kHz: 768 bytes a frame
+    let layout = Ac3Layout {
+        dither,
+        ..Ac3Layout::new(48_000, 20)
+    };
+    write_without_a_bit(&layout, frames, coefficients, 8).expect("the stream is written")
+}
+
+/// The coefficients the decoder gives for a stream with its dither on, as
+/// `[frame][block][channel]`, having seen that no mantissa had a bit.
+fn dithered(stream: &Ac3Stream) -> Vec<Vec<Vec<[f64; COEFFICIENTS]>>> {
+    let mut noise = Noise::default();
+    let options = Options {
+        dither: true,
+        block_info: true,
+        ..Options::default()
+    };
+    stream
+        .bytes
+        .chunks(stream.frame_bytes)
+        .enumerate()
+        .map(|(f, bytes)| {
+            let frame = Frame::parse(bytes, &mut noise, options)
+                .unwrap_or_else(|e| panic!("frame {f}: {e}"));
+            assert!(frame.crc_ok, "frame {f}: a check word");
+            frame
+                .blocks
+                .iter()
+                .map(|block| {
+                    let info = block.info.as_ref().expect("the record was asked for");
+                    for ch in 0..CHANNELS {
+                        let n = info.endmant[ch];
+                        assert!(
+                            info.bap[ch][..n].iter().all(|&p| p == 0),
+                            "a mantissa with bits"
+                        );
+                        assert!(
+                            info.exps[ch][..n].iter().all(|&e| e == 8),
+                            "another exponent"
+                        );
+                    }
+                    block.coeffs[..CHANNELS].to_vec()
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// The first coefficients of a block as the whole numbers Dolby's decoder
+/// wrote: its dither is in units of `2^-15`, and the exponent of the stream
+/// is 8.
+fn drawn(coefficients: &[f64; COEFFICIENTS], count: usize) -> Vec<i64> {
+    coefficients[..count]
+        .iter()
+        .map(|&c| {
+            let scaled = c * f64::from(1u32 << 23);
+            assert!(scaled == scaled.round(), "{c} is not a multiple of 2^-23");
+            scaled as i64
+        })
+        .collect()
+}
+
+/// The dither. `without_a_bit(.., [253, 253], [true, true])` was put to
+/// Dolby's decoder, and what it wrote was taken back through the transform:
+/// these are its coefficients times 2^23. Its decode leaves out the first
+/// block of a stream, so nothing here is of block 0 of the first frame; the
+/// same block one frame on shows what that one drew.
+#[test]
+fn a_stream_without_a_bit_decodes_to_the_dither_dolbys_decoder_wrote_for_it() {
+    let got = dithered(&without_a_bit(2, [253, 253], [true, true]));
+    assert_eq!(
+        drawn(&got[0][3][0], 12),
+        [
+            -13519, 8304, 3437, -1418, 3785, 6646, 12867, -5881, -1900, 3722, -15173, -2922
+        ]
+    );
+    assert_eq!(
+        drawn(&got[0][3][1], 12),
+        [
+            -19881, -5990, -17610, -2700, 10411, -90, 14221, -19156, 1784, 199, 15821, 13806
+        ]
+    );
+    assert_eq!(
+        drawn(&got[0][5][0], 12),
+        [
+            1135, -9196, 16960, -5205, -3373, 14399, 233, -346, -16389, 4867, 6857, 3246
+        ]
+    );
+    assert_eq!(
+        drawn(&got[0][5][1], 12),
+        [
+            -14210, 7533, 1773, 13311, 18163, -12724, -3414, -10475, 2930, -941, -1180, 6467
+        ]
+    );
+    // the last three of a block: every coefficient drew, in order
+    assert_eq!(drawn(&got[0][3][0], 253)[250..], [-16689, -6791, -593]);
+    assert_eq!(drawn(&got[0][3][1], 253)[250..], [5798, -19, 7571]);
+    // the second frame goes on where the first stopped, block by block
+    assert_eq!(
+        drawn(&got[1][0][0], 12),
+        [
+            -3042, 7376, 12828, -17913, 6297, -8039, 2708, -1378, -7353, -1550, 1458, -592
+        ]
+    );
+    assert_eq!(
+        drawn(&got[1][0][1], 12),
+        [
+            -7210, 21163, 854, 7075, 11497, 15478, 21099, 2204, 14455, -18989, 11115, 411
+        ]
+    );
+    assert_eq!(
+        drawn(&got[1][3][0], 12),
+        [
+            6884, -7622, -8720, -848, -10884, -1269, -14813, -18299, -956, -3424, -7691, 10771
+        ]
+    );
+    assert_eq!(
+        drawn(&got[1][3][1], 12),
+        [
+            963, -385, -5251, 13064, -4903, -2043, 4178, 8601, -10588, -4967, 22478, -11611
+        ]
+    );
+    // nothing above the coefficients a channel has
+    assert!(got[0][3][0][253..].iter().all(|&c| c == 0.0));
+}
+
+/// A channel draws for the coefficients it has and for no others: with 133
+/// in one channel and 73 in the other, block 0 of the second frame starts
+/// 133 values on in the one and 73 in the other. Dolby's decode of
+/// `without_a_bit(.., [133, 73], [true, true])` and of `[73, 73]`.
+#[test]
+fn a_channel_draws_for_the_coefficients_it_has() {
+    let got = dithered(&without_a_bit(2, [133, 73], [true, true]));
+    assert_eq!(
+        drawn(&got[1][0][0], 8),
+        [-13688, -3542, -7774, -5479, -15572, -9905, 11430, -8856]
+    );
+    assert_eq!(
+        drawn(&got[1][0][1], 8),
+        [14608, 940, -20501, -568, 6344, -1306, -1160, 898]
+    );
+    let got = dithered(&without_a_bit(2, [73, 73], [true, true]));
+    assert_eq!(
+        drawn(&got[1][0][0], 8),
+        [-10051, -13797, 3918, 8974, -3065, -12739, -5659, -1463]
+    );
+    // the first frame is the same whatever the width
+    assert_eq!(
+        drawn(&got[0][3][0], 12),
+        [
+            -13519, 8304, 3437, -1418, 3785, 6646, 12867, -5881, -1900, 3722, -15173, -2922
+        ]
+    );
+}
+
+/// A channel that does not ask for dither is left at nought, and the other
+/// draws what it draws when both ask: Dolby's decode of the stream with one
+/// flag set is silent in the one channel and the same samples in the other.
+#[test]
+fn a_channel_that_does_not_ask_for_dither_gets_none_and_costs_the_other_nothing() {
+    let both = dithered(&without_a_bit(2, [253, 253], [true, true]));
+    let left = dithered(&without_a_bit(2, [253, 253], [true, false]));
+    let right = dithered(&without_a_bit(2, [253, 253], [false, true]));
+    for f in 0..2 {
+        for b in 0..BLOCKS {
+            assert!(left[f][b][0] == both[f][b][0], "frame {f}, block {b}");
+            assert!(
+                left[f][b][1].iter().all(|&c| c == 0.0),
+                "frame {f}, block {b}"
+            );
+            assert!(right[f][b][1] == both[f][b][1], "frame {f}, block {b}");
+            assert!(
+                right[f][b][0].iter().all(|&c| c == 0.0),
+                "frame {f}, block {b}"
+            );
+        }
+    }
+}
+
+/// With the dither off, the same stream is silence.
+#[test]
+fn a_stream_without_a_bit_is_silence_when_the_dither_is_off() {
+    let stream = without_a_bit(2, [253, 253], [true, true]);
+    let pcm = decoded(&stream, options()).expect("the stream is read");
+    assert!(pcm.iter().all(|ch| ch.iter().all(|&s| s == 0.0)));
 }
 
 /// The samples: the decoder's fast transform against the transform written

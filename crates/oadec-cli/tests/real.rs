@@ -2153,6 +2153,273 @@ fn the_clip_gain_is_put_back_where_dolbys_decoder_puts_it_back() {
     }
 }
 
+/// The channels of a clip against the channels Dolby's decoder wrote for it,
+/// with the dither on: for every channel that carries anything, Dolby's signal
+/// to the difference from ours over the whole band, in dB, from two seconds
+/// in. Dolby's element leaves out the first block of a stream, so its decode
+/// starts 256 samples into ours.
+fn channels_against_dolby(media: &Path, clip: &str, dump: &str) -> Vec<Option<f64>> {
+    let file = media.join(clip);
+    require(&file);
+    let dolby = media.join(dump);
+    assert!(
+        dolby.exists(),
+        "{} is missing, so the channels of {clip} cannot be judged",
+        dolby.display()
+    );
+    let reference = floats(&dolby);
+    let stem = file.file_stem().and_then(|s| s.to_str()).expect("a name");
+    let wav = std::env::temp_dir().join(format!("oadec-core-{stem}-{}.wav", std::process::id()));
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", "-o"])
+        .arg(&wav)
+        .arg(&file)
+        .output()
+        .expect("run oadec decode");
+    assert!(
+        out.status.success(),
+        "{clip} did not decode: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let (ours, channels) = wav_f32(&wav);
+    let _ = std::fs::remove_file(&wav);
+    assert_eq!(
+        reference.len() % channels,
+        0,
+        "{dump} is not rows of {channels}"
+    );
+    let n = (reference.len() / channels).min(ours.len() / channels - 256);
+    let from = 2 * 48_000;
+    assert!(n > from + 5 * 48_000, "{clip}: only {n} rows to compare");
+    (0..channels)
+        .map(|ch| {
+            let (mut level, mut left) = (0.0, 0.0);
+            for i in from..n {
+                let theirs = reference[i * channels + ch];
+                let apart = f64::from(ours[(i + 256) * channels + ch]) - theirs;
+                level += theirs * theirs;
+                left += apart * apart;
+            }
+            // under -90 dBFS there is nothing to be judged on
+            (level / (n - from) as f64 >= 1e-9).then(|| 10.0 * (level / left.max(1e-300)).log10())
+        })
+        .collect()
+}
+
+/// The dither, held to Dolby's decode of real streams.
+///
+/// Where a mantissa has no bits a decoder puts a random value, and the
+/// standard leaves the sequence to it, so two decoders used to agree only as
+/// far down as the dither of either. Dolby's decoder draws the same values
+/// every time, and they were read off what it writes (`oadec_eac3::dither`).
+/// With them, a decode here is Dolby's decode wherever the two read the
+/// coded coefficients alike.
+///
+/// Four clips, each a minute of a stream, and for each every channel that
+/// carries anything, over the whole band:
+///
+/// - AC-3, 5.1, with coupling: the states that go on from frame to frame, the
+///   coupled ones among them. With the dither this decoder had the channels
+///   stood at 51,8 to 63,8 dB; when written, at 133,6 to 139,0.
+/// - AC-3, 2.0, with coupling and rematrixing: 56,7 and 57,0 before; 94,6 and
+///   112,4. The left is held where it is by one sample, which Dolby's decoder
+///   keeps at full scale and this one writes as 1,0054.
+/// - E-AC-3, 5.1: every frame seeds its dither from its own tail word. 45,2
+///   to 50,8 before; 136,7 to 138,3.
+/// - E-AC-3, 7.1: an independent substream that seeds every frame and a
+///   dependent one that goes on from frame to frame, in one stream. 31,4 to
+///   39,1 before; 105,4 to 110,3.
+///
+/// The references are `gst-launch-1.0 filesrc ! dlbac3parse ! dlbac3dec
+/// out-ch-config=<0, 7 or 11> drc-suppress=true drc-mode=custom-0 drc-cut=0
+/// drc-boost=0 drop-delay=true ! audio/x-raw,format=F32LE ! filesink` of the
+/// clips (`docs/dolby-tools.md`).
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn the_dither_is_the_one_dolbys_decoder_draws() {
+    let media = media_dir();
+    for (clip, dump, bar) in [
+        (
+            "clips/ac3-51-coupled.ac3",
+            "ref-drp/core/ac3-51-coupled.f32",
+            120.0,
+        ),
+        (
+            "clips/ac3-20-coupled.ac3",
+            "ref-drp/core/ac3-20-coupled.f32",
+            85.0,
+        ),
+        (
+            "clips/eac3-51-plain.ec3",
+            "ref-drp/core/eac3-51-plain.f32",
+            120.0,
+        ),
+        (
+            "clips/eac3-71-dependent.ec3",
+            "ref-drp/core/eac3-71-dependent.f32",
+            95.0,
+        ),
+    ] {
+        let ratios = channels_against_dolby(&media, clip, dump);
+        let judged: Vec<f64> = ratios.iter().flatten().copied().collect();
+        eprintln!("{clip}: {ratios:.1?}");
+        assert!(
+            judged.len() >= 2,
+            "{clip}: only {} channels carry anything",
+            judged.len()
+        );
+        let worst = judged.iter().copied().fold(f64::INFINITY, f64::min);
+        assert!(
+            worst >= bar,
+            "{clip}: the worst of {} channels is {worst:.2} dB from Dolby's; the dither is no \
+             longer the one Dolby's decoder draws",
+            judged.len()
+        );
+    }
+}
+
+/// The dither of a channel coded with the adaptive hybrid transform, held to
+/// Dolby's decode.
+///
+/// Such a channel takes its dither block by block, one value for a
+/// coefficient without bits, and none before the transform across the blocks
+/// (`oadec_eac3::dither`). The clip is 5.1 at 384 kbit/s with the transform in
+/// nearly every frame. Four of its channels cannot be held to Dolby's over
+/// the whole band: they are coupled, and in the coupled region of an E-AC-3
+/// stream Dolby's decoder does something that is not the dither and is not
+/// known (`docs/eac3.md`). The centre takes next to nothing from the coupling
+/// channel, and stands at 72,6 dB from Dolby's where it stood at 49,8 with
+/// six values put through the transform.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn a_hybrid_transform_channel_takes_the_dither_dolbys_decoder_gives_it() {
+    let media = media_dir();
+    let ratios = channels_against_dolby(
+        &media,
+        "ec3/pi-head-aht384.ec3",
+        "ref-drp/core/pi-head-aht384.f32",
+    );
+    eprintln!("ec3/pi-head-aht384.ec3: {ratios:.1?}");
+    // the centre is the third channel of a WAVE file
+    let centre = ratios[2].expect("the centre carries something");
+    assert!(
+        centre >= 65.0,
+        "the centre is {centre:.2} dB from Dolby's; a hybrid-transform channel no longer takes \
+         the dither Dolby's decoder gives it"
+    );
+}
+
+/// The objects of a clip against the objects Dolby's decoder wrote for it,
+/// with the dither on: for every object that carries anything, Dolby's signal
+/// to the difference from ours over the whole band, in dB, from two seconds
+/// in.
+fn objects_with_dither_against_dolby(media: &Path, clip: &str, dump: &str) -> Vec<f64> {
+    let file = media.join(clip);
+    require(&file);
+    let dolby = media.join(dump);
+    assert!(
+        dolby.exists(),
+        "{} is missing, so the objects of {clip} cannot be judged",
+        dolby.display()
+    );
+    let reference = floats(&dolby);
+    let stem = file.file_stem().and_then(|s| s.to_str()).expect("a name");
+    let base = std::env::temp_dir().join(format!("oadec-dither-{stem}-{}", std::process::id()));
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(["decode", "--format", "damf", "--no-bed-conform", "-o"])
+        .arg(&base)
+        .arg(&file)
+        .output()
+        .expect("run oadec decode");
+    assert!(
+        matches!(out.status.code(), Some(0) | Some(7)),
+        "{clip} did not decode: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let (ours, channels) = caf(&base.with_extension("atmos.audio"));
+    for ext in ["atmos", "atmos.metadata", "atmos.audio"] {
+        let _ = std::fs::remove_file(base.with_extension(ext));
+    }
+    assert_eq!(
+        reference.len() % channels,
+        0,
+        "{dump} is not rows of {channels}"
+    );
+    let n = (reference.len() / channels).min(ours.len() / channels);
+    let (from, to) = (2 * 48_000, n - 24_000);
+    assert!(to > from + 5 * 48_000, "{clip}: only {n} rows to compare");
+    (1..channels)
+        .filter_map(|ch| {
+            let (mut level, mut left) = (0.0, 0.0);
+            for i in from..to {
+                let theirs = reference[i * channels + ch];
+                let apart = ours[i * channels + ch] - theirs;
+                level += theirs * theirs;
+                left += apart * apart;
+            }
+            (level / (to - from) as f64 >= 1e-9).then(|| 10.0 * (level / left.max(1e-300)).log10())
+        })
+        .collect()
+}
+
+/// The objects, held to Dolby's over the whole band with the dither on.
+///
+/// The objects are made of the channels of the core, so what the core draws
+/// for its mantissas without bits is in every object. With a dither of its
+/// own this decoder's objects were Dolby's in the low bands and another noise
+/// above; with Dolby's dither they are Dolby's objects.
+///
+/// Five clips, and for each the object in the middle of those that carry
+/// anything, and the worst. With the dither this decoder had, the middle
+/// object of a clip stood at 40,3 to 67,9 dB and the best object of any at
+/// 75,4; when written the middle ones stand at 104,7 to 114,5 and the worst
+/// of any clip at 93,0. The bars are under all that is reached and over all
+/// that was.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn the_objects_are_dolbys_over_the_whole_band_with_the_dither_on() {
+    let media = media_dir();
+    let (middle_bar, worst_bar) = (95.0, 85.0);
+    for (clip, dump) in [
+        (
+            "clips/quietplace-web-head.ec3",
+            "ref-oar/quietplace-web-obj.f32",
+        ),
+        (
+            "clips/kingsman-joc-head.ec3",
+            "ref-oar/kingsman-joc-head-obj.f32",
+        ),
+        (
+            "clips/shaun-joc1024-head.ec3",
+            "ref-oar/shaun-joc1024-obj.f32",
+        ),
+        (
+            "clips/joc-steep-jackal.ec3",
+            "ref-drp/joc/joc-steep-jackal.f32",
+        ),
+        ("clips/joc-clip-gain.ec3", "ref-drp/joc/joc-clip-gain.f32"),
+    ] {
+        let mut ratios = objects_with_dither_against_dolby(&media, clip, dump);
+        assert!(
+            ratios.len() >= 4,
+            "{clip}: only {} objects carry anything",
+            ratios.len()
+        );
+        ratios.sort_by(f64::total_cmp);
+        let (worst, middle) = (ratios[0], ratios[ratios.len() / 2]);
+        eprintln!(
+            "{clip}: middle {middle:.1}, worst {worst:.1}, of {}",
+            ratios.len()
+        );
+        assert!(
+            middle >= middle_bar && worst >= worst_bar,
+            "{clip}: of {} objects the middle one is {middle:.2} dB from Dolby's and the worst \
+             {worst:.2}; the dither of the core is no longer the one Dolby's decoder draws",
+            ratios.len()
+        );
+    }
+}
+
 /// SHA-256 (FIPS 180-4) as lowercase hex, streamed over `data`, so the gate
 /// below can name the audited hash without adding a dependency.
 fn sha256_hex(data: &[u8]) -> String {

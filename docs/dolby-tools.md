@@ -910,6 +910,19 @@ out; `drop-delay=true` removes the decoder's start-up samples, after which
 the objects line up with `oadec decode --format damf --no-bed-conform` at
 lag zero.
 
+**The channels the same way.** With `out-ch-config=0`, `7` or `11` in place
+of `21` and `audio/x-raw,format=F32LE` for the caps, the same element writes
+the coded channels of a stream of two, six or eight as 32-bit floats in WAVE
+order, with no dialogue normalisation and no dynamic range control. Three
+things about that decode, each measured:
+
+- it leaves out the first block: its first sample is sample 256 of `oadec
+  decode`;
+- it is the same bytes every time, the dither included, which is how the
+  dither could be read off it (`docs/eac3.md`, `tools/dither_probe.py`);
+- it keeps a sample at full scale: where a stream decodes to 1,0054 it
+  writes 1,0.
+
 **TrueHD needs a container.** `dlbtruehddec` has the same `out-ch-config=21`
 and a `presentation` property that reaches 16, but it will not take a raw
 `.thd` elementary stream: it answers `0x50` on the first access unit whether
