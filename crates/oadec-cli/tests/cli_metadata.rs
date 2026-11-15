@@ -37,6 +37,9 @@ fn json(o: &Output) -> serde_json::Value {
 
 fn temp(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("oadec-cli-metadata-{tag}-{}", std::process::id()));
+    // a run that failed left its directory, and a process number comes round
+    // again: what is in it then is not of this run
+    let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
@@ -120,7 +123,8 @@ fn oamd_calls_the_units_of_an_eac3_stream_frames() {
 /// the stream is non-conformant for their CRCs alone.
 #[test]
 fn oamd_reads_an_ac3_stream_frame_by_frame() {
-    let path = temp("ac3").join("three-frames.ac3");
+    let dir = temp("ac3");
+    let path = dir.join("three-frames.ac3");
     let mut frame = vec![0u8; 1792];
     frame[..7].copy_from_slice(&[0x0B, 0x77, 0xFF, 0xFF, 0x1E, 0x40, 0xE1]);
     std::fs::write(&path, frame.repeat(3)).unwrap();
@@ -134,6 +138,7 @@ fn oamd_reads_an_ac3_stream_frame_by_frame() {
     assert_eq!(v["units_with_oamd"], 0, "{v}");
     assert_eq!(v["payloads"], 0, "{v}");
     assert_eq!(v["clean"], false, "{v}");
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 /// `emdf --dump` printed a frame's object count and then only the first four
@@ -262,6 +267,7 @@ fn a_file_that_holds_no_stream_is_refused() {
             stderr(&out)
         );
     }
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 /// The first 100 bytes of the JOC encode open with an E-AC-3 sync word and
@@ -272,7 +278,8 @@ fn a_file_that_holds_no_stream_is_refused() {
 /// All five refuse it now.
 #[test]
 fn an_eac3_sync_word_without_a_whole_frame_is_no_stream_either() {
-    let path = temp("truncated").join("truncated.ec3");
+    let dir = temp("truncated");
+    let path = dir.join("truncated.ec3");
     let bytes = std::fs::read(fixture("authored-scene.ec3")).unwrap();
     std::fs::write(&path, &bytes[..100]).unwrap();
     let name = path.to_str().unwrap();
@@ -292,6 +299,7 @@ fn an_eac3_sync_word_without_a_whole_frame_is_no_stream_either() {
         "compare: {}",
         stderr(&out)
     );
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 /// The control for the two above: the fixtures are streams, and `info` and
