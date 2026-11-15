@@ -254,6 +254,16 @@ that the decoder relies on. Clause numbers refer to that document.
   127 tracks is nearer to Dolby's over the whole band than it was.
   `docs/audit/evidence/engine-round-2026-11/51-the-dither-dolbys-decoder-draws.json`.
 
+  **The core the objects are made of is the plain one.** Decoding an E-AC-3
+  stream to channels, Dolby's decoders decorrelate the channels above the
+  coupling begin frequency (`docs/eac3.md`), which this decoder does not do.
+  Decoding it to objects, they do not. A JOC stream whose core uses coupling
+  stands at -0,9 to 4,5 dB from this decoder's in two bands of the coupled
+  region of four of its five channels, and at 43 and 23 dB in the fifth,
+  which is not decorrelated; its eleven objects stand at 42 to 48 and at 17
+  to 25 dB in the same two bands.
+  `docs/audit/evidence/engine-round-2026-11/52-what-dolbys-decoders-do-to-coupled-channels.json`.
+
   Fourteen tracks stayed under 90 dB in the lowest band with it, and they
   are the fourteen whose clip gain changes within the forty seconds: this
   decoder stepped the gain where the objects left it, 1 216 samples before

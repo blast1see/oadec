@@ -848,6 +848,12 @@ name and the temp directory must exist. The template placeholders
 them in order. A 105-second clip decodes in 5 s, a two-hour film in about
 six minutes.
 
+It decorrelates the coupled channels of an E-AC-3 stream, as the element of
+the Reference Player does and to the same samples: the two stand at 110 to
+129 dB from each other in the coupled region of four streams, which is the
+24 bits this one writes. An AC-3 stream neither touches. `docs/eac3.md` has
+what they do and how it was read.
+
 ## Enhanced coupling is not an encoder option
 
 None of the captured command lines mentions coupling at all, and the
