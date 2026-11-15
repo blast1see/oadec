@@ -52,13 +52,14 @@ pub(crate) fn check_interpolation(
 }
 
 /// Says on stderr when the ADM file is outside the profile.
-#[allow(clippy::print_stderr, reason = "printing is what this one is for")]
-pub(crate) fn note_non_profile(opts: &Options) {
+pub(crate) fn note_non_profile(opts: &Options, err: &mut dyn Write) -> io::Result<()> {
     if opts.adm && opts.interpolation == Interpolation::Real {
-        eprintln!(
+        writeln!(
+            err,
             "ADM BWF written outside the Dolby Atmos master ADM profile: interpolation lengths are the source ramps"
-        );
+        )?;
     }
+    Ok(())
 }
 
 /// The warp mode an object output names.
@@ -200,11 +201,15 @@ fn isf_hint(count: usize, isf_type: &str) -> String {
 
 /// Prints the loss ledger of an output on stderr, one line per class. Quiet
 /// when nothing was lost.
-#[allow(clippy::print_stderr, reason = "printing is what this one is for")]
-pub(crate) fn print_losses(target: &str, losses: &LossLedger) {
+pub(crate) fn print_losses(
+    target: &str,
+    losses: &LossLedger,
+    err: &mut dyn Write,
+) -> io::Result<()> {
     for line in losses.lines(target) {
-        eprintln!("{line}");
+        writeln!(err, "{line}")?;
     }
+    Ok(())
 }
 
 /// Writes the loss ledger of an output as JSON when a path was given.
@@ -493,13 +498,13 @@ impl Written {
 
     /// Says on stderr what was decoded and written, and what the output
     /// could not carry.
-    #[allow(clippy::print_stderr, reason = "printing is what this one is for")]
-    pub fn print_summary(&self) {
+    pub fn print_summary(&self, err: &mut dyn Write) -> io::Result<()> {
         if let Some(stop) = &self.stopped {
-            stop.print(self.emitted);
+            stop.print(self.emitted, err)?;
         }
-        print_summary(&self.session, self.elapsed);
-        eprintln!(
+        print_summary(&self.session, self.elapsed, err)?;
+        writeln!(
+            err,
             "{}: {} frames x {} channels ({}) in {}{}",
             if self.opts.adm { "ADM BWF" } else { "DAMF" },
             self.sink.frames,
@@ -512,9 +517,10 @@ impl Written {
                 .last()
                 .map_or_else(String::new, |p| p.display().to_string()),
             self.sink.note
-        );
-        note_non_profile(&self.opts);
-        eprintln!(
+        )?;
+        note_non_profile(&self.opts, err)?;
+        writeln!(
+            err,
             "metadata: {} payloads in {} access units, {} events ({} restating payloads, {} out-of-order events), {} payload errors",
             self.payloads,
             self.units_with_payloads,
@@ -522,19 +528,21 @@ impl Written {
             self.restatements,
             self.out_of_order,
             self.payload_errors
-        );
+        )?;
         if let Some(e) = &self.first_payload_error {
-            eprintln!("first payload error: {e}");
+            writeln!(err, "first payload error: {e}")?;
         }
         if let Some(s) = &self.session.stats
             && s.valid_branches + s.invalid_branches + s.duplicates > 0
         {
-            eprintln!(
+            writeln!(
+                err,
                 "timing: {} input timing jumps, {} seamless branches, {} restarts, {} duplicates dropped",
                 s.input_jumps, s.valid_branches, s.invalid_branches, s.duplicates
-            );
+            )?;
         }
-        print_losses(self.target(), &self.losses);
+        print_losses(self.target(), &self.losses, err)?;
+        Ok(())
     }
 
     /// Writes the loss ledger as JSON where the options ask for it.
@@ -571,11 +579,11 @@ impl Written {
 }
 
 /// Runs the object output; `base` is the output path without extension.
-pub fn run(source: &Source, base: &Path, opts: &Options) -> Result<Verdict> {
-    let written = write(source, base, opts, &mut io::stderr())?;
-    written.print_summary();
+pub fn run(source: &Source, base: &Path, opts: &Options, err: &mut dyn Write) -> Result<Verdict> {
+    let written = write(source, base, opts, err)?;
+    written.print_summary(err)?;
     written.write_loss_report()?;
-    Ok(written.findings()?.report())
+    Ok(written.findings()?.report(err)?)
 }
 
 /// Decodes the object presentation of a TrueHD stream into a DAMF set or an

@@ -10,7 +10,7 @@
 
 use std::collections::VecDeque;
 use std::fmt;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::Path;
 use std::time::Instant;
 
@@ -903,10 +903,10 @@ impl Written {
 
     /// Says on stderr what was decoded and written, and what the output
     /// could not carry.
-    #[allow(clippy::print_stderr, reason = "printing is what this one is for")]
-    pub fn print_summary(&self) {
+    pub fn print_summary(&self, err: &mut dyn Write) -> io::Result<()> {
         let (summary, tally, rate, elapsed) = (&self.sink, &self.tally, self.rate, self.elapsed);
-        eprintln!(
+        writeln!(
+            err,
             "{}: {} frames x {} channels ({}) in {}{}",
             if self.opts.adm { "ADM BWF" } else { "DAMF" },
             summary.frames,
@@ -917,9 +917,10 @@ impl Written {
                 .last()
                 .map_or_else(String::new, |p| p.display().to_string()),
             summary.note
-        );
-        crate::damf::note_non_profile(&self.opts);
-        eprintln!(
+        )?;
+        crate::damf::note_non_profile(&self.opts, err)?;
+        writeln!(
+            err,
             "metadata: {} payloads, {} events ({} restating payloads, {} out-of-order events), {} payload errors; {} frames without JOC, {} without OAMD",
             self.payloads,
             summary.events,
@@ -928,14 +929,16 @@ impl Written {
             tally.payload_errors,
             self.frames_without_joc,
             self.frames_without_oamd
-        );
+        )?;
         if self.splices > 0 || self.seq_gaps > 0 {
-            eprintln!(
+            writeln!(
+                err,
                 "splices: {} frames restarted the sequence counter, {} did not follow the previous one",
                 self.splices, self.seq_gaps
-            );
+            )?;
         }
-        eprintln!(
+        writeln!(
+            err,
             "core: {} frames decoded, {} decode errors, {:.2} s ({:.0}x realtime)",
             self.frames,
             tally.decode_errors,
@@ -945,14 +948,16 @@ impl Written {
             } else {
                 0.0
             }
-        );
+        )?;
         if let Some(group) = tally.first_tail {
-            eprintln!(
+            writeln!(
+                err,
                 "out of spec: {} frames ending inside the frame tail, the first in group {group}; decoded as FFmpeg and Dolby decode them, which is not an integrity fault (`oadec verify` reports it)",
                 tally.tail_overruns
-            );
+            )?;
         }
-        crate::damf::print_losses(self.target(), &self.losses);
+        crate::damf::print_losses(self.target(), &self.losses, err)?;
+        Ok(())
     }
 
     /// Writes the loss ledger as JSON where the options ask for it.
@@ -977,11 +982,16 @@ impl Written {
 
 /// Runs the object output for an E-AC-3 JOC stream; `base` is the output path
 /// without extension.
-pub fn run(source: &crate::source::Source, base: &Path, opts: &Options) -> Result<Verdict> {
-    let written = write(source, base, opts, &mut std::io::stderr())?;
-    written.print_summary();
+pub fn run(
+    source: &crate::source::Source,
+    base: &Path,
+    opts: &Options,
+    err: &mut dyn Write,
+) -> Result<Verdict> {
+    let written = write(source, base, opts, err)?;
+    written.print_summary(err)?;
     written.write_loss_report()?;
-    Ok(written.findings().report())
+    Ok(written.findings().report(err)?)
 }
 
 /// Decodes the objects of an E-AC-3 JOC stream into a DAMF set or an ADM BWF

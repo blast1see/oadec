@@ -3,6 +3,7 @@
 use anyhow::Result;
 use oadec_truehd::sync::FbbFormat;
 use oadec_truehd::{ChannelLabel, MajorSync, PresentationKind};
+use std::io::{self, Write};
 
 use crate::scan::{self, Scan};
 use crate::source::Source;
@@ -55,24 +56,24 @@ fn format_duration(seconds: f64) -> String {
     format!("{h}:{m:02}:{s:02}.{ms:03}")
 }
 
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-fn print_presentations(ms: &MajorSync) {
+fn print_presentations(ms: &MajorSync, out: &mut dyn Write) -> io::Result<()> {
     let map = ms.presentation_map();
     if ms.is_fbb() {
-        println!("Presentations:");
+        writeln!(out, "Presentations:")?;
         for index in 0..2 {
             let kind = map.kind(index);
             if kind == PresentationKind::Invalid {
                 continue;
             }
-            println!(
+            writeln!(
+                out,
                 "  {index}: substreams {:04b}  {}  [{}]",
                 map.mask(index),
                 labels(&ChannelLabel::presentation(ms, index)),
                 kind_text(kind)
-            );
+            )?;
         }
-        return;
+        return Ok(());
     }
     let fi = &ms.format_info;
     let restricted = ms.flags & oadec_truehd::sync::FLAG_RESTRICTED_8CH != 0;
@@ -111,26 +112,29 @@ fn print_presentations(ms: &MajorSync) {
             },
         ),
     ];
-    println!("Presentations:");
+    writeln!(out, "Presentations:")?;
     for (index, text) in rows {
         let kind = map.kind(index);
         if kind == PresentationKind::Invalid && index > 0 {
             continue;
         }
-        println!(
+        writeln!(
+            out,
             "  {index}: substreams {:04b}  {text}  [{}]",
             map.mask(index),
             kind_text(kind)
-        );
+        )?;
     }
+
+    Ok(())
 }
 
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-fn print_text(scan: &Scan) {
-    println!(
+fn print_text(scan: &Scan, out: &mut dyn Write) -> io::Result<()> {
+    writeln!(
+        out,
         "File:             {} ({} bytes)",
         scan.file, scan.file_bytes
-    );
+    )?;
     let Some(ms) = &scan.first_major_sync else {
         // A sync word that was found and could not be read is not a stream
         // without one: `verify` counts its access units and names the fault,
@@ -138,11 +142,11 @@ fn print_text(scan: &Scan) {
         // story of the same file.
         match &scan.first_error {
             Some(error) if scan.major_syncs > 0 => {
-                println!("No major sync could be read: {error}");
+                writeln!(out, "No major sync could be read: {error}")?;
             }
-            _ => println!("No major sync found: not a Dolby TrueHD stream."),
+            _ => writeln!(out, "No major sync found: not a Dolby TrueHD stream.")?,
         }
-        return;
+        return Ok(());
     };
     let fs = ms.sampling_frequency().unwrap_or(0);
     if let Some(fbb) = &ms.fbb {
@@ -164,13 +168,15 @@ fn print_text(scan: &Scan) {
             (Some(g1), _) => g1,
             (None, _) => "word length not declared".to_string(),
         };
-        println!(
+        writeln!(
+            out,
             "Format:           Meridian MLP (FBB, DVD-Audio), {fs} Hz, {} samples per access unit; channel assignment {} ({groups}), {words}",
             ms.samples_per_au().unwrap_or(0),
             fbb.channel_assignment,
-        );
+        )?;
     } else {
-        println!(
+        writeln!(
+            out,
             "Format:           Dolby TrueHD (FBA), {fs} Hz, {} samples per access unit{}",
             ms.samples_per_au().unwrap_or(0),
             if ms.has_16ch_presentation() {
@@ -178,16 +184,18 @@ fn print_text(scan: &Scan) {
             } else {
                 ""
             }
-        );
+        )?;
     }
     if let Some(secs) = scan.duration_seconds() {
-        println!(
+        writeln!(
+            out,
             "Duration:         {} ({} access units)",
             format_duration(secs),
             scan.units
-        );
+        )?;
     }
-    println!(
+    writeln!(
+        out,
         "Data rate:        peak {} kbps ({}), average {:.0} kbps, access units {}..{} bytes",
         ms.peak_bit_rate().unwrap_or(0) / 1000,
         if ms.variable_rate {
@@ -198,58 +206,68 @@ fn print_text(scan: &Scan) {
         scan.average_bit_rate().unwrap_or(0.0) / 1000.0,
         scan.min_unit_bytes,
         scan.max_unit_bytes
-    );
-    println!(
+    )?;
+    writeln!(
+        out,
         "Substreams:       {} (substream_info 0x{:02X}, extended_substream_info {}), flags 0x{:04X}",
         ms.substreams,
         ms.substream_info,
         ms.extended_substream_info & 3,
         ms.flags
-    );
-    println!(
+    )?;
+    writeln!(
+        out,
         "Major syncs:      {} (at most every {} access units)",
         scan.major_syncs, scan.max_major_sync_interval
-    );
+    )?;
     if ms.says_constant_delay() {
-        println!("Buffer delay:     constant, the major sync says (flags bit 15)");
+        writeln!(
+            out,
+            "Buffer delay:     constant, the major sync says (flags bit 15)"
+        )?;
     }
-    print_presentations(ms);
+    print_presentations(ms, out)?;
     if let Some(modifiers) = modifiers_text(ms) {
-        println!("Channel modifiers: {modifiers}");
+        writeln!(out, "Channel modifiers: {modifiers}")?;
     }
     // the dialogue level and the control fields are FBA's channel meaning;
     // an FBB one is laid out otherwise and is not read
     if !ms.is_fbb() {
         let cm = &ms.channel_meaning;
-        print!(
+        write!(
+            out,
             "Dialogue norm:    2ch -{} dB, 6ch -{} dB, 8ch -{} dB",
             cm.twoch_dialogue_norm, cm.sixch_dialogue_norm, cm.eightch_dialogue_norm
-        );
+        )?;
         if let Some(extra) = &cm.extra {
-            print!(", 16ch -{} dB", extra.sixteench_dialogue_norm);
+            write!(out, ", 16ch -{} dB", extra.sixteench_dialogue_norm)?;
         }
-        println!();
-        println!(
+        writeln!(out)?;
+        writeln!(
+            out,
             "Control:          2ch {}, 6ch {}, 8ch {}; DRC start-up gain {}, heavy DRC start-up gain {}",
             cm.twoch_control_enabled,
             cm.sixch_control_enabled,
             cm.eightch_control_enabled,
             cm.drc_start_up_gain,
             cm.heavy_drc_start_up_gain
-        );
+        )?;
     }
-    println!(
+    writeln!(
+        out,
         "Error protection: substream CRC present in {:?} access units; DRC updates {:?}",
         scan.crc_present_units, scan.drc_updates
-    );
+    )?;
     if ms.announces_heavy_drc() {
-        println!(
+        writeln!(
+            out,
             "Heavy DRC:        announced (flags bit 13); updates in {:?} restart headers",
             heavy_drc_updates(scan)
-        );
+        )?;
     }
     let e = &scan.extra;
-    println!(
+    writeln!(
+        out,
         "Extra data:       {} access units ({} padding, {} opaque, {} Evolution blocks, {} Evolution frames, {} protected)",
         e.units_with_extra,
         e.padding_blocks,
@@ -257,7 +275,7 @@ fn print_text(scan: &Scan) {
         e.evolution_blocks,
         e.evolution_frames,
         e.protected_frames
-    );
+    )?;
     if !e.payload_ids.is_empty() {
         let list: Vec<String> = e
             .payload_ids
@@ -274,13 +292,14 @@ fn print_text(scan: &Scan) {
                 )
             })
             .collect();
-        println!("Evolution payloads: {}", list.join("; "));
+        writeln!(out, "Evolution payloads: {}", list.join("; "))?;
     }
     if e.protection.containers > 0 {
-        println!("Protection:       {}", e.protection.summary());
+        writeln!(out, "Protection:       {}", e.protection.summary())?;
     }
     let f = &scan.failures;
-    println!(
+    writeln!(
+        out,
         "Integrity:        header parity failures {}, major sync CRC failures {}, framing errors {}, configuration changes {}, extra-data parity failures {}, resyncs {}, skipped bytes {}, trailing bytes {}",
         f.header_parity,
         f.major_sync_crc,
@@ -290,9 +309,10 @@ fn print_text(scan: &Scan) {
         f.resyncs,
         f.skipped_bytes,
         f.trailing_bytes
-    );
+    )?;
     if scan.extra.oamd_ok > 0 || f.oamd_errors > 0 {
-        println!(
+        writeln!(
+            out,
             "Object metadata:  {} payloads parsed, {} errors; {} non-unity gains {:?}, {} mutes, {} non-zero sizes",
             scan.extra.oamd_ok,
             f.oamd_errors,
@@ -300,12 +320,14 @@ fn print_text(scan: &Scan) {
             scan.extra.oamd_gains_db,
             scan.extra.oamd_muted_updates,
             scan.extra.oamd_sized_updates
-        );
-        crate::scan::print_stale_sizes(scan.extra.oamd_stale_sizes);
+        )?;
+        crate::scan::print_stale_sizes(scan.extra.oamd_stale_sizes, out)?;
     }
     if let Some(err) = &scan.first_error {
-        println!("First error:      {err}");
+        writeln!(out, "First error:      {err}")?;
     }
+
+    Ok(())
 }
 
 /// The error of a reporting command (`info`, `emdf`, `oamd`) for a file in
@@ -443,12 +465,11 @@ impl Report {
     ///
     /// # Errors
     /// As [`Report::json`].
-    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-    pub fn print(&self, json: bool) -> Result<()> {
+    pub fn print(&self, json: bool, out: &mut dyn Write) -> Result<()> {
         if json {
-            println!("{}", serde_json::to_string_pretty(&self.json()?)?);
+            writeln!(out, "{}", serde_json::to_string_pretty(&self.json()?)?)?;
         } else {
-            print_text(&self.scan);
+            print_text(&self.scan, out)?;
         }
         Ok(())
     }

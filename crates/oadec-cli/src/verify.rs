@@ -1,5 +1,6 @@
 //! `oadec verify`: integrity counters over a whole stream.
 
+use std::io::{self, Write};
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -548,20 +549,20 @@ fn buffer_json(scan: &scan::Scan) -> Value {
 }
 
 /// The `Buffer:` lines of the text report.
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-fn print_buffer(scan: &scan::Scan) {
+fn print_buffer(scan: &scan::Scan, out: &mut dyn Write) -> io::Result<()> {
     let (Some(m), Some(cfg)) = (&scan.fifo, &scan.config) else {
-        return;
+        return Ok(());
     };
     let fs = f64::from(cfg.sampling_frequency);
-    println!(
+    writeln!(
+        out,
         "Buffer:            delay up to {} samples ({:.1} ms, au {}); delivery up to {:.3} Mbit/s (au {})",
         m.max_latency.value,
         m.max_latency.value as f64 * 1000.0 / fs,
         m.max_latency.unit,
         m.max_rate.value as f64 / 1e6,
         m.max_rate.unit
-    );
+    )?;
     let substreams = usize::from(cfg.substreams).min(4);
     let depths = (0..substreams)
         .map(|s| format!("{}/{}", m.depth[s].value, m.allowed(s)))
@@ -572,11 +573,13 @@ fn print_buffer(scan: &scan::Scan) {
         .map(|p| format!("p{p} {}", m.depth[4 + p].value))
         .collect::<Vec<_>>()
         .join(", ");
-    println!(
+    writeln!(
+        out,
         "                   substream depth {depths} bytes; decoders {decoders}; stream {}/{} bytes",
         m.depth[8].value,
         oadec_truehd::buffer::MIN_FIFO_BYTES
-    );
+    )?;
+    Ok(())
 }
 
 /// The rules whose findings say a stream is delivered outside the bounds of
@@ -624,10 +627,9 @@ fn disc_json(rows: Option<&[Row; 3]>, required: &[Disc]) -> Value {
 }
 
 /// The `Disc:` lines of the text report: the verdicts, then each reason once.
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-fn print_disc(rows: Option<&[Row; 3]>, required: &[Disc]) {
+fn print_disc(rows: Option<&[Row; 3]>, required: &[Disc], out: &mut dyn Write) -> io::Result<()> {
     let Some(rows) = rows else {
-        return;
+        return Ok(());
     };
     let verdicts = rows
         .iter()
@@ -646,14 +648,15 @@ fn print_disc(rows: Option<&[Row; 3]>, required: &[Disc]) {
                 .join(", ")
         )
     };
-    println!("Disc:              {verdicts}{required}");
+    writeln!(out, "Disc:              {verdicts}{required}")?;
     let mut said = Vec::new();
     for reason in rows.iter().flat_map(|r| r.verdict.reasons()) {
         if !said.contains(&reason.text) {
-            println!("                   {}", reason.text);
+            writeln!(out, "                   {}", reason.text)?;
             said.push(reason.text.clone());
         }
     }
+    Ok(())
 }
 
 /// Records a finding for each disc format the run requires and the stream
@@ -809,11 +812,10 @@ fn region_text(scan: &scan::Scan, r: &Region) -> String {
 /// finding, then one line per rule that fired, at most six of them, the
 /// heaviest first, so the last lines of the report keep the summary and the
 /// verdict.
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-fn print_diagnostics(scan: &scan::Scan, fail_on: Severity) {
+fn print_diagnostics(scan: &scan::Scan, fail_on: Severity, out: &mut dyn Write) -> io::Result<()> {
     let d = &scan.diag.tally;
     if d.is_empty() {
-        return;
+        return Ok(());
     }
     let mut first = true;
     // findings of an info rule are counted below and listed only when the
@@ -823,7 +825,8 @@ fn print_diagnostics(scan: &scan::Scan, fail_on: Severity) {
         .filter(|(r, _)| fail_on == Severity::Info || r.info().severity > Severity::Info)
     {
         for f in &t.listed {
-            println!(
+            writeln!(
+                out,
                 "{}{:<8} {:<26} {}  {}",
                 if first {
                     "Findings:          "
@@ -834,17 +837,18 @@ fn print_diagnostics(scan: &scan::Scan, fail_on: Severity) {
                 rule.info().id,
                 location_text(scan, &f.at),
                 f.message
-            );
+            )?;
             first = false;
         }
         if t.suppressed() > 0 {
-            println!(
+            writeln!(
+                out,
                 "                   {}: {} listed, {} more not listed (--max-per-rule), last at {}",
                 rule.info().id,
                 t.listed.len(),
                 t.suppressed(),
                 location_text(scan, &t.last)
-            );
+            )?;
         }
     }
     let counts = Severity::ALL
@@ -853,7 +857,11 @@ fn print_diagnostics(scan: &scan::Scan, fail_on: Severity) {
         .map(|s| format!("{} {}", d.count_at(*s), s.name()))
         .collect::<Vec<_>>()
         .join(", ");
-    println!("Rules:             {counts} (fail on {})", fail_on.name());
+    writeln!(
+        out,
+        "Rules:             {counts} (fail on {})",
+        fail_on.name()
+    )?;
     let mut fired: Vec<_> = d.iter().collect();
     fired.sort_by_key(|(r, _)| core::cmp::Reverse(r.info().severity));
     for (rule, t) in fired.iter().take(6) {
@@ -866,24 +874,27 @@ fn print_diagnostics(scan: &scan::Scan, fail_on: Severity) {
         } else {
             location_text(scan, &t.first.at)
         };
-        println!(
+        writeln!(
+            out,
             "                   {:<8} {:<26} {:>6}x  {}",
             rule.info().severity.name(),
             rule.info().id,
             t.count,
             span
-        );
+        )?;
     }
     if fired.len() > 6 {
-        println!(
+        writeln!(
+            out,
             "                   and {} more rules (verify --json)",
             fired.len() - 6
-        );
+        )?;
     }
     let regions = &scan.diag.regions;
     let total = regions.len() as u64 + scan.diag.regions_overflow;
     for (k, r) in regions.iter().take(4).enumerate() {
-        println!(
+        writeln!(
+            out,
             "{}{}",
             if k == 0 {
                 format!(
@@ -894,14 +905,16 @@ fn print_diagnostics(scan: &scan::Scan, fail_on: Severity) {
                 "                   ".to_string()
             },
             region_text(scan, r)
-        );
+        )?;
     }
     if total > 4 {
-        println!(
+        writeln!(
+            out,
             "                   and {} more regions (verify --json)",
             total - 4
-        );
+        )?;
     }
+    Ok(())
 }
 
 /// What `verify` found in a TrueHD stream: everything its report says, and
@@ -1023,46 +1036,49 @@ impl Report {
     ///
     /// # Errors
     /// As [`Report::json`].
-    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-    pub fn print(&self, json: bool) -> Result<()> {
+    pub fn print(&self, json: bool, out: &mut dyn Write) -> Result<()> {
         if json {
-            println!("{}", serde_json::to_string_pretty(&self.json()?)?);
+            writeln!(out, "{}", serde_json::to_string_pretty(&self.json()?)?)?;
             return Ok(());
         }
-        self.print_text();
+        self.print_text(out)?;
         Ok(())
     }
 
-    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-    fn print_text(&self) {
+    fn print_text(&self, out: &mut dyn Write) -> io::Result<()> {
         let scan: &scan::Scan = &self.scan;
         let (checks, discs, clean) = (&self.checks, &self.discs, self.clean);
         let (elapsed, speed) = (self.elapsed, self.speed());
-        println!("File:              {}", scan.file);
-        println!(
+        writeln!(out, "File:              {}", scan.file)?;
+        writeln!(
+            out,
             "Access units:      {} ({} major syncs, {} bytes)",
             scan.units, scan.major_syncs, scan.total_unit_bytes
-        );
+        )?;
         let f = &scan.failures;
-        println!("Header parity:     {} failures", f.header_parity);
-        println!(
+        writeln!(out, "Header parity:     {} failures", f.header_parity)?;
+        writeln!(
+            out,
             "Major sync CRC:    {} failures, {} bad signatures",
             f.major_sync_crc, f.major_sync_signature
-        );
-        println!(
+        )?;
+        writeln!(
+            out,
             "Framing:           {} errors, {} configuration changes",
             f.framing_errors, f.config_changes
-        );
-        println!(
+        )?;
+        writeln!(
+            out,
             "Extra data:        {} header parity failures, {} truncated, {} Evolution parity failures, {} non-zero padding, {} container errors",
             f.extra_header_parity,
             f.extra_truncated,
             f.extra_evolution_parity,
             f.extra_padding_nonzero,
             f.evolution_container_errors
-        );
+        )?;
         if scan.extra.oamd_ok > 0 || f.oamd_errors > 0 {
-            println!(
+            writeln!(
+                out,
                 "Object metadata:   {} payloads parsed, {} errors; {} non-unity gains {:?}, {} mutes, {} non-zero sizes",
                 scan.extra.oamd_ok,
                 f.oamd_errors,
@@ -1070,13 +1086,14 @@ impl Report {
                 scan.extra.oamd_gains_db,
                 scan.extra.oamd_muted_updates,
                 scan.extra.oamd_sized_updates
-            );
-            crate::scan::print_stale_sizes(scan.extra.oamd_stale_sizes);
+            )?;
+            crate::scan::print_stale_sizes(scan.extra.oamd_stale_sizes, out)?;
         }
-        println!(
+        writeln!(
+            out,
             "Sync:              {} resyncs, {} skipped bytes, {} trailing bytes",
             f.resyncs, f.skipped_bytes, f.trailing_bytes
-        );
+        )?;
         let substreams = scan
             .config
             .as_ref()
@@ -1094,11 +1111,13 @@ impl Report {
                     r.min_chan, r.max_chan, r.max_matrix_chan, r.error_protect
                 )
             });
-            println!(
+            writeln!(
+                out,
                 "Substream {i}:       {} segments ({} skipped), {} restart headers [{words}]{first}",
                 st.segments, st.skipped, st.restart_headers
-            );
-            println!(
+            )?;
+            writeln!(
+                out,
                 "                   {} blocks (max {} per segment, {} protected), {} matrixing ({} interpolated), up to {} matrices, {} CRC segments, {} terminated ({} with zero samples)",
                 st.blocks,
                 st.max_blocks_per_segment,
@@ -1109,9 +1128,10 @@ impl Report {
                 st.crc_segments,
                 st.terminated_segments,
                 st.zero_sample_segments
-            );
+            )?;
         }
-        println!(
+        writeln!(
+            out,
             "Substream checks:  {} parse errors, {} block bit-count mismatches, {} parity failures, {} CRC failures, {} end-pointer mismatches, {} sample-count mismatches, {} restart flag mismatches, {} bad terminators, {} unexpected tails",
             f.substream_errors,
             f.block_data_bits,
@@ -1122,38 +1142,43 @@ impl Report {
             f.restart_flag,
             f.terminator_tail,
             f.unexpected_tail
-        );
-        println!(
+        )?;
+        writeln!(
+            out,
             "Coding tools:      {}",
             if scan.coverage.is_empty() {
                 "none beyond plain coding".to_string()
             } else {
                 scan.coverage.join(", ")
             }
-        );
+        )?;
         if let Some(c) = checks {
-            println!(
+            writeln!(
+                out,
                 "Lossless checks:   {} evaluated, {} failed, {} skipped",
                 c.evaluated, c.failed, c.skipped
-            );
+            )?;
             for p in &c.per_presentation {
                 if let Some(e) = &p.error {
-                    println!(
+                    writeln!(
+                        out,
                         "                   presentation {}: the decode stopped: {e}",
                         p.presentation
-                    );
+                    )?;
                 } else if p.failed > 0
                     && let Some(first) = &p.first_problem
                 {
-                    println!(
+                    writeln!(
+                        out,
                         "                   presentation {}: {} failed, first problem: {first}",
                         p.presentation, p.failed
-                    );
+                    )?;
                 }
             }
         }
         let t = &scan.timing_stats;
-        println!(
+        writeln!(
+            out,
             "Timing:            {} input timing jumps, {} output timing jumps, {} valid seamless branches, {} invalid branches, {} duplicate candidates, {} peak rate changes",
             t.input_jumps,
             t.output_jumps,
@@ -1161,9 +1186,10 @@ impl Report {
             t.invalid_branches,
             t.duplicate_candidates,
             t.peak_rate_changes
-        );
+        )?;
         for b in t.branches.iter().take(8) {
-            println!(
+            writeln!(
+                out,
                 "                   access unit {}: {} advance {} -> {}{} (step {}, fifo {}, 75ms {}, rate {})",
                 b.unit,
                 if b.valid {
@@ -1182,13 +1208,13 @@ impl Report {
                 b.fifo_duration,
                 b.within_75ms,
                 b.data_rate
-            );
+            )?;
         }
-        print_buffer(scan);
-        print_disc(discs.as_ref(), &self.require_disc);
-        print_diagnostics(scan, self.fail_on);
+        print_buffer(scan, out)?;
+        print_disc(discs.as_ref(), &self.require_disc, out)?;
+        print_diagnostics(scan, self.fail_on, out)?;
         if let Some(err) = &scan.first_error {
-            println!("First error:       {err}");
+            writeln!(out, "First error:       {err}")?;
         }
         if self.census {
             for (i, line) in crate::census::lines(&scan.census, carried_substreams(scan))
@@ -1196,17 +1222,20 @@ impl Report {
                 .enumerate()
             {
                 let label = if i == 0 { "Census:" } else { "" };
-                println!("{label:<19}{line}");
+                writeln!(out, "{label:<19}{line}")?;
             }
         }
         match speed {
-            Some(x) => println!("Speed:             {elapsed:.2} s ({x:.0}x realtime)"),
-            None => println!("Speed:             {elapsed:.2} s"),
+            Some(x) => writeln!(out, "Speed:             {elapsed:.2} s ({x:.0}x realtime)")?,
+            None => writeln!(out, "Speed:             {elapsed:.2} s")?,
         }
-        println!(
+        writeln!(
+            out,
             "Result:            {}",
             if clean { "CLEAN" } else { "NON-CONFORMANT" }
-        );
+        )?;
+
+        Ok(())
     }
 }
 

@@ -7,6 +7,7 @@
 //! standing where an access unit stands.
 
 use std::collections::BTreeMap;
+use std::io::{self, Write};
 use std::time::Instant;
 
 use anyhow::Result;
@@ -346,29 +347,37 @@ impl OamdSummary {
     }
 }
 
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-fn dump_payload(unit_word: &str, unit_index: u64, container_offset: Option<u32>, oamd: &Oamd) {
-    println!(
+fn dump_payload(
+    unit_word: &str,
+    unit_index: u64,
+    container_offset: Option<u32>,
+    oamd: &Oamd,
+    out: &mut dyn Write,
+) -> io::Result<()> {
+    writeln!(
+        out,
         "{unit_word} {unit_index}: OAMD v{} {} objects, container sample offset {:?}, {} elements, padding {} bits",
         oamd.version,
         oamd.object_count,
         container_offset,
         oamd.elements.len(),
         oamd.padding_bits
-    );
+    )?;
     let p = &oamd.program;
-    println!(
+    writeln!(
+        out,
         "  program: dyn_only {} beds {:?} isf {:?} dynamic {}",
         p.dyn_object_only,
         p.beds.iter().map(|b| &b.channels).collect::<Vec<_>>(),
         p.isf_index,
         p.dynamic_objects
-    );
+    )?;
     let ext = oamd.extended_object_element();
     for e in &oamd.elements {
         match &e.element {
             Element::Object(o) => {
-                println!(
+                writeln!(
+                    out,
                     "  object element ({} bytes, padding {}): sample_offset {} blocks {:?}",
                     e.size_bytes,
                     e.padding_bits,
@@ -378,7 +387,7 @@ fn dump_payload(unit_word: &str, unit_index: u64, container_offset: Option<u32>,
                         .iter()
                         .map(|b| (b.block_offset_factor, b.ramp_duration))
                         .collect::<Vec<_>>()
-                );
+                )?;
                 for (i, updates) in o.objects.iter().enumerate() {
                     for (blk, u) in updates.iter().enumerate() {
                         let steps = ext
@@ -393,7 +402,8 @@ fn dump_payload(unit_word: &str, unit_index: u64, container_offset: Option<u32>,
                             .and_then(|v| v.get(blk))
                             .copied();
                         let pos = u.render.position(steps);
-                        println!(
+                        writeln!(
+                            out,
                             "    obj {i:2} blk {blk}: {}{} gain {} prio {:.3} [{}/{}] pos ({:.4}, {:.4}, {:.4}){} size ({:.3}, {:.3}, {:.3}) zone {}{} {}{}{}",
                             if u.not_active { "inactive " } else { "" },
                             if u.in_bed_or_isf { "bed " } else { "" },
@@ -421,40 +431,44 @@ fn dump_payload(unit_word: &str, unit_index: u64, container_offset: Option<u32>,
                                 Distance::Factor(f) => format!("dist {f} "),
                             },
                             div.map_or(String::new(), |d| format!("div {d}"))
-                        );
+                        )?;
                     }
                 }
             }
-            Element::Trim(t) => println!(
+            Element::Trim(t) => writeln!(
+                out,
                 "  trim element: warp {} global mode {} configs {} per-object {:?}",
                 t.warp_mode,
                 t.global_trim_mode,
                 t.configs.len(),
                 t.disable_per_object
-            ),
-            Element::ExtendedObject(x) => println!(
+            )?,
+            Element::ExtendedObject(x) => writeln!(
+                out,
                 "  extended object element: divergence {} ext precision {}",
                 x.divergence.is_some(),
                 x.ext_precision.is_some()
-            ),
+            )?,
             Element::Unknown(raw) => {
-                println!("  unknown element id {} ({} bytes)", e.id, raw.len());
+                writeln!(out, "  unknown element id {} ({} bytes)", e.id, raw.len())?;
             }
         }
     }
+
+    Ok(())
 }
 
 /// Reads every Object Audio Metadata payload of one container into the
 /// summary, and into the dump while it has room; returns whether the container
 /// carried one.
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
 fn take_container(
     summary: &mut OamdSummary,
     index: u64,
     c: &Container,
     opts: &Options,
     dumped: &mut usize,
-) -> bool {
+    out: &mut dyn Write,
+) -> io::Result<bool> {
     let mut any = false;
     for p in c.payloads.iter().filter(|p| p.id == PAYLOAD_ID_OAMD) {
         any = true;
@@ -462,25 +476,27 @@ fn take_container(
             Ok(oamd) => {
                 summary.take(index, p.config.sample_offset, &oamd);
                 if opts.dump.is_some_and(|n| *dumped < n) {
-                    dump_payload(summary.unit_word, index, p.config.sample_offset, &oamd);
+                    dump_payload(summary.unit_word, index, p.config.sample_offset, &oamd, out)?;
                     *dumped += 1;
                 }
             }
             Err(e) => {
                 if opts.dump.is_some() {
-                    println!(
+                    writeln!(
+                        out,
                         "{} {index}: payload of {} bytes failed: {e}",
                         summary.unit_word,
                         p.data.len()
-                    );
-                    println!(
+                    )?;
+                    writeln!(
+                        out,
                         "  {}",
                         p.data
                             .iter()
                             .map(|b| format!("{b:02x}"))
                             .collect::<Vec<_>>()
                             .join(" ")
-                    );
+                    )?;
                 }
                 summary.payloads += 1;
                 summary.parse_errors += 1;
@@ -490,14 +506,19 @@ fn take_container(
             }
         }
     }
-    any
+    Ok(any)
 }
 
 /// TrueHD: the payloads ride in the Evolution frames of the access units.
 ///
 /// A unit whose metadata cannot be read is counted, not skipped: a report that
 /// leaves it out without a word reads like a stream that carries less.
-fn walk_truehd(source: &Source, opts: &Options, dumped: &mut usize) -> Result<OamdSummary> {
+fn walk_truehd(
+    source: &Source,
+    opts: &Options,
+    dumped: &mut usize,
+    out: &mut dyn Write,
+) -> Result<OamdSummary> {
     let mut summary = OamdSummary::new("access unit");
     let mut config: Option<StreamConfig> = None;
     let pass = input::for_each_unit(source, |unit| {
@@ -549,7 +570,7 @@ fn walk_truehd(source: &Source, opts: &Options, dumped: &mut usize) -> Result<Oa
                 return Ok(());
             }
         };
-        if take_container(&mut summary, index, &c, opts, dumped) {
+        if take_container(&mut summary, index, &c, opts, dumped, out)? {
             summary.units_with_oamd += 1;
         }
         Ok(())
@@ -587,23 +608,37 @@ fn walk_truehd(source: &Source, opts: &Options, dumped: &mut usize) -> Result<Oa
 /// AC-3 and E-AC-3: the payloads ride in the EMDF containers of the skip
 /// fields, and every syncframe of the walk is a unit. The walk is the one
 /// `emdf` makes, and what it could not read is judged as `emdf` judges it.
-fn walk_eac3(source: &Source, opts: &Options, dumped: &mut usize) -> Result<OamdSummary> {
+fn walk_eac3(
+    source: &Source,
+    opts: &Options,
+    dumped: &mut usize,
+    out: &mut dyn Write,
+) -> Result<OamdSummary> {
     let mut summary = OamdSummary::new("frame");
     // a frame can hold more than one container and is counted once
     let mut last_with_oamd: Option<u64> = None;
+    // what a listing in full could not be written for: the walk goes on and
+    // the call ends with it
+    let mut wrote: io::Result<()> = Ok(());
     let walk = emdf::for_each_container(source, |site, c| {
         // a container that does not open is counted once per frame by the walk,
         // in the words `emdf` uses, and only in a stream that carries EMDF
         let Ok(c) = c else {
             return;
         };
-        if take_container(&mut summary, site.frame_index, &c, opts, dumped)
-            && last_with_oamd != Some(site.frame_index)
-        {
+        let any = match take_container(&mut summary, site.frame_index, &c, opts, dumped, out) {
+            Ok(any) => any,
+            Err(e) => {
+                emdf::keep(&mut wrote, Err(e));
+                return;
+            }
+        };
+        if any && last_with_oamd != Some(site.frame_index) {
             last_with_oamd = Some(site.frame_index);
             summary.units_with_oamd += 1;
         }
     })?;
+    wrote?;
     summary.units = walk.frames;
     summary.sync_errors = walk.sync_errors;
     summary.skipped_bytes = walk.skipped_bytes;
@@ -650,15 +685,15 @@ pub struct Report {
 
 /// Runs the command; returns `true` when every unit was read and every payload
 /// parsed cleanly.
-pub fn run(source: &Source, opts: &Options) -> Result<bool> {
-    let report = report(source, opts)?;
-    report.print(opts.json)?;
+pub fn run(source: &Source, opts: &Options, out: &mut dyn Write) -> Result<bool> {
+    let report = report(source, opts, out)?;
+    report.print(opts.json, out)?;
     Ok(report.clean())
 }
 
 /// Walks the stream and judges it. Nothing is printed, but for what `--dump`
 /// asks to see while the walk goes.
-pub fn report(source: &Source, opts: &Options) -> Result<Report> {
+pub fn report(source: &Source, opts: &Options, out: &mut dyn Write) -> Result<Report> {
     let eac3 = crate::eac3::is_eac3(source).unwrap_or(false);
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own; run it
@@ -666,9 +701,9 @@ pub fn report(source: &Source, opts: &Options) -> Result<Report> {
     let check = crate::verify::spawn_stream_check(source);
     let mut dumped = 0usize;
     let mut summary = if eac3 {
-        walk_eac3(source, opts, &mut dumped)?
+        walk_eac3(source, opts, &mut dumped, out)?
     } else {
-        walk_truehd(source, opts, &mut dumped)?
+        walk_truehd(source, opts, &mut dumped, out)?
     };
     if summary.units == 0 {
         return Err(crate::info::no_stream(source));
@@ -726,15 +761,15 @@ impl Report {
     ///
     /// # Errors
     /// As [`Report::json`].
-    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-    pub fn print(&self, json: bool) -> Result<()> {
+    pub fn print(&self, json: bool, out: &mut dyn Write) -> Result<()> {
         if json {
-            println!("{}", serde_json::to_string_pretty(&self.json()?)?);
+            writeln!(out, "{}", serde_json::to_string_pretty(&self.json()?)?)?;
             return Ok(());
         }
         let (summary, stream) = (&self.summary, &self.stream);
         let (elapsed, clean) = (self.elapsed, self.clean);
-        println!(
+        writeln!(
+            out,
             "OAMD payloads:     {} in {} of {} {}s; {} parse errors, {} non-zero paddings, {} long paddings, {} size mismatches",
             summary.payloads,
             summary.units_with_oamd,
@@ -744,8 +779,9 @@ impl Report {
             summary.padding_nonzero,
             summary.padding_long,
             summary.size_mismatches
-        );
-        println!(
+        )?;
+        writeln!(
+            out,
             "Unread:            {} sync errors, {} bytes skipped, {} trailing bytes, {} CRC failures, {} unparsed {}s, {} containers that did not open, {} extra-data faults",
             summary.sync_errors,
             summary.skipped_bytes,
@@ -755,17 +791,19 @@ impl Report {
             summary.unit_word,
             summary.container_errors,
             summary.extra_data_faults
-        );
-        println!(
+        )?;
+        writeln!(
+            out,
             "Verify:            {}",
             if stream.clean {
                 "clean"
             } else {
                 "non-conformant"
             }
-        );
+        )?;
         if let Some(p) = &summary.program {
-            println!(
+            writeln!(
+                out,
                 "Program:           dyn_only {} beds {:?} isf {:?} dynamic objects {} ({} objects), {} changes",
                 p.dyn_object_only,
                 p.beds,
@@ -773,28 +811,35 @@ impl Report {
                 p.dynamic_objects,
                 p.objects,
                 summary.program_changes
-            );
+            )?;
         }
-        println!("Object counts:     {:?}", summary.object_counts);
-        println!("Element ids:       {:?}", summary.element_ids);
-        println!("Blocks/payload:    {:?}", summary.blocks_per_payload);
-        println!("Container offsets: {:?}", summary.container_sample_offsets);
-        println!("Sample offsets:    {:?}", summary.sample_offsets);
-        println!("Block offsets:     {:?}", summary.block_offset_factors);
-        println!("Ramp durations:    {:?}", summary.ramp_durations);
-        println!(
+        writeln!(out, "Object counts:     {:?}", summary.object_counts)?;
+        writeln!(out, "Element ids:       {:?}", summary.element_ids)?;
+        writeln!(out, "Blocks/payload:    {:?}", summary.blocks_per_payload)?;
+        writeln!(
+            out,
+            "Container offsets: {:?}",
+            summary.container_sample_offsets
+        )?;
+        writeln!(out, "Sample offsets:    {:?}", summary.sample_offsets)?;
+        writeln!(out, "Block offsets:     {:?}", summary.block_offset_factors)?;
+        writeln!(out, "Ramp durations:    {:?}", summary.ramp_durations)?;
+        writeln!(
+            out,
             "Statuses:          basic {:?} render {:?}",
             summary.basic_status, summary.render_status
-        );
-        println!(
+        )?;
+        writeln!(
+            out,
             "Updates:           {} inactive, {} differential positions, {} screen-referenced, {} snapped, {} with table data",
             summary.inactive_updates,
             summary.differential_positions,
             summary.screen_referenced,
             summary.snapped,
             summary.additional_table_data
-        );
-        println!(
+        )?;
+        writeln!(
+            out,
             "Gain and size:     {} non-unity gains {:?}, {} mutes, {} non-zero sizes{}",
             summary.object_gains_db.values().sum::<u64>(),
             summary.object_gains_db,
@@ -808,32 +853,35 @@ impl Report {
                     summary.unit_word, summary.first_gain_units, summary.first_size_units
                 )
             }
-        );
-        println!("Distances:         {:?}", summary.distances);
-        println!("Zone constraints:  {:?}", summary.zone_constraints);
-        println!(
+        )?;
+        writeln!(out, "Distances:         {:?}", summary.distances)?;
+        writeln!(out, "Zone constraints:  {:?}", summary.zone_constraints)?;
+        writeln!(
+            out,
             "Elements:          {} payloads with trim, {} with extended object data, {} with unknown ids",
             summary.payloads_with_trim,
             summary.payloads_with_extended,
             summary.payloads_with_unknown_elements
-        );
+        )?;
         if summary.payloads_with_trim > 0 {
-            println!(
+            writeln!(
+                out,
                 "Trim:              warp modes {:?}, global modes {:?}, configurations {:?}, per-object disables {}",
                 summary.warp_modes,
                 summary.global_trim_modes,
                 summary.trim_configs,
                 summary.per_object_trim_disables
-            );
+            )?;
         }
         if let Some(e) = &summary.first_error {
-            println!("First problem:     {e}");
+            writeln!(out, "First problem:     {e}")?;
         }
-        println!("Speed:             {elapsed:.2} s");
-        println!(
+        writeln!(out, "Speed:             {elapsed:.2} s")?;
+        writeln!(
+            out,
             "Result:            {}",
             if clean { "CLEAN" } else { "PROBLEMS" }
-        );
+        )?;
         Ok(())
     }
 }

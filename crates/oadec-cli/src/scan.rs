@@ -1,6 +1,7 @@
 //! One pass over a TrueHD stream collecting what `info` and `verify` report.
 
 use std::collections::BTreeMap;
+use std::io::{self, Write};
 
 use anyhow::Result;
 use oadec_emdf::container;
@@ -127,13 +128,14 @@ impl Failures {
 }
 
 /// The line `verify` and `info` print for elements whose declared size is not theirs.
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-pub(crate) fn print_stale_sizes(count: u64) {
+pub(crate) fn print_stale_sizes(count: u64, out: &mut dyn Write) -> io::Result<()> {
     if count > 0 {
-        println!(
+        writeln!(
+            out,
             "                   {count} elements declare a size that is not theirs; their content is complete and was read (docs/oamd.md)"
-        );
+        )?;
     }
+    Ok(())
 }
 
 /// Timing model statistics.

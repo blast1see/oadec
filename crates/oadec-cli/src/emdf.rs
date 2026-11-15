@@ -10,6 +10,7 @@
 //! `oadec oamd`, which reads the same containers for what the objects carry.
 
 use std::collections::BTreeMap;
+use std::io::{self, Write};
 use std::time::Instant;
 
 use crate::source::Source;
@@ -249,11 +250,11 @@ fn take_programme_payload(s: &mut EmdfSummary, id: u32, data: &[u8]) {
 }
 
 /// The lines the text report adds, once there is something to say.
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-fn print_programme_payloads(s: &EmdfSummary) {
+fn print_programme_payloads(s: &EmdfSummary, out: &mut dyn Write) -> io::Result<()> {
     let l = &s.loudness;
     if l.payloads > 0 {
-        println!(
+        writeln!(
+            out,
             "Loudness:          {} payloads ({} unreadable, {} of the wrong size), measured by {:?}, relative gated {:?} LUFS, speech gated {:?} LUFS, true peak {:?}..{:?} dBTP",
             l.payloads,
             l.unreadable,
@@ -263,11 +264,12 @@ fn print_programme_payloads(s: &EmdfSummary) {
             l.speech_gated_lufs,
             l.true_peak_dbtp.min,
             l.true_peak_dbtp.max
-        );
+        )?;
     }
     let p = &s.programme_information;
     if p.payloads > 0 {
-        println!(
+        writeln!(
+            out,
             "Programme:         {} payloads ({} unreadable, {} of the wrong size), DRC profile line {:?}, RF {:?}, 90 degree phase shift {:?}, surround attenuation {:?}, LFE filter {:?}",
             p.payloads,
             p.unreadable,
@@ -277,8 +279,9 @@ fn print_programme_payloads(s: &EmdfSummary) {
             p.phase_shift_90,
             p.surround_attenuation,
             p.lfe_filter
-        );
+        )?;
     }
+    Ok(())
 }
 
 /// A container as the walk found it in a skip field: opened, or the error
@@ -578,8 +581,7 @@ fn take_oamd_timing(
 /// Event times are not derived here. They are the position of a frame start
 /// plus the offsets inside the payload, and an access unit's sample position is
 /// what `oadec oamd` reports for a TrueHD stream.
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-fn report_truehd(source: &Source, opts: &Options) -> Result<Report> {
+fn report_truehd(source: &Source, opts: &Options, out: &mut dyn Write) -> Result<Report> {
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own; run it
     // beside the walk instead of after it
@@ -645,7 +647,8 @@ fn report_truehd(source: &Source, opts: &Options) -> Result<Report> {
         let dumping = opts.dump.is_some_and(|n| dumped < n);
         if dumping {
             dumped += 1;
-            println!(
+            writeln!(
+                out,
                 "access unit {index}: extra data: header nibble {:#X}, {} words, header parity {}, evolution frame {} bytes, reserved {:#X}, frame parity {}, padding {}",
                 extra.header_nibble,
                 extra.length_words,
@@ -666,9 +669,10 @@ fn report_truehd(source: &Source, opts: &Options) -> Result<Report> {
                 } else {
                     "NON-ZERO"
                 }
-            );
-            println!("  evolution bytes: {}", hex(frame));
-            println!(
+            )?;
+            writeln!(out, "  evolution bytes: {}", hex(frame))?;
+            writeln!(
+                out,
                 "  container: version {}, key_id {}, protection {:?}, {} payloads {:?}",
                 container.version,
                 container.key_id,
@@ -685,7 +689,7 @@ fn report_truehd(source: &Source, opts: &Options) -> Result<Report> {
                         p.config.group_id,
                     ))
                     .collect::<Vec<_>>()
-            );
+            )?;
         }
         for p in &container.payloads {
             *s.payload_ids.entry(p.id).or_default() += 1;
@@ -694,7 +698,7 @@ fn report_truehd(source: &Source, opts: &Options) -> Result<Report> {
                 s.joc_payloads += 1;
             }
             if dumping {
-                println!("    payload {} = {}", p.id, hex(&p.data));
+                writeln!(out, "    payload {} = {}", p.id, hex(&p.data))?;
             }
             if p.id != PAYLOAD_ID_OAMD {
                 continue;
@@ -775,21 +779,28 @@ pub struct Report {
 }
 
 /// Runs the command; returns `true` when every container and payload parsed.
-pub fn run(source: &Source, opts: &Options) -> Result<bool> {
-    let report = report(source, opts)?;
-    report.print(opts.json)?;
+pub fn run(source: &Source, opts: &Options, out: &mut dyn Write) -> Result<bool> {
+    let report = report(source, opts, out)?;
+    report.print(opts.json, out)?;
     Ok(report.clean())
+}
+
+/// Keeps the first thing that went wrong in writing what `--dump` lists while
+/// a walk goes on: the walk cannot stop for it, and the call ends with it.
+pub(crate) fn keep(first: &mut io::Result<()>, wrote: io::Result<()>) {
+    if first.is_ok() {
+        *first = wrote;
+    }
 }
 
 /// Walks the stream and judges it. Nothing is printed, but for what `--dump`
 /// asks to see while the walk goes.
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-pub fn report(source: &Source, opts: &Options) -> Result<Report> {
+pub fn report(source: &Source, opts: &Options, out: &mut dyn Write) -> Result<Report> {
     // The containers are in the skip fields of an E-AC-3 frame and in the extra
     // data of a TrueHD access unit. Both walks find the same containers and
     // report the same things about them; only the place differs.
     if !crate::eac3::is_eac3(source).unwrap_or(false) {
-        return report_truehd(source, opts);
+        return report_truehd(source, opts, out);
     }
     let started = Instant::now();
     // the checks of `verify` read the stream in a pass of their own; run it
@@ -797,6 +808,9 @@ pub fn report(source: &Source, opts: &Options) -> Result<Report> {
     let check = crate::verify::spawn_stream_check(source);
     let mut s = EmdfSummary::default();
     let mut dumped = 0usize;
+    // what a listing in full could not be written for: the walk goes on and
+    // the call ends with it
+    let mut wrote: io::Result<()> = Ok(());
     let walk = for_each_container(source, |site, c| {
         let &Site {
             frame_index,
@@ -816,29 +830,36 @@ pub fn report(source: &Source, opts: &Options) -> Result<Report> {
                     // the container's own header, which nothing else
                     // reports and which two streams can differ in while
                     // every field above them matches
-                    println!(
-                        "  container: version {}, key_id {}, protection {:?}, {} payloads {:?}",
-                        c.version,
-                        c.key_id,
-                        c.protection,
-                        c.payloads.len(),
-                        c.payloads
-                            .iter()
-                            .map(|p| (
-                                p.id,
-                                p.data.len(),
-                                p.config.sample_offset,
-                                p.config.duration,
-                                p.config.group_id,
-                                p.config.discard_unknown_payload,
-                                p.config.payload_frame_aligned,
-                                p.config.create_duplicate,
-                            ))
-                            .collect::<Vec<_>>()
+                    keep(
+                        &mut wrote,
+                        writeln!(
+                            out,
+                            "  container: version {}, key_id {}, protection {:?}, {} payloads {:?}",
+                            c.version,
+                            c.key_id,
+                            c.protection,
+                            c.payloads.len(),
+                            c.payloads
+                                .iter()
+                                .map(|p| (
+                                    p.id,
+                                    p.data.len(),
+                                    p.config.sample_offset,
+                                    p.config.duration,
+                                    p.config.group_id,
+                                    p.config.discard_unknown_payload,
+                                    p.config.payload_frame_aligned,
+                                    p.config.create_duplicate,
+                                ))
+                                .collect::<Vec<_>>()
+                        ),
                     );
                     for p in &c.payloads {
                         if p.data.len() <= 8 {
-                            println!("    payload {} = {:02x?}", p.id, p.data);
+                            keep(
+                                &mut wrote,
+                                writeln!(out, "    payload {} = {:02x?}", p.id, p.data),
+                            );
                         }
                     }
                 }
@@ -860,28 +881,36 @@ pub fn report(source: &Source, opts: &Options) -> Result<Report> {
                                 take_oamd_timing(&mut s, o, smploffst, Some(sample_pos));
                                 if opts.dump.is_some_and(|n| dumped < n) {
                                     dumped += 1;
-                                    println!(
-                                        "frame {frame_index} (sample {sample_pos}, substream {substream_id}{}): EMDF at byte {offset}, smploffst {smploffst}, OAMD {} objects, sample_offset {}, blocks {:?}",
-                                        if dependent { " dependent" } else { "" },
-                                        oamd.object_count,
-                                        o.timing.sample_offset,
-                                        o.timing
-                                            .blocks
-                                            .iter()
-                                            .map(|b| (b.block_offset_factor, b.ramp_duration))
-                                            .collect::<Vec<_>>()
+                                    keep(
+                                        &mut wrote,
+                                        writeln!(
+                                            out,
+                                            "frame {frame_index} (sample {sample_pos}, substream {substream_id}{}): EMDF at byte {offset}, smploffst {smploffst}, OAMD {} objects, sample_offset {}, blocks {:?}",
+                                            if dependent { " dependent" } else { "" },
+                                            oamd.object_count,
+                                            o.timing.sample_offset,
+                                            o.timing
+                                                .blocks
+                                                .iter()
+                                                .map(|b| (b.block_offset_factor, b.ramp_duration))
+                                                .collect::<Vec<_>>()
+                                        ),
                                     );
                                     for (i, updates) in o.objects.iter().enumerate() {
                                         let u = &updates[0];
                                         let p = u.render.position([0; 3]);
-                                        println!(
-                                            "    obj {i}: {}gain {:?} pos ({:.3}, {:.3}, {:.3}) size {:.2}",
-                                            if u.in_bed_or_isf { "bed " } else { "" },
-                                            u.basic.gain,
-                                            p[0],
-                                            p[1],
-                                            p[2],
-                                            u.render.size[0]
+                                        keep(
+                                            &mut wrote,
+                                            writeln!(
+                                                out,
+                                                "    obj {i}: {}gain {:?} pos ({:.3}, {:.3}, {:.3}) size {:.2}",
+                                                if u.in_bed_or_isf { "bed " } else { "" },
+                                                u.basic.gain,
+                                                p[0],
+                                                p[1],
+                                                p[2],
+                                                u.render.size[0]
+                                            ),
                                         );
                                     }
                                 }
@@ -898,6 +927,7 @@ pub fn report(source: &Source, opts: &Options) -> Result<Report> {
             }
         }
     })?;
+    wrote?;
     if walk.frames == 0 {
         return Err(crate::info::no_stream(source));
     }
@@ -971,24 +1001,23 @@ impl Report {
     ///
     /// # Errors
     /// As [`Report::json`].
-    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-    pub fn print(&self, json: bool) -> Result<()> {
+    pub fn print(&self, json: bool, out: &mut dyn Write) -> Result<()> {
         if json {
-            println!("{}", serde_json::to_string_pretty(&self.json()?)?);
+            writeln!(out, "{}", serde_json::to_string_pretty(&self.json()?)?)?;
         } else if self.truehd {
-            self.print_truehd();
+            self.print_truehd(out)?;
         } else {
-            self.print_syncframes();
+            self.print_syncframes(out)?;
         }
         Ok(())
     }
 
     /// The text of a walk over the skip fields of syncframes.
-    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-    fn print_syncframes(&self) {
+    fn print_syncframes(&self, out: &mut dyn Write) -> io::Result<()> {
         let (s, stream) = (&self.summary, &self.stream);
         let (elapsed, clean) = (self.elapsed, self.clean);
-        println!(
+        writeln!(
+            out,
             "Frames:            {} ({} independent, {} dependent), {} bytes, {} sync errors, {} bytes skipped, {} CRC failures, {} unparsed",
             s.frames,
             s.independent_frames,
@@ -998,82 +1027,93 @@ impl Report {
             s.skipped_bytes,
             s.crc_failures,
             s.unparsed_frames
-        );
-        println!(
+        )?;
+        writeln!(
+            out,
             "EMDF:              {} frames with containers, {} containers, {} container errors, payload ids {:?}",
             s.frames_with_emdf, s.containers, s.container_errors, s.payload_ids
-        );
-        print_programme_payloads(s);
-        println!(
+        )?;
+        print_programme_payloads(s, out)?;
+        writeln!(
+            out,
             "OAMD:              {} payloads ({} errors), {} JOC payloads",
             s.oamd_payloads, s.oamd_errors, s.joc_payloads
-        );
-        println!("smploffst:         {:?}", s.oamd_smploffst);
-        println!("Sample offsets:    {:?}", s.oamd_sample_offsets);
-        println!("Block offsets:     {:?}", s.oamd_block_offsets);
-        println!("Ramp durations:    {:?}", s.oamd_ramps);
-        println!("Event time mod 1536: {:?}", s.event_times_mod_frame);
-        println!(
+        )?;
+        writeln!(out, "smploffst:         {:?}", s.oamd_smploffst)?;
+        writeln!(out, "Sample offsets:    {:?}", s.oamd_sample_offsets)?;
+        writeln!(out, "Block offsets:     {:?}", s.oamd_block_offsets)?;
+        writeln!(out, "Ramp durations:    {:?}", s.oamd_ramps)?;
+        writeln!(out, "Event time mod 1536: {:?}", s.event_times_mod_frame)?;
+        writeln!(
+            out,
             "Event times:       {:?}{}",
             &s.event_times[..s.event_times.len().min(24)],
             if s.event_times.len() > 24 { " ..." } else { "" }
-        );
-        println!(
+        )?;
+        writeln!(
+            out,
             "Verify:            {}",
             if stream.clean {
                 "clean"
             } else {
                 "non-conformant"
             }
-        );
+        )?;
         if let Some(e) = &s.first_error {
-            println!("First problem:     {e}");
+            writeln!(out, "First problem:     {e}")?;
         }
-        println!("Speed:             {elapsed:.2} s");
-        println!(
+        writeln!(out, "Speed:             {elapsed:.2} s")?;
+        writeln!(
+            out,
             "Result:            {}",
             if clean { "CLEAN" } else { "PROBLEMS" }
-        );
+        )?;
+        Ok(())
     }
 
     /// The text of a walk over the extra data of TrueHD access units.
-    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-    fn print_truehd(&self) {
+    fn print_truehd(&self, out: &mut dyn Write) -> io::Result<()> {
         let (s, stream) = (&self.summary, &self.stream);
         let (elapsed, clean) = (self.elapsed, self.clean);
-        println!(
+        writeln!(
+            out,
             "Access units:      {}, {} bytes, {} sync errors, {} bytes skipped, {} unparsed",
             s.frames, s.bytes, s.sync_errors, s.skipped_bytes, s.unparsed_frames
-        );
-        println!(
+        )?;
+        writeln!(
+            out,
             "EMDF:              {} access units with containers, {} containers, {} container errors, payload ids {:?}",
             s.frames_with_emdf, s.containers, s.container_errors, s.payload_ids
-        );
-        print_programme_payloads(s);
-        println!(
+        )?;
+        print_programme_payloads(s, out)?;
+        writeln!(
+            out,
             "OAMD:              {} payloads ({} errors), {} JOC payloads",
             s.oamd_payloads, s.oamd_errors, s.joc_payloads
-        );
-        println!("smploffst:         {:?}", s.oamd_smploffst);
-        println!("Sample offsets:    {:?}", s.oamd_sample_offsets);
-        println!("Block offsets:     {:?}", s.oamd_block_offsets);
-        println!("Ramp durations:    {:?}", s.oamd_ramps);
-        println!(
+        )?;
+        writeln!(out, "smploffst:         {:?}", s.oamd_smploffst)?;
+        writeln!(out, "Sample offsets:    {:?}", s.oamd_sample_offsets)?;
+        writeln!(out, "Block offsets:     {:?}", s.oamd_block_offsets)?;
+        writeln!(out, "Ramp durations:    {:?}", s.oamd_ramps)?;
+        writeln!(
+            out,
             "Verify:            {}",
             if stream.clean {
                 "clean"
             } else {
                 "non-conformant"
             }
-        );
+        )?;
         if let Some(e) = &s.first_error {
-            println!("First problem:     {e}");
+            writeln!(out, "First problem:     {e}")?;
         }
-        println!("Speed:             {elapsed:.2} s");
-        println!(
+        writeln!(out, "Speed:             {elapsed:.2} s")?;
+        writeln!(
+            out,
             "Result:            {}",
             if clean { "CLEAN" } else { "PROBLEMS" }
-        );
+        )?;
+        Ok(())
     }
 }
 

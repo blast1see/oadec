@@ -20,7 +20,7 @@
 //!
 //! Every type a call takes or hands back has a name here.
 
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Result, anyhow, bail};
@@ -147,17 +147,16 @@ impl Info {
         }
     }
 
-    /// Prints the report on stdout, as JSON or as text.
+    /// Writes the report to `out`, as JSON or as text, which is what the
+    /// command prints on stdout; what the command says on stderr of a stream
+    /// that has no frame is written to `err`.
     ///
     /// # Errors
-    /// As [`Info::json`].
-    pub fn print(&self, json: bool) -> Result<()> {
+    /// As [`Info::json`], and what writing gives.
+    pub fn print(&self, json: bool, out: &mut dyn Write, err: &mut dyn Write) -> Result<()> {
         match self {
-            Self::TrueHd(report) => report.print(json),
-            Self::Ac3(report) => {
-                report.print(json);
-                Ok(())
-            }
+            Self::TrueHd(report) => report.print(json, out),
+            Self::Ac3(report) => Ok(report.print(json, out, err)?),
         }
     }
 }
@@ -228,17 +227,19 @@ impl Verified {
         }
     }
 
-    /// Prints the report on stdout, as JSON or as text.
+    /// Writes the report to `out`, as JSON or as text, which is what the
+    /// command prints on stdout; what the command says on stderr of a stream
+    /// that has no frame is written to `err`.
     ///
     /// # Errors
-    /// As [`Verified::json`].
-    pub fn print(&self, json: bool) -> Result<()> {
+    /// As [`Verified::json`], and what writing gives.
+    pub fn print(&self, json: bool, out: &mut dyn Write, err: &mut dyn Write) -> Result<()> {
         match self {
-            Self::TrueHd(report) => report.print(json),
+            Self::TrueHd(report) => report.print(json, out),
             Self::Ac3(report) => {
-                report.print(json);
+                report.print(json, out, err)?;
                 if !json {
-                    report.print_verdict();
+                    report.print_verdict(out)?;
                 }
                 Ok(())
             }
@@ -297,6 +298,8 @@ pub fn oamd(source: &Source) -> Result<oamd::Report> {
             json: false,
             dump: None,
         },
+        // nothing is listed in full, so nothing is written
+        &mut io::sink(),
     )
 }
 
@@ -313,6 +316,8 @@ pub fn emdf(source: &Source) -> Result<emdf::Report> {
             json: false,
             dump: None,
         },
+        // nothing is listed in full, so nothing is written
+        &mut io::sink(),
     )
 }
 
@@ -369,12 +374,16 @@ pub enum Pcm {
 }
 
 impl Pcm {
-    /// Prints what `decode` prints of the decode: on stderr for a TrueHD
-    /// stream, and the report of the pass on stdout for an AC-3 family one.
-    pub fn print_summary(&self) {
+    /// Writes what `decode` says of the decode: to `err` for a TrueHD
+    /// stream, which is what the command says on stderr, and the report of
+    /// the pass to `out` for an AC-3 family one, which the command prints.
+    ///
+    /// # Errors
+    /// What writing gives.
+    pub fn print_summary(&self, out: &mut dyn Write, err: &mut dyn Write) -> io::Result<()> {
         match self {
-            Self::TrueHd(decoded) => decoded.print_summary(),
-            Self::Ac3(report) => report.print(false),
+            Self::TrueHd(decoded) => decoded.print_summary(err),
+            Self::Ac3(report) => report.print(false, out, err),
         }
     }
 
@@ -463,11 +472,12 @@ pub enum Objects {
 impl Objects {
     /// Says on stderr what was decoded and written, and what the output
     /// could not carry.
-    pub fn print_summary(&self) {
+    pub fn print_summary(&self, err: &mut dyn Write) -> io::Result<()> {
         match self {
-            Self::TrueHd(written) => written.print_summary(),
-            Self::Ac3(written) => written.print_summary(),
+            Self::TrueHd(written) => written.print_summary(err)?,
+            Self::Ac3(written) => written.print_summary(err)?,
         }
+        Ok(())
     }
 
     /// Writes the loss ledger as JSON where the options ask for it.

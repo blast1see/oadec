@@ -497,10 +497,14 @@ where
     T: Into<std::ffi::OsString> + Clone,
 {
     let cli = Cli::parse_from(args);
+    // Where a command writes: what it reports to stdout, what it remarks to
+    // stderr. Neither is held locked while the command runs, so each line
+    // goes out as it did when it was printed.
+    let (out, err) = (&mut std::io::stdout(), &mut std::io::stderr());
     let result = match cli.command {
         Command::Info { file, json } => stream_named(&file)
             .and_then(|source| api::info(&source))
-            .and_then(|report| report.print(json))
+            .and_then(|report| report.print(json, out, err))
             .map(|()| ExitCode::SUCCESS),
         Command::Verify {
             file,
@@ -528,7 +532,7 @@ where
                     },
                 )
             })
-            .and_then(|report| report.print(json).map(|()| report.clean()))
+            .and_then(|report| report.print(json, out, err).map(|()| report.clean()))
             .map(|clean| {
                 if clean {
                     ExitCode::SUCCESS
@@ -537,7 +541,7 @@ where
                 }
             }),
         Command::Emdf { file, json, dump } => stream_named(&file)
-            .and_then(|source| emdf::run(&source, &emdf::Options { json, dump }))
+            .and_then(|source| emdf::run(&source, &emdf::Options { json, dump }, out))
             .map(|clean| {
                 if clean {
                     ExitCode::SUCCESS
@@ -546,7 +550,7 @@ where
                 }
             }),
         Command::Oamd { file, json, dump } => stream_named(&file)
-            .and_then(|source| oamd::run(&source, &oamd::Options { json, dump }))
+            .and_then(|source| oamd::run(&source, &oamd::Options { json, dump }, out))
             .map(|clean| {
                 if clean {
                     ExitCode::SUCCESS
@@ -728,6 +732,7 @@ where
                                 // refused above for E-AC-3
                                 on_error: None,
                             },
+                            err,
                         )
                     }
                 } else if eac3::is_eac3(&source).unwrap_or(false) {
@@ -742,6 +747,8 @@ where
                             tpnp: !no_tpnp,
                             ecpl_full: ecpl_spec,
                         },
+                        out,
+                        err,
                     )
                     .map(Verdict::from_clean)
                 } else if matches!(format, Format::Damf | Format::Adm) {
@@ -770,6 +777,7 @@ where
                             joc: JocOverrides::default(),
                             on_error,
                         },
+                        err,
                     )
                 } else {
                     decode::run(
@@ -783,6 +791,7 @@ where
                             start,
                             on_error: on_error.unwrap_or(OnError::Conceal),
                         },
+                        err,
                     )
                     .map(Verdict::from_clean)
                 }
@@ -843,6 +852,8 @@ where
                             dither: !no_dither,
                             worst,
                         },
+                        out,
+                        err,
                     )
                 } else {
                     compare::run(
@@ -856,6 +867,7 @@ where
                             report,
                             skip: reference_skip,
                         },
+                        err,
                     )
                 }
             });
@@ -879,7 +891,7 @@ where
             part,
             detail,
         } => stream_named(&file)
-            .and_then(|source| eac3::blocks(&source, frame, part, detail))
+            .and_then(|source| eac3::blocks(&source, frame, part, detail, out))
             .map(|()| ExitCode::SUCCESS),
         Command::AtmosAuthor { scene, output } => {
             author::run(&scene, &output).map(|()| ExitCode::SUCCESS)
