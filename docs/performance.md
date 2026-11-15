@@ -980,6 +980,42 @@ workspace calls, is held to a new bank by a test of its own. Every delivery
 of every stream of the corpus is the same byte for byte, and the campaign of
 200 000 damaged streams gives the answers it gave.
 
+## Where it stands at the end of the round
+
+Each section above lays one change beside the build before it. This one lays
+the binary the baseline was measured with beside the binary at the end of
+the round, command by command: `python tools/bench.py --compare`, the two
+turn and turn about, five runs a command, over the two longest and heaviest
+streams of each of nine kinds, with nothing else running
+(`docs/audit/evidence/engine-round-2026-11/57-the-round-from-end-to-end.json`):
+
+| Kind of work | Streams | × real time at the baseline | × real time at the end | Of the time it took |
+|---|---|---|---|---|
+| AC-3 and E-AC-3, the channels to PCM | 8 | 82.6 to 308.3 | 255.8 to 1175.8 | 26.2 to 38.6 per cent |
+| AC-3 and E-AC-3, `verify` | 8 | 84.2 to 314.6 | 377.8 to 1657.7 | 19.0 to 24.6 per cent |
+| E-AC-3 with JOC, the objects to DAMF and to ADM | 2 | 26.5 to 40.9 | 54.2 to 83.2 | 48.8 to 50.3 per cent |
+| TrueHD, the presentations of 2, 6 and 8 channels to PCM | 10 | 103.4 to 526.8 | 107.1 to 557.1 | 86.1 to 98.7 per cent |
+| TrueHD, the object presentation of 12, 14 and 16 channels to PCM | 6 | 68.4 to 93.7 | 79.3 to 107.3 | 85.9 to 88.6 per cent |
+| TrueHD, `verify` | 10 | 140.4 to 540.1 | 157.6 to 572.0 | 86.6 to 94.4 per cent |
+| TrueHD, `verify --decode` | 10 | 31.3 to 131.7 | 82.8 to 250.8 | 31.6 to 52.5 per cent |
+| TrueHD, the objects to DAMF and to ADM | 6 | 42.9 to 82.7 | 52.0 to 96.9 | 51.7 to 114.8 per cent |
+
+Of 88 commands 77 are faster, 11 are within the spread of their runs and none is
+slower, and every exit code is the same from both.
+
+The two binaries do not do the same work, and these are figures of what a
+command costs, not of a loop. The later one draws the dither Dolby's decoder
+draws, puts a clip gain back along a line and takes the lowest subband of a
+JOC downmix through an operator of 21 taps, none of which the earlier one
+did. Its `verify` of an AC-3 family stream makes no samples. And its
+`verify --decode` decodes the presentations side by side, for which it holds
+22.8 to 28.5 MiB where it held 14.1 to 18.8; the commands of the AC-3 family
+hold 2.2 to 6.1 MiB less than they did.
+
+The object files of a TrueHD stream are written to a disk, and 7 of their
+12 figures are within their own spread: the range of that row is the
+disk's and not the decoder's.
+
 ## What it does not say
 
 - One machine. The ratios between commands carry to another; the figures do
