@@ -618,6 +618,17 @@ Semantic Versioning.
 
 ### Changed
 
+- **What the changes of the round come to, from end to end.** The binary
+  the baseline was measured with beside the binary at the end of the round,
+  over eighteen streams: of 88 commands 77 are faster, 11 are within the
+  spread of their runs and none is slower. A decode of the channels of an
+  AC-3 or E-AC-3 stream takes 26.2 to 38.6 per cent of the time it took and
+  `verify` of one 19.0 to 24.6; the objects out of JOC take 48.8 to 50.3,
+  with more done to them than at the baseline; a TrueHD presentation takes
+  86 to 99 per cent, and `verify --decode` of a TrueHD stream 31.6 to 52.5,
+  for nine mebibytes more (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/57-the-round-from-end-to-end.json`).
+  The report of the round is `docs/audit/2026-11-engine-round-report.md`.
 - **The engine is a crate of its own, `oadec-engine`, with no command line
   in it.** What reads a stream, checks it and decodes it was inside the crate
   of the command line, and whoever wanted the calls of `api` took the

@@ -1,0 +1,344 @@
+{
+ "question": "Every change of the round that was made for speed has a measurement of its own, the build before it beside the build after it and inside one binary where that could be done (evidence 36 to 47, 53). What do they come to together, with everything else the round changed: the binary the baseline was measured with (evidence 08) beside the binary at the end of the round, command by command on the same streams?",
+ "method": "`tools/bench.py --compare`: the two binaries run turn and turn about over the two longest and heaviest streams of each kind the corpus has, every command five times, and the medians are compared. A command is a process of its own, measured from outside: wall time, processor time, the most memory it held. It is called faster or slower only when the ratio of the medians is outside three times the spread of the runs, or two per cent, whichever is more. PCM goes to the null device; the object formats are written to a file. The earlier binary is the one of the commit the baseline was recorded at; the later one is main after the last change of the round. Nothing else ran on the machine. The two binaries do not do the same work in every command, and the figures are of what a command costs then and now, not of one loop: the later one draws the dither Dolby's decoder draws, puts a clip gain back along a line and takes the lowest subband of a JOC downmix through an operator of 21 taps (evidence 49 to 51), none of which the earlier one did; its `verify` of an AC-3 family stream makes no samples (41); and its `verify --decode` decodes the presentations side by side (42).",
+ "commands": [
+  "python tools/bench.py --compare <the binary of the baseline> <the binary at the end> --out <json> <the corpus>"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "binaries": {
+  "the_baseline": {
+   "name": "oadec-main-2ca2248.exe",
+   "version": "oadec 0.8.0",
+   "sha256": "090abe733fd1e8dbb33388eab40778e761c5690c9adde5fa7de800481be29b06",
+   "what": "main when the baseline was recorded (pull request 18, evidence 08)"
+  },
+  "the_end_of_the_round": {
+   "name": "oadec-calls-2.exe",
+   "version": "oadec 0.8.0",
+   "sha256": "f762c5f9e467b7f7ba38357602d43e51ea0a18823b8a828def340e777daa1f1e",
+   "what": "main after pull request 68"
+  }
+ },
+ "result": {
+  "streams": 18,
+  "streams_by_kind": {
+   "ac3": 2,
+   "eac3": 2,
+   "eac3-7.1": 2,
+   "joc": 2,
+   "truehd-6ch": 2,
+   "truehd-8ch": 2,
+   "truehd-objects-12ch": 2,
+   "truehd-objects-14ch": 2,
+   "truehd-objects-16ch": 2
+  },
+  "seconds_of_audio": 1293,
+  "runs_a_command": 5,
+  "measurements": 88,
+  "faster_the_same_slower": {
+   "faster": 77,
+   "the_same": 11,
+   "slower": 0
+  },
+  "commands_that_failed": [],
+  "every_exit_code_the_same_from_both": true,
+  "by_kind_of_work": [
+   {
+    "what": "AC-3 and E-AC-3, the channels to PCM",
+    "streams": 8,
+    "measurements": 8,
+    "times_real_time_at_the_baseline": [
+     82.6,
+     308.3
+    ],
+    "times_real_time_at_the_end": [
+     255.8,
+     1175.8
+    ],
+    "of_the_wall_time_it_took": [
+     0.262,
+     0.386
+    ],
+    "of_the_processor_time_it_took": [
+     0.231,
+     0.367
+    ],
+    "peak_memory_mib_at_the_baseline": [
+     16.8,
+     20.7
+    ],
+    "peak_memory_mib_at_the_end": [
+     14.1,
+     14.8
+    ],
+    "faster_same_slower": [
+     8,
+     0,
+     0
+    ],
+    "exit_codes_the_same": true
+   },
+   {
+    "what": "AC-3 and E-AC-3, `verify`",
+    "streams": 8,
+    "measurements": 8,
+    "times_real_time_at_the_baseline": [
+     84.2,
+     314.6
+    ],
+    "times_real_time_at_the_end": [
+     377.8,
+     1657.7
+    ],
+    "of_the_wall_time_it_took": [
+     0.19,
+     0.246
+    ],
+    "of_the_processor_time_it_took": [
+     0.196,
+     0.259
+    ],
+    "peak_memory_mib_at_the_baseline": [
+     12.7,
+     14.6
+    ],
+    "peak_memory_mib_at_the_end": [
+     9.8,
+     10.3
+    ],
+    "faster_same_slower": [
+     8,
+     0,
+     0
+    ],
+    "exit_codes_the_same": true
+   },
+   {
+    "what": "E-AC-3 with JOC, the objects to DAMF and to ADM",
+    "streams": 2,
+    "measurements": 4,
+    "times_real_time_at_the_baseline": [
+     26.5,
+     40.9
+    ],
+    "times_real_time_at_the_end": [
+     54.2,
+     83.2
+    ],
+    "of_the_wall_time_it_took": [
+     0.488,
+     0.503
+    ],
+    "of_the_processor_time_it_took": [
+     0.494,
+     0.503
+    ],
+    "peak_memory_mib_at_the_baseline": [
+     21.3,
+     22.5
+    ],
+    "peak_memory_mib_at_the_end": [
+     16.5,
+     17.3
+    ],
+    "faster_same_slower": [
+     4,
+     0,
+     0
+    ],
+    "exit_codes_the_same": true
+   },
+   {
+    "what": "TrueHD, the presentations of 2, 6 and 8 channels to PCM",
+    "streams": 10,
+    "measurements": 30,
+    "times_real_time_at_the_baseline": [
+     103.4,
+     526.8
+    ],
+    "times_real_time_at_the_end": [
+     107.1,
+     557.1
+    ],
+    "of_the_wall_time_it_took": [
+     0.861,
+     0.987
+    ],
+    "of_the_processor_time_it_took": [
+     0.857,
+     1.0
+    ],
+    "peak_memory_mib_at_the_baseline": [
+     26.2,
+     30.6
+    ],
+    "peak_memory_mib_at_the_end": [
+     26.2,
+     34.6
+    ],
+    "faster_same_slower": [
+     26,
+     4,
+     0
+    ],
+    "exit_codes_the_same": true
+   },
+   {
+    "what": "TrueHD, the object presentation of 12, 14 and 16 channels to PCM",
+    "streams": 6,
+    "measurements": 6,
+    "times_real_time_at_the_baseline": [
+     68.4,
+     93.7
+    ],
+    "times_real_time_at_the_end": [
+     79.3,
+     107.3
+    ],
+    "of_the_wall_time_it_took": [
+     0.859,
+     0.886
+    ],
+    "of_the_processor_time_it_took": [
+     0.844,
+     0.893
+    ],
+    "peak_memory_mib_at_the_baseline": [
+     30.4,
+     30.6
+    ],
+    "peak_memory_mib_at_the_end": [
+     30.5,
+     30.6
+    ],
+    "faster_same_slower": [
+     6,
+     0,
+     0
+    ],
+    "exit_codes_the_same": true
+   },
+   {
+    "what": "TrueHD, `verify`",
+    "streams": 10,
+    "measurements": 10,
+    "times_real_time_at_the_baseline": [
+     140.4,
+     540.1
+    ],
+    "times_real_time_at_the_end": [
+     157.6,
+     572.0
+    ],
+    "of_the_wall_time_it_took": [
+     0.866,
+     0.944
+    ],
+    "of_the_processor_time_it_took": [
+     0.85,
+     1.0
+    ],
+    "peak_memory_mib_at_the_baseline": [
+     13.7,
+     17.8
+    ],
+    "peak_memory_mib_at_the_end": [
+     13.7,
+     17.9
+    ],
+    "faster_same_slower": [
+     10,
+     0,
+     0
+    ],
+    "exit_codes_the_same": true
+   },
+   {
+    "what": "TrueHD, `verify --decode`",
+    "streams": 10,
+    "measurements": 10,
+    "times_real_time_at_the_baseline": [
+     31.3,
+     131.7
+    ],
+    "times_real_time_at_the_end": [
+     82.8,
+     250.8
+    ],
+    "of_the_wall_time_it_took": [
+     0.316,
+     0.525
+    ],
+    "of_the_processor_time_it_took": [
+     0.802,
+     0.966
+    ],
+    "peak_memory_mib_at_the_baseline": [
+     14.1,
+     18.8
+    ],
+    "peak_memory_mib_at_the_end": [
+     22.8,
+     28.5
+    ],
+    "faster_same_slower": [
+     10,
+     0,
+     0
+    ],
+    "exit_codes_the_same": true
+   },
+   {
+    "what": "TrueHD, the objects to DAMF and to ADM",
+    "streams": 6,
+    "measurements": 12,
+    "times_real_time_at_the_baseline": [
+     42.9,
+     82.7
+    ],
+    "times_real_time_at_the_end": [
+     52.0,
+     96.9
+    ],
+    "of_the_wall_time_it_took": [
+     0.517,
+     1.148
+    ],
+    "of_the_processor_time_it_took": [
+     0.833,
+     0.887
+    ],
+    "peak_memory_mib_at_the_baseline": [
+     30.6,
+     30.9
+    ],
+    "peak_memory_mib_at_the_end": [
+     30.7,
+     30.9
+    ],
+    "faster_same_slower": [
+     5,
+     7,
+     0
+    ],
+    "exit_codes_the_same": true
+   }
+  ],
+  "peak_memory": {
+   "mib_less_for_a_command_of_the_ac3_family": [
+    2.2,
+    6.1
+   ],
+   "decodes_of_a_truehd_presentation": 36,
+   "of_them_within_a_mebibyte_of_what_they_held": 35,
+   "of_them_more": [
+    4.0
+   ]
+  }
+ },
+ "reading": "Nothing is slower: of 88 commands 77 are faster and 11 within the spread of their runs. The AC-3 family is where the time was and where it went. A decode of its channels takes 26.2 to 38.6 per cent of the time it took and `verify`, which no longer listens to what it reads, 19.0 to 24.6 per cent. The objects out of JOC take 48.8 to 50.3 per cent, with more done to them than at the baseline. TrueHD was not where the time was and moved least: 86.1 to 98.7 per cent for a presentation of up to eight channels, 85.9 to 88.6 per cent for the object presentation, 86.6 to 94.4 per cent for `verify`; `verify --decode`, whose presentations decode side by side now, takes 31.6 to 52.5 per cent, and holds more memory for it, 22.8 to 28.5 MiB where it held 14.1 to 18.8. The commands of the AC-3 family hold 2.2 to 6.1 MiB less than they did; of the 36 decodes of a TrueHD presentation 35 held what they held to within a mebibyte and 1 more. The object files of TrueHD are written to a disk, and 7 of their 12 figures are within their own spread. One machine, heads of about a minute, the heaviest streams of each kind and not a sample of what is common: the ratios carry to another machine and the figures do not."
+}
