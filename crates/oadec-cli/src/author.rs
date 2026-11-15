@@ -35,8 +35,20 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum Signal {
-    /// A steady sine, which identifies the object by frequency.
-    Tone { hz: f64, dbfs: f64 },
+    /// A steady sine, which identifies the object by frequency. It sounds
+    /// through the whole scene unless it names the sample it begins at, the
+    /// sample it has ended by, or both; an end it names it comes to, and a
+    /// beginning after the first sample it comes from, over [`EDGE`] samples,
+    /// so that neither is a click. An element that sounds alone for a part of
+    /// a scene is then known by when it sounds as well as by its pitch.
+    Tone {
+        hz: f64,
+        dbfs: f64,
+        #[serde(default)]
+        from: u64,
+        #[serde(default)]
+        until: Option<u64>,
+    },
     /// One impulse at each named sample, which identifies the object by
     /// frequency-independent timing.
     Impulses { at: Vec<u64>, dbfs: f64 },
@@ -141,12 +153,50 @@ fn to_i24(v: f64) -> i32 {
     (v * 8_388_607.0).round().clamp(-8_388_608.0, 8_388_607.0) as i32
 }
 
+/// The samples a tone takes to come and to go: a hundredth of a second at
+/// 48 kHz.
+const EDGE: u64 = 480;
+
+/// How much of a tone there is `k` samples inside one of its edges: a raised
+/// cosine, all of it from [`EDGE`] samples on.
+fn edge(k: u64) -> f64 {
+    if k >= EDGE {
+        return 1.0;
+    }
+    let x = (k as f64 + 0.5) / EDGE as f64;
+    (std::f64::consts::FRAC_PI_2 * x).sin().powi(2)
+}
+
 impl Signal {
+    /// Where a tone that sounds for no time at all would begin and end, in a
+    /// scene of `duration` samples.
+    fn never_sounds(&self, duration: u64) -> Option<(u64, u64)> {
+        match self {
+            Self::Tone { from, until, .. } => {
+                let end = until.unwrap_or(duration);
+                (*from >= end).then_some((*from, end))
+            }
+            Self::Impulses { .. } | Self::Silence => None,
+        }
+    }
+
     fn sample(&self, n: u64, rate: u32) -> i32 {
         match self {
             Self::Silence => 0,
-            Self::Tone { hz, dbfs } => {
-                let a = 10f64.powf(dbfs / 20.0);
+            Self::Tone {
+                hz,
+                dbfs,
+                from,
+                until,
+            } => {
+                if n < *from || until.is_some_and(|end| n >= end) {
+                    return 0;
+                }
+                // a tone that names no beginning is at its level from the
+                // first sample, and one that names no end to the last
+                let coming = if *from > 0 { edge(n - from) } else { 1.0 };
+                let going = until.map_or(1.0, |end| edge(end - 1 - n));
+                let a = 10f64.powf(dbfs / 20.0) * coming * going;
                 let t = n as f64 / f64::from(rate);
                 to_i24(a * (std::f64::consts::TAU * hz * t).sin())
             }
@@ -212,6 +262,16 @@ pub fn run(scene_path: &Path, base: &Path) -> Result<()> {
                     o.name
                 );
             }
+        }
+    }
+    let signals = scene
+        .objects
+        .iter()
+        .map(|o| (o.name.as_str(), &o.signal))
+        .chain(scene.bed_signals.iter().map(|(name, s)| (name.as_str(), s)));
+    for (name, signal) in signals {
+        if let Some((from, end)) = signal.never_sounds(scene.duration_samples) {
+            bail!("the tone of {name} would sound from sample {from} until sample {end}");
         }
     }
     // the signal of each channel of the bed, in the order of the bed

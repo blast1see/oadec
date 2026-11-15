@@ -236,3 +236,75 @@ fn a_channel_of_the_bed_can_carry_a_signal() {
     assert!(String::from_utf8_lossy(&out.stderr).contains("Lrs"));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A tone sounds through the whole scene unless it names where it begins and
+/// where it ends. Then it is silent outside, at its level inside, and comes
+/// and goes over a hundredth of a second, so that its edges are not clicks:
+/// an element that sounds alone for a part of a scene can be told from every
+/// other by when it sounds as well as by its pitch.
+#[test]
+fn a_tone_can_sound_for_a_part_of_the_scene() {
+    let dir = temp("gate");
+    let part = r#"{"duration_samples": 48000, "objects": [{"name": "one",
+        "signal": {"kind": "tone", "hz": 1000.0, "dbfs": -20.0, "from": 12000, "until": 36000},
+        "events": [{"sample": 0, "pos": [0.5, 0.5, 0.0]}]}]}"#;
+    let (out, _, _) = author(&dir, part);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let (samples, channels) = caf(&dir.join("master.atmos.audio"));
+    assert_eq!(channels, 2, "the LFE of the bed and the object");
+    let object: Vec<f64> = samples.iter().skip(1).step_by(2).copied().collect();
+    assert_eq!(object.len(), 48000);
+    let rms = |part: &[f64]| (part.iter().map(|v| v * v).sum::<f64>() / part.len() as f64).sqrt();
+    assert!(
+        object[..12000].iter().all(|v| *v == 0.0),
+        "before it begins"
+    );
+    assert!(object[36000..].iter().all(|v| *v == 0.0), "after it ends");
+    // a sine at -20 dBFS: 0,0707 as a mean
+    let inside = rms(&object[13000..35000]);
+    assert!((inside - 0.0707).abs() < 0.001, "{inside}");
+    // it comes and it goes: two periods at either end are far below its level
+    let (coming, going) = (rms(&object[12000..12096]), rms(&object[35904..36000]));
+    assert!(coming < 0.02 && going < 0.02, "{coming} {going}");
+    // and a tenth of the way through its edge it is no longer silent
+    assert!(rms(&object[12048..12096]) > 0.0005);
+    // an edge is 480 samples of a raised cosine: half of the tone half way
+    // through it, over one period, and all of it from its end on
+    let (half, all) = (rms(&object[12216..12264]), rms(&object[12480..12576]));
+    assert!((half - 0.0354).abs() < 0.004, "{half}");
+    assert!((all - 0.0707).abs() < 0.0005, "{all}");
+    let (half, all) = (rms(&object[35736..35784]), rms(&object[35424..35520]));
+    assert!((half - 0.0354).abs() < 0.004, "{half}");
+    assert!((all - 0.0707).abs() < 0.0005, "{all}");
+    std::fs::remove_dir_all(&dir).unwrap();
+
+    // a tone that names neither is the tone it was: at its level from the
+    // first sample of the scene to the last
+    let dir = temp("gate-whole");
+    let (out, _, _) = author(&dir, &scene("", ""));
+    assert!(out.status.success());
+    let (samples, channels) = caf(&dir.join("master.atmos.audio"));
+    let object: Vec<f64> = samples.iter().skip(1).step_by(channels).copied().collect();
+    // 440 Hz: its first quarter period peaks at sample 27
+    assert!((object[27] - 0.1).abs() < 0.001, "{}", object[27]);
+    let last = object.len() - 1;
+    assert!(rms(&object[last - 109..]) > 0.06, "the end of the scene");
+    std::fs::remove_dir_all(&dir).unwrap();
+
+    // a tone that would end before it begins is refused
+    let dir = temp("gate-refused");
+    let never = part.replace(r#""until": 36000"#, r#""until": 12000"#);
+    let (out, atmos, _) = author(&dir, &never);
+    assert_eq!(out.status.code(), Some(2));
+    let said = String::from_utf8_lossy(&out.stderr);
+    assert!(said.contains("12000"), "{said}");
+    assert!(
+        atmos.is_empty(),
+        "a master was written for a tone that never sounds"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
