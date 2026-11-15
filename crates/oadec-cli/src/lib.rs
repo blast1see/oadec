@@ -15,6 +15,7 @@
 #![warn(unnameable_types)]
 
 pub mod api;
+mod args;
 mod au_dump;
 mod author;
 mod catalog;
@@ -45,8 +46,11 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
+use crate::args::{
+    FormatArg, InterpolationArg, IsfArg, JocLowBandArg, OnErrorArg, OrderArg, WarpArg,
+};
 use crate::compare::RefFormat;
-use crate::damf::{InterpolationArg, IsfArg, WarpArg};
+use crate::damf::Warp;
 use crate::decode::{Format, OnError, Order};
 use crate::eac3_objects::{JocLowBand, JocLowFir, JocOverrides, JocPhase};
 use crate::integrity::Verdict;
@@ -180,12 +184,12 @@ enum Command {
         #[arg(short, long)]
         presentation: Option<usize>,
         /// Output container.
-        #[arg(long, value_enum, default_value_t = Format::Wav)]
-        format: Format,
+        #[arg(long, value_enum, default_value_t = FormatArg::Wav)]
+        format: FormatArg,
         /// PCM/WAV: channel order of the samples; `interchange` when absent.
         /// An object output has the order of its format.
         #[arg(long, value_enum)]
-        order: Option<Order>,
+        order: Option<OrderArg>,
         /// Keep access units flagged as duplicates at seamless branches.
         #[arg(long)]
         keep_duplicates: bool,
@@ -198,7 +202,7 @@ enum Command {
         /// unit (exit 2) and pass over a stretch that could not be read, which
         /// leaves the output that much shorter.
         #[arg(long, value_enum, value_name = "MODE")]
-        on_error: Option<OnError>,
+        on_error: Option<OnErrorArg>,
         /// TrueHD: begin the output this many seconds into the stream, at the
         /// first access unit at or after it that carries a major sync. What is
         /// written is the tail of a full decode, sample for sample, because a
@@ -295,7 +299,7 @@ enum Command {
         /// JOC measurement: how the lowest subband of a phase-shifted channel
         /// is treated; announced on stderr and recorded in the loss report.
         #[arg(long, hide = true, value_enum)]
-        joc_low_band: Option<JocLowBand>,
+        joc_low_band: Option<JocLowBandArg>,
         /// JOC measurement: which downmix channels carry the 90-degree phase
         /// shift and which way it is taken out, instead of what the downmix
         /// configuration says; announced on stderr and recorded in the loss
@@ -332,8 +336,8 @@ enum Command {
         #[arg(long, value_enum)]
         reference_format: Option<RefFormat>,
         /// Channel order of the reference.
-        #[arg(long, value_enum, default_value_t = Order::Interchange)]
-        order: Order,
+        #[arg(long, value_enum, default_value_t = OrderArg::Interchange)]
+        order: OrderArg,
         /// TrueHD: keep access units flagged as duplicates at seamless branches.
         #[arg(long)]
         keep_duplicates: bool,
@@ -595,7 +599,12 @@ where
                 dolby_origin_tag || adm_allow_non_profile_rate || adm_interpolation.is_some();
             let given_for_damf = fps.is_some();
             let given_for_samples = order.is_some();
-            let order = order.unwrap_or(Order::Interchange);
+            // what the command line names, as the types the work takes
+            let format = Format::from(format);
+            let order = order.map_or(Order::Interchange, Order::from);
+            let on_error = on_error.map(OnError::from);
+            let warp_mode = warp_mode.map(Warp::from);
+            let joc_low_band = joc_low_band.map(JocLowBand::from);
             let isf = isf.unwrap_or(IsfArg::Error);
             let fps = fps.unwrap_or_else(|| "24".to_string());
             let adm_interpolation = adm_interpolation.unwrap_or(InterpolationArg::Profile);
@@ -825,7 +834,7 @@ where
                         &source,
                         &reference,
                         &eac3::CompareOptions {
-                            order,
+                            order: order.into(),
                             tpnp: !no_tpnp,
                             ecpl_full: ecpl_spec,
                             report,
@@ -842,7 +851,7 @@ where
                         &compare::Options {
                             presentation: presentation.unwrap_or(2),
                             format: reference_format.unwrap_or(RefFormat::S32le),
-                            order,
+                            order: order.into(),
                             keep_duplicates,
                             report,
                             skip: reference_skip,

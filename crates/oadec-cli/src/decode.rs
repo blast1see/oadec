@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use clap::ValueEnum;
 use oadec_truehd::{AccessUnit, ChannelLabel, DecodeStats, Decoder, Unit};
 
 use crate::input;
@@ -15,7 +14,7 @@ use crate::integrity::Findings;
 use crate::source::Source;
 
 /// Output container.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     /// Headerless interleaved 24-bit little-endian PCM.
     Pcm,
@@ -30,7 +29,7 @@ pub enum Format {
 }
 
 /// What a TrueHD decode does with an access unit it cannot read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OnError {
     /// Write a unit of silence in its place and go on: the substreams it
     /// damaged stay silent until their next restart header, and a stretch
@@ -87,7 +86,7 @@ pub fn gap_samples(
 }
 
 /// Channel order of the output.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Order {
     /// WAVE / FFmpeg order (front pair, centre, LFE, back pair, side pair, ...).
     Interchange,

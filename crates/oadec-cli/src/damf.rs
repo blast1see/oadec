@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use clap::ValueEnum;
 use oadec_emdf::container::{self, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::{BedChannel, ISF_OBJECTS, Oamd};
 use oadec_spatial::{
@@ -16,42 +15,6 @@ use oadec_spatial::{
 use oadec_truehd::channel::ExtraChannelMeaning;
 use oadec_truehd::{AccessUnit, ChannelLabel, ExtraKind, MajorSync, StreamConfig};
 use serde_json::json;
-
-/// `--isf`: what to do with intermediate-spatial-format elements.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub(crate) enum IsfArg {
-    /// Refuse the decode: DAMF and the ADM profile cannot represent them.
-    Error,
-    /// Write the beds and dynamic objects without them (a declared loss, exit 4).
-    Drop,
-}
-
-impl From<IsfArg> for IsfPolicy {
-    fn from(arg: IsfArg) -> Self {
-        match arg {
-            IsfArg::Error => Self::Error,
-            IsfArg::Drop => Self::Drop,
-        }
-    }
-}
-
-/// `--adm-interpolation`: how ADM interpolation lengths are written.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub(crate) enum InterpolationArg {
-    /// The Dolby Atmos master ADM profile: 0 then 250 samples (the default).
-    Profile,
-    /// The source ramps (BS.2076, outside the profile; refuses the Dolby origin tag).
-    Real,
-}
-
-impl From<InterpolationArg> for Interpolation {
-    fn from(arg: InterpolationArg) -> Self {
-        match arg {
-            InterpolationArg::Profile => Self::Profile,
-            InterpolationArg::Real => Self::Real,
-        }
-    }
-}
 
 use crate::decode::{ConfigStop, Format, Order, Session, format_duration, print_summary};
 use crate::input;
@@ -99,8 +62,8 @@ pub(crate) fn note_non_profile(opts: &Options) {
 }
 
 /// The warp mode an object output names.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum WarpArg {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Warp {
     /// The one the stream declares; a TrueHD stream declares none.
     Stream,
     /// Direct render.
@@ -114,7 +77,7 @@ pub enum WarpArg {
     LoRo,
 }
 
-impl WarpArg {
+impl Warp {
     /// The mode to write, given what the stream declares.
     fn resolve(self, declared: Option<WarpMode>) -> Option<WarpMode> {
         match self {
@@ -195,7 +158,7 @@ pub struct Options {
     /// ADM: how interpolation lengths are written.
     pub interpolation: Interpolation,
     /// The warp mode the output names, if it is asked to name one.
-    pub warp: Option<WarpArg>,
+    pub warp: Option<Warp>,
     /// TrueHD: what to do with an access unit that cannot be read; `None`
     /// for the default, which is to conceal it. An E-AC-3 decode has its own
     /// way with a bad frame, and is not to be handed one.
@@ -682,7 +645,7 @@ pub fn write(
             let program = program_from_major_sync(ms)?;
             // No TrueHD stream measured carries a trim element, so nothing is read
             // here and the note says so; if one ever does, the timeline counts it.
-            if opts.warp == Some(WarpArg::Stream) {
+            if opts.warp == Some(Warp::Stream) {
                 note_no_warp_mode(
                     "no TrueHD stream measured has declared a warp mode",
                     remarks,

@@ -15,7 +15,6 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use clap::ValueEnum;
 use oadec_eac3::{ChannelLoc, ProgramDecoder, ProgramFrame};
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::joc::{Joc, JocError, JocHeader, SparseReading};
@@ -27,7 +26,7 @@ use oadec_joc::{
 use oadec_spatial::{LossLedger, Program, Timeline, declared_warp};
 use serde_json::{Value, json};
 
-use crate::damf::{Options, Sink, WarpArg, note_no_warp_mode, open_sink};
+use crate::damf::{Options, Sink, Warp, note_no_warp_mode, open_sink};
 use crate::decode::format_duration;
 use crate::eac3::for_each_frame;
 use crate::integrity::{Findings, Verdict};
@@ -158,7 +157,7 @@ struct Pipeline {
 
 /// `--joc-low-band`: how the lowest subband of a channel that carries the
 /// 90-degree phase shift is treated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JocLowBand {
     /// Corrected the way the Dolby decoder corrects it, or rotated with the
     /// other subbands under `--flat-quadrature` (the default).
@@ -1112,7 +1111,7 @@ pub fn write(
                 &opts.joc,
                 remarks,
             )?);
-            if opts.warp == Some(WarpArg::Stream) && declared_warp(o).is_none() {
+            if opts.warp == Some(Warp::Stream) && declared_warp(o).is_none() {
                 note_no_warp_mode(
                     "the first payload of this stream declares no warp mode",
                     remarks,

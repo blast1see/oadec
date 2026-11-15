@@ -32,7 +32,7 @@ use oadec_truehd::Tally;
 pub use oadec_truehd::disc::Disc;
 use serde_json::Value;
 
-pub use crate::damf::{Options as ObjectOptions, WarpArg as Warp, Written as TrueHdObjects};
+pub use crate::damf::{Options as ObjectOptions, Warp, Written as TrueHdObjects};
 pub use crate::decode::{
     Decoded as TrueHdPcm, OnError, Order, PcmBytes, PcmFile, PcmSink, WavSample, WavSpec,
 };
