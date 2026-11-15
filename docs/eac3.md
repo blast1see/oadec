@@ -118,24 +118,14 @@ four are the same specification, and for enhanced coupling they disagree.
 
   What it does not reach:
 
-  - **The coupled region of an E-AC-3 stream.** The states are right there
+  - **The coupled region of an E-AC-3 stream.** The dither is right there
     too: what a channel gets in a sub-band is its own run times its coupling
-    coordinate. But Dolby's decoder has something more in every coefficient
-    of the coupled region of an E-AC-3 stream, with bits or without, that
-    its decode of an AC-3 stream does not have and that neither this decoder
-    nor FFmpeg's makes. One source encoded twice by FFmpeg, as AC-3 and as
-    E-AC-3 with the same coupling, shows it: the coupled region of the AC-3
-    stream stands at 79 to 92 dB against Dolby's decode and that of the
-    E-AC-3 stream at 7 to 9, while the channels' own region stands at 90 to
-    104 in both. In the coefficients with bits this decoder and FFmpeg's
-    give the same numbers. What Dolby's has more is of opposite sign in the
-    two channels of a stereo stream (correlation -0,88), is there where the
-    coupling channel is nought, goes with the block before (-0,37) and is
-    nought at the start of a stream; a stream whose coupling channel has
-    bits for every coefficient does not show it (93 dB). What it is is not
-    known. The 10 streams of the corpus that use coupling in E-AC-3, most
-    of them with spectral extension or the hybrid transform as well, gain
-    in the channels' own region and stand where they stood above it.
+    coordinate. What Dolby's decode has more there is not dither. Its
+    decoders decorrelate the coupled channels of an E-AC-3 stream, and this
+    one does not: the next point. The 10 streams of the corpus that use
+    coupling in E-AC-3, most of them with spectral extension or the hybrid
+    transform as well, gain in the channels' own region and stand where
+    they stood above it.
   - **The noise of spectral extension** is still this decoder's own. It is
     another run of it than it was: the dither drew from the same generator
     and no longer does. Where a few transients carry a band, a figure
@@ -154,6 +144,100 @@ four are the same specification, and for enhanced coupling they disagree.
   within 0,707, and read as "Dolby scales by 0,5". The power was right and
   the reading was not: a triangle within 0,707 has the power of an even
   spread within 0,5.
+- **Decorrelation of the coupled channels, which Dolby's decoders do to an
+  E-AC-3 stream and this decoder does not.** Above the coupling begin
+  frequency the channels of a stream are the coupling channel times a
+  coordinate for each (clause 7.4), and that is all this decoder makes of
+  them, as FFmpeg's does. Dolby's decoders make more of them when the stream
+  is E-AC-3, and nothing more when it is AC-3. For a coupled coefficient `X`
+  of the plain decode they write
+
+      a X + b D(X),    a^2 + b^2 = 1
+
+  where `D` is a filter along the blocks, on the same coefficient in the
+  blocks before: a delay of one block and an all-pass of three poles,
+  `z^-1 (c3 + c2 z^-1 + c1 z^-2 + z^-3) / (1 + c1 z^-1 + c2 z^-2 + c3 z^-3)`
+  with `c = (-0,0944, 0,0242, -0,3957)`, which is a real pole at 0,7555 and
+  a pair at radius 0,7237 and 117,18 degrees either way. `X` is the
+  coefficient as the plain decode has it, with its coordinate on it and its
+  dither in it. The pair `(a, b)` is another for every block and for every
+  coupling sub-band of twelve coefficients, and of the two channels of a
+  stereo stream the second takes `b` with the other sign. It is a
+  decorrelation: the level and the spectrum of a channel stay, and the two
+  channels are no longer one waveform.
+
+  How it was found. With the dither of both decoders the same, one source
+  encoded by FFmpeg as AC-3 and as E-AC-3 stood at 79 to 92 dB against
+  Dolby's decode in the coupled region as AC-3 and at 7 to 9 as E-AC-3.
+  Fifteen test signals, one thing apart from the next
+  (`tools/coupling_mix.py signals`), encoded both ways at 128 kbit/s, say
+  what sets it off. A band of noise the two channels share above 5 kHz over
+  a tone of 440 Hz, at levels that stay, move slowly or fast, come in bursts
+  or with other noise in each channel, or twelve sines in its place: 92 to
+  114 dB in the coupled region, as E-AC-3 and as AC-3. The same with noise
+  of each channel's own between 1 and 4,5 kHz, under the coupling begin
+  frequency: 0,1 to 6,3 dB as E-AC-3 and 89 to 106 as AC-3. With that noise
+  30 dB lower: 90 dB again. With it in the left channel only: 5,7 dB in the
+  left and 90,5 in the right. What a channel has of its own under the
+  coupled region decides what is done to it in the coupled region. One of
+  the first kind, whose levels jump every 100 ms, stands at 54 dB in one
+  channel: one block of 2 063 holds all of the difference, a block a jump
+  falls in.
+
+  What it is. `tools/coupling_mix.py mix` fits the filter on the
+  coefficients of the two decodes, and then the pair of every block and
+  sub-band. On four of the test streams the fitted taps are the all-pass
+  above to 0,00002, the same in every sub-band and in both channels, and
+  with the pairs the model gives Dolby's coefficients to 89 to 95 dB. On
+  music, whose coordinates move from block to block, it gives them to 81 dB
+  with the all-pass fitted on the music and to 89,5 with the one above; with
+  the filter put before the coordinate, to 32. `a^2 + b^2` is 1,0000 at the
+  median. `a` falls with the sub-band (0,93 in the first to 0,81 in the
+  eighth where only the left channel has noise of its own), spreads by 0,02
+  to 0,10 from block to block, and is 1 in every block for a channel that
+  has none. The same left channel stands at 0,72 to 0,61 when the right
+  channel has other noise of its own: the pair of a channel depends on the
+  other channel too.
+
+  Both of Dolby's decoders here do it, and do the same: the decode filter of
+  the Dolby Encoding Engine and the element of the Reference Player stand at
+  110 to 129 dB from each other in the coupled region of four streams, which
+  is the 24 bits of the first, and at 0,8 to 8,4 dB from this decoder in the
+  channels that are decorrelated.
+
+  More than two channels. On a 5.1 stream of Dolby's encoder the left and
+  the right take the filter with opposite signs, the centre takes none, and
+  the surround pair takes it with opposite signs again. On a 7.1 stream of a
+  library the left and the right take it the same way and the four surround
+  channels take another all-pass of the same kind,
+  `c = (0,3628, 0,2547, 0,4212)`: a real pole at -0,7588 and a pair at
+  radius 0,7451 and 74,59 degrees. Both streams code the coupling channel
+  with the hybrid transform, whose coefficients without bits are open
+  (above), so the pairs of single blocks could not be read on them, and
+  which channel takes which filter was not worked out.
+
+  The objects are not touched by it. A JOC stream whose core uses coupling
+  (`pi-head-joc384.ec3`), decoded by Dolby's decoder to channels, stands at
+  -0,9 to 4,5 dB from this decoder's in the coupled region of the left, the
+  right and the surrounds, and at 43 and 23 dB in two bands of the centre,
+  which is not decorrelated. Decoded to objects, its eleven objects stand at
+  42 to 48 and at 17 to 25 dB in the same two bands, where the centre
+  stands: the objects are made of the plain core.
+
+  What is not known is the rule for `a`. Dolby's patents US 9,489,956 and
+  US 9,830,916 describe a decoder that does this to the coupled channels of
+  an AC-3 or E-AC-3 stream: an all-pass along the blocks after a fixed
+  delay, the second channel with the other sign, and a weight estimated,
+  block by block, from how alike each channel is to the sum of the channels
+  in the bands under the coupling begin frequency, lowered with frequency,
+  with noise added to it. What was measured here has that shape, and the
+  weight moves from block to block as a weight with noise in it would. It
+  was not read, and nothing of Dolby's decoders was opened; so this decoder
+  leaves the coupled region as the standard has it. A decode here and
+  Dolby's then differ, in the coupled region of an E-AC-3 stream whose
+  channels have wideband content of their own, by as much as two
+  decorrelated copies of one signal do: 0 to 9 dB.
+  `docs/audit/evidence/engine-round-2026-11/52-what-dolbys-decoders-do-to-coupled-channels.json` is the record.
 - **Decoder delay.** The first 256 output samples are the first block's
   half window over silence. The Dolby decoder drops them; FFmpeg and oadec
   keep them. Object metadata counts time from the first frame's first

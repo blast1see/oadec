@@ -8,6 +8,34 @@ Semantic Versioning.
 
 ### Added
 
+- **What Dolby's decoders do to the coupled channels of an E-AC-3 stream is
+  measured, and `tools/coupling_mix.py` measures it.** With the dither of
+  both decoders the same, the coupled region of an E-AC-3 stream stood far
+  from Dolby's decode where the same source as AC-3 stood on it. It is a
+  decorrelation: for a coupled coefficient `X` Dolby's decoders write
+  `a X + b D(X)` with `a^2 + b^2 = 1`, `D` an all-pass of three poles along
+  the blocks after a delay of one block (a real pole at 0,7555, a pair at
+  radius 0,7237 and 117,18 degrees), the pair another for every block and
+  coupling sub-band of twelve coefficients, and the second channel of a
+  stereo stream taking `b` with the other sign. The tool fits the filter and
+  the pairs from two decodes of a stream. On four test streams the fitted
+  taps are that all-pass to 0,00002 and the model gives Dolby's coefficients
+  to 89 to 95 dB. What sets it off is what the channels have of their own
+  under the coupling begin frequency. Of fifteen test signals, which the
+  tool writes, the ten whose channels have nothing of their own there, or
+  little, stand at 90 to 113 dB in the coupled region but for one block of
+  one of them, and the five that have stand at 0,1 to 6,3 dB in the channels
+  that have; as AC-3 all fifteen stand at 89 to 114. The decode filter of
+  the Dolby Encoding Engine and the element of the Reference Player do the
+  same to 24 bits. The core the objects of a JOC stream are made of is left
+  plain.
+
+  oadec does not do it: the rule for the pair is not read, and it is Dolby's
+  own, outside the standard (two of its patents describe a decoder of this
+  shape). A decode here is the standard's and FFmpeg's, and the conformance
+  matrix says so where it said "unknown" (`docs/eac3.md`,
+  `docs/audit/evidence/engine-round-2026-11/52-what-dolbys-decoders-do-to-coupled-channels.json`).
+
 - **`tools/dither_probe.py` reads off a decode what a decoder draws where a
   stream has no bits.** A decoder that writes the same samples every time
   draws a sequence that can be read: for a stream in which no mantissa has a
@@ -566,7 +594,8 @@ Semantic Versioning.
   and that neither this decoder nor FFmpeg's makes: one source encoded by
   FFmpeg both ways stands at 79 to 92 dB against Dolby's in the coupled
   region as AC-3 and at 7 to 9 as E-AC-3. It was under the dither of two
-  decoders until the dither was the same, and what it is is not known. The
+  decoders until the dither was the same; it is a decorrelation of the
+  coupled channels, measured since (the entry under Added). The
   noise of spectral extension is still this decoder's own, and another run
   of it than it was, since the dither no longer draws from its generator: a
   band that a few transients carry stands a few dB elsewhere against

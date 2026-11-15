@@ -2285,11 +2285,11 @@ fn the_dither_is_the_one_dolbys_decoder_draws() {
 /// coefficient without bits, and none before the transform across the blocks
 /// (`oadec_eac3::dither`). The clip is 5.1 at 384 kbit/s with the transform in
 /// nearly every frame. Four of its channels cannot be held to Dolby's over
-/// the whole band: they are coupled, and in the coupled region of an E-AC-3
-/// stream Dolby's decoder does something that is not the dither and is not
-/// known (`docs/eac3.md`). The centre takes next to nothing from the coupling
-/// channel, and stands at 72,6 dB from Dolby's where it stood at 49,8 with
-/// six values put through the transform.
+/// the whole band: Dolby's decoder decorrelates the coupled region of the
+/// left, the right and the surrounds of an E-AC-3 stream, and this decoder
+/// does not (`docs/eac3.md`). The centre it leaves as it is, and the centre
+/// stands at 72,6 dB from Dolby's where it stood at 49,8 with six values put
+/// through the transform.
 #[test]
 #[ignore = "needs OADEC_MEDIA"]
 fn a_hybrid_transform_channel_takes_the_dither_dolbys_decoder_gives_it() {
