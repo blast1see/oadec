@@ -30,6 +30,9 @@ fn found(name: &str) -> String {
 
 fn temp(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("oadec-found-{tag}-{}", std::process::id()));
+    // a run that failed left its directory, and a process number comes round
+    // again: what is in it then is not of this run
+    let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }

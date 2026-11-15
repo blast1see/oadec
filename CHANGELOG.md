@@ -893,6 +893,18 @@ Semantic Versioning.
 
 ### Fixed
 
+- **A test that an earlier run of the suite could fail.** A test of the
+  command line makes its files in a directory under the temporary directory
+  named by the number of its process, and a test that fails leaves the
+  directory where it was. The system hands a process number out again, so a
+  test could be given a directory with the files of another run in it, and
+  the tests that count what a refused command wrote counted those: one such
+  failure in the checks of a change, on a machine where passes over the
+  mutations, which are tests failed on purpose, had left 178 such
+  directories. The directory a test is given is emptied first now. Three
+  tests that never removed theirs do, and `tools/mutants.py` gives the suite
+  a temporary directory of its own under `target`, emptied before every run
+  of it and when the pass is over, so that a pass leaves nothing behind.
 - **A test that two runs of the suite at once could fail.** The test of the
   demultiplexer that splits a run of access units wrote its two files into
   the temporary directory under the same names whichever process ran it, and

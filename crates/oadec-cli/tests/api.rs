@@ -28,8 +28,30 @@ fn text(bytes: &[u8]) -> String {
 
 fn temp(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("oadec-api-{tag}-{}", std::process::id()));
+    // a run that failed left its directory, and a process number comes round
+    // again: what is in it then is not of this run
+    let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     dir
+}
+
+/// A test that fails leaves its directory where it was, and the system hands
+/// a process number out again: the directory a test asks for may be there
+/// already, with what another run wrote in it. A test that then counts what
+/// a refused command left behind counts that, and fails for it. So the
+/// directory a test is given is empty, whatever was there.
+#[test]
+fn a_directory_an_earlier_run_left_is_given_empty() {
+    let dir = temp("left-behind");
+    std::fs::write(dir.join("out.pcm"), b"of an earlier run").unwrap();
+    let again = temp("left-behind");
+    assert_eq!(again, dir);
+    let left: Vec<_> = std::fs::read_dir(&again)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    std::fs::remove_dir_all(&again).ok();
+    assert!(left.is_empty(), "the directory came with {left:?} in it");
 }
 
 /// Every stream among the fixtures, by name.

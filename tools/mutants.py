@@ -35,6 +35,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -2542,8 +2543,23 @@ MUTANTS = [
 EXPECTED_SURVIVORS: dict[str, str] = {}
 
 
-def run(cmd):
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+def run(cmd, env=None):
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=1800, env=env)
+
+
+# The tests write under the temporary directory, and a test that fails leaves
+# what it wrote. A pass over the mutations is tests failed on purpose, by the
+# hundred, so the suite is given a temporary directory of its own under
+# `target`, emptied before every run of it and when the pass is over: nothing
+# is left where a later run of the suite would find it.
+SCRATCH = os.path.abspath(os.path.join('target', 'mutants-tmp'))
+
+
+def suite():
+    shutil.rmtree(SCRATCH, ignore_errors=True)
+    os.makedirs(SCRATCH)
+    return run(['cargo', 'test', '--workspace', '--locked'],
+               dict(os.environ, TMP=SCRATCH, TEMP=SCRATCH, TMPDIR=SCRATCH))
 
 
 def clean():
@@ -2580,7 +2596,7 @@ if not clean():
     print('the tree is not clean; refusing to mutate it')
     sys.exit(2)
 
-base = run(['cargo', 'test', '--workspace', '--locked'])
+base = suite()
 if base.returncode != 0:
     print('the suite does not pass before any mutation')
     sys.exit(2)
@@ -2591,7 +2607,7 @@ rows = []
 for name, path, old, new in selected:
     src = open(path, encoding='utf-8').read()
     open(path, 'w', encoding='utf-8', newline='').write(src.replace(old, new, 1))
-    r = run(['cargo', 'test', '--workspace', '--locked'])
+    r = suite()
     # A mutation the compiler refuses fails the run before a test has run:
     # that is a mutation written wrong, and says nothing of the suite.
     built = 'could not compile' not in r.stderr
@@ -2632,6 +2648,7 @@ for r in survived:
 for r in stale:
     print('  caught, though expected to survive:', r['mutation'],
           '-- take it out of EXPECTED_SURVIVORS')
+shutil.rmtree(SCRATCH, ignore_errors=True)
 assert clean(), 'the tree was left dirty'
 print('tree clean')
 sys.exit(1 if holes or stale or unbuilt else 0)
