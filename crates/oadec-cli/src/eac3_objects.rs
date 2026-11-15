@@ -37,6 +37,27 @@ use crate::integrity::{Findings, Verdict};
 /// timing counts from the first frame's first sample as it does.
 const DECODER_DELAY: usize = 256;
 
+/// Samples a change of the clip gain takes: the first block of a frame.
+const CLIP_GAIN_RAMP: usize = 256;
+
+/// The clip gain at sample `at` of what a frame decodes to, `before` being
+/// the gain of the frame before it.
+///
+/// Clause 6.3.3.2 gives the gain a value and no use. Read off the object
+/// output of the Dolby decoder, which is run as it stands, the gain of a frame
+/// is reached in a straight line over the first 256 samples the frame decodes
+/// to, from the gain of the frame before, and held for the rest of the frame:
+/// 65 changes on one stream give 0,029, 0,092, 0,154 of the way in the first
+/// three steps of 16 samples and all of it from the 256th sample, on the LFE
+/// and on the objects alike (`docs/joc.md`).
+fn clip_gain_at(before: f64, of_the_frame: f64, at: usize) -> f64 {
+    if at >= CLIP_GAIN_RAMP {
+        of_the_frame
+    } else {
+        before + (of_the_frame - before) * (at as f64 / CLIP_GAIN_RAMP as f64)
+    }
+}
+
 fn to_i24(v: f64) -> i32 {
     (v * 8_388_608.0).round().clamp(-8_388_608.0, 8_388_607.0) as i32
 }
@@ -127,7 +148,8 @@ struct Pipeline {
     slots_rot: Vec<[Complex; BANDS]>,
     /// Samples of decoder delay that costs.
     low_delay: usize,
-    /// `joc_clipgain` of the payload in flight, or 1 while it is switched off.
+    /// `joc_clipgain` of the frame in flight, or 1 while it is switched off;
+    /// between frames, of the frame before, which the next one starts from.
     clip_gain: f64,
     /// Whether to restore the level the encoder took off (`--no-clip-gain`
     /// turns it off, for measuring the difference).
@@ -573,6 +595,8 @@ impl Pipeline {
     fn frame(&mut self, pcm: &[&[f32]], joc: Option<&Joc>) {
         let samples = pcm[0].len();
         let num_ts = samples / BANDS;
+        // what this frame starts from: a frame without a payload keeps it
+        let before = self.clip_gain;
         match joc {
             Some(j) => {
                 // Clause 6.3.3.3: the sequence counter increments every frame
@@ -604,8 +628,13 @@ impl Pipeline {
         // divides the whole downmix, LFE included, by it: the coded core came
         // out at exactly `scale / joc_clipgain` in every frame. The object
         // program is therefore restored by multiplying it back, while the
-        // backwards-compatible core stays as coded. See `docs/joc.md`.
-        let g = self.clip_gain;
+        // backwards-compatible core stays as coded. It is multiplied back
+        // where the Dolby decoder has it: into the downmix as the core
+        // decodes it, before the objects are made of it, and on the way from
+        // the gain of the frame before over the first block of the frame.
+        // See `docs/joc.md`.
+        let of_the_frame = self.clip_gain;
+        let gain = |at: usize| clip_gain_at(before, of_the_frame, at);
         // objects: analysis -> matrix -> synthesis, per time slot, and from
         // there onto the queue of the element the object is written as
         let mut chunk = [0.0f64; BANDS];
@@ -613,7 +642,8 @@ impl Pipeline {
         for ts in 0..num_ts {
             for (k, &coded) in self.joc_inputs.iter().enumerate() {
                 for (i, c) in chunk.iter_mut().enumerate() {
-                    *c = f64::from(pcm[coded][ts * BANDS + i]);
+                    let at = ts * BANDS + i;
+                    *c = f64::from(pcm[coded][at]) * gain(at);
                 }
                 self.analysis[k].step(&chunk, &mut self.slots_in[k]);
             }
@@ -628,7 +658,7 @@ impl Pipeline {
                     queue_up(
                         &mut self.queues[e],
                         &mut self.to_drop[e],
-                        out.iter().map(|&v| v * g),
+                        out.iter().copied(),
                     );
                 }
             }
@@ -638,7 +668,10 @@ impl Pipeline {
                 queue_up(
                     &mut self.queues[e],
                     &mut self.to_drop[e],
-                    pcm[ch].iter().map(|&v| f64::from(v) * g),
+                    pcm[ch]
+                        .iter()
+                        .enumerate()
+                        .map(|(at, &v)| f64::from(v) * gain(at)),
                 );
             }
         }
@@ -1373,13 +1406,40 @@ mod tests {
         groups
     }
 
-    /// The clip gain a JOC payload carries is what the encoder divided the
-    /// downmix by, the LFE with it, and it is put back into everything the
-    /// object path writes: every sample of every object and of the LFE is
-    /// that many times what it is without it. Switched off, the gain of the
-    /// payload changes nothing.
+    /// From the gain of the frame before to the gain of the frame, a 256th of
+    /// the way a sample, and there from the 256th sample on. Read off the
+    /// output of Dolby's decoder in steps of 16 samples
+    /// (`docs/audit/evidence/engine-round-2026-11`).
     #[test]
-    fn the_clip_gain_of_a_payload_is_put_back_into_the_objects_and_the_lfe() {
+    fn the_clip_gain_goes_to_its_new_value_in_a_straight_line_over_the_first_block() {
+        assert_eq!(CLIP_GAIN_RAMP, 256);
+        for (before, after) in [(1.0, 1.5), (2.375, 1.0), (1.031_25, 1.062_5)] {
+            let step = (after - before) / 256.0;
+            assert_eq!(clip_gain_at(before, after, 0), before);
+            assert_eq!(clip_gain_at(before, after, 1), before + step);
+            assert_eq!(clip_gain_at(before, after, 64), before + 64.0 * step);
+            assert_eq!(clip_gain_at(before, after, 255), before + 255.0 * step);
+            for at in [256, 257, 1535, 100_000] {
+                assert_eq!(clip_gain_at(before, after, at), after, "sample {at}");
+            }
+        }
+        // a gain that does not change is that gain, to the last bit
+        for at in 0..300 {
+            assert_eq!(clip_gain_at(1.1, 1.1, at), 1.1, "sample {at}");
+            assert_eq!(clip_gain_at(1.0, 1.0, at), 1.0, "sample {at}");
+        }
+    }
+
+    /// The clip gain a JOC payload carries is what the encoder divided the
+    /// downmix by, the LFE with it. It is put back where Dolby's decoder puts
+    /// it back: on the downmix as the core decodes it, before the objects are
+    /// made of it, going from the gain of the frame before to the gain of the
+    /// frame over the first 256 samples the frame decodes to. So the LFE is
+    /// the LFE times that gain sample for sample, and the objects are the
+    /// objects of the same stream without a gain whose downmix was that much
+    /// louder. Switched off, the gain of the payload changes nothing.
+    #[test]
+    fn the_clip_gain_of_a_payload_is_put_back_into_the_downmix_the_objects_are_made_of() {
         let groups = fixture_groups(6);
         let payloads = |group: &ProgramFrame| {
             frame_payloads(
@@ -1404,13 +1464,22 @@ mod tests {
             )
             .expect("a pipeline")
         };
-        let (mut plain, mut gained, mut switched_off) =
-            (pipeline(true), pipeline(true), pipeline(false));
-        for group in &groups {
+        let (mut plain, mut gained, mut switched_off, mut louder_downmix) = (
+            pipeline(true),
+            pipeline(true),
+            pipeline(false),
+            pipeline(true),
+        );
+        // none for two frames, one and a half for two, two for the last two
+        let gains = [1.0, 1.0, 1.5, 1.5, 2.0, 2.0];
+        let frame_len = groups[0].samples();
+        let mut before = 1.0;
+        for (group, &gain) in groups.iter().zip(&gains) {
             let joc = payloads(group).joc.expect("a JOC payload");
             assert!((joc.clipgain - 1.0).abs() < 1e-12);
-            let louder = Joc {
-                clipgain: 1.5,
+            assert_eq!(group.samples(), frame_len);
+            let with_gain = Joc {
+                clipgain: gain,
                 ..joc.clone()
             };
             // the LFE of the fixture is silent: a ramp stands in for it
@@ -1432,23 +1501,201 @@ mod tests {
                     }
                 })
                 .collect();
+            // the same downmix with the gain in it already
+            let louder: Vec<Vec<f32>> = channels
+                .iter()
+                .map(|c| {
+                    c.iter()
+                        .enumerate()
+                        .map(|(i, &v)| (f64::from(v) * clip_gain_at(before, gain, i)) as f32)
+                        .collect()
+                })
+                .collect();
+            let louder: Vec<&[f32]> = louder.iter().map(Vec::as_slice).collect();
             plain.frame(&channels, Some(&joc));
-            gained.frame(&channels, Some(&louder));
-            switched_off.frame(&channels, Some(&louder));
+            gained.frame(&channels, Some(&with_gain));
+            switched_off.frame(&channels, Some(&with_gain));
+            louder_downmix.frame(&louder, Some(&joc));
+            before = gain;
         }
         // an object and a channel of the core both carry signal
         let mut loud = [false, false];
         for (e, (with, without)) in gained.queues.iter().zip(&plain.queues).enumerate() {
             assert_eq!(with.len(), without.len(), "element {e}");
             assert!(with.len() > 4000, "element {e}: {} samples", with.len());
-            for (n, (a, b)) in with.iter().zip(without).enumerate() {
-                assert_eq!(*a, *b * 1.5, "element {e}, sample {n}");
-            }
             let of_the_core = matches!(plain.sources[e], Source::Core(_));
+            if of_the_core {
+                // sample n of the queue is sample n + 256 of what the core decoded
+                for (n, (a, b)) in with.iter().zip(without).enumerate() {
+                    let at = n + DECODER_DELAY;
+                    let (frame, i) = (at / frame_len, at % frame_len);
+                    let before = if frame == 0 { 1.0 } else { gains[frame - 1] };
+                    assert_eq!(
+                        *a,
+                        *b * clip_gain_at(before, gains[frame], i),
+                        "element {e}, sample {n}"
+                    );
+                }
+            } else {
+                // the downmix given to the other pipeline was rounded to 32 bits
+                let made_louder = &louder_downmix.queues[e];
+                let peak = made_louder.iter().fold(1e-3f64, |m, v| m.max(v.abs()));
+                for (n, (a, b)) in with.iter().zip(made_louder).enumerate() {
+                    assert!(
+                        (a - b).abs() <= 1e-6 * peak,
+                        "element {e}, sample {n}: {a} against {b}"
+                    );
+                }
+                // where the gain has been two for longer than the banks
+                // remember, an object is twice what it is without it, and
+                // twice is exact
+                let settled = with.len() - 128;
+                for (n, (a, b)) in with.iter().zip(without).enumerate().skip(settled) {
+                    assert_eq!(*a, *b * 2.0, "element {e}, sample {n}");
+                }
+            }
             loud[usize::from(of_the_core)] |= without.iter().any(|v| *v != 0.0);
         }
         assert_eq!(loud, [true, true]);
         assert_eq!(switched_off.queues, plain.queues);
+    }
+
+    /// A frame that comes without a JOC payload is given the gain of the frame
+    /// before, and does not go back to none on the way.
+    #[test]
+    fn a_frame_without_a_payload_keeps_the_clip_gain_of_the_frame_before() {
+        let groups = fixture_groups(3);
+        let payloads = |group: &ProgramFrame| {
+            frame_payloads(
+                &group.metadata_part().decoded.skip_fields,
+                SparseReading::Measured,
+                true,
+            )
+        };
+        let first = payloads(&groups[0]);
+        let header = first.joc.as_ref().expect("a JOC payload").header();
+        let program = Program::from_oamd(&first.oamd[0].0);
+        let mut pipeline = Pipeline::new(
+            &header,
+            &program,
+            &groups[0].layout.channels,
+            true,
+            false,
+            SteepReading::Measured,
+            &JocOverrides::default(),
+            &mut std::io::sink(),
+        )
+        .expect("a pipeline");
+        let lfe = groups[0]
+            .layout
+            .channels
+            .iter()
+            .position(|c| *c == ChannelLoc::Lfe)
+            .expect("an LFE");
+        let frame_len = groups[0].samples();
+        let level = vec![0.25f32; frame_len];
+        for (n, group) in groups.iter().enumerate() {
+            let joc = payloads(group).joc.expect("a JOC payload");
+            let with_gain = Joc {
+                clipgain: 1.5,
+                ..joc
+            };
+            let channels: Vec<&[f32]> = (0..group.channels())
+                .map(|i| {
+                    if i == lfe {
+                        &level[..]
+                    } else {
+                        group.channel(i)
+                    }
+                })
+                .collect();
+            // the first frame brings the gain, the two after bring nothing
+            pipeline.frame(&channels, (n == 0).then_some(&with_gain));
+        }
+        let e = pipeline
+            .sources
+            .iter()
+            .position(|s| matches!(s, Source::Core(_)))
+            .expect("the LFE");
+        let queue = &pipeline.queues[e];
+        assert_eq!(queue.len(), 3 * frame_len - DECODER_DELAY);
+        // the first 256 samples of the first frame are the delay of the decoder
+        // and the gain is there by the time they are past
+        assert!(
+            queue.iter().all(|v| *v == 0.25 * 1.5),
+            "{:?}",
+            queue.iter().take(4).collect::<Vec<_>>()
+        );
+    }
+
+    /// What the banks still hold when the last frame is in comes out with
+    /// the gain of that frame like everything before it: the gain went into
+    /// the downmix, and the tail is made of the downmix. It came out without
+    /// the gain while the gain was put on what left the decoder frame by
+    /// frame, which the tail does not.
+    #[test]
+    fn what_the_banks_give_out_after_the_last_frame_has_its_clip_gain() {
+        let groups = fixture_groups(4);
+        let payloads = |group: &ProgramFrame| {
+            frame_payloads(
+                &group.metadata_part().decoded.skip_fields,
+                SparseReading::Measured,
+                true,
+            )
+        };
+        let first = payloads(&groups[0]);
+        let header = first.joc.as_ref().expect("a JOC payload").header();
+        let program = Program::from_oamd(&first.oamd[0].0);
+        let pipeline = || {
+            Pipeline::new(
+                &header,
+                &program,
+                &groups[0].layout.channels,
+                true,
+                false,
+                SteepReading::Measured,
+                &JocOverrides::default(),
+                &mut std::io::sink(),
+            )
+            .expect("a pipeline")
+        };
+        let (mut plain, mut gained) = (pipeline(), pipeline());
+        for group in &groups {
+            let joc = payloads(group).joc.expect("a JOC payload");
+            let doubled = Joc {
+                clipgain: 2.0,
+                ..joc.clone()
+            };
+            let channels: Vec<&[f32]> = (0..group.channels()).map(|i| group.channel(i)).collect();
+            plain.frame(&channels, Some(&joc));
+            gained.frame(&channels, Some(&doubled));
+        }
+        let before_the_tail: Vec<usize> = plain.queues.iter().map(VecDeque::len).collect();
+        plain.flush();
+        gained.flush();
+        let mut objects = 0;
+        for (e, (with, without)) in gained.queues.iter().zip(&plain.queues).enumerate() {
+            if matches!(plain.sources[e], Source::Core(_)) {
+                continue;
+            }
+            assert!(without.len() > before_the_tail[e] + 1000, "element {e}");
+            let tail = without.iter().skip(before_the_tail[e]);
+            if tail.clone().all(|v| *v == 0.0) {
+                continue;
+            }
+            objects += 1;
+            // the gain is two from the 256th sample of the first frame, which is
+            // long past: twice, and twice is exact
+            for (n, (a, b)) in with
+                .iter()
+                .zip(without)
+                .enumerate()
+                .skip(before_the_tail[e])
+            {
+                assert_eq!(*a, *b * 2.0, "element {e}, sample {n}");
+            }
+        }
+        assert!(objects >= 2, "only {objects} objects had a tail to show");
     }
 
     /// The object path loses a frame's metadata when the substream declares the

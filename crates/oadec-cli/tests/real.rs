@@ -1957,6 +1957,90 @@ fn below_the_first_subband(x: &[f64]) -> Vec<f64> {
     y
 }
 
+/// The objects of a clip against the objects Dolby's decoder wrote for it,
+/// with our dither left out: the worst object below 375 Hz, how many objects
+/// carry anything there, and the LFE over the whole band where the clip has
+/// one. A ratio is Dolby's signal to the difference from ours, in dB, from two
+/// seconds in: the start of a decode is two decoders coming out of silence
+/// their own way.
+fn objects_against_dolby(media: &Path, clip: &str, dump: &str) -> (f64, usize, Option<f64>) {
+    let file = media.join(clip);
+    require(&file);
+    let dolby = media.join(dump);
+    assert!(
+        dolby.exists(),
+        "{} is missing, so the objects of {clip} cannot be judged",
+        dolby.display()
+    );
+    let reference = floats(&dolby);
+    // two tests ask this at once, each of clips of its own
+    let stem = file.file_stem().and_then(|s| s.to_str()).expect("a name");
+    let base = std::env::temp_dir().join(format!("oadec-objects-{stem}-{}", std::process::id()));
+    let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args([
+            "decode",
+            "--format",
+            "damf",
+            "--no-bed-conform",
+            "--no-dither",
+            "-o",
+        ])
+        .arg(&base)
+        .arg(&file)
+        .output()
+        .expect("run oadec decode");
+    assert!(
+        matches!(out.status.code(), Some(0) | Some(7)),
+        "{clip} did not decode: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let (ours, channels) = caf(&base.with_extension("atmos.audio"));
+    for ext in ["atmos", "atmos.metadata", "atmos.audio"] {
+        let _ = std::fs::remove_file(base.with_extension(ext));
+    }
+    assert_eq!(
+        reference.len() % channels,
+        0,
+        "{dump} is not rows of {channels}"
+    );
+    let n = (reference.len() / channels).min(ours.len() / channels);
+    let (from, to) = (2 * 48_000, n - 24_000);
+    assert!(to > from + 5 * 48_000, "{clip}: only {n} rows to compare");
+    let ratio = |theirs: &[f64], apart: &[f64]| -> Option<f64> {
+        let level: f64 = theirs[from..to].iter().map(|v| v * v).sum::<f64>();
+        // under -90 dBFS there is nothing to be judged on
+        if level / ((to - from) as f64) < 1e-9 {
+            return None;
+        }
+        let left: f64 = apart[from..to].iter().map(|v| v * v).sum::<f64>();
+        Some(10.0 * (level / left.max(1e-300)).log10())
+    };
+    let channel = |ch: usize| -> (Vec<f64>, Vec<f64>) {
+        let theirs: Vec<f64> = (0..n).map(|i| reference[i * channels + ch]).collect();
+        let apart = (0..n)
+            .map(|i| ours[i * channels + ch] - theirs[i])
+            .collect();
+        (theirs, apart)
+    };
+
+    // element 0 is the LFE, which comes of the core and goes through nothing of JOC
+    let (theirs, apart) = channel(0);
+    let lfe = ratio(&theirs, &apart);
+    let mut worst = f64::INFINITY;
+    let mut judged = 0usize;
+    for ch in 1..channels {
+        let (theirs, apart) = channel(ch);
+        if let Some(db) = ratio(
+            &below_the_first_subband(&theirs),
+            &below_the_first_subband(&apart),
+        ) {
+            worst = worst.min(db);
+            judged += 1;
+        }
+    }
+    (worst, judged, lfe)
+}
+
 /// The lowest band of the objects, held to Dolby's.
 ///
 /// Downmix configurations 3 and 4 hand the surround pair over with a 90-degree
@@ -2000,69 +2084,7 @@ fn the_lowest_band_of_the_objects_is_the_one_dolby_writes() {
             "ref-drp/joc/joc-steep-jackal.f32",
         ),
     ] {
-        let file = media.join(clip);
-        require(&file);
-        let dolby = media.join(dump);
-        assert!(
-            dolby.exists(),
-            "{} is missing, so the lowest band of {clip} cannot be judged",
-            dolby.display()
-        );
-        let reference = floats(&dolby);
-        let base = std::env::temp_dir().join(format!("oadec-low-band-{}", std::process::id()));
-        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
-            .args([
-                "decode",
-                "--format",
-                "damf",
-                "--no-bed-conform",
-                "--no-dither",
-                "-o",
-            ])
-            .arg(&base)
-            .arg(&file)
-            .output()
-            .expect("run oadec decode");
-        assert!(
-            matches!(out.status.code(), Some(0) | Some(7)),
-            "{clip} did not decode: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        let (ours, channels) = caf(&base.with_extension("atmos.audio"));
-        for ext in ["atmos", "atmos.metadata", "atmos.audio"] {
-            let _ = std::fs::remove_file(base.with_extension(ext));
-        }
-        assert_eq!(
-            reference.len() % channels,
-            0,
-            "{dump} is not rows of {channels}"
-        );
-        let n = (reference.len() / channels).min(ours.len() / channels);
-        // the start of a decode is two decoders coming out of silence their own way
-        let (from, to) = (2 * 48_000, n - 24_000);
-        assert!(to > from + 5 * 48_000, "{clip}: only {n} rows to compare");
-
-        // element 0 is the LFE, which comes of the core and goes through nothing of this
-        let mut worst = f64::INFINITY;
-        let mut judged = 0usize;
-        for ch in 1..channels {
-            let theirs: Vec<f64> = (0..n).map(|i| reference[i * channels + ch]).collect();
-            let apart: Vec<f64> = (0..n)
-                .map(|i| ours[i * channels + ch] - theirs[i])
-                .collect();
-            let (theirs, apart) = (
-                below_the_first_subband(&theirs),
-                below_the_first_subband(&apart),
-            );
-            let level: f64 = theirs[from..to].iter().map(|v| v * v).sum::<f64>();
-            // an object with nothing down there has nothing to be judged on: -90 dBFS
-            if level / ((to - from) as f64) < 1e-9 {
-                continue;
-            }
-            let left: f64 = apart[from..to].iter().map(|v| v * v).sum::<f64>();
-            worst = worst.min(10.0 * (level / left.max(1e-300)).log10());
-            judged += 1;
-        }
+        let (worst, judged, _) = objects_against_dolby(&media, clip, dump);
         assert!(
             judged >= 4,
             "{clip}: only {judged} objects carry a lowest band"
@@ -2072,6 +2094,62 @@ fn the_lowest_band_of_the_objects_is_the_one_dolby_writes() {
             "{clip}: the worst of {judged} objects is {worst:.2} dB from Dolby's below 375 Hz; \
              the operator on the lowest subband is no longer the one Dolby's decoder applies"
         );
+    }
+}
+
+/// The clip gain, held to Dolby's objects where it changes.
+///
+/// A JOC payload carries the gain the encoder took off the downmix, and the
+/// standard gives it a value and no use (clause 6.3.3.2). Where Dolby's decoder
+/// puts it back was read off its output: into the downmix before the objects
+/// are made of it, going from the gain of the frame before to the gain of the
+/// frame in a straight line over the first 256 samples of the frame. A gain
+/// that is put on anywhere else, or in a step, is wrong for as long as the two
+/// differ, at every change, in every band and in the LFE too.
+///
+/// Two clips: forty seconds of a film in which the gain takes 39 values, and
+/// the clip authored for the steep switch, where it changes for one frame.
+/// The measures are the worst object below 375 Hz and the LFE, which goes
+/// through nothing of JOC but is given the gain. With the gain stepped where
+/// the objects left the decoder the first clip stood at 25,7 dB and 48,5 for
+/// its LFE, and the second at 51,4; when written they stand at 124,1 and
+/// 119,9, and at 91,6.
+#[test]
+#[ignore = "needs OADEC_MEDIA"]
+fn the_clip_gain_is_put_back_where_dolbys_decoder_puts_it_back() {
+    let media = media_dir();
+    for (clip, dump, bar, lfe_bar) in [
+        (
+            "clips/joc-clip-gain.ec3",
+            "ref-drp/joc/joc-clip-gain.f32",
+            100.0,
+            Some(100.0),
+        ),
+        (
+            "clips/joc-onset-steep.ec3",
+            "ref-drp/joc/joc-onset-steep.f32",
+            80.0,
+            None,
+        ),
+    ] {
+        let (worst, judged, lfe) = objects_against_dolby(&media, clip, dump);
+        assert!(
+            judged >= 4,
+            "{clip}: only {judged} objects carry a lowest band"
+        );
+        assert!(
+            worst >= bar,
+            "{clip}: the worst of {judged} objects is {worst:.2} dB from Dolby's below 375 Hz; \
+             the clip gain does not meet the objects where Dolby's decoder has it"
+        );
+        if let Some(lfe_bar) = lfe_bar {
+            let lfe = lfe.unwrap_or_else(|| panic!("{clip}: the LFE is silent"));
+            assert!(
+                lfe >= lfe_bar,
+                "{clip}: the LFE is {lfe:.2} dB from Dolby's; the clip gain does not meet it \
+                 where Dolby's decoder has it"
+            );
+        }
     }
 }
 
