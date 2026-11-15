@@ -1729,6 +1729,12 @@ fn pass_json(
     Some(report)
 }
 
+/// What is said of a stream that has frames none of which decodes: there is
+/// nothing to report of it but that.
+pub(crate) fn no_frames(name: &str) -> String {
+    format!("{name}: no decodable frames")
+}
+
 /// Writes the report of a pass to `out`, as JSON or as text. Of a pass that
 /// read no frame it says so to `err`, and writes nothing to `out`.
 #[allow(
@@ -1747,7 +1753,7 @@ fn print_pass(
     err: &mut dyn Write,
 ) -> io::Result<()> {
     let Some((h, bsi)) = &p.first else {
-        writeln!(err, "{name}: no decodable frames")?;
+        writeln!(err, "{}", no_frames(name))?;
         return Ok(());
     };
     if json {
@@ -2333,6 +2339,13 @@ pub fn report_with(source: &Source, options: &ReportOptions) -> Result<Report> {
 }
 
 impl Report {
+    /// The syntax of the first frame that decoded, AC-3 or E-AC-3; `None`
+    /// where none did.
+    #[must_use]
+    pub fn syntax(&self) -> Option<oadec_eac3::Syntax> {
+        self.pass.first.as_ref().map(|(header, _)| header.syntax)
+    }
+
     /// Whether every frame decodes, every CRC checks and nothing was skipped:
     /// the verdict of `verify`, at the threshold the report was made with.
     #[must_use]

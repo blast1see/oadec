@@ -1,0 +1,370 @@
+{
+ "question": "The engine is a crate of its own (evidence 55) and what it offers a caller is `api`: the commands as calls, family by family, each handing back the report its command prints and saying what it could not do in the words the command says. Can a caller that is no command line ask a stream what it is without knowing its family first, read one report of the checks whichever family the stream is of, and tell the kinds of failure apart, from calls that stand on `api` and move nothing the command line says or writes?",
+ "method": "Five calls at the root of `oadec-engine`, each a few lines over the call of `api` beside it, written against tests that were seen to fail first. The kind of an error is found by what marks it where it arises: a refusal and a source without a stream are each wrapped in a type of their own (which is why `api` builds its refusals through one function and no longer through `bail!`), and an error nothing marks is `Io` when an `io::Error` is in its chain and `Stream` when none is. The words stay the ones the command line says. Held four ways. (1) `tests/calls.rs` holds each call to the call of `api` it stands on, field for field, over the fixtures, the streams the campaign turned up, an AC-3 stream a recipe writes (no fixture is one) and the E-AC-3 fixture with every syncframe made a dependent substream (frames, none of which decodes), and each kind of error to a case of it. (2) An example of the crate, `calls`, was run over every stream of the corpus beside the command line, and every field of the one report compared with the field of the family's report it is read from, the format a call names with what the command says the stream is, and `clean` with the exit codes. (3) Every mutation that is new or whose text changed was run. (4) The binary of main and of the change over the corpus, the help of every command, and the campaign of damaged streams against the tally of main, as for every change that touches what a command says.",
+ "commands": [
+  "cargo test --workspace --locked --no-fail-fast; cargo clippy --workspace --all-targets --locked -- -D warnings; cargo fmt --all --check; cargo deny check (both workspaces)",
+  "cargo run --release -p oadec-engine --example calls -- <stream>...   (beside `oadec info`, `verify --json`, `oamd`, `emdf` of the same streams)",
+  "python tools/mutants.py --check; python tools/mutants.py --only <the 31 names>",
+  "python tools/old_new.py --old <binary of main> --new <binary of the change> --decode-all <the corpus>",
+  "OADEC_CAMPAIGN_ITERS=200000 cargo test --release --locked -p oadec-fuzz --test campaign -- --nocapture the_commands_agree_on_every_changed_stream",
+  "bash tools/media_regression.sh <media> <logs>",
+  "cargo metadata --locked --format-version 1 --manifest-path fuzz/Cargo.toml"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "binaries": {
+  "main": {
+   "name": "oadec-engine-3.exe",
+   "sha256": "99cf6a28a3a7b117b11a9b8a587b3899959b39fc9e5c65926061d65f8b5c3075",
+   "what": "the binary of main (evidence 55)"
+  },
+  "the_change": {
+   "name": "oadec-calls-2.exe",
+   "sha256": "f762c5f9e467b7f7ba38357602d43e51ea0a18823b8a828def340e777daa1f1e"
+  }
+ },
+ "result": {
+  "the_calls": {
+   "at_the_root_of": "crates/oadec-engine",
+   "calls": {
+    "probe": "the format of the stream and what `info` reports; stands on `api::info`",
+    "verify": "one report of the checks; stands on `api::verify`",
+    "decode": "the samples into a sink; `api::decode_pcm`",
+    "decode_objects": "the object programme into its files; `api::decode_objects`",
+    "metadata": "what `oamd` and `emdf` report; `api::oamd` and `api::emdf`"
+   },
+   "types": [
+    "Error",
+    "Format",
+    "Metadata",
+    "Probe",
+    "RuleCount",
+    "Tally",
+    "VerifyReport"
+   ],
+   "formats": [
+    "TrueHd",
+    "Mlp",
+    "Ac3",
+    "Eac3"
+   ],
+   "the_fields_of_the_report_of_the_checks": [
+    "format",
+    "clean",
+    "first_problem",
+    "tally",
+    "coverage",
+    "regions",
+    "census",
+    "protection",
+    "info",
+    "report"
+   ],
+   "where_a_field_is_read_that_the_two_reports_keep_apart": {
+    "protection": "TrueHD and MLP: `extra.protection`; AC-3 and E-AC-3: `emdf.protection`. Every report has it: of a stream without a container it counts none",
+    "regions": "`diagnostics.regions` of a TrueHD report; an AC-3 family report has none",
+    "census": "a TrueHD report that was asked for it; nothing otherwise"
+   }
+  },
+  "what_a_call_could_not_do": {
+   "kinds": [
+    "Io",
+    "NoStream",
+    "Refused",
+    "Stream"
+   ],
+   "written_as": "the whole chain in one line, as the command line writes it after `error: ` (`#[error(\"{0:#}\")]`); it names no source, so an error written with its sources is written once, and `cause()` hands back the chain",
+   "a_case_of_each_in_the_tests": {
+    "Io": [
+     "a file that is not there, under `probe`: the words of `api::info`, with an `io::Error` at the bottom of `cause()`",
+     "an object output whose folder is a file, under `decode_objects`"
+    ],
+    "NoStream": [
+     "65 536 zeros under `probe`, `verify` and `metadata`: \"no TrueHD access unit or E-AC-3 syncframe found in <name>\""
+    ],
+    "Refused": [
+     "the census asked of an E-AC-3 stream",
+     "a presentation asked of an E-AC-3 decode"
+    ],
+    "Stream": [
+     "a decode told to stop at what it cannot read, which stops",
+     "frames none of which decodes, under `probe` and `verify`: \"<name>: no decodable frames\", the line `info` and `verify` say of it"
+    ]
+   },
+   "frames_none_of_which_decodes": "the E-AC-3 fixture with the type of every substream set to dependent. The commands have no report of it to print; `probe` and `verify` hand back the line they say; `metadata` reports it, as not clean; `decode` delivers nothing and its verdict is faulty"
+  },
+  "the_streams_of_the_tests": {
+   "fixtures": 10,
+   "found_by_the_campaign": 7,
+   "written_by_a_recipe": "one AC-3 stream",
+   "made_in_the_test": "the dependent substreams, and zeros"
+  },
+  "seen_to_fail_first": [
+   "the five tests of `tests/calls.rs`, before there were calls",
+   "an error named its chain as its source and was written with it too: under a writer of sources, twice",
+   "a report of the checks of an AC-3 stream was expected to have no count of containers; every report has one, of none, and the field is always there now",
+   "frames none of which decodes: `probe` handed back a format and `verify` an error of another kind in other words",
+   "a stream whose one major sync begins with the sync word of MLP and cannot be read past it was called TrueHD, and the test said it should be, having taken the name of the file for the format; found by the corpus comparison below, which read the sync word from the bytes"
+  ],
+  "what_the_corpus_comparison_found_first": {
+   "streams": 143,
+   "comparisons_in_all": 2145,
+   "that_differ": 2,
+   "the_ones_that_differ": [
+    {
+     "stream": 139,
+     "what": "format",
+     "the_call": "TrueHD",
+     "the_command": "MLP"
+    },
+    {
+     "stream": 139,
+     "what": "the format of a probe",
+     "the_call": "TrueHD",
+     "the_command": "MLP"
+    }
+   ],
+   "what": "one stream of the damaged set, its format under `verify` and under `probe`: the syntax of a TrueHD or MLP stream was asked of a major sync that could be read, and that stream has none. The scan keeps the first sync word now, read or not, and the tests hold every stream to its bytes"
+  },
+  "the_calls_beside_the_command_line_over_the_corpus": {
+   "streams": 143,
+   "by_the_format_a_call_names": {
+    "AC-3": 25,
+    "E-AC-3": 59,
+    "MLP": 5,
+    "TrueHD": 54
+   },
+   "formats_held_to_the_sync_word_in_the_bytes_where_info_names_none": 1,
+   "clean_by_format": {
+    "AC-3, not clean": 2,
+    "AC-3, clean": 23,
+    "E-AC-3, not clean": 9,
+    "E-AC-3, clean": 50,
+    "MLP, not clean": 1,
+    "MLP, clean": 4,
+    "TrueHD, not clean": 2,
+    "TrueHD, clean": 52
+   },
+   "calls_that_handed_back_an_error": {},
+   "metadata": {
+    "both clean": 128,
+    "not both clean": 15
+   },
+   "comparisons": {
+    "clean": 143,
+    "clean and the exit code of verify": 143,
+    "coverage": 143,
+    "first_problem": 143,
+    "format": 143,
+    "metadata.containers.clean() and the exit code of emdf": 143,
+    "metadata.objects.clean() and the exit code of oamd": 143,
+    "protection.containers": 143,
+    "regions": 143,
+    "tally.error": 143,
+    "tally.fatal": 143,
+    "tally.info": 143,
+    "tally.rules": 143,
+    "tally.warning": 143,
+    "the format of a probe": 143
+   },
+   "comparisons_in_all": 2145,
+   "that_differ": 0,
+   "the_ones_that_differ": []
+  },
+  "mutations": {
+   "run": 33,
+   "caught": 33,
+   "which": "the 23 that are new and the 10 of `api.rs` whose text changed with the refusals; the two of the sync word, and the two of the syntax of a TrueHD or MLP stream again, at the commit that reads the sync word",
+   "each_and_how_many_tests_fail_for_it": [
+    {
+     "mutation": "the options of the TrueHD checks let through for an AC-3 family stream",
+     "caught_by": 1
+    },
+    {
+     "mutation": "what a TrueHD decode does with a bad unit let through for an E-AC-3 object decode",
+     "caught_by": 1
+    },
+    {
+     "mutation": "kept duplicates let through by a call for a sample decode of the AC-3 family",
+     "caught_by": 1
+    },
+    {
+     "mutation": "the readings of the JOC matrices let through by a call for a TrueHD object decode",
+     "caught_by": 1
+    },
+    {
+     "mutation": "a refusal taken for a stream that cannot be delivered",
+     "caught_by": 1
+    },
+    {
+     "mutation": "an MLP stream called TrueHD by a probe",
+     "caught_by": 2
+    },
+    {
+     "mutation": "an AC-3 stream called E-AC-3",
+     "caught_by": 2
+    },
+    {
+     "mutation": "what a call could not do written without what led to it",
+     "caught_by": 1
+    },
+    {
+     "mutation": "the errors left out of the tally of a report",
+     "caught_by": 1
+    },
+    {
+     "mutation": "the protection of an E-AC-3 stream looked for where a TrueHD report has it",
+     "caught_by": 1
+    },
+    {
+     "mutation": "the metadata of a stream clean when one of its two reports is",
+     "caught_by": 1
+    },
+    {
+     "mutation": "a call that decodes in the order of the stream whatever it is asked",
+     "caught_by": 2
+    },
+    {
+     "mutation": "a presentation let through by a call for a decode of the AC-3 family",
+     "caught_by": 1
+    },
+    {
+     "mutation": "the options of the AC-3 family decoder let through by a call for a TrueHD decode",
+     "caught_by": 1
+    },
+    {
+     "mutation": "a source that holds no stream taken for a stream that cannot be delivered",
+     "caught_by": 1
+    },
+    {
+     "mutation": "an MLP stream called TrueHD by the report of the checks",
+     "caught_by": 1
+    },
+    {
+     "mutation": "a stream none of whose frames decodes taken for a source without a stream",
+     "caught_by": 1
+    },
+    {
+     "mutation": "a report of the checks clean whatever was found",
+     "caught_by": 1
+    },
+    {
+     "mutation": "the rules left out of the tally of a report",
+     "caught_by": 1
+    },
+    {
+     "mutation": "the protection of a TrueHD stream looked for where an E-AC-3 report has it",
+     "caught_by": 1
+    },
+    {
+     "mutation": "a source without a stream said without what marks it",
+     "caught_by": 1
+    },
+    {
+     "mutation": "the JOC measurement overrides let through for a TrueHD stream",
+     "caught_by": 1
+    },
+    {
+     "mutation": "a call telling a presentation what kept duplicates are told",
+     "caught_by": 1
+    },
+    {
+     "mutation": "kept duplicates let through by a call for an object decode of the AC-3 family",
+     "caught_by": 1
+    },
+    {
+     "mutation": "a source that cannot be read taken for a stream that cannot be delivered",
+     "caught_by": 1
+    },
+    {
+     "mutation": "an E-AC-3 stream called AC-3",
+     "caught_by": 2
+    },
+    {
+     "mutation": "a stream none of whose frames decodes said in other words",
+     "caught_by": 1
+    },
+    {
+     "mutation": "the first thing found wrong left out of the report of the checks",
+     "caught_by": 1
+    },
+    {
+     "mutation": "the regions left out of the report of the checks",
+     "caught_by": 1
+    },
+    {
+     "mutation": "the census left out of a report that was asked for it",
+     "caught_by": 1
+    },
+    {
+     "mutation": "the census of an AC-3 family stream refused without what marks a refusal",
+     "caught_by": 1
+    },
+    {
+     "mutation": "a stream said to be TrueHD whatever the sync word of its first major sync",
+     "caught_by": 2
+    },
+    {
+     "mutation": "the syntax of a stream asked of a major sync that could be read and not of its sync word",
+     "caught_by": 1
+    }
+   ],
+   "in_all": 607
+  },
+  "what_changes_for_the_command_line": {
+   "what": "`tools/old_new.py --decode-all`: every report and every delivery of every stream",
+   "streams": 136,
+   "streams_changed": 0,
+   "fields_added": "none",
+   "lines_added": "none"
+  },
+  "the_words_of_the_command_line": {
+   "asked": 45,
+   "the_same": 45,
+   "lines_compared": 666,
+   "not_the_same": []
+  },
+  "the_commands_agree": {
+   "seed": 0,
+   "rounds": 200000,
+   "clauses_broken": 0,
+   "panics": 0,
+   "kinds_of_answers": {
+    "main": 31,
+    "the_change": 31
+   },
+   "every_command_clean": {
+    "main": 27517,
+    "the_change": 27517
+   },
+   "rounds_whose_answers_moved": 0,
+   "answers_that_moved": {}
+  },
+  "the_lock_of_the_fuzz_workspace": {
+   "what": "the engine gained a dependency (`thiserror`, which five crates of the workspace already had) and no fuzz target changed, which is when the lock of the fuzz workspace went stale before (evidence 55). A job of CI resolves it with `--locked` on every pull request",
+   "on_the_commit_where_it_was_stale": "exit 101: \"cannot update the lock file ... because --locked was passed to prevent this\"",
+   "here": "exit 0"
+  },
+  "tests": {
+   "cargo_fmt_check_clippy_with_warnings_denied_and_cargo_deny_of_both_workspaces": "clean",
+   "cargo_test_workspace": "59 test binaries",
+   "passed": 751,
+   "failed": 0,
+   "ignored": 35,
+   "the_tests_of_the_calls": [
+    "what_a_call_could_not_do_says_which_kind_of_thing_went_wrong",
+    "a_probe_says_what_the_stream_is_and_what_info_reports",
+    "a_report_of_the_checks_has_one_shape_whatever_the_stream",
+    "the_metadata_of_a_stream_is_what_oamd_and_emdf_report",
+    "a_decode_writes_what_the_calls_of_api_write"
+   ],
+   "media_passed": 35,
+   "media_failed": 0,
+   "media_regression": "all 8 steps passed (media-suite, media-negative, truehd-gates, joc-object-gate, replay-joc, replay-truehd, adm-harness-build, adm-harness)"
+  }
+ },
+ "reading": "A caller needs to know nothing of a stream before it asks. Over the 143 streams of the corpus the calls name the format the command line names, 25 AC-3, 59 E-AC-3, 5 MLP, 54 TrueHD, and every field of the one report is the field of the family's report it is read from, 2145 comparisons with none that differs. What a call could not do says which of four kinds of thing went wrong, in the line the command line writes. For the command line nothing moved: its reports, its deliveries, its help and the answers of the campaign are what they were. One stream is said differently by a call and by a command, frames none of which decodes: the commands print no report, and the calls hand back an error and not a report with nothing in it. The comparison over the corpus earned its place: it found a damaged MLP stream the calls named TrueHD, which the tests had written down as right. What this does not give: a report of the checks whose every field has a type of its own. `regions`, `census` and `protection` are the values the reports of the families have, as JSON, and the one report is built from what `verify --json` prints."
+}

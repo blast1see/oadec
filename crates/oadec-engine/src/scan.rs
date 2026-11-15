@@ -250,6 +250,12 @@ pub struct Scan {
     pub first_unit_offset: Option<u64>,
     #[serde(skip)]
     pub first_major_sync: Option<MajorSync>,
+    /// Whether the first major sync of the stream begins with the sync word
+    /// of the FBB syntax, whatever follows the word and whether or not it
+    /// could be read: the word is what says which of the two syntaxes a
+    /// stream is of. `None` before a major sync was met.
+    #[serde(skip)]
+    pub first_sync_is_fbb: Option<bool>,
     #[serde(skip)]
     pub config: Option<StreamConfig>,
     #[serde(skip)]
@@ -448,6 +454,14 @@ fn note_first(slot: &mut Option<String>, message: impl FnOnce() -> String) {
 }
 
 impl Scan {
+    /// Whether the stream is of the FBB syntax, Meridian Lossless Packing as
+    /// DVD-Audio carries it, and not Dolby TrueHD: what the sync word of its
+    /// first major sync says, read or not.
+    #[must_use]
+    pub fn is_fbb(&self) -> bool {
+        self.first_sync_is_fbb == Some(true)
+    }
+
     fn new(source: &Source, max_per_rule: usize) -> Self {
         Self {
             file: source.name().to_string(),
@@ -462,6 +476,7 @@ impl Scan {
             last_input_timing: None,
             first_unit_offset: None,
             first_major_sync: None,
+            first_sync_is_fbb: None,
             config: None,
             parser: None,
             buffer: Box::default(),
@@ -577,6 +592,10 @@ impl Scan {
         // a gap the units between are not all here to count.
         let mut spacing = None;
         if unit.has_major_sync {
+            if self.first_sync_is_fbb.is_none() {
+                self.first_sync_is_fbb =
+                    Some(unit.bytes.get(4..8) == Some(&SYNC_FBB.to_be_bytes()[..]));
+            }
             let interval = *since_major_sync;
             if self.major_syncs > 0 && unit.gap_before.is_none() {
                 if interval > 128 {

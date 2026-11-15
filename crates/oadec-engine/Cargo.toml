@@ -18,8 +18,13 @@ oadec-eac3.workspace = true
 oadec-joc.workspace = true
 oadec-spatial.workspace = true
 anyhow.workspace = true
+thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+
+# The AC-3 stream a test of the calls reads: no fixture is one.
+[dev-dependencies]
+oadec-synth.workspace = true
 
 [lints]
 workspace = true

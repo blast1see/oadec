@@ -279,6 +279,88 @@ Which functions print is not left to the reader. The crate denies clippy's
 `print_stdout` and `print_stderr`, and a function that prints carries an
 `allow` that says so; the lint run in CI lets no other through.
 
+# One set of calls, whatever the stream
+
+`api` hands back, family by family, the report a command prints, and refuses
+in the words the command says. That is what holds the command line and the
+calls together, and it is not what a caller wants who is no command line: to
+ask a stream what it is without knowing its family first, to read one report
+of the checks whichever family it is of, and to tell a file that is not there
+from a stream that cannot be decoded. The calls at the root of
+`oadec_engine` are that, and each stands on the call of `api` beside it.
+
+| The call | What it hands back |
+|---|---|
+| `probe(&source)` | a `Probe`: the `format` of the stream (`TrueHd`, `Mlp`, `Ac3` or `Eac3`, by what the stream holds and not by what its file is called) and what `info` reports |
+| `verify(&source, &options)` | a `VerifyReport`, the same fields whichever family: `format`, `clean`, `first_problem`, `tally` (the findings by severity and by rule), `coverage`, `regions`, `census`, `protection`, the whole report as `verify --json` prints it (`info`) and the report of the family (`report`) |
+| `decode(&source, &options, &mut sink, &mut remarks)` | the samples, in the sink |
+| `decode_objects(&source, base, &options, &mut remarks)` | the object programme, in the files at `base` |
+| `metadata(&source)` | a `Metadata`: what `oamd` reports (`objects`) and what `emdf` reports (`containers`) |
+
+The format is what the first sync of the stream says: of a TrueHD or an MLP
+stream the sync word of its first major sync, whether or not the major sync
+could be read past the word, and of an AC-3 family stream the syntax of the
+first frame that decodes.
+
+Three fields of a `VerifyReport` are not in the same place in the two
+reports, or not in both, and the call reads each where it is. `protection`
+is what the protection fields of the containers say, counted without a key:
+in the extra data of a TrueHD stream and in the skip fields of an AC-3
+family one, and of a stream without a container it says there are none.
+`regions` are the stretches of a TrueHD stream that damage reaches; the
+findings of an AC-3 family stream each name their frame, and it has none.
+`census` is there when it was asked for, which it can be of a TrueHD stream
+alone.
+
+What a call could not do is an `Error` of one of four kinds:
+
+| The kind | When |
+|---|---|
+| `Io` | the source could not be opened or read, or an output could not be written |
+| `NoStream` | the source holds no stream the engine reads |
+| `Refused` | something was asked for that does not apply: an option of the other family, or of the other object format |
+| `Stream` | the stream could not be reported or delivered as asked: a stream none of whose frames decodes, a decode that could not go on, a programme the output cannot carry |
+
+An `Error` is written as the command line writes it after `error: `: the
+whole of what went wrong, with everything that led to it, in one line. So it
+names no source, and whoever writes an error and then its sources writes
+this one once. `cause()` hands back what the line is written from, for a
+caller that wants what lies at the bottom of it, the `io::Error` of a file
+that is not there for one.
+
+```rust
+use oadec_engine::api::{Source, VerifyOptions};
+use oadec_engine::Error;
+
+let source = Source::file(path);
+match oadec_engine::verify(&source, &VerifyOptions::default()) {
+    Ok(report) if report.clean => println!("{}: clean", report.format),
+    Ok(report) => println!(
+        "{}: {} errors, first: {:?}",
+        report.format, report.tally.error, report.first_problem
+    ),
+    Err(Error::NoStream(_)) => println!("not a stream"),
+    Err(e) => return Err(e.into()),
+}
+```
+
+The kinds are found by what marks an error where it arises, a refusal and a
+source without a stream each by a type of its own, and where nothing marks
+it by whether reading or writing is what failed. The command line says what
+it said and ends with exit code 2 for all four, as it did.
+
+One stream is said differently by a call and by a command. Of frames none of
+which decodes, a stream of dependent substreams alone for one, `info` and
+`verify` have no report to print and say `no decodable frames` in a line;
+`probe` and `verify` have no report to hand back either, and hand back that
+line as an `Error::Stream`. `metadata` still reports such a stream, as not
+clean, and `decode` delivers nothing of it and calls that faulty.
+
+`tests/calls.rs` of the engine holds each call to the call of `api` it
+stands on, over every fixture, every stream the campaign turned up, an AC-3
+stream a recipe writes and the stream of dependent substreams, and each kind
+of error to a case of it.
+
 # One verdict on the same bytes
 
 Every command that delivers audio or metadata is to decide between clean and

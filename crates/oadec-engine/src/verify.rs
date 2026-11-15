@@ -999,6 +999,13 @@ pub fn report(source: &Source, opts: &Options) -> Result<Report> {
 }
 
 impl Report {
+    /// Whether the stream is of the FBB syntax, Meridian Lossless Packing as
+    /// DVD-Audio carries it, and not Dolby TrueHD.
+    #[must_use]
+    pub fn is_mlp(&self) -> bool {
+        self.scan.is_fbb()
+    }
+
     /// Whether the stream is clean.
     #[must_use]
     pub fn clean(&self) -> bool {

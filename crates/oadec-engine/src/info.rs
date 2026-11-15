@@ -339,10 +339,10 @@ fn print_text(scan: &Scan, out: &mut dyn Write) -> io::Result<()> {
 /// access units". A file that is not a stream is an unsupported input, exit 2
 /// (`docs/exit-codes.md`).
 pub fn no_stream(source: &Source) -> anyhow::Error {
-    anyhow::anyhow!(
+    crate::calls::no_stream(format!(
         "no TrueHD access unit or E-AC-3 syncframe found in {}",
         source.name()
-    )
+    ))
 }
 
 /// What `info` reads of a TrueHD stream.
@@ -362,6 +362,13 @@ pub fn report(source: &Source) -> Result<Report> {
 }
 
 impl Report {
+    /// Whether the stream is of the FBB syntax, Meridian Lossless Packing as
+    /// DVD-Audio carries it, and not Dolby TrueHD.
+    #[must_use]
+    pub fn is_mlp(&self) -> bool {
+        self.scan.is_fbb()
+    }
+
     /// The report as `info --json` prints it.
     ///
     /// # Errors

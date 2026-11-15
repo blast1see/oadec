@@ -8,6 +8,31 @@ Semantic Versioning.
 
 ### Added
 
+- **One set of calls over every stream, and errors that say which kind of
+  thing went wrong.** `api` is the commands as calls, family by family. At
+  the root of `oadec-engine` are five calls for a caller that is no command
+  line: `probe`, which says what a stream is (`TrueHd`, `Mlp`, `Ac3`, `Eac3`)
+  and hands back what `info` reports; `verify`, whose `VerifyReport` has the
+  same fields whichever family the stream is of (whether it is clean, the
+  first thing found wrong, the findings counted by severity and by rule, the
+  coverage, the damaged stretches, the census, what the protection fields
+  say, and the whole report); `decode` and `decode_objects`; and `metadata`,
+  which is what `oamd` and `emdf` report. What a call could not do is an
+  `Error` of one of four kinds, `Io`, `NoStream`, `Refused` or `Stream`,
+  written in one line as the command line writes it, and so naming no
+  source. A refusal and a source without a stream are marked where they
+  arise, and the command line says and exits as it did. A stream with frames
+  none of which decodes, of which the commands print no report, is an
+  `Error::Stream` of `probe` and `verify` (`docs/testing-tools.md`,
+  `docs/audit/evidence/engine-round-2026-11/56-one-set-of-calls-whatever-the-stream.json`).
+- **CI holds the lock of the fuzz workspace to what cargo resolves.**
+  `fuzz/` has a lock of its own, nothing that builds it asks for the lock as
+  it stands, and its workflow runs only when the targets change, so a crate
+  that gained or lost a dependency left the file saying what was no longer
+  so: it went on naming the command line's crate and its parser after the
+  engine had moved out. A job of the CI workflow resolves it with `--locked`
+  on every pull request.
+
 - **`tools/interop.py` runs scenes through Dolby's encoders and back, and
   holds what comes back to the scene.** 51 scenes have every pair of values of
   seven axes in them: the frame rate a master names, its bed, the number of

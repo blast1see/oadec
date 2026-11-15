@@ -23,7 +23,7 @@
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::Result;
 /// How an AC-3 or E-AC-3 core is decoded on the way to its objects.
 pub use oadec_eac3::Options as CoreOptions;
 pub use oadec_spatial::{Interpolation, IsfPolicy};
@@ -32,6 +32,7 @@ use oadec_truehd::Tally;
 pub use oadec_truehd::disc::Disc;
 use serde_json::Value;
 
+use crate::calls::refusal;
 pub use crate::damf::{Options as ObjectOptions, Warp, Written as TrueHdObjects};
 pub use crate::decode::{
     Decoded as TrueHdPcm, OnError, Order, PcmBytes, PcmFile, PcmSink, WavSample, WavSpec,
@@ -47,7 +48,9 @@ pub use crate::integrity::{Findings, Verdict};
 pub use crate::oamd::Report as OamdReport;
 pub use crate::source::{Source, Walk, Walking, Watcher};
 pub use crate::verify::Report as VerifyReport;
-use crate::{damf, decode, eac3, eac3_objects, emdf, info, oamd, verify};
+// `verify` and `decode` are named in full: the calls at the root of the crate
+// have the names of those two modules, and an import of the name brings both.
+use crate::{damf, eac3, eac3_objects, emdf, info, oamd};
 
 /// What `--census` on an AC-3 family stream is told.
 pub const CENSUS_IS_TRUEHD: &str = "--census counts the TrueHD syntax; the report of an AC-3 \
@@ -200,7 +203,7 @@ pub struct VerifyOptions {
 #[derive(Debug)]
 pub enum Verified {
     /// In a TrueHD or MLP stream.
-    TrueHd(verify::Report),
+    TrueHd(crate::verify::Report),
     /// In an AC-3 or E-AC-3 stream.
     Ac3(eac3::Report),
 }
@@ -255,13 +258,13 @@ impl Verified {
 pub fn verify(source: &Source, options: &VerifyOptions) -> Result<Verified> {
     if eac3::is_eac3(source)? {
         if options.census {
-            return Err(anyhow!(CENSUS_IS_TRUEHD));
+            return Err(refusal(CENSUS_IS_TRUEHD));
         }
         if options.trace_fifo.is_some() || !options.require_disc.is_empty() {
             // An option that reads as applied while changing nothing is a
             // defect: a stream of this family has no buffer model and is of
             // no disc format the checks know.
-            return Err(anyhow!(BUFFER_AND_DISC_ARE_TRUEHD));
+            return Err(refusal(BUFFER_AND_DISC_ARE_TRUEHD));
         }
         return Ok(Verified::Ac3(eac3::report_with(
             source,
@@ -272,9 +275,9 @@ pub fn verify(source: &Source, options: &VerifyOptions) -> Result<Verified> {
             },
         )?));
     }
-    Ok(Verified::TrueHd(verify::report(
+    Ok(Verified::TrueHd(crate::verify::report(
         source,
-        &verify::Options {
+        &crate::verify::Options {
             decode: options.decode,
             fail_on: options.fail_on.unwrap_or(Severity::Error),
             max_per_rule: options.max_per_rule.unwrap_or(Tally::DEFAULT_MAX_PER_RULE),
@@ -368,7 +371,7 @@ impl Default for PcmOptions {
 #[derive(Debug)]
 pub enum Pcm {
     /// Of a TrueHD or MLP stream: 24-bit integers.
-    TrueHd(Box<decode::Decoded>),
+    TrueHd(Box<crate::decode::Decoded>),
     /// Of an AC-3 or E-AC-3 stream: 32-bit floats.
     Ac3(eac3::Report),
 }
@@ -416,22 +419,22 @@ pub fn decode_pcm(
 ) -> Result<Pcm> {
     if eac3::is_eac3(source).unwrap_or(false) {
         if options.on_error.is_some() {
-            bail!(ON_ERROR_IS_TRUEHD);
+            return Err(refusal(ON_ERROR_IS_TRUEHD));
         }
         if options.start.is_some() {
-            bail!(START_IS_TRUEHD_SAMPLES);
+            return Err(refusal(START_IS_TRUEHD_SAMPLES));
         }
         if options.presentation.is_some() {
-            bail!(PRESENTATION_IS_TRUEHD);
+            return Err(refusal(PRESENTATION_IS_TRUEHD));
         }
         if options.keep_duplicates {
-            bail!(KEEP_DUPLICATES_IS_TRUEHD);
+            return Err(refusal(KEEP_DUPLICATES_IS_TRUEHD));
         }
         return Ok(Pcm::Ac3(eac3::decode_into(
             source,
             &eac3::DecodeOptions {
                 // the sink is what decides the container
-                format: decode::Format::Pcm,
+                format: crate::decode::Format::Pcm,
                 order: options.order,
                 core_only: options.core_only,
                 dither: options.dither,
@@ -443,13 +446,13 @@ pub fn decode_pcm(
         )?));
     }
     if options.core_only || !options.dither || !options.tpnp || options.ecpl_full {
-        bail!(CORE_DECODE_IS_AC3);
+        return Err(refusal(CORE_DECODE_IS_AC3));
     }
-    Ok(Pcm::TrueHd(Box::new(decode::decode(
+    Ok(Pcm::TrueHd(Box::new(crate::decode::decode(
         source,
-        &decode::Options {
+        &crate::decode::Options {
             presentation: options.presentation,
-            format: decode::Format::Pcm,
+            format: crate::decode::Format::Pcm,
             order: options.order,
             keep_duplicates: options.keep_duplicates,
             start: options.start,
@@ -528,23 +531,23 @@ pub fn decode_objects(
         || options.allow_non_profile_rate
         || options.interpolation != Interpolation::Profile;
     if !options.adm && adm_only {
-        bail!(ADM_OPTIONS_ARE_ADM);
+        return Err(refusal(ADM_OPTIONS_ARE_ADM));
     }
     if options.adm && options.fps != "24" {
-        bail!(FPS_IS_DAMF);
+        return Err(refusal(FPS_IS_DAMF));
     }
     let ac3 = eac3::is_eac3(source).unwrap_or(false);
     if !ac3 && options.joc != JocOverrides::default() {
-        bail!(JOC_MEASURES_EAC3_OBJECTS);
+        return Err(refusal(JOC_MEASURES_EAC3_OBJECTS));
     }
     if ac3 && options.on_error.is_some() {
-        bail!(ON_ERROR_IS_TRUEHD);
+        return Err(refusal(ON_ERROR_IS_TRUEHD));
     }
     if ac3 && options.keep_duplicates {
-        bail!(KEEP_DUPLICATES_IS_TRUEHD);
+        return Err(refusal(KEEP_DUPLICATES_IS_TRUEHD));
     }
     if !ac3 && (!options.core.dither || !options.core.tpnp || options.core.ecpl_full) {
-        bail!(CORE_DECODE_IS_AC3);
+        return Err(refusal(CORE_DECODE_IS_AC3));
     }
     if !ac3
         && (!options.clip_gain
@@ -552,7 +555,7 @@ pub fn decode_objects(
             || options.sparse_as_printed
             || options.steep_as_printed)
     {
-        bail!(JOC_READINGS_ARE_EAC3_OBJECTS);
+        return Err(refusal(JOC_READINGS_ARE_EAC3_OBJECTS));
     }
     Ok(if ac3 {
         Objects::Ac3(Box::new(eac3_objects::write(

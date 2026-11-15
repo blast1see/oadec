@@ -30,9 +30,9 @@ pub fn check_presentation(format: Format, presentation: Option<usize>) -> Result
         Format::Pcm | Format::Wav => return Ok(()),
     };
     match presentation {
-        Some(p) if p != 3 => bail!(
+        Some(p) if p != 3 => Err(crate::calls::refusal(format!(
             "--presentation {p} does not apply to --format {name}: the object formats always decode the object presentation (3)"
-        ),
+        ))),
         _ => Ok(()),
     }
 }
@@ -41,9 +41,9 @@ pub fn check_presentation(format: Format, presentation: Option<usize>) -> Result
 /// Dolby authorship.
 pub fn check_interpolation(interpolation: Interpolation, dolby_origin_tag: bool) -> Result<()> {
     if interpolation == Interpolation::Real && dolby_origin_tag {
-        bail!(
-            "--adm-interpolation real writes a file outside the Dolby Atmos master ADM profile and cannot carry the Dolby origin tag; drop --dolby-origin-tag"
-        );
+        return Err(crate::calls::refusal(
+            "--adm-interpolation real writes a file outside the Dolby Atmos master ADM profile and cannot carry the Dolby origin tag; drop --dolby-origin-tag",
+        ));
     }
     Ok(())
 }
