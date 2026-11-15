@@ -32,8 +32,8 @@ pub fn for_each_unit(
         .open()
         .with_context(|| format!("opening {}", source.name()))?;
     let file_bytes = source.size().unwrap_or(0);
-    // Drawn only on a terminal; a pipeline, a log and a test see nothing.
-    let mut progress = crate::progress::Progress::new("reading", file_bytes);
+    // Told to whoever watches the source; a walk draws nothing of its own.
+    let mut progress = source.walk("reading", file_bytes);
     let mut extractor = Extractor::new();
     let mut buf = vec![0u8; CHUNK];
     loop {

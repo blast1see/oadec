@@ -2,12 +2,11 @@
 //! `compare` shares.
 
 use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use clap::ValueEnum;
 use oadec_truehd::{AccessUnit, ChannelLabel, DecodeStats, Decoder, Unit};
 
 use crate::input;
@@ -15,7 +14,7 @@ use crate::integrity::Findings;
 use crate::source::Source;
 
 /// Output container.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     /// Headerless interleaved 24-bit little-endian PCM.
     Pcm,
@@ -30,7 +29,7 @@ pub enum Format {
 }
 
 /// What a TrueHD decode does with an access unit it cannot read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OnError {
     /// Write a unit of silence in its place and go on: the substreams it
     /// damaged stay silent until their next restart header, and a stretch
@@ -87,7 +86,7 @@ pub fn gap_samples(
 }
 
 /// Channel order of the output.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Order {
     /// WAVE / FFmpeg order (front pair, centre, LFE, back pair, side pair, ...).
     Interchange,
@@ -117,6 +116,7 @@ pub struct Frame<'a> {
 }
 
 /// A decoder plus the bookkeeping the commands share.
+#[derive(Debug)]
 pub struct Session {
     presentation: usize,
     keep_duplicates: bool,
@@ -556,12 +556,16 @@ pub fn truehd_findings(
 }
 
 /// Says what concealment did, on stderr.
-#[allow(clippy::print_stderr, reason = "printing is what this one is for")]
-pub fn print_concealment(c: &Concealment, sampling_frequency: u32) {
+pub fn print_concealment(
+    c: &Concealment,
+    sampling_frequency: u32,
+    err: &mut dyn Write,
+) -> io::Result<()> {
     let ms = |samples: u64| samples as f64 * 1000.0 / f64::from(sampling_frequency.max(1));
     if c.units > 0 {
         let (unit, at, why) = c.first.clone().unwrap_or_default();
-        eprintln!(
+        writeln!(
+            err,
             "concealed {} access unit{} with silence ({:.1} ms) in {} region{}; the first at {} (access unit {unit}): {why}",
             c.units,
             if c.units == 1 { "" } else { "s" },
@@ -569,23 +573,26 @@ pub fn print_concealment(c: &Concealment, sampling_frequency: u32) {
             c.regions,
             if c.regions == 1 { "" } else { "s" },
             format_duration(at as f64 / f64::from(sampling_frequency.max(1)))
-        );
+        )?;
     }
     if c.gaps_filled > 0 {
-        eprintln!(
+        writeln!(
+            err,
             "filled {} gap{} with the {} samples of silence ({:.1} ms) they took",
             c.gaps_filled,
             if c.gaps_filled == 1 { "" } else { "s" },
             c.gap_samples,
             ms(c.gap_samples)
-        );
+        )?;
     }
     for (offset, bytes, why) in &c.gaps_unfilled {
-        eprintln!(
+        writeln!(
+            err,
             "left a gap of {bytes} byte{} at byte {offset} unfilled: {why}",
             if *bytes == 1 { "" } else { "s" }
-        );
+        )?;
     }
+    Ok(())
 }
 
 /// Notes what concealment did in a verdict: a decode that stood silence in
@@ -597,47 +604,50 @@ pub fn note_concealment(c: &Concealment, f: &mut Findings) {
 }
 
 /// Prints the decoder summary to stderr.
-#[allow(clippy::print_stderr, reason = "printing is what this one is for")]
-pub fn print_summary(session: &Summary, elapsed: f64) {
+pub fn print_summary(session: &Summary, elapsed: f64, err: &mut dyn Write) -> io::Result<()> {
     let Some(stats) = &session.stats else {
-        eprintln!("nothing decoded");
-        return;
+        writeln!(err, "nothing decoded")?;
+        return Ok(());
     };
     let seconds = stats.samples as f64 / f64::from(session.sampling_frequency.max(1));
-    eprintln!(
+    writeln!(
+        err,
         "decoded {} access units, {} samples x {} channels ({}), {} dropped duplicates",
         stats.units,
         stats.samples,
         session.channels,
         format_duration(seconds),
         session.duplicates_dropped
-    );
-    eprintln!(
+    )?;
+    writeln!(
+        err,
         "lossless checks: {} performed, {} failed; max_bits violations: {}; segment problems: {}",
         stats.lossless_checks,
         stats.lossless_mismatches,
         stats.max_bits_violations,
         stats.segment_problems
-    );
+    )?;
     if session.clipped > 0 {
-        eprintln!("{} samples clipped to 24 bits", session.clipped);
+        writeln!(err, "{} samples clipped to 24 bits", session.clipped)?;
     }
-    print_concealment(&session.concealment, session.sampling_frequency);
+    print_concealment(&session.concealment, session.sampling_frequency, err)?;
     if let Some(p) = &stats.first_problem {
-        eprintln!("first problem: {p}");
+        writeln!(err, "first problem: {p}")?;
     }
-    eprintln!("channels: {}", session.labels.join(" "));
-    eprintln!(
+    writeln!(err, "channels: {}", session.labels.join(" "))?;
+    writeln!(
+        err,
         "speed: {elapsed:.2} s ({:.0}x realtime)",
         seconds / elapsed.max(1e-9)
-    );
+    )?;
+    Ok(())
 }
 
 /// Options of the decode command.
 #[derive(Debug, Clone)]
 pub struct Options {
     /// The presentation asked for; `None` for the default (see
-    /// [`default_presentation`]).
+    /// `default_presentation`).
     pub presentation: Option<usize>,
     pub format: Format,
     pub order: Order,
@@ -809,12 +819,13 @@ impl ConfigStop {
     }
 
     /// Says where the output ends.
-    #[allow(clippy::print_stderr, reason = "printing is what this one is for")]
-    pub fn print(&self, samples: u64) {
-        eprintln!(
+    pub fn print(&self, samples: u64, err: &mut dyn Write) -> io::Result<()> {
+        writeln!(
+            err,
             "stopped at access unit {} (byte {}): {} changed at a major sync; {samples} samples written",
             self.unit, self.offset, self.what
-        );
+        )?;
+        Ok(())
     }
 
     /// Notes the change in a verdict.
@@ -1022,11 +1033,12 @@ pub struct Decoded {
 impl Decoded {
     /// Says on stderr what was decoded, and where the output ends if it ends
     /// early.
-    pub fn print_summary(&self) {
+    pub fn print_summary(&self, err: &mut dyn Write) -> io::Result<()> {
         if let Some(stop) = &self.stopped {
-            stop.print(self.samples);
+            stop.print(self.samples, err)?;
         }
-        print_summary(&self.summary, self.elapsed);
+        print_summary(&self.summary, self.elapsed, err)?;
+        Ok(())
     }
 
     /// Waits for the checks of `verify` and gives everything that was found
@@ -1047,11 +1059,11 @@ impl Decoded {
 }
 
 /// Runs the command.
-pub fn run(source: &Source, output: &Path, opts: &Options) -> Result<bool> {
+pub fn run(source: &Source, output: &Path, opts: &Options, err: &mut dyn Write) -> Result<bool> {
     let mut file = PcmFile::create(output, opts.format == Format::Wav)?;
-    let decoded = decode(source, opts, &mut file, &mut std::io::stderr())?;
-    decoded.print_summary();
-    Ok(decoded.findings()?.report_clean())
+    let decoded = decode(source, opts, &mut file, err)?;
+    decoded.print_summary(err)?;
+    Ok(decoded.findings()?.report_clean(err)?)
 }
 
 /// Decodes a presentation of a TrueHD stream into `sink` and prints nothing.

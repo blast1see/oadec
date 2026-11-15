@@ -271,7 +271,7 @@ Semantic Versioning.
 - **A campaign that puts every changed stream to every command.**
   `oadec_fuzz::parity` asks `info`, `verify`, `verify --decode`, `oamd`,
   `emdf` and every decode about the same bytes, through the calls of
-  `oadec_cli::api`, and holds their answers to the policy of the exit codes
+  `oadec_engine::api`, and holds their answers to the policy of the exit codes
   clause by clause. It is a fuzz target like the others (`verdict_parity`,
   with its libFuzzer wrapper) and a seeded campaign in `cargo test`, over
   runs of the fixtures and the streams `oadec-synth` writes, with the
@@ -295,7 +295,7 @@ Semantic Versioning.
   the reports and the decoded samples of each of the 125 streams of the
   corpus. It costs the size of the stream in memory and no more than 20 MiB
   beside it (`docs/audit/evidence/engine-round-2026-11/21-standard-input.json`).
-- **The commands as calls: `oadec_cli::api`.** A test that changed a stream
+- **The commands as calls: `oadec_engine::api`.** A test that changed a stream
   and asked two commands about it had to start a process for each question
   and read the answer back out of what was printed. `api::info`,
   `api::verify`, `api::oamd`, `api::emdf`, `api::decode_pcm` and
@@ -592,6 +592,34 @@ Semantic Versioning.
   nothing, and counts what each kind of delivery compared.
 
 ### Changed
+
+- **The engine is a crate of its own, `oadec-engine`, with no command line
+  in it.** What reads a stream, checks it and decodes it was inside the crate
+  of the command line, and whoever wanted the calls of `api` took the
+  command line's parser with them. The fifteen modules that do the work are
+  `oadec-engine` now, 15 717 lines moved as they stand; `oadec-cli` is the
+  arguments, the two streams it hands the engine, the line on the terminal,
+  the exit code and the tools that rewrite a stream for a measurement. Three
+  things had to be so first. The values an option takes by name are enums of
+  the command line, and no type the work takes derives a clap trait. A walk
+  tells the watcher of its source how far it has got and draws nothing; the
+  line on the terminal is the command line's watcher (`Source::watched`). And
+  the engine prints nothing: the 214 lines its modules printed are written
+  to a writer the function is handed, which the command line gives stdout
+  and stderr. The lock of the fuzz workspace, whose targets call `api` and
+  nothing of the command line, named 53 packages and names 36: clap and the
+  sixteen it brings are not among them.
+
+  What a command says and writes is what it said and wrote. The help of all
+  fifteen commands and the answer to a value that is no value are the same
+  to the byte, 45 askings of 45; over the 136 streams of the corpus
+  no report and no delivery differs between the binary before and after;
+  and of the 200 000 rounds of the campaign of damaged streams no answer
+  moved. One thing is not the same: a report written to a pipe that is
+  closed ends the command with the error and exit code 2, where printing it
+  ended the process in a panic
+  (`docs/testing-tools.md`,
+  `docs/audit/evidence/engine-round-2026-11/55-the-engine-in-a-crate-of-its-own.json`).
 
 - **The level of the core under each clip gain is a row of `verify
   --decode`.** `verify` and `info` read a stream of the AC-3 family and do
@@ -906,7 +934,7 @@ Semantic Versioning.
   given away from it, which is why `--isf`, `--fps`, `--adm-interpolation`,
   `--order` and, in `compare`, `-p` and `--reference-format` have no default
   in the help any more; absent, each is what it was (`error`, 24, `profile`,
-  `interchange`, 2, `s32le`). A call of `oadec_cli::api` refuses the same in
+  `interchange`, 2, `s32le`). A call of `oadec_engine::api` refuses the same in
   the same words, where the value of an option is away from its default. A
   script that passed one of these to every stream alike has to stop passing
   it where it does not apply (`docs/exit-codes.md`,
@@ -982,7 +1010,7 @@ Semantic Versioning.
 - **A command reads its stream from a source: a file, or bytes in memory.**
   Every function that read the input took a path and opened it itself, so a
   stream that was already in memory had no way in but a temporary file or a
-  child process. `oadec_cli::source::Source` is a file or bytes in memory,
+  child process. `oadec_engine::source::Source` is a file or bytes in memory,
   and opens at its beginning as often as it is asked, which a command needs:
   it looks at the first bytes to tell the codecs apart, runs the checks of
   `verify` beside its own pass, and `verify --decode` decodes after it

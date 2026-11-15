@@ -367,6 +367,7 @@ dependencies = [
  "oadec-diag",
  "oadec-eac3",
  "oadec-emdf",
+ "oadec-engine",
  "oadec-joc",
  "oadec-spatial",
  "oadec-synth",
@@ -399,12 +400,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "oadec-engine"
+version = "0.8.0"
+dependencies = [
+ "anyhow",
+ "oadec-bits",
+ "oadec-diag",
+ "oadec-eac3",
+ "oadec-emdf",
+ "oadec-joc",
+ "oadec-spatial",
+ "oadec-truehd",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "oadec-fuzz"
 version = "0.8.0"
 dependencies = [
- "oadec-cli",
  "oadec-eac3",
  "oadec-emdf",
+ "oadec-engine",
  "oadec-joc",
  "oadec-synth",
  "oadec-truehd",

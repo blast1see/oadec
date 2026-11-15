@@ -8,6 +8,7 @@ members = [
     "crates/oadec-eac3",
     "crates/oadec-joc",
     "crates/oadec-spatial",
+    "crates/oadec-engine",
     "crates/oadec-cli",
     "crates/oadec-fuzz",
     "crates/oadec-bench",
@@ -30,6 +31,7 @@ oadec-truehd = { path = "crates/oadec-truehd" }
 oadec-eac3 = { path = "crates/oadec-eac3" }
 oadec-joc = { path = "crates/oadec-joc" }
 oadec-spatial = { path = "crates/oadec-spatial" }
+oadec-engine = { path = "crates/oadec-engine" }
 oadec-synth = { path = "crates/oadec-synth" }
 thiserror = "2"
 log = "0.4"

@@ -1,4 +1,4 @@
-//! The calls of `oadec_cli::api` against the commands they are the inside of.
+//! The calls of `oadec_engine::api` against the commands they are the inside of.
 //!
 //! For every fixture a call hands back the report the command prints, the
 //! verdict the command ends with and the bytes the command writes; a stream
@@ -9,7 +9,7 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use oadec_cli::api::{
+use oadec_engine::api::{
     self, Disc, Interpolation, JocOverrides, ObjectOptions, OnError, Order, PcmBytes, PcmFile,
     PcmOptions, Severity, Source, VerifyOptions,
 };
@@ -913,4 +913,66 @@ fn the_calls_print_nothing() {
         })
         .collect();
     assert!(said.is_empty(), "on stdout: {said:?}");
+}
+
+/// A walk over a stream tells whoever watches it how far it has got: what it
+/// is doing, how many bytes there are, and the bytes it has read, which never
+/// go back and never pass the end. A source nobody watches is walked in
+/// silence, which is what every call above was given. The command line
+/// watches with the line it draws on a terminal; a call is given its watcher
+/// by whoever makes it.
+#[test]
+fn a_walk_tells_whoever_watches_how_far_it_has_got() {
+    use std::sync::{Arc, Mutex};
+
+    type Places = Arc<Mutex<Vec<u64>>>;
+
+    #[derive(Debug, Default)]
+    struct Seen {
+        walks: Mutex<Vec<(&'static str, u64, Places)>>,
+    }
+
+    struct One(Places);
+
+    impl api::Walk for One {
+        fn at(&mut self, done: u64) {
+            self.0.lock().unwrap().push(done);
+        }
+    }
+
+    impl api::Watcher for Seen {
+        fn begin(&self, what: &'static str, total: u64) -> Box<dyn api::Walk> {
+            let places = Places::default();
+            self.walks
+                .lock()
+                .unwrap()
+                .push((what, total, Arc::clone(&places)));
+            Box::new(One(places))
+        }
+    }
+
+    for path in fixtures() {
+        let size = std::fs::metadata(&path).unwrap().len();
+        let seen = Arc::new(Seen::default());
+        let watcher: Arc<dyn api::Watcher> = seen.clone();
+        let source = Source::file(&path).watched(watcher);
+        api::verify(&source, &VerifyOptions::default()).unwrap();
+        let walks = seen.walks.lock().unwrap();
+        assert!(
+            !walks.is_empty(),
+            "{}: nobody was told of a walk",
+            path.display()
+        );
+        for (what, total, places) in walks.iter() {
+            assert_eq!((*what, *total), ("reading", size), "{}", path.display());
+            let places = places.lock().unwrap();
+            assert!(
+                !places.is_empty(),
+                "{}: a walk told nothing",
+                path.display()
+            );
+            assert!(places.is_sorted(), "{}: a walk went back", path.display());
+            assert!(*places.last().unwrap() <= size);
+        }
+    }
 }

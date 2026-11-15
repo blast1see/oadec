@@ -208,9 +208,11 @@ segment of every fixture unit to every length and repairs each twice
 # The commands as calls
 
 Asking a command about a stream took a process and a file: start `oadec`,
-read what it printed, read its exit code. `oadec_cli::api` is the commands
+read what it printed, read its exit code. `oadec_engine::api` is the commands
 without the command line. Each function does what a command does and hands
-back what it found; none prints, and none ends the process.
+back what it found; none prints, and none ends the process. The engine is a
+crate of its own, with no command line in it: `oadec-cli` parses arguments,
+hands the engine stdout and stderr, and turns a verdict into an exit code.
 
 | The call | The command | What it hands back |
 |---|---|---|
@@ -230,7 +232,7 @@ goes to `remarks`, a line at a time: `std::io::stderr()` to hear it as the
 command says it, `std::io::sink()` not to.
 
 ```rust
-use oadec_cli::api::{self, PcmBytes, PcmOptions, Source, VerifyOptions};
+use oadec_engine::api::{self, PcmBytes, PcmOptions, Source, VerifyOptions};
 
 let source = Source::memory("changed.thd", bytes);
 let clean = api::verify(&source, &VerifyOptions::default())?.clean();
@@ -247,10 +249,23 @@ presentation or kept duplicates for an AC-3 stream, the options of the AC-3
 decoder and the readings of the JOC matrices for a TrueHD one, the options of
 one object format for the other. The command line refuses an option that was
 given; a call can tell one only by its value, and refuses it away from its
-default. The values a call
-hands back have methods that print (`print`, `print_summary`); the command
-line is the calls, or the functions under them, and those methods, one after
-the other, which is what keeps the two from drifting apart.
+default.
+
+Nothing in the engine prints, and nothing in it names stdout or stderr. The
+values a call hands back have methods that write what the command says
+(`print`, `print_summary`) to the writers they are handed:
+`report.print(json, &mut out, &mut err)` writes to `out` what the command
+prints on stdout and to `err` what it says on stderr, so the text of a report
+can be had in a buffer, in a file or not at all. The command line is the
+calls, or the functions under them, and those methods with its own two
+streams, one after the other, which is what keeps the two from drifting
+apart. A write that fails ends the call with its error.
+
+A walk over a stream draws nothing either. A source can be given a watcher
+(`Source::watched`), which is told of every walk over it: what the walk is
+doing, how many bytes there are and, unit by unit, where it is. The command
+line's watcher is the line it draws on a terminal; a source without one is
+walked in silence.
 
 `tests/api.rs` holds every call to its command, on every fixture and for a
 file and for the same bytes in memory: the report field for field, the

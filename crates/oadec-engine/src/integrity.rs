@@ -16,6 +16,7 @@
 //! See `docs/exit-codes.md` for the policy this implements.
 
 use oadec_spatial::LossLedger;
+use std::io::{self, Write};
 
 /// The outcome of a delivery.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,16 +88,23 @@ impl Findings {
         self.entries.is_empty()
     }
 
-    /// Prints the verdict and returns whether it was clean, for the delivery
-    /// paths that have no loss ledger (PCM, WAV, CAF, `compare`).
-    pub fn report_clean(&self) -> bool {
-        self.report() == Verdict::Clean
+    /// Says the verdict to `err` and returns whether it was clean, for the
+    /// delivery paths that have no loss ledger (PCM, WAV, CAF, `compare`).
+    ///
+    /// # Errors
+    /// What writing to `err` gives.
+    pub fn report_clean(&self, err: &mut dyn Write) -> io::Result<bool> {
+        Ok(self.report(err)? == Verdict::Clean)
     }
 
-    /// Prints the verdict to stderr and returns it.
-    pub fn report(&self) -> Verdict {
-        self.print();
-        self.verdict()
+    /// Says the verdict to `err`, which is stderr for a command, and returns
+    /// it.
+    ///
+    /// # Errors
+    /// What writing to `err` gives.
+    pub fn report(&self, err: &mut dyn Write) -> io::Result<Verdict> {
+        self.print(err)?;
+        Ok(self.verdict())
     }
 
     /// The verdict, with nothing said.
@@ -111,26 +119,30 @@ impl Findings {
         }
     }
 
-    /// Says on stderr what the verdict rests on.
+    /// Says to `err` what the verdict rests on.
     ///
-    /// Nothing is printed on a clean decode: a clean run should be quiet.
-    #[allow(clippy::print_stderr, reason = "printing is what this one is for")]
-    pub fn print(&self) {
+    /// Nothing is said of a clean decode: a clean run should be quiet.
+    ///
+    /// # Errors
+    /// What writing to `err` gives.
+    pub fn print(&self, err: &mut dyn Write) -> io::Result<()> {
         if self.lossy {
-            eprintln!(
+            writeln!(
+                err,
                 "the output was written and does not carry the whole programme; see the lines above"
-            );
+            )?;
         }
         if self.is_clean() {
-            return;
+            return Ok(());
         }
-        eprintln!("integrity: {}", self.entries.join(", "));
+        writeln!(err, "integrity: {}", self.entries.join(", "))?;
         if let Some(first) = &self.first {
-            eprintln!("first problem: {first}");
+            writeln!(err, "first problem: {first}")?;
         }
-        eprintln!(
+        writeln!(
+            err,
             "the output was written and is not trustworthy; `oadec verify` reports the same faults"
-        );
+        )
     }
 }
 
@@ -142,20 +154,28 @@ mod tests {
     #[test]
     fn a_declared_loss_is_lossy_and_a_fault_wins() {
         let mut f = Findings::default();
-        assert_eq!(f.report(), Verdict::Clean);
+        // what a verdict is said with goes where it is sent
+        let mut said = Vec::new();
+        assert_eq!(f.report(&mut said).unwrap(), Verdict::Clean);
         let mut l = LossLedger::default();
         l.note(LossKind::RampReplaced, 10, 0);
         f.note_losses(&l);
         assert_eq!(
-            f.report(),
+            f.report(&mut said).unwrap(),
             Verdict::Clean,
             "a profile reduction is not a declared loss"
         );
+        assert!(said.is_empty(), "a clean run is quiet");
         l.note(LossKind::IsfDropped, 0, 0);
         f.note_losses(&l);
-        assert_eq!(f.report(), Verdict::Lossy);
+        assert_eq!(f.report(&mut said).unwrap(), Verdict::Lossy);
+        assert!(String::from_utf8_lossy(&said).contains("does not carry the whole programme"));
+        said.clear();
         f.note(1, "CRC failures");
-        assert_eq!(f.report(), Verdict::Faulty);
+        assert_eq!(f.report(&mut said).unwrap(), Verdict::Faulty);
+        let text = String::from_utf8(said).unwrap();
+        assert!(text.contains("integrity: 1 CRC failures"), "{text}");
+        assert!(text.contains("is not trustworthy"), "{text}");
         // and the verdict is the same one when nothing is said
         assert_eq!(f.verdict(), Verdict::Faulty);
         assert_eq!(Findings::default().verdict(), Verdict::Clean);

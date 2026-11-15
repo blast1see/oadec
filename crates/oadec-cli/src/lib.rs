@@ -1,56 +1,49 @@
 //! The `oadec` command line: its arguments and what each command runs.
 //!
-//! The binary is this crate's [`run`] and nothing else, so that what a command
-//! does can be reached without starting a process.
+//! What a command does is the engine's (`oadec-engine`): it reads the stream,
+//! checks it and decodes it, and hands back values. This crate is what makes
+//! a command line of that: it parses the arguments, hands the engine stdout
+//! and stderr to write its reports and remarks to, draws the line that says
+//! how far a walk has got, and turns a verdict into an exit code. The tools
+//! that rewrite a stream for a measurement are here too.
+//!
+//! The binary is this crate's [`run`] and nothing else.
 
-// the `verify --json` report is one big `json!` literal
-#![recursion_limit = "256"]
 // What a command finds is a value, and printing it is a step of its own. A
-// function that prints says so, with an `allow` of its own; no other can,
-// which is what lets `api` promise that a call says nothing.
+// function that prints says so, with an `allow` of its own; no other can.
 #![deny(clippy::print_stdout, clippy::print_stderr)]
 // Whatever a call takes or hands back, its caller can write the type of: one
 // that is reachable from outside the crate and has no path there is a
 // warning, and the lints of this repository let none through.
 #![warn(unnameable_types)]
 
-pub mod api;
+mod args;
 mod au_dump;
 mod author;
 mod catalog;
-mod census;
 mod compare;
-mod damf;
-mod decode;
-mod eac3;
-mod eac3_objects;
 mod ecpl_inject;
-mod emdf;
-mod info;
-mod input;
-mod integrity;
 mod joc_config;
 mod joc_offset;
-mod oamd;
 mod progress;
-mod protection;
 mod repair;
-mod scan;
-pub mod source;
 mod thd_demux;
-mod verify;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
+use crate::args::{
+    FormatArg, InterpolationArg, IsfArg, JocLowBandArg, OnErrorArg, OrderArg, WarpArg,
+};
 use crate::compare::RefFormat;
-use crate::damf::{InterpolationArg, IsfArg, WarpArg};
-use crate::decode::{Format, OnError, Order};
-use crate::eac3_objects::{JocLowBand, JocLowFir, JocOverrides, JocPhase};
-use crate::integrity::Verdict;
-use crate::source::Source;
+use oadec_engine::damf::Warp;
+use oadec_engine::decode::{Format, OnError, Order};
+use oadec_engine::eac3_objects::{JocLowBand, JocLowFir, JocOverrides, JocPhase};
+use oadec_engine::integrity::Verdict;
+use oadec_engine::source::Source;
+use oadec_engine::{api, damf, decode, eac3, eac3_objects, emdf, oamd};
 use oadec_truehd::Severity;
 
 /// Object-audio decoder engine for Dolby TrueHD Atmos and E-AC-3 JOC streams.
@@ -180,12 +173,12 @@ enum Command {
         #[arg(short, long)]
         presentation: Option<usize>,
         /// Output container.
-        #[arg(long, value_enum, default_value_t = Format::Wav)]
-        format: Format,
+        #[arg(long, value_enum, default_value_t = FormatArg::Wav)]
+        format: FormatArg,
         /// PCM/WAV: channel order of the samples; `interchange` when absent.
         /// An object output has the order of its format.
         #[arg(long, value_enum)]
-        order: Option<Order>,
+        order: Option<OrderArg>,
         /// Keep access units flagged as duplicates at seamless branches.
         #[arg(long)]
         keep_duplicates: bool,
@@ -198,7 +191,7 @@ enum Command {
         /// unit (exit 2) and pass over a stretch that could not be read, which
         /// leaves the output that much shorter.
         #[arg(long, value_enum, value_name = "MODE")]
-        on_error: Option<OnError>,
+        on_error: Option<OnErrorArg>,
         /// TrueHD: begin the output this many seconds into the stream, at the
         /// first access unit at or after it that carries a major sync. What is
         /// written is the tail of a full decode, sample for sample, because a
@@ -295,7 +288,7 @@ enum Command {
         /// JOC measurement: how the lowest subband of a phase-shifted channel
         /// is treated; announced on stderr and recorded in the loss report.
         #[arg(long, hide = true, value_enum)]
-        joc_low_band: Option<JocLowBand>,
+        joc_low_band: Option<JocLowBandArg>,
         /// JOC measurement: which downmix channels carry the 90-degree phase
         /// shift and which way it is taken out, instead of what the downmix
         /// configuration says; announced on stderr and recorded in the loss
@@ -332,8 +325,8 @@ enum Command {
         #[arg(long, value_enum)]
         reference_format: Option<RefFormat>,
         /// Channel order of the reference.
-        #[arg(long, value_enum, default_value_t = Order::Interchange)]
-        order: Order,
+        #[arg(long, value_enum, default_value_t = OrderArg::Interchange)]
+        order: OrderArg,
         /// TrueHD: keep access units flagged as duplicates at seamless branches.
         #[arg(long)]
         keep_duplicates: bool,
@@ -478,7 +471,7 @@ const EXIT_NONCONFORMANT: u8 = 7;
 /// The stream a command line names: a file, or standard input for `-`, which
 /// is read to its end here, before the command starts.
 fn stream_named(file: &std::path::Path) -> anyhow::Result<Source> {
-    Ok(Source::named(file)?)
+    Ok(progress::watched(Source::named(file)?))
 }
 
 /// Runs the command line `args` spells, the program's own name first, and
@@ -493,10 +486,14 @@ where
     T: Into<std::ffi::OsString> + Clone,
 {
     let cli = Cli::parse_from(args);
+    // Where a command writes: what it reports to stdout, what it remarks to
+    // stderr. Neither is held locked while the command runs, so each line
+    // goes out as it did when it was printed.
+    let (out, err) = (&mut std::io::stdout(), &mut std::io::stderr());
     let result = match cli.command {
         Command::Info { file, json } => stream_named(&file)
             .and_then(|source| api::info(&source))
-            .and_then(|report| report.print(json))
+            .and_then(|report| report.print(json, out, err))
             .map(|()| ExitCode::SUCCESS),
         Command::Verify {
             file,
@@ -524,7 +521,7 @@ where
                     },
                 )
             })
-            .and_then(|report| report.print(json).map(|()| report.clean()))
+            .and_then(|report| report.print(json, out, err).map(|()| report.clean()))
             .map(|clean| {
                 if clean {
                     ExitCode::SUCCESS
@@ -533,7 +530,7 @@ where
                 }
             }),
         Command::Emdf { file, json, dump } => stream_named(&file)
-            .and_then(|source| emdf::run(&source, &emdf::Options { json, dump }))
+            .and_then(|source| emdf::run(&source, &emdf::Options { json, dump }, out))
             .map(|clean| {
                 if clean {
                     ExitCode::SUCCESS
@@ -542,7 +539,7 @@ where
                 }
             }),
         Command::Oamd { file, json, dump } => stream_named(&file)
-            .and_then(|source| oamd::run(&source, &oamd::Options { json, dump }))
+            .and_then(|source| oamd::run(&source, &oamd::Options { json, dump }, out))
             .map(|clean| {
                 if clean {
                     ExitCode::SUCCESS
@@ -595,7 +592,12 @@ where
                 dolby_origin_tag || adm_allow_non_profile_rate || adm_interpolation.is_some();
             let given_for_damf = fps.is_some();
             let given_for_samples = order.is_some();
-            let order = order.unwrap_or(Order::Interchange);
+            // what the command line names, as the types the work takes
+            let format = Format::from(format);
+            let order = order.map_or(Order::Interchange, Order::from);
+            let on_error = on_error.map(OnError::from);
+            let warp_mode = warp_mode.map(Warp::from);
+            let joc_low_band = joc_low_band.map(JocLowBand::from);
             let isf = isf.unwrap_or(IsfArg::Error);
             let fps = fps.unwrap_or_else(|| "24".to_string());
             let adm_interpolation = adm_interpolation.unwrap_or(InterpolationArg::Profile);
@@ -719,6 +721,7 @@ where
                                 // refused above for E-AC-3
                                 on_error: None,
                             },
+                            err,
                         )
                     }
                 } else if eac3::is_eac3(&source).unwrap_or(false) {
@@ -733,6 +736,8 @@ where
                             tpnp: !no_tpnp,
                             ecpl_full: ecpl_spec,
                         },
+                        out,
+                        err,
                     )
                     .map(Verdict::from_clean)
                 } else if matches!(format, Format::Damf | Format::Adm) {
@@ -761,6 +766,7 @@ where
                             joc: JocOverrides::default(),
                             on_error,
                         },
+                        err,
                     )
                 } else {
                     decode::run(
@@ -774,6 +780,7 @@ where
                             start,
                             on_error: on_error.unwrap_or(OnError::Conceal),
                         },
+                        err,
                     )
                     .map(Verdict::from_clean)
                 }
@@ -825,7 +832,7 @@ where
                         &source,
                         &reference,
                         &eac3::CompareOptions {
-                            order,
+                            order: order.into(),
                             tpnp: !no_tpnp,
                             ecpl_full: ecpl_spec,
                             report,
@@ -834,6 +841,8 @@ where
                             dither: !no_dither,
                             worst,
                         },
+                        out,
+                        err,
                     )
                 } else {
                     compare::run(
@@ -842,11 +851,12 @@ where
                         &compare::Options {
                             presentation: presentation.unwrap_or(2),
                             format: reference_format.unwrap_or(RefFormat::S32le),
-                            order,
+                            order: order.into(),
                             keep_duplicates,
                             report,
                             skip: reference_skip,
                         },
+                        err,
                     )
                 }
             });
@@ -870,7 +880,7 @@ where
             part,
             detail,
         } => stream_named(&file)
-            .and_then(|source| eac3::blocks(&source, frame, part, detail))
+            .and_then(|source| eac3::blocks(&source, frame, part, detail, out))
             .map(|()| ExitCode::SUCCESS),
         Command::AtmosAuthor { scene, output } => {
             author::run(&scene, &output).map(|()| ExitCode::SUCCESS)

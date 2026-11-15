@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{BufReader, Read, Seek, SeekFrom, Write};
+use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::time::Instant;
 
@@ -86,7 +86,7 @@ fn truehd_start(head: &[u8]) -> Option<usize> {
 
 /// Streams the syncframes of a file: `on_frame(offset, bytes, header)`.
 /// Returns `(frames, sync_errors, skipped_bytes)`.
-pub(crate) fn for_each_frame(
+pub fn for_each_frame(
     source: &Source,
     on_frame: impl FnMut(u64, &[u8], &FrameHeader) -> Result<()>,
 ) -> Result<(u64, u64, u64)> {
@@ -119,7 +119,7 @@ fn frames_and_gaps(
     mut on_gap: impl FnMut(u64, bool, u64),
 ) -> Result<(u64, u64, u64)> {
     let file_bytes = source.size().unwrap_or(0);
-    let mut progress = crate::progress::Progress::new("reading", file_bytes);
+    let mut progress = source.walk("reading", file_bytes);
     let mut file = BufReader::with_capacity(read_bytes, source.open()?);
     // What has been read and not yet taken is `buf[at..]`. A frame that is
     // taken moves `at` and nothing else. The bytes behind it are given up
@@ -1729,11 +1729,11 @@ fn pass_json(
     Some(report)
 }
 
-/// Prints the report of a pass on stdout, as JSON or as text.
+/// Writes the report of a pass to `out`, as JSON or as text. Of a pass that
+/// read no frame it says so to `err`, and writes nothing to `out`.
 #[allow(
-    clippy::print_stderr,
-    clippy::print_stdout,
-    reason = "printing is what this one is for"
+    clippy::too_many_arguments,
+    reason = "what a pass found, how it is to be shown and the two places it goes"
 )]
 fn print_pass(
     name: &str,
@@ -1743,16 +1743,18 @@ fn print_pass(
     elapsed: f64,
     json: bool,
     fail_on: Severity,
-) {
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> io::Result<()> {
     let Some((h, bsi)) = &p.first else {
-        eprintln!("{name}: no decodable frames");
-        return;
+        writeln!(err, "{name}: no decodable frames")?;
+        return Ok(());
     };
     if json {
         if let Some(report) = pass_json(name, p, sync_errors, skipped, elapsed, fail_on) {
-            println!("{report}");
+            writeln!(out, "{report}")?;
         }
-        return;
+        return Ok(());
     }
     let names = p.layout.as_ref().map_or_else(
         || Decoder::channel_names(h),
@@ -1763,50 +1765,57 @@ fn print_pass(
     // the container, which is not the independent one when a dependent follows
     let meta = p.metadata_bsi.as_ref().unwrap_or(bsi);
     let joc = meta.joc_extension();
-    println!("File:              {name}");
-    println!(
+    writeln!(out, "File:              {name}")?;
+    writeln!(
+        out,
         "Stream:            {} bsid {}, {} Hz, {} blocks/frame, {} kbit/s",
         syntax_name(h),
         h.bsid,
         h.sample_rate,
         h.blocks,
         h.bit_rate() / 1000
-    );
+    )?;
     if p.subs.is_empty() {
-        println!(
+        writeln!(
+            out,
             "Channels:          {} (acmod {}{}): {}",
             names.len(),
             h.acmod,
             if h.lfeon { " + LFE" } else { "" },
             names.join(" ")
-        );
+        )?;
     } else {
-        println!(
+        writeln!(
+            out,
             "Channels:          {} (programme, {} substreams): {}",
             names.len(),
             p.subs.len() + 1,
             names.join(" ")
-        );
+        )?;
     }
-    println!(
+    writeln!(
+        out,
         "Frames:            {} decoded ({} independent, {} dependent in the file), {} sync errors, {} bytes skipped",
         p.frames, p.independent, p.dependent, sync_errors, skipped
-    );
-    println!(
+    )?;
+    writeln!(
+        out,
         "Duration:          {} ({} samples)",
         format_duration(duration),
         p.samples
-    );
-    println!(
+    )?;
+    writeln!(
+        out,
         "Substreams:        {}",
         p.substreams
             .iter()
             .map(|((t, id), n)| format!("type {t} id {id}: {n}"))
             .collect::<Vec<_>>()
             .join(", ")
-    );
+    )?;
     if !p.subs.is_empty() {
-        println!(
+        writeln!(
+            out,
             "Programme:         independent 0: {} acmod {}{}, {} kbit/s -> {}, {} frames",
             syntax_name(h),
             h.acmod,
@@ -1814,7 +1823,7 @@ fn print_pass(
             h.bit_rate() / 1000,
             Decoder::channel_names(h).join(" "),
             p.frames
-        );
+        )?;
         for ((t, id), sub) in &p.subs {
             let kind = if *t == 1 { "dependent" } else { "independent" };
             let map = sub
@@ -1829,7 +1838,8 @@ fn print_pass(
                 .map(|c| c.name())
                 .collect::<Vec<_>>()
                 .join(" ");
-            println!(
+            writeln!(
+                out,
                 "                   {kind} {id}: {} acmod {}{}{} -> {}",
                 sub.header.as_ref().map_or("?", |h| syntax_name(h)),
                 sub.header.as_ref().map_or(0, |h| h.acmod),
@@ -1842,24 +1852,27 @@ fn print_pass(
                     format!(", {map}")
                 },
                 if chans.is_empty() { "?" } else { &chans }
-            );
+            )?;
             let slack = sub
                 .slack_bits
                 .map_or_else(|| "-".to_string(), |(lo, hi)| format!("{lo} to {hi}"));
-            println!(
+            writeln!(
+                out,
                 "                     {} frames merged, {} CRC failures, {} decode errors, {} frames ending inside the frame tail, {} bits unread",
                 sub.frames, sub.crc_failures, sub.decode_errors, sub.tail_overruns, slack
-            );
+            )?;
             if sub.lfe_implied > 0 {
-                println!(
+                writeln!(
+                    out,
                     "                     {} frames whose channel map left the LFE implied",
                     sub.lfe_implied
-                );
+                )?;
             }
         }
     }
     if !p.program.is_clean() {
-        println!(
+        writeln!(
+            out,
             "Programme faults:  {} dependent frames dropped, {} misaligned, {} channel map errors, {} channels past sixteen, {} layout changes, {} orphan dependents",
             p.program.dependent_dropped,
             p.program.misaligned,
@@ -1867,53 +1880,61 @@ fn print_pass(
             p.program.over_capacity,
             p.program.layout_changes,
             p.program.orphan_dependents
-        );
+        )?;
     }
     if p.program.duplicate_substream_frames > 0 {
-        println!(
+        writeln!(
+            out,
             "Repeated frames:   {} substream frames repeated within one group, only the first of each decoded",
             p.program.duplicate_substream_frames
-        );
+        )?;
     }
     if p.program.stalled_substreams > 0 || p.program.missing_substream_frames > 0 {
-        println!(
+        writeln!(
+            out,
             "Stalled groups:    {} substreams flushed after they stopped supplying frames, {} substream frames that never came out of their decoder",
             p.program.stalled_substreams, p.program.missing_substream_frames
-        );
+        )?;
     }
     if p.program.other_program_frames > 0 {
-        println!(
+        writeln!(
+            out,
             "Other programmes:  {} frames skipped (only the first independent substream is decoded)",
             p.program.other_program_frames
-        );
+        )?;
     }
-    println!(
+    writeln!(
+        out,
         "Dialnorm:          {}",
         p.dialnorm
             .iter()
             .map(|(k, n)| format!("-{k} dB x{n}"))
             .collect::<Vec<_>>()
             .join(", ")
-    );
+    )?;
     match joc {
-        Some((flag, complexity)) => println!(
+        Some((flag, complexity)) => writeln!(
+            out,
             "JOC extension:     flag {}, complexity index {} (addbsi {} bytes)",
             flag,
             complexity,
             meta.addbsi.len()
-        ),
-        None => println!(
+        )?,
+        None => writeln!(
+            out,
             "JOC extension:     none (addbsi {} bytes)",
             meta.addbsi.len()
-        ),
+        )?,
     }
     if p.emdf.payload_config_violations > 0 || p.complexity_mismatches > 0 {
-        println!(
+        writeln!(
+            out,
             "Conformance:       {} payload configuration fields outside TS 103 420 table 56, {} frames whose complexity index breaks clause 8.3",
             p.emdf.payload_config_violations, p.complexity_mismatches
-        );
+        )?;
     }
-    println!(
+    writeln!(
+        out,
         "Coding tools:      {} (AHT in {} frames, spectral extension in {}, enhanced coupling in {}, transient pre-noise in {}, delta bit allocation in {})",
         coverage_list(&p.coverage).join(", "),
         p.aht_frames,
@@ -1921,8 +1942,9 @@ fn print_pass(
         p.ecpl_frames,
         p.tpnp_frames,
         p.dba_frames
-    );
-    println!(
+    )?;
+    writeln!(
+        out,
         "EMDF:              {} frames with skip fields ({} bytes), {} containers, {} frames without one, {} false sync words, payload ids {:?}",
         p.emdf.frames_with_skip,
         p.emdf.skip_bytes,
@@ -1930,10 +1952,10 @@ fn print_pass(
         p.emdf.container_errors,
         p.emdf.false_syncs,
         p.emdf.payload_ids
-    );
+    )?;
     if p.emdf.protection.containers > 0 {
         // what the containers declare, as `info` says it of a TrueHD stream
-        println!("Protection:        {}", p.emdf.protection.summary());
+        writeln!(out, "Protection:        {}", p.emdf.protection.summary())?;
     }
     // said only where there is one, so that the line of every other stream
     // is the line it was
@@ -1941,10 +1963,11 @@ fn print_pass(
         0 => String::new(),
         n => format!(", {n} the programme cannot take"),
     };
-    println!(
+    writeln!(
+        out,
         "Metadata:          {} OAMD payloads ({} errors{refused}), {} JOC payloads",
         p.emdf.oamd_ok, p.emdf.oamd_errors, p.emdf.joc
-    );
+    )?;
     if p.emdf.joc > 0 {
         let e = &p.emdf;
         // said only where the counter did not simply count on, so that the
@@ -1955,7 +1978,8 @@ fn print_pass(
                 " ({restarts} after the first, {gaps} payloads did not follow the one before)"
             ),
         };
-        println!(
+        writeln!(
+            out,
             "JOC parse:         {} ok, {} errors, {} reserved extensions, {} size mismatches, {} non-zero paddings; dmx configs {:?}; objects per payload {:?}; seq_count 0 in {} payloads{sequence}; clipgain x1000 {:?}",
             e.joc_ok,
             e.joc_errors,
@@ -1966,7 +1990,7 @@ fn print_pass(
             e.joc_objects,
             e.joc_seq_zero,
             e.joc_clipgain
-        );
+        )?;
         if reports_clip_gains(e) {
             let rows: Vec<String> = e
                 .joc_peak
@@ -1980,7 +2004,7 @@ fn print_pass(
                     )
                 })
                 .collect();
-            println!("JOC clip gain:     {}", rows.join("; "));
+            writeln!(out, "JOC clip gain:     {}", rows.join("; "))?;
         }
         if reports_clip_gains(e) && p.heard > 0 {
             let rows: Vec<String> = p
@@ -1995,9 +2019,10 @@ fn print_pass(
                     )
                 })
                 .collect();
-            println!("JOC core level:    {}", rows.join("; "));
+            writeln!(out, "JOC core level:    {}", rows.join("; "))?;
         }
-        println!(
+        writeln!(
+            out,
             "JOC objects:       bands {:?}; {} sparse, {} dense, {} absent; {} with two data points, {} steep, {} fine-quantized",
             e.joc_bands,
             e.joc_sparse,
@@ -2006,27 +2031,30 @@ fn print_pass(
             e.joc_two_dpoints,
             e.joc_steep,
             e.joc_fine
-        );
+        )?;
     }
     if p.emdf.oamd_ok > 0 {
-        println!(
+        writeln!(
+            out,
             "OAMD gain/size:    {} non-unity gains {:?}, {} mutes, {} non-zero sizes",
             p.emdf.oamd_gain_size.gains_db.values().sum::<u64>(),
             p.emdf.oamd_gain_size.gains_db,
             p.emdf.oamd_gain_size.muted,
             p.emdf.oamd_gain_size.sized
-        );
-        crate::scan::print_stale_sizes(p.emdf.oamd_stale_sizes);
+        )?;
+        crate::scan::print_stale_sizes(p.emdf.oamd_stale_sizes, out)?;
     }
-    println!(
+    writeln!(
+        out,
         "Integrity:         {} decode errors, {} CRC failures, {} frames ending inside the frame tail",
         p.decode_errors, p.crc_failures, p.tail_overruns
-    );
-    print_diagnostics(&p.diag, frame_seconds(h), fail_on);
+    )?;
+    print_diagnostics(&p.diag, frame_seconds(h), fail_on, out)?;
     if let Some(e) = p.first_error.as_ref().or(p.emdf.first_error.as_ref()) {
-        println!("First problem:     {e}");
+        writeln!(out, "First problem:     {e}")?;
     }
-    println!(
+    writeln!(
+        out,
         "Speed:             {:.2} s ({:.0}x realtime)",
         elapsed,
         if elapsed > 0.0 {
@@ -2034,7 +2062,8 @@ fn print_pass(
         } else {
             0.0
         }
-    );
+    )?;
+    Ok(())
 }
 
 /// How long one frame group of a stream that opens with `h` lasts.
@@ -2140,10 +2169,14 @@ fn place_text(at: &Location, frame_seconds: f64) -> String {
 /// them of a TrueHD stream: every listed finding of a rule that can fail a
 /// stream, then one line per rule that fired, at most six of them, the
 /// heaviest first. A stream nothing was found in has neither.
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-fn print_diagnostics(d: &Diag, frame_seconds: f64, fail_on: Severity) {
+fn print_diagnostics(
+    d: &Diag,
+    frame_seconds: f64,
+    fail_on: Severity,
+    out: &mut dyn Write,
+) -> io::Result<()> {
     if d.is_empty() {
-        return;
+        return Ok(());
     }
     let mut first = true;
     // findings of an info rule are counted below and listed only when the
@@ -2153,7 +2186,8 @@ fn print_diagnostics(d: &Diag, frame_seconds: f64, fail_on: Severity) {
         .filter(|(r, _)| fail_on == Severity::Info || r.info().severity > Severity::Info)
     {
         for f in &t.listed {
-            println!(
+            writeln!(
+                out,
                 "{}{:<8} {:<26} {}  {}",
                 if first {
                     "Findings:          "
@@ -2164,17 +2198,18 @@ fn print_diagnostics(d: &Diag, frame_seconds: f64, fail_on: Severity) {
                 rule.info().id,
                 place_text(&f.at, frame_seconds),
                 f.message
-            );
+            )?;
             first = false;
         }
         if t.suppressed() > 0 {
-            println!(
+            writeln!(
+                out,
                 "                   {}: {} listed, {} more not listed (--max-per-rule), last at {}",
                 rule.info().id,
                 t.listed.len(),
                 t.suppressed(),
                 place_text(&t.last, frame_seconds)
-            );
+            )?;
         }
     }
     let counts = Severity::ALL
@@ -2183,7 +2218,11 @@ fn print_diagnostics(d: &Diag, frame_seconds: f64, fail_on: Severity) {
         .map(|s| format!("{} {}", d.count_at(*s), s.name()))
         .collect::<Vec<_>>()
         .join(", ");
-    println!("Rules:             {counts} (fail on {})", fail_on.name());
+    writeln!(
+        out,
+        "Rules:             {counts} (fail on {})",
+        fail_on.name()
+    )?;
     let mut fired: Vec<_> = d.iter().collect();
     fired.sort_by_key(|(r, _)| core::cmp::Reverse(r.info().severity));
     for (rule, t) in fired.iter().take(6) {
@@ -2196,20 +2235,23 @@ fn print_diagnostics(d: &Diag, frame_seconds: f64, fail_on: Severity) {
         } else {
             place_text(&t.first.at, frame_seconds)
         };
-        println!(
+        writeln!(
+            out,
             "                   {:<8} {:<26} {:>6}x  {}",
             rule.info().severity.name(),
             rule.info().id,
             t.count,
             span
-        );
+        )?;
     }
     if fired.len() > 6 {
-        println!(
+        writeln!(
+            out,
             "                   and {} more rules (verify --json)",
             fired.len() - 6
-        );
+        )?;
     }
+    Ok(())
 }
 
 /// What a pass over an AC-3 or E-AC-3 stream found: the report `info` and
@@ -2312,8 +2354,12 @@ impl Report {
         )
     }
 
-    /// Prints the report on stdout, as JSON or as text.
-    pub fn print(&self, json: bool) {
+    /// Writes the report to `out`, as JSON or as text; a stream without a
+    /// frame that decodes is said to `err`.
+    ///
+    /// # Errors
+    /// What writing gives.
+    pub fn print(&self, json: bool, out: &mut dyn Write, err: &mut dyn Write) -> io::Result<()> {
         print_pass(
             &self.name,
             &self.pass,
@@ -2322,7 +2368,9 @@ impl Report {
             self.elapsed,
             json,
             self.fail_on,
-        );
+            out,
+            err,
+        )
     }
 
     /// What a delivery of the stream has to answer for: the faults of the
@@ -2333,12 +2381,13 @@ impl Report {
     }
 
     /// Prints the line that closes the text of `verify`.
-    #[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-    pub fn print_verdict(&self) {
-        println!(
+    pub fn print_verdict(&self, out: &mut dyn Write) -> io::Result<()> {
+        writeln!(
+            out,
             "Result:            {}",
             if self.clean() { "CLEAN" } else { "PROBLEMS" }
-        );
+        )?;
+        Ok(())
     }
 }
 
@@ -2380,14 +2429,20 @@ pub struct DecodeOptions {
 
 /// `oadec decode` for AC-3 family streams: 32-bit float samples, as raw
 /// little-endian PCM or as WAVE.
-pub fn decode(source: &Source, output: &Path, opts: &DecodeOptions) -> Result<bool> {
+pub fn decode(
+    source: &Source,
+    output: &Path,
+    opts: &DecodeOptions,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> Result<bool> {
     if matches!(opts.format, Format::Damf | Format::Adm) {
         bail!("object output of E-AC-3 JOC streams is not implemented yet");
     }
     let mut file = crate::decode::PcmFile::create(output, opts.format == Format::Wav)?;
-    let report = decode_into(source, opts, &mut file, &mut std::io::stderr())?;
-    report.print(false);
-    Ok(report.findings().report_clean())
+    let report = decode_into(source, opts, &mut file, err)?;
+    report.print(false, out, err)?;
+    Ok(report.findings().report_clean(err)?)
 }
 
 /// Decodes the programme of an AC-3 or E-AC-3 stream into `sink`, as 32-bit
@@ -2481,8 +2536,13 @@ pub struct CompareOptions {
 /// it. `part` selects within the group, 0 being the independent substream, so
 /// `--part 1` reads the dependent substream of a 7.1 stream, which is the only
 /// way to check a `bsi` path by hand.
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-pub fn blocks(source: &Source, index: u64, part: usize, detail: bool) -> Result<()> {
+pub fn blocks(
+    source: &Source,
+    index: u64,
+    part: usize,
+    detail: bool,
+    out: &mut dyn Write,
+) -> Result<()> {
     let mut group = 0u64;
     let mut in_group = 0usize;
     let mut started = false;
@@ -2508,10 +2568,11 @@ pub fn blocks(source: &Source, index: u64, part: usize, detail: bool) -> Result<
         }
         found = true;
         let mut noise = oadec_eac3::Noise::default();
-        println!(
+        writeln!(
+            out,
             "group {index} part {part} at byte {offset}: {} bytes, {:?}",
             header.frame_bytes, header
-        );
+        )?;
         // the record of every block is what this command prints
         let with_records = Options {
             block_info: true,
@@ -2519,53 +2580,56 @@ pub fn blocks(source: &Source, index: u64, part: usize, detail: bool) -> Result<
         };
         let blocks = match oadec_eac3::Frame::parse_partial(bytes, &mut noise, with_records) {
             Ok(frame) => {
-                println!("bsi: {:?}", frame.bsi);
-                println!("coverage: {:?}", frame.coverage);
-                println!(
+                writeln!(out, "bsi: {:?}", frame.bsi)?;
+                writeln!(out, "coverage: {:?}", frame.coverage)?;
+                writeln!(
+                    out,
                     "crc ok: {}, audio blocks end at bit {} of {}",
                     frame.crc_ok,
                     frame.end_bit,
                     header.frame_bytes * 8
-                );
+                )?;
                 frame.blocks
             }
             Err(partial) => {
-                println!("bsi: {:?}", partial.bsi);
-                println!(
+                writeln!(out, "bsi: {:?}", partial.bsi)?;
+                writeln!(
+                    out,
                     "PARSE ERROR after {} blocks at bit {} of {}: {}",
                     partial.blocks.len(),
                     partial.bit,
                     header.frame_bytes * 8,
                     partial.error
-                );
+                )?;
                 if let Some(state) = &partial.state {
-                    println!("state at failure: {state:?}");
+                    writeln!(out, "state at failure: {state:?}")?;
                 }
                 partial.blocks
             }
         };
         for (b, block) in blocks.iter().enumerate() {
-            println!("block {b}: blksw {:?}", block.blksw);
+            writeln!(out, "block {b}: blksw {:?}", block.blksw)?;
             if let Some(info) = &block.info {
-                println!("  {info:?}");
+                writeln!(out, "  {info:?}")?;
             }
             for (ch, c) in block.coeffs.iter().enumerate() {
                 let peak = c.iter().fold(0.0f64, |m, v| m.max(v.abs()));
                 let last = c.iter().rposition(|v| *v != 0.0).map_or(0, |i| i + 1);
-                println!("  ch {ch}: peak {peak:.6}, {last} coefficients");
+                writeln!(out, "  ch {ch}: peak {peak:.6}, {last} coefficients")?;
                 if let Some(info) = block.info.as_ref().filter(|_| detail) {
                     let exps = &info.exps[ch];
                     let bap = &info.bap[ch];
                     let shown = exps.len().min(48);
-                    println!("    exps {:?}", &exps[..shown]);
-                    println!("    bap  {:?}", &bap[..shown]);
-                    println!(
+                    writeln!(out, "    exps {:?}", &exps[..shown])?;
+                    writeln!(out, "    bap  {:?}", &bap[..shown])?;
+                    writeln!(
+                        out,
                         "    coef {:?}",
                         c[..shown]
                             .iter()
                             .map(|v| format!("{v:.5}"))
                             .collect::<Vec<_>>()
-                    );
+                    )?;
                 }
             }
         }
@@ -2593,12 +2657,13 @@ struct ChannelStats {
 
 /// `oadec compare` for AC-3 family streams against a 32-bit float
 /// little-endian reference (for example FFmpeg with `-drc_scale 0`).
-#[allow(
-    clippy::print_stderr,
-    clippy::print_stdout,
-    reason = "printing is what this one is for"
-)]
-pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Result<bool> {
+pub fn compare(
+    source: &Source,
+    reference: &Path,
+    opts: &CompareOptions,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> Result<bool> {
     let started = Instant::now();
     let file = File::open(reference).with_context(|| format!("opening {}", reference.display()))?;
     let mut reader = BufReader::with_capacity(4 << 20, file);
@@ -2681,11 +2746,12 @@ pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Resu
                         s.over_1e3 += 1;
                         if reported < opts.report {
                             reported += 1;
-                            eprintln!(
+                            writeln!(
+                                err,
                                 "mismatch: sample {} channel {}: ours {v:.7} reference {r:.7}",
                                 ours_samples - n as u64 + i as u64,
                                 names[ch]
-                            );
+                            )?;
                         }
                     }
                     if diff > 1e-2 {
@@ -2710,12 +2776,13 @@ pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Resu
     let elapsed = started.elapsed().as_secs_f64();
     if opts.worst > 0 {
         worst_list.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-        println!("Worst blocks:");
+        writeln!(out, "Worst blocks:")?;
         for (d, f, b, ch) in worst_list.iter().take(opts.worst) {
-            println!(
+            writeln!(
+                out,
                 "  frame {f} block {b} channel {}: max |diff| {d:.4e}",
                 names[*ch]
-            );
+            )?;
         }
     }
     print_pass(
@@ -2726,8 +2793,10 @@ pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Resu
         elapsed,
         false,
         Severity::Error,
-    );
-    let clean = findings(&p, sync_errors, skipped).report_clean();
+        out,
+        err,
+    )?;
+    let clean = findings(&p, sync_errors, skipped).report_clean(err)?;
     // drain the rest of the reference to learn its length
     let mut tail = [0u8; 1 << 16];
     let mut extra = 0u64;
@@ -2739,7 +2808,8 @@ pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Resu
         extra += k as u64;
     }
     let ref_total = ref_samples + extra / (order.len().max(1) as u64 * 4);
-    println!(
+    writeln!(
+        out,
         "Lengths:           ours {} samples, reference {} samples{}",
         ours_samples,
         ref_total,
@@ -2748,10 +2818,11 @@ pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Resu
         } else {
             " (DIFFER)"
         }
-    );
-    println!(
+    )?;
+    writeln!(
+        out,
         "Channel   max|diff|   rms diff     SNR dB    gain   >1e-6    >1e-4    >1e-3    >1e-2"
-    );
+    )?;
     let mut worst = 0.0f64;
     let mut worst_snr = f64::INFINITY;
     for (k, &ch) in order.iter().enumerate() {
@@ -2770,10 +2841,11 @@ pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Resu
         };
         worst = worst.max(s.max_abs);
         worst_snr = worst_snr.min(snr);
-        println!(
+        writeln!(
+            out,
             "{:<8} {:>10.3e} {:>10.3e} {:>10.1} {:>7.4} {:>8} {:>8} {:>8} {:>8}",
             names[ch], s.max_abs, rms, snr, gain, s.over_1e6, s.over_1e4, s.over_1e3, s.over_1e2
-        );
+        )?;
     }
     // Decoders differ by their dither sequences (clause 6.3.4), so equality is
     // judged on the SNR: 30 dB on every channel is far above any structural
@@ -2781,7 +2853,8 @@ pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Resu
     let equal_length = ours_samples == ref_total;
     let close = worst <= 1e-4;
     let dither_level = worst_snr >= 30.0;
-    println!(
+    writeln!(
+        out,
         "Result:            {}",
         if equal_length && close {
             "MATCH (within 1e-4)"
@@ -2790,13 +2863,43 @@ pub fn compare(source: &Source, reference: &Path, opts: &CompareOptions) -> Resu
         } else {
             "DIFFERENT"
         }
-    );
+    )?;
     Ok(equal_length && (close || dither_level) && clean)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Writes `n` bits of `value` at bit offset `at`.
+    fn put_bits(buf: &mut [u8], at: usize, n: u32, value: u32) {
+        for i in 0..n as usize {
+            let bit = (value >> (n as usize - 1 - i)) & 1 == 1;
+            let p = at + i;
+            let mask = 1u8 << (7 - p % 8);
+            if bit {
+                buf[p / 8] |= mask;
+            } else {
+                buf[p / 8] &= !mask;
+            }
+        }
+    }
+
+    /// Bit offset in the frame of the first field of its JOC payload, if it
+    /// carries one.
+    fn joc_payload_bit(frame: &oadec_eac3::Frame) -> Option<usize> {
+        for (skip, &skip_bit) in frame.skip_fields.iter().zip(&frame.skip_bits) {
+            for (i, candidate) in oadec_emdf::container::candidates(skip) {
+                let Ok((c, _)) = candidate else { continue };
+                for p in &c.payloads {
+                    if p.id == oadec_emdf::container::PAYLOAD_ID_JOC {
+                        return Some(skip_bit + 8 * i + p.data_bit);
+                    }
+                }
+            }
+        }
+        None
+    }
 
     /// A substream that declares the JOC extension in its `addbsi` carries an
     /// EMDF container in every frame (TS 103 420 clauses 8.2 and 8.3.1), so a
@@ -3091,7 +3194,7 @@ mod tests {
     fn the_frames_of_a_stream_do_not_depend_on_how_it_is_read() {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/authored-scene.ec3"
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
         );
         let stream = std::fs::read(path).expect("the fixture");
         let whole = read_in_pieces(&stream, READ_BYTES);
@@ -3119,7 +3222,7 @@ mod tests {
     fn the_gaps_of_a_stream_do_not_depend_on_how_it_is_read() {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/authored-scene.ec3"
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
         );
         let clean = std::fs::read(path).expect("the fixture");
         const FRAME: usize = 1792;
@@ -3240,7 +3343,7 @@ mod tests {
     fn a_block_keeps_its_record_only_where_it_is_asked_for() {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/authored-scene.ec3"
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
         );
         let stream = std::fs::read(path).expect("the fixture");
         let parsed = |options: Options| {
@@ -3271,7 +3374,7 @@ mod tests {
     fn fixture_bytes() -> Vec<u8> {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/authored-scene.ec3"
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
         );
         std::fs::read(path).expect("the fixture")
     }
@@ -3289,8 +3392,8 @@ mod tests {
         for (n, frame) in stream.as_chunks_mut::<1792>().0.iter_mut().enumerate() {
             let parsed = oadec_eac3::Frame::parse(frame, &mut noise, quiet).expect("a frame");
             if n >= from {
-                let at = crate::joc_config::config_bit(&parsed).expect("a JOC payload");
-                crate::joc_config::put_bits(frame, at + 15, 5, 16);
+                let at = joc_payload_bit(&parsed).expect("a JOC payload");
+                put_bits(frame, at + 15, 5, 16);
                 oadec_eac3::repair::fix_crcs(frame);
             }
         }
@@ -3399,7 +3502,7 @@ mod tests {
     fn first_groups(n: usize) -> Vec<ProgramFrame> {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/tests/fixtures/authored-scene.ec3"
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
         );
         let stream = std::fs::read(path).expect("the fixture");
         let mut dec = ProgramDecoder::new(Options::default());

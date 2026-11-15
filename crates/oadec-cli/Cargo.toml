@@ -14,20 +14,22 @@ name = "oadec"
 path = "src/main.rs"
 
 [dependencies]
+oadec-engine.workspace = true
 oadec-bits.workspace = true
 oadec-diag.workspace = true
 oadec-emdf.workspace = true
 oadec-truehd.workspace = true
 oadec-eac3.workspace = true
-oadec-joc.workspace = true
 oadec-spatial.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
-# The streams the command-line tests write for themselves.
+# The streams the command-line tests write for themselves, and the taps a
+# test of the JOC options writes to a file.
 [dev-dependencies]
+oadec-joc.workspace = true
 oadec-synth.workspace = true
 
 [lints]

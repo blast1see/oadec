@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use clap::ValueEnum;
 use oadec_emdf::container::{self, PAYLOAD_ID_OAMD};
 use oadec_emdf::oamd::{BedChannel, ISF_OBJECTS, Oamd};
 use oadec_spatial::{
@@ -17,42 +16,6 @@ use oadec_truehd::channel::ExtraChannelMeaning;
 use oadec_truehd::{AccessUnit, ChannelLabel, ExtraKind, MajorSync, StreamConfig};
 use serde_json::json;
 
-/// `--isf`: what to do with intermediate-spatial-format elements.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub(crate) enum IsfArg {
-    /// Refuse the decode: DAMF and the ADM profile cannot represent them.
-    Error,
-    /// Write the beds and dynamic objects without them (a declared loss, exit 4).
-    Drop,
-}
-
-impl From<IsfArg> for IsfPolicy {
-    fn from(arg: IsfArg) -> Self {
-        match arg {
-            IsfArg::Error => Self::Error,
-            IsfArg::Drop => Self::Drop,
-        }
-    }
-}
-
-/// `--adm-interpolation`: how ADM interpolation lengths are written.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub(crate) enum InterpolationArg {
-    /// The Dolby Atmos master ADM profile: 0 then 250 samples (the default).
-    Profile,
-    /// The source ramps (BS.2076, outside the profile; refuses the Dolby origin tag).
-    Real,
-}
-
-impl From<InterpolationArg> for Interpolation {
-    fn from(arg: InterpolationArg) -> Self {
-        match arg {
-            InterpolationArg::Profile => Self::Profile,
-            InterpolationArg::Real => Self::Real,
-        }
-    }
-}
-
 use crate::decode::{ConfigStop, Format, Order, Session, format_duration, print_summary};
 use crate::input;
 use crate::integrity::Verdict;
@@ -60,7 +23,7 @@ use crate::source::Source;
 
 /// The object formats always decode the object presentation (3); a
 /// `--presentation` that says otherwise used to be accepted and ignored.
-pub(crate) fn check_presentation(format: Format, presentation: Option<usize>) -> Result<()> {
+pub fn check_presentation(format: Format, presentation: Option<usize>) -> Result<()> {
     let name = match format {
         Format::Damf => "damf",
         Format::Adm => "adm",
@@ -76,10 +39,7 @@ pub(crate) fn check_presentation(format: Format, presentation: Option<usize>) ->
 
 /// A file with the source ramps is outside the Dolby profile and cannot claim
 /// Dolby authorship.
-pub(crate) fn check_interpolation(
-    interpolation: Interpolation,
-    dolby_origin_tag: bool,
-) -> Result<()> {
+pub fn check_interpolation(interpolation: Interpolation, dolby_origin_tag: bool) -> Result<()> {
     if interpolation == Interpolation::Real && dolby_origin_tag {
         bail!(
             "--adm-interpolation real writes a file outside the Dolby Atmos master ADM profile and cannot carry the Dolby origin tag; drop --dolby-origin-tag"
@@ -89,18 +49,19 @@ pub(crate) fn check_interpolation(
 }
 
 /// Says on stderr when the ADM file is outside the profile.
-#[allow(clippy::print_stderr, reason = "printing is what this one is for")]
-pub(crate) fn note_non_profile(opts: &Options) {
+pub(crate) fn note_non_profile(opts: &Options, err: &mut dyn Write) -> io::Result<()> {
     if opts.adm && opts.interpolation == Interpolation::Real {
-        eprintln!(
+        writeln!(
+            err,
             "ADM BWF written outside the Dolby Atmos master ADM profile: interpolation lengths are the source ramps"
-        );
+        )?;
     }
+    Ok(())
 }
 
 /// The warp mode an object output names.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum WarpArg {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Warp {
     /// The one the stream declares; a TrueHD stream declares none.
     Stream,
     /// Direct render.
@@ -114,7 +75,7 @@ pub enum WarpArg {
     LoRo,
 }
 
-impl WarpArg {
+impl Warp {
     /// The mode to write, given what the stream declares.
     fn resolve(self, declared: Option<WarpMode>) -> Option<WarpMode> {
         match self {
@@ -195,7 +156,7 @@ pub struct Options {
     /// ADM: how interpolation lengths are written.
     pub interpolation: Interpolation,
     /// The warp mode the output names, if it is asked to name one.
-    pub warp: Option<WarpArg>,
+    pub warp: Option<Warp>,
     /// TrueHD: what to do with an access unit that cannot be read; `None`
     /// for the default, which is to conceal it. An E-AC-3 decode has its own
     /// way with a bad frame, and is not to be handed one.
@@ -237,11 +198,15 @@ fn isf_hint(count: usize, isf_type: &str) -> String {
 
 /// Prints the loss ledger of an output on stderr, one line per class. Quiet
 /// when nothing was lost.
-#[allow(clippy::print_stderr, reason = "printing is what this one is for")]
-pub(crate) fn print_losses(target: &str, losses: &LossLedger) {
+pub(crate) fn print_losses(
+    target: &str,
+    losses: &LossLedger,
+    err: &mut dyn Write,
+) -> io::Result<()> {
     for line in losses.lines(target) {
-        eprintln!("{line}");
+        writeln!(err, "{line}")?;
     }
+    Ok(())
 }
 
 /// Writes the loss ledger of an output as JSON when a path was given.
@@ -530,13 +495,13 @@ impl Written {
 
     /// Says on stderr what was decoded and written, and what the output
     /// could not carry.
-    #[allow(clippy::print_stderr, reason = "printing is what this one is for")]
-    pub fn print_summary(&self) {
+    pub fn print_summary(&self, err: &mut dyn Write) -> io::Result<()> {
         if let Some(stop) = &self.stopped {
-            stop.print(self.emitted);
+            stop.print(self.emitted, err)?;
         }
-        print_summary(&self.session, self.elapsed);
-        eprintln!(
+        print_summary(&self.session, self.elapsed, err)?;
+        writeln!(
+            err,
             "{}: {} frames x {} channels ({}) in {}{}",
             if self.opts.adm { "ADM BWF" } else { "DAMF" },
             self.sink.frames,
@@ -549,9 +514,10 @@ impl Written {
                 .last()
                 .map_or_else(String::new, |p| p.display().to_string()),
             self.sink.note
-        );
-        note_non_profile(&self.opts);
-        eprintln!(
+        )?;
+        note_non_profile(&self.opts, err)?;
+        writeln!(
+            err,
             "metadata: {} payloads in {} access units, {} events ({} restating payloads, {} out-of-order events), {} payload errors",
             self.payloads,
             self.units_with_payloads,
@@ -559,19 +525,21 @@ impl Written {
             self.restatements,
             self.out_of_order,
             self.payload_errors
-        );
+        )?;
         if let Some(e) = &self.first_payload_error {
-            eprintln!("first payload error: {e}");
+            writeln!(err, "first payload error: {e}")?;
         }
         if let Some(s) = &self.session.stats
             && s.valid_branches + s.invalid_branches + s.duplicates > 0
         {
-            eprintln!(
+            writeln!(
+                err,
                 "timing: {} input timing jumps, {} seamless branches, {} restarts, {} duplicates dropped",
                 s.input_jumps, s.valid_branches, s.invalid_branches, s.duplicates
-            );
+            )?;
         }
-        print_losses(self.target(), &self.losses);
+        print_losses(self.target(), &self.losses, err)?;
+        Ok(())
     }
 
     /// Writes the loss ledger as JSON where the options ask for it.
@@ -608,11 +576,11 @@ impl Written {
 }
 
 /// Runs the object output; `base` is the output path without extension.
-pub fn run(source: &Source, base: &Path, opts: &Options) -> Result<Verdict> {
-    let written = write(source, base, opts, &mut io::stderr())?;
-    written.print_summary();
+pub fn run(source: &Source, base: &Path, opts: &Options, err: &mut dyn Write) -> Result<Verdict> {
+    let written = write(source, base, opts, err)?;
+    written.print_summary(err)?;
     written.write_loss_report()?;
-    Ok(written.findings()?.report())
+    Ok(written.findings()?.report(err)?)
 }
 
 /// Decodes the object presentation of a TrueHD stream into a DAMF set or an
@@ -682,7 +650,7 @@ pub fn write(
             let program = program_from_major_sync(ms)?;
             // No TrueHD stream measured carries a trim element, so nothing is read
             // here and the note says so; if one ever does, the timeline counts it.
-            if opts.warp == Some(WarpArg::Stream) {
+            if opts.warp == Some(Warp::Stream) {
                 note_no_warp_mode(
                     "no TrueHD stream measured has declared a warp mode",
                     remarks,

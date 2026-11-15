@@ -1,0 +1,246 @@
+{
+ "question": "What reads a stream, checks it and decodes it was inside the crate of the command line, and the calls that offer it without a process (`api`) came with the command line's parser, printed through `println!` under allowances of their own, and drew the progress line themselves. Can the engine be a crate of its own, with no command line in it and nothing printed, without one byte of what a command says or writes moving?",
+ "method": "Four steps, each a commit. (1) The values an option takes by name became enums of the command line (`args.rs`) with the words their values were helped with, each turned into the type the work takes, so that no type of the work derives a clap trait. (2) A walk tells the watcher of its source how far it has got and draws nothing; the line on the terminal is the command line's watcher. (3) Every line the modules that do the work printed is written to a writer the function is handed: the lines were converted by a script, the signatures put right where the compiler said a writer was missing, and the command line hands over stdout and stderr, not held locked. (4) The fifteen modules moved to `crates/oadec-engine` with `git mv`; the command line, the fuzz crate, the tests and the mutations were pointed at them. Then: the help of every command and the answer to a value that is no value, from the binary of main and of the change; every report and every delivery of every stream of the corpus from both (`tools/old_new.py --decode-all`); the campaign of damaged streams against the tally of main; the whole test suite, with its transcripts held to the files they were; a sample of the mutations across the files that moved; and the media regression.",
+ "commands": [
+  "python help_same.py <binary of main> <binary of the change>   (--help and -h of the fifteen commands, --version, and twelve values that are none)",
+  "python tools/old_new.py --old <binary of main> --new <binary of the change> --decode-all <the corpus>",
+  "OADEC_CAMPAIGN_ITERS=200000 cargo test --release --locked -p oadec-fuzz --test campaign -- --nocapture the_commands_agree_on_every_changed_stream",
+  "cargo test --workspace --locked --no-fail-fast; cargo clippy --workspace --all-targets --locked -- -D warnings; cargo fmt --all --check; cargo deny check",
+  "python tools/mutants.py --check; python tools/mutants.py --only <29 names>",
+  "bash tools/media_regression.sh <media> <logs>"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "binaries": {
+  "main": {
+   "name": "oadec-interop-3.exe",
+   "sha256": "bb8adbee1ffae53a42cd7b8db2c86ae8228ec99fa92c219a9bae074e137547e4",
+   "what": "the binary of main (evidence 54)"
+  },
+  "the_change": {
+   "name": "oadec-engine-3.exe",
+   "sha256": "99cf6a28a3a7b117b11a9b8a587b3899959b39fc9e5c65926061d65f8b5c3075"
+  }
+ },
+ "result": {
+  "the_engine": {
+   "crate": "crates/oadec-engine",
+   "modules_moved": [
+    "api",
+    "census",
+    "damf",
+    "decode",
+    "eac3",
+    "eac3_objects",
+    "emdf",
+    "info",
+    "input",
+    "integrity",
+    "oamd",
+    "protection",
+    "scan",
+    "source",
+    "verify"
+   ],
+   "lines": 15717,
+   "moved_with_git_mv": 15,
+   "how_alike_a_moved_file_is_to_what_it_was_per_cent": {
+    "least": 71,
+    "most": 100
+   },
+   "depends_on_clap": false,
+   "files_that_name_clap": [],
+   "lines_that_print": 0,
+   "allowances_of_printing": 0,
+   "places_that_name_stdout_or_stderr": 0
+  },
+  "what_a_caller_that_is_no_command_line_locks": {
+   "what": "fuzz/Cargo.lock: the workspace of the libFuzzer wrappers, whose targets call `api`",
+   "packages_before": 53,
+   "packages_now": 36,
+   "gone": [
+    "anstream",
+    "anstyle",
+    "anstyle-parse",
+    "anstyle-query",
+    "anstyle-wincon",
+    "clap",
+    "clap_builder",
+    "clap_derive",
+    "clap_lex",
+    "colorchoice",
+    "heck",
+    "is_terminal_polyfill",
+    "oadec-cli",
+    "once_cell_polyfill",
+    "strsim",
+    "utf8parse",
+    "windows-link",
+    "windows-sys"
+   ],
+   "new": [
+    "oadec-engine"
+   ],
+   "the_lock_is_what_cargo_resolves": "cargo metadata --locked --offline --manifest-path fuzz/Cargo.toml: exit 0"
+  },
+  "the_command_line": {
+   "crate": "crates/oadec-cli",
+   "modules": [
+    "args",
+    "au_dump",
+    "author",
+    "catalog",
+    "compare",
+    "ecpl_inject",
+    "joc_config",
+    "joc_offset",
+    "lib",
+    "main",
+    "progress",
+    "repair",
+    "thd_demux"
+   ],
+   "lines": 3593,
+   "files_that_name_clap": [
+    "args.rs",
+    "compare.rs",
+    "lib.rs"
+   ],
+   "files_with_an_allowance_of_printing": [
+    "au_dump.rs",
+    "author.rs",
+    "catalog.rs",
+    "compare.rs",
+    "ecpl_inject.rs",
+    "joc_config.rs",
+    "joc_offset.rs",
+    "lib.rs",
+    "repair.rs",
+    "thd_demux.rs"
+   ]
+  },
+  "lines_that_were_printed_and_are_written_to_a_writer": {
+   "eac3.rs": 59,
+   "emdf.rs": 35,
+   "verify.rs": 34,
+   "oamd.rs": 31,
+   "info.rs": 28,
+   "decode.rs": 11,
+   "damf.rs": 6,
+   "eac3_objects.rs": 5,
+   "integrity.rs": 4,
+   "scan.rs": 1,
+   "in_all": 214,
+   "allowances_of_printing_gone": 31
+  },
+  "the_words_of_the_command_line": {
+   "asked": 45,
+   "the_same": 45,
+   "lines_compared": 666,
+   "commands": [
+    "info",
+    "verify",
+    "au",
+    "rules",
+    "emdf",
+    "oamd",
+    "decode",
+    "compare",
+    "thd-demux",
+    "eac3-joc-config",
+    "eac3-joc-offset"
+   ],
+   "and_the_hidden_ones": [
+    "eac3-blocks",
+    "atmos-author",
+    "eac3-ecpl-inject",
+    "repair"
+   ]
+  },
+  "what_changes": {
+   "what": "`tools/old_new.py --decode-all`: every report and every delivery of every stream",
+   "streams": 136,
+   "streams_changed": 0,
+   "fields_added": "none",
+   "lines_added": "none"
+  },
+  "the_commands_agree": {
+   "seed": 0,
+   "rounds": 200000,
+   "clauses_broken": 0,
+   "panics": 0,
+   "kinds_of_answers": {
+    "main": 31,
+    "the_change": 31
+   },
+   "every_command_clean": {
+    "main": 27517,
+    "the_change": 27517
+   },
+   "rounds_whose_answers_moved": 0,
+   "answers_that_moved": {}
+  },
+  "what_is_not_the_same": {
+   "what": "a report written to a pipe that is closed: the write fails and the command ends with the error and exit code 2, where `println!` ended the process in a panic. No test or tool reads that case.",
+   "asked": "oadec oamd --dump 100000 <a fixture>, its standard output read for one line and closed",
+   "main": {
+    "exit": 101,
+    "panicked": true,
+    "says_an_error": false
+   },
+   "the_change": {
+    "exit": 2,
+    "panicked": false,
+    "says_an_error": true
+   }
+  },
+  "tests": {
+   "cargo_fmt_check_clippy_with_warnings_denied_and_cargo_deny": "clean",
+   "cargo_test_workspace": "58 test binaries",
+   "passed": 745,
+   "failed": 0,
+   "ignored": 35,
+   "media_passed": 35,
+   "media_failed": 0,
+   "media_regression": "all 8 steps passed (media-suite, media-negative, truehd-gates, joc-object-gate, replay-joc, replay-truehd, adm-harness-build, adm-harness)",
+   "mutations_run": 29,
+   "mutations_caught": 29,
+   "the_mutations_run": [
+    "--warp-mode accepted on a sample output",
+    "a trim configuration tallied whatever it says",
+    "the missing container, the statistics not counting a frame without skip fields",
+    "verify --decode not asking for the samples of an AC-3 family stream",
+    "the first major sync of a stream told again at every unit",
+    "the verdict line left off the text of verify for an AC-3 family stream",
+    "the loss report of a TrueHD object decode not written",
+    "the size of a stream in pieces taken from its first piece",
+    "info calling a major sync it could not read no major sync",
+    "the object decode following another counter than the clause has",
+    "the descriptive payloads not filed by the E-AC-3 walk",
+    "an operator from a file on a decode it does not reach",
+    "the decodes of verify --decode not begun when the scan has a major sync",
+    "the start boundary, a unit that ends exactly at the target counted as after it",
+    "the readings of the JOC matrices let through by a call for a TrueHD object decode",
+    "a change of key not among what a container declares",
+    "the bits of the FBA syntax held against an FBB major sync",
+    "info saying of every stream that its delay is constant",
+    "info --json giving every presentation the modifier of the first",
+    "the blocks printed without their records",
+    "--warp-mode stream not reading the stream",
+    "an operator from a file, an even number of taps taken",
+    "bytes in memory said to have no size",
+    "a declared loss put before a fault in the verdict of a delivery",
+    "a report of verify said to be clean whatever it found",
+    "the warning for a channel mask not passed on by a decode",
+    "the text of a walk over access units printed for one over syncframes",
+    "the line of a stream whose containers change not saying so",
+    "info printing a heavy DRC nothing announces"
+   ],
+   "mutations_in_all": 584
+  }
+ },
+ "reading": "The engine is a crate without a command line: it names no clap type, prints no line and names neither stdout nor stderr; what it reports it writes to the writer it is handed, and how far it has read it tells the watcher of its source. The command line is what is left, and what it says and writes is what it said and wrote: the help of every command, every report and delivery of the corpus and every answer of the campaign are the same. The calls keep their shape; one API over both families with errors of a type of its own is the next step."
+}

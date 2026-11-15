@@ -1,6 +1,7 @@
 //! One pass over a TrueHD stream collecting what `info` and `verify` report.
 
 use std::collections::BTreeMap;
+use std::io::{self, Write};
 
 use anyhow::Result;
 use oadec_emdf::container;
@@ -127,13 +128,14 @@ impl Failures {
 }
 
 /// The line `verify` and `info` print for elements whose declared size is not theirs.
-#[allow(clippy::print_stdout, reason = "printing is what this one is for")]
-pub(crate) fn print_stale_sizes(count: u64) {
+pub(crate) fn print_stale_sizes(count: u64, out: &mut dyn Write) -> io::Result<()> {
     if count > 0 {
-        println!(
+        writeln!(
+            out,
             "                   {count} elements declare a size that is not theirs; their content is complete and was read (docs/oamd.md)"
-        );
+        )?;
     }
+    Ok(())
 }
 
 /// Timing model statistics.
@@ -1460,8 +1462,7 @@ mod tests {
         for name in ["truehd-20-44k.thd", "mlp-51-96k.mlp", "authored-scene.mlp"] {
             let source = Source::file(
                 &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("tests")
-                    .join("fixtures")
+                    .join("../oadec-cli/tests/fixtures")
                     .join(name),
             );
             let asked = std::cell::Cell::new(0u64);
