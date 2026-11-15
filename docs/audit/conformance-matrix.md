@@ -26,7 +26,8 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 > `2026-11-10-verification-upgrade-report.md`.
 >
 > **Revised in the engine round of 2026-11.** Rows it added or changed cite
-> `evidence/engine-round-2026-11/`.
+> `evidence/engine-round-2026-11/`; the report is
+> `2026-11-engine-round-report.md`.
 
 ## TrueHD
 
