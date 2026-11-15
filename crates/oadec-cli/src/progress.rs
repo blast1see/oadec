@@ -29,8 +29,34 @@
 //! unit every format has in common.
 
 use std::io::{IsTerminal, Write};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
+
+use crate::source::{Source, Walk, Watcher};
+
+/// The command line's watcher: every walk it is told of gets a [`Progress`],
+/// which decides for itself whether it draws.
+#[derive(Debug)]
+pub struct Terminal;
+
+impl Watcher for Terminal {
+    fn begin(&self, what: &'static str, total: u64) -> Box<dyn Walk> {
+        Box::new(Progress::new(what, total))
+    }
+}
+
+impl Walk for Progress {
+    fn at(&mut self, done: u64) {
+        Progress::at(self, done);
+    }
+}
+
+/// A source the command line reads, watched by the line on the terminal.
+#[must_use]
+pub fn watched(source: Source) -> Source {
+    source.watched(Arc::new(Terminal))
+}
 
 /// Redraw at most this often. Ten a second is smooth to read and costs nothing;
 /// a write per access unit would be 9.5 million writes on a two-hour film.

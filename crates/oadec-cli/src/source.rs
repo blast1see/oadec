@@ -26,6 +26,53 @@ const PIECE: usize = 16 << 20;
 pub struct Source {
     name: String,
     from: From,
+    /// Who is told how far a walk over the stream has got; nobody, unless
+    /// the source was given a watcher.
+    watcher: Option<Arc<dyn Watcher>>,
+}
+
+/// Who is told how far a walk over a source has got.
+///
+/// A walk over a feature film reads gigabytes and takes minutes, and what
+/// reads it does not know who is waiting: a terminal that wants a line drawn,
+/// a window that wants a bar, nobody at all. So a walk draws nothing. It
+/// tells the watcher of its source, when the source has one, and each walk is
+/// told of on its own, because a command walks its stream more than once and
+/// on more than one thread.
+pub trait Watcher: std::fmt::Debug + Send + Sync {
+    /// A walk over `total` bytes is beginning, and `what` is what it is
+    /// doing. What is handed back is told where the walk is, and is dropped
+    /// when the walk is over, however it ends.
+    fn begin(&self, what: &'static str, total: u64) -> Box<dyn Walk>;
+}
+
+/// One walk that is being watched.
+pub trait Walk {
+    /// The walk has read `done` bytes of its stream. It is told for every
+    /// unit of the stream, so what is done here is done often.
+    fn at(&mut self, done: u64);
+}
+
+/// The telling of one walk: to the watcher of its source, or to nobody.
+pub struct Walking(Option<Box<dyn Walk>>);
+
+impl std::fmt::Debug for Walking {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(if self.0.is_some() {
+            "Walking(watched)"
+        } else {
+            "Walking(unwatched)"
+        })
+    }
+}
+
+impl Walking {
+    /// The walk has read `done` bytes.
+    pub fn at(&mut self, done: u64) {
+        if let Some(walk) = &mut self.0 {
+            walk.at(done);
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +91,7 @@ impl Source {
         Self {
             name: path.display().to_string(),
             from: From::File(path.to_path_buf()),
+            watcher: None,
         }
     }
 
@@ -53,6 +101,7 @@ impl Source {
         Self {
             name: name.into(),
             from: From::Memory(bytes.into()),
+            watcher: None,
         }
     }
 
@@ -101,7 +150,23 @@ impl Source {
         Ok(Self {
             name: name.into(),
             from: From::Pieces(pieces(from, PIECE)?.into()),
+            watcher: None,
         })
+    }
+
+    /// The same stream with someone to tell how far each walk over it has
+    /// got. A clone of the source has the same watcher.
+    #[must_use]
+    pub fn watched(mut self, watcher: Arc<dyn Watcher>) -> Self {
+        self.watcher = Some(watcher);
+        self
+    }
+
+    /// Begins the telling of a walk over `total` bytes of the source. Where
+    /// nobody watches, what comes back tells nobody.
+    #[must_use]
+    pub fn walk(&self, what: &'static str, total: u64) -> Walking {
+        Walking(self.watcher.as_ref().map(|w| w.begin(what, total)))
     }
 
     /// What reports and messages call the source: for a file, its path as it
@@ -281,6 +346,7 @@ mod tests {
             let source = Source {
                 name: "piped".to_string(),
                 from: From::Pieces(pieces(&bytes[..], len).expect("read").into()),
+                watcher: None,
             };
             assert_eq!(source.size().expect("a size"), 1000);
             assert_eq!(all(&source), bytes, "pieces of {len}");

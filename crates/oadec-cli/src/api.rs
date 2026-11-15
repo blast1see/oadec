@@ -45,7 +45,7 @@ pub use crate::emdf::Report as EmdfReport;
 pub use crate::info::Report as InfoReport;
 pub use crate::integrity::{Findings, Verdict};
 pub use crate::oamd::Report as OamdReport;
-pub use crate::source::Source;
+pub use crate::source::{Source, Walk, Walking, Watcher};
 pub use crate::verify::Report as VerifyReport;
 use crate::{damf, decode, eac3, eac3_objects, emdf, info, oamd, verify};
 

@@ -482,7 +482,7 @@ const EXIT_NONCONFORMANT: u8 = 7;
 /// The stream a command line names: a file, or standard input for `-`, which
 /// is read to its end here, before the command starts.
 fn stream_named(file: &std::path::Path) -> anyhow::Result<Source> {
-    Ok(Source::named(file)?)
+    Ok(progress::watched(Source::named(file)?))
 }
 
 /// Runs the command line `args` spells, the program's own name first, and

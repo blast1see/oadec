@@ -80,7 +80,7 @@ pub fn run(path: &Path, out: &Path, config: u8) -> Result<()> {
     let mut noise = Noise::default();
     let mut changed = 0u64;
     let mut untouched = 0u64;
-    let source = crate::source::Source::file(path);
+    let source = crate::progress::watched(crate::source::Source::file(path));
     let (frames, sync_errors, skipped) = for_each_frame(&source, |_offset, bytes, header| {
         let mut frame = bytes.to_vec();
         // Dependent substreams are rewritten too: with one present, clause 8.2

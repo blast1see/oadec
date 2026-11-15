@@ -141,7 +141,8 @@ fn ac3(path: &Path, out: &Path) -> Result<Summary> {
 
 /// Repairs the checksums of `path` into `out` and says what it changed.
 pub fn run(path: &Path, out: &Path, json: bool) -> Result<()> {
-    let ac3_family = crate::eac3::is_eac3(&crate::source::Source::file(path))?;
+    let ac3_family =
+        crate::eac3::is_eac3(&crate::progress::watched(crate::source::Source::file(path)))?;
     let summary = if ac3_family {
         ac3(path, out)
     } else {

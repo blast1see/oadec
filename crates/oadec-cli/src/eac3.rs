@@ -119,7 +119,7 @@ fn frames_and_gaps(
     mut on_gap: impl FnMut(u64, bool, u64),
 ) -> Result<(u64, u64, u64)> {
     let file_bytes = source.size().unwrap_or(0);
-    let mut progress = crate::progress::Progress::new("reading", file_bytes);
+    let mut progress = source.walk("reading", file_bytes);
     let mut file = BufReader::with_capacity(read_bytes, source.open()?);
     // What has been read and not yet taken is `buf[at..]`. A frame that is
     // taken moves `at` and nothing else. The bytes behind it are given up
