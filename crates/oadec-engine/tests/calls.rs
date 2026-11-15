@@ -94,6 +94,29 @@ fn temp(tag: &str) -> PathBuf {
     dir
 }
 
+/// The format of a stream as its bytes say it, read here and not by the
+/// engine: the sync word of its first major sync, the one of TrueHD or the
+/// one of MLP, or the `bsid` of its first syncframe.
+fn by_the_bytes(path: &Path) -> Format {
+    let bytes = std::fs::read(path).expect("the stream");
+    if bytes.starts_with(&[0x0B, 0x77]) {
+        return if bytes[5] >> 3 > 10 {
+            Format::Eac3
+        } else {
+            Format::Ac3
+        };
+    }
+    let word = bytes
+        .windows(4)
+        .find(|w| w[..3] == [0xF8, 0x72, 0x6F] && matches!(w[3], 0xBA | 0xBB))
+        .expect("a major sync");
+    if word[3] == 0xBB {
+        Format::Mlp
+    } else {
+        Format::TrueHd
+    }
+}
+
 /// A probe says what kind of stream it read, by what the stream begins with
 /// and not by what its file is called, and hands back what `info` reports.
 #[test]
@@ -103,13 +126,18 @@ fn a_probe_says_what_the_stream_is_and_what_info_reports() {
         let source = Source::file(&path);
         let probe = oadec_engine::probe(&source).unwrap();
         // the authored stream is TrueHD under the extension its encoder gave it
-        let expected = if name.ends_with(".ec3") {
-            Format::Eac3
-        } else if name.starts_with("mlp-") {
-            Format::Mlp
-        } else {
-            Format::TrueHd
-        };
+        let expected = by_the_bytes(&path);
+        assert_eq!(
+            expected,
+            if name.ends_with(".ec3") {
+                Format::Eac3
+            } else if name.starts_with("mlp-") {
+                Format::Mlp
+            } else {
+                Format::TrueHd
+            },
+            "{name}"
+        );
         assert_eq!(probe.format, expected, "{name}");
         assert_eq!(
             probe.format.is_ac3_family(),
@@ -143,10 +171,14 @@ fn a_report_of_the_checks_has_one_shape_whatever_the_stream() {
         let source = Source::file(&path);
         let report = oadec_engine::verify(&source, &VerifyOptions::default()).unwrap();
         let said = report.report.json().unwrap().expect("a report");
-        // the report of the checks and a probe call the stream the same
-        if let Ok(probe) = oadec_engine::probe(&source) {
-            assert_eq!(report.format, probe.format, "{name}");
-        }
+        // the stream is what its first sync word says, damaged or not, and the
+        // report of the checks and a probe call it the same
+        assert_eq!(report.format, by_the_bytes(&path), "{name}");
+        assert_eq!(
+            oadec_engine::probe(&source).unwrap().format,
+            report.format,
+            "{name}"
+        );
         assert_eq!(
             report.format.is_ac3_family(),
             api::is_ac3_family(&source).unwrap()
@@ -210,7 +242,9 @@ fn a_report_of_the_checks_has_one_shape_whatever_the_stream() {
         &VerifyOptions::default(),
     )
     .unwrap();
-    assert_eq!(broken.format, Format::TrueHd);
+    // its one major sync begins with the sync word of the FBB syntax and
+    // cannot be read past it: the word is what says which syntax a stream is of
+    assert_eq!(broken.format, Format::Mlp);
     assert!(!broken.clean);
     assert_eq!((broken.tally.fatal, broken.tally.error), (8, 0));
     assert_eq!(broken.tally.rules[0].rule, "au.framing");

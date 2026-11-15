@@ -366,10 +366,7 @@ impl Report {
     /// DVD-Audio carries it, and not Dolby TrueHD.
     #[must_use]
     pub fn is_mlp(&self) -> bool {
-        self.scan
-            .first_major_sync
-            .as_ref()
-            .is_some_and(oadec_truehd::MajorSync::is_fbb)
+        self.scan.is_fbb()
     }
 
     /// The report as `info --json` prints it.
