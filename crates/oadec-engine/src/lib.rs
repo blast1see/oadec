@@ -5,9 +5,14 @@
 //! The codecs are crates of their own (`oadec-truehd`, `oadec-eac3`,
 //! `oadec-joc`, `oadec-emdf`, `oadec-spatial`). This is what runs them over a
 //! whole stream: the walks, the reports, the verdict a delivery ends with and
-//! the files an object output is. [`api`] is the door: a call for each thing
-//! the command line does, taking a [`source::Source`] and handing back a
-//! value.
+//! the files an object output is.
+//!
+//! There are two doors. The calls at the root of the crate, [`probe`],
+//! [`verify`], [`decode`], [`decode_objects`] and [`metadata`], are for a
+//! caller that is not the command line: one shape whatever the stream, and
+//! an [`Error`] that says which kind of thing went wrong. [`api`] is what
+//! they stand on, the commands as calls: family by family the report a
+//! command prints, and what it refuses in the words the command says.
 //!
 //! Nothing here knows of a command line, and nothing here prints. A report
 //! is a value; the text of one is written to the writer its caller hands
@@ -24,6 +29,7 @@
 #![warn(unnameable_types)]
 
 pub mod api;
+mod calls;
 pub mod census;
 pub mod damf;
 pub mod decode;
@@ -38,3 +44,8 @@ pub mod protection;
 pub mod scan;
 pub mod source;
 pub mod verify;
+
+pub use calls::{
+    Error, Format, Metadata, Probe, RuleCount, Tally, VerifyReport, decode, decode_objects,
+    metadata, probe, verify,
+};

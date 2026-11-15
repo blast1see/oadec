@@ -134,6 +134,7 @@ dependencies = [
  "oadec-truehd",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
