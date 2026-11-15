@@ -555,6 +555,22 @@ Semantic Versioning.
 
 ### Changed
 
+- **The level of the core under each clip gain is a row of `verify
+  --decode`.** `verify` and `info` read a stream of the AC-3 family and do
+  not listen to it, but for one row: where the JOC payloads carry more than
+  one clip gain they said the peak of the core under each
+  (`JOC core level:`), which is of the samples, and read such a stream a
+  second time, with its samples, to say it. The row is printed now by the
+  report whose samples are made, `verify --decode`, and by no other.
+  `verify` and `info` read every stream once, and what they say is of the
+  stream alone: it no longer moves with the dither. The three streams of the
+  corpus that have the row take 68 to 77 per cent of the time under
+  `verify`; their reports are shorter by that one line, `verify --decode`
+  says what it said, and no verdict and no exit code moves.
+  `JOC clip gain:`, which is what the payloads say, stays in all of them
+  (`docs/performance.md`,
+  `docs/audit/evidence/engine-round-2026-11/53-the-core-level-where-the-samples-are-made.json`).
+
 - **The dither is the one Dolby's decoder draws.** Where a mantissa has no
   bits a decoder puts a random value, and the standard leaves the sequence
   to it. oadec drew an even spread within 0,5 from a generator of its own,

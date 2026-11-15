@@ -1,0 +1,362 @@
+{
+ "question": "One row of the report of `verify` and `info` is of the samples: the level of the core under each clip gain, where the JOC payloads of a stream carry more than one. What did it cost a command that otherwise reads a stream and does not listen to it, and what does a report say when the row is printed only where the samples are made?",
+ "method": "The read of `verify` and `info` no longer starts over with the samples when a second clip gain shows: the stream is read once, with the samples when `verify --decode` asks for them and without when nothing does, and the row is printed by the report whose pass made them. The three streams of the corpus that have the row were timed with the binary of main and the binary of the change, turn and turn about, nine runs each, bound to the fast cores, the median of each; a stream without the row was timed with them. Every report and every delivery of every stream of the corpus was made by both binaries (`tools/old_new.py --decode-all`). The campaign of damaged streams was run with the change and held to the tally of main, which is the tally of the change before the last one: main has had no decoder code changed since (evidence 51 and 52).",
+ "commands": [
+  "oadec verify <stream>; oadec verify --decode <stream>; oadec info <stream>   (nine runs of each binary, in turn)",
+  "python tools/old_new.py --old <main> --new <change> --decode-all <thd> <ec3> <clips> <fixtures>",
+  "OADEC_CAMPAIGN_ITERS=200000 cargo test --release --locked -p oadec-fuzz --test campaign -- the_commands_agree_on_every_changed_stream",
+  "python tools/mutants.py --only <the mutations of the read and of the row>",
+  "bash tools/media_regression.sh <work> <logs>"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "binaries": {
+  "main": {
+   "name": "oadec-dolby-dither-2.exe",
+   "sha256": "1cf1c6a260156544afbec85054626c711ff6005d12d60ed476cc490deb857231",
+   "what": "the binary evidence 51 names as its change; main has had no decoder code changed since"
+  },
+  "the_change": {
+   "name": "oadec-core-level-2.exe",
+   "sha256": "dd7527ddd9063a5a0fe3ffc23676dab799bbfd8f91b76101622bc54c40c21d1c"
+  }
+ },
+ "result": {
+  "the_time": {
+   "how": "seconds, the median of nine runs; the runs are 30 to 110 ms long, of which a part is the start of the process",
+   "runs_each": 9,
+   "bound_to": "the fast cores (mask 0xFFFF)",
+   "streams": {
+    "br2049-joc-head.ec3": {
+     "verify": {
+      "main_seconds": 0.0989,
+      "the_change_seconds": 0.0675,
+      "of_the_time_per_cent": 68.2,
+      "the_row_is_printed": {
+       "main": true,
+       "the_change": false
+      }
+     },
+     "verify --decode": {
+      "main_seconds": 0.0849,
+      "the_change_seconds": 0.0832,
+      "of_the_time_per_cent": 98.0,
+      "the_row_is_printed": {
+       "main": true,
+       "the_change": true
+      }
+     },
+     "info": {
+      "main_seconds": 0.1016,
+      "the_change_seconds": 0.0707,
+      "of_the_time_per_cent": 69.6,
+      "the_row_is_printed": {
+       "main": true,
+       "the_change": false
+      }
+     }
+    },
+    "joc-onset-steep.ec3": {
+     "verify": {
+      "main_seconds": 0.039,
+      "the_change_seconds": 0.03,
+      "of_the_time_per_cent": 77.0,
+      "the_row_is_printed": {
+       "main": true,
+       "the_change": false
+      }
+     },
+     "verify --decode": {
+      "main_seconds": 0.0309,
+      "the_change_seconds": 0.0299,
+      "of_the_time_per_cent": 96.8,
+      "the_row_is_printed": {
+       "main": true,
+       "the_change": true
+      }
+     },
+     "info": {
+      "main_seconds": 0.0457,
+      "the_change_seconds": 0.0316,
+      "of_the_time_per_cent": 69.3,
+      "the_row_is_printed": {
+       "main": true,
+       "the_change": false
+      }
+     }
+    },
+    "joc-clip-gain.ec3": {
+     "verify": {
+      "main_seconds": 0.1127,
+      "the_change_seconds": 0.0863,
+      "of_the_time_per_cent": 76.6,
+      "the_row_is_printed": {
+       "main": true,
+       "the_change": false
+      }
+     },
+     "verify --decode": {
+      "main_seconds": 0.1117,
+      "the_change_seconds": 0.1131,
+      "of_the_time_per_cent": 101.3,
+      "the_row_is_printed": {
+       "main": true,
+       "the_change": true
+      }
+     },
+     "info": {
+      "main_seconds": 0.1132,
+      "the_change_seconds": 0.082,
+      "of_the_time_per_cent": 72.5,
+      "the_row_is_printed": {
+       "main": true,
+       "the_change": false
+      }
+     }
+    },
+    "quietplace-web-head.ec3": {
+     "verify": {
+      "main_seconds": 0.0662,
+      "the_change_seconds": 0.065,
+      "of_the_time_per_cent": 98.2,
+      "the_row_is_printed": {
+       "main": false,
+       "the_change": false
+      }
+     },
+     "verify --decode": {
+      "main_seconds": 0.0885,
+      "the_change_seconds": 0.0821,
+      "of_the_time_per_cent": 92.8,
+      "the_row_is_printed": {
+       "main": false,
+       "the_change": false
+      }
+     },
+     "info": {
+      "main_seconds": 0.0663,
+      "the_change_seconds": 0.0661,
+      "of_the_time_per_cent": 99.8,
+      "the_row_is_printed": {
+       "main": false,
+       "the_change": false
+      }
+     }
+    }
+   },
+   "in_short": {
+    "verify_of_the_time_per_cent": [
+     68.2,
+     77.0
+    ],
+    "info_of_the_time_per_cent": [
+     69.3,
+     72.5
+    ],
+    "verify_decode_of_the_time_per_cent": [
+     96.8,
+     101.3
+    ]
+   }
+  },
+  "what_changes": {
+   "streams": 136,
+   "streams_changed": 3,
+   "the_streams_that_change": [
+    "br2049-joc-head.ec3",
+    "joc-clip-gain.ec3",
+    "joc-onset-steep.ec3"
+   ],
+   "what_changes_in_them": [
+    "info: text on stdout (3)",
+    "verify: text on stdout (3)"
+   ],
+   "the_text_that_changes": "the line `JOC core level:` is no longer in the report of `info` and of `verify` of the three streams whose payloads carry more than one clip gain; `JOC clip gain:` and every other line are what they were",
+   "fields_added": [],
+   "lines_added": [],
+   "reports": {
+    "info": {
+     "runs": 136,
+     "lines": 2288,
+     "fields": 0,
+     "exit_codes": {
+      "0": 136
+     }
+    },
+    "info --json": {
+     "runs": 136,
+     "lines": 0,
+     "fields": 24600,
+     "exit_codes": {
+      "0": 136
+     }
+    },
+    "verify": {
+     "runs": 136,
+     "lines": 2650,
+     "fields": 0,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "verify --json": {
+     "runs": 136,
+     "lines": 0,
+     "fields": 23339,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "emdf": {
+     "runs": 136,
+     "lines": 1609,
+     "fields": 0,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "emdf --json": {
+     "runs": 136,
+     "lines": 0,
+     "fields": 6074,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "oamd": {
+     "runs": 136,
+     "lines": 2558,
+     "fields": 0,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "oamd --json": {
+     "runs": 136,
+     "lines": 0,
+     "fields": 5757,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    }
+   },
+   "deliveries": {
+    "pcm -p N": {
+     "runs": 220,
+     "wrote_output": 202,
+     "bytes": 30402893100,
+     "lines": 1036,
+     "exit_codes": {
+      "0": 198,
+      "2": 18,
+      "7": 4
+     }
+    },
+    "wav": {
+     "runs": 136,
+     "wrote_output": 136,
+     "bytes": 13278776996,
+     "lines": 1617,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "damf": {
+     "runs": 136,
+     "wrote_output": 66,
+     "bytes": 26500118207,
+     "lines": 507,
+     "exit_codes": {
+      "0": 58,
+      "2": 70,
+      "7": 8
+     }
+    },
+    "adm": {
+     "runs": 136,
+     "wrote_output": 66,
+     "bytes": 26516523822,
+     "lines": 580,
+     "exit_codes": {
+      "0": 58,
+      "2": 70,
+      "7": 8
+     }
+    },
+    "pcm": {
+     "runs": 81,
+     "wrote_output": 81,
+     "bytes": 4555364352,
+     "lines": 1340,
+     "exit_codes": {
+      "0": 72,
+      "7": 9
+     }
+    },
+    "pcm --core-only": {
+     "runs": 81,
+     "wrote_output": 81,
+     "bytes": 4274276352,
+     "lines": 1340,
+     "exit_codes": {
+      "0": 72,
+      "7": 9
+     }
+    }
+   }
+  },
+  "the_commands_agree": {
+   "seed": 0,
+   "rounds": 200000,
+   "clauses_broken": 0,
+   "panics": 0,
+   "kinds_of_answers": {
+    "main": 31,
+    "the_change": 31
+   },
+   "every_command_clean": {
+    "main": 27517,
+    "the_change": 27517
+   },
+   "rounds_whose_answers_moved": 0,
+   "answers_that_moved": {}
+  },
+  "tests": {
+   "cargo_fmt_check_clippy_with_warnings_denied_and_cargo_deny": "clean",
+   "cargo_test_workspace": "54 test binaries",
+   "passed": 738,
+   "failed": 0,
+   "ignored": 35,
+   "media_passed": 35,
+   "media_failed": 0,
+   "media_regression": "all 8 steps passed (media-suite, media-negative, truehd-gates, joc-object-gate, replay-joc, replay-truehd, adm-harness-build, adm-harness)",
+   "mutations_run": 11,
+   "mutations_caught": 11,
+   "the_mutations_run": [
+    "verify listening to a stream it was not asked to decode",
+    "the level of the core left out of the report whose samples were made",
+    "the check beside another command making the samples",
+    "the listing limit not reaching the pass over a stream of the AC-3 family",
+    "verify asked to decode making no samples",
+    "the level of the core reported at the first clip gain",
+    "an E-AC-3 pass that is told to stop goes on",
+    "a report of the AC-3 family naming another threshold than its verdict has",
+    "a report made without the samples with a row of them",
+    "a frame without samples counted in the level of the core",
+    "the threshold of verify ignored on a stream of the AC-3 family"
+   ],
+   "mutations_in_all": 569
+  }
+ },
+ "reading": "The row made `verify` and `info` read a stream twice. Printed only by the report whose samples are made, `verify --decode`, it costs the others nothing: the three streams of the corpus that have it take 68.2 to 77.0 per cent of the time under `verify` and 69.3 to 72.5 under `info`, and `verify --decode` takes 96.8 to 101.3. Over the 136 streams of the corpus the reports of `info` and `verify` of those three are shorter by that one line; no other report, no delivery, no verdict and no exit code moves, and the campaign of 200000 damaged streams gives the answers it gave."
+}
