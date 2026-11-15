@@ -152,6 +152,9 @@ comes from a measurement that can be repeated:
   repository at random, asks every command about each, and holds the answers
   to the policy of the exit codes; what it turned up is fixed and kept as
   test streams ([`docs/testing-tools.md`](docs/testing-tools.md)).
+- **An engine without a command line.** `crates/oadec-engine` is what reads,
+  checks and decodes a stream, and nothing in it parses an argument or
+  prints: `oadec-cli` is one caller of it.
 - **Without a process.** `oadec_engine::api` is the commands as calls: a test
   hands a stream over, in a file or in memory, and gets back the report the
   command prints and the verdict it exits with, from the code that gives

@@ -593,6 +593,32 @@ Semantic Versioning.
 
 ### Changed
 
+- **The engine is a crate of its own, `oadec-engine`, with no command line
+  in it.** What reads a stream, checks it and decodes it was inside the crate
+  of the command line, and whoever wanted the calls of `api` took the
+  command line's parser with them. The fifteen modules that do the work are
+  `oadec-engine` now, 15 717 lines moved as they stand; `oadec-cli` is the
+  arguments, the two streams it hands the engine, the line on the terminal,
+  the exit code and the tools that rewrite a stream for a measurement. Three
+  things had to be so first. The values an option takes by name are enums of
+  the command line, and no type the work takes derives a clap trait. A walk
+  tells the watcher of its source how far it has got and draws nothing; the
+  line on the terminal is the command line's watcher (`Source::watched`). And
+  the engine prints nothing: the 214 lines its modules printed are written
+  to a writer the function is handed, which the command line gives stdout
+  and stderr.
+
+  What a command says and writes is what it said and wrote. The help of all
+  fifteen commands and the answer to a value that is no value are the same
+  to the byte, 45 askings of 45; over the 136 streams of the corpus
+  no report and no delivery differs between the binary before and after;
+  and of the 200 000 rounds of the campaign of damaged streams no answer
+  moved. One thing is not the same: a report written to a pipe that is
+  closed ends the command with the error and exit code 2, where printing it
+  ended the process in a panic
+  (`docs/testing-tools.md`,
+  `docs/audit/evidence/engine-round-2026-11/55-the-engine-in-a-crate-of-its-own.json`).
+
 - **The level of the core under each clip gain is a row of `verify
   --decode`.** `verify` and `info` read a stream of the AC-3 family and do
   not listen to it, but for one row: where the JOC payloads carry more than

@@ -249,10 +249,23 @@ presentation or kept duplicates for an AC-3 stream, the options of the AC-3
 decoder and the readings of the JOC matrices for a TrueHD one, the options of
 one object format for the other. The command line refuses an option that was
 given; a call can tell one only by its value, and refuses it away from its
-default. The values a call
-hands back have methods that print (`print`, `print_summary`); the command
-line is the calls, or the functions under them, and those methods, one after
-the other, which is what keeps the two from drifting apart.
+default.
+
+Nothing in the engine prints, and nothing in it names stdout or stderr. The
+values a call hands back have methods that write what the command says
+(`print`, `print_summary`) to the writers they are handed:
+`report.print(json, &mut out, &mut err)` writes to `out` what the command
+prints on stdout and to `err` what it says on stderr, so the text of a report
+can be had in a buffer, in a file or not at all. The command line is the
+calls, or the functions under them, and those methods with its own two
+streams, one after the other, which is what keeps the two from drifting
+apart. A write that fails ends the call with its error.
+
+A walk over a stream draws nothing either. A source can be given a watcher
+(`Source::watched`), which is told of every walk over it: what the walk is
+doing, how many bytes there are and, unit by unit, where it is. The command
+line's watcher is the line it draws on a terminal; a source without one is
+walked in silence.
 
 `tests/api.rs` holds every call to its command, on every fixture and for a
 file and for the same bytes in memory: the report field for field, the
