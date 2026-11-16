@@ -683,7 +683,8 @@ stream depends on them, oadec makes no downmix, and until now it read past
 them. They are what a second encode of a decode has to be told, so `info` and
 `verify` report them: a `Downmix:` line, and `downmix` in the JSON, a list
 with an entry for each thing the frames of the first programme say and the
-number of frames that say it.
+number of frames that say it. A decode prints the line too, with the rest of
+what it says of the stream it read.
 
 ```text
 Downmix:           Lt/Rt preferred, Lt/Rt centre -4.5 dB surround -1.5 dB, Lo/Ro centre -1.5 dB surround -6.0 dB x282

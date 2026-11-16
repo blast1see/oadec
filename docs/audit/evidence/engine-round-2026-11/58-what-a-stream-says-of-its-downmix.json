@@ -1,0 +1,204 @@
+{
+ "question": "A stream of more than two channels can say how it would be mixed down to two: which downmix its maker prefers, Lt/Rt or Lo/Ro, and the level of the centre and of the surround channels in each. AC-3 has the five fields in the first extra word of its alternate syntax (TS 102 366 clauses D.1.2 and D.1.3), E-AC-3 in its mixing metadata (clause E.1.2.2). No decode to the channels of a stream depends on them and the parser read past them, so no report had what a second encode of a decode has to be told to keep them. Does `info` report what a stream says of it now, in both syntaxes, and is what it reports what the stream says?",
+ "method": "The parser keeps the five fields, the codes as they stand in the stream, and `info` and `verify` report each thing the frames of the first programme say with the number of frames that say it: the downmix by its name, the levels in dB by tables D.1.1 to D.1.5, and the codes. A field the alternate syntax of AC-3 carries for a mode without the channels it speaks of, whose meaning the notes of the tables reserve, is left out, as the syntax of E-AC-3 leaves it out. The tests were written first and seen to fail: frames built field by field from the syntax tables, and the fixture, whose fields the test reads from its bits itself. What a report says is then held to a referee that is not this decoder. Dolby's encoders take the five as options, so a stream they write is one whose fields are known without reading it: eight settings have every value of every option among them, the Lt/Rt and the Lo/Ro value of a channel never the same so that a swap would show, and each goes through three encoders, E-AC-3 with JOC from a master and E-AC-3 and AC-3 from a file of 5.1; a ninth encode of each channel-based encoder is of two channels. The streams of the corpus are counted beside it. The encoders were run as programs and only what they write was read.",
+ "commands": [
+  "cargo test --workspace --locked --no-fail-fast; cargo clippy --workspace --all-targets --locked -- -D warnings; cargo fmt --all --check; cargo deny check (both workspaces)",
+  "dee_ddpjoc_encoder -l <licence> --input-format atmos_mezz -i <master.atmos> -o <out.ec3> --overwrite 1 --start 0 --data-rate 768 --encoder preferred_downmix_mode=<m>:ltrt_cmix=<c>:loro_cmix=<c>:ltrt_smix=<s>:loro_smix=<s>",
+  "dee_ddp_encoder -l <licence> --input-format wav -i <5.1.wav> -o <out> --overwrite 1 --start 0 --output-channel-layout 5.1|stereo --encoder ddp|dd:<the same options>",
+  "oadec info --json <stream>   (the `downmix` of each, held to the options)",
+  "python tools/mutants.py --check; python tools/mutants.py --only \"downmix|alternate syntax read in the order\"",
+  "python tools/old_new.py --old <binary of main> --new <binary of the change> --decode-all <the corpus>",
+  "OADEC_CAMPAIGN_ITERS=200000 cargo test --release --locked -p oadec-fuzz --test campaign -- --nocapture the_commands_agree_on_every_changed_stream",
+  "bash tools/media_regression.sh <media> <logs>"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "binaries": {
+  "main": {
+   "name": "oadec-calls-2.exe",
+   "sha256": "f762c5f9e467b7f7ba38357602d43e51ea0a18823b8a828def340e777daa1f1e",
+   "what": "the binary of main (evidence 56)"
+  },
+  "the_change": {
+   "name": "oadec-downmix-2.exe",
+   "sha256": "8714d735b45557756c103be47c9d5959fd665ab45a66ad2c791aec976707c4c8"
+  }
+ },
+ "tools": {
+  "dolby": [
+   "Dolby Media Encoder: dee_ddpjoc_encoder and dee_ddp_encoder of the Dolby Encoding Engine 5.7.2"
+  ]
+ },
+ "result": {
+  "what_is_reported": {
+   "a_line": "Downmix:           Lt/Rt preferred, Lt/Rt centre -4.5 dB surround -1.5 dB, Lo/Ro centre -1.5 dB surround -6.0 dB x282",
+   "in_json": "`downmix`: a list, an entry for each thing said, with `frames`, `preferred`, `ltrt_centre_db`, `ltrt_surround_db`, `loro_centre_db`, `loro_surround_db` and `codes`",
+   "of_a_stream_that_says_none": "an empty list, and `none said`",
+   "read_by_a_delivery": false
+  },
+  "against_what_an_encoder_was_told": {
+   "settings": 8,
+   "the_values_of_each_option_among_them": {
+    "loro_cmix": 8,
+    "loro_smix": 5,
+    "ltrt_cmix": 8,
+    "ltrt_smix": 5,
+    "preferred_downmix_mode": 4
+   },
+   "encodes_asked_for": 24,
+   "streams_written": 22,
+   "that_say_in_every_frame_the_levels_and_the_downmix_they_were_told": 22,
+   "by_encoder": {
+    "E-AC-3 with JOC, from a master (dee_ddpjoc_encoder)": {
+     "streams": 8,
+     "syntax_and_bsid": [
+      "E-AC-3 bsid 16"
+     ],
+     "with_the_levels_told_in_every_frame": 8,
+     "the_option_and_what_the_stream_says": {
+      "loro": "Lo/Ro (2)",
+      "ltrt": "Lt/Rt (1)",
+      "ltrt-pl2": "reserved (3)",
+      "not_indicated": "not indicated (0)"
+     }
+    },
+    "E-AC-3, from a file of 5.1 (dee_ddp_encoder, ddp)": {
+     "streams": 8,
+     "syntax_and_bsid": [
+      "E-AC-3 bsid 16"
+     ],
+     "with_the_levels_told_in_every_frame": 8,
+     "the_option_and_what_the_stream_says": {
+      "loro": "Lo/Ro (2)",
+      "ltrt": "Lt/Rt (1)",
+      "ltrt-pl2": "reserved (3)",
+      "not_indicated": "not indicated (0)"
+     }
+    },
+    "AC-3, from a file of 5.1 (dee_ddp_encoder, dd)": {
+     "streams": 6,
+     "syntax_and_bsid": [
+      "AC-3 bsid 6"
+     ],
+     "with_the_levels_told_in_every_frame": 6,
+     "the_option_and_what_the_stream_says": {
+      "loro": "Lo/Ro (2)",
+      "ltrt": "Lt/Rt (1)",
+      "not_indicated": "not indicated (0)"
+     }
+    }
+   },
+   "encodes_refused": {
+    "encodes": 2,
+    "encoder": "AC-3, from a file of 5.1 (dee_ddp_encoder, dd)",
+    "option": "preferred_downmix_mode=ltrt-pl2",
+    "it_said": [
+     "Downmix Mode ltrt-pl2 is not supported by the selected codec."
+    ]
+   },
+   "the_code_the_table_reserves": "told `ltrt-pl2`, the two E-AC-3 encoders write `dmixmod` 3, which table D.1.1 reserves; it is reported as reserved, with its number",
+   "two_channels": {
+    "streams": 2,
+    "syntax_and_bsid": [
+     "AC-3 bsid 6",
+     "E-AC-3 bsid 16"
+    ],
+    "say": "none: the E-AC-3 syntax has no field of the five for two channels, and the word of the AC-3 one is there with a meaning the tables reserve"
+   }
+  },
+  "the_corpus": {
+   "streams": 81,
+   "by_syntax_and_whether_a_downmix_is_said": {
+    "AC-3 bsid 6, in every frame": 11,
+    "AC-3 bsid 6, in none": 4,
+    "AC-3 bsid 8, in none": 10,
+    "E-AC-3 bsid 16, in every frame": 40,
+    "E-AC-3 bsid 16, in none": 16
+   },
+   "streams_that_say_more_than_one_thing": 0,
+   "statements_by_what_is_preferred": {
+    "AC-3: Lo/Ro": 6,
+    "AC-3: Lt/Rt": 1,
+    "AC-3: not indicated": 4,
+    "E-AC-3: Lo/Ro": 36,
+    "E-AC-3: not indicated": 4
+   },
+   "statements_by_their_levels": {
+    "ltrt_centre -3.0 ltrt_surround -3.0 loro_centre -3.0 loro_surround -3.0": 46,
+    "ltrt_centre 0.0 ltrt_surround -1.5 loro_centre 0.0 loro_surround -1.5": 4,
+    "ltrt_centre +3.0 ltrt_surround -3.0 loro_centre +3.0 loro_surround -3.0": 1
+   },
+   "streams_of_more_than_two_channels_that_say_none": 10
+  },
+  "tests": {
+   "cargo_fmt_check_clippy_with_warnings_denied_and_cargo_deny_of_both_workspaces": "clean",
+   "cargo_test_workspace": {
+    "passed": 763,
+    "failed": 0,
+    "ignored_for_want_of_media": 35
+   },
+   "new_tests": [
+    "a_stream_says_the_downmix_its_frames_say",
+    "a_stream_that_says_two_things_says_both_and_how_often",
+    "a_stream_whose_frames_say_none_says_none",
+    "bsi::tests::a_frame_without_mixing_metadata_says_nothing_of_a_downmix",
+    "bsi::tests::ac3_says_nothing_of_a_downmix_without_the_word_that_holds_it",
+    "bsi::tests::an_eac3_frame_says_how_it_would_be_mixed_down",
+    "bsi::tests::the_alternate_syntax_keeps_what_the_mode_gives_a_meaning",
+    "bsi::tests::the_alternate_syntax_of_ac3_says_it_in_an_order_of_its_own",
+    "bsi::tests::the_codes_read_as_the_tables_of_annex_d_have_them",
+    "bsi::tests::two_channels_say_nothing_of_a_downmix",
+    "bsi::tests::without_a_centre_channel_no_centre_level_is_said",
+    "bsi::tests::without_surround_channels_no_surround_level_is_said"
+   ],
+   "the_media_suite": "35 of 35 pass",
+   "tools/media_regression.sh": "all media checks passed"
+  },
+  "mutations": {
+   "in_all": 620,
+   "of_this_change": 13,
+   "run": 14,
+   "caught": 14,
+   "names": [
+    "a downmix preferred by a stream of two channels",
+    "a centre level of a downmix said without a centre channel",
+    "a surround level of a downmix said without a surround channel",
+    "the levels of the alternate syntax read in the order of E-AC-3",
+    "the preferred downmix of an E-AC-3 frame read a bit too wide",
+    "a frame that says nothing of its downmix reported as saying it",
+    "the preferred downmix read the other way round",
+    "the centre level of a downmix a step down its table",
+    "a reserved surround level of a downmix given a level",
+    "a frame counted twice for what it says of its downmix",
+    "the Lo/Ro surround level of a downmix reported from the Lt/Rt one",
+    "the Lo/Ro levels of a downmix written from the Lt/Rt ones",
+    "a stream that says its downmix reported as saying none"
+   ]
+  },
+  "old_and_new_binary_over_the_corpus": {
+   "summary": "136 streams, 0 changed; fields added: info: downmix, verify: downmix; lines added: decode (pcm --core-only): Downmix, decode (pcm): Downmix, decode (wav): Downmix, info: Downmix, verify: Downmix",
+   "streams": 136,
+   "changed": 0
+  },
+  "the_campaign_of_changed_streams": {
+   "seed": 0,
+   "rounds": 200000,
+   "clauses_broken": 0,
+   "panics": 0,
+   "kinds_of_answers": {
+    "main": 31,
+    "the_change": 31
+   },
+   "every_command_clean": {
+    "main": 27517,
+    "the_change": 27517
+   },
+   "rounds_whose_answers_moved": 0,
+   "answers_that_moved": {}
+  }
+ },
+ "reading": "What a stream says of its downmix is reported, and it is what the stream says: of 22 streams that three encoders wrote with every value of every one of the five options among them, each says in every frame the levels and the downmix its encoder was told, in the mixing metadata of E-AC-3 and in the alternate syntax of AC-3 alike, whose order of the fields is another. The option `ltrt-pl2` is written as the code the table reserves and is reported as that; the AC-3 encoder refuses it. An encode of two channels says nothing. Of the 81 AC-3 family streams of the corpus 51 say a downmix, each in every frame and none two things, and most of them the encoder's defaults. No delivery reads the fields: between the binary of main and this one the reports gain the field and its line, and no delivered byte, exit code or answer of the campaign moves."
+}
