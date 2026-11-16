@@ -551,3 +551,13 @@ With these the conformance matrix has 132 rows: 94 PASS, 17 PASS-TOL, 3
 PARTIAL, 7 N/I, 6 N/T, 5 UNK and no FAIL; its table of what moved since the
 audits has two more, the programme of a second generation and the reading of
 another program.
+
+One measurement more came with material and not with a plan. The three
+things done Dolby's way in the objects of JOC were read off streams of one
+library and measured on that library (section 3.9). While the above was done
+the owner added four whole tracks of streaming services, which nothing of the
+round had read. They are clean from end to end, 8.6 hours without a finding
+of any rule, and their objects stand against Dolby's decoder where the
+library's stand: 101.9 to 117.5 dB over the whole band at the median of an
+excerpt, the stretches with the clip gain most at work no lower than the
+heads, and the two decoders at the same sample in all eight excerpts (61).

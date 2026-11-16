@@ -254,6 +254,21 @@ that the decoder relies on. Clause numbers refer to that document.
   127 tracks is nearer to Dolby's over the whole band than it was.
   `docs/audit/evidence/engine-round-2026-11/51-the-dither-dolbys-decoder-draws.json`.
 
+  **On tracks that were in no corpus.** The operator, the place of the clip
+  gain and the dither were each read off what Dolby's decoder writes for
+  streams of one library, and measured on that library. Four whole tracks of
+  streaming services at 768 kbit/s came after all of it, which nothing here
+  had read. Each was cut twice, forty seconds from its head and the forty in
+  which its clip gain is most at work, and held to Dolby's object decode the
+  same way. The two decoders are at the same sample in all eight excerpts.
+  The median object of an excerpt stands at 101,9 to 117,5 dB over the whole
+  band and at 118,2 to 131,5 in the lowest band, and the LFE at 113,4 to
+  128,0. The stretches with the gain at work, up to 198 frames of 1 250 with
+  a gain other than 1 and fourteen different gains, stand no lower than the
+  heads. Of 105 objects two are under 90 dB over the whole band, at 60,8 and
+  73,3, both in the head of one track.
+  `docs/audit/evidence/engine-round-2026-11/61-tracks-that-were-in-no-corpus.json`.
+
   **The core the objects are made of is the plain one.** Decoding an E-AC-3
   stream to channels, Dolby's decoders decorrelate the channels above the
   coupling begin frequency (`docs/eac3.md`), which this decoder does not do.
