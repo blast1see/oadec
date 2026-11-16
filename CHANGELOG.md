@@ -6,6 +6,8 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-16
+
 ### Added
 
 - **`tools/encoder_arguments.py` writes what a stream says of its programme
