@@ -24,7 +24,7 @@ pub mod tables;
 pub mod tpnp;
 pub mod vq;
 
-pub use bsi::Bsi;
+pub use bsi::{Bsi, Downmix};
 pub use decoder::{Decoded, Decoder, find_sync};
 pub use error::{Eac3Error, Result};
 pub use frame::{

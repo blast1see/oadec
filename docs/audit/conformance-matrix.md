@@ -99,6 +99,7 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 | Feature | Requirement | Implementation | Evidence | Result |
 |---|---|---|---|---|
 | Syncframe and bit stream information | TS 102 366 Annex E | `eac3/header.rs:92`, `eac3/bsi.rs` | 17-stream corpus, 0 sync errors | PASS |
+| The downmix a stream declares: the preferred one and the four mix levels | TS 102 366 clauses D.1.3 and E.1.2.2, tables D.1.1 to D.1.5 | `eac3/bsi.rs` (`Downmix`), reported by `engine/eac3.rs` | 22 streams of Dolby's three encoders with every value of every one of the five options among them: each says in every frame the levels and the downmix its encoder was told; the E-AC-3 encoders write the reserved code 3 when told `ltrt-pl2`; `evidence/engine-round-2026-11/58-what-a-stream-says-of-its-downmix.json` | PASS |
 | Frame CRC | TS 102 366 clause 6.10.1 | `eac3/frame.rs:288` | flipped bit gives 1 CRC failure in `verify` | PASS |
 | CRC failure affects the exit code | — | `cli/integrity.rs`, used by every delivery path | every path now decides with the list `verify` uses; 29 of 33 corpus streams moved from exit 0 to exit 7, each one already non-conformant to `verify`; `evidence/remediation/decode-exit-codes.json` | PASS [was PARTIAL] |
 | Independent substream decode | Annex E | `cli/eac3.rs:465` | three-way comparison, closer to Dolby than FFmpeg on every channel | PASS-TOL |

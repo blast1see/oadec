@@ -670,6 +670,52 @@ two channels, an LFE, grouped exponents (D25 and D45), short blocks and
 rematrixing. Measured:
 `audit/evidence/engine-round-2026-11/16-synthetic-ac3-delta.json`.
 
+## What a stream says of its downmix
+
+A stream of more than two channels can say how it would be mixed down to two:
+which downmix its maker prefers, Lt/Rt or Lo/Ro, and for each of the two the
+level of the centre channel and the level of the surround channels. AC-3 has
+the five fields in the first extra word of its alternate syntax (TS 102 366
+clauses D.1.2 and D.1.3, `bsid` 6), E-AC-3 in its mixing metadata (clause
+E.1.2.2), where a mode without a centre or without a surround channel leaves
+the level of that channel out. Nothing in a decode to the channels of the
+stream depends on them, oadec makes no downmix, and until now it read past
+them. They are what a second encode of a decode has to be told, so `info` and
+`verify` report them: a `Downmix:` line, and `downmix` in the JSON, a list
+with an entry for each thing the frames of the first programme say and the
+number of frames that say it. A decode prints the line too, with the rest of
+what it says of the stream it read.
+
+```text
+Downmix:           Lt/Rt preferred, Lt/Rt centre -4.5 dB surround -1.5 dB, Lo/Ro centre -1.5 dB surround -6.0 dB x282
+```
+
+An entry has `preferred` ("Lt/Rt", "Lo/Ro", "not indicated" or "reserved",
+table D.1.1), the four levels in dB as tables D.1.2 to D.1.5 have them
+(`ltrt_centre_db`, `ltrt_surround_db`, `loro_centre_db`, `loro_surround_db`;
+strings, since one of the levels is "-inf"), and `codes`, the fields as they
+stand in the stream. A level is null where the stream does not say it, and
+where it says one of the three surround codes the tables reserve, which
+`codes` then shows. The alternate syntax of AC-3 carries all five fields
+whatever the mode, and the notes of the tables reserve the meaning of a field
+for a mode without the channels it speaks of: such a field is not reported.
+A stream none of whose frames says any of it has an empty list, and `none
+said` in its line.
+
+The reading is held to what an encoder was told. Dolby's encoders take the
+five as options, so a stream they write is one whose fields are known without
+reading it. Eight settings have every value of every option among them, the
+Lt/Rt and the Lo/Ro value of a channel never the same, and each went through
+three encoders: E-AC-3 with JOC from a master, E-AC-3 and AC-3 from a file of
+5.1. 22 streams came of it, the AC-3 ones in the alternate syntax, and every
+one says, in every frame, the levels its encoder was told and the downmix it
+was told to prefer. Three things beside that. Told `ltrt-pl2`, the two E-AC-3
+encoders write the code that table D.1.1 reserves, 3, which is reported as
+reserved with its number. The AC-3 encoder refuses that option. And an encode
+of two channels says nothing in either syntax, though the AC-3 one carries
+the word. Measured:
+`audit/evidence/engine-round-2026-11/58-what-a-stream-says-of-its-downmix.json`.
+
 ## What a metadata container declares, and the JOC sequence counter
 
 An EMDF container says three things of itself, around its payloads: the

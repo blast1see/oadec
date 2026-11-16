@@ -8,6 +8,7 @@ Frames:            63 decoded (63 independent, 0 dependent in the file), 0 sync 
 Duration:          0:00:02.016 (96768 samples)
 Substreams:        type 0 id 0: 63
 Dialnorm:          -26 dB x63
+Downmix:           Lo/Ro preferred, Lt/Rt centre -3.0 dB surround -3.0 dB, Lo/Ro centre -3.0 dB surround -3.0 dB x63
 JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
 Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
 EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
@@ -61,6 +62,23 @@ exit 0
   },
   "dialnorm": [
     26
+  ],
+  "downmix": [
+    {
+      "codes": {
+        "dmixmod": 2,
+        "lorocmixlev": 4,
+        "lorosurmixlev": 4,
+        "ltrtcmixlev": 4,
+        "ltrtsurmixlev": 4
+      },
+      "frames": 63,
+      "loro_centre_db": "-3.0",
+      "loro_surround_db": "-3.0",
+      "ltrt_centre_db": "-3.0",
+      "ltrt_surround_db": "-3.0",
+      "preferred": "Lo/Ro"
+    }
   ],
   "duration": 2.016,
   "ecpl_frames": 0,
@@ -233,6 +251,7 @@ Frames:            63 decoded (63 independent, 0 dependent in the file), 0 sync 
 Duration:          0:00:02.016 (96768 samples)
 Substreams:        type 0 id 0: 63
 Dialnorm:          -26 dB x63
+Downmix:           Lo/Ro preferred, Lt/Rt centre -3.0 dB surround -3.0 dB, Lo/Ro centre -3.0 dB surround -3.0 dB x63
 JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
 Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
 EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
@@ -287,6 +306,23 @@ exit 0
   },
   "dialnorm": [
     26
+  ],
+  "downmix": [
+    {
+      "codes": {
+        "dmixmod": 2,
+        "lorocmixlev": 4,
+        "lorosurmixlev": 4,
+        "ltrtcmixlev": 4,
+        "ltrtsurmixlev": 4
+      },
+      "frames": 63,
+      "loro_centre_db": "-3.0",
+      "loro_surround_db": "-3.0",
+      "ltrt_centre_db": "-3.0",
+      "ltrt_surround_db": "-3.0",
+      "preferred": "Lo/Ro"
+    }
   ],
   "duration": 2.016,
   "ecpl_frames": 0,
@@ -459,6 +495,7 @@ Frames:            63 decoded (63 independent, 0 dependent in the file), 0 sync 
 Duration:          0:00:02.016 (96768 samples)
 Substreams:        type 0 id 0: 63
 Dialnorm:          -26 dB x63
+Downmix:           Lo/Ro preferred, Lt/Rt centre -3.0 dB surround -3.0 dB, Lo/Ro centre -3.0 dB surround -3.0 dB x63
 JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
 Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
 EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
@@ -513,6 +550,23 @@ exit 0
   },
   "dialnorm": [
     26
+  ],
+  "downmix": [
+    {
+      "codes": {
+        "dmixmod": 2,
+        "lorocmixlev": 4,
+        "lorosurmixlev": 4,
+        "ltrtcmixlev": 4,
+        "ltrtsurmixlev": 4
+      },
+      "frames": 63,
+      "loro_centre_db": "-3.0",
+      "loro_surround_db": "-3.0",
+      "ltrt_centre_db": "-3.0",
+      "ltrt_surround_db": "-3.0",
+      "preferred": "Lo/Ro"
+    }
   ],
   "duration": 2.016,
   "ecpl_frames": 0,
@@ -950,6 +1004,7 @@ Frames:            63 decoded (63 independent, 0 dependent in the file), 0 sync 
 Duration:          0:00:02.016 (96768 samples)
 Substreams:        type 0 id 0: 63
 Dialnorm:          -26 dB x63
+Downmix:           Lo/Ro preferred, Lt/Rt centre -3.0 dB surround -3.0 dB, Lo/Ro centre -3.0 dB surround -3.0 dB x63
 JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
 Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
 EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}
@@ -974,6 +1029,7 @@ Frames:            63 decoded (63 independent, 0 dependent in the file), 0 sync 
 Duration:          0:00:02.016 (96768 samples)
 Substreams:        type 0 id 0: 63
 Dialnorm:          -26 dB x63
+Downmix:           Lo/Ro preferred, Lt/Rt centre -3.0 dB surround -3.0 dB, Lo/Ro centre -3.0 dB surround -3.0 dB x63
 JOC extension:     flag true, complexity index 16 (addbsi 2 bytes)
 Coding tools:      coupling, block-switching, dither, skip-fields (AHT in 0 frames, spectral extension in 0, enhanced coupling in 0, transient pre-noise in 0, delta bit allocation in 0)
 EMDF:              63 frames with skip fields (16942 bytes), 63 containers, 0 frames without one, 0 false sync words, payload ids {1: 63, 2: 63, 11: 63, 14: 63}

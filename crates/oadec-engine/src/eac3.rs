@@ -873,6 +873,9 @@ struct Pass {
     diag: Diag,
     first: Option<(FrameHeader, oadec_eac3::Bsi)>,
     dialnorm: BTreeMap<u8, u64>,
+    /// What the frames of the first programme say of its downmix to two
+    /// channels, and how many say each; a frame that says none is in none.
+    downmix: BTreeMap<oadec_eac3::Downmix, u64>,
     aht_frames: u64,
     spx_frames: u64,
     ecpl_frames: u64,
@@ -891,6 +894,74 @@ struct Pass {
     /// Frames whose core came with its samples. A pass that reads a stream
     /// and does not listen to it makes none.
     heard: u64,
+}
+
+/// What the frames of a stream say of its downmix to two channels, and how
+/// many say each: the preferred downmix and the four levels by tables D.1.1
+/// to D.1.5 of TS 102 366, and the codes they stand in the stream as. A level
+/// is null where the stream does not say it, and where it says a code the
+/// tables reserve, which `codes` then has.
+fn downmix_json(said: &BTreeMap<oadec_eac3::Downmix, u64>) -> serde_json::Value {
+    use oadec_eac3::Downmix;
+    said.iter()
+        .map(|(d, frames)| {
+            json!({
+                "frames": frames,
+                "preferred": d.preferred.map(Downmix::preferred_name),
+                "ltrt_centre_db": d.ltrt_centre.map(Downmix::centre_db),
+                "ltrt_surround_db": d.ltrt_surround.and_then(Downmix::surround_db),
+                "loro_centre_db": d.loro_centre.map(Downmix::centre_db),
+                "loro_surround_db": d.loro_surround.and_then(Downmix::surround_db),
+                "codes": {
+                    "dmixmod": d.preferred,
+                    "ltrtcmixlev": d.ltrt_centre,
+                    "ltrtsurmixlev": d.ltrt_surround,
+                    "lorocmixlev": d.loro_centre,
+                    "lorosurmixlev": d.loro_surround,
+                },
+            })
+        })
+        .collect()
+}
+
+/// The same in a line: each thing said, and the frames that say it.
+fn downmix_text(said: &BTreeMap<oadec_eac3::Downmix, u64>) -> String {
+    use oadec_eac3::Downmix;
+    if said.is_empty() {
+        return "none said".to_owned();
+    }
+    let levels = |name: &str, centre: Option<u8>, surround: Option<u8>| {
+        let mut words = Vec::new();
+        if let Some(code) = centre {
+            words.push(format!("centre {} dB", Downmix::centre_db(code)));
+        }
+        if let Some(code) = surround {
+            words.push(match Downmix::surround_db(code) {
+                Some(db) => format!("surround {db} dB"),
+                None => format!("surround reserved ({code})"),
+            });
+        }
+        (!words.is_empty()).then(|| format!("{name} {}", words.join(" ")))
+    };
+    said.iter()
+        .map(|(d, frames)| {
+            let preferred = d.preferred.map(|code| match code {
+                0 => "no downmix preferred".to_owned(),
+                1 | 2 => format!("{} preferred", Downmix::preferred_name(code)),
+                _ => format!("preferred downmix reserved ({code})"),
+            });
+            let parts: Vec<String> = [
+                preferred,
+                levels("Lt/Rt", d.ltrt_centre, d.ltrt_surround),
+                levels("Lo/Ro", d.loro_centre, d.loro_surround),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+            format!("{} x{frames}", parts.join(", "))
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 /// Folds what one substream of a group carried into [`SubStats`].
@@ -1246,6 +1317,9 @@ fn account(
         p.first = Some((d.header.clone(), d.bsi.clone()));
     }
     *p.dialnorm.entry(d.bsi.dialnorm).or_default() += 1;
+    if let Some(said) = d.bsi.downmix {
+        *p.downmix.entry(said).or_default() += 1;
+    }
     merge(&mut p.coverage, &d.coverage);
     if d.coverage.aht {
         p.aht_frames += 1;
@@ -1662,6 +1736,7 @@ fn pass_json(
             "complexity_index": complexity,
         })),
         "dialnorm": p.dialnorm.keys().collect::<Vec<_>>(),
+        "downmix": downmix_json(&p.downmix),
         "emdf": {
             "frames_with_skip": e.frames_with_skip,
             "skip_bytes": e.skip_bytes,
@@ -1918,6 +1993,7 @@ fn print_pass(
             .collect::<Vec<_>>()
             .join(", ")
     )?;
+    writeln!(out, "Downmix:           {}", downmix_text(&p.downmix))?;
     match joc {
         Some((flag, complexity)) => writeln!(
             out,

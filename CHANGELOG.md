@@ -8,6 +8,21 @@ Semantic Versioning.
 
 ### Added
 
+- **`info` and `verify` report what a stream says of its downmix to two
+  channels.** The downmix a stream prefers and the levels of the centre and
+  of the surround channels in an Lt/Rt and in an Lo/Ro downmix, which AC-3
+  has in the first extra word of its alternate syntax and E-AC-3 in its
+  mixing metadata (TS 102 366 clauses D.1.3 and E.1.2.2), were read past. A
+  `Downmix:` line and `downmix` in the JSON have them now, with the number of
+  frames that say each thing: the downmix by its name, the levels in dB by
+  tables D.1.1 to D.1.5, and the codes as they stand in the stream. A decode
+  of such a stream prints the line with the rest of what it says of the
+  stream. No delivery depends on them: over the 136 streams of the corpus the
+  reports gain the field and the line, and no delivered byte and no exit code
+  moves. Of 22 streams that Dolby's three encoders wrote
+  with every value of every one of the five options among them, each says in
+  every frame what its encoder was told (`docs/eac3.md`,
+  `docs/audit/evidence/engine-round-2026-11/58-what-a-stream-says-of-its-downmix.json`).
 - **One set of calls over every stream, and errors that say which kind of
   thing went wrong.** `api` is the commands as calls, family by family. At
   the root of `oadec-engine` are five calls for a caller that is no command
