@@ -8,6 +8,15 @@ Semantic Versioning.
 
 ### Added
 
+- **`tools/resolve_import.py` asks DaVinci Resolve what it reads of a
+  master.** Through the scripting interface of Resolve Studio, as a black
+  box: what the program says of each file it imports, and with `--render`
+  the sound it makes of each, held sample by sample between files that say
+  one programme. The program takes the ADM file this decoder writes as a
+  Dolby Atmos master, and renders it to the samples it renders the ADM file
+  of Dolby's Conversion Tool of the same programme to, 11 programmes of 11
+  in all twelve channels (`docs/testing-tools.md`,
+  `docs/audit/evidence/engine-round-2026-11/59-what-another-program-reads-of-the-adm-file.json`).
 - **`info` and `verify` report what a stream says of its downmix to two
   channels.** The downmix a stream prefers and the levels of the centre and
   of the surround channels in an Lt/Rt and in an Lo/Ro downmix, which AC-3
