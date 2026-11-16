@@ -260,6 +260,10 @@ def examine(oadec: str, title: str, s: dict, out: Path, written: bool, whole: bo
         "downmix_configs": (v.get("joc") or {}).get("downmix_configs"),
         "objects_per_payload": (v.get("joc") or {}).get("objects_per_payload"),
         "clipgains": (v.get("joc") or {}).get("clipgain_x1000"),
+        # what an AC-3 or E-AC-3 track says of its downmix to two channels,
+        # and of how loud its dialogue is
+        "downmix": v.get("downmix"),
+        "dialnorm": v.get("dialnorm"),
         "bytes": size,
         # how much was read: the access units of a TrueHD or MLP track, the
         # frames and the seconds of an AC-3 or E-AC-3 one
