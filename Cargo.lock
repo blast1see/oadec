@@ -341,7 +341,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-bench"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "oadec-bits",
  "oadec-eac3",
@@ -351,7 +351,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-bits"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "insta",
  "proptest",
@@ -359,7 +359,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-cli"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -378,11 +378,11 @@ dependencies = [
 
 [[package]]
 name = "oadec-diag"
-version = "0.8.0"
+version = "0.9.0"
 
 [[package]]
 name = "oadec-eac3"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "log",
  "oadec-bits",
@@ -393,7 +393,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-emdf"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "oadec-bits",
  "thiserror",
@@ -401,7 +401,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-engine"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "oadec-bits",
@@ -419,7 +419,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-fuzz"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "oadec-eac3",
  "oadec-emdf",
@@ -431,7 +431,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-joc"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "oadec-bits",
  "oadec-emdf",
@@ -440,7 +440,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-spatial"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "oadec-emdf",
  "thiserror",
@@ -448,7 +448,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-synth"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "oadec-bits",
  "oadec-eac3",
@@ -457,7 +457,7 @@ dependencies = [
 
 [[package]]
 name = "oadec-truehd"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "log",
  "oadec-bits",
