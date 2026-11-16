@@ -628,3 +628,56 @@ takes the program's 7.1.4 rendering as it is. The interface says nothing of the
 objects the program read, so their number, places and times are held only through
 the sound it makes of them. Measured:
 `docs/audit/evidence/engine-round-2026-11/59-what-another-program-reads-of-the-adm-file.json`.
+
+# A library read from end to end
+
+`tools/sweep.py` reads the first minute of every Dolby track of a library, which is
+seconds a file, and most of what these documents count over a library is counted over
+such heads. A head does not exclude what an encoder does once an hour, and it cannot hold
+a seamless branch or a reel change. With `--seconds 0` the sweep reads every track whole,
+and `tools/whole_tracks.py` says what the whole tracks hold that their heads do not.
+
+```sh
+python tools/sweep.py <library> --out heads --oadec <binary>
+python tools/sweep.py <library> --seconds 0 --out whole --tmp <another disk>/cuts \
+    --oadec <binary> --low-priority --stop-file whole/stop
+python tools/whole_tracks.py --self-check
+python tools/whole_tracks.py --whole whole/report.json --heads heads/report.json --out whole.json
+```
+
+A whole track is as long as the file it is in, so the tracks of a file are cut in one
+reading of it, one output a track, and examined while the next file is read. The library
+is read once, at the speed of its disk, and a shelf of remuxes is most of a day. The
+report is written file by file: a sweep that is run again goes on after the files its
+report has, and a file named with `--stop-file` ends it after the file in hand.
+`--low-priority` puts the sweep behind everything else on the machine. On Windows that is
+the background mode of a process, which lowers its reading of the disk as well as its
+share of the processor and which the processes it starts are in too; the idle priority
+class alone leaves the reading of the disk where everybody's is. Under load the sweep all
+but stands still, which is what the mode is for. A track that is not clean is kept beside
+the report, up to `--keep-gb` in all, so that it can be put to another decoder.
+
+`tools/whole_tracks.py` holds the rows of the whole tracks against the rows of the heads
+of the same tracks: the tracks that are clean for a minute and not for their length;
+every rule and every coding tool, with the tracks whose head does not have it; of TrueHD
+and MLP tracks the places where the timing jumps, and the counters and values of the
+syntax census that are zero in every head and not in every whole track; of AC-3 and
+E-AC-3 tracks those that say something of their downmix or of their dialogue level in
+part of their frames only, what their metadata containers declare of their protection,
+and what changes in the objects of JOC beyond the head. Both sweeps are made with one
+binary, or a rule the newer one has is read as something the heads lack. The output is
+counts and names no file.
+
+A track that is not clean is a question of whose the fault is: the file's, the
+reading's, or this decoder's. Three things answer it. The place this decoder names and a
+stretch just before it are put to other decoders, both cut the same way, so that what a
+cut at bytes makes a decoder say of its two ends is in the control as well. The file is
+cut again at the place and the bytes of the finding are looked for in the new cut: found,
+the file holds them and the reading did not make them. And a whole AC-3 track is decoded
+by three decoders and held frame by frame, the frames with a finding against all the
+others, since decoders that draw their own dither are at no frame the same sample.
+
+FFmpeg is a second opinion that has to be read with care here. Of a damaged TrueHD access
+unit it says nothing at the level of an error, and it ends with 0. It skips every frame up
+to the next major sync and says so as a warning, "Stream parameters not seen", once and
+then as a count of repeats; the frames it skips are the access units lost.
