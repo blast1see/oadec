@@ -8,6 +8,31 @@ Semantic Versioning.
 
 ### Added
 
+- **`tools/encoder_arguments.py` writes what a stream says of its programme
+  as the arguments an encoder takes.** A master has no field for the dialogue
+  normalisation, the downmix a stream prefers and its levels, or the DRC
+  profiles, so the encoder of a second generation measures the first anew and
+  takes its defaults for the rest. The tool reads them with `info`, `emdf`
+  and `oamd` and writes them as the options of Dolby's encoders, for a field
+  the stream says one thing of, and names what it leaves to the encoder.
+  `tools/interop.py programme` measures what comes back: of twelve first
+  streams with a programme of their own, a second generation says the first's
+  dialogue normalisation in 3 and its downmix and DRC profiles in none when
+  its encoder is told nothing, and all of them in 12 of 12 when it is told
+  the arguments. Both encoders take a dialogue normalisation by hand
+  (`--loudness-management skip:custom_dialnorm=`), the E-AC-3 one without
+  naming it in its help, and one that is told measures nothing: its stream
+  has no true peak (`docs/dolby-tools.md`,
+  `docs/audit/evidence/engine-round-2026-11/60-what-a-second-generation-says-of-the-programme.json`).
+- **`tools/resolve_import.py` asks DaVinci Resolve what it reads of a
+  master.** Through the scripting interface of Resolve Studio, as a black
+  box: what the program says of each file it imports, and with `--render`
+  the sound it makes of each, held sample by sample between files that say
+  one programme. The program takes the ADM file this decoder writes as a
+  Dolby Atmos master, and renders it to the samples it renders the ADM file
+  of Dolby's Conversion Tool of the same programme to, 11 programmes of 11
+  in all twelve channels (`docs/testing-tools.md`,
+  `docs/audit/evidence/engine-round-2026-11/59-what-another-program-reads-of-the-adm-file.json`).
 - **`info` and `verify` report what a stream says of its downmix to two
   channels.** The downmix a stream prefers and the levels of the centre and
   of the surround channels in an Lt/Rt and in an Lo/Ro downmix, which AC-3

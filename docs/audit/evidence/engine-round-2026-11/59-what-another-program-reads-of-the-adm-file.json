@@ -1,0 +1,224 @@
+{
+ "question": "An ADM file is written for other programs to read, and the programs this decoder's file had been put to were Dolby's own: the Conversion Tool and the encoders. The plan of the round had a row for a program people master in, DaVinci Resolve, and left it, because the program had to be run. Does it take the ADM file `oadec decode --format adm` writes for a Dolby Atmos master, and does it make of it the sound it makes of the ADM file Dolby's Conversion Tool writes of the same programme?",
+ "method": "Resolve Studio is run without its window and asked through its scripting interface, as a black box: `tools/resolve_import.py` makes a project of its own, imports each file, records what the program says of the clip, puts the clip alone on a track of twelve discrete channels (\"adaptive12\"), where the program's own 7.1.4 rendering of a master comes out channel for channel, has the sound rendered and reads it back with ffmpeg; then it deletes the project. What the program says of an import turned out to be a label: every master is \"Dolby Atmos\", twelve channels and sixteen embedded ones, whether its file has 7 channels or 25. So the question is put to the renders. Files that say one programme in different containers are held against each other sample by sample: for every stream, the ADM file this decoder writes of it, the same with `--dolby-origin-tag`, the master this decoder writes of it, and the ADM file the Conversion Tool writes of that master. The programmes are four scenes of the round-trip design (evidence 54), each through the E-AC-3 encoder with JOC and through the TrueHD encoder, and heads of three film tracks. Controls: Dolby's own pair, an authored master and the Conversion Tool's ADM file of it, without which two renders that are the same would say nothing of the files; a WAVE file that is no master; and ADM files that say something else on purpose, written by changing the `axml` chunk of this decoder's file in place: every object moved by half the width of the room, one object moved, and the coordinates of the bed channels moved with their labels left. The first control of the last kind was made wrong, and that is in the result. Nothing of the program was read but what it answers and what it renders.",
+ "commands": [
+  "Resolve -nogui   (DaVinci Resolve Studio; Preferences, System, General, \"External scripting using\": Local)",
+  "python tools/resolve_import.py --self-check",
+  "python tools/resolve_import.py <plain.wav>... --out resolve.json --render <dir> --same <own-adm.wav> <own-adm-tagged.wav> <conversion of own master>/output.wav <own master>.atmos --same <master>.atmos <conversion of master>/output.wav --same <own-adm.wav> <every object moved> <one object moved> <bed places moved> <own-adm-real.wav>   (a group of each kind for every scene and stream)",
+  "python tools/interop.py run --work <dir> --path own-adm|conversion|truehd --rows 8,21,34,44 --keep",
+  "oadec decode --format adm [--dolby-origin-tag] [--adm-interpolation real] -o <base> <stream>; oadec decode --format damf -o <base> <stream>",
+  "cmdline_atmos_conversion_tool -i <master.atmos> -o <dir> -f wav"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "tools": {
+  "oadec": {
+   "name": "oadec-calls-2.exe",
+   "sha256": "f762c5f9e467b7f7ba38357602d43e51ea0a18823b8a828def340e777daa1f1e",
+   "what": "the binary of main (evidence 56)"
+  },
+  "the_program": "DaVinci Resolve Studio 21.0.4.5, through its scripting interface, without its window",
+  "dolby": [
+   "Dolby Media Encoder: dee_ddpjoc_encoder and dee_dthd_encoder of the Dolby Encoding Engine 5.7.2",
+   "Dolby Atmos Conversion Tool 2.1.2"
+  ],
+  "ffmpeg": "reads the renders"
+ },
+ "result": {
+  "programmes": {
+   "scenes": {
+    "row 8": {
+     "fps": "24",
+     "bed": "5.0",
+     "objects": 20,
+     "motion": "fast",
+     "metadata": "zones",
+     "sounding": "in turn",
+     "encoder": "384",
+     "elements_of_the_master": 25,
+     "elements_of_the_e_ac_3_stream": 12
+    },
+    "row 21": {
+     "fps": "29.97",
+     "bed": "5.1",
+     "objects": 1,
+     "motion": "slow",
+     "metadata": "warp",
+     "sounding": "together",
+     "encoder": "bluray",
+     "elements_of_the_master": 7,
+     "elements_of_the_e_ac_3_stream": 16
+    },
+    "row 34": {
+     "fps": "24",
+     "bed": "7.1.2",
+     "objects": 15,
+     "motion": "slow",
+     "metadata": "snap",
+     "sounding": "in turn",
+     "encoder": "576",
+     "elements_of_the_master": 25,
+     "elements_of_the_e_ac_3_stream": 16
+    },
+    "row 44": {
+     "fps": "29.97",
+     "bed": "lfe",
+     "objects": 6,
+     "motion": "slow",
+     "metadata": "warp",
+     "sounding": "in turn",
+     "encoder": "768",
+     "elements_of_the_master": 7,
+     "elements_of_the_e_ac_3_stream": 16
+    }
+   },
+   "streams_of_each_scene": [
+    "E-AC-3 with JOC (dee_ddpjoc_encoder)",
+    "TrueHD (dee_dthd_encoder)"
+   ],
+   "heads_of_film_tracks": {
+    "E-AC-3 with JOC": 2,
+    "TrueHD": 1,
+    "seconds": [
+     31.2,
+     105.7
+    ]
+   }
+  },
+  "files_imported": 69,
+  "what_the_program_says_of_an_import": {
+   "of_a_master": {
+    "files": 53,
+    "by_what_wrote_them": {
+     "ADM files the Conversion Tool wrote": 15,
+     "ADM files this decoder wrote": 23,
+     "masters `oadec atmos-author` wrote": 4,
+     "masters this decoder wrote": 11
+    },
+    "channels_in_the_adm_files": {
+     "least": 7,
+     "most": 25
+    },
+    "clips_made_of_a_file": {
+     "1": 53
+    },
+    "audio_codec": {
+     "Dolby Atmos": 53
+    },
+    "audio_ch": {
+     "12": 53
+    },
+    "embedded_channels": {
+     "16": 53
+    },
+    "track_formats": {
+     "dolby_atmos_7.1.4": 53
+    },
+    "sample_rate": {
+     "48000": 53
+    }
+   },
+   "of_a_file_that_is_no_master": {
+    "files": 4,
+    "audio_codec": {
+     "Linear PCM": 4
+    },
+    "audio_ch": {
+     "6": 3,
+     "8": 1
+    },
+    "track_formats": {
+     "5.1": 3,
+     "adaptive_8": 1
+    }
+   },
+   "of_a_master_changed_on_purpose": {
+    "files": 12,
+    "audio_codec": {
+     "Dolby Atmos": 12
+    }
+   }
+  },
+  "the_render_of_a_master": {
+   "renders": 65,
+   "channels": {
+    "12": 65
+   },
+   "channels_that_sound": {
+    "11": 6,
+    "12": 47
+   },
+   "what": "24 bits at 48 kHz, through a track of twelve discrete channels"
+  },
+  "one_programme_in_several_containers": {
+   "programmes": 11,
+   "the Conversion Tool's ADM file of the master this decoder wrote, against the ADM file this decoder wrote": {
+    "programmes": 11,
+    "the_same_samples": 11
+   },
+   "the master this decoder wrote, against its ADM file": {
+    "programmes": 11,
+    "the_same_samples": 11
+   },
+   "its ADM file with the creator string of Dolby's tools, against the one without": {
+    "programmes": 8,
+    "the_same_samples": 8
+   }
+  },
+  "the_control_of_dolbys_own_pair": {
+   "programmes": 4,
+   "the_same_samples": 4
+  },
+  "what_has_to_differ_and_does": {
+   "every object moved by half the room": {
+    "programmes": 4,
+    "not_the_same": 4,
+    "channels_that_differ": {
+     "least": 11,
+     "most": 11,
+     "of": 12
+    },
+    "the_channel_furthest_off_db": {
+     "least": -20.83,
+     "most": -0.03
+    }
+   },
+   "one object moved by half the room": {
+    "programmes": 4,
+    "not_the_same": 4,
+    "channels_that_differ": {
+     "least": 2,
+     "most": 11,
+     "of": 12
+    },
+    "the_channel_furthest_off_db": {
+     "least": 2.02,
+     "most": 5.19
+    }
+   }
+  },
+  "what_makes_no_difference_to_the_program": {
+   "the places of the bed channels moved, their labels left": {
+    "programmes": 4,
+    "the_same_samples": 4
+   },
+   "the ramps of the stream written in place of the 250 samples of the profile": {
+    "programmes": 4,
+    "the_same_samples": 4
+   }
+  },
+  "a_control_that_was_made_wrong": "The first file written to differ had one position changed and rendered the same as the file it was made of, in four scenes of four. The position was a bed channel's: the script that made it looked for the first channel of type Objects and found the text of an earlier element. A bed channel is placed by its label, which the control after it shows, so that file said nothing else than the original, and a control that cannot fail had passed. The two controls above move channels of type Objects and say how many they moved.",
+  "what_the_interface_does": {
+   "the_first_timeline_of_a_project_does_not_render": "no job of it starts, however often it is started or added again, and the program says nothing; the timelines after it render. The tool makes one and leaves it.",
+   "a_track_format_a_script_can_ask_for": "mono, stereo, 5.1, 7.1 and \"adaptive\" of 1 to 36 channels; none of the formats with height channels. A master on a stereo track comes out as two channels of twelve, on a 7.1 track as eight, on an adaptive track of twelve as all twelve.",
+   "what_it_does_not_say": "the bed and the objects it read of a master: their number, places and times"
+  },
+  "tests": {
+   "python tools/resolve_import.py --self-check": "8 of 8 known answers"
+  }
+ },
+ "reading": "The program takes the ADM file this decoder writes for a Dolby Atmos master, with the creator string of Dolby's tools or without it, and so it takes every one of 53 masters: ADM files of this decoder and of the Conversion Tool, with 7 to 25 channels, and master sets. And it makes the same sound of this decoder's file as of Dolby's: over 11 programmes, eight streams of four scenes and heads of three film tracks, the render of this decoder's ADM file is, sample for sample in all twelve channels, the render of the ADM file the Conversion Tool writes of the same programme (11 of 11), and the render of this decoder's master (11 of 11). The comparison can fail: a file with its objects moved renders differently in every scene, in up to eleven channels of twelve, and one object moved is enough. Two things it does not see. The program places a bed channel by its label and not by the coordinates beside it, and it renders the same whether the ramps of an object are written as the stream has them or as the 250 samples of the profile. What this row is and is not: a product people master in reads the file as it reads Dolby's own. Whether what reads a master there is code of the program's makers or a library of Dolby's is not known here and was not looked into; the folder of the program holds a library with Dolby's name in it. And the scripting interface says nothing of the objects the program read, so their number, places and times are held only through the sound it makes of them."
+}

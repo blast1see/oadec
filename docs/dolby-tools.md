@@ -1119,6 +1119,80 @@ clause H.3.1.3.10 says it shall, and the other is below what the field can say (
 LUFS against -31). `ph90filt` is clear on exactly the three tracks at downmix
 configuration 0. 229 channel-based tracks carry a loudness practice the table reserves.
 
+## The dialogue normalisation and the downmix are the rest of it
+
+Two more things a stream says of its programme are in no master, and an encoder
+that is told nothing writes its own.
+
+**The dialogue normalisation.** An encoder measures the loudness of what it is
+given and writes the dialogue normalisation it finds, so a second generation says
+another than the first wherever the measurement of the decode comes out otherwise:
+19 rows of 51 in the matrix below. Both encoders take one by hand:
+
+```text
+dee_ddpjoc_encoder ... --loudness-management skip:custom_dialnorm=-27
+dee_dthd_encoder   ... --loudness-management skip:custom_dialnorm=-27
+```
+
+The help of `dee_ddpjoc_encoder` names `measure_only` and nothing else. It takes
+`skip` all the same, and refuses it without `custom_dialnorm`. Told -31, -24, -11
+and -1, each encoder writes what it is told: the E-AC-3 stream says it as its
+`dialnorm`, the TrueHD stream as the dialogue normalisation of its 6-, 8- and
+16-channel presentations, with the 2-channel one 6 dB under it. There is a price.
+With `skip` the encoder measures nothing: the loudness payloads of the stream give
+the figure it was told as the gated loudness, and no short-term loudness and no
+true peak, where a stream of the same master that was measured has 70 of the one
+and 17 of the other.
+
+**The downmix.** A stream of more than two channels can say which downmix to two
+it prefers and four levels for it (`docs/eac3.md`, *What a stream says of its
+downmix*). The encoders default to Lo/Ro and four times -3 dB, and take all five
+with `--encoder`:
+
+```text
+dee_ddpjoc_encoder ... --encoder preferred_downmix_mode=ltrt:loro_cmix=-1.5:loro_smix=-6:ltrt_cmix=-4.5:ltrt_smix=-1.5
+```
+
+`ltrt-pl2` is written as the code the table of the standard reserves, and the
+AC-3 encoder refuses it. The TrueHD encoder has no such option, and a TrueHD
+stream says no downmix of this kind.
+
+`tools/encoder_arguments.py` reads a stream and writes all of it out, the DRC
+profiles of the section above with it, and says what it leaves to the encoder: a
+field of which the stream says two things, as a splice does, and a field of
+which it says nothing.
+
+```text
+$ python tools/encoder_arguments.py first.ec3
+E-AC-3 (dee_ddpjoc_encoder): --loudness-management skip:custom_dialnorm=-27 --encoder preferred_downmix_mode=ltrt:loro_cmix=-1.5:loro_smix=-6:ltrt_cmix=-4.5:ltrt_smix=-1.5:drc_profile_line=music_standard:drc_profile_rf=speech
+TrueHD (dee_dthd_encoder):   --loudness-management skip:custom_dialnorm=-27
+the decode (oadec decode):   --warp-mode stream
+```
+
+Whether it comes back was measured (`tools/interop.py programme`): four scenes,
+each encoded three times with a programme that is not the encoder's defaults,
+decoded to a master with `--warp-mode stream`, and the master encoded twice.
+
+| What the first stream says | Second generation, encoder told nothing | Told the arguments |
+|---|---:|---:|
+| the dialogue normalisation | 3 of 12 | 12 of 12 |
+| the downmix it prefers | 0 of 12 | 12 of 12 |
+| the four levels of the downmix | 0 of 12 | 12 of 12 |
+| the DRC profile of line mode | 0 of 12 | 12 of 12 |
+| the DRC profile of RF mode | 0 of 12 | 12 of 12 |
+| the warp mode (which the master has) | 12 of 12 | 12 of 12 |
+
+Every one of the 36 streams is clean. None of the twelve that were told the
+arguments has a measured true peak, and all twelve that were told nothing have:
+whoever wants the measurement gives the encoder the `--encoder` part alone.
+
+Four whole tracks of streaming services, E-AC-3 with JOC at 768 kbit/s and 1.7 to
+2.6 hours long, were read the same way. Each says one dialogue normalisation from
+its first frame to its last (-25 to -29), `film_light` for both DRC profiles and
+the Lo/Ro warp mode, and none says a downmix: their frames carry no mixing
+metadata, and the tool leaves the downmix to the encoder and says so
+(`audit/evidence/engine-round-2026-11/60-what-a-second-generation-says-of-the-programme.json`).
+
 ## `--order stream` is the order the encoders read
 
 Eight tones, one per channel, written in the order `oadec decode --order stream`
@@ -1268,9 +1342,11 @@ is put into clusters, and an object is then where its cluster is.
   as warping, and all 7 as Lo/Ro with `--warp-mode stream` (above).
 - The dialogue normalisation is the encoder's measurement, made anew of the
   decode: a second generation has another than the first in 19 of 51 rows, its
-  field 8 less to 7 more, and the same DRC profiles in all 51. This encoder
-  takes none on its command line (`--loudness-management` has `measure_only` and
-  nothing else), so what a first stream says cannot be handed on to it.
+  field 8 less to 7 more, and the same DRC profiles in all 51. The help of this
+  encoder names `measure_only` and nothing else for `--loudness-management`, and
+  this text said on the strength of that help that what a first stream says could
+  not be handed on. It can: the encoder takes `skip:custom_dialnorm=` (*The
+  dialogue normalisation and the downmix are the rest of it*, above).
 - The frame rate a master names changes no byte of an E-AC-3 stream, and of a
   TrueHD stream no more than encoding the same master again does. That encoder's
   streams of one master differ from run to run, here in 6 to 10 bytes of 501 144: the

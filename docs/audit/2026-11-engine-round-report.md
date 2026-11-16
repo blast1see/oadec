@@ -79,7 +79,8 @@ this decoder's ADM file, which needs the program run by hand; a side report
 of the programme metadata a DAMF set cannot carry, for the encoder's command
 line; a census of whole library tracks in place of their heads; and the
 modules of the engine under new names, which were moved as they stood so that
-the comparison before and after could be exact (55). One thing was added that
+the comparison before and after could be exact (55). Section 9 says what became
+of the four after the round. One thing was added that
 the plan did not have: reading what Dolby's AC-3 family decoder does where it
 parts from the standard (28, 29, 51, 52), which the JOC work turned out to
 rest on.
@@ -408,6 +409,9 @@ a control and is recorded where the wrong figure was:
   mutations of 31 were caught with the fault in place. A comparison with the
   sync word in the bytes, over the corpus, found it; a stream is named by
   that word now, and the tests read it themselves (56).
+- The text of the round trips said the E-AC-3 encoder takes no dialogue
+  normalisation on its command line, on the strength of its help, which names
+  no way to give one. Asked, it takes one, and writes it (60).
 
 ## 5. Found along the way
 
@@ -505,3 +509,55 @@ bash tools/media_regression.sh WORK logs
 The paths are examples; the streams are not in the repository. The tools
 that run a vendor's program find it where it is installed and say so when it
 is not there; what they read of it is in `docs/dolby-tools.md`.
+
+## 9. What the plan had left, after the round
+
+The owner asked for the four things of section 2 to be decided and acted on.
+They are in pull requests of their own, after the 57 of the round.
+
+- **A stream's downmix, which the side report needed first.** What a stream
+  says of its downmix to two channels, the one it prefers and four levels,
+  was read past: no report had it, and it is one of the things an encoder can
+  be told. `info` and `verify` report it now, in both syntaxes. Of 22 streams
+  Dolby's three encoders wrote with every value of every one of the five
+  options, each says in every frame what its encoder was told (58).
+- **The side report, as a tool.** `tools/encoder_arguments.py` writes what a
+  stream says of its programme as the arguments Dolby's encoders take. It was
+  kept on the condition the plan set, that the round trips show it coming
+  back: told nothing, the encoder of a second generation keeps the dialogue
+  normalisation of the first stream in 3 of 12 and its downmix and DRC
+  profiles in none; told the arguments, all of them in 12 of 12 (60). It is
+  not a file the decoder writes: the reports already had what such a file
+  would hold.
+- **The DaVinci Resolve row.** Run through the program's scripting interface,
+  without its window. It takes the ADM file this decoder writes as a Dolby
+  Atmos master, and renders it to the samples it renders the Conversion
+  Tool's ADM file of the same programme to, 11 programmes of 11. What the
+  program says of an import is a label and says no more than that the file
+  was taken; the row stands on the renders (59).
+- **The names of the engine's modules: left as they are.** They were to
+  become `source`, `probe`, `report`, `truehd`, `ac3`, `objects` and `sink`.
+  What a caller that is no command line is offered is the five calls at the
+  root of the crate and `api`, which have the names they were planned with.
+  The modules under them are named for the command each serves and, for the
+  AC-3 family, for the crate that decodes it; 620 mutations, the line
+  references of the documents and the evidence of the round name those
+  files. New names would move nothing a user or a caller sees, and would be
+  paid for in every one of those. This is a decision, not a postponement.
+- **A census of whole tracks** is a sweep of a library that takes a day of
+  its disk, and is reported where it lands, with its count.
+
+With these the conformance matrix has 132 rows: 94 PASS, 17 PASS-TOL, 3
+PARTIAL, 7 N/I, 6 N/T, 5 UNK and no FAIL; its table of what moved since the
+audits has two more, the programme of a second generation and the reading of
+another program.
+
+One measurement more came with material and not with a plan. The three
+things done Dolby's way in the objects of JOC were read off streams of one
+library and measured on that library (section 3.9). While the above was done
+the owner added four whole tracks of streaming services, which nothing of the
+round had read. They are clean from end to end, 8.6 hours without a finding
+of any rule, and their objects stand against Dolby's decoder where the
+library's stand: 101.9 to 117.5 dB over the whole band at the median of an
+excerpt, the stretches with the clip gain most at work no lower than the
+heads, and the two decoders at the same sample in all eight excerpts (61).

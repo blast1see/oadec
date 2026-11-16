@@ -32,6 +32,7 @@ of every other axis in some row, in far fewer rows than all the combinations.
     python tools/interop.py run --work <dir> [--rows 0-9] [--path stream]
     python tools/interop.py report <dir>/rows-*.json --out matrix.json
     python tools/interop.py probe --work <dir> [--path truehd]
+    python tools/interop.py programme --work <dir> [--rows 8,15,34,44]
     python tools/interop.py --self-check
 
 Paths: `stream` is scene -> master -> E-AC-3 JOC (every row is meant to take
@@ -53,6 +54,15 @@ read.
 LFE, with one thing said of it (a channel lock, a zone, a size, a gain) at a
 few places, through the same encoder. A row of the matrix says whether a
 stream carries what a master said; a probe says what the encoder did with it.
+
+`programme` asks what a second generation keeps of what the first stream
+says of its programme as a whole: the dialogue normalisation, the downmix it
+prefers and its levels, the DRC profiles, the warp mode. A master has a place
+for the last of these only. The encoder of a first stream is told settings
+that are not its defaults; the stream is decoded to a master
+(`--warp-mode stream`) and the master encoded twice, once with the encoder
+told nothing and once with it told what `tools/encoder_arguments.py` reads of
+the first stream. What each of the three streams says is laid side by side.
 
 Exit code: 0, 2 on a usage error.
 """
@@ -296,10 +306,13 @@ def step(record, what, code, text, seconds):
     return code == 0
 
 
-def encode(source, out, encoder):
+def encode(source, out, encoder, told=()):
+    """`told` is what the encoder is told beside its rate: `programme` says
+    there how the stream is to be mixed down and how loud its dialogue is."""
     cmd = [DEE / 'dee_ddpjoc_encoder.exe', '-l', LICENCE, '--input-format', 'atmos_mezz', '-i', source, '-o', out,
            '--overwrite', '1', '--start', '0']
     cmd += ['--encoder', 'bluray', '--data-rate', '1536'] if encoder == 'bluray' else ['--data-rate', encoder]
+    cmd += list(told)
     # an encoder keeps what it is working on in the folder it is run in: the row's
     code, stdout, stderr, seconds = run(cmd, cwd=out.parent)
     return (code if out.exists() or code else 1), stdout + stderr, seconds
@@ -371,7 +384,7 @@ def facts(oadec, stream):
         'syntax': info.get('syntax'), 'frames': info.get('frames'), 'bit_rate': info.get('bit_rate'),
         'channels': info.get('channels'), 'substreams': [p.get('substream') for p in programmes],
         'core_syntax': sorted({str(p.get('syntax')) for p in programmes}),
-        'dialnorm': info.get('dialnorm'), 'coverage': info.get('coverage'),
+        'dialnorm': info.get('dialnorm'), 'downmix': info.get('downmix'), 'coverage': info.get('coverage'),
         'complexity_index': (info.get('joc_extension') or {}).get('complexity_index'),
         'joc': {key: joc.get(key) for key in (
             'downmix_configs', 'bands', 'objects_per_payload', 'interpolation_branches', 'offset_ts',
@@ -1096,9 +1109,144 @@ def self_check():
             path_of({'path': 'second', 'the_decode_names_the_warp_mode_of_the_stream': True})
             == 'second, the warp mode named' and path_of({'path': 'second'}) == 'second',
     })
+    one = {'dialnorm': [27], 'programme_information': {'drc_line': {'speech': 9}, 'drc_rf': {'none': 9}},
+           'oamd': {'warp_modes': {'3': 9}},
+           'downmix': [{'preferred': 'Lt/Rt', 'ltrt_centre_db': '-4.5', 'ltrt_surround_db': '-1.5',
+                        'loro_centre_db': '+3.0', 'loro_surround_db': '-inf', 'frames': 9}]}
+    other = {**one, 'dialnorm': [21], 'downmix': [{**one['downmix'][0], 'loro_surround_db': '-3.0', 'frames': 7}],
+             'programme_information': {'drc_line': {'speech': 7}, 'drc_rf': {'film_light': 7}}}
+    record = {'kept': {SECONDS[0]: kept(programme_of(one), programme_of(other)),
+                       SECONDS[1]: kept(programme_of(one), programme_of({**one, 'frames': 5}))},
+              'clean': {'first': True}, 'left_to_the_encoder': [],
+              'measured': {'first': {'true_peaks': 0}, SECONDS[0]: {'true_peaks': 4}, SECONDS[1]: {'true_peaks': None}}}
+    counted = programme_summary([record, {'steps': []}])
+    checks.update({
+        'a second stream is held to the first field by field, whatever its length':
+            record['kept'][SECONDS[0]] == ['preferred_downmix', 'drc_line', 'warp_mode']
+            and record['kept'][SECONDS[1]] == list(FIELDS),
+        'what the second generations kept is counted for each way of telling the encoder':
+            counted['scenes'] == 2 and counted['with_both_second_generations'] == 1
+            and counted['second_generations_that_say_a_field_as_the_first_stream_did']['drc_rf']
+            == {SECONDS[0]: 0, SECONDS[1]: 1, 'of': 1}
+            and counted['streams_with_a_measured_true_peak'] == {'first': 0, SECONDS[0]: 1, SECONDS[1]: 0},
+        'every setting a first encoder is told is another than the defaults, and the last leaves the dialogue to it':
+            all('loro_cmix=-3:' not in p['encoder'] and 'film_light' not in p['encoder'] for p in PROGRAMMES)
+            and [p['dialogue_normalisation'] is None for p in PROGRAMMES] == [False, False, True],
+    })
     for name, ok in checks.items():
         print(f'{"ok  " if ok else "FAIL"} {name}')
     return 0 if all(checks.values()) else 1
+
+
+# ---- what a second generation keeps of what the first stream says of its programme
+
+# What the encoder of a first stream is told: three settings, none of them an
+# encoder's defaults; the first two with a dialogue normalisation given by
+# hand, the third with the one the encoder measures.
+PROGRAMMES = [
+    {'encoder': 'preferred_downmix_mode=ltrt:loro_cmix=-1.5:loro_smix=-6:ltrt_cmix=-4.5:ltrt_smix=-1.5:'
+                'drc_profile_line=music_standard:drc_profile_rf=speech', 'dialogue_normalisation': -27},
+    {'encoder': 'preferred_downmix_mode=not_indicated:loro_cmix=+3:loro_smix=-inf:ltrt_cmix=0:ltrt_smix=-4.5:'
+                'drc_profile_line=film_standard:drc_profile_rf=music_light', 'dialogue_normalisation': -14},
+    {'encoder': 'preferred_downmix_mode=ltrt-pl2:loro_cmix=-6:loro_smix=-1.5:ltrt_cmix=-inf:ltrt_smix=-3:'
+                'drc_profile_line=none:drc_profile_rf=none', 'dialogue_normalisation': None},
+]
+# every stream of `programme` at one rate: a rate is not what it asks about
+PROGRAMME_RATE = '768'
+FIELDS = ('dialogue_normalisation', 'preferred_downmix', 'downmix_levels', 'drc_line', 'drc_rf', 'warp_mode')
+SECONDS = ('second, told nothing', 'second, told the arguments')
+
+
+def programme_of(said):
+    """What a stream says of its programme as a whole, field by field, as
+    `facts` has it."""
+    downmix = said.get('downmix') or []
+    information = said.get('programme_information') or {}
+    return {
+        'dialogue_normalisation': said.get('dialnorm'),
+        'preferred_downmix': [d['preferred'] for d in downmix],
+        'downmix_levels': [[d[key] for key in ('ltrt_centre_db', 'ltrt_surround_db', 'loro_centre_db',
+                                               'loro_surround_db')] for d in downmix],
+        'drc_line': sorted(information.get('drc_line') or {}),
+        'drc_rf': sorted(information.get('drc_rf') or {}),
+        'warp_mode': sorted((said.get('oamd') or {}).get('warp_modes') or {}),
+    }
+
+
+def kept(first, second):
+    """The fields a second stream says as the first did."""
+    return [field for field in FIELDS if first[field] == second[field]]
+
+
+def measured(said):
+    """What the loudness payloads of a stream hold that only a measurement gives."""
+    loudness = said.get('loudness') or {}
+    return {'true_peaks': (loudness.get('true_peak_dbtp') or {}).get('count'),
+            'short_term': (loudness.get('short_term_lufs') or {}).get('count')}
+
+
+def one_programme(row, k, work, oadec, keep=False):
+    """A scene whose first stream says a programme of its own, and two second
+    generations of it."""
+    import encoder_arguments
+    name = f'{row_name(row)}-{k}'
+    here = work / name
+    here.mkdir(parents=True, exist_ok=True)
+    (here / 'scene.json').write_text(json.dumps(scene_of(row), indent=1), encoding='utf-8')
+    record = {'row': row, 'name': name, 'the_first_encoder_is_told': PROGRAMMES[k], 'steps': []}
+    code, _, stderr, seconds = run([oadec, 'atmos-author', here / 'scene.json', '-o', here / 'master'])
+    if not step(record, 'author', code, stderr, seconds):
+        return record
+    told = ['--encoder', PROGRAMMES[k]['encoder']]
+    if PROGRAMMES[k]['dialogue_normalisation'] is not None:
+        told += ['--loudness-management', f"skip:custom_dialnorm={PROGRAMMES[k]['dialogue_normalisation']}"]
+    first = here / 'first.ec3'
+    first.unlink(missing_ok=True)
+    if not step(record, 'encode the master', *encode(here / 'master.atmos', first, PROGRAMME_RATE, told)):
+        return record
+    code, _, stderr, seconds = run([oadec, 'decode', '--format', 'damf', '--warp-mode', 'stream',
+                                    '-o', here / 'decoded', first])
+    record['steps'].append({'step': 'decode the first stream', 'exit': code, 'seconds': seconds,
+                            **({'said': what_it_said(stderr)} if code else {})})
+    if not (here / 'decoded.atmos').exists():
+        return record
+    read = encoder_arguments.report(oadec, first)
+    record['the_arguments'] = read['arguments']['e_ac_3']
+    record['left_to_the_encoder'] = read['left_to_the_encoder']
+    streams = {'first': first}
+    for which, extra in zip(SECONDS, ([], record['the_arguments'])):
+        out = here / ('second-told.ec3' if extra else 'second-plain.ec3')
+        out.unlink(missing_ok=True)
+        if step(record, f'encode the decode ({which})', *encode(here / 'decoded.atmos', out, PROGRAMME_RATE, extra)):
+            streams[which] = out
+    said = {which: facts(oadec, path) for which, path in streams.items()}
+    record['says'] = {which: programme_of(f) for which, f in said.items()}
+    record['measured'] = {which: measured(f) for which, f in said.items()}
+    record['clean'] = {which: f['exit']['verify'] == 0 for which, f in said.items()}
+    record['kept'] = {which: kept(record['says']['first'], record['says'][which])
+                      for which in SECONDS if which in record['says']}
+    if not keep:
+        for big in (here / 'master.atmos.audio', here / 'decoded.atmos.audio'):
+            big.unlink(missing_ok=True)
+    return record
+
+
+def programme_summary(records):
+    """How many second generations keep each field, told nothing and told the
+    arguments."""
+    whole = [r for r in records if len(r.get('kept') or {}) == len(SECONDS)]
+    return {
+        'scenes': len(records),
+        'with_both_second_generations': len(whole),
+        'every_stream_clean': all(all(r['clean'].values()) for r in whole),
+        'second_generations_that_say_a_field_as_the_first_stream_did': {
+            field: {which: sum(field in r['kept'][which] for r in whole) for which in SECONDS} | {'of': len(whole)}
+            for field in FIELDS},
+        'with_nothing_left_to_the_encoder': sum(not r['left_to_the_encoder'] for r in whole),
+        'streams_with_a_measured_true_peak': {
+            which: sum((r['measured'][which]['true_peaks'] or 0) > 0 for r in whole)
+            for which in ('first', *SECONDS)},
+    }
 
 
 def parse_rows(text, count):
@@ -1132,6 +1280,12 @@ def main():
     look.add_argument('--path', choices=['stream', 'truehd'], default='stream')
     look.add_argument('--bin', help='the oadec binary (default: as tools/oadec_bin.py finds it)')
     look.add_argument('--keep', action='store_true')
+    said = commands.add_parser('programme', help='what a second generation keeps of what the first stream says '
+                                                 'of its programme, its encoder told nothing and told the arguments')
+    said.add_argument('--work', type=Path, required=True)
+    said.add_argument('--rows', default='8,15,34,44', help='which rows of the matrix give the scenes')
+    said.add_argument('--bin', help='the oadec binary (default: as tools/oadec_bin.py finds it)')
+    said.add_argument('--keep', action='store_true', help='keep the audio of the masters')
     rep = commands.add_parser('report', help='count what rows that were run say')
     rep.add_argument('rows', type=Path, nargs='+')
     rep.add_argument('--out', type=Path)
@@ -1182,6 +1336,25 @@ def main():
                                  f"{back.get('carrier_error')} from where it was put; the stream says "
                                  + (', '.join(key for key, value in says.items() if value) or 'none of it')),
                   flush=True)
+        return 0
+    if args.command == 'programme':
+        oadec = str(Path(args.bin).resolve()) if args.bin else oadec_binary()
+        args.work = args.work.resolve()
+        args.work.mkdir(parents=True, exist_ok=True)
+        records = []
+        for k in parse_rows(args.rows, len(rows)):
+            for setting in range(len(PROGRAMMES)):
+                record = one_programme(rows[k], setting, args.work, oadec, args.keep)
+                record['index'] = k
+                records.append(record)
+                (args.work / 'programme.json').write_text(
+                    json.dumps({'records': records, 'summary': programme_summary(records)}, indent=1),
+                    encoding='utf-8')
+                print(f"row {k}, setting {setting}: "
+                      + ('; '.join(f"{s['step']} {s['exit']}" for s in record['steps'] if s['exit']) or 'every step 0')
+                      + ''.join(f"; {which}: kept {len(fields)} of {len(FIELDS)}"
+                                for which, fields in (record.get('kept') or {}).items()), flush=True)
+        print(json.dumps(programme_summary(records), indent=1))
         return 0
     if args.command == 'report':
         records = [r for path in args.rows for r in json.loads(path.read_text(encoding='utf-8'))]

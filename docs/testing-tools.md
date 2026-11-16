@@ -524,6 +524,7 @@ python tools/interop.py plan                               # the 51 rows
 python tools/interop.py run --work <dir> --path stream     # every row to E-AC-3 JOC and back; --rows 0-9 for some
 python tools/interop.py run --work <dir> --path truehd     # or conversion, own-adm, second
 python tools/interop.py probe --work <dir>                 # one object alone and one thing said of it
+python tools/interop.py programme --work <dir>             # what a second generation says of the programme, its encoder told or not
 python tools/interop.py report <dir>/rows-*.json           # the rows counted, and the paths held to each other
 ```
 
@@ -556,3 +557,74 @@ as the frame rate's doing until the same master was encoded twice: that encoder'
 streams of one master differ as much from run to run. A difference between two
 encodes says something of what was changed only beside two encodes of nothing
 changed.
+
+# What a stream says of its programme, for the encoder of a second generation
+
+A master has the sound of a programme and where it is, and no field for what a
+stream says of the programme as a whole: the dialogue normalisation, the downmix
+to two channels it prefers and its levels, the DRC profiles. An encoder that is
+given the master of a decode measures the first anew and takes its defaults for
+the rest. `tools/encoder_arguments.py` reads what a stream says, with `oadec
+info`, `emdf` and `oamd`, and writes it as the arguments Dolby's encoders take.
+`--json` has what it read, the arguments for each encoder, what the decode has to
+be told (`--warp-mode stream`), and what is left to the encoder and why.
+
+```sh
+python tools/encoder_arguments.py --self-check      # twelve known answers, without a stream
+python tools/encoder_arguments.py stream.ec3        # a line of arguments an encoder
+python tools/encoder_arguments.py stream.ec3 --json
+python tools/interop.py programme --work <dir>      # twelve first streams and two second generations of each
+```
+
+Nothing is told of a field the stream says two things of. What the arguments
+bring back and what they cost is in `docs/dolby-tools.md`, *The dialogue
+normalisation and the downmix are the rest of it*, and in
+`docs/audit/evidence/engine-round-2026-11/60-what-a-second-generation-says-of-the-programme.json`.
+
+It was to be a file the decoder writes beside a master. It is a tool beside the
+decoder, because the reports had everything such a file would hold once `info`
+reported the downmix, and what turns a report into an encoder's options is a
+table of one vendor's spellings, which belongs with the tools that run that
+vendor's programs.
+
+# Another program's reading of the ADM file
+
+`tools/resolve_import.py` puts files to DaVinci Resolve Studio through its
+scripting interface, as a black box: it makes a project of its own, imports each
+file, records what the program says of the clip, and deletes the project. With
+`--render` each clip is put alone on a track of as many discrete channels as the
+program gives the clip, the sound is rendered and read back, and files given
+together with `--same` are held against the first of their group sample by
+sample.
+
+```sh
+python tools/resolve_import.py --self-check
+python tools/resolve_import.py plain.wav --out resolve.json --render <dir> \
+    --same own-adm.wav <the Conversion Tool's ADM file of our master>/output.wav own-master.atmos \
+    --same master.atmos <the Conversion Tool's ADM file of it>/output.wav
+```
+
+The program has to be running (`Resolve -nogui` will do), to be the Studio
+edition, and to take scripts from the machine. Making a project closes the one
+that is open, so it is run on a Resolve started for it.
+
+What the program says of an import is a label. Every master is "Dolby Atmos" and
+twelve channels whatever it holds, 53 files of 53 with 7 to 25 channels in them,
+so the label says that a file was taken and no more. The render says the rest.
+Over eleven programmes, four scenes through both encoders and heads of three film
+tracks, the render of the ADM file this decoder writes is the render of the ADM
+file Dolby's Conversion Tool writes of the same programme, in every sample of
+all twelve channels, and so is the render of this decoder's master. Dolby's own
+pair, a master and the Conversion Tool's file of it, renders the same too, which
+is the control. A file with its objects moved does not, in four scenes of four:
+the comparison can fail.
+
+Three things about the method. The first control that was to fail passed: it had
+moved the coordinates of a bed channel, which the program places by its label,
+and a control that cannot fail says nothing. The first timeline a project is
+given does not render through the interface, and the program does not say so. And
+a script can ask for no track with height channels; an "adaptive" track of twelve
+takes the program's 7.1.4 rendering as it is. The interface says nothing of the
+objects the program read, so their number, places and times are held only through
+the sound it makes of them. Measured:
+`docs/audit/evidence/engine-round-2026-11/59-what-another-program-reads-of-the-adm-file.json`.

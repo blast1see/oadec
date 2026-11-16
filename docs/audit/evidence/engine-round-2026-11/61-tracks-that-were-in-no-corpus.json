@@ -1,0 +1,268 @@
+{
+ "question": "Everything the round measured of the objects of a JOC stream against Dolby's decoder was measured on a library that was at hand while the decoder was changed, and three things were fitted to what Dolby's decoder writes for streams of that library: the operator on the lowest subband, where the clip gain goes back in, and the dither. Four whole tracks came after all of it, from streaming services, which nothing here had read. Does the decoder read them whole, and do its objects stand as near Dolby's on them as on the library?",
+ "method": "The four tracks are E-AC-3 with JOC at 768 kbit/s, 1.7 to 2.6 hours long, as their owner had them: three are named with the extension of AC-3 and are E-AC-3 by their bytes. Each is read whole with `verify`, `info`, `emdf` and `oamd`. Of each, two excerpts of forty seconds are cut at whole syncframes, so that both decoders begin at the same frame: its head, and the forty seconds with the most frames whose JOC payload carries a clip gain other than 1. Dolby's object decode of an excerpt (the Reference Player's `dlbac3dec out-ch-config=21`, run as a program) and `oadec decode --format damf --no-bed-conform` are held to each other with `tools/joc_bands.py`, which says the distance of every element over the whole band and in its lowest band after taking out a delay of whole samples, of which there was none. Nothing was fitted to these tracks and nothing of the decoder was changed for them.",
+ "commands": [
+  "oadec verify --json <track>; oadec info|emdf|oamd --json <track>",
+  "oadec decode --format damf --no-bed-conform -o <base> <excerpt.ec3>",
+  "gst-launch-1.0 filesrc location=<excerpt.ec3> ! dlbac3parse enable-metadata=true ! dlbac3dec out-ch-config=21 drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true ! \"audio/x-raw(meta:DlbObjectAudioMeta),format=F32LE\" ! identity ! filesink location=<objects.f32>",
+  "python tools/joc_bands.py <base>.atmos.audio <objects.f32> --out bands.json"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "tools": {
+  "oadec": {
+   "name": "oadec-downmix-2.exe",
+   "sha256": "8714d735b45557756c103be47c9d5959fd665ab45a66ad2c791aec976707c4c8",
+   "what": "the binary of main (evidence 58)"
+  },
+  "dolby": [
+   "Dolby Reference Player 3.2.0.8040 (dlbac3dec)"
+  ]
+ },
+ "result": {
+  "the_tracks": {
+   "tracks": 4,
+   "what": "E-AC-3 with JOC at 768 kbit/s, of streaming services; in no corpus and no library of the round",
+   "named_with_the_extension_of_ac3": 3,
+   "hours": {
+    "least": 1.68,
+    "most": 2.59,
+    "together": 8.6
+   },
+   "frames": 963196,
+   "clean_by_verify": 4,
+   "findings_of_any_rule": 0,
+   "verify_times_real_time": {
+    "least": 353,
+    "most": 611
+   },
+   "joc_downmix_configurations": [
+    3
+   ],
+   "objects_a_payload": [
+    15
+   ],
+   "different_clip_gains_in_a_track": {
+    "least": 3,
+    "most": 25
+   },
+   "gaps_of_the_joc_sequence_counter": 0,
+   "that_say_a_downmix": 0
+  },
+  "against_dolbys_object_decode": {
+   "excerpts": 8,
+   "seconds_each": 40,
+   "with_the_two_decoders_at_the_same_sample": 8,
+   "objects_measured": 105,
+   "the_median_object_of_an_excerpt_whole_band_db": {
+    "least": 101.9,
+    "most": 117.5
+   },
+   "the_median_object_of_an_excerpt_lowest_band_db": {
+    "least": 118.2,
+    "most": 131.5
+   },
+   "the_lfe_db": {
+    "least": 113.4,
+    "most": 128.0
+   },
+   "objects_under_90_db_over_the_whole_band": {
+    "objects": 2,
+    "at_db": [
+     60.82,
+     73.33
+    ]
+   },
+   "heads": {
+    "whole_band_median_db": {
+     "least": 101.9,
+     "most": 111.4
+    }
+   },
+   "where_the_clip_gain_is_at_work": {
+    "frames_with_a_gain_other_than_1_of_1250": {
+     "least": 44,
+     "most": 198
+    },
+    "different_gains_in_an_excerpt": {
+     "least": 3,
+     "most": 14
+    },
+    "whole_band_median_db": {
+     "least": 106.6,
+     "most": 117.5
+    },
+    "lowest_band_median_db": {
+     "least": 122.8,
+     "most": 131.5
+    }
+   },
+   "by_excerpt": [
+    {
+     "track": 1,
+     "excerpt": "head",
+     "frames_with_a_clip_gain_other_than_1": 0,
+     "different_clip_gains": 1,
+     "objects_measured": 15,
+     "whole_band_db": {
+      "least": 93.8,
+      "median": 108.5,
+      "most": 118.5,
+      "of": 15
+     },
+     "lowest_band_db": {
+      "least": 92.4,
+      "median": 120.2,
+      "most": 132.5,
+      "of": 15
+     },
+     "the_lfe_db": 120.73
+    },
+    {
+     "track": 1,
+     "excerpt": "where the clip gain is at work",
+     "frames_with_a_clip_gain_other_than_1": 66,
+     "different_clip_gains": 4,
+     "objects_measured": 15,
+     "whole_band_db": {
+      "least": 94.6,
+      "median": 107.3,
+      "most": 115.9,
+      "of": 15
+     },
+     "lowest_band_db": {
+      "least": 110.4,
+      "median": 126.5,
+      "most": 137.2,
+      "of": 15
+     },
+     "the_lfe_db": 113.42
+    },
+    {
+     "track": 2,
+     "excerpt": "head",
+     "frames_with_a_clip_gain_other_than_1": 0,
+     "different_clip_gains": 1,
+     "objects_measured": 9,
+     "whole_band_db": {
+      "least": 60.8,
+      "median": 101.9,
+      "most": 117.6,
+      "of": 9
+     },
+     "lowest_band_db": {
+      "least": 77.8,
+      "median": 118.2,
+      "most": 130.8,
+      "of": 9
+     },
+     "the_lfe_db": 122.41
+    },
+    {
+     "track": 2,
+     "excerpt": "where the clip gain is at work",
+     "frames_with_a_clip_gain_other_than_1": 44,
+     "different_clip_gains": 6,
+     "objects_measured": 15,
+     "whole_band_db": {
+      "least": 103.9,
+      "median": 110.0,
+      "most": 118.7,
+      "of": 15
+     },
+     "lowest_band_db": {
+      "least": 123.7,
+      "median": 125.8,
+      "most": 133.9,
+      "of": 15
+     },
+     "the_lfe_db": 125.84
+    },
+    {
+     "track": 3,
+     "excerpt": "head",
+     "frames_with_a_clip_gain_other_than_1": 23,
+     "different_clip_gains": 6,
+     "objects_measured": 15,
+     "whole_band_db": {
+      "least": 96.7,
+      "median": 111.4,
+      "most": 116.1,
+      "of": 15
+     },
+     "lowest_band_db": {
+      "least": 107.6,
+      "median": 124.7,
+      "most": 138.4,
+      "of": 15
+     },
+     "the_lfe_db": 127.96
+    },
+    {
+     "track": 3,
+     "excerpt": "where the clip gain is at work",
+     "frames_with_a_clip_gain_other_than_1": 198,
+     "different_clip_gains": 14,
+     "objects_measured": 15,
+     "whole_band_db": {
+      "least": 109.4,
+      "median": 117.5,
+      "most": 126.6,
+      "of": 15
+     },
+     "lowest_band_db": {
+      "least": 121.6,
+      "median": 131.5,
+      "most": 141.7,
+      "of": 15
+     },
+     "the_lfe_db": 125.78
+    },
+    {
+     "track": 4,
+     "excerpt": "head",
+     "frames_with_a_clip_gain_other_than_1": 0,
+     "different_clip_gains": 1,
+     "objects_measured": 15,
+     "whole_band_db": {
+      "least": 95.4,
+      "median": 105.6,
+      "most": 116.7,
+      "of": 15
+     },
+     "lowest_band_db": {
+      "least": 101.6,
+      "median": 118.2,
+      "most": 131.5,
+      "of": 15
+     },
+     "the_lfe_db": 118.64
+    },
+    {
+     "track": 4,
+     "excerpt": "where the clip gain is at work",
+     "frames_with_a_clip_gain_other_than_1": 82,
+     "different_clip_gains": 3,
+     "objects_measured": 6,
+     "whole_band_db": {
+      "least": 101.7,
+      "median": 106.6,
+      "most": 119.9,
+      "of": 6
+     },
+     "lowest_band_db": {
+      "least": 118.9,
+      "median": 122.8,
+      "most": 141.4,
+      "of": 6
+     },
+     "the_lfe_db": null
+    }
+   ]
+  }
+ },
+ "reading": "The four tracks are read whole and are clean, 8.6 hours and 963196 frames without a finding of any rule, at 353 to 611 times real time. Their objects stand against Dolby's as the library's do, on streams nothing was fitted to: the two decoders are at the same sample in all 8 excerpts, the median object of an excerpt stands at 101.9 to 117.5 dB from Dolby's over the whole band and at 118.2 to 131.5 dB in the lowest band, and the LFE at 113.4 to 128.0 dB. The stretches in which the clip gain is most at work, up to 198 frames of 1250 with a gain other than 1, stand no lower than the heads. Of 105 objects 2 are under 90 dB over the whole band, at 60.8 and 73.3, both in the head of one track. The library the three readings were made on stood at 104.2 dB at the median (evidence 51)."
+}
