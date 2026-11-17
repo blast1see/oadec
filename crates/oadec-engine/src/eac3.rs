@@ -797,6 +797,9 @@ fn coverage_list(c: &Coverage) -> Vec<&'static str> {
     if c.skip_fields {
         v.push("skip-fields");
     }
+    if c.mantissa_code_above_range {
+        v.push("mantissa-code-above-range");
+    }
     if c.rematrixing {
         v.push("rematrixing");
     }
@@ -814,6 +817,7 @@ fn merge(into: &mut Coverage, c: &Coverage) {
     into.delta_allocation |= c.delta_allocation;
     into.skip_fields |= c.skip_fields;
     into.rematrixing |= c.rematrixing;
+    into.mantissa_code_above_range |= c.mantissa_code_above_range;
 }
 
 /// What one substream of a programme carried, for the substreams that are

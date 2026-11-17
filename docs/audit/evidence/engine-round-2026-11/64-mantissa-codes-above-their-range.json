@@ -1,0 +1,639 @@
+{
+ "question": "Evidence 62 found one frame of one track that this decoder would not decode and that FFmpeg and Dolby's decoder decode: its checksums are right, and a group of three 3-level mantissas in it has the code 27, which the standard gives no meaning. Five quantisers have such codes, seventeen in all. What does Dolby's decoder make of each, and does this decoder, made to do the same, decode the track as Dolby's does?",
+ "method": "A frame of a clean stream of AC-3 is taken, and a group or a code of each of the five quantisers in its middle is written over with each of the codes above its range in turn, the checksums made right again (`oadec repair`); the frame is as long in bits as it was, so everything else in it reads as before. A throwaway build of this decoder reads such a code with the mantissas a variable names. A decode is linear in a mantissa, so a decode of a clip around the frame with nothing in the mantissas of the code and one with 1 in each of them in turn give every other, and the values that bring the frame nearest to what Dolby's decoder wrote, by least squares over the samples the frame reaches, are the values Dolby's decoder gave them; how near the frame then is says whether values are all there is to it. FFmpeg's decode is solved for the same way. The frame of the library is solved for the same way. Then the decoder made to read a code above its range as the highest of the range decodes the whole track, and the decode is held frame by frame to FFmpeg's and to Dolby's, as in evidence 62. The mutations of the change are run against the tests, and the binary before the change and after it are run over the corpus with every report and every delivery compared. No name of a file is kept in what is written here.",
+ "commands": [
+  "oadec repair -o <clip> <clip with a code written over>",
+  "OADEC_EXP_VALS=<a>,<b>,<c> <throwaway oadec> decode --format pcm -o <ours.pcm> <clip>",
+  "gst-launch-1.0 filesrc location=<clip> ! dlbac3parse ! dlbac3dec drc-suppress=true out-ch-config=0 ! audio/x-raw,format=F32LE ! filesink location=<dolby.f32>",
+  "ffmpeg -drc_scale 0 -f ac3 -i <clip> -f f32le -c:a pcm_f32le <ffmpeg.f32>",
+  "oadec verify --json --max-per-rule 4000 <kept track>; oadec decode --format wav -o <ours.wav> <kept track>",
+  "python tools/mutants.py --only <the nine mutations of the change>",
+  "python tools/old_new.py --old <before> --new <after> --decode-all <corpus>"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "tools": {
+  "the_decoder_before_the_change": {
+   "sha256": "e2d80dcd8d0290abe47a253c35a3e6d755195e38130c338bab99caa105b24933",
+   "what": "a release build of the commit before it"
+  },
+  "the_decoder_after_it": {
+   "sha256": "da90eee12b2f321cc933f561f60539fbd399c724a879e51a9ad01e704105b7b9",
+   "what": "a release build of the commit that makes the change"
+  },
+  "others": [
+   "FFmpeg 8.1 (libavcodec 63.18.101)",
+   "Dolby Reference Player 3.2.0.8040 (dlbac3dec)"
+  ]
+ },
+ "result": {
+  "the_seventeen_codes": {
+   "bits_of_the_frame": 6144,
+   "where_each_quantiser_was_written_over": {
+    "3": {
+     "bit": 3189,
+     "the_code_it_was": 14
+    },
+    "5": {
+     "bit": 3162,
+     "the_code_it_was": 87
+    },
+    "7": {
+     "bit": 3133,
+     "the_code_it_was": 4
+    },
+    "11": {
+     "bit": 3109,
+     "the_code_it_was": 80
+    },
+    "15": {
+     "bit": 3098,
+     "the_code_it_was": 13
+    }
+   },
+   "rows": [
+    {
+     "quantiser_levels": 3,
+     "code": 27,
+     "mantissas_of_the_code": 3,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      2.0,
+      2.0,
+      2.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 60.6,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      4.0,
+      -2.0,
+      -2.0
+     ]
+    },
+    {
+     "quantiser_levels": 3,
+     "code": 28,
+     "mantissas_of_the_code": 3,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      2.0,
+      2.0,
+      2.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 60.6,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      4.0,
+      -2.0,
+      -0.0
+     ]
+    },
+    {
+     "quantiser_levels": 3,
+     "code": 29,
+     "mantissas_of_the_code": 3,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      2.0,
+      2.0,
+      2.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 60.6,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      4.0,
+      -2.0,
+      2.0
+     ]
+    },
+    {
+     "quantiser_levels": 3,
+     "code": 30,
+     "mantissas_of_the_code": 3,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      2.0,
+      2.0,
+      2.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 60.6,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      4.0,
+      -0.0,
+      -2.0
+     ]
+    },
+    {
+     "quantiser_levels": 3,
+     "code": 31,
+     "mantissas_of_the_code": 3,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      2.0,
+      2.0,
+      2.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 60.6,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      4.0,
+      -0.0,
+      -0.0
+     ]
+    },
+    {
+     "quantiser_levels": 5,
+     "code": 125,
+     "mantissas_of_the_code": 3,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      4.0,
+      4.0,
+      4.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 59.0,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      6.0,
+      -4.0,
+      -4.0
+     ]
+    },
+    {
+     "quantiser_levels": 5,
+     "code": 126,
+     "mantissas_of_the_code": 3,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      4.0,
+      4.0,
+      4.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 59.0,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      6.0,
+      -4.0,
+      -2.0
+     ]
+    },
+    {
+     "quantiser_levels": 5,
+     "code": 127,
+     "mantissas_of_the_code": 3,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      4.0,
+      4.0,
+      4.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 59.0,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      6.0,
+      -4.0,
+      0.0
+     ]
+    },
+    {
+     "quantiser_levels": 7,
+     "code": 7,
+     "mantissas_of_the_code": 1,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      6.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 63.2,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      0.0
+     ]
+    },
+    {
+     "quantiser_levels": 11,
+     "code": 121,
+     "mantissas_of_the_code": 2,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      10.0,
+      10.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 59.7,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      12.0,
+      -10.0
+     ]
+    },
+    {
+     "quantiser_levels": 11,
+     "code": 122,
+     "mantissas_of_the_code": 2,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      10.0,
+      10.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 59.7,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      12.0,
+      -8.0
+     ]
+    },
+    {
+     "quantiser_levels": 11,
+     "code": 123,
+     "mantissas_of_the_code": 2,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      10.0,
+      10.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 59.7,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      12.0,
+      -6.0
+     ]
+    },
+    {
+     "quantiser_levels": 11,
+     "code": 124,
+     "mantissas_of_the_code": 2,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      10.0,
+      10.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 59.7,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      12.0,
+      -4.0
+     ]
+    },
+    {
+     "quantiser_levels": 11,
+     "code": 125,
+     "mantissas_of_the_code": 2,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      10.0,
+      10.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 59.7,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      12.0,
+      -2.0
+     ]
+    },
+    {
+     "quantiser_levels": 11,
+     "code": 126,
+     "mantissas_of_the_code": 2,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      10.0,
+      10.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 59.7,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      12.0,
+      0.0
+     ]
+    },
+    {
+     "quantiser_levels": 11,
+     "code": 127,
+     "mantissas_of_the_code": 2,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      10.0,
+      10.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 59.7,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      12.0,
+      2.0
+     ]
+    },
+    {
+     "quantiser_levels": 15,
+     "code": 15,
+     "mantissas_of_the_code": 1,
+     "dolby_gives_them_in_units_of_one_over_the_levels": [
+      14.0
+     ],
+     "db_against_dolby_with_those_values": 128.7,
+     "db_against_dolby_with_nothing_in_them": 56.5,
+     "db_against_dolby_at_the_frames_before": 127.5,
+     "ffmpeg_gives_them_in_units_of_one_over_the_levels": [
+      -0.0
+     ]
+    }
+   ]
+  },
+  "the_frame_of_the_library": {
+   "the_throwaway_decoder_says": [
+    "EXP group 27 before bit 6130",
+    "Integrity:         0 decode errors, 0 CRC failures, 3 frames ending inside the frame tail"
+   ],
+   "samples_of_the_frame_each_mantissa_moves": [
+    [
+     1280,
+     1791
+    ],
+    [
+     1280,
+     1791
+    ],
+    [
+     1280,
+     1791
+    ]
+   ],
+   "against": {
+    "dolby": {
+     "the_values_that_bring_this_decoder_nearest": [
+      0.666657,
+      0.666656,
+      0.666656
+     ],
+     "in_thirds": [
+      2.0,
+      2.0,
+      2.0
+     ],
+     "db_at_the_frame_with_those_values": 96.0,
+     "db_at_the_frame_with_nothing_in_the_three": 35.0,
+     "median_db_at_the_frames_before_it": 110.8
+    },
+    "ffmpeg": {
+     "the_values_that_bring_this_decoder_nearest": [
+      1.333333,
+      -0.666666,
+      -0.666666
+     ],
+     "in_thirds": [
+      4.0,
+      -2.0,
+      -2.0
+     ],
+     "db_at_the_frame_with_those_values": 22.8,
+     "db_at_the_frame_with_nothing_in_the_three": 22.3,
+     "median_db_at_the_frames_before_it": 40.9
+    }
+   }
+  },
+  "the_track_with_the_decoder_as_it_was": {
+   "frames_written": 187050.0,
+   "other_rules": {
+    "frame.decode": 1
+   },
+   "the_frame_it_would_not_decode": 57188,
+   "against_dolby_before_that_frame_and_after": [
+    {
+     "frames_with_the_finding_that_have_a_ratio": 91,
+     "median_db_with_the_finding": 107.9,
+     "least_db_with_the_finding": 93.2,
+     "median_db_of_the_others": 118.0,
+     "tenth_of_the_others_is_under_db": 104.1,
+     "share_of_the_others_under_the_least_with_the_finding": 0.0001,
+     "median_share_of_the_others_under_one_with_the_finding": 0.175
+    },
+    {
+     "frames_with_the_finding_that_have_a_ratio": 1218,
+     "median_db_with_the_finding": 49.9,
+     "least_db_with_the_finding": 18.0,
+     "median_db_of_the_others": 55.0,
+     "tenth_of_the_others_is_under_db": 43.0,
+     "share_of_the_others_under_the_least_with_the_finding": 0.0001,
+     "median_share_of_the_others_under_one_with_the_finding": 0.292
+    }
+   ]
+  },
+  "the_track_with_the_decoder_as_it_is": {
+   "frames": 187051,
+   "rules": {
+    "frame.tail_overrun": 1310
+   },
+   "coding_tools": [
+    "dither",
+    "mantissa-code-above-range"
+   ],
+   "decode_errors": 0,
+   "frames_that_end_inside_their_tail": 1310,
+   "where_a_decode_steps_against_ffmpeg": {
+    "oadec": [],
+    "dolby": []
+   },
+   "pairs_over_the_whole_track": {
+    "oadec against ffmpeg": {
+     "over_the_reach_of_the_frame": {
+      "frames_with_the_finding_that_have_a_ratio": 1310,
+      "median_db_with_the_finding": 38.4,
+      "least_db_with_the_finding": 11.2,
+      "median_db_of_the_others": 43.5,
+      "tenth_of_the_others_is_under_db": 30.8,
+      "share_of_the_others_under_the_least_with_the_finding": 0.0001,
+      "median_share_of_the_others_under_one_with_the_finding": 0.305
+     },
+     "over_the_reach_of_its_last_block": {
+      "frames_with_the_finding_that_have_a_ratio": 1310,
+      "median_db_with_the_finding": 38.6,
+      "least_db_with_the_finding": 7.4,
+      "median_db_of_the_others": 43.1,
+      "tenth_of_the_others_is_under_db": 29.8,
+      "share_of_the_others_under_the_least_with_the_finding": 0.0001,
+      "median_share_of_the_others_under_one_with_the_finding": 0.328
+     }
+    },
+    "oadec against dolby": {
+     "over_the_reach_of_the_frame": {
+      "frames_with_the_finding_that_have_a_ratio": 1310,
+      "median_db_with_the_finding": 108.5,
+      "least_db_with_the_finding": 92.1,
+      "median_db_of_the_others": 118.5,
+      "tenth_of_the_others_is_under_db": 104.3,
+      "share_of_the_others_under_the_least_with_the_finding": 0.0,
+      "median_share_of_the_others_under_one_with_the_finding": 0.188
+     },
+     "over_the_reach_of_its_last_block": {
+      "frames_with_the_finding_that_have_a_ratio": 1310,
+      "median_db_with_the_finding": 108.6,
+      "least_db_with_the_finding": 90.2,
+      "median_db_of_the_others": 118.4,
+      "tenth_of_the_others_is_under_db": 104.1,
+      "share_of_the_others_under_the_least_with_the_finding": 0.0001,
+      "median_share_of_the_others_under_one_with_the_finding": 0.194
+     }
+    },
+    "ffmpeg against dolby": {
+     "over_the_reach_of_the_frame": {
+      "frames_with_the_finding_that_have_a_ratio": 1310,
+      "median_db_with_the_finding": 38.4,
+      "least_db_with_the_finding": 11.3,
+      "median_db_of_the_others": 43.4,
+      "tenth_of_the_others_is_under_db": 30.6,
+      "share_of_the_others_under_the_least_with_the_finding": 0.0022,
+      "median_share_of_the_others_under_one_with_the_finding": 0.306
+     },
+     "over_the_reach_of_its_last_block": {
+      "frames_with_the_finding_that_have_a_ratio": 1310,
+      "median_db_with_the_finding": 38.6,
+      "least_db_with_the_finding": 7.5,
+      "median_db_of_the_others": 43.1,
+      "tenth_of_the_others_is_under_db": 29.8,
+      "share_of_the_others_under_the_least_with_the_finding": 0.0001,
+      "median_share_of_the_others_under_one_with_the_finding": 0.328
+     }
+    }
+   }
+  },
+  "the_mutations_of_the_change": {
+   "run": 9,
+   "caught": 9,
+   "by_name": {
+    "a mantissa code above its range read as it stands": 4,
+    "a frame that does not say it had a mantissa code above its range": 1,
+    "the range of a group of 3-level mantissas, 26 -> 25": 1,
+    "the range of a group of 5-level mantissas, 124 -> 123": 3,
+    "the range of a 7-level mantissa, 6 -> 5": 1,
+    "the range of a group of 11-level mantissas, 120 -> 119": 3,
+    "the range of a 15-level mantissa, 14 -> 13": 1,
+    "a mantissa code above its range not named among what a stream uses": 1,
+    "a mantissa code above its range lost between the frames of a stream": 1
+   }
+  },
+  "the_corpus_before_against_after": {
+   "streams": 136,
+   "streams_changed": 0,
+   "fields_added": [],
+   "lines_added": [],
+   "reports_compared": {
+    "info": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 136
+     }
+    },
+    "info --json": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 136
+     }
+    },
+    "verify": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "verify --json": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "emdf": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "emdf --json": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "oamd": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "oamd --json": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    }
+   },
+   "deliveries_compared": {
+    "pcm -p N": {
+     "runs": 220,
+     "wrote_output": 202,
+     "bytes": 30402893100,
+     "exit_codes": {
+      "0": 198,
+      "2": 18,
+      "7": 4
+     }
+    },
+    "wav": {
+     "runs": 136,
+     "wrote_output": 136,
+     "bytes": 13278776996,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "damf": {
+     "runs": 136,
+     "wrote_output": 66,
+     "bytes": 26500118207,
+     "exit_codes": {
+      "0": 58,
+      "2": 70,
+      "7": 8
+     }
+    },
+    "adm": {
+     "runs": 136,
+     "wrote_output": 66,
+     "bytes": 26516523822,
+     "exit_codes": {
+      "0": 58,
+      "2": 70,
+      "7": 8
+     }
+    },
+    "pcm": {
+     "runs": 81,
+     "wrote_output": 81,
+     "bytes": 4555364352,
+     "exit_codes": {
+      "0": 72,
+      "7": 9
+     }
+    },
+    "pcm --core-only": {
+     "runs": 81,
+     "wrote_output": 81,
+     "bytes": 4274276352,
+     "exit_codes": {
+      "0": 72,
+      "7": 9
+     }
+    }
+   }
+  }
+ },
+ "reading": "Dolby's decoder gives every mantissa of a code above its range the top level of its quantiser, in each of the seventeen such codes: 2 of 3 three times for the five codes of a 3-level group, 4 of 5 three times for the three of a 5-level group, 6 of 7 for the one of a 7-level mantissa, 10 of 11 twice for the seven of an 11-level group and 14 of 15 for the one of a 15-level mantissa. With those values the frame stands against Dolby's decode at 128.7 dB in all seventeen, where the frames before it stand at 127.5 and the frame with nothing in those mantissas at 56.5 to 63.2: values are all there is to it. FFmpeg takes the code apart as it stands: 4, -2 and -2 of 3 for the code 27 of a 3-level group, 6 of 5 and 12 of 11 for the first mantissa of the two other groups, and nothing for the two codes that are one mantissa. The frame of the library has one such group, the code 27, read from the bits that close the frame; solved for, Dolby's decoder gives its three mantissas 2 of 3 each, and with them the frame stands at 96.0 dB where it stood at 35.0 with nothing in them and the frames before it at 110.8. The decoder that reads a code above its range as the highest of the range decodes the whole track: 187051 frames, no frame that would not decode, 1310 frames that end inside their tail where there were 1309 and the one refused, and the coding tools of the stream say it has such a code. Its decode does not step against FFmpeg's or Dolby's anywhere, and stands against Dolby's at 118.5 dB at the median from the first frame to the last, the 1310 frames that end inside their tail at 108.5 and none under 92.1. The decoder as it was stood at 118.0 up to the frame it refused and at 55.0 after it, the noise of the two out of step for the 129862 frames that followed. The nine mutations of the change are each caught by the tests, and over the corpus, 136 streams and every report and delivery of each, the binary before the change and the one after it write the same: no stream of it has such a code."
+}

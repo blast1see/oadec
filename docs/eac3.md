@@ -579,6 +579,46 @@ silence: something of its own in the first of the two frames side by side,
 and the same again in the second. It was measured and is not followed, as its
 repeating of the last good access unit of a TrueHD stream is not.
 
+## A mantissa code above its range
+
+Five of the quantisers have codes the standard gives no meaning (clauses
+6.3.3 and 6.3.5). Three 3-level mantissas share a group of five bits, which
+is 0 to 26 and can say 27 to 31; three 5-level ones a group of seven bits, 0
+to 124; two 11-level ones a group of seven bits, 0 to 120; and a 7-level and
+a 15-level mantissa have the codes 7 and 15 to spare. An encoder has no
+reason to write one, and a frame with one was refused.
+
+One track of a library has such a frame. Its audio blocks run into the bits
+that close the frame, as those of 1 309 other frames of the track do, and the
+last group of 3-level mantissas of its last block is read from there: 27. Its
+checksums are right, and FFmpeg and Dolby's decoder decode it. Refused, it
+cost the track a frame, and with the frame the step of the noise this decoder
+draws with Dolby's: from that frame to the end of the track the two stood at
+55,0 dB where they had stood at 118,0.
+
+What Dolby's decoder makes of such a code was measured on a frame of a clean
+stream. A group or a code of each quantiser in the middle of the frame was
+written over with each of the seventeen codes above a range in turn, and the
+checksums made right again. A decode is linear in a mantissa, so a decode
+with nothing in the mantissas of the code and one with 1 in each of them give
+every other, and the values that bring the frame nearest to Dolby's decode
+are the values Dolby's decoder gave them. For every one of the seventeen it
+is the top level of the quantiser in every mantissa of the code: 2/3 three
+times, 4/5 three times, 6/7, 10/11 twice, 14/15. With those values the frame
+stands against Dolby's decode at 128,7 dB, where the frames before it stand
+at 127,5. FFmpeg takes the code apart as it stands and gets levels no
+quantiser has, 4/3 for the first mantissa of a 3-level group, and nothing for
+the two codes that are one mantissa.
+
+This decoder reads a code above its range as the highest of the range, which
+comes to the same, and says among the coding tools of the stream that it has
+one (`mantissa-code-above-range`). It is no finding of a rule: the one frame
+seen with one ends inside its tail, and is a finding of that. The track now
+decodes with every frame in its place, and stands against Dolby's decode at
+118,5 dB at the median from its first frame to its last, its 1 310 frames
+that end inside their tail at 108,5
+(`audit/evidence/engine-round-2026-11/64-mantissa-codes-above-their-range.json`).
+
 ## Delta bit allocation, on frames written for it
 
 Delta bit allocation (clause 6.2.2.6) lets an encoder move the masking curve
