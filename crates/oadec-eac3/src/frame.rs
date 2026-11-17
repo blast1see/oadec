@@ -1729,7 +1729,7 @@ impl<'a> Parser<'a> {
     /// Reads a mantissa code of `bits` bits whose range ends at `top`.
     ///
     /// Five quantisers have codes above their range, to which the standard
-    /// gives no meaning (clause 7.3.3): a group of three 3-level mantissas
+    /// gives no meaning (clauses 6.3.3 and 6.3.5): a group of three 3-level mantissas
     /// is 0 to 26 in five bits, and so on. Dolby's decoder reads such a code
     /// as the highest of the range, so every mantissa of it is the top level
     /// of its quantiser; FFmpeg takes the code apart as it stands and gets

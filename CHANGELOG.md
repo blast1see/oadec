@@ -25,6 +25,23 @@ Semantic Versioning.
   its core (`docs/eac3.md`,
   `docs/audit/evidence/engine-round-2026-11/63-a-frame-that-will-not-decode-keeps-its-place.json`).
 
+- **A mantissa code above its range decodes, as Dolby's decoder decodes it.**
+  Five quantisers of AC-3 have codes the standard gives no meaning: the groups
+  of three 3-level mantissas above 26, of three 5-level above 124 and of two
+  11-level above 120, and the codes 7 and 15 of a 7-level and a 15-level
+  mantissa. A frame with one was refused, and one track of a shelf read whole
+  has such a frame, its checksums right, which FFmpeg and Dolby's decoder
+  decode. Dolby's decoder reads every mantissa of such a code as the top level
+  of its quantiser: each of the seventeen codes was written into a frame of a
+  clean stream and the mantissas solved for, and with those values the frame
+  stands against Dolby's decode at 128.7 dB where the frames before it stand
+  at 127.5. The decoder reads the code as the highest of its range, which
+  comes to the same, and the stream says among its coding tools that it has
+  one (`mantissa-code-above-range`). The track decodes with every frame in its
+  place and stands against Dolby's decode at 118.5 dB at the median over its
+  whole length, where it fell to 55.0 after the frame (`docs/eac3.md`,
+  `docs/audit/evidence/engine-round-2026-11/64-mantissa-codes-above-their-range.json`).
+
 ### Added
 
 - **`tools/sweep.py` reads a library whole, and `tools/whole_tracks.py` holds
@@ -46,10 +63,10 @@ Semantic Versioning.
   the file; one that is two encodings end to end; seven AC-3 tracks with 1472
   frames that end inside their closing bits, which decode as Dolby's decoder
   decodes them; and four AC-3 tracks, two of them among the seven, with ten
-  frames that fail a checksum or would not decode. Two things in it are this
-  decoder's: it would not decode a frame the two other decoders decode, which
-  is to be corrected, and it left a frame it would not decode out of what it
-  wrote, where they keep the length of the track, which is (above;
+  frames that fail a checksum or would not decode. Two things in it were this
+  decoder's and are corrected: it would not decode a frame the two other
+  decoders decode, and it left a frame it would not decode out of what it
+  wrote, where they keep the length of the track (above;
   `docs/testing-tools.md`,
   `docs/audit/evidence/engine-round-2026-11/62-a-library-read-from-end-to-end.json`).
 

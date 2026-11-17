@@ -726,7 +726,8 @@ their length, and 13 of them are clean for a minute.
   with a frame whose checksum fails: this one and FFmpeg decode what is there, FFmpeg told
   to check and Dolby's decoder write something else, and Dolby's writes three frames fewer
   where the first checksum fails. One frame has both checksums right and a code the
-  standard gives no meaning; the two others decode it and this decoder would not. And this
+  standard gives no meaning; the two others decode it and this decoder would not, and
+  does now, as Dolby's decoder does (`docs/eac3.md`). And this
   decoder left the three frames it would not decode out of what it wrote, 1536 samples
   each, where the two others keep the length of the track: that one was this decoder's
   fault, and a frame of silence stands in the place of such a frame now (`docs/eac3.md`).

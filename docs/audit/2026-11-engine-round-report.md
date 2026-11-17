@@ -569,13 +569,18 @@ They are in pull requests of their own, after the 57 of the round.
   second is corrected: a frame of silence stands in the place of a frame that
   will not decode, as silence stands in the place of a TrueHD access unit,
   and the two tracks decode to the frames of their files and stand where
-  FFmpeg's decode stands along their length (63). The first is to be
-  corrected in a pull request of its own.
+  FFmpeg's decode stands along their length (63). The first is corrected as
+  well. Dolby's decoder reads a mantissa code above its range as the top
+  level of its quantiser, in each of the seventeen such codes there are, and
+  so does this decoder now: the track decodes with every frame in its place
+  and stands against Dolby's decode at 118.5 dB at the median from its first
+  frame to its last, where it fell to 55.0 after the frame (64).
 
-With these the conformance matrix has 133 rows: 95 PASS, 17 PASS-TOL, 3
+With these the conformance matrix has 134 rows: 96 PASS, 17 PASS-TOL, 3
 PARTIAL, 7 N/I, 6 N/T, 5 UNK and no FAIL; its table of what moved since the
-audits has three more, the programme of a second generation, the reading of
-another program and the frame that will not decode.
+audits has four more, the programme of a second generation, the reading of
+another program, the frame that will not decode and the mantissa code above
+its range.
 
 One measurement more came with material and not with a plan. The three
 things done Dolby's way in the objects of JOC were read off streams of one
