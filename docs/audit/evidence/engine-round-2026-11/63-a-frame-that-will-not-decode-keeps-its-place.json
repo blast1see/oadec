@@ -1,0 +1,279 @@
+{
+ "question": "Evidence 62 found that this decoder left a frame of AC-3 it would not decode out of what it wrote: the decode of a track was 1536 samples a frame shorter than its stream and everything after the frame came out that much early, where FFmpeg and Dolby's decoder write 1536 samples for every frame. A frame of silence stands in the place of such a frame now. Is a decode as long as its stream, is everything in its place, and did anything else change?",
+ "method": "The two tracks of evidence 62 with frames that would not decode, three frames between them, are decoded whole by the decoder as it was (the binary of evidence 62), by the decoder as it is, and by FFmpeg. Counted: the frames of the file by its sync words, the samples each decode wrote, where each decode stands against FFmpeg's along the whole track (a cross-correlation every 2048 frames, and every 8 frames where it moved), what the new decode has in the place of each frame, and whether what it writes before the first such frame and after each is, bit for bit, what the old decode wrote, 1536 samples later for each frame the old one had left out. The mutations of the change are run against the test suite, and the old and the new binary are run over the corpus with every report and every delivery compared. No name of a file is kept in what is written here.",
+ "commands": [
+  "oadec decode --format pcm -o <old.pcm> <kept track>   (the decoder as it was, and as it is)",
+  "ffmpeg -drc_scale 0 -f ac3 -i <kept track> -f f32le -c:a pcm_f32le <ffmpeg.f32>",
+  "oadec verify --json --max-per-rule 4000 <kept track>",
+  "python tools/mutants.py --only <the eight mutations of the change>",
+  "python tools/old_new.py --old <old> --new <new> --decode-all <corpus>",
+  "cargo test -p oadec-eac3 --test concealed; cargo test -p oadec-cli --test cli_frames"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "tools": {
+  "the_decoder_as_it_was": {
+   "name": "oadec-downmix-2.exe",
+   "sha256": "8714d735b45557756c103be47c9d5959fd665ab45a66ad2c791aec976707c4c8",
+   "what": "the binary of evidence 62"
+  },
+  "the_decoder_as_it_is": {
+   "sha256": "e2d80dcd8d0290abe47a253c35a3e6d755195e38130c338bab99caa105b24933",
+   "what": "a release build of the commit that makes the change"
+  },
+  "others": [
+   "FFmpeg 8.1 (libavcodec 63.18.101)"
+  ]
+ },
+ "result": {
+  "the_tracks": [
+   {
+    "frames_of_the_file": 353675,
+    "frames_that_would_not_decode": 2,
+    "rules_of_the_decoder_as_it_was": {
+     "frame.decode": 2
+    },
+    "rules_of_the_decoder_as_it_is": {
+     "frame.decode": 2,
+     "frame.crc": 2
+    },
+    "frames_the_report_counts": {
+     "as_it_was": 353673,
+     "as_it_is": 353675
+    },
+    "samples_a_frame": 1536,
+    "frames_written": {
+     "as_it_was": 353673.0,
+     "as_it_is": 353675.0,
+     "ffmpeg": 353675.0
+    },
+    "exit": {
+     "as_it_was": 7,
+     "as_it_is": 7
+    },
+    "the_decode_says": [
+     "Concealed:         2 frames of silence (64.0 ms) where one would not decode, the first frame 212896"
+    ],
+    "where_a_decode_steps_against_ffmpeg": {
+     "as_it_was": [
+      {
+       "between_frames": [
+        212896,
+        212904
+       ],
+       "samples": -3072
+      }
+     ],
+     "as_it_is": []
+    },
+    "before_the_first_frame_the_two_decodes_are_the_same_samples": true,
+    "the_frames": [
+     {
+      "frame": 212896,
+      "seconds": 6812.67,
+      "the_new_decode_is_silent_after_its_first_block": true,
+      "and_has_the_end_of_the_frame_before_in_that_block": true,
+      "after_it_the_new_decode_is_the_old_one_this_many_samples_later": 1536
+     },
+     {
+      "frame": 212897,
+      "seconds": 6812.7,
+      "the_new_decode_is_silent_after_its_first_block": true,
+      "and_has_the_end_of_the_frame_before_in_that_block": false,
+      "after_it_the_new_decode_is_the_old_one_this_many_samples_later": 3072
+     }
+    ]
+   },
+   {
+    "frames_of_the_file": 187051,
+    "frames_that_would_not_decode": 1,
+    "rules_of_the_decoder_as_it_was": {
+     "frame.decode": 1,
+     "frame.tail_overrun": 1309
+    },
+    "rules_of_the_decoder_as_it_is": {
+     "frame.decode": 1,
+     "frame.tail_overrun": 1309
+    },
+    "frames_the_report_counts": {
+     "as_it_was": 187050,
+     "as_it_is": 187051
+    },
+    "samples_a_frame": 1536,
+    "frames_written": {
+     "as_it_was": 187050.0,
+     "as_it_is": 187051.0,
+     "ffmpeg": 187051.0
+    },
+    "exit": {
+     "as_it_was": 7,
+     "as_it_is": 7
+    },
+    "the_decode_says": [
+     "Concealed:         1 frame of silence (32.0 ms) where one would not decode, the first frame 57188"
+    ],
+    "where_a_decode_steps_against_ffmpeg": {
+     "as_it_was": [
+      {
+       "between_frames": [
+        57184,
+        57192
+       ],
+       "samples": -1536
+      }
+     ],
+     "as_it_is": []
+    },
+    "before_the_first_frame_the_two_decodes_are_the_same_samples": true,
+    "the_frames": [
+     {
+      "frame": 57188,
+      "seconds": 1830.02,
+      "the_new_decode_is_silent_after_its_first_block": true,
+      "and_has_the_end_of_the_frame_before_in_that_block": true,
+      "after_it_the_new_decode_is_the_old_one_this_many_samples_later": 1536
+     }
+    ]
+   }
+  ],
+  "the_mutations_of_the_change": {
+   "run": 8,
+   "caught": 8,
+   "by_name": {
+    "a frame of the independent substream that will not decode left out of its group": 3,
+    "silence a block short of the frame it stands in for": 1,
+    "silence that does not say it is silence": 3,
+    "a frame that will not decode called right in its checksum": 1,
+    "silence counted as a frame that says something": 2,
+    "a frame that will not decode saying nothing of its checksum to the pass": 1,
+    "silence counted among the frames decoded": 1,
+    "silence counted as a lost container by the object decode": 1
+   }
+  },
+  "the_corpus_old_against_new": {
+   "streams": 136,
+   "streams_changed": 0,
+   "fields_added": [],
+   "lines_added": [],
+   "reports_compared": {
+    "info": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 136
+     }
+    },
+    "info --json": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 136
+     }
+    },
+    "verify": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "verify --json": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "emdf": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "emdf --json": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "oamd": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "oamd --json": {
+     "runs": 136,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    }
+   },
+   "deliveries_compared": {
+    "pcm -p N": {
+     "runs": 220,
+     "wrote_output": 202,
+     "bytes": 30402893100,
+     "exit_codes": {
+      "0": 198,
+      "2": 18,
+      "7": 4
+     }
+    },
+    "wav": {
+     "runs": 136,
+     "wrote_output": 136,
+     "bytes": 13278776996,
+     "exit_codes": {
+      "0": 126,
+      "7": 10
+     }
+    },
+    "damf": {
+     "runs": 136,
+     "wrote_output": 66,
+     "bytes": 26500118207,
+     "exit_codes": {
+      "0": 58,
+      "2": 70,
+      "7": 8
+     }
+    },
+    "adm": {
+     "runs": 136,
+     "wrote_output": 66,
+     "bytes": 26516523822,
+     "exit_codes": {
+      "0": 58,
+      "2": 70,
+      "7": 8
+     }
+    },
+    "pcm": {
+     "runs": 81,
+     "wrote_output": 81,
+     "bytes": 4555364352,
+     "exit_codes": {
+      "0": 72,
+      "7": 9
+     }
+    },
+    "pcm --core-only": {
+     "runs": 81,
+     "wrote_output": 81,
+     "bytes": 4274276352,
+     "exit_codes": {
+      "0": 72,
+      "7": 9
+     }
+    }
+   }
+  }
+ },
+ "reading": "Both tracks decode to the frames of their files, 353675 and 187051 frames of 1536 samples, which is what FFmpeg writes of them; the decoder as it was wrote 353673 and 187050. Against FFmpeg's decode the old decode steps once in each track, by 3072 and by 1536 samples at the frames that would not decode, and the new decode steps nowhere. In the place of each of the three frames the new decode is silent after its first block, in which the frame before it ends; of the two frames side by side the second is silent from its first sample. What the new decode writes before the first such frame is bit for bit what the old one wrote, and what it writes after each is the old decode's samples 1536 later for each frame the old one had left out: nothing moved but the place. The two frames whose second checksum fails are now reported as failing it as well as not decoding, 2 of frame.decode and 2 of frame.crc where there were 2 of frame.decode alone, and the frame whose checksums hold is reported as it was. The report counts the frames of the file where it counted the frames that decoded. The eight mutations of the change are each caught by the tests. Over the corpus, 136 streams and every report and delivery of each, the old binary and the new write the same: no stream of it has such a frame, and nothing else changed."
+}

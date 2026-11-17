@@ -86,8 +86,9 @@ trade, and it is the trade this project already declined once, over a frame in
 *The 400 Blows* that three decoders agree on. A TrueHD access unit that does
 not decode is written too, as silence in its place, so the programme keeps its
 length; `decode --on-error stop` ends the decode there instead (exit 2), as it
-did before. What changes is that the run says what it found and does not exit
-clean:
+did before. A frame of AC-3 or E-AC-3 that does not decode is a frame of
+silence in its place as well, and for the same reason. What changes is that
+the run says what it found and does not exit clean:
 
 ```text
 integrity: 1 CRC failures
@@ -140,7 +141,7 @@ what the format is.
 | `verify` | clean | non-conformant; with `--decode`, also a failed lossless check word or a presentation whose decode stopped | could not be read, or holds no stream |
 | `info` | the stream was read | — | could not be read, or holds no stream |
 | `emdf`, `oamd` | clean | non-conformant: a fault `verify` finds in the stream, or one in the metadata they read | could not be read, or holds no stream |
-| `decode` (PCM, WAV, CAF, DAMF, ADM, objects) | clean | a fault above, a TrueHD access unit concealed among them | fatal decode failure (a TrueHD one only with `--on-error stop`, or before the first output sample), no access unit or whole syncframe in the file, a configuration change before any output, a DVD-Audio (FBB) stream whose second channel group runs at another rate, an object output asked of an FBB stream, or an option that does not apply (below) |
+| `decode` (PCM, WAV, CAF, DAMF, ADM, objects) | clean | a fault above, a TrueHD access unit or a frame of AC-3 or E-AC-3 concealed among them | fatal decode failure (a TrueHD one only with `--on-error stop`, or before the first output sample), no access unit or whole syncframe in the file, a configuration change before any output, a DVD-Audio (FBB) stream whose second channel group runs at another rate, an object output asked of an FBB stream, or an option that does not apply (below) |
 | `decode --format damf\|adm` with a declared loss | -- | 4 (above) | -- |
 | `compare` | matches and clean | differs, or a fault above | could not be read, holds no stream, or an option that does not apply (below) |
 | `thd-demux`, `eac3-joc-config`, `eac3-ecpl-inject` | always | — | could not be written |
