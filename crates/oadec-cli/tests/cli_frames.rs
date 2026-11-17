@@ -236,3 +236,78 @@ fn the_objects_of_a_stream_keep_their_length_too() {
     assert!(!text.contains("container"), "{text}");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// The fixture with a mantissa code of frame `DAMAGED` above the range of its
+/// quantiser, and the checksum made right again. The place is looked for:
+/// the first five bits in the middle third of the frame that, all set, the
+/// parser reads as such a code.
+fn with_a_mantissa_code_above_its_range(dir: &Path) -> PathBuf {
+    let mut stream = std::fs::read(fixture()).unwrap();
+    let offsets = frame_offsets(&stream);
+    let (from, to) = (offsets[DAMAGED], offsets[DAMAGED + 1]);
+    let clean = stream[from..to].to_vec();
+    let bits = clean.len() * 8;
+    for at in bits / 3..2 * bits / 3 {
+        let mut frame = clean.clone();
+        for bit in at..at + 5 {
+            frame[bit / 8] |= 0x80 >> (bit % 8);
+        }
+        if frame == clean {
+            continue;
+        }
+        repair::fix_crcs(&mut frame).expect("a whole syncframe");
+        let parsed = Frame::parse(&frame, &mut Noise::default(), FrameOptions::default());
+        if parsed.is_ok_and(|f| f.coverage.mantissa_code_above_range) {
+            stream[from..to].copy_from_slice(&frame);
+            let file = dir.join("code-above-its-range.ec3");
+            std::fs::write(&file, &stream).unwrap();
+            return file;
+        }
+    }
+    panic!("no five bits of the frame, set, are a mantissa code above its range");
+}
+
+/// The tools a `verify --json` says the stream uses.
+fn coding_tools(file: &Path) -> (Option<i32>, Value, Vec<String>) {
+    let out = oadec(&["verify", "--json", file.to_str().unwrap()]);
+    let report: Value = serde_json::from_slice(&out.stdout)
+        .unwrap_or_else(|e| panic!("not JSON ({e}): {}", said(&out)));
+    let tools = report["coverage"]
+        .as_array()
+        .expect("the coding tools")
+        .iter()
+        .map(|t| t.as_str().unwrap().to_string())
+        .collect();
+    (out.status.code(), report, tools)
+}
+
+/// A frame with a mantissa code above its range was refused. It decodes, as
+/// Dolby's decoder decodes it, and the stream says among what it uses that it
+/// has one.
+#[test]
+fn a_frame_with_a_mantissa_code_above_its_range_decodes_and_says_so() {
+    const TOOL: &str = "mantissa-code-above-range";
+    let dir = temp("codes");
+    let (_, _, tools) = coding_tools(&fixture());
+    assert!(
+        !tools.iter().any(|t| t == TOOL),
+        "the fixture has none: {tools:?}"
+    );
+
+    let file = with_a_mantissa_code_above_its_range(&dir);
+    let (code, report, tools) = coding_tools(&file);
+    assert!(tools.iter().any(|t| t == TOOL), "{report}");
+    assert_eq!(report["frames"], 63, "{report}");
+    assert_eq!(report["failures"]["decode_errors"], 0, "{report}");
+    assert_eq!(report["failures"]["crc_failures"], 0, "{report}");
+    assert_eq!(code, Some(0), "{report}");
+
+    let (clean, _) = decoded(&fixture(), &dir.join("clean.pcm"));
+    let (got, out) = decoded(&file, &dir.join("got.pcm"));
+    let text = said(&out);
+    assert_eq!(out.status.code(), Some(0), "{text}");
+    assert_eq!(got.len(), clean.len(), "{text}");
+    assert!(!text.contains("Concealed:"), "{text}");
+    assert!(text.contains("63 decoded (63 independent"), "{text}");
+    std::fs::remove_dir_all(&dir).ok();
+}

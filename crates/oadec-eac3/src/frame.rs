@@ -136,6 +136,10 @@ pub struct Coverage {
     pub delta_allocation: bool,
     pub skip_fields: bool,
     pub rematrixing: bool,
+    /// A mantissa was read from a code above the range of its quantiser,
+    /// which the standard gives no meaning, and decoded as Dolby's decoder
+    /// decodes it (`Parser::mantissa_code`).
+    pub mantissa_code_above_range: bool,
 }
 
 /// Options of the frame parser.
@@ -1722,6 +1726,25 @@ impl<'a> Parser<'a> {
         );
     }
 
+    /// Reads a mantissa code of `bits` bits whose range ends at `top`.
+    ///
+    /// Five quantisers have codes above their range, to which the standard
+    /// gives no meaning (clause 7.3.3): a group of three 3-level mantissas
+    /// is 0 to 26 in five bits, and so on. Dolby's decoder reads such a code
+    /// as the highest of the range, so every mantissa of it is the top level
+    /// of its quantiser; FFmpeg takes the code apart as it stands and gets
+    /// levels no quantiser has. This decoder follows Dolby's, and the frame
+    /// says that it had one. Refusing the frame, as it did, cost the frame,
+    /// where the two others decode it (`docs/eac3.md`).
+    fn mantissa_code(&mut self, bits: u32, top: usize) -> Result<usize> {
+        let code = self.bits(bits)? as usize;
+        if code > top {
+            self.coverage.mantissa_code_above_range = true;
+            return Ok(top);
+        }
+        Ok(code)
+    }
+
     /// Reads one mantissa with the given bap, using the shared groups; `None`
     /// for one that has no bits.
     fn read_mantissa(&mut self, bap: u8, m: &mut Mantissas) -> Result<Option<f64>> {
@@ -1729,10 +1752,7 @@ impl<'a> Parser<'a> {
             0 => return Ok(None),
             1 => {
                 if m.b1.left == 0 {
-                    let g = self.bits(5)? as usize;
-                    if g > 26 {
-                        return Err(Eac3Error::Syntax("3-level mantissa group above 26"));
-                    }
+                    let g = self.mantissa_code(5, 26)?;
                     m.b1.vals = [QUANT3[g / 9], QUANT3[(g % 9) / 3], QUANT3[g % 3]];
                     m.b1.left = 3;
                 }
@@ -1742,10 +1762,7 @@ impl<'a> Parser<'a> {
             }
             2 => {
                 if m.b2.left == 0 {
-                    let g = self.bits(7)? as usize;
-                    if g > 124 {
-                        return Err(Eac3Error::Syntax("5-level mantissa group above 124"));
-                    }
+                    let g = self.mantissa_code(7, 124)?;
                     m.b2.vals = [QUANT5[g / 25], QUANT5[(g % 25) / 5], QUANT5[g % 5]];
                     m.b2.left = 3;
                 }
@@ -1753,18 +1770,10 @@ impl<'a> Parser<'a> {
                 m.b2.left -= 1;
                 v
             }
-            3 => {
-                let code = self.bits(3)? as usize;
-                *QUANT7
-                    .get(code)
-                    .ok_or(Eac3Error::Syntax("7-level mantissa code 7"))?
-            }
+            3 => QUANT7[self.mantissa_code(3, 6)?],
             4 => {
                 if m.b4.left == 0 {
-                    let g = self.bits(7)? as usize;
-                    if g > 120 {
-                        return Err(Eac3Error::Syntax("11-level mantissa group above 120"));
-                    }
+                    let g = self.mantissa_code(7, 120)?;
                     m.b4.vals = [QUANT11[g / 11], QUANT11[g % 11], 0.0];
                     m.b4.left = 2;
                 }
@@ -1772,12 +1781,7 @@ impl<'a> Parser<'a> {
                 m.b4.left -= 1;
                 v
             }
-            5 => {
-                let code = self.bits(4)? as usize;
-                *QUANT15
-                    .get(code)
-                    .ok_or(Eac3Error::Syntax("15-level mantissa code 15"))?
-            }
+            5 => QUANT15[self.mantissa_code(4, 14)?],
             _ => {
                 let bits = u32::from(QUANT_BITS[usize::from(bap)]);
                 let code = self.r.read_signed(bits)?;
@@ -2376,6 +2380,100 @@ mod tests {
             lfeon: true,
             bsid: if syntax == Syntax::Ac3 { 8 } else { 16 },
             frmsizecod: None,
+        }
+    }
+
+    /// `code` in the first `width` bits of a frame's worth of zeros.
+    fn frame_that_begins_with(code: u32, width: u32) -> [u8; 768] {
+        let mut frame = [0u8; 768];
+        frame[..4].copy_from_slice(&(code << (32 - width)).to_be_bytes());
+        frame
+    }
+
+    /// Five quantisers have codes the standard gives no meaning: the groups
+    /// of three 3-level mantissas above 26, of three 5-level above 124 and
+    /// of two 11-level above 120, and the codes 7 and 15 of a 7-level and a
+    /// 15-level mantissa. Dolby's decoder reads every mantissa of such a
+    /// code as the top level of its quantiser: each of the seventeen codes
+    /// was written into a frame of a clean stream and the mantissas solved
+    /// for from what it decodes, and with these values the frame stands
+    /// against its decode where the frames before it stand, 128.7 dB
+    /// (`docs/audit/evidence/engine-round-2026-11/64-mantissa-codes-above-their-range.json`).
+    /// A frame with such a code was refused, and a track of a library had
+    /// one that FFmpeg and Dolby's decoder decode.
+    #[test]
+    fn a_mantissa_code_above_its_range_is_the_top_level_of_its_quantiser() {
+        let h = header_of(Syntax::Ac3, StreamType::Independent);
+        // the bap, the bits of a code, the codes above the range, the
+        // mantissas of a code, the top level
+        let quantisers: [(u8, u32, std::ops::RangeInclusive<u32>, usize, f64); 5] = [
+            (1, 5, 27..=31, 3, 2.0 / 3.0),
+            (2, 7, 125..=127, 3, 4.0 / 5.0),
+            (3, 3, 7..=7, 1, 6.0 / 7.0),
+            (4, 7, 121..=127, 2, 10.0 / 11.0),
+            (5, 4, 15..=15, 1, 14.0 / 15.0),
+        ];
+        let mut codes = 0;
+        for (bap, width, above, count, top) in quantisers {
+            for code in above {
+                let frame = frame_that_begins_with(code, width);
+                let mut p = Parser::new(&frame, &h, Options::default());
+                let mut m = Mantissas::default();
+                for n in 0..count {
+                    assert_eq!(
+                        p.read_mantissa(bap, &mut m)
+                            .expect("a code is read, whatever it is"),
+                        Some(top),
+                        "bap {bap}, code {code}, mantissa {n}"
+                    );
+                }
+                assert_eq!(
+                    p.r.position(),
+                    width as usize,
+                    "bap {bap}, code {code}: a code is the bits it is"
+                );
+                assert!(
+                    p.coverage.mantissa_code_above_range,
+                    "bap {bap}, code {code}: the frame does not say it had one"
+                );
+                codes += 1;
+            }
+        }
+        assert_eq!(codes, 17);
+    }
+
+    /// The highest code of each range, and the lowest, read as what they
+    /// are, and a frame of them does not say it had a code above its range.
+    #[test]
+    fn a_mantissa_code_within_its_range_is_what_it_was() {
+        let h = header_of(Syntax::Ac3, StreamType::Independent);
+        let cases: [(u8, u32, u32, &[f64]); 10] = [
+            (1, 5, 26, &[2.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0]),
+            (1, 5, 0, &[-2.0 / 3.0, -2.0 / 3.0, -2.0 / 3.0]),
+            (2, 7, 124, &[4.0 / 5.0, 4.0 / 5.0, 4.0 / 5.0]),
+            (2, 7, 0, &[-4.0 / 5.0, -4.0 / 5.0, -4.0 / 5.0]),
+            (3, 3, 6, &[6.0 / 7.0]),
+            (3, 3, 0, &[-6.0 / 7.0]),
+            (4, 7, 120, &[10.0 / 11.0, 10.0 / 11.0]),
+            (4, 7, 1, &[-10.0 / 11.0, -8.0 / 11.0]),
+            (5, 4, 14, &[14.0 / 15.0]),
+            (5, 4, 0, &[-14.0 / 15.0]),
+        ];
+        for (bap, width, code, want) in cases {
+            let frame = frame_that_begins_with(code, width);
+            let mut p = Parser::new(&frame, &h, Options::default());
+            let mut m = Mantissas::default();
+            for (n, &v) in want.iter().enumerate() {
+                assert_eq!(
+                    p.read_mantissa(bap, &mut m).expect("a code of the range"),
+                    Some(v),
+                    "bap {bap}, code {code}, mantissa {n}"
+                );
+            }
+            assert!(
+                !p.coverage.mantissa_code_above_range,
+                "bap {bap}, code {code} is within its range"
+            );
         }
     }
 
