@@ -697,8 +697,11 @@ impl ProgramDecoder {
 
     /// Feeds one syncframe, in bitstream order.
     ///
-    /// A frame that will not decode is recorded and its substream reset, so a
-    /// broken dependent substream never costs the programme its core. A second
+    /// A frame that will not decode is recorded. Of a dependent substream it
+    /// is left out of its group and the substream reset, so a broken dependent
+    /// substream never costs the programme its core; of the independent
+    /// substream a frame of silence stands in for it
+    /// ([`Decoder::conceal`]), so the programme keeps its length. A second
     /// frame of a substream in one group is counted and not decoded, and a
     /// substream that stops supplying frames holds no more than
     /// [`MAX_PENDING_GROUPS`] groups back.
@@ -763,25 +766,31 @@ impl ProgramDecoder {
             }
             Ok(None) => {}
             Err(e) => {
-                sub.inflight.pop_back();
                 *self.stats.decode_errors.entry(key).or_default() += 1;
                 let (t, id) = key;
                 let kind = if t == 1 { "dependent" } else { "independent" };
                 self.stats
                     .note(format!("group {group}, {kind} substream {id}: {e}"));
-                while let Some(d) = sub.dec.flush()? {
+                if dependent {
+                    sub.inflight.pop_back();
+                    while let Some(d) = sub.dec.flush()? {
+                        let at = sub.inflight.pop_front().unwrap_or(group);
+                        sub.ready.push_back((at, d));
+                    }
+                    sub.dec.reset();
+                    // the failing frame is always the one just fed, and its
+                    // group is still open, so dropping the slot from it stops
+                    // `pop` waiting for a frame that will never arrive
+                    if let Some(open) = self.open.as_mut() {
+                        open.members.retain(|&s| s != slot);
+                    }
+                } else if let Some(d) = sub.dec.conceal(bytes, header)? {
+                    // The programme is what its independent substream makes
+                    // it: a group without one has no audio, and a group left
+                    // out makes everything after it early. A frame of silence
+                    // stands in for the frame, in its group and in its turn.
                     let at = sub.inflight.pop_front().unwrap_or(group);
                     sub.ready.push_back((at, d));
-                }
-                sub.dec.reset();
-                // the failing frame is always the one just fed, and its group is
-                // still open, so dropping the slot from it stops `pop` waiting
-                // for a frame that will never arrive
-                if let Some(open) = self.open.as_mut() {
-                    open.members.retain(|&s| s != slot);
-                    if open.core == Some(slot) {
-                        open.core = None;
-                    }
                 }
             }
         }
@@ -1434,6 +1443,7 @@ mod tests {
             used_bits: 0,
             transproc: Vec::new(),
             tail_overrun: false,
+            concealed: false,
         }
     }
 

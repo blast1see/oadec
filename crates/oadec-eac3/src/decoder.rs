@@ -3,7 +3,7 @@
 use crate::bsi::Bsi;
 use crate::ecpl;
 use crate::error::{Eac3Error, Result};
-use crate::frame::{Block, Coverage, Frame, N, Noise, Options};
+use crate::frame::{Block, Coverage, Frame, N, Noise, Options, crc_ok};
 use crate::header::FrameHeader;
 use crate::imdct::Imdct;
 use crate::tables::CHANNEL_ORDER;
@@ -34,6 +34,10 @@ pub struct Decoded {
     pub transproc: Vec<Option<crate::frame::Transient>>,
     /// The audio blocks ended inside the space the frame tail needs.
     pub tail_overrun: bool,
+    /// The frame would not decode and this is silence standing in for it
+    /// ([`Decoder::conceal`]): its header, its `bsi` where that could be
+    /// read, whether its checksum holds, and nothing else of it.
+    pub concealed: bool,
 }
 
 /// Decodes a sequence of syncframes of one substream.
@@ -47,8 +51,9 @@ pub struct Decoder {
     /// Enhanced coupling synthesis, which needs the following block.
     ecpl: ecpl::Synth,
     /// A parsed frame whose last block still needs the next frame's first
-    /// enhanced coupling block (clause E.3.5.5.1).
-    hold: Option<Frame>,
+    /// enhanced coupling block (clause E.3.5.5.1), and whether it is silence
+    /// standing in for a frame that would not decode.
+    hold: Option<(Frame, bool)>,
     /// Set by the first frame that uses enhanced coupling and never cleared
     /// except by `reset`: once the decoder holds a frame it must hold every
     /// frame, so that `decode` yields at most one frame per call.
@@ -115,18 +120,67 @@ impl Decoder {
     /// without enhanced coupling returns `Some` on every call.
     pub fn decode(&mut self, bytes: &[u8]) -> Result<Option<Decoded>> {
         let frame = Frame::parse(bytes, &mut self.noise, self.opts)?;
+        self.take(frame, false)
+    }
+
+    /// Stands a frame of silence in for the syncframe `bytes`, which
+    /// [`Self::decode`] would not decode, so that what is written keeps the
+    /// length of the stream and everything after the frame stays where it
+    /// belongs in time.
+    ///
+    /// The silence is a frame of coefficients that are all zero, taken
+    /// through the transform like any other: what the frame before it still
+    /// has to say fades out over the block the two share, and the frame after
+    /// it fades in over its first. The frame keeps its header, its `bsi`
+    /// where that reads, and whether its checksum holds, which says of a
+    /// frame that would not decode whether it is damaged or was written so.
+    /// It comes out when a decoded frame would, in the same order.
+    ///
+    /// # Errors
+    ///
+    /// None of its own: the transform of a held frame may fail as it may in
+    /// [`Self::decode`].
+    pub fn conceal(&mut self, bytes: &[u8], header: &FrameHeader) -> Result<Option<Decoded>> {
+        let silence = Block {
+            coeffs: vec![[0.0; N]; header.nchans()],
+            blksw: vec![false; header.nfchans()],
+            info: None,
+            ecpl: None,
+        };
+        let frame = Frame {
+            header: header.clone(),
+            bsi: Bsi::parse(bytes, header).unwrap_or_default(),
+            blocks: vec![silence; usize::from(header.blocks)],
+            skip_fields: Vec::new(),
+            skip_bits: Vec::new(),
+            coverage: Coverage::default(),
+            end_bit: 0,
+            crc_ok: bytes.len() >= header.frame_bytes && crc_ok(bytes, header),
+            transproc: Vec::new(),
+            tail_overrun: false,
+            auxdata: Vec::new(),
+            auxdata_overrun: false,
+        };
+        self.take(frame, true)
+    }
+
+    /// Takes one frame in, decoded or standing in for one, and hands out
+    /// the frame that is now final.
+    fn take(&mut self, frame: Frame, concealed: bool) -> Result<Option<Decoded>> {
         let ready = if self.holding {
             let next = first_ecpl(&frame);
-            self.hold.replace(frame).map(|held| (held, next))
+            self.hold
+                .replace((frame, concealed))
+                .map(|(held, was)| (held, next, was))
         } else if frame.blocks.iter().any(|b| b.ecpl.is_some()) {
             self.holding = true;
-            self.hold = Some(frame);
+            self.hold = Some((frame, concealed));
             None
         } else {
-            Some((frame, None))
+            Some((frame, None, concealed))
         };
-        if let Some((frame, next)) = ready {
-            self.render(frame, next)?;
+        if let Some((frame, next, concealed)) = ready {
+            self.render(frame, next, concealed)?;
         }
         Ok(self.release(false))
     }
@@ -136,8 +190,8 @@ impl Decoder {
     /// is lost: both the enhanced coupling lookahead and the transient
     /// pre-noise buffer drain through it.
     pub fn flush(&mut self) -> Result<Option<Decoded>> {
-        if let Some(held) = self.hold.take() {
-            self.render(held, None)?;
+        if let Some((held, concealed)) = self.hold.take() {
+            self.render(held, None, concealed)?;
         }
         Ok(self.release(true))
     }
@@ -153,7 +207,7 @@ impl Decoder {
     /// frame. `next` is the following frame's first enhanced coupling block,
     /// which the frame's last block needs; `None` means zero (clause
     /// E.3.5.5.1: a neighbour without enhanced coupling contributes nothing).
-    fn render(&mut self, mut frame: Frame, next: Option<[f64; N]>) -> Result<()> {
+    fn render(&mut self, mut frame: Frame, next: Option<[f64; N]>, concealed: bool) -> Result<()> {
         let nch = frame.header.nchans();
         let layout = (frame.header.acmod, frame.header.lfeon);
         if self.layout != Some(layout) {
@@ -205,6 +259,7 @@ impl Decoder {
             crc_ok: frame.crc_ok,
             transproc: frame.transproc.clone(),
             tail_overrun: frame.tail_overrun,
+            concealed,
         };
         let transproc: &[Option<crate::frame::Transient>] = if self.opts.tpnp {
             &frame.transproc
