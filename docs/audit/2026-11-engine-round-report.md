@@ -565,13 +565,17 @@ They are in pull requests of their own, after the 57 of the round.
   both checksums right and a mantissa code the standard gives no meaning,
   which FFmpeg and Dolby's decoder decode. And it left the three frames it
   would not decode out of what it wrote, so that the track after them is
-  1536 samples a frame early, where the two others keep the length. Both are
-  to be corrected, in pull requests of their own.
+  1536 samples a frame early, where the two others keep the length. The
+  second is corrected: a frame of silence stands in the place of a frame that
+  will not decode, as silence stands in the place of a TrueHD access unit,
+  and the two tracks decode to the frames of their files and stand where
+  FFmpeg's decode stands along their length (63). The first is to be
+  corrected in a pull request of its own.
 
-With these the conformance matrix has 132 rows: 94 PASS, 17 PASS-TOL, 3
+With these the conformance matrix has 133 rows: 95 PASS, 17 PASS-TOL, 3
 PARTIAL, 7 N/I, 6 N/T, 5 UNK and no FAIL; its table of what moved since the
-audits has two more, the programme of a second generation and the reading of
-another program.
+audits has three more, the programme of a second generation, the reading of
+another program and the frame that will not decode.
 
 One measurement more came with material and not with a plan. The three
 things done Dolby's way in the objects of JOC were read off streams of one

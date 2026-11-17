@@ -536,16 +536,48 @@ other frames are at 111,2 to 118,0 dB and their lowest tenth under 101,6 to
 rule says something of an encoder
 (`audit/evidence/engine-round-2026-11/62-a-library-read-from-end-to-end.json`).
 
-The same reading found what a frame that will not decode costs. Three frames
-would not: two side by side in a track of another film, whose second checksum
-fails, and one in the track above, with both checksums right and a group of
-three-level mantissas whose code is above 26, which the standard gives no
-meaning and which FFmpeg and Dolby's decoder decode. This decoder left each of
-the three out of what it wrote, so its decode of the track is 1536 samples a
-frame shorter and everything after is that much early, where the two others
-write 1536 samples for every frame. That is not what a TrueHD access unit that
-does not decode gets here, which is silence in its place, and it is to be
-corrected.
+## A frame that will not decode
+
+A frame of the independent substream that will not decode keeps its place. A
+frame of silence is written for it, so a decode is as long as its stream and
+what follows the frame is where it belongs in time. The silence is a frame of
+coefficients that are all zero, taken through the transform like any other:
+the frame before it fades out over the block the two share, and the frame
+after it fades in over its first. It is what a TrueHD access unit that does
+not decode gets (`docs/truehd.md`), and for the same reason.
+
+The frame is counted, `frame.decode`, and its checksum is still read: a frame
+that would not decode and fails its checksum is reported as both, which tells
+a frame damaged on the way from one that was written so. It says nothing
+else. Its level, its downmix and its coding tools are not counted, and the
+metadata container that went with its audio is not a second loss: over the
+frame the matrices of the frame before hold, and the objects are as long as
+the stream. A decode says what it wrote, and exits 7:
+
+```text
+Concealed:         2 frames of silence (64.0 ms) where one would not decode, the first frame 212896
+```
+
+A frame of a dependent substream that will not decode is left out of its
+group, as it was: the programme falls back on its core there, which is the
+better audio.
+
+Until this a frame that would not decode was left out of what was written. A
+shelf of a library read whole had three such frames in two tracks: two side
+by side whose second checksum fails, and one with both checksums right and a
+group of three-level mantissas whose code is above 26, which the standard
+gives no meaning and which FFmpeg and Dolby's decoder decode. The decode of
+each track came out 1536 samples a frame shorter than its stream, and
+everything after the frame that much early, where the two others write 1536
+samples for every frame. Decoded again, each track has the frames of its
+file, stands where FFmpeg's decode stands along its whole length, and is
+sample for sample what it was: the same before the first such frame, and
+after each the same a frame later
+(`audit/evidence/engine-round-2026-11/63-a-frame-that-will-not-decode-keeps-its-place.json`).
+What Dolby's decoder writes in the place of a frame it cannot decode is not
+silence: something of its own in the first of the two frames side by side,
+and the same again in the second. It was measured and is not followed, as its
+repeating of the last good access unit of a TrueHD stream is not.
 
 ## Delta bit allocation, on frames written for it
 

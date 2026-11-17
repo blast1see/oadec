@@ -6,6 +6,25 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A frame that will not decode keeps its place.** A frame of the
+  independent substream of an AC-3 or E-AC-3 stream that would not decode was
+  left out of what was written, so a decode was 1536 samples a frame shorter
+  than its stream and everything after the frame came out that much early.
+  Two tracks of a shelf read whole had three such frames, where FFmpeg and
+  Dolby's decoder write 1536 samples for every frame. A frame of silence
+  stands in its place now, as silence stands in the place of a TrueHD access
+  unit that does not decode: coefficients that are all zero, taken through
+  the transform, so the frames beside it fade into it. The samples and the
+  objects are as long as the stream. The frame is counted and its checksum
+  is still read, so a frame that would not decode and fails its checksum is
+  reported as both; a decode says what it wrote in their place (`Concealed:`)
+  and exits 7 as before. A frame of a dependent substream that will not
+  decode is still left out of its group, where the programme falls back on
+  its core (`docs/eac3.md`,
+  `docs/audit/evidence/engine-round-2026-11/63-a-frame-that-will-not-decode-keeps-its-place.json`).
+
 ### Added
 
 - **`tools/sweep.py` reads a library whole, and `tools/whole_tracks.py` holds
@@ -28,9 +47,10 @@ Semantic Versioning.
   frames that end inside their closing bits, which decode as Dolby's decoder
   decodes them; and four AC-3 tracks, two of them among the seven, with ten
   frames that fail a checksum or would not decode. Two things in it are this
-  decoder's and are to be corrected: it would not decode a frame the two other
-  decoders decode, and it left a frame it would not decode out of what it
-  wrote, where they keep the length of the track (`docs/testing-tools.md`,
+  decoder's: it would not decode a frame the two other decoders decode, which
+  is to be corrected, and it left a frame it would not decode out of what it
+  wrote, where they keep the length of the track, which is (above;
+  `docs/testing-tools.md`,
   `docs/audit/evidence/engine-round-2026-11/62-a-library-read-from-end-to-end.json`).
 
 ## [0.9.0] - 2026-11-16

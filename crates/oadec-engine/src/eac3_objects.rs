@@ -1063,10 +1063,14 @@ pub fn write(
             } else {
                 SparseReading::Measured
             },
-            matches!(
-                frame.metadata_part().decoded.bsi.joc_extension(),
-                Some((true, _))
-            ),
+            // silence in the place of a frame that would not decode has no
+            // container to lose: the frame is counted as what it is, once,
+            // and the matrices of the frame before hold over it
+            !frame.metadata_part().decoded.concealed
+                && matches!(
+                    frame.metadata_part().decoded.bsi.joc_extension(),
+                    Some((true, _))
+                ),
         );
         tally.payload_errors += errors;
         tally.joc_size_mismatches += joc_size_mismatches;

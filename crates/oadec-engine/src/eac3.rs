@@ -894,6 +894,10 @@ struct Pass {
     /// Frames whose core came with its samples. A pass that reads a stream
     /// and does not listen to it makes none.
     heard: u64,
+    /// Frames of the independent substream that would not decode and came
+    /// as silence in their place, and the first of them.
+    concealed: u64,
+    first_concealed: Option<u64>,
 }
 
 /// What the frames of a stream say of its downmix to two channels, and how
@@ -1313,6 +1317,21 @@ fn account(
     for part in frame.parts.iter().skip(1) {
         account_sub(p.subs.entry(part.key).or_default(), index, part, diag);
     }
+    if d.concealed {
+        // Silence in the place of a frame that would not decode, which the
+        // programme decoder counted and `ProgramSeen` files. It has its place
+        // and its samples and says nothing: no level, no downmix, no coding
+        // tool, no container. Whether its checksum holds it does say, and
+        // that is what tells a frame that is damaged from one written so.
+        p.concealed += 1;
+        p.first_concealed.get_or_insert(index);
+        if !d.crc_ok {
+            crc_failure(p, index, diag);
+        }
+        p.heard += u64::from(d.pcm.first().is_some_and(|channel| !channel.is_empty()));
+        p.samples += d.header.samples() as u64;
+        return on_pcm(frame);
+    }
     if p.first.is_none() {
         p.first = Some((d.header.clone(), d.bsi.clone()));
     }
@@ -1353,17 +1372,7 @@ fn account(
         }
     }
     if !d.crc_ok {
-        p.crc_failures += 1;
-        diag.add(RuleId::FrameCrc, frame_at(index), 1, || {
-            "CRC failure".to_string()
-        });
-        let problem = format!("frame {index}: CRC failure");
-        if p.first_fault.is_none() {
-            p.first_fault = Some(problem.clone());
-        }
-        if p.first_error.is_none() {
-            p.first_error = Some(problem);
-        }
+        crc_failure(p, index, diag);
     }
     // TS 103 420 clause 8.2: with dependent substreams present the EMDF
     // container carrying OAMD and JOC is in the last dependent substream. With
@@ -1435,6 +1444,22 @@ fn account(
     }
     p.samples += d.header.samples() as u64;
     on_pcm(frame)
+}
+
+/// Counts and files a frame of the independent substream whose checksum
+/// fails, decoded or not.
+fn crc_failure(p: &mut Pass, index: u64, diag: &mut Diag) {
+    p.crc_failures += 1;
+    diag.add(RuleId::FrameCrc, frame_at(index), 1, || {
+        "CRC failure".to_string()
+    });
+    let problem = format!("frame {index}: CRC failure");
+    if p.first_fault.is_none() {
+        p.first_fault = Some(problem.clone());
+    }
+    if p.first_error.is_none() {
+        p.first_error = Some(problem);
+    }
 }
 
 /// Whether the report of a pass has rows for the clip gains: where the JOC
@@ -1877,7 +1902,12 @@ fn print_pass(
     writeln!(
         out,
         "Frames:            {} decoded ({} independent, {} dependent in the file), {} sync errors, {} bytes skipped",
-        p.frames, p.independent, p.dependent, sync_errors, skipped
+        // a frame of silence has its place and was not decoded
+        p.frames - p.concealed,
+        p.independent,
+        p.dependent,
+        sync_errors,
+        skipped
     )?;
     writeln!(
         out,
@@ -2131,6 +2161,17 @@ fn print_pass(
         "Integrity:         {} decode errors, {} CRC failures, {} frames ending inside the frame tail",
         p.decode_errors, p.crc_failures, p.tail_overruns
     )?;
+    if p.concealed > 0 && p.heard > 0 {
+        // what was written in the place of the frames that would not decode
+        writeln!(
+            out,
+            "Concealed:         {} frame{} of silence ({:.1} ms) where one would not decode, the first frame {}",
+            p.concealed,
+            if p.concealed == 1 { "" } else { "s" },
+            p.concealed as f64 * frame_seconds(h) * 1000.0,
+            p.first_concealed.unwrap_or_default()
+        )?;
+    }
     print_diagnostics(&p.diag, frame_seconds(h), fail_on, out)?;
     if let Some(e) = p.first_error.as_ref().or(p.emdf.first_error.as_ref()) {
         writeln!(out, "First problem:     {e}")?;
