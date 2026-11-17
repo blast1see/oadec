@@ -6,6 +6,8 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-17
+
 ### Fixed
 
 - **A frame that will not decode keeps its place.** A frame of the
