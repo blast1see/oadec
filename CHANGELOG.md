@@ -6,6 +6,33 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **`tools/sweep.py` reads a library whole, and `tools/whole_tracks.py` holds
+  the whole tracks against their heads.** With `--seconds 0` every track is
+  read from its first byte to its last: the tracks of a file are cut in one
+  reading of it and examined while the next file is read, the report is
+  written file by file so that a sweep run again goes on where it stopped
+  (`--stop-file` ends it after the file in hand), and `--low-priority` puts it
+  in the background mode of the system, behind everything else on the machine.
+  A row has what its track says of its downmix and of its dialogue level.
+  `tools/whole_tracks.py` says what the whole tracks hold that their first
+  minute does not: the tracks that are not clean for their length, every rule
+  and coding tool with the tracks whose head does not have it, the places
+  where the timing of a TrueHD track jumps, the counters of the syntax census
+  no head has, and the tracks that say something in part of their frames. One
+  shelf was read: 294 files, 1210 tracks, 2702.7 hours against the 19.9 of
+  their heads. 14 tracks are not clean for their length, 13 of them clean for
+  a minute: four TrueHD tracks damaged at 18 of their seamless branches, in
+  the file; one that is two encodings end to end; seven AC-3 tracks with 1472
+  frames that end inside their closing bits, which decode as Dolby's decoder
+  decodes them; and four AC-3 tracks, two of them among the seven, with ten
+  frames that fail a checksum or would not decode. Two things in it are this
+  decoder's and are to be corrected: it would not decode a frame the two other
+  decoders decode, and it left a frame it would not decode out of what it
+  wrote, where they keep the length of the track (`docs/testing-tools.md`,
+  `docs/audit/evidence/engine-round-2026-11/62-a-library-read-from-end-to-end.json`).
+
 ## [0.9.0] - 2026-11-16
 
 ### Added
