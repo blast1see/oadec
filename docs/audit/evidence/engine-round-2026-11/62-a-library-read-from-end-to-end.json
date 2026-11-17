@@ -1,0 +1,2892 @@
+{
+ "question": "What the round counted over a library it counted over the first minute of every track, and said so: a head does not exclude what an encoder does once an hour, and a seamless branch or a reel change is not in a head. The plan had a census of whole tracks in place of the heads, and it was left for when a day of a disk could be given to it. What do the whole tracks of a library say that their heads do not, and whose is the fault where a whole track is not clean?",
+ "method": "One shelf of a film library, every Dolby track of every file, is read twice with one binary: the first minute of each track (`tools/sweep.py`), and each track from its first byte to its last (`--seconds 0`). A whole track is as long as its file, so the tracks of a file are cut in one reading of it (`ffmpeg -c copy`, one output a track) and examined while the next file is read; the sweep runs in the background mode of the system, behind everything else on the machine, and goes on where it was stopped. A row is `verify --json` of the track (with `--census` for TrueHD and MLP) and `info --json` of its first major sync. `tools/whole_tracks.py` holds the rows of the whole tracks against the rows of their heads, and `tools/declared.py --rows` adds up what the major syncs declare. A track that is not clean is kept, or cut again, and put to other decoders. A TrueHD track goes to FFmpeg and to truehdd at each place this decoder names and at a stretch just before it, and the file is cut again there to see whose the bytes are. An AC-3 track is decoded whole by this decoder, by FFmpeg and by Dolby's decoder and the three are held to each other frame by frame, the frames counted on the decode that leaves none out. Of a frame that fails a checksum or would not decode, the two checksums are read again by a reading that is not this decoder's, a clip around it is decoded by the three, and the file is cut again. Of a track that says something in part of its frames, the first bits of every frame are read and the runs are counted. No name of a file is kept in what is written here.",
+ "commands": [
+  "python tools/sweep.py <library> --out <heads> --oadec <binary> --jobs 3",
+  "python tools/sweep.py <library> --seconds 0 --out <whole> --tmp <another disk> --oadec <binary> --low-priority --stop-file <whole>/stop --jobs 3",
+  "python tools/whole_tracks.py --self-check",
+  "python tools/whole_tracks.py --whole <whole>/report.json --heads <heads>/report.json --out whole.json",
+  "python tools/declared.py --rows <whole>/report.json --noun tracks",
+  "oadec verify --json --max-per-rule 4000 <kept track>",
+  "ffmpeg -v warning -f truehd -i <clip> -f null -; truehdd --loglevel warn verify <clip>",
+  "ffmpeg -ss <place> -t 30 -i <file> -map 0:<track> -c copy -f truehd <piece>",
+  "oadec decode --format wav -o <ours.wav> <kept track>; ffmpeg -drc_scale 0 -f ac3 -i <kept track> -f f32le <ffmpeg.f32>; gst-launch-1.0 filesrc location=<kept track> ! dlbac3parse ! dlbac3dec drc-suppress=true out-ch-config=<0 for 2.0, 7 for 5.1> ! audio/x-raw,format=F32LE ! filesink location=<dolby.f32>",
+  "ffmpeg -err_detect crccheck -drc_scale 0 -f ac3 -i <clip> -f f32le <ffmpeg-checked.f32>"
+ ],
+ "machine": {
+  "processor": "Intel(R) Core(TM) i7-14700K",
+  "logical_processors": 28,
+  "system": "Windows 11"
+ },
+ "tools": {
+  "oadec": {
+   "name": "oadec-downmix-2.exe",
+   "sha256": "8714d735b45557756c103be47c9d5959fd665ab45a66ad2c791aec976707c4c8",
+   "what": "the binary of evidence 58 and 61"
+  },
+  "others": [
+   "FFmpeg 8.1 (libavcodec 63.18.101)",
+   "truehdd",
+   "Dolby Reference Player 3.2.0.8040 (dlbac3dec)"
+  ]
+ },
+ "result": {
+  "whole_tracks_against_their_heads": {
+   "files": 294,
+   "tracks": 1210,
+   "tracks_with_a_head": 1210,
+   "tracks_that_could_not_be_cut": 0,
+   "read": {
+    "hours": 2702.7,
+    "hours_of_the_heads": 19.9,
+    "bytes": 1084603060172,
+    "access_units_of_truehd_and_mlp": 1233529714,
+    "frames_of_the_ac3_family": 272190177,
+    "by_format": {
+     "AC-3": {
+      "tracks": 675,
+      "hours": 1479.0
+     },
+     "E-AC-3": {
+      "tracks": 413,
+      "hours": 938.1
+     },
+     "truehd": {
+      "tracks": 122,
+      "hours": 285.5
+     }
+    }
+   },
+   "clean": {
+    "whole_tracks": 1196,
+    "heads": 1209,
+    "clean_as_a_head_and_not_as_a_whole": 13,
+    "clean_as_a_whole_and_not_as_a_head": 0
+   },
+   "rules": {
+    "buffer.latency_under_frame": {
+     "whole_tracks": 4,
+     "findings_in_them": 1137,
+     "heads": 0,
+     "findings_in_the_heads": 0,
+     "tracks_whose_head_does_not_have_it": 4
+    },
+    "frame.crc": {
+     "whole_tracks": 2,
+     "findings_in_them": 7,
+     "heads": 0,
+     "findings_in_the_heads": 0,
+     "tracks_whose_head_does_not_have_it": 2
+    },
+    "frame.decode": {
+     "whole_tracks": 2,
+     "findings_in_them": 3,
+     "heads": 0,
+     "findings_in_the_heads": 0,
+     "tracks_whose_head_does_not_have_it": 2
+    },
+    "frame.tail_overrun": {
+     "whole_tracks": 7,
+     "findings_in_them": 1472,
+     "heads": 1,
+     "findings_in_the_heads": 1,
+     "tracks_whose_head_does_not_have_it": 6
+    },
+    "joc.sequence_restart": {
+     "whole_tracks": 2,
+     "findings_in_them": 78,
+     "heads": 2,
+     "findings_in_the_heads": 78,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "rate.over_declared_peak": {
+     "whole_tracks": 6,
+     "findings_in_them": 50,
+     "heads": 0,
+     "findings_in_the_heads": 0,
+     "tracks_whose_head_does_not_have_it": 6
+    },
+    "segment.crc": {
+     "whole_tracks": 3,
+     "findings_in_them": 8,
+     "heads": 0,
+     "findings_in_the_heads": 0,
+     "tracks_whose_head_does_not_have_it": 3
+    },
+    "segment.end_pointer": {
+     "whole_tracks": 3,
+     "findings_in_them": 8,
+     "heads": 0,
+     "findings_in_the_heads": 0,
+     "tracks_whose_head_does_not_have_it": 3
+    },
+    "segment.parity": {
+     "whole_tracks": 3,
+     "findings_in_them": 8,
+     "heads": 0,
+     "findings_in_the_heads": 0,
+     "tracks_whose_head_does_not_have_it": 3
+    },
+    "segment.syntax": {
+     "whole_tracks": 4,
+     "findings_in_them": 58,
+     "heads": 0,
+     "findings_in_the_heads": 0,
+     "tracks_whose_head_does_not_have_it": 4
+    },
+    "segment.unexpected_tail": {
+     "whole_tracks": 3,
+     "findings_in_them": 6,
+     "heads": 0,
+     "findings_in_the_heads": 0,
+     "tracks_whose_head_does_not_have_it": 3
+    },
+    "sync.major_sync_interval": {
+     "whole_tracks": 1,
+     "findings_in_them": 1,
+     "heads": 0,
+     "findings_in_the_heads": 0,
+     "tracks_whose_head_does_not_have_it": 1
+    },
+    "timing.invalid_branch": {
+     "whole_tracks": 2,
+     "findings_in_them": 2,
+     "heads": 0,
+     "findings_in_the_heads": 0,
+     "tracks_whose_head_does_not_have_it": 2
+    }
+   },
+   "coding_tools": {
+    "aht": {
+     "whole_tracks": 52,
+     "heads": 52,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "block-switching": {
+     "whole_tracks": 852,
+     "heads": 536,
+     "tracks_whose_head_does_not_have_it": 316
+    },
+    "channel-reassignment": {
+     "whole_tracks": 115,
+     "heads": 114,
+     "tracks_whose_head_does_not_have_it": 1
+    },
+    "coefficient-shift": {
+     "whole_tracks": 122,
+     "heads": 122,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "coupling": {
+     "whole_tracks": 506,
+     "heads": 505,
+     "tracks_whose_head_does_not_have_it": 1
+    },
+    "dither": {
+     "whole_tracks": 1088,
+     "heads": 1088,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "dither-scale": {
+     "whole_tracks": 121,
+     "heads": 121,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "drc-update": {
+     "whole_tracks": 122,
+     "heads": 122,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "fir": {
+     "whole_tracks": 122,
+     "heads": 122,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "fir-with-iir": {
+     "whole_tracks": 115,
+     "heads": 115,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "hires-output-timing": {
+     "whole_tracks": 122,
+     "heads": 122,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "huffman-1": {
+     "whole_tracks": 122,
+     "heads": 122,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "huffman-2": {
+     "whole_tracks": 122,
+     "heads": 122,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "huffman-3": {
+     "whole_tracks": 122,
+     "heads": 122,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "huffman-offset": {
+     "whole_tracks": 122,
+     "heads": 122,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "iir": {
+     "whole_tracks": 115,
+     "heads": 115,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "iir-states": {
+     "whole_tracks": 115,
+     "heads": 115,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "lsb-bypass": {
+     "whole_tracks": 113,
+     "heads": 73,
+     "tracks_whose_head_does_not_have_it": 40
+    },
+    "matrix-interpolation": {
+     "whole_tracks": 91,
+     "heads": 82,
+     "tracks_whose_head_does_not_have_it": 9
+    },
+    "matrix-shift-code": {
+     "whole_tracks": 104,
+     "heads": 104,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "matrixing": {
+     "whole_tracks": 122,
+     "heads": 122,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "output-shift": {
+     "whole_tracks": 120,
+     "heads": 113,
+     "tracks_whose_head_does_not_have_it": 7
+    },
+    "quantiser-step": {
+     "whole_tracks": 119,
+     "heads": 116,
+     "tracks_whose_head_does_not_have_it": 3
+    },
+    "rematrixing": {
+     "whole_tracks": 550,
+     "heads": 550,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "skip-fields": {
+     "whole_tracks": 748,
+     "heads": 748,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "spectral-extension": {
+     "whole_tracks": 47,
+     "heads": 47,
+     "tracks_whose_head_does_not_have_it": 0
+    },
+    "transient-pre-noise": {
+     "whole_tracks": 48,
+     "heads": 22,
+     "tracks_whose_head_does_not_have_it": 26
+    }
+   },
+   "truehd_and_mlp": {
+    "tracks": 122,
+    "places_where_the_timing_jumps": {
+     "tracks_with_one": 21,
+     "places": 441,
+     "of_them_a_valid_branch": 439,
+     "of_them_not": 2,
+     "most_in_one_track": 55,
+     "heads_with_one": 8,
+     "places_in_the_heads": 8
+    },
+    "the_delay_through_the_decoder_buffer": {
+     "heads_with_one_value": 0,
+     "whole_tracks_with_one_value": 0
+    },
+    "the_syntax_census": {
+     "tracks_counted_both_ways": 122,
+     "counters_and_values": 542,
+     "zero_in_every_head": 164,
+     "zero_in_every_whole_track": 153,
+     "zero_in_every_head_and_not_in_every_whole_track": [
+      {
+       "counter": "all substreams block: output_shift_sent[7]",
+       "tracks": 1,
+       "total": 1375
+      },
+      {
+       "counter": "all substreams entropy: huff_lsbs_sent[25]",
+       "tracks": 10,
+       "total": 236
+      },
+      {
+       "counter": "all substreams entropy: huff_lsbs_sent[26]",
+       "tracks": 3,
+       "total": 31
+      },
+      {
+       "counter": "all substreams entropy: huff_lsbs_sent[27]",
+       "tracks": 1,
+       "total": 1
+      },
+      {
+       "counter": "all substreams matrix: dither_scale_sent[11]",
+       "tracks": 3,
+       "total": 4000
+      },
+      {
+       "counter": "all substreams matrix: dither_scale_sent[12]",
+       "tracks": 3,
+       "total": 542
+      },
+      {
+       "counter": "all substreams restart: max_bits[25]",
+       "tracks": 55,
+       "total": 8337
+      },
+      {
+       "counter": "all substreams restart: max_lsbs[25]",
+       "tracks": 10,
+       "total": 230
+      },
+      {
+       "counter": "all substreams restart: max_lsbs[26]",
+       "tracks": 3,
+       "total": 31
+      },
+      {
+       "counter": "all substreams restart: max_lsbs[27]",
+       "tracks": 1,
+       "total": 1
+      },
+      {
+       "counter": "all substreams restart: max_shift[7]",
+       "tracks": 1,
+       "total": 654
+      }
+     ],
+     "still_zero_in_every_whole_track": [
+      "all substreams block: guard_bits_sent[0]",
+      "all substreams block: guard_bits_sent[1]",
+      "all substreams block: guard_bits_sent[2]",
+      "all substreams block: guard_bits_sent[3]",
+      "all substreams block: guard_bits_sent[4]",
+      "all substreams block: guard_bits_sent[5]",
+      "all substreams block: guard_bits_sent[6]",
+      "all substreams block: guard_bits_sent[7]",
+      "all substreams block: guards_sent",
+      "all substreams block: output_shift_sent[-1]",
+      "all substreams block: output_shift_sent[-2]",
+      "all substreams block: output_shift_sent[-3]",
+      "all substreams block: output_shift_sent[-4]",
+      "all substreams block: output_shift_sent[-5]",
+      "all substreams block: output_shift_sent[-6]",
+      "all substreams block: output_shift_sent[-7]",
+      "all substreams block: output_shift_sent[-8]",
+      "all substreams block: protected",
+      "all substreams entropy: huff_lsbs_sent[28]",
+      "all substreams entropy: huff_lsbs_sent[29]",
+      "all substreams entropy: huff_lsbs_sent[30]",
+      "all substreams entropy: huff_lsbs_sent[31]",
+      "all substreams filter: coeff_bits_sent[0]",
+      "all substreams filter: coeff_q_sent[0]",
+      "all substreams filter: coeff_q_sent[15]",
+      "all substreams filter: coeff_q_sent[1]",
+      "all substreams filter: coeff_q_sent[2]",
+      "all substreams filter: coeff_q_sent[3]",
+      "all substreams filter: coeff_q_sent[4]",
+      "all substreams filter: coeff_q_sent[5]",
+      "all substreams filter: coeff_q_sent[6]",
+      "all substreams filter: coeff_q_sent[7]",
+      "all substreams filter: state_bits_sent[0]",
+      "all substreams filter: state_shift_sent[10]",
+      "all substreams filter: state_shift_sent[11]",
+      "all substreams filter: state_shift_sent[12]",
+      "all substreams filter: state_shift_sent[13]",
+      "all substreams filter: state_shift_sent[14]",
+      "all substreams filter: state_shift_sent[15]",
+      "all substreams matrix: dither_scale_sent[13]",
+      "all substreams matrix: dither_scale_sent[14]",
+      "all substreams matrix: dither_scale_sent[15]",
+      "all substreams matrix: frac_bits_sent[15]",
+      "all substreams matrix: noise_columns_sent",
+      "all substreams matrix: primitive_matrices_sent[0]",
+      "all substreams restart: coded_channels[0]",
+      "all substreams restart: coded_channels[10]",
+      "all substreams restart: coded_channels[11]",
+      "all substreams restart: coded_channels[13]",
+      "all substreams restart: coded_channels[14]",
+      "all substreams restart: coded_channels[15]",
+      "all substreams restart: coded_channels[16]",
+      "all substreams restart: coded_channels[1]",
+      "all substreams restart: coded_channels[3]",
+      "all substreams restart: coded_channels[5]",
+      "all substreams restart: coded_channels[7]",
+      "all substreams restart: coded_channels[9]",
+      "all substreams restart: dither_shift[10]",
+      "all substreams restart: dither_shift[11]",
+      "all substreams restart: dither_shift[12]",
+      "all substreams restart: dither_shift[13]",
+      "all substreams restart: dither_shift[14]",
+      "all substreams restart: dither_shift[15]",
+      "all substreams restart: dither_shift[1]",
+      "all substreams restart: dither_shift[2]",
+      "all substreams restart: dither_shift[3]",
+      "all substreams restart: dither_shift[4]",
+      "all substreams restart: dither_shift[5]",
+      "all substreams restart: dither_shift[6]",
+      "all substreams restart: dither_shift[7]",
+      "all substreams restart: dither_shift[8]",
+      "all substreams restart: dither_shift[9]",
+      "all substreams restart: error_protect",
+      "all substreams restart: heavy_drc_present",
+      "all substreams restart: heavy_drc_unused_nonzero",
+      "all substreams restart: matrix_channels[0]",
+      "all substreams restart: matrix_channels[10]",
+      "all substreams restart: matrix_channels[11]",
+      "all substreams restart: matrix_channels[13]",
+      "all substreams restart: matrix_channels[15]",
+      "all substreams restart: matrix_channels[1]",
+      "all substreams restart: matrix_channels[3]",
+      "all substreams restart: matrix_channels[4]",
+      "all substreams restart: matrix_channels[5]",
+      "all substreams restart: matrix_channels[7]",
+      "all substreams restart: matrix_channels[9]",
+      "all substreams restart: max_bits[1]",
+      "all substreams restart: max_bits[26]",
+      "all substreams restart: max_bits[27]",
+      "all substreams restart: max_bits[28]",
+      "all substreams restart: max_bits[29]",
+      "all substreams restart: max_bits[30]",
+      "all substreams restart: max_bits[31]",
+      "all substreams restart: max_lsbs[28]",
+      "all substreams restart: max_lsbs[29]",
+      "all substreams restart: max_lsbs[30]",
+      "all substreams restart: max_lsbs[31]",
+      "all substreams restart: max_shift[10]",
+      "all substreams restart: max_shift[11]",
+      "all substreams restart: max_shift[12]",
+      "all substreams restart: max_shift[13]",
+      "all substreams restart: max_shift[14]",
+      "all substreams restart: max_shift[15]",
+      "all substreams restart: max_shift[8]",
+      "all substreams restart: max_shift[9]",
+      "all substreams restart: reserved_nonzero",
+      "all substreams restart: unannounced_heavy_drc_bit",
+      "major_sync: chan_distribute",
+      "major_sync: channel_meaning_reserved",
+      "major_sync: content_description[10]",
+      "major_sync: content_description[11]",
+      "major_sync: content_description[12]",
+      "major_sync: content_description[13]",
+      "major_sync: content_description[14]",
+      "major_sync: content_description[15]",
+      "major_sync: content_description[1]",
+      "major_sync: content_description[2]",
+      "major_sync: content_description[3]",
+      "major_sync: content_description[4]",
+      "major_sync: content_description[5]",
+      "major_sync: content_description[6]",
+      "major_sync: content_description[7]",
+      "major_sync: content_description[8]",
+      "major_sync: content_description[9]",
+      "major_sync: directory_extra_reserved_nonzero",
+      "major_sync: eightch_channel_modifier[2]",
+      "major_sync: eightch_channel_modifier[3]",
+      "major_sync: eightch_multichannel_type",
+      "major_sync: extended_substream_info_upper",
+      "major_sync: fbb_major_syncs",
+      "major_sync: flag_bits[0]",
+      "major_sync: flag_bits[10]",
+      "major_sync: flag_bits[11]",
+      "major_sync: flag_bits[13]",
+      "major_sync: flag_bits[14]",
+      "major_sync: flag_bits[15]",
+      "major_sync: flag_bits[1]",
+      "major_sync: flag_bits[2]",
+      "major_sync: flag_bits[3]",
+      "major_sync: flag_bits[4]",
+      "major_sync: flag_bits[5]",
+      "major_sync: flag_bits[6]",
+      "major_sync: flag_bits[7]",
+      "major_sync: flag_bits[8]",
+      "major_sync: flag_bits[9]",
+      "major_sync: format_info_reserved_nonzero",
+      "major_sync: lfe_only",
+      "major_sync: reserved_nonzero",
+      "major_sync: sixch_channel_modifier[3]",
+      "major_sync: sixch_multichannel_type",
+      "major_sync: substream_info_reserved_nonzero",
+      "major_sync: twoch_channel_modifier[2]",
+      "major_sync: twoch_channel_modifier[3]"
+     ]
+    }
+   },
+   "ac3_and_e_ac3": {
+    "tracks": 1088,
+    "the_downmix": {
+     "whole": {
+      "tracks_that_say_nothing_of_it": 727,
+      "tracks_that_say_one_thing": 360,
+      "tracks_that_say_more": 1
+     },
+     "heads": {
+      "tracks_that_say_nothing_of_it": 728,
+      "tracks_that_say_one_thing": 360,
+      "tracks_that_say_more": 0
+     },
+     "tracks_whose_head_says_something_else": 2,
+     "whole_tracks_that_say_it_in_every_frame": 359
+    },
+    "the_dialogue_normalisation": {
+     "whole": {
+      "tracks_with_one_value": 1087,
+      "tracks_with_more": 1
+     },
+     "heads": {
+      "tracks_with_one_value": 1088,
+      "tracks_with_more": 0
+     },
+     "tracks_whose_head_has_fewer_values": 1
+    },
+    "what_the_containers_declare_of_their_protection": {
+     "whole": {
+      "tracks_with_containers": 325,
+      "tracks_whose_containers_change_what_they_declare": 0,
+      "key_identifiers": [
+       "0",
+       "1"
+      ],
+      "versions": [
+       "0"
+      ]
+     },
+     "heads": {
+      "tracks_with_containers": 325,
+      "tracks_whose_containers_change_what_they_declare": 0,
+      "key_identifiers": [
+       "0",
+       "1"
+      ],
+      "versions": [
+       "0"
+      ]
+     }
+    },
+    "the_objects_of_joc": {
+     "tracks": 100,
+     "tracks_by_downmix_configuration": {
+      "0": 1,
+      "3": 94,
+      "4": 5
+     },
+     "tracks_with_a_configuration_their_head_does_not_have": 0,
+     "tracks_whose_number_of_objects_changes": 0,
+     "tracks_with_a_clip_gain_other_than_one": 89,
+     "of_them_with_none_in_the_head": 85
+    }
+   }
+  },
+  "what_the_major_syncs_declare": {
+   "over_the_whole_tracks": {
+    "tracks": 122,
+    "tracks_of_the_fba_syntax": 122,
+    "tracks_of_the_fbb_syntax": 0,
+    "major_syncs": 9835277,
+    "major_syncs_of_the_fbb_syntax": 0,
+    "flags_bits_set": {
+     "12": {
+      "major_syncs": 8108573,
+      "tracks": 104,
+      "tracks_of_the_fbb_syntax": 0
+     }
+    },
+    "the_first_major_sync_says_the_delay_is_constant": 0,
+    "the_first_major_sync_announces_heavy_drc": 0,
+    "tracks_whose_modifiers_are_one_value_throughout": 122,
+    "the_modifier_of_each_presentation_by_its_channels": {
+     "two channels": [
+      {
+       "channels": "L R",
+       "modifier": "00",
+       "meaning": "stereo",
+       "tracks": 113
+      },
+      {
+       "channels": "L R",
+       "modifier": "01",
+       "meaning": "Lt/Rt",
+       "tracks": 9
+      }
+     ],
+     "six channels": [
+      {
+       "channels": "L R",
+       "modifier": "00",
+       "meaning": "stereo",
+       "tracks": 1
+      },
+      {
+       "channels": "L R C LFE Ls Rs",
+       "modifier": "01",
+       "meaning": "not Surround EX, Pro Logic IIx or Pro Logic IIz encoded",
+       "tracks": 87
+      },
+      {
+       "channels": "L R C LFE Ls Rs",
+       "modifier": "10",
+       "meaning": "Surround EX or Pro Logic IIx encoded",
+       "tracks": 34
+      }
+     ],
+     "eight channels": [
+      {
+       "channels": "L R",
+       "modifier": "00",
+       "meaning": "stereo",
+       "tracks": 1
+      },
+      {
+       "channels": "L R C LFE Ls Rs",
+       "modifier": "01",
+       "meaning": "not Surround EX, Pro Logic IIx or Pro Logic IIz encoded",
+       "tracks": 14
+      },
+      {
+       "channels": "L R C LFE Ls Rs Lb Rb",
+       "modifier": "00",
+       "meaning": null,
+       "tracks": 107
+      }
+     ]
+    },
+    "major_syncs_with_the_type_of_six_channels_set": 0,
+    "major_syncs_with_the_type_of_eight_channels_set": 0,
+    "eight_channel_presentations_with_a_channel_beyond_five_and_one": {
+     "tracks": 107,
+     "of_them_modifier_00": 107
+    },
+    "the_delay_through_the_decoder_buffer": {
+     "tracks_the_model_placed": 122,
+     "tracks_whose_delay_is_one_value": 0,
+     "of_them_of_the_fbb_syntax": 0,
+     "of_them_saying_so_in_flags_bit_15": 0
+    },
+    "what_the_rules_found": {
+     "buffer.latency_not_constant": {
+      "tracks": 0,
+      "findings": 0
+     },
+     "sync.reserved_bits": {
+      "tracks": 0,
+      "findings": 0
+     }
+    }
+   },
+   "over_their_heads": {
+    "tracks": 122,
+    "tracks_of_the_fba_syntax": 122,
+    "tracks_of_the_fbb_syntax": 0,
+    "major_syncs": 70556,
+    "major_syncs_of_the_fbb_syntax": 0,
+    "flags_bits_set": {
+     "12": {
+      "major_syncs": 58789,
+      "tracks": 104,
+      "tracks_of_the_fbb_syntax": 0
+     }
+    },
+    "the_first_major_sync_says_the_delay_is_constant": 0,
+    "the_first_major_sync_announces_heavy_drc": 0,
+    "tracks_whose_modifiers_are_one_value_throughout": 122,
+    "the_modifier_of_each_presentation_by_its_channels": {
+     "two channels": [
+      {
+       "channels": "L R",
+       "modifier": "00",
+       "meaning": "stereo",
+       "tracks": 113
+      },
+      {
+       "channels": "L R",
+       "modifier": "01",
+       "meaning": "Lt/Rt",
+       "tracks": 9
+      }
+     ],
+     "six channels": [
+      {
+       "channels": "L R",
+       "modifier": "00",
+       "meaning": "stereo",
+       "tracks": 1
+      },
+      {
+       "channels": "L R C LFE Ls Rs",
+       "modifier": "01",
+       "meaning": "not Surround EX, Pro Logic IIx or Pro Logic IIz encoded",
+       "tracks": 87
+      },
+      {
+       "channels": "L R C LFE Ls Rs",
+       "modifier": "10",
+       "meaning": "Surround EX or Pro Logic IIx encoded",
+       "tracks": 34
+      }
+     ],
+     "eight channels": [
+      {
+       "channels": "L R",
+       "modifier": "00",
+       "meaning": "stereo",
+       "tracks": 1
+      },
+      {
+       "channels": "L R C LFE Ls Rs",
+       "modifier": "01",
+       "meaning": "not Surround EX, Pro Logic IIx or Pro Logic IIz encoded",
+       "tracks": 14
+      },
+      {
+       "channels": "L R C LFE Ls Rs Lb Rb",
+       "modifier": "00",
+       "meaning": null,
+       "tracks": 107
+      }
+     ]
+    },
+    "major_syncs_with_the_type_of_six_channels_set": 0,
+    "major_syncs_with_the_type_of_eight_channels_set": 0,
+    "eight_channel_presentations_with_a_channel_beyond_five_and_one": {
+     "tracks": 107,
+     "of_them_modifier_00": 107
+    },
+    "the_delay_through_the_decoder_buffer": {
+     "tracks_the_model_placed": 122,
+     "tracks_whose_delay_is_one_value": 0,
+     "of_them_of_the_fbb_syntax": 0,
+     "of_them_saying_so_in_flags_bit_15": 0
+    },
+    "what_the_rules_found": {
+     "buffer.latency_not_constant": {
+      "tracks": 0,
+      "findings": 0
+     },
+     "sync.reserved_bits": {
+      "tracks": 0,
+      "findings": 0
+     }
+    }
+   }
+  },
+  "the_truehd_tracks_with_damaged_stretches": [
+   {
+    "units": 7997419,
+    "hours": 1.85,
+    "bytes": 6123688366,
+    "regions": 6,
+    "branches": 32,
+    "valid_branches": 32,
+    "branches_at_the_entry_after_a_region": 6,
+    "of_them_with_the_input_timing_stepping_back": 3,
+    "regions_this_decoder_finds_more_in_than_the_cut": 6,
+    "controls_this_decoder_finds_more_in_than_the_cut": 0,
+    "regions_truehdd_calls_fatal": 6,
+    "controls_truehdd_calls_fatal": 0,
+    "regions_ffmpeg_skips_frames_in": 6,
+    "controls_ffmpeg_skips_frames_in": 0,
+    "regions_whose_bytes_the_file_holds": 6,
+    "the_regions": [
+     {
+      "units_lost_by_this_decoder": 25,
+      "frames_ffmpeg_skips": 25,
+      "truehdd_fatal": [
+       "substream.parity_mismatch"
+      ],
+      "rules_of_this_decoder": [
+       "segment.syntax"
+      ],
+      "substreams": [
+       1,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 50,
+      "frames_ffmpeg_skips": 50,
+      "truehdd_fatal": [
+       "substream.parity_mismatch"
+      ],
+      "rules_of_this_decoder": [
+       "segment.crc",
+       "segment.end_pointer",
+       "segment.parity",
+       "segment.syntax",
+       "segment.unexpected_tail"
+      ],
+      "substreams": [
+       0,
+       1,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 75,
+      "frames_ffmpeg_skips": 75,
+      "truehdd_fatal": [
+       "restart_header.invalid_restart_sync_word"
+      ],
+      "rules_of_this_decoder": [
+       "segment.crc",
+       "segment.end_pointer",
+       "segment.parity",
+       "segment.syntax"
+      ],
+      "substreams": [
+       0,
+       1,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 78,
+      "frames_ffmpeg_skips": 78,
+      "truehdd_fatal": [
+       "substream.parity_mismatch"
+      ],
+      "rules_of_this_decoder": [
+       "segment.syntax"
+      ],
+      "substreams": [
+       0,
+       1,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 113,
+      "frames_ffmpeg_skips": 113,
+      "truehdd_fatal": [
+       "substream.parity_mismatch"
+      ],
+      "rules_of_this_decoder": [
+       "segment.syntax"
+      ],
+      "substreams": [
+       1,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 126,
+      "frames_ffmpeg_skips": 126,
+      "truehdd_fatal": [
+       "substream.parity_mismatch"
+      ],
+      "rules_of_this_decoder": [
+       "segment.syntax"
+      ],
+      "substreams": [
+       1,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     }
+    ]
+   },
+   {
+    "units": 8302446,
+    "hours": 1.92,
+    "bytes": 6359937158,
+    "regions": 2,
+    "branches": 22,
+    "valid_branches": 22,
+    "branches_at_the_entry_after_a_region": 2,
+    "of_them_with_the_input_timing_stepping_back": 2,
+    "regions_this_decoder_finds_more_in_than_the_cut": 2,
+    "controls_this_decoder_finds_more_in_than_the_cut": 0,
+    "regions_truehdd_calls_fatal": 2,
+    "controls_truehdd_calls_fatal": 0,
+    "regions_ffmpeg_skips_frames_in": 2,
+    "controls_ffmpeg_skips_frames_in": 0,
+    "regions_whose_bytes_the_file_holds": 2,
+    "the_regions": [
+     {
+      "units_lost_by_this_decoder": 31,
+      "frames_ffmpeg_skips": 31,
+      "truehdd_fatal": [
+       "substream.substream_size_underflow"
+      ],
+      "rules_of_this_decoder": [
+       "segment.syntax"
+      ],
+      "substreams": [
+       0,
+       1,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 87,
+      "frames_ffmpeg_skips": 87,
+      "truehdd_fatal": [
+       "other.unclassified"
+      ],
+      "rules_of_this_decoder": [
+       "segment.syntax"
+      ],
+      "substreams": [
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     }
+    ]
+   },
+   {
+    "units": 5839235,
+    "hours": 1.35,
+    "bytes": 4645178622,
+    "regions": 3,
+    "branches": 10,
+    "valid_branches": 10,
+    "branches_at_the_entry_after_a_region": 3,
+    "of_them_with_the_input_timing_stepping_back": 1,
+    "regions_this_decoder_finds_more_in_than_the_cut": 3,
+    "controls_this_decoder_finds_more_in_than_the_cut": 0,
+    "regions_truehdd_calls_fatal": 3,
+    "controls_truehdd_calls_fatal": 0,
+    "regions_ffmpeg_skips_frames_in": 3,
+    "controls_ffmpeg_skips_frames_in": 0,
+    "regions_whose_bytes_the_file_holds": 3,
+    "the_regions": [
+     {
+      "units_lost_by_this_decoder": 51,
+      "frames_ffmpeg_skips": 51,
+      "truehdd_fatal": [
+       "substream.parity_mismatch"
+      ],
+      "rules_of_this_decoder": [
+       "segment.crc",
+       "segment.end_pointer",
+       "segment.parity",
+       "segment.syntax"
+      ],
+      "substreams": [
+       0,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 95,
+      "frames_ffmpeg_skips": 95,
+      "truehdd_fatal": [
+       "substream.parity_mismatch"
+      ],
+      "rules_of_this_decoder": [
+       "segment.crc",
+       "segment.end_pointer",
+       "segment.parity",
+       "segment.syntax",
+       "segment.unexpected_tail"
+      ],
+      "substreams": [
+       0,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 66,
+      "frames_ffmpeg_skips": 66,
+      "truehdd_fatal": [
+       "restart_header.invalid_restart_sync_word"
+      ],
+      "rules_of_this_decoder": [
+       "segment.syntax"
+      ],
+      "substreams": [
+       0,
+       1,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     }
+    ]
+   },
+   {
+    "units": 7562407,
+    "hours": 1.75,
+    "bytes": 5068454134,
+    "regions": 7,
+    "branches": 55,
+    "valid_branches": 54,
+    "branches_at_the_entry_after_a_region": 7,
+    "of_them_with_the_input_timing_stepping_back": 4,
+    "regions_this_decoder_finds_more_in_than_the_cut": 7,
+    "controls_this_decoder_finds_more_in_than_the_cut": 0,
+    "regions_truehdd_calls_fatal": 7,
+    "controls_truehdd_calls_fatal": 0,
+    "regions_ffmpeg_skips_frames_in": 7,
+    "controls_ffmpeg_skips_frames_in": 0,
+    "regions_whose_bytes_the_file_holds": 7,
+    "the_regions": [
+     {
+      "units_lost_by_this_decoder": 19,
+      "frames_ffmpeg_skips": 19,
+      "truehdd_fatal": [
+       "other.unclassified"
+      ],
+      "rules_of_this_decoder": [
+       "segment.syntax"
+      ],
+      "substreams": [
+       0,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 13,
+      "frames_ffmpeg_skips": 13,
+      "truehdd_fatal": [
+       "substream.parity_mismatch"
+      ],
+      "rules_of_this_decoder": [
+       "segment.crc",
+       "segment.end_pointer",
+       "segment.parity",
+       "segment.syntax",
+       "segment.unexpected_tail"
+      ],
+      "substreams": [
+       0,
+       1,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 64,
+      "frames_ffmpeg_skips": 64,
+      "truehdd_fatal": [
+       "substream.substream_size_underflow"
+      ],
+      "rules_of_this_decoder": [
+       "segment.syntax"
+      ],
+      "substreams": [
+       0,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 20,
+      "frames_ffmpeg_skips": 20,
+      "truehdd_fatal": [
+       "block.quantiser_step_too_large"
+      ],
+      "rules_of_this_decoder": [
+       "segment.crc",
+       "segment.end_pointer",
+       "segment.parity",
+       "segment.syntax",
+       "segment.unexpected_tail"
+      ],
+      "substreams": [
+       0,
+       1,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 85,
+      "frames_ffmpeg_skips": 85,
+      "truehdd_fatal": [
+       "substream.parity_mismatch"
+      ],
+      "rules_of_this_decoder": [
+       "segment.crc",
+       "segment.end_pointer",
+       "segment.parity",
+       "segment.syntax",
+       "segment.unexpected_tail"
+      ],
+      "substreams": [
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 100,
+      "frames_ffmpeg_skips": 100,
+      "truehdd_fatal": [
+       "other.unclassified"
+      ],
+      "rules_of_this_decoder": [
+       "segment.syntax"
+      ],
+      "substreams": [
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     },
+     {
+      "units_lost_by_this_decoder": 59,
+      "frames_ffmpeg_skips": 59,
+      "truehdd_fatal": [
+       "block.invalid_block_size_range"
+      ],
+      "rules_of_this_decoder": [
+       "segment.syntax"
+      ],
+      "substreams": [
+       1,
+       2,
+       3
+      ],
+      "the_file_holds_the_bytes": true,
+      "the_stretch_before_it": {
+       "this_decoder_beyond_the_cut": [],
+       "frames_ffmpeg_skips": 0,
+       "truehdd_fatal": 0
+      }
+     }
+    ]
+   }
+  ],
+  "the_truehd_tracks_whose_timing_jumps_and_nothing_else": [
+   {
+    "units": 16429567,
+    "hours": 3.8,
+    "the_jump_is_at_seconds": 6338.4,
+    "share_of_the_track_before_it": 0.463,
+    "around_the_jump": {
+     "oadec": {
+      "exit": 7,
+      "units": 36099,
+      "clean": false,
+      "rules": {
+       "timing.invalid_branch": 1
+      },
+      "regions": 0,
+      "branches": [
+       {
+        "valid": false,
+        "input_jump": true,
+        "output_jump": true,
+        "rate_change": true,
+        "within_75ms": false
+       }
+      ]
+     },
+     "ffmpeg": {
+      "exit": 0,
+      "frames_skipped": 0,
+      "says_else": {
+       "Lossless check failed - expected 66, calculated 8a.": 1
+      }
+     },
+     "truehdd": {
+      "exit": 0,
+      "findings": {
+       "warning access_unit.restart_gap_invalid": 1,
+       "warning restart_header.zero_input_timing_interval": 1,
+       "warning restart_header.invalid_hires_output_timing": 4,
+       "warning fifo.underrun": 20,
+       "warning substream.drc_time_update_exceeded": 20,
+       "warning access_unit.timing_too_long": 1,
+       "warning access_unit.timing_too_long_after_jump": 1
+      }
+     }
+    },
+    "a_minute_before_it": {
+     "oadec": {
+      "exit": 0,
+      "units": 36625,
+      "clean": true,
+      "rules": {},
+      "regions": 0,
+      "branches": []
+     },
+     "ffmpeg": {
+      "exit": 0,
+      "frames_skipped": 0,
+      "says_else": {}
+     },
+     "truehdd": {
+      "exit": 0,
+      "findings": {}
+     }
+    },
+    "what_the_first_major_sync_says_differently_before_and_after": {
+     "channel_meaning.drc_start_up_gain": [
+      -11,
+      -64
+     ],
+     "peak_bit_rate": [
+      4992000,
+      4845000
+     ]
+    }
+   }
+  ],
+  "the_ac3_tracks_with_frames_that_end_inside_their_closing_bits": [
+   {
+    "frames": 223796,
+    "frames_with_the_finding": 52,
+    "first_and_last_with_the_finding": [
+     8061,
+     212432
+    ],
+    "other_rules_of_this_decoder": {},
+    "the_first_frame_that_fails_a_checksum_or_would_not_decode": null,
+    "samples": {
+     "oadec": 343750656,
+     "ffmpeg": 343750656,
+     "dolby": 343750656
+    },
+    "samples_behind_ffmpeg_at_the_start": {
+     "oadec": 0,
+     "dolby": 32
+    },
+    "where_a_decode_steps_against_ffmpeg": {
+     "oadec": [],
+     "dolby": []
+    },
+    "frames_around_a_step_left_out": {
+     "oadec": 0,
+     "dolby": 0
+    },
+    "stretches": [
+     {
+      "frames_from_and_up_to": [
+       0,
+       223796
+      ],
+      "frames_with_the_finding": 52,
+      "pairs": {
+       "oadec against ffmpeg": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 52,
+         "median_db_with_the_finding": 47.1,
+         "least_db_with_the_finding": 24.3,
+         "median_db_of_the_others": 48.1,
+         "tenth_of_the_others_is_under_db": 36.0,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0043,
+         "median_share_of_the_others_under_one_with_the_finding": 0.456
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 52,
+         "median_db_with_the_finding": 46.8,
+         "least_db_with_the_finding": 21.3,
+         "median_db_of_the_others": 47.6,
+         "tenth_of_the_others_is_under_db": 34.9,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0048,
+         "median_share_of_the_others_under_one_with_the_finding": 0.462
+        }
+       },
+       "oadec against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 52,
+         "median_db_with_the_finding": 111.5,
+         "least_db_with_the_finding": 97.3,
+         "median_db_of_the_others": 115.2,
+         "tenth_of_the_others_is_under_db": 103.9,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0268,
+         "median_share_of_the_others_under_one_with_the_finding": 0.338
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 52,
+         "median_db_with_the_finding": 110.6,
+         "least_db_with_the_finding": 94.4,
+         "median_db_of_the_others": 115.0,
+         "tenth_of_the_others_is_under_db": 103.3,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0041,
+         "median_share_of_the_others_under_one_with_the_finding": 0.314
+        }
+       },
+       "ffmpeg against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 52,
+         "median_db_with_the_finding": 47.1,
+         "least_db_with_the_finding": 24.3,
+         "median_db_of_the_others": 48.0,
+         "tenth_of_the_others_is_under_db": 35.8,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0096,
+         "median_share_of_the_others_under_one_with_the_finding": 0.458
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 52,
+         "median_db_with_the_finding": 46.8,
+         "least_db_with_the_finding": 21.3,
+         "median_db_of_the_others": 47.6,
+         "tenth_of_the_others_is_under_db": 34.9,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0048,
+         "median_share_of_the_others_under_one_with_the_finding": 0.462
+        }
+       }
+      }
+     }
+    ]
+   },
+   {
+    "frames": 244733,
+    "frames_with_the_finding": 95,
+    "first_and_last_with_the_finding": [
+     8200,
+     242507
+    ],
+    "other_rules_of_this_decoder": {},
+    "the_first_frame_that_fails_a_checksum_or_would_not_decode": null,
+    "samples": {
+     "oadec": 375909888,
+     "ffmpeg": 375909888,
+     "dolby": 375909888
+    },
+    "samples_behind_ffmpeg_at_the_start": {
+     "oadec": 0,
+     "dolby": 32
+    },
+    "where_a_decode_steps_against_ffmpeg": {
+     "oadec": [],
+     "dolby": []
+    },
+    "frames_around_a_step_left_out": {
+     "oadec": 0,
+     "dolby": 0
+    },
+    "stretches": [
+     {
+      "frames_from_and_up_to": [
+       0,
+       244733
+      ],
+      "frames_with_the_finding": 95,
+      "pairs": {
+       "oadec against ffmpeg": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 95,
+         "median_db_with_the_finding": 44.4,
+         "least_db_with_the_finding": 28.8,
+         "median_db_of_the_others": 48.0,
+         "tenth_of_the_others_is_under_db": 35.9,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0093,
+         "median_share_of_the_others_under_one_with_the_finding": 0.339
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 95,
+         "median_db_with_the_finding": 46.0,
+         "least_db_with_the_finding": 25.4,
+         "median_db_of_the_others": 47.4,
+         "tenth_of_the_others_is_under_db": 35.0,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0052,
+         "median_share_of_the_others_under_one_with_the_finding": 0.432
+        }
+       },
+       "oadec against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 95,
+         "median_db_with_the_finding": 112.6,
+         "least_db_with_the_finding": 95.9,
+         "median_db_of_the_others": 114.5,
+         "tenth_of_the_others_is_under_db": 103.4,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0174,
+         "median_share_of_the_others_under_one_with_the_finding": 0.4
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 95,
+         "median_db_with_the_finding": 112.3,
+         "least_db_with_the_finding": 96.8,
+         "median_db_of_the_others": 114.5,
+         "tenth_of_the_others_is_under_db": 102.9,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0332,
+         "median_share_of_the_others_under_one_with_the_finding": 0.389
+        }
+       },
+       "ffmpeg against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 95,
+         "median_db_with_the_finding": 44.4,
+         "least_db_with_the_finding": 28.8,
+         "median_db_of_the_others": 48.0,
+         "tenth_of_the_others_is_under_db": 35.9,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0096,
+         "median_share_of_the_others_under_one_with_the_finding": 0.339
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 95,
+         "median_db_with_the_finding": 46.0,
+         "least_db_with_the_finding": 25.4,
+         "median_db_of_the_others": 47.4,
+         "tenth_of_the_others_is_under_db": 35.0,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0052,
+         "median_share_of_the_others_under_one_with_the_finding": 0.432
+        }
+       }
+      }
+     }
+    ]
+   },
+   {
+    "frames": 222267,
+    "frames_with_the_finding": 1,
+    "first_and_last_with_the_finding": [
+     30708,
+     30708
+    ],
+    "other_rules_of_this_decoder": {},
+    "the_first_frame_that_fails_a_checksum_or_would_not_decode": null,
+    "samples": {
+     "oadec": 341402112,
+     "ffmpeg": 341402112,
+     "dolby": 341402112
+    },
+    "samples_behind_ffmpeg_at_the_start": {
+     "oadec": 0,
+     "dolby": 32
+    },
+    "where_a_decode_steps_against_ffmpeg": {
+     "oadec": [],
+     "dolby": []
+    },
+    "frames_around_a_step_left_out": {
+     "oadec": 0,
+     "dolby": 0
+    },
+    "stretches": [
+     {
+      "frames_from_and_up_to": [
+       0,
+       222267
+      ],
+      "frames_with_the_finding": 1,
+      "pairs": {
+       "oadec against ffmpeg": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 48.7,
+         "least_db_with_the_finding": 48.7,
+         "median_db_of_the_others": 43.6,
+         "tenth_of_the_others_is_under_db": 31.0,
+         "share_of_the_others_under_the_least_with_the_finding": 0.7964,
+         "median_share_of_the_others_under_one_with_the_finding": 0.796
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 52.2,
+         "least_db_with_the_finding": 52.2,
+         "median_db_of_the_others": 43.1,
+         "tenth_of_the_others_is_under_db": 30.1,
+         "share_of_the_others_under_the_least_with_the_finding": 0.9687,
+         "median_share_of_the_others_under_one_with_the_finding": 0.969
+        }
+       },
+       "oadec against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 119.8,
+         "least_db_with_the_finding": 119.8,
+         "median_db_of_the_others": 111.2,
+         "tenth_of_the_others_is_under_db": 101.6,
+         "share_of_the_others_under_the_least_with_the_finding": 0.8525,
+         "median_share_of_the_others_under_one_with_the_finding": 0.853
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 119.6,
+         "least_db_with_the_finding": 119.6,
+         "median_db_of_the_others": 111.0,
+         "tenth_of_the_others_is_under_db": 101.2,
+         "share_of_the_others_under_the_least_with_the_finding": 0.8486,
+         "median_share_of_the_others_under_one_with_the_finding": 0.849
+        }
+       },
+       "ffmpeg against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 48.7,
+         "least_db_with_the_finding": 48.7,
+         "median_db_of_the_others": 43.6,
+         "tenth_of_the_others_is_under_db": 31.0,
+         "share_of_the_others_under_the_least_with_the_finding": 0.7965,
+         "median_share_of_the_others_under_one_with_the_finding": 0.796
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 52.2,
+         "least_db_with_the_finding": 52.2,
+         "median_db_of_the_others": 43.1,
+         "tenth_of_the_others_is_under_db": 30.1,
+         "share_of_the_others_under_the_least_with_the_finding": 0.9687,
+         "median_share_of_the_others_under_one_with_the_finding": 0.969
+        }
+       }
+      }
+     }
+    ]
+   },
+   {
+    "frames": 304762,
+    "frames_with_the_finding": 1,
+    "first_and_last_with_the_finding": [
+     210346,
+     210346
+    ],
+    "other_rules_of_this_decoder": {},
+    "the_first_frame_that_fails_a_checksum_or_would_not_decode": null,
+    "samples": {
+     "oadec": 468114432,
+     "ffmpeg": 468114432,
+     "dolby": 468114432
+    },
+    "samples_behind_ffmpeg_at_the_start": {
+     "oadec": 0,
+     "dolby": 32
+    },
+    "where_a_decode_steps_against_ffmpeg": {
+     "oadec": [],
+     "dolby": []
+    },
+    "frames_around_a_step_left_out": {
+     "oadec": 0,
+     "dolby": 0
+    },
+    "stretches": [
+     {
+      "frames_from_and_up_to": [
+       0,
+       304762
+      ],
+      "frames_with_the_finding": 1,
+      "pairs": {
+       "oadec against ffmpeg": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 47.8,
+         "least_db_with_the_finding": 47.8,
+         "median_db_of_the_others": 44.7,
+         "tenth_of_the_others_is_under_db": 27.6,
+         "share_of_the_others_under_the_least_with_the_finding": 0.6442,
+         "median_share_of_the_others_under_one_with_the_finding": 0.644
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 35.9,
+         "least_db_with_the_finding": 35.9,
+         "median_db_of_the_others": 44.2,
+         "tenth_of_the_others_is_under_db": 27.0,
+         "share_of_the_others_under_the_least_with_the_finding": 0.2396,
+         "median_share_of_the_others_under_one_with_the_finding": 0.24
+        }
+       },
+       "oadec against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 111.9,
+         "least_db_with_the_finding": 111.9,
+         "median_db_of_the_others": 115.1,
+         "tenth_of_the_others_is_under_db": 104.4,
+         "share_of_the_others_under_the_least_with_the_finding": 0.3573,
+         "median_share_of_the_others_under_one_with_the_finding": 0.357
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 99.9,
+         "least_db_with_the_finding": 99.9,
+         "median_db_of_the_others": 115.0,
+         "tenth_of_the_others_is_under_db": 103.8,
+         "share_of_the_others_under_the_least_with_the_finding": 0.042,
+         "median_share_of_the_others_under_one_with_the_finding": 0.042
+        }
+       },
+       "ffmpeg against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 47.8,
+         "least_db_with_the_finding": 47.8,
+         "median_db_of_the_others": 44.7,
+         "tenth_of_the_others_is_under_db": 27.5,
+         "share_of_the_others_under_the_least_with_the_finding": 0.6451,
+         "median_share_of_the_others_under_one_with_the_finding": 0.645
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 35.9,
+         "least_db_with_the_finding": 35.9,
+         "median_db_of_the_others": 44.2,
+         "tenth_of_the_others_is_under_db": 27.0,
+         "share_of_the_others_under_the_least_with_the_finding": 0.2396,
+         "median_share_of_the_others_under_one_with_the_finding": 0.24
+        }
+       }
+      }
+     }
+    ]
+   },
+   {
+    "frames": 187051,
+    "frames_with_the_finding": 1309,
+    "first_and_last_with_the_finding": [
+     224,
+     186864
+    ],
+    "other_rules_of_this_decoder": {
+     "frame.decode": 1
+    },
+    "the_first_frame_that_fails_a_checksum_or_would_not_decode": 57188,
+    "samples": {
+     "oadec": 287308800,
+     "ffmpeg": 287310336,
+     "dolby": 287310336
+    },
+    "samples_behind_ffmpeg_at_the_start": {
+     "oadec": 0,
+     "dolby": 32
+    },
+    "where_a_decode_steps_against_ffmpeg": {
+     "oadec": [
+      {
+       "between_frames": [
+        57184,
+        57192
+       ],
+       "samples": -1536
+      }
+     ],
+     "dolby": []
+    },
+    "frames_around_a_step_left_out": {
+     "oadec": 8,
+     "dolby": 0
+    },
+    "stretches": [
+     {
+      "frames_from_and_up_to": [
+       0,
+       57187
+      ],
+      "frames_with_the_finding": 91,
+      "pairs": {
+       "oadec against ffmpeg": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 91,
+         "median_db_with_the_finding": 38.6,
+         "least_db_with_the_finding": 17.8,
+         "median_db_of_the_others": 43.3,
+         "tenth_of_the_others_is_under_db": 29.7,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0027,
+         "median_share_of_the_others_under_one_with_the_finding": 0.343
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 91,
+         "median_db_with_the_finding": 39.7,
+         "least_db_with_the_finding": 18.1,
+         "median_db_of_the_others": 43.0,
+         "tenth_of_the_others_is_under_db": 28.7,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0061,
+         "median_share_of_the_others_under_one_with_the_finding": 0.389
+        }
+       },
+       "oadec against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 91,
+         "median_db_with_the_finding": 107.9,
+         "least_db_with_the_finding": 93.2,
+         "median_db_of_the_others": 118.0,
+         "tenth_of_the_others_is_under_db": 104.1,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0001,
+         "median_share_of_the_others_under_one_with_the_finding": 0.175
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 91,
+         "median_db_with_the_finding": 108.5,
+         "least_db_with_the_finding": 92.7,
+         "median_db_of_the_others": 117.9,
+         "tenth_of_the_others_is_under_db": 103.6,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0007,
+         "median_share_of_the_others_under_one_with_the_finding": 0.198
+        }
+       },
+       "ffmpeg against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 91,
+         "median_db_with_the_finding": 38.6,
+         "least_db_with_the_finding": 17.8,
+         "median_db_of_the_others": 43.2,
+         "tenth_of_the_others_is_under_db": 29.5,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0066,
+         "median_share_of_the_others_under_one_with_the_finding": 0.345
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 91,
+         "median_db_with_the_finding": 39.7,
+         "least_db_with_the_finding": 18.1,
+         "median_db_of_the_others": 43.0,
+         "tenth_of_the_others_is_under_db": 28.7,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0061,
+         "median_share_of_the_others_under_one_with_the_finding": 0.389
+        }
+       }
+      }
+     },
+     {
+      "frames_from_and_up_to": [
+       57190,
+       187051
+      ],
+      "frames_with_the_finding": 1218,
+      "pairs": {
+       "oadec against ffmpeg": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 1218,
+         "median_db_with_the_finding": 38.3,
+         "least_db_with_the_finding": 11.2,
+         "median_db_of_the_others": 43.5,
+         "tenth_of_the_others_is_under_db": 31.5,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0001,
+         "median_share_of_the_others_under_one_with_the_finding": 0.287
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 1218,
+         "median_db_with_the_finding": 38.4,
+         "least_db_with_the_finding": 7.3,
+         "median_db_of_the_others": 43.2,
+         "tenth_of_the_others_is_under_db": 30.6,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0001,
+         "median_share_of_the_others_under_one_with_the_finding": 0.307
+        }
+       },
+       "oadec against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 1218,
+         "median_db_with_the_finding": 49.9,
+         "least_db_with_the_finding": 18.0,
+         "median_db_of_the_others": 55.0,
+         "tenth_of_the_others_is_under_db": 43.0,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0001,
+         "median_share_of_the_others_under_one_with_the_finding": 0.292
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 1218,
+         "median_db_with_the_finding": 47.2,
+         "least_db_with_the_finding": 15.5,
+         "median_db_of_the_others": 51.5,
+         "tenth_of_the_others_is_under_db": 39.0,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0001,
+         "median_share_of_the_others_under_one_with_the_finding": 0.328
+        }
+       },
+       "ffmpeg against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 1218,
+         "median_db_with_the_finding": 38.4,
+         "least_db_with_the_finding": 11.3,
+         "median_db_of_the_others": 43.5,
+         "tenth_of_the_others_is_under_db": 31.4,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0013,
+         "median_share_of_the_others_under_one_with_the_finding": 0.291
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 1218,
+         "median_db_with_the_finding": 38.5,
+         "least_db_with_the_finding": 7.5,
+         "median_db_of_the_others": 43.2,
+         "tenth_of_the_others_is_under_db": 30.6,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0001,
+         "median_share_of_the_others_under_one_with_the_finding": 0.312
+        }
+       }
+      }
+     }
+    ]
+   },
+   {
+    "frames": 189761,
+    "frames_with_the_finding": 10,
+    "first_and_last_with_the_finding": [
+     5537,
+     179211
+    ],
+    "other_rules_of_this_decoder": {},
+    "the_first_frame_that_fails_a_checksum_or_would_not_decode": null,
+    "samples": {
+     "oadec": 291472896,
+     "ffmpeg": 291472896,
+     "dolby": 291472896
+    },
+    "samples_behind_ffmpeg_at_the_start": {
+     "oadec": 0,
+     "dolby": 32
+    },
+    "where_a_decode_steps_against_ffmpeg": {
+     "oadec": [],
+     "dolby": []
+    },
+    "frames_around_a_step_left_out": {
+     "oadec": 0,
+     "dolby": 0
+    },
+    "stretches": [
+     {
+      "frames_from_and_up_to": [
+       0,
+       189761
+      ],
+      "frames_with_the_finding": 10,
+      "pairs": {
+       "oadec against ffmpeg": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 10,
+         "median_db_with_the_finding": 39.6,
+         "least_db_with_the_finding": 35.4,
+         "median_db_of_the_others": 45.8,
+         "tenth_of_the_others_is_under_db": 34.2,
+         "share_of_the_others_under_the_least_with_the_finding": 0.1254,
+         "median_share_of_the_others_under_one_with_the_finding": 0.242
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 10,
+         "median_db_with_the_finding": 42.1,
+         "least_db_with_the_finding": 33.9,
+         "median_db_of_the_others": 45.4,
+         "tenth_of_the_others_is_under_db": 33.7,
+         "share_of_the_others_under_the_least_with_the_finding": 0.104,
+         "median_share_of_the_others_under_one_with_the_finding": 0.354
+        }
+       },
+       "oadec against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 10,
+         "median_db_with_the_finding": 109.2,
+         "least_db_with_the_finding": 101.9,
+         "median_db_of_the_others": 118.0,
+         "tenth_of_the_others_is_under_db": 105.5,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0635,
+         "median_share_of_the_others_under_one_with_the_finding": 0.167
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 10,
+         "median_db_with_the_finding": 110.2,
+         "least_db_with_the_finding": 99.7,
+         "median_db_of_the_others": 117.9,
+         "tenth_of_the_others_is_under_db": 105.2,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0494,
+         "median_share_of_the_others_under_one_with_the_finding": 0.201
+        }
+       },
+       "ffmpeg against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 10,
+         "median_db_with_the_finding": 39.6,
+         "least_db_with_the_finding": 35.4,
+         "median_db_of_the_others": 45.8,
+         "tenth_of_the_others_is_under_db": 34.2,
+         "share_of_the_others_under_the_least_with_the_finding": 0.1254,
+         "median_share_of_the_others_under_one_with_the_finding": 0.242
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 10,
+         "median_db_with_the_finding": 42.1,
+         "least_db_with_the_finding": 33.9,
+         "median_db_of_the_others": 45.4,
+         "tenth_of_the_others_is_under_db": 33.7,
+         "share_of_the_others_under_the_least_with_the_finding": 0.104,
+         "median_share_of_the_others_under_one_with_the_finding": 0.354
+        }
+       }
+      }
+     }
+    ]
+   },
+   {
+    "frames": 193147,
+    "frames_with_the_finding": 4,
+    "first_and_last_with_the_finding": [
+     21089,
+     84342
+    ],
+    "other_rules_of_this_decoder": {
+     "frame.crc": 4
+    },
+    "the_first_frame_that_fails_a_checksum_or_would_not_decode": 32202,
+    "samples": {
+     "oadec": 296673792,
+     "ffmpeg": 296673792,
+     "dolby": 296669184
+    },
+    "samples_behind_ffmpeg_at_the_start": {
+     "oadec": 0,
+     "dolby": 32
+    },
+    "where_a_decode_steps_against_ffmpeg": {
+     "oadec": [],
+     "dolby": [
+      {
+       "between_frames": [
+        78264,
+        78280
+       ],
+       "samples": -4608
+      }
+     ]
+    },
+    "frames_around_a_step_left_out": {
+     "oadec": 0,
+     "dolby": 16
+    },
+    "stretches": [
+     {
+      "frames_from_and_up_to": [
+       0,
+       32201
+      ],
+      "frames_with_the_finding": 1,
+      "pairs": {
+       "oadec against ffmpeg": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 28.5,
+         "least_db_with_the_finding": 28.5,
+         "median_db_of_the_others": 44.8,
+         "tenth_of_the_others_is_under_db": 33.7,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0319,
+         "median_share_of_the_others_under_one_with_the_finding": 0.032
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 28.0,
+         "least_db_with_the_finding": 28.0,
+         "median_db_of_the_others": 44.4,
+         "tenth_of_the_others_is_under_db": 33.2,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0331,
+         "median_share_of_the_others_under_one_with_the_finding": 0.033
+        }
+       },
+       "oadec against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 106.8,
+         "least_db_with_the_finding": 106.8,
+         "median_db_of_the_others": 112.5,
+         "tenth_of_the_others_is_under_db": 102.8,
+         "share_of_the_others_under_the_least_with_the_finding": 0.2037,
+         "median_share_of_the_others_under_one_with_the_finding": 0.204
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 105.2,
+         "least_db_with_the_finding": 105.2,
+         "median_db_of_the_others": 112.4,
+         "tenth_of_the_others_is_under_db": 102.4,
+         "share_of_the_others_under_the_least_with_the_finding": 0.1649,
+         "median_share_of_the_others_under_one_with_the_finding": 0.165
+        }
+       },
+       "ffmpeg against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 28.5,
+         "least_db_with_the_finding": 28.5,
+         "median_db_of_the_others": 44.7,
+         "tenth_of_the_others_is_under_db": 33.7,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0345,
+         "median_share_of_the_others_under_one_with_the_finding": 0.035
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 1,
+         "median_db_with_the_finding": 28.0,
+         "least_db_with_the_finding": 28.0,
+         "median_db_of_the_others": 44.4,
+         "tenth_of_the_others_is_under_db": 33.2,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0331,
+         "median_share_of_the_others_under_one_with_the_finding": 0.033
+        }
+       }
+      }
+     },
+     {
+      "frames_from_and_up_to": [
+       32204,
+       193147
+      ],
+      "frames_with_the_finding": 3,
+      "pairs": {
+       "oadec against ffmpeg": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 3,
+         "median_db_with_the_finding": 44.9,
+         "least_db_with_the_finding": 30.2,
+         "median_db_of_the_others": 42.7,
+         "tenth_of_the_others_is_under_db": 33.2,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0511,
+         "median_share_of_the_others_under_one_with_the_finding": 0.643
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 3,
+         "median_db_with_the_finding": 47.7,
+         "least_db_with_the_finding": 31.6,
+         "median_db_of_the_others": 42.4,
+         "tenth_of_the_others_is_under_db": 32.8,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0775,
+         "median_share_of_the_others_under_one_with_the_finding": 0.809
+        }
+       },
+       "oadec against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 3,
+         "median_db_with_the_finding": 48.9,
+         "least_db_with_the_finding": 31.2,
+         "median_db_of_the_others": 44.9,
+         "tenth_of_the_others_is_under_db": 35.8,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0339,
+         "median_share_of_the_others_under_one_with_the_finding": 0.745
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 3,
+         "median_db_with_the_finding": 50.9,
+         "least_db_with_the_finding": 31.6,
+         "median_db_of_the_others": 44.5,
+         "tenth_of_the_others_is_under_db": 35.2,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0444,
+         "median_share_of_the_others_under_one_with_the_finding": 0.853
+        }
+       },
+       "ffmpeg against dolby": {
+        "over_the_reach_of_the_frame": {
+         "frames_with_the_finding_that_have_a_ratio": 3,
+         "median_db_with_the_finding": 45.5,
+         "least_db_with_the_finding": 31.1,
+         "median_db_of_the_others": 42.7,
+         "tenth_of_the_others_is_under_db": 33.2,
+         "share_of_the_others_under_the_least_with_the_finding": 0.0624,
+         "median_share_of_the_others_under_one_with_the_finding": 0.682
+        },
+        "over_the_reach_of_its_last_block": {
+         "frames_with_the_finding_that_have_a_ratio": 3,
+         "median_db_with_the_finding": 47.7,
+         "least_db_with_the_finding": 33.2,
+         "median_db_of_the_others": 42.4,
+         "tenth_of_the_others_is_under_db": 32.8,
+         "share_of_the_others_under_the_least_with_the_finding": 0.1096,
+         "median_share_of_the_others_under_one_with_the_finding": 0.811
+        }
+       }
+      }
+     }
+    ]
+   }
+  ],
+  "the_ac3_tracks_with_frames_that_fail_a_checksum_or_would_not_decode": [
+   {
+    "frames": 353675,
+    "frames_named": 2,
+    "named_by": {
+     "frame.decode": 2
+    },
+    "of_them_the_first_checksum_fails": 0,
+    "of_them_the_second_checksum_fails": 2,
+    "of_them_both_checksums_hold": 0,
+    "of_them_ffmpeg_told_to_check_calls_a_mismatch": 2,
+    "of_them_ffmpeg_says_something_of_as_it_comes": 2,
+    "of_them_the_file_holds_the_bytes": 2,
+    "the_frames": [
+     {
+      "rules_of_this_decoder": [
+       "frame.decode"
+      ],
+      "channels": "2.0",
+      "the_first_checksum_holds": true,
+      "the_second_checksum_holds": false,
+      "remainder_of_the_second": "09fe",
+      "ffmpeg_says": [
+       "error decoding the audio block",
+       "invalid coupling range (10 >= 4)"
+      ],
+      "ffmpeg_told_to_check_says": [
+       "frame CRC mismatch"
+      ],
+      "frames_each_decode_of_the_clip_is_short_of": {
+       "oadec": 2,
+       "ffmpeg": 0,
+       "ffmpeg_told_to_check": 0,
+       "dolby": 0
+      },
+      "level_db_against_the_frames_before_it": {
+       "oadec": -13.2,
+       "ffmpeg": -13.3,
+       "ffmpeg_told_to_check": -15.7,
+       "dolby": -13.6
+      },
+      "db_against_what_it_wrote_one_frame_before": {
+       "oadec": -7.7,
+       "ffmpeg": -5.7,
+       "ffmpeg_told_to_check": -9.9,
+       "dolby": -7.5
+      },
+      "signal_over_difference_db_at_the_frame_and_before_it": {
+       "oadec against dolby": [
+        -2.2,
+        56.0
+       ],
+       "oadec against ffmpeg": [
+        -3.1,
+        47.7
+       ],
+       "ffmpeg against dolby": [
+        -0.8,
+        47.1
+       ],
+       "ffmpeg_told_to_check against dolby": [
+        -4.0,
+        47.1
+       ]
+      },
+      "the_file_holds_the_bytes": true
+     },
+     {
+      "rules_of_this_decoder": [
+       "frame.decode"
+      ],
+      "channels": "2.0",
+      "the_first_checksum_holds": true,
+      "the_second_checksum_holds": false,
+      "remainder_of_the_second": "a4b1",
+      "ffmpeg_says": [
+       "error decoding the audio block",
+       "invalid coupling range (10 >= 4)"
+      ],
+      "ffmpeg_told_to_check_says": [
+       "frame CRC mismatch"
+      ],
+      "frames_each_decode_of_the_clip_is_short_of": {
+       "oadec": 2,
+       "ffmpeg": 0,
+       "ffmpeg_told_to_check": 0,
+       "dolby": 0
+      },
+      "level_db_against_the_frames_before_it": {
+       "oadec": -7.1,
+       "ffmpeg": -14.5,
+       "ffmpeg_told_to_check": -15.7,
+       "dolby": -13.9
+      },
+      "db_against_what_it_wrote_one_frame_before": {
+       "oadec": 0.7,
+       "ffmpeg": -0.7,
+       "ffmpeg_told_to_check": 999.0,
+       "dolby": 37.1
+      },
+      "signal_over_difference_db_at_the_frame_and_before_it": {
+       "oadec against dolby": [
+        -0.9,
+        56.0
+       ],
+       "oadec against ffmpeg": [
+        -1.0,
+        47.7
+       ],
+       "ffmpeg against dolby": [
+        -1.0,
+        47.1
+       ],
+       "ffmpeg_told_to_check against dolby": [
+        -3.1,
+        47.1
+       ]
+      },
+      "the_file_holds_the_bytes": true
+     }
+    ]
+   },
+   {
+    "frames": 187051,
+    "frames_named": 1,
+    "named_by": {
+     "frame.decode": 1
+    },
+    "of_them_the_first_checksum_fails": 0,
+    "of_them_the_second_checksum_fails": 0,
+    "of_them_both_checksums_hold": 1,
+    "of_them_ffmpeg_told_to_check_calls_a_mismatch": 0,
+    "of_them_ffmpeg_says_something_of_as_it_comes": 1,
+    "of_them_the_file_holds_the_bytes": 1,
+    "the_frames": [
+     {
+      "rules_of_this_decoder": [
+       "frame.decode"
+      ],
+      "channels": "2.0",
+      "the_first_checksum_holds": true,
+      "the_second_checksum_holds": true,
+      "remainder_of_the_second": "0000",
+      "ffmpeg_says": [],
+      "ffmpeg_told_to_check_says": [],
+      "frames_each_decode_of_the_clip_is_short_of": {
+       "oadec": 1,
+       "ffmpeg": 0,
+       "ffmpeg_told_to_check": 0,
+       "dolby": 0
+      },
+      "level_db_against_the_frames_before_it": {
+       "oadec": -3.1,
+       "ffmpeg": -2.0,
+       "ffmpeg_told_to_check": -2.0,
+       "dolby": -2.0
+      },
+      "db_against_what_it_wrote_one_frame_before": {
+       "oadec": -8.7,
+       "ffmpeg": -8.5,
+       "ffmpeg_told_to_check": -8.5,
+       "dolby": -8.5
+      },
+      "signal_over_difference_db_at_the_frame_and_before_it": {
+       "oadec against dolby": [
+        -3.5,
+        110.8
+       ],
+       "oadec against ffmpeg": [
+        -3.5,
+        40.9
+       ],
+       "ffmpeg against dolby": [
+        22.1,
+        40.9
+       ],
+       "ffmpeg_told_to_check against dolby": [
+        22.1,
+        40.9
+       ]
+      },
+      "the_file_holds_the_bytes": true
+     }
+    ]
+   },
+   {
+    "frames": 214784,
+    "frames_named": 3,
+    "named_by": {
+     "frame.crc": 3
+    },
+    "of_them_the_first_checksum_fails": 2,
+    "of_them_the_second_checksum_fails": 3,
+    "of_them_both_checksums_hold": 0,
+    "of_them_ffmpeg_told_to_check_calls_a_mismatch": 3,
+    "of_them_ffmpeg_says_something_of_as_it_comes": 3,
+    "of_them_the_file_holds_the_bytes": 3,
+    "the_frames": [
+     {
+      "rules_of_this_decoder": [
+       "frame.crc"
+      ],
+      "channels": "5.1",
+      "the_first_checksum_holds": false,
+      "the_second_checksum_holds": false,
+      "remainder_of_the_second": "1077",
+      "ffmpeg_says": [],
+      "ffmpeg_told_to_check_says": [
+       "frame CRC mismatch"
+      ],
+      "frames_each_decode_of_the_clip_is_short_of": {
+       "oadec": 0,
+       "ffmpeg": 0,
+       "ffmpeg_told_to_check": 0,
+       "dolby": 3
+      },
+      "level_db_against_the_frames_before_it": {
+       "oadec": 0.7,
+       "ffmpeg": 0.7,
+       "ffmpeg_told_to_check": -5.7,
+       "dolby": 8.4
+      },
+      "db_against_what_it_wrote_one_frame_before": {
+       "oadec": -1.2,
+       "ffmpeg": -1.2,
+       "ffmpeg_told_to_check": -2.9,
+       "dolby": -3.1
+      },
+      "signal_over_difference_db_at_the_frame_and_before_it": {
+       "oadec against dolby": [
+        -8.4,
+        99.1
+       ],
+       "oadec against ffmpeg": [
+        30.2,
+        29.8
+       ],
+       "ffmpeg against dolby": [
+        -8.4,
+        28.2
+       ],
+       "ffmpeg_told_to_check against dolby": [
+        -12.5,
+        28.2
+       ]
+      },
+      "the_file_holds_the_bytes": true
+     },
+     {
+      "rules_of_this_decoder": [
+       "frame.crc"
+      ],
+      "channels": "5.1",
+      "the_first_checksum_holds": true,
+      "the_second_checksum_holds": false,
+      "remainder_of_the_second": "3444",
+      "ffmpeg_says": [],
+      "ffmpeg_told_to_check_says": [
+       "frame CRC mismatch"
+      ],
+      "frames_each_decode_of_the_clip_is_short_of": {
+       "oadec": 0,
+       "ffmpeg": 0,
+       "ffmpeg_told_to_check": 0,
+       "dolby": 0
+      },
+      "level_db_against_the_frames_before_it": {
+       "oadec": 6.8,
+       "ffmpeg": 6.8,
+       "ffmpeg_told_to_check": 1.1,
+       "dolby": 2.2
+      },
+      "db_against_what_it_wrote_one_frame_before": {
+       "oadec": -0.8,
+       "ffmpeg": -1.0,
+       "ffmpeg_told_to_check": -2.6,
+       "dolby": -2.6
+      },
+      "signal_over_difference_db_at_the_frame_and_before_it": {
+       "oadec against dolby": [
+        0.3,
+        134.0
+       ],
+       "oadec against ffmpeg": [
+        5.2,
+        60.4
+       ],
+       "ffmpeg against dolby": [
+        0.1,
+        60.4
+       ],
+       "ffmpeg_told_to_check against dolby": [
+        0.3,
+        60.4
+       ]
+      },
+      "the_file_holds_the_bytes": true
+     },
+     {
+      "rules_of_this_decoder": [
+       "frame.crc"
+      ],
+      "channels": "5.1",
+      "the_first_checksum_holds": false,
+      "the_second_checksum_holds": false,
+      "remainder_of_the_second": "03c3",
+      "ffmpeg_says": [],
+      "ffmpeg_told_to_check_says": [
+       "frame CRC mismatch"
+      ],
+      "frames_each_decode_of_the_clip_is_short_of": {
+       "oadec": 0,
+       "ffmpeg": 0,
+       "ffmpeg_told_to_check": 0,
+       "dolby": 3
+      },
+      "level_db_against_the_frames_before_it": {
+       "oadec": 1.7,
+       "ffmpeg": 1.7,
+       "ffmpeg_told_to_check": 3.9,
+       "dolby": 1.8
+      },
+      "db_against_what_it_wrote_one_frame_before": {
+       "oadec": -5.3,
+       "ffmpeg": -5.3,
+       "ffmpeg_told_to_check": -2.5,
+       "dolby": -5.9
+      },
+      "signal_over_difference_db_at_the_frame_and_before_it": {
+       "oadec against dolby": [
+        -3.3,
+        102.7
+       ],
+       "oadec against ffmpeg": [
+        32.4,
+        32.1
+       ],
+       "ffmpeg against dolby": [
+        -3.3,
+        31.4
+       ],
+       "ffmpeg_told_to_check against dolby": [
+        -2.1,
+        31.4
+       ]
+      },
+      "the_file_holds_the_bytes": true
+     }
+    ]
+   },
+   {
+    "frames": 193147,
+    "frames_named": 4,
+    "named_by": {
+     "frame.crc": 4
+    },
+    "of_them_the_first_checksum_fails": 1,
+    "of_them_the_second_checksum_fails": 4,
+    "of_them_both_checksums_hold": 0,
+    "of_them_ffmpeg_told_to_check_calls_a_mismatch": 4,
+    "of_them_ffmpeg_says_something_of_as_it_comes": 4,
+    "of_them_the_file_holds_the_bytes": 4,
+    "the_frames": [
+     {
+      "rules_of_this_decoder": [
+       "frame.crc"
+      ],
+      "channels": "2.0",
+      "the_first_checksum_holds": true,
+      "the_second_checksum_holds": false,
+      "remainder_of_the_second": "01ac",
+      "ffmpeg_says": [],
+      "ffmpeg_told_to_check_says": [
+       "frame CRC mismatch"
+      ],
+      "frames_each_decode_of_the_clip_is_short_of": {
+       "oadec": 0,
+       "ffmpeg": 0,
+       "ffmpeg_told_to_check": 0,
+       "dolby": 0
+      },
+      "level_db_against_the_frames_before_it": {
+       "oadec": 2.6,
+       "ffmpeg": 2.6,
+       "ffmpeg_told_to_check": 1.5,
+       "dolby": 0.5
+      },
+      "db_against_what_it_wrote_one_frame_before": {
+       "oadec": -3.9,
+       "ffmpeg": -3.9,
+       "ffmpeg_told_to_check": -3.3,
+       "dolby": -3.4
+      },
+      "signal_over_difference_db_at_the_frame_and_before_it": {
+       "oadec against dolby": [
+        -1.4,
+        106.4
+       ],
+       "oadec against ffmpeg": [
+        40.6,
+        40.0
+       ],
+       "ffmpeg against dolby": [
+        -1.4,
+        40.0
+       ],
+       "ffmpeg_told_to_check against dolby": [
+        -2.0,
+        40.0
+       ]
+      },
+      "the_file_holds_the_bytes": true
+     },
+     {
+      "rules_of_this_decoder": [
+       "frame.crc"
+      ],
+      "channels": "2.0",
+      "the_first_checksum_holds": false,
+      "the_second_checksum_holds": false,
+      "remainder_of_the_second": "b32e",
+      "ffmpeg_says": [],
+      "ffmpeg_told_to_check_says": [
+       "frame CRC mismatch"
+      ],
+      "frames_each_decode_of_the_clip_is_short_of": {
+       "oadec": 0,
+       "ffmpeg": 0,
+       "ffmpeg_told_to_check": 0,
+       "dolby": 3
+      },
+      "level_db_against_the_frames_before_it": {
+       "oadec": 0.6,
+       "ffmpeg": 0.6,
+       "ffmpeg_told_to_check": 2.7,
+       "dolby": -1.4
+      },
+      "db_against_what_it_wrote_one_frame_before": {
+       "oadec": -4.6,
+       "ffmpeg": -4.6,
+       "ffmpeg_told_to_check": -2.4,
+       "dolby": -5.8
+      },
+      "signal_over_difference_db_at_the_frame_and_before_it": {
+       "oadec against dolby": [
+        -3.2,
+        114.7
+       ],
+       "oadec against ffmpeg": [
+        48.9,
+        45.5
+       ],
+       "ffmpeg against dolby": [
+        -3.2,
+        45.5
+       ],
+       "ffmpeg_told_to_check against dolby": [
+        -1.7,
+        45.5
+       ]
+      },
+      "the_file_holds_the_bytes": true
+     },
+     {
+      "rules_of_this_decoder": [
+       "frame.crc"
+      ],
+      "channels": "2.0",
+      "the_first_checksum_holds": true,
+      "the_second_checksum_holds": false,
+      "remainder_of_the_second": "01ac",
+      "ffmpeg_says": [],
+      "ffmpeg_told_to_check_says": [
+       "frame CRC mismatch"
+      ],
+      "frames_each_decode_of_the_clip_is_short_of": {
+       "oadec": 0,
+       "ffmpeg": 0,
+       "ffmpeg_told_to_check": 0,
+       "dolby": 0
+      },
+      "level_db_against_the_frames_before_it": {
+       "oadec": 1.0,
+       "ffmpeg": 1.0,
+       "ffmpeg_told_to_check": -2.6,
+       "dolby": 3.1
+      },
+      "db_against_what_it_wrote_one_frame_before": {
+       "oadec": -3.6,
+       "ffmpeg": -3.6,
+       "ffmpeg_told_to_check": -6.4,
+       "dolby": -1.5
+      },
+      "signal_over_difference_db_at_the_frame_and_before_it": {
+       "oadec against dolby": [
+        -1.6,
+        108.1
+       ],
+       "oadec against ffmpeg": [
+        35.4,
+        39.2
+       ],
+       "ffmpeg against dolby": [
+        -1.6,
+        39.2
+       ],
+       "ffmpeg_told_to_check against dolby": [
+        -6.1,
+        39.2
+       ]
+      },
+      "the_file_holds_the_bytes": true
+     },
+     {
+      "rules_of_this_decoder": [
+       "frame.crc"
+      ],
+      "channels": "2.0",
+      "the_first_checksum_holds": true,
+      "the_second_checksum_holds": false,
+      "remainder_of_the_second": "01ac",
+      "ffmpeg_says": [],
+      "ffmpeg_told_to_check_says": [
+       "frame CRC mismatch"
+      ],
+      "frames_each_decode_of_the_clip_is_short_of": {
+       "oadec": 0,
+       "ffmpeg": 0,
+       "ffmpeg_told_to_check": 0,
+       "dolby": 0
+      },
+      "level_db_against_the_frames_before_it": {
+       "oadec": -5.1,
+       "ffmpeg": -5.1,
+       "ffmpeg_told_to_check": -1.3,
+       "dolby": -2.6
+      },
+      "db_against_what_it_wrote_one_frame_before": {
+       "oadec": -6.3,
+       "ffmpeg": -6.3,
+       "ffmpeg_told_to_check": -2.5,
+       "dolby": -3.6
+      },
+      "signal_over_difference_db_at_the_frame_and_before_it": {
+       "oadec against dolby": [
+        -0.6,
+        116.0
+       ],
+       "oadec against ffmpeg": [
+        40.7,
+        45.7
+       ],
+       "ffmpeg against dolby": [
+        -0.6,
+        45.7
+       ],
+       "ffmpeg_told_to_check against dolby": [
+        -2.0,
+        45.7
+       ]
+      },
+      "the_file_holds_the_bytes": true
+     }
+    ]
+   }
+  ],
+  "the_ac3_tracks_that_say_something_in_part_of_their_frames": [
+   {
+    "frames": 217123,
+    "runs": 31,
+    "kinds_of_frame": [
+     {
+      "acmod": 7,
+      "bsid": 8,
+      "dialogue_normalisation": -31,
+      "downmix": null,
+      "lfe": 1,
+      "words_per_frame": 896,
+      "runs": 16,
+      "frames": 120466
+     },
+     {
+      "acmod": 7,
+      "bsid": 6,
+      "dialogue_normalisation": -31,
+      "downmix": {
+       "dmixmod": 1,
+       "lorocmixlev": 4,
+       "lorosurmixlev": 4,
+       "ltrtcmixlev": 4,
+       "ltrtsurmixlev": 4
+      },
+      "lfe": 1,
+      "words_per_frame": 896,
+      "runs": 15,
+      "frames": 96657
+     }
+    ],
+    "shortest_and_longest_run_frames": [
+     988,
+     24508
+    ],
+    "the_first_run_ends_at_frame": 14519,
+    "the_last_run_begins_at_frame": 192615
+   },
+   {
+    "frames": 256106,
+    "runs": 9,
+    "kinds_of_frame": [
+     {
+      "acmod": 7,
+      "bsid": 8,
+      "dialogue_normalisation": -27,
+      "downmix": null,
+      "lfe": 1,
+      "words_per_frame": 768,
+      "runs": 5,
+      "frames": 256102
+     },
+     {
+      "acmod": 7,
+      "bsid": 4,
+      "dialogue_normalisation": -31,
+      "downmix": null,
+      "lfe": 1,
+      "words_per_frame": 768,
+      "runs": 4,
+      "frames": 4
+     }
+    ],
+    "shortest_and_longest_run_frames": [
+     1,
+     256025
+    ],
+    "the_first_run_ends_at_frame": 256025,
+    "the_last_run_begins_at_frame": 256101
+   },
+   {
+    "frames": 285382,
+    "runs": 9,
+    "kinds_of_frame": [
+     {
+      "acmod": 7,
+      "bsid": 6,
+      "dialogue_normalisation": -31,
+      "downmix": {
+       "dmixmod": 1,
+       "lorocmixlev": 4,
+       "lorosurmixlev": 4,
+       "ltrtcmixlev": 4,
+       "ltrtsurmixlev": 4
+      },
+      "lfe": 1,
+      "words_per_frame": 1280,
+      "runs": 5,
+      "frames": 282852
+     },
+     {
+      "acmod": 7,
+      "bsid": 6,
+      "dialogue_normalisation": -31,
+      "downmix": {
+       "dmixmod": 0,
+       "lorocmixlev": 0,
+       "lorosurmixlev": 0,
+       "ltrtcmixlev": 0,
+       "ltrtsurmixlev": 0
+      },
+      "lfe": 1,
+      "words_per_frame": 1280,
+      "runs": 4,
+      "frames": 2530
+     }
+    ],
+    "shortest_and_longest_run_frames": [
+     492,
+     170214
+    ],
+    "the_first_run_ends_at_frame": 6826,
+    "the_last_run_begins_at_frame": 245947
+   }
+  ],
+  "a_verify_of_one_whole_track_on_the_idle_machine": {
+   "what": "verify --census --json of one TrueHD track of 4.3 GiB, run twice over: once as it is and twice from a process in the background mode. The first reading of all is the first of the file.",
+   "seconds_as_it_is": [
+    32.7,
+    22.3
+   ],
+   "seconds_in_the_background_mode": [
+    22.6,
+    22.3,
+    22.3,
+    22.2
+   ]
+  }
+ },
+ "reading": "The shelf is 294 files and 1210 Dolby tracks, 675 of AC-3, 413 of E-AC-3 and 122 of TrueHD: 2702.7 hours read whole against the 19.9 hours of their heads, 1010 GiB of tracks, 1233529714 access units and 272190177 frames, in 22 hours 36 minutes of one disk with the sweep in the background mode, which on the idle machine costs a verify of a whole track nothing that can be measured (22.3 seconds as it is, 22.2 to 22.6 in the mode). 1196 whole tracks are clean where 1209 heads are: 13 tracks are clean for a minute and not for their length, one is clean in neither, and none is clean whole and not as a head. Every track that is not clean was put to other decoders and to its file. In 13 of the 14 they agree with what this decoder says of the track; in one it refuses a frame the two others decode, and what it does with a frame it refuses is what neither of them does. Four TrueHD tracks, all of discs with seamless branches, have 18 damaged stretches between them, and every one ends at a branch: of their 119 timing jumps 18 follow a stretch this decoder cannot read, 13 to 126 access units long (11 to 105 ms), 1157 units in all. FFmpeg skips the same number of frames at every one of the 18 and truehdd calls every one fatal; a stretch cut the same way just before each is clean in all three; and the file, cut again, holds the bytes. The damage is the file's, at its joins. A fifth TrueHD track is two encodings end to end: its timing jumps once, 46 % of the way in, where no seamless branch may, the two sides declare another peak rate, no unit is lost, FFmpeg skips no frame and truehdd says nothing fatal. FFmpeg compares the lossless check word across that join and says it failed; this decoder does not compare one across a branch. Seven AC-3 tracks, each the Turkish track of its file and each of two channels at 192 kbit/s, have 1472 frames of 1565517 whose audio blocks end inside their closing bits. Where the noise the two decoders draw is in step, which is a whole track in five and up to the first frame that fails in two, the 251 such frames stand against Dolby's decoder as the frames beside them do: 93.2 dB at the least and 106.8 to 119.8 dB at the median of a track, where the other frames are at 111.2 to 118.0 dB at the median and their lowest tenth under 101.6 to 105.5 dB. These frames decode as Dolby's decodes them, and the rule says something of the encoder, not of a loss. Ten frames of four AC-3 tracks fail. Seven fail a checksum, the second in all seven and the first in three; a reading of the checksums that is not this decoder's agrees in all seven, FFmpeg told to check calls each a mismatch, and the file holds the bytes of each. This decoder and FFmpeg as it comes decode what is there; Dolby's decoder writes something else in its place, and where the first checksum fails it writes three frames fewer. Three frames would not decode. Two of them, side by side, fail their second checksum by the other reading, which this decoder does not say of a frame it could not decode, and FFmpeg as it comes says of them that a block would not decode. The third has both checksums right and a group of three-level mantissas whose code is above 26: FFmpeg and Dolby's decoder decode it, this decoder does not. And this decoder leaves a frame it would not decode out of what it writes: its decode of the track is 1536 samples shorter for each, and everything after it is that much early, where FFmpeg and Dolby's decoder write 1536 samples for every frame. That is this decoder's to correct. A frame one decoder decodes and another does not also puts their noise out of step for the rest of the track: after it this decoder stands against Dolby's at 44.9 and 55.0 dB at the median of the two tracks, where before it stood at 112.5 and 118.0. Three clean tracks say something in part of their frames, which no head showed. One says a downmix in 96657 of 217123 frames: 31 runs of the two syntaxes, an encoding spliced of two. One says another dialogue normalisation, -31 for -27, in four frames of another bit stream identification, one every 25 frames in its last three seconds. One says another downmix, every code zero, in 2530 of 285382 frames, four stretches of 16 to 24 seconds. Beyond the minute the tracks use what their heads do not: block switching in 316 more tracks, LSB bypass in 40, transient pre-noise processing in 26, matrix interpolation in 9, an output shift in 7, a quantiser step in 3; of the 542 counters and values of the TrueHD syntax census 164 are zero in every head and 153 in every whole track, so 11 are seen only beyond the heads, and 153 are still seen nowhere. The timing jumps at 441 places of 21 tracks, 439 of them valid branches, where the heads have 8. Of 100 tracks with objects 89 have a clip gain other than one and 85 of those have none in the head; no track changes its number of objects or its downmix configuration. Nothing changes in what the metadata containers of 325 tracks declare of their protection, and no TrueHD track has one delay through the decoder buffer for its length."
+}

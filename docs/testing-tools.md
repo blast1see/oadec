@@ -654,8 +654,10 @@ report has, and a file named with `--stop-file` ends it after the file in hand.
 the background mode of a process, which lowers its reading of the disk as well as its
 share of the processor and which the processes it starts are in too; the idle priority
 class alone leaves the reading of the disk where everybody's is. Under load the sweep all
-but stands still, which is what the mode is for. A track that is not clean is kept beside
-the report, up to `--keep-gb` in all, so that it can be put to another decoder.
+but stands still, which is what the mode is for; on an idle machine it costs a verify of
+a whole track nothing that can be measured. A track that is not clean is kept beside the
+report, up to `--keep-gb` in all, so that it can be put to another decoder; past that it
+leaves its row, and is cut from its file again when it is looked at.
 
 `tools/whole_tracks.py` holds the rows of the whole tracks against the rows of the heads
 of the same tracks: the tracks that are clean for a minute and not for their length;
@@ -675,9 +677,63 @@ cut at bytes makes a decoder say of its two ends is in the control as well. The 
 cut again at the place and the bytes of the finding are looked for in the new cut: found,
 the file holds them and the reading did not make them. And a whole AC-3 track is decoded
 by three decoders and held frame by frame, the frames with a finding against all the
-others, since decoders that draw their own dither are at no frame the same sample.
+others, since a ratio between two decoders is not the same from frame to frame.
+
+Two things make the third harder than it sounds. A decoder may leave a frame out, or
+write fewer frames than it was given, and everything it writes after that is early. So
+the frames are counted on a decode that writes 1536 samples for every frame, which
+FFmpeg's does, and where each of the two others is against it is measured along the whole
+track. And the noise a decoder draws for the mantissas that have no bits goes on from
+frame to frame. This decoder draws the noise Dolby's draws, and the two stand above
+100 dB, but only while both have decoded the same frames: after one frame that one of
+them decodes and the other conceals or leaves out, they stand where two decoders with
+their own noise stand, 45 to 55 dB, for the rest of the track. A track with such a frame
+is read in two stretches, before it and after it.
+
+Of a frame that fails a checksum or would not decode, the two checksums are read again by
+a reading that is not this decoder's, and a clip of the frame and the 32 on each side of
+it goes to the three decoders: what each wrote at the frame against what it wrote before
+it, whether it wrote the frame at all, and whether the two others wrote the same. Of a
+track that says something in part of its frames, the first bits of every frame are read
+and the runs of frames that say the same are counted: a track of one encoding is one run.
 
 FFmpeg is a second opinion that has to be read with care here. Of a damaged TrueHD access
 unit it says nothing at the level of an error, and it ends with 0. It skips every frame up
 to the next major sync and says so as a warning, "Stream parameters not seen", once and
-then as a count of repeats; the frames it skips are the access units lost.
+then as a count of repeats; the frames it skips are the access units lost. Of an AC-3
+frame whose checksum fails it says nothing either, and decodes it, unless it is told to
+check (`-err_detect crccheck`), and then it writes something else in its place. And where
+two TrueHD encodings are joined it compares the lossless check word across the join and
+says it failed, which a decoder that knows a branch for what it is does not do.
+
+One shelf was read this way: 294 files, 1210 tracks, 2702.7 hours whole against the 19.9
+hours of their heads, in 22 hours 36 minutes of one disk. 14 tracks are not clean for
+their length, and 13 of them are clean for a minute.
+
+- Four TrueHD tracks, all with seamless branches, have 18 damaged stretches, and every one
+  ends at a branch. FFmpeg skips at each the frames this decoder loses, 13 to 126 of them,
+  truehdd calls each fatal, the stretch before each is clean in all three, and the file
+  holds the bytes. The damage is in the files, at their joins.
+- One TrueHD track is two encodings end to end. Its timing jumps once, where no seamless
+  branch may, the two sides declare another peak rate, and nothing is lost.
+- Seven AC-3 tracks have 1472 frames of 1 565 517 whose audio blocks end inside their
+  closing bits. With the noise of the two decoders in step, the 251 that can be held
+  against Dolby's decoder stand as the frames beside them do: 93.2 dB at the least, where
+  the lowest tenth of the others is under 101.6 to 105.5 dB. They decode as Dolby's
+  decoder decodes them.
+- Ten frames of four AC-3 tracks, two of them among the seven, fail a checksum or would
+  not decode, and the files hold the bytes of all ten. The three decoders do three things
+  with a frame whose checksum fails: this one and FFmpeg decode what is there, FFmpeg told
+  to check and Dolby's decoder write something else, and Dolby's writes three frames fewer
+  where the first checksum fails. One frame has both checksums right and a code the
+  standard gives no meaning; the two others decode it and this decoder would not. And this
+  decoder left the three frames it would not decode out of what it wrote, 1536 samples
+  each, where the two others keep the length of the track: that one is this decoder's
+  fault, and is to be corrected.
+- Three clean tracks say something in part of their frames: a downmix in 96 657 of 217 123,
+  a second downmix in 2530 of 285 382, a second dialogue normalisation in four frames at
+  the end. Each is an encoding joined of pieces, and no head showed it.
+
+What the tracks use beyond their first minute, what the TrueHD syntax census still has
+not seen, and the rest of the count are in the evidence:
+`docs/audit/evidence/engine-round-2026-11/62-a-library-read-from-end-to-end.json`.

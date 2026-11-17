@@ -456,8 +456,8 @@ From `conformance-matrix.md`, which has 131 rows where the round began with
 
 Beyond the matrix:
 
-- The library counts are of heads of a minute. A whole track at a seamless
-  branch or a reel change is not in them (31, 33).
+- The library counts of the round are of heads of a minute. One shelf has
+  since been read whole (section 9, 62); the others are heads still.
 - The round trips used tones, at most twenty objects and no trims (54).
 - Dolby's object decoder refuses 89 of 194 object presentations of a
   library, and no field `info` reports separates the two sets. That row
@@ -544,8 +544,29 @@ They are in pull requests of their own, after the 57 of the round.
   references of the documents and the evidence of the round name those
   files. New names would move nothing a user or a caller sees, and would be
   paid for in every one of those. This is a decision, not a postponement.
-- **A census of whole tracks** is a sweep of a library that takes a day of
-  its disk, and is reported where it lands, with its count.
+- **A census of whole tracks.** One shelf, 294 files and 1210 tracks, was read
+  from the first byte of every track to its last: 2702.7 hours against the
+  19.9 of their heads, in 22 hours 36 minutes of one disk, the sweep in the
+  background mode of the system. 14 tracks are not clean for their length, 13
+  of them clean for a minute, and each was put to other decoders and to its
+  file. Four TrueHD tracks are damaged at 18 of their seamless branches, in
+  the file: FFmpeg and truehdd lose the units this decoder loses. One TrueHD
+  track is two encodings end to end. In seven AC-3 tracks 1472 frames end
+  inside their closing bits and decode as Dolby's decoder decodes them, 93.2
+  dB at the least with the noise of the two in step. Ten frames of four AC-3
+  tracks, two of them among the seven, fail a checksum or would not decode, in
+  the file. Three clean tracks are encodings joined of pieces and say a
+  downmix or a dialogue normalisation in part of their frames. Beyond the
+  minute 316 more tracks switch blocks, 11 more counters of the TrueHD census
+  are seen and 153 still are not, and the timing jumps at 441 places where the
+  heads have 8 (62).
+
+  Two things in it are this decoder's. It would not decode one frame, with
+  both checksums right and a mantissa code the standard gives no meaning,
+  which FFmpeg and Dolby's decoder decode. And it left the three frames it
+  would not decode out of what it wrote, so that the track after them is
+  1536 samples a frame early, where the two others keep the length. Both are
+  to be corrected, in pull requests of their own.
 
 With these the conformance matrix has 132 rows: 94 PASS, 17 PASS-TOL, 3
 PARTIAL, 7 N/I, 6 N/T, 5 UNK and no FAIL; its table of what moved since the

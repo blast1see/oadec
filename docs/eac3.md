@@ -525,6 +525,28 @@ now decoded and counted separately, and `verify` still reports the file as
 non-conformant. Found by sweeping 1 368 tracks out of 361 films; it was one of
 two failures, and the only one that was ours.
 
+That was a head of one track. A shelf read whole has seven tracks with such
+frames, each the Turkish track of its file, two channels at 192 kbit/s: 1 472
+frames of 1 565 517, from one in a track to 1 309 in the track above. Held
+frame by frame against Dolby's decoder while the noise of the two is in step,
+the 251 of them that can be so held stand as the frames beside them do:
+93,2 dB at the least and 106,8 to 119,8 dB at the median of a track, where the
+other frames are at 111,2 to 118,0 dB and their lowest tenth under 101,6 to
+105,5 dB. The frames are decoded as Dolby's decoder decodes them, and the
+rule says something of an encoder
+(`audit/evidence/engine-round-2026-11/62-a-library-read-from-end-to-end.json`).
+
+The same reading found what a frame that will not decode costs. Three frames
+would not: two side by side in a track of another film, whose second checksum
+fails, and one in the track above, with both checksums right and a group of
+three-level mantissas whose code is above 26, which the standard gives no
+meaning and which FFmpeg and Dolby's decoder decode. This decoder left each of
+the three out of what it wrote, so its decode of the track is 1536 samples a
+frame shorter and everything after is that much early, where the two others
+write 1536 samples for every frame. That is not what a TrueHD access unit that
+does not decode gets here, which is silence in its place, and it is to be
+corrected.
+
 ## Delta bit allocation, on frames written for it
 
 Delta bit allocation (clause 6.2.2.6) lets an encoder move the masking curve
@@ -715,6 +737,17 @@ reserved with its number. The AC-3 encoder refuses that option. And an encode
 of two channels says nothing in either syntax, though the AC-3 one carries
 the word. Measured:
 `audit/evidence/engine-round-2026-11/58-what-a-stream-says-of-its-downmix.json`.
+
+A track need not say one thing for its length, and the number of frames
+beside an entry is there to be read. Of the 1 088 tracks of AC-3 and E-AC-3
+of one shelf, read whole, 727 say nothing of a downmix and 359 say one thing
+in every frame. One says its downmix in 96 657 of 217 123 frames, the others
+being frames of the plain syntax, in 31 runs. One says a second downmix,
+every code zero, in 2 530 of its 285 382 frames, four stretches of 16 to 24
+seconds. And one says a second dialogue normalisation, -31 for -27, in four
+frames of its last three seconds. Each is an encoding joined of pieces, and
+none of the three showed in the first minute of its track
+(`audit/evidence/engine-round-2026-11/62-a-library-read-from-end-to-end.json`).
 
 ## What a metadata container declares, and the JOC sequence counter
 
