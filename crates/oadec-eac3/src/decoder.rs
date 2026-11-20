@@ -132,6 +132,22 @@ impl Decoder {
         self.decorrelation_status
     }
 
+    /// The mode [`Self::set_decorrelation`] gave last;
+    /// [`Decorrelation::Off`] for a decoder never told one.
+    #[must_use]
+    pub fn decorrelation(&self) -> Decorrelation {
+        self.decorrelation
+    }
+
+    /// Whether the decoder holds a decoded frame back for enhanced coupling
+    /// (clause E.3.5.5.1), which it renders one call later. A caller that
+    /// counts what [`Self::decorrelation_status`] says frame by frame reads
+    /// it before and after a call to tell whether the call rendered a frame.
+    #[must_use]
+    pub fn holds_a_frame(&self) -> bool {
+        self.hold.is_some()
+    }
+
     /// The part of the gate that the mode and the scope decide.
     fn gate_of_mode(&self) -> std::result::Result<(), NotApplied> {
         match (self.decorrelation, self.scope) {

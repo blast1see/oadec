@@ -785,6 +785,13 @@ fn programme_said(mut decoder: ProgramDecoder, frames: &[(&[u8], FrameHeader)]) 
         ));
         take(&mut decoder, &mut said);
     }
+    // a frame that waits for the next is let go and popped as after a push;
+    // nothing waits unless the decorrelation is on
+    said.push(format!(
+        "{:?}",
+        decoder.settle(None).map_err(|e| e.to_string())
+    ));
+    take(&mut decoder, &mut said);
     said.push(format!("{:?}", decoder.finish().map_err(|e| e.to_string())));
     take(&mut decoder, &mut said);
     assert!(decoder.stats().max_pending_groups <= MAX_PENDING_GROUPS);
@@ -797,8 +804,14 @@ fn programme_said(mut decoder: ProgramDecoder, frames: &[(&[u8], FrameHeader)]) 
 /// and made with any programme and either layout policy, it never panics
 /// and keeps its bound on the groups it holds. The first byte of the input
 /// picks the programme.
+///
+/// With the decorrelation off, the decoder that holds each independent
+/// frame until the next frame, as the decorrelation makes it do, is the one
+/// that does not, group for group, sample for sample and count for count,
+/// under either policy, each group a push later; and with the decorrelation
+/// on it never panics and keeps the same bound.
 pub fn eac3_program_config(data: &[u8]) {
-    use oadec_eac3::{LayoutPolicy, ProgramConfig};
+    use oadec_eac3::{Decorrelation, LayoutPolicy, ProgramConfig};
     let Some((&first, stream)) = data.split_first() else {
         return;
     };
@@ -822,7 +835,32 @@ pub fn eac3_program_config(data: &[u8]) {
         let config = ProgramConfig {
             programme: Some(first % 9),
             layout,
+            ..ProgramConfig::default()
         };
         programme_said(ProgramDecoder::with_config(options, config), &frames);
+        // the configuration above, whose decorrelation is off
+        let plain = config;
+        // the groups come out a push later, which a push that went well
+        // does not show
+        let went_well = format!("{:?}", Ok::<(), String>(()));
+        let delivered = |said: Vec<String>| -> Vec<String> {
+            said.into_iter().filter(|s| *s != went_well).collect()
+        };
+        assert_eq!(
+            delivered(programme_said(
+                ProgramDecoder::with_config(options, plain).deferring(),
+                &frames
+            )),
+            delivered(programme_said(
+                ProgramDecoder::with_config(options, plain),
+                &frames
+            )),
+            "holding the independent frame for its scope changed the decode with the decorrelation off"
+        );
+        let decorrelated = ProgramConfig {
+            decorrelation: Decorrelation::Experimental,
+            ..plain
+        };
+        programme_said(ProgramDecoder::with_config(options, decorrelated), &frames);
     }
 }

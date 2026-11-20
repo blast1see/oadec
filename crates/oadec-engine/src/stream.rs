@@ -53,8 +53,8 @@ use oadec_diag::{Rule, Tally};
 use oadec_truehd::{Extractor, Unit};
 
 use crate::api::{
-    CORE_DECODE_IS_AC3, KEEP_DUPLICATES_IS_TRUEHD, ON_ERROR_IS_TRUEHD, OnError,
-    PRESENTATION_IS_TRUEHD, PROGRAMME_IS_AC3, PcmOptions, START_IS_TRUEHD_SAMPLES,
+    CORE_DECODE_IS_AC3, DECORRELATE_IS_AC3_SAMPLES, KEEP_DUPLICATES_IS_TRUEHD, ON_ERROR_IS_TRUEHD,
+    OnError, PRESENTATION_IS_TRUEHD, PROGRAMME_IS_AC3, PcmOptions, START_IS_TRUEHD_SAMPLES,
 };
 use crate::calls::{Format, refusal};
 use crate::decode::{self, ConfigStop, Delivery, Taken, WavSample, WavSpec};
@@ -371,6 +371,16 @@ impl StreamEnd {
         self.findings.verdict()
     }
 
+    /// What the experimental decorrelation of an AC-3 family decode did, as
+    /// its report says it; `None` where it was off and for a TrueHD stream.
+    #[must_use]
+    pub fn decorrelation(&self) -> Option<serde_json::Value> {
+        match &self.told {
+            Told::Ac3 { report, .. } => report.decorrelation(),
+            Told::TrueHd { .. } => None,
+        }
+    }
+
     /// Writes what a decode of the same stream from a file says of it: the
     /// summary of a TrueHD decode to `err`, and the report of the pass of an
     /// AC-3 family decode to `out`, with where the output ended if it ended
@@ -582,6 +592,9 @@ impl StreamDecoder {
             }
             if pcm.programme.is_some() {
                 return Err(refusal(PROGRAMME_IS_AC3));
+            }
+            if pcm.decorrelate {
+                return Err(refusal(DECORRELATE_IS_AC3_SAMPLES));
             }
             if self.options.on_layout_change == Some(LayoutChange::Fixed) {
                 return Err(refusal(FIXED_LAYOUT_IS_EAC3));
@@ -1247,6 +1260,7 @@ impl Ac3 {
                     } else {
                         oadec_eac3::LayoutPolicy::Fixed
                     },
+                    decorrelation: eac3::decorrelation(pcm.decorrelate),
                 },
                 Tally::<oadec_eac3::RuleId>::DEFAULT_MAX_PER_RULE,
             ),
@@ -1298,6 +1312,16 @@ impl Ac3 {
                     header,
                 } => {
                     walking.at(offset);
+                    // With the decorrelation on, the independent frame
+                    // before this one waited for it: what it lets go is told
+                    // where it is, as it is with the decorrelation off.
+                    let groups = &mut self.groups;
+                    if let Some(at) =
+                        walk.settle(Some(&header), &mut |frame| groups.group(frame))?
+                    {
+                        let found = self.listed.new_in(walk.diag(), self.groups.groups, at);
+                        tell_groups(&mut self.groups, found, sink)?;
+                    }
                     if header.stream_type != oadec_eac3::StreamType::Dependent {
                         let k = self.groups.independents;
                         self.groups.independents += 1;
@@ -1325,10 +1349,14 @@ impl Ac3 {
         self.split(&mut nobody, sink)?;
         let Self {
             splitter,
-            walk,
+            mut walk,
             mut groups,
             mut listed,
         } = self;
+        if let Some(at) = walk.settle(None, &mut |frame| groups.group(frame))? {
+            let found = listed.new_in(walk.diag(), groups.groups, at);
+            tell_groups(&mut groups, found, sink)?;
+        }
         let pass = walk.end(splitter.sync_errors, splitter.skipped, &mut |frame| {
             groups.group(frame)
         })?;

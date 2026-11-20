@@ -236,6 +236,7 @@ fn choose(programme: Option<u8>) -> Option<ProgramConfig> {
     Some(ProgramConfig {
         programme,
         layout: LayoutPolicy::Fixed,
+        ..ProgramConfig::default()
     })
 }
 
@@ -243,6 +244,7 @@ fn follow(programme: Option<u8>) -> Option<ProgramConfig> {
     Some(ProgramConfig {
         programme,
         layout: LayoutPolicy::Follow,
+        ..ProgramConfig::default()
     })
 }
 
@@ -513,7 +515,8 @@ fn new_and_the_default_configuration_decode_as_before() {
         ProgramConfig::default(),
         ProgramConfig {
             programme: None,
-            layout: LayoutPolicy::Fixed
+            layout: LayoutPolicy::Fixed,
+            decorrelation: oadec_eac3::Decorrelation::Off,
         }
     );
     assert_eq!(

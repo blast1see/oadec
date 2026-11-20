@@ -218,6 +218,7 @@ for a measurement that is a wrong number under a right name.
 | `--on-layout-change fixed` | an AC-3 or E-AC-3 stream | a TrueHD stream, whose decoder has no layout to keep |
 | `--on-layout-change split` | a sample output to a file | `-o -` |
 | `--programme N` | an AC-3 or E-AC-3 stream, in `decode`, `compare`, `info` and `verify` | a TrueHD stream, an object output, and `-p all` |
+| `--decorrelate` (`decode`, experimental) | a decode of an AC-3 or E-AC-3 stream to samples (`--format pcm` or `wav`) | a TrueHD stream, an object output, and `-p all` |
 | `-p all` (`decode`) | a TrueHD stream to sample files | an object output, `-o -`, `--json`, `--report`, `--on-layout-change`, `--start`, `--on-error stop`, and an AC-3 or E-AC-3 stream |
 | `--reference-format` (`compare`) | a TrueHD stream | an AC-3 or E-AC-3 stream, whose reference is 32-bit float |
 | `--worst` (`compare`) | an AC-3 or E-AC-3 stream | a TrueHD stream, whose comparison is exact and lists its mismatches (`--report`) |

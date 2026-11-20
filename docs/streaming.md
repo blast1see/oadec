@@ -235,6 +235,22 @@ programme the stream does not carry ends the run with exit 2 and the ids it
 does carry, and nothing is written. A TrueHD stream and an object output
 refuse the option (exit 2).
 
+## Decorrelating the coupled channels
+
+`--decorrelate` on a decode to samples, to a file or to standard output,
+turns on the experimental decorrelation of the coupled channels of an E-AC-3
+programme that is its independent substream alone ([`eac3.md`](eac3.md),
+"Decorrelation of the coupled channels"). It is off by default. Its weight
+is this decoder's estimate fitted on measurements, and a decode with it is
+not claimed to equal Dolby's. With it, each independent frame waits for the
+frame after it before it is decoded, so a decode to standard output writes
+each frame group one frame later; what is written, the findings and where
+they are, and the verdict are otherwise those of a decode without it. The
+summary says what it did (`Decorrelation:`), and the report of `--json` and
+`--report` says it in `decorrelation`: the programme, and for each outcome
+whether it was applied, the reason where it was not, and the frames. An
+object output, a TrueHD stream and `-p all` refuse it (exit 2).
+
 ## In a program
 
 A program that embeds the engine has the same decode in

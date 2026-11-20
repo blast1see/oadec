@@ -32,10 +32,26 @@ Semantic Versioning.
   (`MultiDecoder::decode`), where each presentation stops at its first fault
   as a decoder of its own does, is in the library, and a test holds it to
   the checks `verify --decode` makes.
+- **`decode --decorrelate`, experimental and off by default.** A decode of
+  an AC-3 or E-AC-3 stream to samples (`--format wav` or `pcm`, to a file or
+  to standard output) decorrelates the coupled channels of an E-AC-3
+  programme that is its independent substream alone, in 2/0 or 3/2, as
+  Dolby's decoders were measured to do. Its weight is this decoder's
+  estimate fitted on measurements, and a decode with it is not claimed to
+  equal Dolby's. Each independent frame waits for the frame after it, which
+  says whether the programme has a dependent substream; one that has is
+  decoded as without the option, and so is an AC-3 stream, `--core-only`
+  included. The summary and the JSON report say, for the programme, in how
+  many frames it was applied and why not in the others. An object output
+  and a TrueHD stream refuse it (exit 2). Without it nothing waits and
+  nothing changes (`docs/eac3.md`, `docs/streaming.md`).
 - **Fuzz targets** for the decoder of several presentations, the stream
   decoder pushed bytes in pieces, and the programme decoder with its default
   configuration against the one it always had; a bench of four
-  presentations in one pass against four decoders one after another.
+  presentations in one pass against four decoders one after another. The
+  target of the programme decoder's configurations holds the decoder that
+  makes each independent frame wait, with the decorrelation off, to the one
+  that does not, group for group and sample for sample.
 
 ## [0.9.1] - 2026-11-17
 
