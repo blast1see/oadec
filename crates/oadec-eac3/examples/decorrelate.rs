@@ -62,7 +62,12 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(input: &str, output: &str, mode: Decorrelation, scope: ProgrammeScope) -> Result<(), String> {
+fn run(
+    input: &str,
+    output: &str,
+    mode: Decorrelation,
+    scope: ProgrammeScope,
+) -> Result<(), String> {
     let stream = std::fs::read(input).map_err(|e| format!("{input}: {e}"))?;
     let mut dec = Decoder::new(Options::default());
     dec.set_decorrelation(mode, scope);
