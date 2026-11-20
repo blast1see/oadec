@@ -66,8 +66,10 @@
 //!    channel, from 0 at [`ACTIVE_FROM_DB`] to 1 at [`ACTIVE_TO_DB`].
 //! 3. The coherence of the pair: in the highest band in which both channels
 //!    have more than [`ACTIVE_FROM_DB`] of their power, the magnitude of
-//!    the smoothed product over the root of the smoothed powers; 1 where
-//!    there is no such band.
+//!    the smoothed product over the root of the smoothed powers; 0 where
+//!    there is no such band, for two channels with content in no band in
+//!    common have nothing in common there. (Where one of the two has no
+//!    content its activity is 0, and the coherence does not count.)
 //! 4. The angle ([`angle`]): `t = w ANGLE (1 + w' (1 - coherence)^APART)`,
 //!    `w` the channel's activity and `w'` its partner's.
 //! 5. The pair of each coupling sub-band ([`pair`]): `a = cos t
@@ -588,15 +590,23 @@ impl Decorrelator {
                 {
                     partner = active[other];
                     let heard = |x: &Powers, j: usize| x.bands[j] > floor * x.total;
-                    if let Some(j) = (0..bands.len())
+                    let common = (0..bands.len())
                         .rev()
-                        .find(|&j| heard(pp, j) && heard(qq, j))
-                    {
-                        let norm = (pp.bands[j] * qq.bands[j]).sqrt();
-                        if norm > 0.0 {
-                            coherence = (product[j].abs() / norm).min(1.0);
+                        .find(|&j| heard(pp, j) && heard(qq, j));
+                    // Two channels with content in no band in common have
+                    // nothing in common. Where one of them has no content,
+                    // its activity is 0 and the coherence does not count.
+                    coherence = match common {
+                        Some(j) => {
+                            let norm = (pp.bands[j] * qq.bands[j]).sqrt();
+                            if norm > 0.0 {
+                                (product[j].abs() / norm).min(1.0)
+                            } else {
+                                0.0
+                            }
                         }
-                    }
+                        None => 0.0,
+                    };
                 }
             }
             *slot = (angle(active[ch], partner, coherence), active[ch]);
@@ -797,6 +807,10 @@ mod tests {
         assert!((alone - 0.931).abs() < 0.02, "{alone}");
         let (apart, _) = pair(angle(1.0, 1.0, 0.05), 1.0, FALLOFF_FROM);
         assert!((apart - 0.68).abs() < 0.01, "{apart}");
+        // `both-phi30`, whose noise has a coherence of 0,87: Dolby turned
+        // the two channels by 0,509 radian in the mean.
+        let t = angle(1.0, 1.0, 0.87);
+        assert!((t - 0.509).abs() < 0.03, "{t}");
     }
 
     /// The term for the partner: a channel is turned further by `1 + w' (1 -
@@ -932,6 +946,79 @@ mod tests {
             "{same} against {alone}"
         );
         assert!(beside > 2.5 * alone, "{beside} against {alone}");
+    }
+
+    /// The power the decorrelation adds to the left channel's coupled region
+    /// over 24 stereo blocks whose own regions `own` writes, with the same
+    /// coupled region for the same seed.
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "a bin addresses the same place in both channels"
+    )]
+    fn moved_by(own: impl Fn(&mut u32, &mut [[f64; N]])) -> f64 {
+        let c = stereo_coupling();
+        let mut dec = Decorrelator::new();
+        let mut seed = 41;
+        let mut sum = 0.0;
+        for _ in 0..24 {
+            let mut plain = vec![[0.0; N]; 2];
+            own(&mut seed, &mut plain);
+            for bin in c.start..c.end {
+                let x = 0.05 * lcg(&mut seed);
+                plain[0][bin] = 0.8 * x;
+                plain[1][bin] = 0.6 * x;
+            }
+            let mut out = plain.clone();
+            assert_eq!(dec.block(2, false, Some(&c), &mut out), Ok(()));
+            for bin in c.start..c.end {
+                sum += (out[0][bin] - plain[0][bin]).powi(2);
+            }
+        }
+        sum
+    }
+
+    /// The coherence of a pair is read in the highest band both channels
+    /// have content in: a tone the two share in bins 13 to 24 does not make
+    /// them alike where their noise in bins 37 to 48 is not. And two
+    /// channels with content in no band in common are as apart as two with
+    /// other noise in the same band.
+    #[test]
+    fn the_highest_band_in_common_decides() {
+        let same_noise = moved_by(|seed, own| {
+            for bin in 37..49 {
+                own[0][bin] = 0.1 * lcg(seed);
+                own[1][bin] = own[0][bin];
+            }
+        });
+        let other_noise = moved_by(|seed, own| {
+            for bin in 37..49 {
+                own[0][bin] = 0.1 * lcg(seed);
+                own[1][bin] = 0.1 * lcg(seed);
+            }
+        });
+        let shared_tone_other_noise = moved_by(|seed, own| {
+            own[0][15] = 0.3;
+            own[1][15] = 0.3;
+            for bin in 37..49 {
+                own[0][bin] = 0.1 * lcg(seed);
+                own[1][bin] = 0.1 * lcg(seed);
+            }
+        });
+        let apart_bands = moved_by(|seed, own| {
+            for bin in 13..25 {
+                own[0][bin] = 0.1 * lcg(seed);
+            }
+            for bin in 37..49 {
+                own[1][bin] = 0.1 * lcg(seed);
+            }
+        });
+        assert!(same_noise > 0.0);
+        assert!(other_noise > 2.5 * same_noise, "{other_noise} {same_noise}");
+        assert!(
+            shared_tone_other_noise > 2.5 * same_noise,
+            "{shared_tone_other_noise} {same_noise}"
+        );
+        assert!(apart_bands > 2.5 * same_noise, "{apart_bands} {same_noise}");
     }
 
     /// Bins on both sides of the coupled region, under its start and at and
