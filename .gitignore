@@ -63,8 +63,8 @@ docs/audit/adm/harness/target/
 !crates/oadec-cli/tests/fixtures/truehd-20-192k.thd
 # And three short AC-3 and E-AC-3 streams of generated tones and noise: a 7.1
 # programme with a dependent substream, and one stereo signal that uses
-# coupling, encoded both ways; the README there gives their hashes and how
+# coupling, encoded both ways, under crates/oadec-eac3/tests/fixtures; the README there gives their hashes and how
 # each was made.
-!crates/oadec-cli/tests/fixtures/eac3-71-tones.ec3
-!crates/oadec-cli/tests/fixtures/eac3-20-coupled.ec3
-!crates/oadec-cli/tests/fixtures/ac3-20-coupled.ac3
+!crates/oadec-eac3/tests/fixtures/eac3-71-tones.ec3
+!crates/oadec-eac3/tests/fixtures/eac3-20-coupled.ec3
+!crates/oadec-eac3/tests/fixtures/ac3-20-coupled.ac3
