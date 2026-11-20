@@ -21,6 +21,7 @@ decoded, long before the stream has ended.
 | `-` as input, or `-o -` as output | read once, as a stream |
 | a file to a file, with `--json`, `--report`, `--on-layout-change` (or the hidden `--pipeline-stats`) | read once, as a stream: what those options report is of that path |
 | a file to a file, with none of them | the decode it always was: the checks of `verify` read the file on a thread of their own beside the decode |
+| `-p all`, a file to files | every presentation of a TrueHD stream in one pass (below); the stream is taken whole, as a decode of a file takes it, with the checks of `verify` beside it |
 
 The last row is the faster where the stream is a file. A TrueHD decode hands
 every access unit to the checks when it reads its stream once, and the checks
@@ -69,6 +70,7 @@ the same file on every run:
 | `output` | `format` (`pcm` or `wav`), `channels`, `rate`, `mask`, `sample` (`s24le` or `f32le`); `null` where nothing was written |
 | `samples` | samples written, per channel |
 | `units`, `bytes` | access units or frame groups framed, and bytes read |
+| `parts` | the files written, in order: one, or more with `--on-layout-change split`; empty to standard output |
 | `events` | in the order of the units: `opened`, `config_change` (`unit`, `byte_offset`, `what`, `policy`, `old`, `old_rate`, `new`, `new_rate`), `finding` (`unit`, `byte_offset`, `rule`, `message`) |
 | `findings` | what the verdict rests on, as `integrity:` says it on standard error |
 | `first_problem` | the first problem the decode met, or `null` |
@@ -124,10 +126,29 @@ silently. `--on-layout-change` says what is done:
   does not carry, as a decode to a file always has. The change is still a
   fault and the run exits 7. A TrueHD decoder has no such layout, and a TrueHD
   stream refuses `fixed` (exit 2).
+- `split`, to a file only (`-o -` refuses it, exit 2): the decoder follows
+  the change, and the samples after it go on in a file of their own with a
+  header of their own. The first part is the file named, `OUT.wav`; the
+  second is `OUT.002.wav`, the third `OUT.003.wav`, and so on (`OUT.002`
+  where the name has no extension). The report lists them under `parts`, in
+  order. A change the decode followed is not a fault by itself, and the run
+  exits as the same decode without the change would; what judges it is in
+  [`exit-codes.md`](exit-codes.md#a-decode-to-standard-output).
 
 A decode to a file does what it always did when the option is absent: a
 TrueHD stream ends its output at the change, and an E-AC-3 one keeps its
 layout. An object output refuses the option.
+
+A TrueHD decoder that follows a change decodes the unit of the change once,
+with the new configuration, and starts every substream again there, as at
+the start of a stream ([`truehd.md`](truehd.md#a-change-of-configuration)).
+An E-AC-3 programme that follows one gives each frame group the channels it
+was coded with ([`eac3.md`](eac3.md)). Two E-AC-3 streams laid end to end are
+not one stream whose layout changes: the decoder of the dependent substream
+holds a frame of the first stream back, and at the join a frame group can
+come out with a layout neither stream has and a frame that never comes out,
+which is a fault. A programme whose dependent substream comes and goes inside
+one stream splits clean.
 
 The change is told at the unit the decoder marks. The decoder of an E-AC-3
 substream holds a frame back, and the frame group that comes out of it once
@@ -183,6 +204,37 @@ of a file cuts them, the reads of four megabytes it would make included, so
 the frames, the bytes skipped and the sync errors are the ones `verify`
 counts in the same bytes; nothing waits for those reads that does not depend
 on them.
+
+## Every presentation in one pass
+
+`decode -p all -o OUT.wav` decodes every presentation a TrueHD stream
+carries, each to a file of its own: `OUT.p0.wav`, `OUT.p1.wav`, and so on
+(`OUT.p0` where the name has no extension). A presentation that is a copy of
+the one under it is not written: it is that one. Each file holds the bytes
+`decode -p N -o` of its presentation writes, and each presentation is judged
+as that decode judges it, with its summary and its verdict on standard error;
+the run exits with the worst of them. The substreams are decoded once for all
+of them ([`truehd.md`](truehd.md#several-presentations-in-one-pass)).
+
+It writes samples to files, and conceals what it cannot read, as `decode`
+does by default. So it refuses (exit 2): an object output, `-o -`, `--json`,
+`--report`, `--on-layout-change`, `--start`, `--on-error stop`, `--programme`
+and the options of an object output or of an AC-3 or E-AC-3 decode. An AC-3
+or E-AC-3 stream has no presentations and refuses `-p` altogether.
+
+`verify --decode` decodes every presentation the same way, in one pass on one
+thread, and says what it always said.
+
+## Choosing a programme
+
+`--programme N` on `decode`, `compare`, `info` and `verify` chooses the
+programme of an E-AC-3 stream by the id of its independent substream; without
+it the programme is 0, as before. A decode to standard output takes it too. A
+programme the stream does not carry ends the run with exit 2 and the ids it
+does carry, and nothing is written. A TrueHD stream and an object output
+refuse the option (exit 2).
+
+## In a program
 
 A program that embeds the engine has the same decode in
 `oadec_engine::stream`: a `StreamDecoder` that is pushed bytes in pieces of

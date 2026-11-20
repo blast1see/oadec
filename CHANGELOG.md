@@ -6,6 +6,41 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **A stream decoded as it arrives.** `decode --format pcm` and `wav` read
+  their stream once, from a file or from standard input, and `-o -` writes
+  the samples to standard output unit by unit, a WAVE header of unknown
+  length first for `wav`. The memory of a run does not grow with its stream.
+  The checks of `verify` run beside the decode and are told before the
+  samples of each unit, so the bytes, the report and the exit code are the
+  same on every run. A receiver that closes the pipe early ends the run with
+  exit 141. A decode of a file to a file with none of the options of this
+  path decodes as it did (`docs/streaming.md`, `docs/exit-codes.md`).
+- **`--on-layout-change stop|fixed|split`.** What a sample decode does where
+  the channels or the sampling frequency of its stream change: end there and
+  exit 7, keep the first layout (E-AC-3 only), or follow the change into a
+  new file, `OUT.002.wav` and on. A change that was followed is not a fault
+  by itself; a TrueHD decoder follows it from the unit that carries it, and
+  an E-AC-3 programme gives each frame group its own channels.
+- **`--programme N`.** `decode`, `compare`, `info` and `verify` choose the
+  programme of an E-AC-3 stream by the id of its independent substream. A
+  programme the stream does not carry is exit 2, with the ids it does carry.
+- **`decode -p all`.** Every presentation of a TrueHD stream in one pass, a
+  file each (`OUT.p0.wav` and on), each with the bytes and the verdict of a
+  decode of it alone. `verify --decode` checks every presentation in one
+  pass as well, and says what it said before.
+- **Fuzz targets** for the decoder of several presentations, the stream
+  decoder pushed bytes in pieces, and the programme decoder with its default
+  configuration against the one it always had; a bench of four
+  presentations in one pass against four decoders one after another.
+
+### Changed
+
+- `verify --decode` decodes every presentation on one thread, where it ran a
+  thread to each: a third less processor time and half as much again of
+  wall-clock time on the object fixture.
+
 ## [0.9.1] - 2026-11-17
 
 ### Fixed

@@ -388,7 +388,10 @@ extend it. Four clauses settle everything a decoder needs.
   out with its own channels, flagged where they change and counted in
   `layout_follows`, which is not a fault; a substream that leaves the programme
   is flushed at the group it is missing from, so its last frame is delivered
-  without waiting for the pending window.
+  without waiting for the pending window. On the command line
+  `decode --on-layout-change split` decodes with `Follow` and writes each
+  layout to a file of its own (`docs/streaming.md`); `fixed`, and a decode to
+  a file without the option, decode with `Fixed`.
 
 **Two maps occur in the wild, and the file name does not say which.** Sweeping
 the 40 eight-channel E-AC-3 tracks in one library, ten seconds from ten minutes
