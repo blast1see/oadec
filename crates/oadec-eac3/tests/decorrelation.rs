@@ -5,7 +5,7 @@
 //! that it equals Dolby's decode, which it is not claimed to.
 //! `tools/coupling_mix.py measure` sets a decode against a reference decode.
 
-use oadec_eac3::decorr::{ALLPASS, ANGLE_MAX, Decorrelator, Delayed, Role, roles};
+use oadec_eac3::decorr::{ALLPASS, ANGLE, Decorrelator, Delayed, Role, pair, roles};
 use oadec_eac3::frame::N;
 use oadec_eac3::{
     Coupling, Decoder, Decorrelation, DecorrelationStatus, Frame, FrameHeader, Noise, NotApplied,
@@ -621,8 +621,9 @@ fn signs_of_a_pair(name: &str, first: usize, second: usize) {
 
 #[test]
 fn left_and_right_take_opposite_signs() {
+    // The scene's left and right channels have nothing the rule reads, and
+    // are left as they are (`power_of_the_scene_is_measured`).
     signs_of_a_pair(STEREO, 0, 1);
-    signs_of_a_pair(SCENE, 0, 2);
 }
 
 #[test]
@@ -635,13 +636,16 @@ fn the_centre_and_the_lfe_are_untouched() {
     let stream = fixture(SCENE);
     let frames = core(&stream);
     assert_eq!((frames[0].0.acmod, frames[0].0.lfeon), (7, true));
-    let mut left_moved = false;
+    let mut surround_moved = false;
     for ((plain, _), (out, _)) in blocks(&frames).iter().zip(&decorrelated(&frames)) {
         assert_eq!(out[1], plain[1], "the centre");
         assert_eq!(out[5], plain[5], "the LFE");
-        left_moved |= out[0] != plain[0];
+        surround_moved |= out[3] != plain[3];
     }
-    assert!(left_moved, "nothing was decorrelated, so nothing was shown");
+    assert!(
+        surround_moved,
+        "nothing was decorrelated, so nothing was shown"
+    );
 }
 
 // ---------------------------------------------------------------------
@@ -865,11 +869,15 @@ fn power_figures(name: &str, tail: usize) -> Vec<(usize, usize, f64)> {
 }
 
 /// The stereo fixture is noise in the coupled region, and keeps its power
-/// to 0,1 dB in every channel and sub-band.
+/// to 0,15 dB in every channel and sub-band. The figures stand within
+/// 0,117 dB: over the 378 blocks of the fixture `X` and `D(X)` of noise are
+/// correlated by chance by a little, and the power of `a X + b D(X)` is
+/// that of `X` plus `2 a b` times that correlation, which the angles of
+/// this fixture, some 0,66 radian, make close to its largest.
 #[test]
 fn power_stays_in_stereo() {
     for (ch, s, db) in power_figures(STEREO, 0) {
-        assert!(db.abs() <= 0.1, "channel {ch} sub-band {s}: {db:+.3} dB");
+        assert!(db.abs() <= 0.15, "channel {ch} sub-band {s}: {db:+.3} dB");
     }
 }
 
@@ -877,25 +885,24 @@ fn power_stays_in_stereo() {
 /// 133 to 205, is close to silence, some 110 dB down, but for one transient
 /// in block 376 of 378, where the stream ends.
 ///
+/// Only the surround pair is decorrelated: the left and the right channel
+/// have nothing from [`oadec_eac3::decorr::OWN_FIRST_BIN`] up to the
+/// coupling begin frequency, and the rule leaves them as they are.
+///
 /// With the window ending where the stream does, two blocks after the
-/// transient, what `D` makes of it is mostly cut off, and the blocks after
-/// it have an own region that is silent, which takes `b` to 0: a channel
-/// keeps about `a^2` of its power there. Those figures fall with the
-/// sub-band as `a` does, down to -3,1 dB, and they are what a decode of this
-/// stream gives. They are asserted only against `10 log a^2` at the largest
-/// angle, -6 dB, and 0,1 dB above: a sub-band can lose no more than the
-/// filtered part, and gain nothing it did not have.
+/// transient, what `D` makes of it is mostly cut off: the surrounds keep
+/// about `a^2` of its power, -2,0 to -2,6 dB by sub-band, falling with the
+/// sub-band as `a` does, which is what a decode of this stream gives. They
+/// are asserted only against `10 log a^2` at the largest angle and the top
+/// of the spectrum, -6,5 dB, and 0,1 dB above: a sub-band can lose no more
+/// than the filtered part, and gain nothing it did not have.
 ///
 /// With a tail of 32 blocks that keeps the own region of the transient's
 /// block, which a pole radius of 0,7555 leaves 1e-4 of the filter's past,
-/// the figures stand within 0,47 dB: what is left is the weight moving with
-/// the smoothing while `D` rings out, and the transient reaching into the
-/// blocks around it. The bound asserted is 0,6 dB. A pair whose squares do
-/// not sum to 1 breaks it: `b = 1 - a` stands at -1,7 to -2,7 dB in the left
-/// channel and -0,64 in the right surround under the same measurement.
+/// the figures stand within 0,05 dB. The bound asserted is 0,2 dB.
 #[test]
 fn power_of_the_scene_is_measured() {
-    let floor = 20.0 * ANGLE_MAX.cos().log10();
+    let floor = 20.0 * pair(2.0 * ANGLE, 1.0, N as f64).0.log10();
     for (ch, s, db) in power_figures(SCENE, 0) {
         assert!(
             (floor - 0.1..=0.1).contains(&db),
@@ -904,7 +911,7 @@ fn power_of_the_scene_is_measured() {
     }
     for (ch, s, db) in power_figures(SCENE, 32) {
         assert!(
-            db.abs() <= 0.6,
+            db.abs() <= 0.2,
             "with a tail: channel {ch} sub-band {s}: {db:+.3} dB"
         );
     }

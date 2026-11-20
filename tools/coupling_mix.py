@@ -18,11 +18,14 @@ coefficients they give.
 
     python tools/coupling_mix.py signals <directory>
 
-writes the test signals the finding was made with, fifteen 16-bit WAVE files
-of twelve seconds: a band of noise both channels share above 5 kHz (what an
-encoder at a low rate couples), a tone of 440 Hz under it, and one thing apart
-from file to file (levels that move, noise of the channels' own under the
-coupling begin frequency, ...). `ffmpeg -i low-both.wav -c:a eac3 -b:a 128k
+writes the test signals the finding was made with, thirty-four 16-bit WAVE
+files of twelve seconds: a band of noise both channels share above 5 kHz
+(what an encoder at a low rate couples), a tone of 440 Hz under it, and one
+thing apart from file to file (levels that move, noise of the channels' own
+under the coupling begin frequency, ...). The first fifteen found the
+decorrelation; the other nineteen, one thing at a time, what its weight
+follows, and are what the weight of the experimental mode was fitted and
+held out on (`docs/eac3.md`). `ffmpeg -i low-both.wav -c:a eac3 -b:a 128k
 -f eac3 low-both.ec3` and the same with `ac3` make the streams.
 
     oadec eac3-blocks --frame 100 stream.ec3      (cplbegf, cplendf)
@@ -200,6 +203,48 @@ def signals(out):
         'the same noise from 3,5 to 4,5 kHz in both channels')
     put('low-quiet', tone + 0.5 * shared + 0.01 * a, tone + 0.25 * shared + 0.01 * b, 'as low-both, 30 dB lower')
     put('low-only', tone + 0.3 * a, tone + 0.3 * b, 'as low-both, with nothing above 5 kHz')
+
+    # What the weight of Dolby's decorrelation follows, one thing at a time
+    # (docs/eac3.md): the level of a channel's own noise, the tone, the level
+    # of the coupled region, and how alike the two channels' own content is.
+    for level, tag in ((0.1, '10'), (0.03, '03'), (0.6, '60')):
+        put(f'left-n{tag}', tone + 0.5 * shared + level * a, tone + 0.25 * shared,
+            f'as low-left, the noise at {level} in place of 0,3')
+    put('left-notone', 0.5 * shared + 0.3 * a, 0.25 * shared, 'as low-left, without the tone')
+    put('left-eqcpl', tone + 0.4 * shared + 0.3 * a, tone + 0.4 * shared,
+        'as low-left, the shared band at the same level in both channels')
+    put('same-eqcpl', tone + 0.4 * shared + 0.3 * a, tone + 0.4 * shared + 0.3 * a,
+        'the two channels the same')
+    put('same-r125', tone + 0.5 * shared + 0.3 * a, tone + 0.125 * shared + 0.3 * a,
+        'as low-same, the shared band 12 dB lower in the right channel')
+    put('both-eqcpl', tone + 0.4 * shared + 0.3 * a, tone + 0.4 * shared + 0.3 * b,
+        'as low-both, the shared band at the same level in both channels')
+    for degrees in (30, 60):
+        turn = np.radians(degrees)
+        put(f'both-phi{degrees}', tone + 0.4 * shared + 0.3 * a,
+            tone + 0.4 * shared + 0.3 * (np.cos(turn) * a + np.sin(turn) * b),
+            f'the right channel\'s noise {degrees} degrees from the left\'s')
+    put('both-r03', tone + 0.4 * shared + 0.3 * a, tone + 0.4 * shared + 0.03 * b,
+        'as both-eqcpl, the right channel\'s noise 20 dB lower')
+    w1, w2 = band_noise(21, 500, 4500), band_noise(22, 500, 4500)
+    put('wide-both', tone + 0.4 * shared + 0.3 * w1, tone + 0.4 * shared + 0.3 * w2,
+        'different noise from 0,5 to 4,5 kHz in each channel')
+    put('both-cpl08', tone + 0.8 * shared + 0.3 * a, tone + 0.8 * shared + 0.3 * b,
+        'as both-eqcpl, the shared band 6 dB higher')
+    put('both-cpl02', tone + 0.2 * shared + 0.3 * a, tone + 0.2 * shared + 0.3 * b,
+        'as both-eqcpl, the shared band 6 dB lower')
+
+    def sine(f):
+        return 0.2 * np.sin(2 * np.pi * f * t)
+
+    put('tone2k', sine(2000) + 0.5 * shared, sine(2000) + 0.25 * shared, 'a tone of 2 kHz in place of 440 Hz')
+    put('tone2k3k', sine(2000) + 0.5 * shared, sine(3000) + 0.25 * shared,
+        'a tone of 2 kHz in the left channel and of 3 kHz in the right')
+    put('tone2k-left', sine(2000) + 0.5 * shared, 0.25 * shared, 'a tone of 2 kHz in the left channel only')
+    put('chord-both', sine(1500) + sine(2500) + sine(3700) + 0.5 * shared,
+        sine(1700) + sine(2900) + sine(4100) + 0.25 * shared, 'three other tones in each channel')
+    put('noise-tone', sine(2000) + 0.5 * shared + 0.3 * a, sine(3000) + 0.25 * shared + 0.3 * b,
+        'tone2k3k with low-both\'s noise')
     return made
 
 

@@ -243,7 +243,10 @@ four are the same specification, and for enhanced coupling they disagree.
   `Decoder::set_decorrelation`), off by default. It is not Dolby's
   decorrelation, and a decode with it is not claimed to equal Dolby's: the
   filter and the signs are taken as measured above, and the weight `a` is
-  this decoder's own estimate, with no randomness in it.
+  this decoder's own estimate, fitted on Dolby's decodes of test signals,
+  with no randomness in it. The example
+  `cargo run --release -p oadec-eac3 --example decorrelate -- in.ec3 out.wav experimental core-only`
+  decodes a stream with it.
 
   Where it runs: an E-AC-3 independent substream that the caller says is
   the whole programme (`ProgrammeScope::CoreOnly`), in 2/0 without the LFE
@@ -257,49 +260,122 @@ four are the same specification, and for enhanced coupling they disagree.
   concealed frame are left as the standard has them, and
   `Decoder::decorrelation_status` says why.
 
-  The weight, per block, per channel and per coupling sub-band:
-  `rho` is the share of what the channel has under the coupling begin
-  frequency, from bin 2, that the other coupled channels have too, taken
-  bin by bin (`s = clamp(X S / X^2, 0, 1)` with `S` the sum of the others,
-  weighted by `X^2`), and 1 for a channel with nothing there; it is smoothed
-  along the blocks by one half. Then `a = cos t` and `b = sin t`, so that
-  `a^2 + b^2 = 1`, with `t = (1 - rho) t0(f) (1 + 0,677 (1 - rho_others))`,
-  `rho_others` the mean of the other channels' `rho`, and `t` held to 60
-  degrees. `t0` rises with the centre bin `f` of the sub-band along the line
-  through `acos 0,93` at bin 54,5 and `acos 0,81` at bin 138,5. Those two
-  figures and the 0,677 are fitted on what Dolby's decoder gave the left
-  channel of the test signals `low-left` and `low-both` (above, and
-  evidence 52), with the left channel's `rho` taken as 0 there and the
-  right's as 1 or 0; the bins left out, the smoothing and the 60 degrees are
-  choices. They are estimates of this decoder, not Dolby's rule.
+  What Dolby's decoder was measured to do with the weight. Thirty-four
+  stereo test signals (`tools/coupling_mix.py signals`), each encoded by
+  FFmpeg to E-AC-3 at 128 kbit/s, and the stereo fixture
+  `eac3-20-coupled.ec3`, all coupling from bin 49 in eight sub-bands, were
+  decoded by the Reference Player's decoder and by this one, and `a` was
+  read for every block, sub-band and channel with the all-pass above
+  (`a^2 + b^2` is 1,0000 at the median on every signal):
+
+  - `a^2` falls with the sub-band by the same factor on every signal, to
+    0,754 of the first in the eighth, wherever a channel is decorrelated;
+    and `a` is 1 in every sub-band where it is not.
+  - What decides whether a channel is decorrelated is whether it has
+    content between about 1 kHz and the coupling begin frequency, and how
+    much. A tone of 440 Hz there does nothing; a tone of 2 kHz does as
+    much as noise. With that content 20 dB or less under the channel's
+    power the channel is turned, and as far at 20 dB down as at 0; at
+    27 dB or more down it is not.
+  - How far it is turned depends on the other channel of the pair, and only
+    on how unlike the two are there: the left channel takes the same
+    `a` (0,87 in `a^2`) whether the right channel has the same noise or
+    nothing at all, 0,80 with noise at 30 degrees from its own, 0,68 at 60
+    degrees, 0,52 with other noise. Neither the level of the coupled region
+    (the coordinates; three signals 12 dB apart agree to 0,01) nor the level
+    of the content counts.
+  - `a` moves smoothly from block to block, its correlation from one block
+    to the next 0,6 to 0,9, gone after 12 to 24 blocks: it is made from the
+    signal, not drawn.
+  - The second channel of the pair is turned some 0,1 radian more than the
+    first on most of the signals, two channels with the same input
+    included, and the other way round on two.
+
+  The share `rho` of the rule before (the part of a channel's own region
+  that the other channels have too, from bin 2) predicts none of this: it
+  is 1 for the left channel where the right has the same noise and 0 where
+  the right has none, and Dolby turns the channel alike in the two; and on
+  the stereo fixture the shared 440 Hz tone holds it near 1, so that the
+  mode moved the coherence of the pair by 0,008 to 0,023 where Dolby's
+  decode stands 0,75 to 0,95 below the plain one.
+
+  The weight, per block, per channel and per coupling sub-band, every
+  constant fitted on 24 of the test signals and none of it Dolby's rule:
+
+  1. Powers smoothed along the blocks by 1/8: of the whole channel, of each
+     band of twelve bins counted down from the first coupled bin to bin 13,
+     and, of a pair, the product of the two channels in each such band.
+  2. The activity `w` of a channel: the power of those bands over the whole,
+     0 at -27 dB and under, 1 at -17 dB and over, a line in dB between.
+  3. The coherence of a pair: in the highest band in which each channel
+     has more than -27 dB of its power, the magnitude of the product over
+     the root of the powers; 0 where both channels have content there but
+     in no band in common.
+  4. The angle `t = w 0,42 (1 + w' (1 - coherence)^0,68)`, `w'` the
+     activity of the other channel of the pair.
+  5. `a = cos t h^(w/2)` and `b = sqrt(1 - a^2)`, with
+     `h = exp(-0,00336 (f - 54,5))` for the centre bin `f` of the sub-band,
+     and 1 under bin 54,5.
+
+  Fitted per block, the angle misses Dolby's by 0,056 radian (root mean
+  square). The bin 13 is only known to lie between bin 5 and bin 13; the
+  ramp of the activity and the smoothing are fitted loosely (with smoothing
+  by 1/4 or 1/16 the miss is 0,0569 and 0,0560); `h` was measured on one
+  coupling range only. The rule turns the two channels of a pair alike,
+  which leaves their coherence, a function of the sum of the two angles, as
+  measured, and not the split.
 
   The filter state is zero at the start, after a reset, a change of layout,
   mode or scope, and across a concealed frame. A bin that is not coupled in
   a block starts again from zero; when the coupling range changes, the bins
-  that stay keep their past. The first block of a run of coupled blocks of
-  a bin comes out as the plain decode and only fills the filter, which is
-  this decoder's choice: `a X` alone would take the level of that block
-  down by `a^2`. A state value under 1e-30 is taken as zero, so that silence
-  does not run the recursion through subnormal numbers.
+  that stay keep their past, and the smoothed powers start again. The first
+  block of a run of coupled blocks of a bin comes out as the plain decode
+  and only fills the filter, which is this decoder's choice: `a X` alone
+  would take the level of that block down by `a^2`. A state value under
+  1e-30 is taken as zero, so that silence does not run the recursion
+  through subnormal numbers.
 
-  What `a^2 + b^2 = 1` keeps is the power of a channel where `X` and
-  `D(X)` are uncorrelated along the blocks and the pair stands still while
-  `D` rings out. On the stereo fixture `eac3-20-coupled.ec3`, whose coupled
-  region is noise, every channel and coupling sub-band keeps its power to
-  0,014 dB in the coefficients and in the samples.
+  How it stands against Dolby's decode, by `tools/coupling_mix.py measure`
+  with the coherence of the pair in each sub-band, whose target is to stand
+  within 0,10 of Dolby's:
+
+  - On the 24 signals the constants were fitted on, within 0,032 in every
+    sub-band, where the plain decode stands up to 0,94 away.
+  - On the signals held out of the fit: the stereo fixture 0,034 (the plain
+    decode 0,97), `both-phi60` 0,046, `wide-both` 0,072, `tone2k` 0,076,
+    `tone2k-left` 0,004, `chord-both` 0,100. Over the target: `mid-both`
+    0,106 and `noise-tone` 0,184. There Dolby turns two channels that have
+    nothing in common by 1,72 and 1,82 radian between the two, where the
+    rule stops at 1,68; over the signals of that kind Dolby's sum runs from
+    1,61 to 1,92, and nothing the rule reads was found to tell them apart.
+  - `tone2k3k` showed that the coherence fell back to 1 for two channels
+    with content in no band in common; it is not held out since, and stands
+    at 0,248 for the same reason as `noise-tone`.
+  - Not followed: `low-only` (nothing in the coupled region but what the
+    encoder leaves there), 0,479, and `same-eqcpl` (the two channels the
+    same), 0,159.
+  - The power of a sub-band stands within 0,21 dB of Dolby's on every
+    signal but `low-only` (3,3 dB), the spectral figure within 0,26 dB but
+    on the signals of tones (0,34 to 4,1 dB), the step at the block
+    boundaries within 0,13 dB of Dolby's, and the phase of the pair within 3
+    degrees of Dolby's wherever Dolby's coherence is 0,15 or more.
+  - The authored scene says little: its coupled region is close to silence
+    but for one transient in its second to last block, which Dolby's decode
+    has 2,9 to 4,7 dB lower than this decoder's in every channel, whether
+    decorrelated or not. The coherence of its two pairs stands within 0,057
+    of Dolby's.
 
   What the mode does not claim:
 
   - That it equals Dolby's decode, or that its weight is Dolby's rule.
-  - That a channel keeps its power after a coupled transient. When a
-    channel's own region goes silent, its `rho` goes to 1 and `b` to 0
-    while `D` still rings with the transient, so the tail of the transient
-    loses its filtered part: the channel keeps about `a^2` of the power the
-    transient had. On the authored scene, whose coupled region is silence
-    but for one transient in its second to last block, the left channel
-    loses 1,8 to 3,1 dB there by sub-band, the right 1,0 to 1,7, the right
-    surround 0,3 to 0,6. That is a property of this decoder's rule, not of
-    the stream and not something measured of Dolby's decoders.
+  - That it follows Dolby where the measurements above did not reach:
+    other coupling ranges, 5.1 (the surround pair is treated as the left
+    and the right are, which was not measured), music.
+  - That a channel keeps its power after a coupled transient where the
+    stream ends: what `D` still holds then is lost. On the authored scene,
+    whose coupled region is silence but for one transient in its second to
+    last block, the surrounds lose 2,0 to 2,6 dB there by sub-band; its left
+    and right have nothing from bin 13 up and are left as they are.
   - That the first block of a run of coupled blocks is decorrelated: it is
     the plain decode, by this decoder's choice.
 

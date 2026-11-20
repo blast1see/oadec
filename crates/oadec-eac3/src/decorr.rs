@@ -15,14 +15,12 @@
 //! channels the second takes `b` with the other sign ([`Role`]).
 //!
 //! The filter and the signs were measured on Dolby's output and are taken
-//! here as measured. The weight `a` was not: how Dolby's decoders choose it
-//! is not known. This module computes `a` by a rule of its own, fitted to
-//! the published description of such a decoder and to the measurements in
-//! this repository: per block and per coupling sub-band, from how alike a
-//! channel's content under the coupling begin frequency is to the sum of the
-//! coupled channels there, falling with frequency, and with no randomness
-//! in it. It is not Dolby's rule. The mode is experimental, it is off by
-//! default, and a decode with it is not claimed to equal Dolby's.
+//! here as measured. How Dolby's decoders choose the weight `a` is not
+//! known. This module computes `a` by a rule of its own, fitted to the pairs
+//! Dolby's decoder was measured to use on test signals (`docs/eac3.md`), per
+//! block and per coupling sub-band, with no randomness in it. It is this
+//! decoder's estimate and not Dolby's rule. The mode is experimental, it is
+//! off by default, and a decode with it is not claimed to equal Dolby's.
 //!
 //! It runs only where the mapping of channels to filters was seen: an
 //! E-AC-3 independent substream that is the whole programme
@@ -43,44 +41,47 @@
 //!   coupling range changes, the bins that stay in it keep their state and
 //!   those that come into it start from zero.
 //! - In the first block of a run of blocks in which a bin is coupled, the
-//!   bin has no past for `D` to give. It comes out as the plain decode has it, and the block only fills the
-//!   filter. That is this decoder's choice, not something measured: `a X`
-//!   alone would take the level of the bin down by `a^2` in that block.
-//!   A decoder that starts in the middle of a stream therefore differs from
-//!   one that started earlier by what is left in the filters, which falls by
-//!   the largest pole radius, 0,7555, every block, and by what is left in
-//!   the smoothing of the weight ([`SMOOTHING`]), which falls by half.
+//!   bin has no past for `D` to give. It comes out as the plain decode has
+//!   it, and the block only fills the filter. That is this decoder's choice,
+//!   not something measured: `a X` alone would take the level of the bin
+//!   down by `a^2` in that block. A decoder that starts in the middle of a
+//!   stream therefore differs from one that started earlier by what is left
+//!   in the filters, which falls by the largest pole radius, 0,7555, every
+//!   block, and by what is left in the smoothed powers of the weight
+//!   ([`SMOOTHING`]), which falls by 7/8 every block.
 //!
 //! # The weight
 //!
 //! Every constant of the rule below is an estimate of this decoder, fitted
-//! or chosen as each says, and none is Dolby's. For a channel that takes
-//! part, in one block:
+//! as each says on Dolby's decodes of stereo test signals encoded by FFmpeg,
+//! and none is Dolby's. Of a channel that takes part, in one block:
 //!
-//! 1. Its share `rho` of what it has under the coupling begin frequency
-//!    that the other coupled channels have too ([`share`]): over the bins
-//!    from [`OWN_FIRST_BIN`] to the first coupled one, with `X` the channel
-//!    and `S` the sum of the other coupled channels,
-//!    `rho = sum(X^2 s) / sum(X^2)` with `s = clamp(X S / X^2, 0, 1)` for
-//!    each bin. A channel with nothing there takes `rho = 1`. It goes bin
-//!    by bin so that a channel whose only content is a tone the other
-//!    channel has too takes 1 even when the other channel has noise of its
-//!    own in other bins, as was measured.
-//! 2. `rho` is smoothed along the blocks by [`SMOOTHING`].
-//! 3. The angle of the pair, `a = cos t` and `b = sin t`, so that
-//!    `a^2 + b^2 = 1` holds to the rounding, is
-//!    `t = (1 - rho) t0(f) (1 + OTHERS (1 - rho_others))` ([`pair`]),
-//!    where `t0` rises with the centre bin `f` of the coupling sub-band
-//!    through [`ANGLE_FIRST`] and [`ANGLE_LAST`] ([`base_angle`]),
-//!    `rho_others` is the mean smoothed `rho` of the other channels that
-//!    take part, and `t` is held to [`ANGLE_MAX`].
+//! 1. The powers, smoothed along the blocks by [`SMOOTHING`]: of the whole
+//!    channel (bins 1 and up), and of each band of twelve bins under the
+//!    coupling begin frequency, counted down from the first coupled bin and
+//!    not below [`OWN_FIRST_BIN`]; of a pair of channels ([`pairs`]), also
+//!    the product of the two in each such band.
+//! 2. How active the channel is under the coupling begin frequency
+//!    ([`activity`]): the power of those bands over the power of the whole
+//!    channel, from 0 at [`ACTIVE_FROM_DB`] to 1 at [`ACTIVE_TO_DB`].
+//! 3. The coherence of the pair: in the highest band in which both channels
+//!    have more than [`ACTIVE_FROM_DB`] of their power, the magnitude of
+//!    the smoothed product over the root of the smoothed powers; 0 where
+//!    there is no such band, for two channels with content in no band in
+//!    common have nothing in common there. (Where one of the two has no
+//!    content its activity is 0, and the coherence does not count.)
+//! 4. The angle ([`angle`]): `t = w ANGLE (1 + w' (1 - coherence)^APART)`,
+//!    `w` the channel's activity and `w'` its partner's.
+//! 5. The pair of each coupling sub-band ([`pair`]): `a = cos t
+//!    h(f)^(w/2)` and `b = sqrt(1 - a^2)`, with `h` falling with the centre
+//!    bin `f` of the sub-band ([`falloff`]). So `a^2 + b^2 = 1` to the
+//!    rounding, and a channel that is not active takes `a = 1`.
 //!
-//! A property of this rule, which the mode does not hide: when a channel's
-//! own region goes silent, its `rho` goes to 1 and `b` to 0 while `D` still
-//! rings with a transient of the blocks before, so the tail of the
-//! transient loses its filtered part and the channel keeps about `a^2` of
-//! the transient's power. On the authored scene that is up to 3,1 dB in the
-//! left channel (`docs/eac3.md`).
+//! What it does not reproduce: Dolby's decoder turns the second channel of
+//! a stereo pair by about 0,1 radian more than the first on most of the test
+//! signals, the two channels the same, and the other way round on two
+//! signals. The rule turns both alike, which leaves the coherence of the
+//! pair, a function of the sum of the two angles, as measured.
 
 use crate::frame::{Coupling, N};
 
@@ -209,98 +210,107 @@ pub const ALLPASS: [f64; 3] = [-0.0944, 0.0242, -0.3957];
 /// is a fixed comparison, so the output stays deterministic.
 pub const FLUSH: f64 = 1e-30;
 
-/// The first bin of a channel's own region that the weight reads. Bins 0
-/// and 1 (under 140 Hz) hold what a channel shares with the LFE more than
-/// with the other channels, and are left out. A choice, not a fit.
-pub const OWN_FIRST_BIN: usize = 2;
+/// The first bin the weight reads under the coupling begin frequency, some
+/// 1,2 kHz. On Dolby's decodes a channel whose content under the coupling
+/// begin frequency is a tone of 440 Hz (bin 4,7) is not decorrelated, and
+/// one with a tone of 2 kHz or noise from 1 kHz up is, whether that content
+/// is noise or a tone. The bands of twelve bins are counted down from the
+/// first coupled bin, `37 + 12 cplbegf`, so that from bin 13 they fall on
+/// the grid of the coupling sub-bands. Fitted only as far as that: the
+/// limit lies somewhere between bins 5 and 13.
+pub const OWN_FIRST_BIN: usize = 13;
 
-/// The share `rho` of a block is `SMOOTHING` times the smoothed share of
-/// the block before plus the rest times its own, which keeps the weight
-/// from jumping where the own region of one block says little. Dolby's
-/// weight was seen to move by 0,02 to 0,10 from block to block
-/// (`docs/eac3.md`). A choice, not a fit.
-pub const SMOOTHING: f64 = 0.5;
+/// The width of a band the weight reads, that of a coupling sub-band.
+pub const BAND: usize = Coupling::SUB_BAND;
 
-/// The centre bin of the first coupling sub-band the angle was fitted on:
-/// the stereo test signals of `tools/coupling_mix.py signals`, encoded by
-/// FFmpeg, couple from bin 49 in eight sub-bands, whose centres are bins
-/// 54,5 and 138,5 at the ends.
-pub const FIT_FIRST_CENTRE: f64 = 54.5;
-/// The centre bin of the last fitted sub-band; see [`FIT_FIRST_CENTRE`].
-pub const FIT_LAST_CENTRE: f64 = 138.5;
+/// The powers of a block enter the smoothed powers by this much:
+/// `p = p + SMOOTHING (x - p)`, the first block of a channel taken as it
+/// is. The weight read off Dolby's decodes moves smoothly, its correlation
+/// from one block to the next 0,6 to 0,9 and gone after 12 to 24 blocks.
+/// Fitted with 1/4, 1/8 and 1/16, the rule misses it per block by 0,0569,
+/// 0,0563 and 0,0560 radian (root mean square), so the figure matters
+/// little; the eighth is a choice between the two.
+pub const SMOOTHING: f64 = 0.125;
 
-/// The angle `t0`, in radians, of the first fitted sub-band: `acos 0,93`.
-/// 0,93 is the mean direct weight Dolby's decoder gave the left channel of
-/// the test signal `low-left` there, where only the left channel has noise
-/// of its own under the coupling begin frequency and the right channel has
-/// nothing but the shared tone (`docs/eac3.md`, evidence 52). The fit takes
-/// the left channel's `rho` as 0 and the right channel's as 1. An estimate,
-/// not Dolby's rule.
-pub const ANGLE_FIRST: f64 = 0.376_383_482_317_728;
-/// The same in the last fitted sub-band: `acos 0,81`, from the same
-/// measurement. An estimate, not Dolby's rule.
-pub const ANGLE_LAST: f64 = 0.626_644_211_640_741;
+/// The activity of a channel is 0 where the bands under the coupling begin
+/// frequency hold this much of its power or less, in dB. Fitted: on Dolby's
+/// decodes a channel with that region 26,8 dB or more under its whole power
+/// was never decorrelated, and one with it 17,8 dB or less under always
+/// was; the ramp between the two is the line that puts the channel at
+/// 17,8 dB at the angle Dolby gave it, 0,92 of the full one.
+pub const ACTIVE_FROM_DB: f64 = -27.0;
+/// The activity is 1 from here up; see [`ACTIVE_FROM_DB`].
+pub const ACTIVE_TO_DB: f64 = -17.0;
 
-/// How much more a channel is decorrelated when the other channels have
-/// content of their own too. Where both channels of the test signal
-/// `low-both` have noise of their own the left channel's direct weight was
-/// 0,72 to 0,61, where `low-left` gives 0,93 to 0,81: at the middle of the
-/// eight sub-bands the angle is 1,677 times as large, so `OTHERS = 0,677`,
-/// with every `rho` taken as 0. One figure for all sub-bands is a
-/// simplification: the ratio is 2,0 in the first sub-band and 1,5 in the
-/// last. An estimate, not Dolby's rule.
-pub const OTHERS: f64 = 0.677;
+/// The angle, in radians, of an active channel whose partner has the same
+/// content as it, or none. Fitted by least squares, per block, with
+/// [`APART`], on 24 test signals (`docs/eac3.md`); Dolby's decoder gave 0,37
+/// to the first channel and 0,48 to the second there.
+pub const ANGLE: f64 = 0.42;
 
-/// The largest angle, 60 degrees, which holds `a` to 0,5 or more. Nothing
-/// under 0,6 was measured. A choice, not a fit.
-pub const ANGLE_MAX: f64 = std::f64::consts::FRAC_PI_3;
+/// How the angle grows as the two channels of a pair have other content:
+/// by the factor `1 + (1 - coherence)^APART`, so that two channels with
+/// nothing in common take twice [`ANGLE`]. Fitted with [`ANGLE`].
+pub const APART: f64 = 0.68;
 
-/// The angle `t0` of a coupling sub-band whose centre bin is `centre`:
-/// along the line through the two fitted ends, never below zero.
+/// How fast `a^2` falls with the centre bin of the coupling sub-band, per
+/// bin: `h = exp(-FALLOFF (f - FALLOFF_FROM))`. Fitted on the active
+/// channels of the fit signals, where `a^2` of the last of eight sub-bands
+/// is 0,754 of that of the first, and the same on every signal. All of them
+/// couple from bin 49; how `h` goes for another coupling range was not
+/// measured.
+pub const FALLOFF: f64 = 0.003_36;
+/// The centre bin from which `h` falls, that of the first coupling sub-band
+/// of the fit signals; `h` is 1 under it.
+pub const FALLOFF_FROM: f64 = 54.5;
+
+/// The activity of a channel whose bands under the coupling begin frequency
+/// hold `share` of its power: step 2 of the rule of the module.
 #[must_use]
-pub fn base_angle(centre: f64) -> f64 {
-    let slope = (ANGLE_LAST - ANGLE_FIRST) / (FIT_LAST_CENTRE - FIT_FIRST_CENTRE);
-    (ANGLE_FIRST + slope * (centre - FIT_FIRST_CENTRE)).max(0.0)
-}
-
-/// The pair `(a, b)` of a channel in a coupling sub-band, from its smoothed
-/// share `rho`, the mean smoothed share of the other channels that take
-/// part, and the centre bin of the sub-band. `a^2 + b^2 = 1` to the
-/// rounding, and `b >= 0`: the sign is the channel's [`Role`].
-#[must_use]
-pub fn pair(rho: f64, rho_others: f64, centre: f64) -> (f64, f64) {
-    let own = 1.0 - rho.clamp(0.0, 1.0);
-    let others = 1.0 - rho_others.clamp(0.0, 1.0);
-    let angle = (own * base_angle(centre) * (1.0 + OTHERS * others)).min(ANGLE_MAX);
-    (angle.cos(), angle.sin())
-}
-
-/// The share `rho` of channel `ch`'s own region, the bins from
-/// [`OWN_FIRST_BIN`] to the first coupled one, that the other coupled
-/// full-bandwidth channels have too: step 1 of the rule of the module.
-/// 1 for a channel with nothing there.
-#[must_use]
-#[allow(
-    clippy::needless_range_loop,
-    reason = "a bin addresses the same place in several channels"
-)]
-pub fn share(coeffs: &[[f64; N]], coupling: &Coupling, nfchans: usize, ch: usize) -> f64 {
-    let mut energy = 0.0;
-    let mut shared = 0.0;
-    for bin in OWN_FIRST_BIN..coupling.start.min(N) {
-        let x = coeffs[ch][bin];
-        if x == 0.0 {
-            continue;
-        }
-        let others: f64 = (0..nfchans)
-            .filter(|&o| o != ch && coupling.is_coupled(o))
-            .map(|o| coeffs[o][bin])
-            .sum();
-        let e = x * x;
-        energy += e;
-        shared += e * (x * others / e).clamp(0.0, 1.0);
+pub fn activity(share: f64) -> f64 {
+    if share.is_nan() || share <= 0.0 {
+        return 0.0;
     }
-    if energy > 0.0 { shared / energy } else { 1.0 }
+    let db = 10.0 * share.log10();
+    ((db - ACTIVE_FROM_DB) / (ACTIVE_TO_DB - ACTIVE_FROM_DB)).clamp(0.0, 1.0)
+}
+
+/// The angle of a channel from its activity, its partner's and the
+/// coherence of the pair: step 4 of the rule of the module.
+#[must_use]
+pub fn angle(active: f64, partner: f64, coherence: f64) -> f64 {
+    let apart = (1.0 - coherence.clamp(0.0, 1.0)).powf(APART);
+    active.clamp(0.0, 1.0) * ANGLE * (1.0 + partner.clamp(0.0, 1.0) * apart)
+}
+
+/// `h` of a coupling sub-band whose centre bin is `centre`, at most 1.
+#[must_use]
+pub fn falloff(centre: f64) -> f64 {
+    (-FALLOFF * (centre - FALLOFF_FROM).max(0.0)).exp()
+}
+
+/// The pair `(a, b)` of a channel in a coupling sub-band, from its angle,
+/// its activity and the centre bin of the sub-band: step 5 of the rule of
+/// the module. `a^2 + b^2 = 1` to the rounding, and `b >= 0`: the sign is
+/// the channel's [`Role`].
+#[must_use]
+pub fn pair(angle: f64, active: f64, centre: f64) -> (f64, f64) {
+    let a = (angle.cos() * falloff(centre).powf(0.5 * active.clamp(0.0, 1.0))).clamp(0.0, 1.0);
+    (a, (1.0 - a * a).max(0.0).sqrt())
+}
+
+/// The bands the weight reads under a coupling that starts at bin `start`,
+/// lowest first.
+#[must_use]
+pub fn bands(start: usize) -> Vec<std::ops::Range<usize>> {
+    let mut out = Vec::new();
+    let mut high = start.min(N);
+    while high >= OWN_FIRST_BIN + BAND {
+        out.push(high - BAND..high);
+        high -= BAND;
+    }
+    out.reverse();
+    out
 }
 
 /// What a coded channel takes of the decorrelation.
@@ -387,14 +397,54 @@ impl Delayed {
     }
 }
 
+/// The pairs of channels that take `b` with opposite signs, as indices of
+/// coded channels: each [`Role::Plus`] with the [`Role::Minus`] after it.
+#[must_use]
+pub fn pairs(roles: &[Role]) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    let mut open = None;
+    for (ch, role) in roles.iter().enumerate() {
+        match role {
+            Role::Plus => open = Some(ch),
+            Role::Minus => {
+                if let Some(first) = open.take() {
+                    out.push((first, ch));
+                }
+            }
+            Role::Untouched => {}
+        }
+    }
+    out
+}
+
+/// The smoothed powers of one channel: step 1 of the rule of the module.
+#[derive(Debug, Clone, PartialEq)]
+struct Powers {
+    /// Of the whole channel, bins 1 and up.
+    total: f64,
+    /// Of each band of [`bands`].
+    bands: Vec<f64>,
+}
+
+/// `old + SMOOTHING (new - old)`, or `new` where there is nothing before.
+fn smoothed(old: Option<f64>, new: f64) -> f64 {
+    old.map_or(new, |old| old + SMOOTHING * (new - old))
+}
+
 /// The decorrelation of one substream: the filter state of every bin of
-/// every coded channel, carried from block to block.
+/// every coded channel and the smoothed powers of the weight, carried from
+/// block to block.
 #[derive(Debug, Clone)]
 pub struct Decorrelator {
     filters: Vec<[Delayed; N]>,
-    /// The smoothed share `rho` of every full-bandwidth channel, `None`
-    /// where the channel took no part in the block before.
-    shares: [Option<f64>; 5],
+    /// The smoothed powers of every full-bandwidth channel, `None` where the
+    /// channel took no part in the block before.
+    powers: Vec<Option<Powers>>,
+    /// The smoothed product of the two channels of every pair of
+    /// [`pairs`] in each band, `None` where the pair took no part.
+    products: Vec<Option<Vec<f64>>>,
+    /// The first coupled bin the bands were counted from.
+    start: usize,
 }
 
 impl Default for Decorrelator {
@@ -409,14 +459,18 @@ impl Decorrelator {
     pub fn new() -> Self {
         Self {
             filters: Vec::new(),
-            shares: [None; 5],
+            powers: Vec::new(),
+            products: Vec::new(),
+            start: 0,
         }
     }
 
-    /// Sets every filter to rest and forgets the smoothed shares.
+    /// Sets every filter to rest and forgets the smoothed powers.
     pub fn reset(&mut self) {
         self.filters.clear();
-        self.shares = [None; 5];
+        self.powers.clear();
+        self.products.clear();
+        self.start = 0;
     }
 
     /// Whether one block of a stream whose layout is `(acmod, lfeon)` and
@@ -442,12 +496,131 @@ impl Decorrelator {
         Ok((roles, coupling))
     }
 
+    /// Steps 1 to 4 of the rule of the module for the channels of one block:
+    /// the smoothed powers are brought up to the block, and the angle and the
+    /// activity of every coded channel come back, `(0, 0)` for a channel
+    /// that takes no part.
+    fn angles(
+        &mut self,
+        roles: &[Role],
+        nfchans: usize,
+        coupling: &Coupling,
+        coeffs: &[[f64; N]],
+    ) -> Vec<(f64, f64)> {
+        let start = coupling.start.min(N);
+        let bands = bands(start);
+        let couples = pairs(roles);
+        if self.start != start
+            || self.powers.len() != nfchans
+            || self.products.len() != couples.len()
+        {
+            self.powers = vec![None; nfchans];
+            self.products = vec![None; couples.len()];
+            self.start = start;
+        }
+        let takes_part =
+            |ch: usize| ch < nfchans && roles[ch] != Role::Untouched && coupling.is_coupled(ch);
+
+        for (ch, slot) in self.powers.iter_mut().enumerate() {
+            if !takes_part(ch) {
+                *slot = None;
+                continue;
+            }
+            let power = |range: std::ops::Range<usize>| -> f64 {
+                coeffs[ch][range].iter().map(|v| v * v).sum()
+            };
+            let old = slot.take();
+            let total = smoothed(old.as_ref().map(|p| p.total), power(1..N));
+            let in_bands = bands
+                .iter()
+                .enumerate()
+                .map(|(j, b)| smoothed(old.as_ref().map(|p| p.bands[j]), power(b.clone())))
+                .collect();
+            *slot = Some(Powers {
+                total,
+                bands: in_bands,
+            });
+        }
+        for (k, &(p, q)) in couples.iter().enumerate() {
+            if !(takes_part(p) && takes_part(q)) {
+                self.products[k] = None;
+                continue;
+            }
+            let old = self.products[k].take();
+            let now = bands
+                .iter()
+                .enumerate()
+                .map(|(j, b)| {
+                    let raw: f64 = b.clone().map(|bin| coeffs[p][bin] * coeffs[q][bin]).sum();
+                    smoothed(old.as_ref().map(|o| o[j]), raw)
+                })
+                .collect();
+            self.products[k] = Some(now);
+        }
+
+        let active: Vec<f64> = self
+            .powers
+            .iter()
+            .map(|p| {
+                p.as_ref().map_or(0.0, |p| {
+                    if p.total > 0.0 {
+                        activity(p.bands.iter().sum::<f64>() / p.total)
+                    } else {
+                        0.0
+                    }
+                })
+            })
+            .collect();
+        let floor = 10f64.powf(ACTIVE_FROM_DB / 10.0);
+        let mut out = vec![(0.0, 0.0); roles.len()];
+        for (ch, slot) in out.iter_mut().enumerate().take(nfchans) {
+            if !takes_part(ch) {
+                continue;
+            }
+            let mut partner = 0.0;
+            let mut coherence = 1.0;
+            if let Some((k, &(p, q))) = couples
+                .iter()
+                .enumerate()
+                .find(|&(_, &(p, q))| p == ch || q == ch)
+            {
+                let other = if p == ch { q } else { p };
+                if let (Some(pp), Some(qq), Some(product)) =
+                    (&self.powers[p], &self.powers[q], &self.products[k])
+                {
+                    partner = active[other];
+                    let heard = |x: &Powers, j: usize| x.bands[j] > floor * x.total;
+                    let common = (0..bands.len())
+                        .rev()
+                        .find(|&j| heard(pp, j) && heard(qq, j));
+                    // Two channels with content in no band in common have
+                    // nothing in common. Where one of them has no content,
+                    // its activity is 0 and the coherence does not count.
+                    coherence = match common {
+                        Some(j) => {
+                            let norm = (pp.bands[j] * qq.bands[j]).sqrt();
+                            if norm > 0.0 {
+                                (product[j].abs() / norm).min(1.0)
+                            } else {
+                                0.0
+                            }
+                        }
+                        None => 0.0,
+                    };
+                }
+            }
+            *slot = (angle(active[ch], partner, coherence), active[ch]);
+        }
+        out
+    }
+
     /// Decorrelates the coupled region of one block in place, `coeffs` being
     /// the block's coefficients of every coded channel as the plain decode
     /// has them. Bins outside the coupled region, channels not in coupling
-    /// and channels whose role is [`Role::Untouched`] are left as they are.
-    /// Where the block cannot be decorrelated it is left as it is, every
-    /// filter is set to rest, and the reason is returned.
+    /// and channels whose role is [`Role::Untouched`] are left as they are,
+    /// and so is a channel whose activity is 0. Where the block cannot be
+    /// decorrelated it is left as it is, every filter is set to rest, and the
+    /// reason is returned.
     ///
     /// # Errors
     ///
@@ -476,20 +649,8 @@ impl Decorrelator {
         let nfchans = roles.len() - usize::from(lfeon);
         let end = coupling.end.min(N);
         let start = coupling.start.min(end);
-        let takes_part = |ch: usize| roles[ch] != Role::Untouched && coupling.is_coupled(ch);
-
-        // The shares, of the plain coefficients, before any channel changes.
-        let mut shares = [None; 5];
-        for (ch, slot) in shares.iter_mut().enumerate().take(nfchans) {
-            if takes_part(ch) {
-                let raw = share(coeffs, coupling, nfchans, ch);
-                *slot = Some(match self.shares[ch] {
-                    Some(before) => SMOOTHING * before + (1.0 - SMOOTHING) * raw,
-                    None => raw,
-                });
-            }
-        }
-        self.shares = shares;
+        // The angles, of the plain coefficients, before any channel changes.
+        let angles = self.angles(roles, nfchans, coupling, coeffs);
 
         for (ch, role) in roles.iter().enumerate() {
             let sign = match role {
@@ -498,20 +659,11 @@ impl Decorrelator {
                 Role::Untouched => continue,
             };
             let filters = &mut self.filters[ch];
-            let Some(rho) = shares.get(ch).copied().flatten() else {
+            if ch >= nfchans || !coupling.is_coupled(ch) {
                 *filters = [Delayed::new(); N];
                 continue;
-            };
-            let (sum, count) = shares
-                .iter()
-                .enumerate()
-                .filter_map(|(o, s)| s.filter(|_| o != ch))
-                .fold((0.0, 0u32), |(sum, count), s| (sum + s, count + 1));
-            let rho_others = if count == 0 {
-                1.0
-            } else {
-                sum / f64::from(count)
-            };
+            }
+            let (t, active) = angles[ch];
             for (bin, filter) in filters.iter_mut().enumerate() {
                 if !(start..end).contains(&bin) {
                     *filter = Delayed::new();
@@ -521,13 +673,13 @@ impl Decorrelator {
             while first < end {
                 let last = (first + Coupling::SUB_BAND).min(end);
                 let centre = 0.5 * (first + last - 1) as f64;
-                let (a, b) = pair(rho, rho_others, centre);
+                let (a, b) = pair(t, active, centre);
                 for bin in first..last {
                     let filter = &mut filters[bin];
                     let fresh = !filter.is_primed();
                     let x = coeffs[ch][bin];
                     let d = filter.step(x);
-                    if !fresh {
+                    if !fresh && b != 0.0 {
                         coeffs[ch][bin] = a * x + sign * b * d;
                     }
                 }
@@ -622,85 +774,133 @@ mod tests {
 
     #[test]
     fn a_pair_squares_to_one_and_falls_with_frequency() {
-        for rho in [0.0, 0.3, 0.9, 1.0] {
-            for others in [0.0, 0.5, 1.0] {
+        for t in [0.0, 0.2, ANGLE, 2.0 * ANGLE] {
+            for active in [0.0, 0.5, 1.0] {
                 let mut before = 1.0;
                 for s in 0..8 {
-                    let (a, b) = pair(rho, others, FIT_FIRST_CENTRE + 12.0 * f64::from(s));
+                    let (a, b) = pair(t, active, FALLOFF_FROM + 12.0 * f64::from(s));
                     assert!((a * a + b * b - 1.0).abs() < 1e-15);
-                    assert!(b >= 0.0 && a >= ANGLE_MAX.cos() - 1e-12);
+                    assert!(b >= 0.0 && a <= 1.0);
                     assert!(a <= before, "a rises with frequency");
                     before = a;
                 }
             }
         }
-        assert_eq!(pair(1.0, 0.0, 100.0), (1.0, 0.0));
-        let (first, _) = pair(0.0, 1.0, FIT_FIRST_CENTRE);
-        let (last, _) = pair(0.0, 1.0, FIT_LAST_CENTRE);
-        assert!((first - 0.93).abs() < 1e-5 && (last - 0.81).abs() < 1e-5);
+        assert_eq!(pair(0.0, 0.0, 200.0), (1.0, 0.0));
+        assert_eq!(falloff(FALLOFF_FROM - 20.0), 1.0);
     }
 
-    /// The term for the other channels: with `rho_others < 1` a channel is
-    /// turned further than with `rho_others = 1`, by `1 + OTHERS (1 -
-    /// rho_others)`, wherever the angle stays under [`ANGLE_MAX`].
+    /// The constants against what they were fitted on (`docs/eac3.md`): the
+    /// angle of an active channel beside a partner with the same content or
+    /// none, twice that beside one with nothing in common, and `h` of the
+    /// last of eight sub-bands, which Dolby's decodes put at 0,754 of the
+    /// first. And the direct weight of the first sub-band against Dolby's:
+    /// 0,931 for the left channel of `low-left`, a mean of 0,68 for the two
+    /// channels of `low-both`, whose noise has a coherence of some 0,05.
     #[test]
-    fn the_other_channels_turn_a_channel_further_by_the_documented_factor() {
-        for rho in [0.0, 0.4] {
-            for centre in [FIT_FIRST_CENTRE, 80.0, FIT_LAST_CENTRE] {
-                let (alone, _) = pair(rho, 1.0, centre);
-                for rho_others in [0.0, 0.25, 0.5, 0.75] {
-                    let (a, _) = pair(rho, rho_others, centre);
-                    let factor = 1.0 + OTHERS * (1.0 - rho_others);
-                    let wanted = (alone.acos() * factor).min(ANGLE_MAX);
-                    assert!(a < alone, "rho_others {rho_others} did not turn it further");
-                    assert!((a.acos() - wanted).abs() < 1e-12, "{} {wanted}", a.acos());
+    fn the_fitted_figures_come_out_of_the_constants() {
+        assert_eq!(angle(1.0, 0.0, 0.3), ANGLE);
+        assert_eq!(angle(1.0, 1.0, 1.0), ANGLE);
+        assert!((angle(1.0, 1.0, 0.0) - 2.0 * ANGLE).abs() < 1e-15);
+        assert!((falloff(FALLOFF_FROM + 84.0) - 0.754).abs() < 0.002);
+        let (alone, _) = pair(angle(1.0, 0.0, 1.0), 1.0, FALLOFF_FROM);
+        assert!((alone - 0.931).abs() < 0.02, "{alone}");
+        let (apart, _) = pair(angle(1.0, 1.0, 0.05), 1.0, FALLOFF_FROM);
+        assert!((apart - 0.68).abs() < 0.01, "{apart}");
+        // `both-phi30`, whose noise has a coherence of 0,87: Dolby turned
+        // the two channels by 0,509 radian in the mean.
+        let t = angle(1.0, 1.0, 0.87);
+        assert!((t - 0.509).abs() < 0.03, "{t}");
+    }
+
+    /// The term for the partner: a channel is turned further by `1 + w' (1 -
+    /// coherence)^APART` than it is alone.
+    #[test]
+    fn the_partner_turns_a_channel_further_by_the_documented_factor() {
+        for active in [0.5, 1.0] {
+            let alone = angle(active, 0.0, 0.0);
+            for partner in [0.25, 1.0] {
+                for coherence in [0.0f64, 0.3, 0.9] {
+                    let factor = 1.0 + partner * (1.0 - coherence).powf(APART);
+                    let t = angle(active, partner, coherence);
+                    assert!(t > alone);
+                    assert!((t - alone * factor).abs() < 1e-15, "{t} {alone} {factor}");
                 }
             }
         }
     }
 
-    /// What the constants give where both channels of `low-both` have noise
-    /// of their own (every `rho` 0), against what Dolby's decoder gave the
-    /// left channel there: 0,72 in the first fitted sub-band and 0,61 in the
-    /// last (`docs/eac3.md`). One factor for all sub-bands is fitted at the
-    /// middle, where the two meet to 1e-3; at the ends it is 0,09 and 0,11
-    /// off, which is the simplification [`OTHERS`] states, and the test
-    /// holds them to 0,12.
     #[test]
-    fn the_low_both_figures_come_out_of_the_constants() {
-        let middle = 0.5 * (FIT_FIRST_CENTRE + FIT_LAST_CENTRE);
-        let measured_middle = 0.5 * (0.72f64.acos() + 0.61f64.acos());
-        let (a, _) = pair(0.0, 0.0, middle);
-        assert!((a - measured_middle.cos()).abs() < 1e-3, "{a}");
-        let (first, _) = pair(0.0, 0.0, FIT_FIRST_CENTRE);
-        let (last, _) = pair(0.0, 0.0, FIT_LAST_CENTRE);
-        assert!((first - 0.72).abs() < 0.12, "{first}");
-        assert!((last - 0.61).abs() < 0.12, "{last}");
-        // And `low-left`, where the right channel has nothing of its own.
-        let (first, _) = pair(0.0, 1.0, FIT_FIRST_CENTRE);
-        let (last, _) = pair(0.0, 1.0, FIT_LAST_CENTRE);
-        assert!((first - 0.93).abs() < 1e-9 && (last - 0.81).abs() < 1e-9);
+    fn activity_ramps_between_its_two_levels() {
+        let share = |db: f64| 10f64.powf(db / 10.0);
+        assert_eq!(activity(0.0), 0.0);
+        assert_eq!(activity(share(ACTIVE_FROM_DB - 1.0)), 0.0);
+        assert!((activity(share(0.5 * (ACTIVE_FROM_DB + ACTIVE_TO_DB))) - 0.5).abs() < 1e-12);
+        assert_eq!(activity(share(ACTIVE_TO_DB + 0.1)), 1.0);
+        assert_eq!(activity(1.0), 1.0);
     }
 
-    /// A stereo block whose left channel has noise of its own in bins 12 to
-    /// 29, and whose right channel has, where `right_own`, noise of its own
-    /// in bins 30 to 47, where the left channel has nothing: the left
-    /// channel's share is the same either way, and only what the other
-    /// channel has of its own changes. The coupled region is the same for
-    /// the same seed.
+    #[test]
+    fn the_bands_lie_on_the_grid_of_the_coupling_sub_bands() {
+        assert_eq!(bands(49), vec![13..25, 25..37, 37..49]);
+        assert_eq!(bands(37), vec![13..25, 25..37]);
+        assert!(bands(24).is_empty());
+        assert_eq!(pairs(roles(2, false).unwrap()), vec![(0, 1)]);
+        assert_eq!(pairs(roles(7, true).unwrap()), vec![(0, 2), (3, 4)]);
+    }
+
+    /// Stereo blocks whose left channel has a tone in bin `left_bin` and the
+    /// right channel nothing under the coupling begin frequency: the left
+    /// channel is decorrelated only when its tone lies in the bands the
+    /// weight reads.
+    #[test]
     #[allow(
         clippy::needless_range_loop,
         reason = "a bin addresses the same place in both channels"
     )]
-    fn apart_block(seed: &mut u32, right_own: bool) -> Vec<[f64; N]> {
+    fn a_tone_counts_only_from_the_first_band_up() {
+        let c = stereo_coupling();
+        for (left_bin, wanted) in [(5, false), (OWN_FIRST_BIN - 1, false), (20, true)] {
+            let mut dec = Decorrelator::new();
+            let mut seed = 11;
+            let mut moved = false;
+            for n in 0..24 {
+                let mut plain = vec![[0.0; N]; 2];
+                plain[0][left_bin] = if n % 2 == 0 { 0.3 } else { -0.25 };
+                for bin in c.start..c.end {
+                    let x = 0.05 * lcg(&mut seed);
+                    plain[0][bin] = 0.8 * x;
+                    plain[1][bin] = 0.6 * x;
+                }
+                let mut out = plain.clone();
+                assert_eq!(dec.block(2, false, Some(&c), &mut out), Ok(()));
+                assert_eq!(out[1], plain[1], "the right channel has nothing of its own");
+                moved |= out[0] != plain[0];
+            }
+            assert_eq!(moved, wanted, "a tone in bin {left_bin}");
+        }
+    }
+
+    /// A stereo block whose left channel has noise of its own in bins 13 to
+    /// 29, and whose right channel has, where `right_own`, other noise of its
+    /// own, in bins 30 to 47 or, where `same`, the left channel's noise
+    /// again. The coupled region is the same for the same seed.
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "a bin addresses the same place in both channels"
+    )]
+    fn apart_block(seed: &mut u32, right_own: bool, same: bool) -> Vec<[f64; N]> {
         let c = stereo_coupling();
         let mut coeffs = vec![[0.0; N]; 2];
-        for bin in 12..30 {
+        for bin in 13..30 {
             coeffs[0][bin] = 0.1 * lcg(seed);
+            if same {
+                coeffs[1][bin] = coeffs[0][bin];
+            }
         }
         for bin in 30..48 {
             let r = 0.1 * lcg(seed);
-            if right_own {
+            if right_own && !same {
                 coeffs[1][bin] = r;
             }
         }
@@ -712,33 +912,117 @@ mod tests {
         coeffs
     }
 
-    /// At the level of a block: the same left channel is decorrelated more
-    /// when the right channel has content of its own under the coupling
-    /// begin frequency than when it has none. What is compared is the power
-    /// the decorrelation adds to the left channel's coupled region,
-    /// `sum (Y - X)^2` over 24 blocks; with `rho_others` near 0 the angle is
-    /// some 1,6 times as large, and the power of `Y - X` grows with the
-    /// square of the angle.
-    #[test]
-    fn a_channel_is_decorrelated_more_when_the_other_has_content_of_its_own() {
+    /// The power the decorrelation adds to the left channel's coupled region,
+    /// `sum (Y - X)^2` over 24 blocks of [`apart_block`].
+    fn left_moved(right_own: bool, same: bool) -> f64 {
         let c = stereo_coupling();
-        let moved = |right_own: bool| {
-            let mut dec = Decorrelator::new();
-            let mut seed = 21;
-            let mut sum = 0.0;
-            for _ in 0..24 {
-                let plain = apart_block(&mut seed, right_own);
-                let mut out = plain.clone();
-                assert_eq!(dec.block(2, false, Some(&c), &mut out), Ok(()));
-                for bin in c.start..c.end {
-                    sum += (out[0][bin] - plain[0][bin]).powi(2);
-                }
+        let mut dec = Decorrelator::new();
+        let mut seed = 21;
+        let mut sum = 0.0;
+        for _ in 0..24 {
+            let plain = apart_block(&mut seed, right_own, same);
+            let mut out = plain.clone();
+            assert_eq!(dec.block(2, false, Some(&c), &mut out), Ok(()));
+            for bin in c.start..c.end {
+                sum += (out[0][bin] - plain[0][bin]).powi(2);
             }
-            sum
-        };
-        let (alone, beside) = (moved(false), moved(true));
+        }
+        sum
+    }
+
+    /// At the level of a block: the same left channel is decorrelated more
+    /// when the right channel has other content of its own under the
+    /// coupling begin frequency than when it has none or the same. With
+    /// nothing in common the angle is some twice as large, and the power of
+    /// `Y - X` grows with the square of the angle.
+    #[test]
+    fn a_channel_is_decorrelated_more_when_the_other_has_other_content() {
+        let alone = left_moved(false, false);
+        let same = left_moved(true, true);
+        let beside = left_moved(true, false);
         assert!(alone > 0.0, "the left channel was not decorrelated at all");
-        assert!(beside > 1.5 * alone, "{beside} against {alone}");
+        assert!(
+            (same - alone).abs() < 0.05 * alone,
+            "{same} against {alone}"
+        );
+        assert!(beside > 2.5 * alone, "{beside} against {alone}");
+    }
+
+    /// The power the decorrelation adds to the left channel's coupled region
+    /// over 24 stereo blocks whose own regions `own` writes, with the same
+    /// coupled region for the same seed.
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "a bin addresses the same place in both channels"
+    )]
+    fn moved_by(own: impl Fn(&mut u32, &mut [[f64; N]])) -> f64 {
+        let c = stereo_coupling();
+        let mut dec = Decorrelator::new();
+        let mut seed = 41;
+        let mut sum = 0.0;
+        for _ in 0..24 {
+            let mut plain = vec![[0.0; N]; 2];
+            own(&mut seed, &mut plain);
+            for bin in c.start..c.end {
+                let x = 0.05 * lcg(&mut seed);
+                plain[0][bin] = 0.8 * x;
+                plain[1][bin] = 0.6 * x;
+            }
+            let mut out = plain.clone();
+            assert_eq!(dec.block(2, false, Some(&c), &mut out), Ok(()));
+            for bin in c.start..c.end {
+                sum += (out[0][bin] - plain[0][bin]).powi(2);
+            }
+        }
+        sum
+    }
+
+    /// The coherence of a pair is read in the highest band both channels
+    /// have content in: a tone the two share in bins 13 to 24 does not make
+    /// them alike where their noise in bins 37 to 48 is not. And two
+    /// channels with content in no band in common are as apart as two with
+    /// other noise in the same band.
+    #[test]
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "a bin addresses the same place in both channels"
+    )]
+    fn the_highest_band_in_common_decides() {
+        let same_noise = moved_by(|seed, own| {
+            for bin in 37..49 {
+                own[0][bin] = 0.1 * lcg(seed);
+                own[1][bin] = own[0][bin];
+            }
+        });
+        let other_noise = moved_by(|seed, own| {
+            for bin in 37..49 {
+                own[0][bin] = 0.1 * lcg(seed);
+                own[1][bin] = 0.1 * lcg(seed);
+            }
+        });
+        let shared_tone_other_noise = moved_by(|seed, own| {
+            own[0][15] = 0.3;
+            own[1][15] = 0.3;
+            for bin in 37..49 {
+                own[0][bin] = 0.1 * lcg(seed);
+                own[1][bin] = 0.1 * lcg(seed);
+            }
+        });
+        let apart_bands = moved_by(|seed, own| {
+            for bin in 13..25 {
+                own[0][bin] = 0.1 * lcg(seed);
+            }
+            for bin in 37..49 {
+                own[1][bin] = 0.1 * lcg(seed);
+            }
+        });
+        assert!(same_noise > 0.0);
+        assert!(other_noise > 2.5 * same_noise, "{other_noise} {same_noise}");
+        assert!(
+            shared_tone_other_noise > 2.5 * same_noise,
+            "{shared_tone_other_noise} {same_noise}"
+        );
+        assert!(apart_bands > 2.5 * same_noise, "{apart_bands} {same_noise}");
     }
 
     /// Bins on both sides of the coupled region, under its start and at and
