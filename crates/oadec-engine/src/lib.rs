@@ -13,6 +13,8 @@
 //! an [`Error`] that says which kind of thing went wrong. [`api`] is what
 //! they stand on, the commands as calls: family by family the report a
 //! command prints, and what it refuses in the words the command says.
+//! [`stream`] decodes a stream as its bytes arrive, reading it once, for a
+//! caller that has a pipe or a socket and not a file.
 //!
 //! ```
 //! use oadec_engine::Error;
@@ -59,6 +61,7 @@ pub mod oamd;
 pub mod protection;
 pub mod scan;
 pub mod source;
+pub mod stream;
 pub mod verify;
 
 pub use calls::{

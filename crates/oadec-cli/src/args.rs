@@ -11,6 +11,7 @@ use oadec_spatial::{Interpolation, IsfPolicy};
 use oadec_engine::damf::Warp;
 use oadec_engine::decode::{Format, OnError, Order};
 use oadec_engine::eac3_objects::JocLowBand;
+use oadec_engine::stream::LayoutChange;
 
 /// `--format`: the output container.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -159,6 +160,29 @@ impl From<JocLowBandArg> for JocLowBand {
         match arg {
             JocLowBandArg::Filtered => Self::Filtered,
             JocLowBandArg::Untouched => Self::Untouched,
+        }
+    }
+}
+
+/// `--on-layout-change`: what a decode to samples does when the channels or
+/// the sampling frequency change in the middle of the stream.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub(crate) enum LayoutChangeArg {
+    /// End the output at the unit that changed (exit 7). What a decode to
+    /// standard output does when this is absent: a receiver of headerless
+    /// samples cannot be told that their width changed.
+    Stop,
+    /// Keep the layout of the first unit where the codec offers it: an
+    /// E-AC-3 programme writes silence in the channels a frame group does
+    /// not carry (exit 7). A TrueHD stream refuses it.
+    Fixed,
+}
+
+impl From<LayoutChangeArg> for LayoutChange {
+    fn from(arg: LayoutChangeArg) -> Self {
+        match arg {
+            LayoutChangeArg::Stop => Self::Stop,
+            LayoutChangeArg::Fixed => Self::Fixed,
         }
     }
 }

@@ -82,6 +82,19 @@ impl Findings {
         self.lossy = losses.declared_loss();
     }
 
+    /// What the verdict rests on, as `integrity:` lists it: a count and
+    /// what was counted, one entry a kind of fault.
+    #[must_use]
+    pub fn entries(&self) -> &[String] {
+        &self.entries
+    }
+
+    /// The first problem the pass described, if any.
+    #[must_use]
+    pub fn first(&self) -> Option<&str> {
+        self.first.as_deref()
+    }
+
     /// Whether the decode is trustworthy.
     #[must_use]
     pub fn is_clean(&self) -> bool {

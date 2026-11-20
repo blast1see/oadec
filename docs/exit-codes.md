@@ -5,6 +5,7 @@
 2   usage error, I/O error, unsupported input, or a decode that could not continue
 4   the object output was written but does not carry the whole programme (a declared loss)
 7   an integrity fault was detected that affects what was delivered
+141 decode -o -: the receiver closed standard output before the samples ended
 ```
 
 Every command uses the same codes, and 4 belongs to the object outputs alone
@@ -143,8 +144,33 @@ what the format is.
 | `emdf`, `oamd` | clean | non-conformant: a fault `verify` finds in the stream, or one in the metadata they read | could not be read, or holds no stream |
 | `decode` (PCM, WAV, CAF, DAMF, ADM, objects) | clean | a fault above, a TrueHD access unit or a frame of AC-3 or E-AC-3 concealed among them | fatal decode failure (a TrueHD one only with `--on-error stop`, or before the first output sample), no access unit or whole syncframe in the file, a configuration change before any output, a DVD-Audio (FBB) stream whose second channel group runs at another rate, an object output asked of an FBB stream, or an option that does not apply (below) |
 | `decode --format damf\|adm` with a declared loss | -- | 4 (above) | -- |
+| `decode -o -` | as `decode` | as `decode`, and a change of the channels or the sampling frequency (below) | as `decode`, and an object format, a terminal on standard output, or `--report -` (below) |
 | `compare` | matches and clean | differs, or a fault above | could not be read, holds no stream, or an option that does not apply (below) |
 | `thd-demux`, `eac3-joc-config`, `eac3-ecpl-inject` | always | — | could not be written |
+
+## A decode to standard output
+
+`decode -o -` writes its samples to standard output as they are decoded
+([`streaming.md`](streaming.md)), and its verdict is the verdict of the same
+decode to a file. Three things are its own.
+
+A change of the channels or the sampling frequency in the middle of the
+stream ends the samples there and the run exits 7, because a receiver of
+headerless samples cannot be told their width changed;
+`--on-layout-change fixed` keeps the layout of the first unit where the codec
+offers it, and the change is still a fault (exit 7).
+
+What cannot go to standard output is refused before the stream is read, exit
+2: `--format damf` or `adm`, whose files are gone back over when they are
+closed; standard output on a terminal; and `--report -`, which would put JSON
+beside the samples.
+
+A receiver that closes the pipe before the samples end, as `head -c` does,
+ends the run with one line on standard error and exit **141**, the status a
+shell gives a process that `SIGPIPE` ended. What the receiver read is a
+correct beginning of the samples; the decode is not judged, since it did not
+end. Only the samples on standard output end a run this way: a report that
+cannot be written to a closed pipe is still an I/O error, exit 2.
 
 ## An option that does not apply
 
@@ -169,6 +195,8 @@ for a measurement that is a wrong number under a right name.
 | `--no-bed-conform`, `--all-events`, `--loss-report`, `--isf`, `--warp-mode` | an object output (`--format damf` or `adm`) | a sample output |
 | `--dolby-origin-tag`, `--adm-allow-non-profile-rate`, `--adm-interpolation` | `--format adm` | `--format damf`, and a sample output |
 | `--fps` | `--format damf` | `--format adm`, and a sample output |
+| `--on-layout-change`, `--json`, `--report` (`decode`) | a sample output (`--format pcm` or `wav`) | an object output |
+| `--on-layout-change fixed` | an AC-3 or E-AC-3 stream | a TrueHD stream, whose decoder has no layout to keep |
 | `--reference-format` (`compare`) | a TrueHD stream | an AC-3 or E-AC-3 stream, whose reference is 32-bit float |
 | `--worst` (`compare`) | an AC-3 or E-AC-3 stream | a TrueHD stream, whose comparison is exact and lists its mismatches (`--report`) |
 | `--require-disc`, `--trace-fifo`, `--census` (`verify`) | a TrueHD stream | an AC-3 or E-AC-3 stream |

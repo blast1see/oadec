@@ -141,6 +141,14 @@ pub(crate) fn no_stream(words: impl Into<String>) -> anyhow::Error {
 
 /// The kind of what went wrong: by what marks it, and where nothing does, by
 /// whether reading or writing is what failed.
+impl From<anyhow::Error> for Error {
+    /// What went wrong, sorted by its kind: for a caller of [`api`], whose
+    /// calls give what went wrong unsorted.
+    fn from(e: anyhow::Error) -> Self {
+        sort(e)
+    }
+}
+
 fn sort(e: anyhow::Error) -> Error {
     if e.chain().any(|cause| cause.is::<Refusal>()) {
         Error::Refused(e)
