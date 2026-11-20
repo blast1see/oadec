@@ -116,6 +116,12 @@ pub const ORDER_IS_SAMPLES: &str = "--order names the channel order of a sample 
 pub const REFERENCE_IS_FLOAT: &str = "--reference-format names the integer format of the \
      reference of a TrueHD stream; the reference of an AC-3 or E-AC-3 stream is 32-bit float";
 
+/// What `--programme` on a TrueHD stream, or with an object output, is told.
+pub const PROGRAMME_IS_AC3: &str = "--programme names a programme of an AC-3 or E-AC-3 \
+     stream by the substream id of its independent substream, 0 to 7, and applies to its samples \
+     and its reports; a TrueHD stream has presentations (-p), and an object output decodes \
+     programme 0";
+
 /// What `--worst` on a TrueHD stream is told.
 pub const WORST_IS_AC3: &str = "--worst lists the blocks of an AC-3 or E-AC-3 stream that \
      deviate most; a TrueHD comparison is exact and lists its mismatches (--report)";
@@ -169,8 +175,27 @@ impl Info {
 /// # Errors
 /// When the source cannot be read, or holds no stream.
 pub fn info(source: &Source) -> Result<Info> {
+    info_of(source, None)
+}
+
+/// `oadec info --programme`: what a stream declares, of programme
+/// `programme` of an AC-3 family stream; `None` is programme 0, as [`info`]
+/// reads it.
+///
+/// # Errors
+/// As [`info`]; a programme the stream does not carry, as a stream that
+/// holds nothing; a programme of a TrueHD stream, which has none.
+pub fn info_of(source: &Source, programme: Option<u8>) -> Result<Info> {
     Ok(if eac3::is_eac3(source)? {
-        Info::Ac3(eac3::report(source)?)
+        Info::Ac3(eac3::report_with(
+            source,
+            &eac3::ReportOptions {
+                programme,
+                ..eac3::ReportOptions::default()
+            },
+        )?)
+    } else if programme.is_some() {
+        return Err(refusal(PROGRAMME_IS_AC3));
     } else {
         Info::TrueHd(info::report(source)?)
     })
@@ -197,6 +222,9 @@ pub struct VerifyOptions {
     pub require_disc: Vec<Disc>,
     /// Also report the census of the syntax.
     pub census: bool,
+    /// Of an AC-3 family stream: the programme reported on; `None` for
+    /// programme 0. A TrueHD stream refuses it.
+    pub programme: Option<u8>,
 }
 
 /// What `verify` found.
@@ -272,8 +300,12 @@ pub fn verify(source: &Source, options: &VerifyOptions) -> Result<Verified> {
                 fail_on: options.fail_on.unwrap_or(Severity::Error),
                 max_per_rule: options.max_per_rule.unwrap_or(Tally::DEFAULT_MAX_PER_RULE),
                 decode: options.decode,
+                programme: options.programme,
             },
         )?));
+    }
+    if options.programme.is_some() {
+        return Err(refusal(PROGRAMME_IS_AC3));
     }
     Ok(Verified::TrueHd(crate::verify::report(
         source,
@@ -348,6 +380,10 @@ pub struct PcmOptions {
     pub tpnp: bool,
     /// AC-3 family: enhanced coupling by the full process of A/52:2018.
     pub ecpl_full: bool,
+    /// AC-3 family: the programme decoded, by the substream id of its
+    /// independent substream; `None` for programme 0, which is not missed
+    /// when absent. A TrueHD stream refuses it.
+    pub programme: Option<u8>,
 }
 
 impl Default for PcmOptions {
@@ -363,6 +399,7 @@ impl Default for PcmOptions {
             dither: true,
             tpnp: true,
             ecpl_full: false,
+            programme: None,
         }
     }
 }
@@ -440,6 +477,7 @@ pub fn decode_pcm(
                 dither: options.dither,
                 tpnp: options.tpnp,
                 ecpl_full: options.ecpl_full,
+                programme: options.programme,
             },
             sink,
             remarks,
@@ -447,6 +485,9 @@ pub fn decode_pcm(
     }
     if options.core_only || !options.dither || !options.tpnp || options.ecpl_full {
         return Err(refusal(CORE_DECODE_IS_AC3));
+    }
+    if options.programme.is_some() {
+        return Err(refusal(PROGRAMME_IS_AC3));
     }
     Ok(Pcm::TrueHd(Box::new(crate::decode::decode(
         source,

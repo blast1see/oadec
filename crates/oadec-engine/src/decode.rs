@@ -7,10 +7,10 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use oadec_truehd::{AccessUnit, ChannelLabel, DecodeStats, Decoder, Unit};
+use oadec_truehd::{AccessUnit, ChannelLabel, DecodeStats, Decoder, OnConfigChange, Unit};
 
 use crate::input;
-use crate::integrity::Findings;
+use crate::integrity::{Findings, Verdict};
 use crate::source::Source;
 
 /// Output container.
@@ -113,33 +113,20 @@ pub struct Frame<'a> {
     /// Samples of silence to write before `pcm`: what a gap before this
     /// access unit took ([`OnError::Conceal`]).
     pub lead_silence: usize,
+    /// The access unit carries a change of configuration the session
+    /// followed ([`Session::follow_changes`]): what comes from it on is
+    /// shaped as this frame says, and not as the frames before it.
+    pub changed: bool,
 }
 
-/// A decoder plus the bookkeeping the commands share.
+/// What a decode makes of each access unit its decoder decoded: the silence
+/// a gap took, what concealment did, the duplicates dropped, and the order
+/// and the WAVE mask of the channels written. A [`Session`] has one, and a
+/// decode of every presentation in one pass one a presentation, so that the
+/// two cannot make different things of the same unit.
 #[derive(Debug)]
-pub struct Session {
-    presentation: usize,
-    keep_duplicates: bool,
+pub struct Shaper {
     order_kind: Order,
-    /// Where the output is asked to begin, in seconds. The decode starts at the
-    /// first access unit at or after it that carries a major sync, which is a
-    /// clean entry point: applying a restart header clears the filter history of
-    /// every substream, so what is written is the tail of a full decode.
-    start_seconds: Option<f64>,
-    /// Stream configuration while skipping: an access unit without a major sync
-    /// cannot be parsed without it, and the units before the start are parsed
-    /// only to see whether they carry one.
-    skip_config: Option<oadec_truehd::StreamConfig>,
-    /// Access units swallowed before the start, and the sample they cover.
-    skipped_units: u64,
-    skipped_samples: u64,
-    /// Where the decode actually began, once it has.
-    pub started_at_sample: Option<u64>,
-    /// The stream's own rate, read from the first major sync. A start that is
-    /// never reached turns the swallowed count into the length of the stream.
-    skip_per_unit: u64,
-    skip_rate: u32,
-    decoder: Option<Decoder>,
     order: Vec<usize>,
     /// WAVE channel mask of the output order.
     mask: u32,
@@ -168,6 +155,180 @@ pub struct Session {
     units_seen: u64,
 }
 
+impl Shaper {
+    /// What a session makes of the access units of a presentation, written
+    /// in `order_kind`, with `on_error` saying whether a unit that could not
+    /// be read was concealed.
+    #[must_use]
+    pub fn new(order_kind: Order, on_error: OnError) -> Self {
+        Self {
+            order_kind,
+            order: Vec::new(),
+            mask: 0,
+            mask_warning: None,
+            labels: Vec::new(),
+            sampling_frequency: 0,
+            duplicates_dropped: 0,
+            clipped: 0,
+            on_error,
+            concealment: Concealment::default(),
+            position: 0,
+            bytes_seen: 0,
+            units_seen: 0,
+        }
+    }
+
+    /// The frame of access unit `unit`, the `index`-th the decoder decoded,
+    /// whose samples are `decoded`, concealing `fault` if it is not `None`;
+    /// `None` for a duplicate that is dropped. `changed` says that the unit
+    /// carries a change of configuration that was followed.
+    pub fn shape<'a>(
+        &'a mut self,
+        unit: &Unit,
+        index: u64,
+        samples_per_unit: u32,
+        decoded: oadec_truehd::Decoded<'a>,
+        fault: Option<&dyn std::fmt::Display>,
+        changed: bool,
+    ) -> Option<Frame<'a>> {
+        let sampling_frequency = self.sampling_frequency;
+        let average = if self.units_seen > 0 {
+            self.bytes_seen as f64 / self.units_seen as f64
+        } else {
+            0.0
+        };
+        // a stretch the extractor passed over: the silence it took goes
+        // before this unit, when the clocks say how much that was. Before the
+        // first unit of the decode nothing was lost from the output.
+        let mut lead_silence = 0usize;
+        if self.on_error == OnError::Conceal
+            && index > 0
+            && let Some(gap) = unit.gap_before
+        {
+            let c = &mut self.concealment;
+            match decoded
+                .output_delta
+                .map(|d| gap_samples(d, gap.bytes, average, samples_per_unit))
+            {
+                Some(Some(0)) => {}
+                Some(Some(n)) => {
+                    lead_silence = n as usize;
+                    c.gaps_filled += 1;
+                    c.gap_samples += n;
+                }
+                Some(None) => c.gaps_unfilled.push((
+                    gap.offset,
+                    gap.bytes,
+                    "the clock gives its length only modulo 65 536 samples, and the bytes it skipped do not settle which",
+                )),
+                None => c.gaps_unfilled.push((
+                    gap.offset,
+                    gap.bytes,
+                    "the access unit after it does not restart the presentation",
+                )),
+            }
+        }
+        if fault.is_none() && !decoded.concealed {
+            self.bytes_seen += unit.bytes.len() as u64;
+            self.units_seen += 1;
+        }
+        let c = &mut self.concealment;
+        if decoded.concealed {
+            c.units += 1;
+            c.samples += decoded.pcm.len() as u64;
+            if !c.in_region {
+                c.in_region = true;
+                c.regions += 1;
+                if c.first.is_none() {
+                    let why = fault.map_or_else(
+                        || "a substream waiting for its restart header".to_string(),
+                        ToString::to_string,
+                    );
+                    c.first = Some((index, self.position + lead_silence as u64, why));
+                }
+            }
+        } else {
+            c.in_region = false;
+        }
+        if decoded.duplicate {
+            self.duplicates_dropped += 1;
+            if lead_silence == 0 {
+                return None;
+            }
+        }
+        let pcm = if decoded.duplicate {
+            &decoded.pcm[..0]
+        } else {
+            decoded.pcm
+        };
+        self.position += (lead_silence + pcm.len()) as u64;
+        if self.order.len() != decoded.channels {
+            self.order = match self.order_kind {
+                Order::Interchange => {
+                    ChannelLabel::interchange_order(&self.labels, decoded.channels)
+                }
+                Order::Stream => (0..decoded.channels).collect(),
+            };
+            (self.mask, self.mask_warning) = wave_channel_mask(&self.labels, &self.order);
+        }
+        Some(Frame {
+            pcm,
+            channels: decoded.channels,
+            order: &self.order,
+            sampling_frequency,
+            channel_mask: self.mask,
+            mask_warning: self.mask_warning.as_deref(),
+            lead_silence,
+            changed,
+        })
+    }
+}
+
+/// A decoder plus the bookkeeping the commands share.
+#[derive(Debug)]
+pub struct Session {
+    presentation: usize,
+    keep_duplicates: bool,
+    /// Where the output is asked to begin, in seconds. The decode starts at the
+    /// first access unit at or after it that carries a major sync, which is a
+    /// clean entry point: applying a restart header clears the filter history of
+    /// every substream, so what is written is the tail of a full decode.
+    start_seconds: Option<f64>,
+    /// Stream configuration while skipping: an access unit without a major sync
+    /// cannot be parsed without it, and the units before the start are parsed
+    /// only to see whether they carry one.
+    skip_config: Option<oadec_truehd::StreamConfig>,
+    /// Access units swallowed before the start, and the sample they cover.
+    skipped_units: u64,
+    skipped_samples: u64,
+    /// Where the decode actually began, once it has.
+    pub started_at_sample: Option<u64>,
+    /// The stream's own rate, read from the first major sync. A start that is
+    /// never reached turns the swallowed count into the length of the stream.
+    skip_per_unit: u64,
+    skip_rate: u32,
+    decoder: Option<Decoder>,
+    /// What is made of each access unit the decoder decodes.
+    pub shaper: Shaper,
+    /// A change of configuration is followed, not stopped at.
+    follow: bool,
+    /// What changed at the last access unit, when it carried a change the
+    /// session followed.
+    pub last_change: Option<&'static str>,
+    /// The presentation is not in the configuration of the stream now: a
+    /// change took it away, and none has brought it back yet.
+    pub gone: bool,
+}
+
+/// The substream whose matrices make presentation `p` of `config`: the
+/// presentation itself, or the one it is a copy of.
+fn source_of(config: &oadec_truehd::StreamConfig, p: usize) -> usize {
+    match config.presentations.kind(p) {
+        oadec_truehd::PresentationKind::CopyOf(i) => i,
+        _ => p,
+    }
+}
+
 impl Session {
     /// Creates a session for `presentation`.
     #[must_use]
@@ -175,7 +336,6 @@ impl Session {
         Self {
             presentation,
             keep_duplicates,
-            order_kind,
             start_seconds: None,
             skip_config: None,
             skipped_units: 0,
@@ -184,25 +344,26 @@ impl Session {
             skip_per_unit: 0,
             skip_rate: 0,
             decoder: None,
-            order: Vec::new(),
-            mask: 0,
-            mask_warning: None,
-            labels: Vec::new(),
-            sampling_frequency: 0,
-            duplicates_dropped: 0,
-            clipped: 0,
-            on_error: OnError::Stop,
-            concealment: Concealment::default(),
-            position: 0,
-            bytes_seen: 0,
-            units_seen: 0,
+            shaper: Shaper::new(order_kind, OnError::Stop),
+            follow: false,
+            last_change: None,
+            gone: false,
         }
+    }
+
+    /// Follows a change of configuration at a major sync instead of
+    /// stopping at it ([`OnConfigChange::Continue`]): the unit that carries
+    /// the change is decoded with the new configuration and its frame says
+    /// so ([`Frame::changed`]); while the presentation is not in the
+    /// configuration nothing is decoded and [`Session::gone`] is set.
+    pub fn follow_changes(&mut self) {
+        self.follow = true;
     }
 
     /// Sets what to do with an access unit that cannot be read; a session
     /// stops at one unless told to conceal it.
     pub fn on_error(&mut self, mode: OnError) {
-        self.on_error = mode;
+        self.shaper.on_error = mode;
     }
 
     /// Asks the decode to begin `seconds` into the stream, at the first access
@@ -286,113 +447,66 @@ impl Session {
             }
             let mut decoder = Decoder::new(ms, self.presentation)?;
             decoder.keep_duplicates(self.keep_duplicates);
-            self.labels = ChannelLabel::presentation(ms, decoder.source_presentation());
-            self.sampling_frequency = decoder.config().sampling_frequency;
+            if self.follow {
+                decoder.on_config_change(OnConfigChange::Continue);
+            }
+            self.shaper.labels = ChannelLabel::presentation(ms, decoder.source_presentation());
+            self.shaper.sampling_frequency = decoder.config().sampling_frequency;
             self.decoder = Some(decoder);
         }
-        let sampling_frequency = self.sampling_frequency;
+        self.last_change = None;
+        if self.follow
+            && unit.has_major_sync
+            && let Some(decoder) = &self.decoder
+            && let Some((ms, config, what)) = AccessUnit::parse(&unit.bytes, None)
+                .ok()
+                .and_then(|(au, _)| au.major_sync)
+                .and_then(|ms| {
+                    let config = oadec_truehd::StreamConfig::from_major_sync(&ms).ok()?;
+                    let what = decoder.config().incompatible_with(&config)?;
+                    Some((ms, config, what))
+                })
+        {
+            // The unit is decoded with the configuration it carries, and its
+            // samples are labelled and ordered by it.
+            self.shaper.labels =
+                ChannelLabel::presentation(&ms, source_of(&config, self.presentation));
+            self.shaper.sampling_frequency = config.sampling_frequency;
+            self.shaper.order.clear();
+            self.last_change = Some(what);
+        }
         let decoder = self.decoder.as_mut().expect("decoder created above");
         let index = decoder.stats().units;
         let samples_per_unit = u32::from(decoder.config().samples_per_au);
-        let average = if self.units_seen > 0 {
-            self.bytes_seen as f64 / self.units_seen as f64
-        } else {
-            0.0
+        let decoded = match self.shaper.on_error {
+            OnError::Stop => decoder.decode(&unit.bytes).map(|d| (d, None)),
+            OnError::Conceal => decoder.decode_concealing(&unit.bytes),
         };
-        let (decoded, fault) = match self.on_error {
-            OnError::Stop => (
-                decoder
-                    .decode(&unit.bytes)
-                    .with_context(|| format!("decoding access unit at byte {}", unit.offset))?,
-                None,
-            ),
-            OnError::Conceal => decoder
-                .decode_concealing(&unit.bytes)
-                .with_context(|| format!("decoding access unit at byte {}", unit.offset))?,
-        };
-        // a stretch the extractor passed over: the silence it took goes
-        // before this unit, when the clocks say how much that was. Before the
-        // first unit of the decode nothing was lost from the output.
-        let mut lead_silence = 0usize;
-        if self.on_error == OnError::Conceal
-            && index > 0
-            && let Some(gap) = unit.gap_before
-        {
-            let c = &mut self.concealment;
-            match decoded
-                .output_delta
-                .map(|d| gap_samples(d, gap.bytes, average, samples_per_unit))
-            {
-                Some(Some(0)) => {}
-                Some(Some(n)) => {
-                    lead_silence = n as usize;
-                    c.gaps_filled += 1;
-                    c.gap_samples += n;
-                }
-                Some(None) => c.gaps_unfilled.push((
-                    gap.offset,
-                    gap.bytes,
-                    "the clock gives its length only modulo 65 536 samples, and the bytes it skipped do not settle which",
-                )),
-                None => c.gaps_unfilled.push((
-                    gap.offset,
-                    gap.bytes,
-                    "the access unit after it does not restart the presentation",
-                )),
+        let (decoded, fault) = match decoded {
+            Ok(decoded) => {
+                self.gone = false;
+                decoded
             }
-        }
-        if fault.is_none() && !decoded.concealed {
-            self.bytes_seen += unit.bytes.len() as u64;
-            self.units_seen += 1;
-        }
-        let c = &mut self.concealment;
-        if decoded.concealed {
-            c.units += 1;
-            c.samples += decoded.pcm.len() as u64;
-            if !c.in_region {
-                c.in_region = true;
-                c.regions += 1;
-                if c.first.is_none() {
-                    let why = fault.as_ref().map_or_else(
-                        || "a substream waiting for its restart header".to_string(),
-                        ToString::to_string,
-                    );
-                    c.first = Some((index, self.position + lead_silence as u64, why));
-                }
-            }
-        } else {
-            c.in_region = false;
-        }
-        if decoded.duplicate {
-            self.duplicates_dropped += 1;
-            if lead_silence == 0 {
+            // a change took the presentation away: nothing of it is decoded
+            // until a change brings it back
+            Err(oadec_truehd::Error::PresentationGone { .. }) if self.follow => {
+                self.gone = true;
                 return Ok(None);
             }
-        }
-        let pcm = if decoded.duplicate {
-            &decoded.pcm[..0]
-        } else {
-            decoded.pcm
+            Err(e) => {
+                return Err(anyhow::Error::new(e)
+                    .context(format!("decoding access unit at byte {}", unit.offset)));
+            }
         };
-        self.position += (lead_silence + pcm.len()) as u64;
-        if self.order.len() != decoded.channels {
-            self.order = match self.order_kind {
-                Order::Interchange => {
-                    ChannelLabel::interchange_order(&self.labels, decoded.channels)
-                }
-                Order::Stream => (0..decoded.channels).collect(),
-            };
-            (self.mask, self.mask_warning) = wave_channel_mask(&self.labels, &self.order);
-        }
-        Ok(Some(Frame {
-            pcm,
-            channels: decoded.channels,
-            order: &self.order,
-            sampling_frequency,
-            channel_mask: self.mask,
-            mask_warning: self.mask_warning.as_deref(),
-            lead_silence,
-        }))
+        let changed = self.last_change.is_some();
+        Ok(self.shaper.shape(
+            unit,
+            index,
+            samples_per_unit,
+            decoded,
+            fault.as_ref().map(|e| e as &dyn std::fmt::Display),
+            changed,
+        ))
     }
 
     /// Decoder counters.
@@ -404,23 +518,37 @@ impl Session {
     /// Output channel labels in output order (objects unlabelled).
     #[must_use]
     pub fn output_labels(&self) -> Vec<String> {
-        self.order
+        self.shaper
+            .order
             .iter()
-            .map(|&i| channel_name(&self.labels, i))
+            .map(|&i| channel_name(&self.shaper.labels, i))
             .collect()
     }
 
     /// What the session decoded so far, for the summary a command prints.
     #[must_use]
     pub fn summary(&self) -> Summary {
+        self.shaper.summary(self.stats())
+    }
+}
+
+impl Shaper {
+    /// What was made, with the counters `stats` of the decoder that
+    /// decoded it, for the summary a command prints.
+    #[must_use]
+    pub fn summary(&self, stats: Option<&DecodeStats>) -> Summary {
         Summary {
-            stats: self.stats().cloned(),
+            stats: stats.cloned(),
             sampling_frequency: self.sampling_frequency,
             channels: self.order.len(),
             duplicates_dropped: self.duplicates_dropped,
             clipped: self.clipped,
             concealment: self.concealment.clone(),
-            labels: self.output_labels(),
+            labels: self
+                .order
+                .iter()
+                .map(|&i| channel_name(&self.labels, i))
+                .collect(),
         }
     }
 }
@@ -1083,6 +1211,8 @@ pub(crate) struct Delivery {
     /// Where the output ended at a change of configuration.
     pub(crate) stopped: Option<ConfigStop>,
     buf: Vec<u8>,
+    /// That the presentation is gone was told, and nothing has come since.
+    gone_told: bool,
 }
 
 /// What an access unit came to in a [`Delivery`].
@@ -1095,6 +1225,14 @@ pub(crate) enum Taken {
     Written,
     /// The configuration changed at it and the output ends before it.
     Stopped,
+    /// The configuration changed at it, the change was followed, and its
+    /// samples, shaped by the new configuration, were written after the
+    /// sink was begun again with that shape.
+    Changed,
+    /// The configuration changed at it and the presentation is not in the
+    /// new one: nothing of it is written until a change brings it back. Told
+    /// once, at the first unit it is gone at.
+    Gone,
 }
 
 impl Delivery {
@@ -1117,6 +1255,7 @@ impl Delivery {
             samples: 0,
             stopped: None,
             buf: Vec::with_capacity(160 * 16 * 3),
+            gone_told: false,
         })
     }
 
@@ -1138,8 +1277,7 @@ impl Delivery {
         let session = &mut self.session;
         let index = session.stats().map_or(0, |s| s.units);
         let frame = match session.decode(unit, remarks) {
-            Ok(Some(frame)) => frame,
-            Ok(None) => return Ok(Taken::Nothing),
+            Ok(frame) => frame,
             Err(e) => {
                 return match ConfigStop::from_error(&e, index, unit.offset) {
                     Some(stop) if self.output_started => {
@@ -1149,6 +1287,13 @@ impl Delivery {
                     _ => Err(e),
                 };
             }
+        };
+        let Some(frame) = frame else {
+            if self.session.gone && !self.gone_told {
+                self.gone_told = true;
+                return Ok(Taken::Gone);
+            }
+            return Ok(Taken::Nothing);
         };
         if !self.output_started {
             self.output_started = true;
@@ -1163,15 +1308,28 @@ impl Delivery {
                 mask: frame.channel_mask,
                 sample: WavSample::Int24,
             })?;
+        } else if frame.changed {
+            sink.begin(WavSpec {
+                channels: frame.channels as u16,
+                rate: frame.sampling_frequency,
+                mask: frame.channel_mask,
+                sample: WavSample::Int24,
+            })?;
         }
+        let changed = frame.changed;
+        self.gone_told = false;
         let buf = &mut self.buf;
         buf.clear();
         buf.resize(frame.lead_silence * frame.order.len() * 3, 0);
         let clipped = pack_24le(frame.pcm, frame.order, buf);
         self.samples += (frame.lead_silence + frame.pcm.len()) as u64;
-        session.clipped += clipped;
+        session.shaper.clipped += clipped;
         sink.write(buf)?;
-        Ok(Taken::Written)
+        Ok(if changed {
+            Taken::Changed
+        } else {
+            Taken::Written
+        })
     }
 }
 
@@ -1230,6 +1388,199 @@ pub fn decode(
         pass,
         check,
     })
+}
+
+/// The file presentation `p` of a decode of every presentation to `name` is
+/// written to: the presentation's number after a `p`, before the extension or
+/// after a name that has none: `out.wav` gives `out.p0.wav`, `out.p1.wav`;
+/// `out` gives `out.p0`.
+#[must_use]
+pub fn presentation_file(name: &Path, p: usize) -> PathBuf {
+    match (name.file_stem(), name.extension()) {
+        (Some(stem), Some(ext)) => {
+            let mut file = stem.to_os_string();
+            file.push(format!(".p{p}."));
+            file.push(ext);
+            name.with_file_name(file)
+        }
+        _ => {
+            let mut file = name.as_os_str().to_os_string();
+            file.push(format!(".p{p}"));
+            PathBuf::from(file)
+        }
+    }
+}
+
+/// One presentation of [`run_every`]: what is made of it and where.
+#[derive(Debug)]
+struct Written {
+    presentation: usize,
+    path: PathBuf,
+    shaper: Shaper,
+    file: PcmFile,
+    started: bool,
+    samples: u64,
+    stopped: Option<ConfigStop>,
+}
+
+/// `decode -p all`: every presentation the stream carries, decoded in one
+/// pass ([`oadec_truehd::MultiDecoder`]), each to a file of its own named by
+/// [`presentation_file`]. A presentation that is a copy of another is not
+/// written: it is that one. Each file holds what `decode -p N` of its
+/// presentation writes, byte for byte: the decoder of each is what a decoder
+/// of its own would be, and what is made of each unit is made by the same
+/// [`Shaper`]. Units that cannot be read are concealed, as `decode` does by
+/// default. Says on `err` what each presentation came to, and returns the
+/// worst verdict of them.
+///
+/// # Errors
+/// When the stream cannot be read or holds no stream, when a file cannot be
+/// written, and when a decode cannot go on.
+pub fn run_every(
+    source: &Source,
+    output: &Path,
+    format: Format,
+    order: Order,
+    keep_duplicates: bool,
+    err: &mut dyn Write,
+) -> Result<Verdict> {
+    let started = Instant::now();
+    // the checks of `verify`, beside the decode, as every TrueHD delivery runs
+    // them
+    let check = crate::verify::spawn_stream_check(source);
+    let wav = format == Format::Wav;
+    let mut decoder: Option<(oadec_truehd::MultiDecoder, u32)> = None;
+    let mut every: Vec<Written> = Vec::new();
+    let mut buf = Vec::with_capacity(160 * 16 * 3);
+    let pass = input::for_each_unit(source, |unit| {
+        if decoder.is_none() {
+            let (au, _) = AccessUnit::parse(&unit.bytes, None)?;
+            let Some(ms) = au.major_sync else {
+                bail!("the stream does not start with a major sync");
+            };
+            let config = oadec_truehd::StreamConfig::from_major_sync(&ms)?;
+            let carried: Vec<usize> = (0..oadec_truehd::MAX_PRESENTATIONS)
+                .filter(|&p| config.presentations.is_carried(p))
+                .collect();
+            let mut made = oadec_truehd::MultiDecoder::new(&ms, &carried)?;
+            made.keep_duplicates(keep_duplicates);
+            for &p in &carried {
+                let path = presentation_file(output, p);
+                let mut shaper = Shaper::new(order, OnError::Conceal);
+                shaper.labels = ChannelLabel::presentation(&ms, source_of(&config, p));
+                shaper.sampling_frequency = config.sampling_frequency;
+                every.push(Written {
+                    presentation: p,
+                    file: PcmFile::create(&path, wav)?,
+                    path,
+                    shaper,
+                    started: false,
+                    samples: 0,
+                    stopped: None,
+                });
+            }
+            decoder = Some((made, u32::from(config.samples_per_au)));
+        }
+        let Some((multi, samples_per_unit)) = decoder.as_mut() else {
+            return Ok(());
+        };
+        if every.iter().all(|w| w.stopped.is_some()) {
+            // the rest is still framed, so the verdict covers the whole file
+            return Ok(());
+        }
+        let indices: Vec<u64> = every
+            .iter()
+            .map(|w| multi.stats(w.presentation).map_or(0, |s| s.units))
+            .collect();
+        let decoded = match multi.decode_concealing(&unit.bytes) {
+            Ok(decoded) => decoded,
+            Err(e) => {
+                let e = anyhow::Error::new(e)
+                    .context(format!("decoding access unit at byte {}", unit.offset));
+                for (w, &index) in every.iter_mut().zip(&indices) {
+                    if w.stopped.is_some() {
+                        continue;
+                    }
+                    match ConfigStop::from_error(&e, index, unit.offset) {
+                        Some(stop) if w.started => w.stopped = Some(stop),
+                        _ => return Err(e),
+                    }
+                }
+                return Ok(());
+            }
+        };
+        for (w, &index) in every.iter_mut().zip(&indices) {
+            if w.stopped.is_some() {
+                continue;
+            }
+            let Some(oadec_truehd::PresentationOut::Available { decoded, fault }) =
+                decoded.presentation(w.presentation)
+            else {
+                continue;
+            };
+            let Some(frame) = w.shaper.shape(
+                &unit,
+                index,
+                *samples_per_unit,
+                decoded,
+                fault.map(|e| e as &dyn std::fmt::Display),
+                false,
+            ) else {
+                continue;
+            };
+            if !w.started {
+                w.started = true;
+                if wav && let Some(warning) = frame.mask_warning {
+                    writeln!(err, "warning: presentation {}: {warning}", w.presentation)?;
+                }
+                PcmSink::begin(
+                    &mut w.file,
+                    WavSpec {
+                        channels: frame.channels as u16,
+                        rate: frame.sampling_frequency,
+                        mask: frame.channel_mask,
+                        sample: WavSample::Int24,
+                    },
+                )?;
+            }
+            buf.clear();
+            buf.resize(frame.lead_silence * frame.order.len() * 3, 0);
+            let clipped = pack_24le(frame.pcm, frame.order, &mut buf);
+            w.samples += (frame.lead_silence + frame.pcm.len()) as u64;
+            PcmSink::write(&mut w.file, &buf)?;
+            w.shaper.clipped += clipped;
+        }
+        Ok(())
+    })?;
+    let Some((multi, _)) = decoder else {
+        return Err(crate::info::no_stream(source));
+    };
+    let stream = crate::verify::join_stream_check(check)?;
+    let elapsed = started.elapsed().as_secs_f64();
+    let mut worst = Verdict::Clean;
+    for mut w in every {
+        PcmSink::finish(&mut w.file)?;
+        let stats = multi.stats(w.presentation);
+        writeln!(err, "presentation {}: {}", w.presentation, w.path.display())?;
+        if let Some(stop) = &w.stopped {
+            stop.print(w.samples, err)?;
+        }
+        let summary = w.shaper.summary(stats);
+        print_summary(&summary, elapsed, err)?;
+        let mut f = truehd_findings(&pass, stats, &stream);
+        f.note(summary.clipped, "samples clipped to 24 bits");
+        note_concealment(&summary.concealment, &mut f);
+        if let Some(stop) = &w.stopped {
+            stop.note(&mut f);
+        }
+        let verdict = f.report(err)?;
+        worst = match (worst, verdict) {
+            (Verdict::Faulty, _) | (_, Verdict::Faulty) => Verdict::Faulty,
+            (Verdict::Lossy, _) | (_, Verdict::Lossy) => Verdict::Lossy,
+            _ => Verdict::Clean,
+        };
+    }
+    Ok(worst)
 }
 
 #[cfg(test)]

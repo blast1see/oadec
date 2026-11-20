@@ -99,3 +99,24 @@ path = "fuzz_targets/verdict_parity.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "truehd_multi"
+path = "fuzz_targets/truehd_multi.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "stream_push"
+path = "fuzz_targets/stream_push.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "eac3_program_config"
+path = "fuzz_targets/eac3_program_config.rs"
+test = false
+doc = false
+bench = false

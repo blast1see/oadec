@@ -35,8 +35,9 @@ pub use frame::{
 };
 pub use header::{BLOCK_SAMPLES, FrameHeader, SYNC_WORD, StreamType, Syntax};
 pub use program::{
-    ChannelLoc, DependentLocations, LocationError, MAX_PENDING_GROUPS, MAX_PROGRAM_CHANNELS,
-    MergeOutcome, Part, ProgramDecoder, ProgramFrame, ProgramLayout, ProgramStats, SubstreamKey,
-    chanmap_locations, dependent_locations, independent_locations,
+    ChannelLoc, DependentLocations, LayoutPolicy, LocationError, MAX_PENDING_GROUPS,
+    MAX_PROGRAM_CHANNELS, MergeOutcome, Part, ProgramConfig, ProgramDecoder, ProgramFrame,
+    ProgramLayout, ProgramStats, SubstreamKey, chanmap_locations, dependent_locations,
+    independent_locations,
 };
 pub use rules::RuleId;

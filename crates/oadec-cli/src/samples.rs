@@ -11,7 +11,7 @@
 
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 
@@ -48,12 +48,88 @@ pub(crate) struct Asked {
 
 /// Where the samples go.
 enum Target {
-    /// A file. It is made before the stream is read, as it always was, and
-    /// its WAVE header waits for the first samples, which say what it holds.
-    /// A stream that holds none, or is refused, leaves no file.
-    File(PcmFile),
+    /// Files: the one named, and the parts after it where a change of
+    /// layout was followed.
+    File(Parts),
     /// Standard output.
     Stdout(BufWriter<io::StdoutLock<'static>>),
+}
+
+/// The files of a decode to a file.
+///
+/// The first is the output named. It is made before the stream is read, as
+/// it always was, and its WAVE header waits for the first samples, which say
+/// what it holds; a stream that holds none, or is refused, leaves no file.
+/// With `--on-layout-change split`, each change of layout the decode
+/// followed closes the file being written and opens the next part, named by
+/// [`part_name`], with a header of its own; a TrueHD presentation a change
+/// takes away closes its part, and the change that brings it back opens the
+/// next.
+struct Parts {
+    name: PathBuf,
+    wave: bool,
+    file: Option<PcmFile>,
+    /// The files made, in order.
+    made: Vec<PathBuf>,
+}
+
+/// The name of part `k`, counted from 1, of an output named `name`: the
+/// name itself for the first part, and for the others the part's number in
+/// three digits before the extension, or after the name where it has none:
+/// `out.wav`, `out.002.wav`, `out.003.wav`; `out`, `out.002`.
+pub(crate) fn part_name(name: &Path, k: usize) -> PathBuf {
+    if k <= 1 {
+        return name.to_path_buf();
+    }
+    match (name.file_stem(), name.extension()) {
+        (Some(stem), Some(ext)) => {
+            let mut file = stem.to_os_string();
+            file.push(format!(".{k:03}."));
+            file.push(ext);
+            name.with_file_name(file)
+        }
+        _ => {
+            let mut file = name.as_os_str().to_os_string();
+            file.push(format!(".{k:03}"));
+            PathBuf::from(file)
+        }
+    }
+}
+
+impl Parts {
+    fn new(name: &Path, wave: bool) -> Result<Self> {
+        Ok(Self {
+            name: name.to_path_buf(),
+            wave,
+            file: Some(PcmFile::create(name, wave)?),
+            made: vec![name.to_path_buf()],
+        })
+    }
+
+    /// The part being written ends.
+    fn close(&mut self) -> Result<()> {
+        if let Some(mut file) = self.file.take() {
+            file.finish()?;
+        }
+        Ok(())
+    }
+
+    /// The next part begins, shaped as `spec`.
+    fn next(&mut self, spec: oadec_engine::api::WavSpec) -> Result<()> {
+        self.close()?;
+        let name = part_name(&self.name, self.made.len() + 1);
+        let mut file = PcmFile::create(&name, self.wave)?;
+        file.begin(spec)?;
+        self.file = Some(file);
+        self.made.push(name);
+        Ok(())
+    }
+
+    fn file(&mut self) -> Result<&mut PcmFile> {
+        self.file
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("samples came where no part of the output was open"))
+    }
 }
 
 /// What the samples and the events of a decode are written to.
@@ -76,7 +152,7 @@ impl Sink<'_> {
     /// Every sample is in.
     fn finish(&mut self) -> Result<()> {
         match &mut self.target {
-            Target::File(file) => file.finish()?,
+            Target::File(parts) => parts.close()?,
             Target::Stdout(out) => out.flush().map_err(Self::stdout_error)?,
         }
         Ok(())
@@ -99,13 +175,26 @@ impl StreamSink for Sink<'_> {
             StreamEvent::Opened { layout, rate, .. } => {
                 let spec = layout.spec(*rate);
                 match &mut self.target {
-                    Target::File(file) => file.begin(spec)?,
+                    Target::File(parts) => parts.file()?.begin(spec)?,
                     Target::Stdout(out) => {
                         if self.wave {
                             let header = stream_wave_header(spec);
                             out.write_all(&header).map_err(Self::stdout_error)?;
                             self.written += header.len() as u64;
                         }
+                    }
+                }
+            }
+            StreamEvent::ConfigChange {
+                policy: LayoutChange::Split,
+                new,
+                new_rate,
+                ..
+            } => {
+                if let Target::File(parts) = &mut self.target {
+                    match (new, new_rate) {
+                        (Some(layout), Some(rate)) => parts.next(layout.spec(*rate))?,
+                        _ => parts.close()?,
                     }
                 }
             }
@@ -117,7 +206,7 @@ impl StreamSink for Sink<'_> {
 
     fn pcm(&mut self, frame: PcmFrame<'_>) -> Result<()> {
         match &mut self.target {
-            Target::File(file) => file.write(frame.bytes)?,
+            Target::File(parts) => parts.file()?.write(frame.bytes)?,
             Target::Stdout(out) => {
                 out.write_all(frame.bytes).map_err(Self::stdout_error)?;
                 self.written += frame.bytes.len() as u64;
@@ -147,7 +236,7 @@ pub(crate) fn decode(asked: Asked, err: &mut dyn Write) -> Result<ExitCode> {
     let target = if to_stdout {
         Target::Stdout(BufWriter::with_capacity(1 << 20, io::stdout().lock()))
     } else {
-        Target::File(PcmFile::create(&asked.output, asked.wave)?)
+        Target::File(Parts::new(&asked.output, asked.wave)?)
     };
     let (reader, name, size): (Box<dyn io::Read + Send>, String, Option<u64>) = match stdin {
         Some(stdin) => (Box::new(stdin), STDIN_NAME.to_string(), None),
@@ -199,11 +288,18 @@ pub(crate) fn decode(asked: Asked, err: &mut dyn Write) -> Result<ExitCode> {
                 oadec_engine::Error::Refused(e) | oadec_engine::Error::NoStream(e) => (true, e),
                 oadec_engine::Error::Io(e) | oadec_engine::Error::Stream(e) => (false, e),
             };
-            if gone && let Target::File(mut file) = sink.target {
+            if gone
+                && let Target::File(mut parts) = sink.target
+                && let Some(mut file) = parts.file.take()
+            {
                 file.nothing();
             }
             return Err(e);
         }
+    };
+    let parts = match &sink.target {
+        Target::File(parts) => parts.made.clone(),
+        Target::Stdout(_) => Vec::new(),
     };
     let Sink { events, err, .. } = sink;
     if let Some(path) = &asked.pipeline_stats {
@@ -219,7 +315,7 @@ pub(crate) fn decode(asked: Asked, err: &mut dyn Write) -> Result<ExitCode> {
             .with_context(|| format!("writing {}", path.display()))?;
     }
     let verdict = end.verdict();
-    let report = report(&name, asked.wave, &end, &events, verdict);
+    let report = report(&name, asked.wave, &end, &events, &parts, verdict);
     if let Some(path) = &asked.report {
         let text = format!("{report:#}\n");
         if path.as_os_str() == pipe::STDOUT {
@@ -261,6 +357,7 @@ fn report(
     wave: bool,
     end: &StreamEnd,
     events: &[StreamEvent],
+    parts: &[PathBuf],
     verdict: Verdict,
 ) -> Value {
     let output = events.iter().find_map(|e| match e {
@@ -331,6 +428,7 @@ fn report(
         "units": end.units,
         "bytes": end.bytes,
         "events": events,
+        "parts": parts.iter().map(|p| p.display().to_string()).collect::<Vec<_>>(),
         "findings": end.findings.entries(),
         "first_problem": end.findings.first(),
         "verdict": match verdict {
@@ -346,5 +444,21 @@ fn sample_name(sample: oadec_engine::api::WavSample) -> &'static str {
     match sample {
         oadec_engine::api::WavSample::Int24 => "s24le",
         oadec_engine::api::WavSample::Float32 => "f32le",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_parts_of_an_output_are_numbered_before_its_extension() {
+        let name = |s: &str, k| part_name(Path::new(s), k);
+        assert_eq!(name("out.wav", 1), Path::new("out.wav"));
+        assert_eq!(name("out.wav", 2), Path::new("out.002.wav"));
+        assert_eq!(name("dir/out.pcm", 12), Path::new("dir/out.012.pcm"));
+        assert_eq!(name("take.one.wav", 3), Path::new("take.one.003.wav"));
+        assert_eq!(name("out", 2), Path::new("out.002"));
+        assert_eq!(name("dir/out", 1000), Path::new("dir/out.1000"));
     }
 }

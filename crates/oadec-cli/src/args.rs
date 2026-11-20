@@ -39,6 +39,27 @@ impl From<FormatArg> for Format {
     }
 }
 
+/// `-p`, `--presentation` of `decode`: one presentation by its number, or
+/// every one the stream carries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PresentationArg {
+    One(usize),
+    All,
+}
+
+impl std::str::FromStr for PresentationArg {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "all" {
+            return Ok(Self::All);
+        }
+        s.parse()
+            .map(Self::One)
+            .map_err(|_| format!("a presentation is a number, 0 to 3, or all: not {s}"))
+    }
+}
+
 /// `--on-error`: what a TrueHD decode does with an access unit it cannot read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub(crate) enum OnErrorArg {
@@ -176,6 +197,11 @@ pub(crate) enum LayoutChangeArg {
     /// E-AC-3 programme writes silence in the channels a frame group does
     /// not carry (exit 7). A TrueHD stream refuses it.
     Fixed,
+    /// Go on in the new layout in a file of its own: the samples after the
+    /// change are written to the next part, `NAME.002.wav`, `NAME.003.wav`,
+    /// each with its own header. A change the stream signals and the decode
+    /// followed is not a fault by itself. Refused with -o -.
+    Split,
 }
 
 impl From<LayoutChangeArg> for LayoutChange {
@@ -183,6 +209,7 @@ impl From<LayoutChangeArg> for LayoutChange {
         match arg {
             LayoutChangeArg::Stop => Self::Stop,
             LayoutChangeArg::Fixed => Self::Fixed,
+            LayoutChangeArg::Split => Self::Split,
         }
     }
 }

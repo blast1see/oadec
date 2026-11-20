@@ -160,6 +160,25 @@ headerless samples cannot be told their width changed;
 `--on-layout-change fixed` keeps the layout of the first unit where the codec
 offers it, and the change is still a fault (exit 7).
 
+`--on-layout-change split` (a file output only; `-o -` refuses it, exit 2)
+follows the change instead: the samples after it go on in the next part,
+`NAME.002.wav` and on, each with its own header. A change the stream signals
+and the decode followed is not a fault by itself, because nothing of what was
+delivered is wrong: every sample is in a part shaped as it was coded. So it
+leaves the verdict alone. For E-AC-3 the programme decoder counts it in
+`layout_follows`, which no verdict reads; for TrueHD the checks of `verify`
+count it under `config.changed`, which the delivery leaves out of its
+verdict when it followed the change, and every other rule still counts: a
+join of two streams that breaks the timing (`timing.invalid_branch`) is a
+fault, exit 7, whether or not the change was followed. `verify` itself is not
+told what a decode followed, and calls such a stream non-conformant as it
+always did.
+
+`decode -p all` writes every presentation to a file of its own and exits
+with the worst verdict of them: 0 when every presentation is clean, 4 when
+the worst is lossy, 7 when one of them is faulty. A programme that `--programme`
+names and the stream does not carry is exit 2, and no file is left.
+
 What cannot go to standard output is refused before the stream is read, exit
 2: `--format damf` or `adm`, whose files are gone back over when they are
 closed; standard output on a terminal; and `--report -`, which would put JSON
@@ -197,6 +216,9 @@ for a measurement that is a wrong number under a right name.
 | `--fps` | `--format damf` | `--format adm`, and a sample output |
 | `--on-layout-change`, `--json`, `--report` (`decode`) | a sample output (`--format pcm` or `wav`) | an object output |
 | `--on-layout-change fixed` | an AC-3 or E-AC-3 stream | a TrueHD stream, whose decoder has no layout to keep |
+| `--on-layout-change split` | a sample output to a file | `-o -` |
+| `--programme N` | an AC-3 or E-AC-3 stream, in `decode`, `compare`, `info` and `verify` | a TrueHD stream, an object output, and `-p all` |
+| `-p all` (`decode`) | a TrueHD stream to sample files | an object output, `-o -`, `--json`, `--report`, `--on-layout-change`, `--start`, `--on-error stop`, and an AC-3 or E-AC-3 stream |
 | `--reference-format` (`compare`) | a TrueHD stream | an AC-3 or E-AC-3 stream, whose reference is 32-bit float |
 | `--worst` (`compare`) | an AC-3 or E-AC-3 stream | a TrueHD stream, whose comparison is exact and lists its mismatches (`--report`) |
 | `--require-disc`, `--trace-fifo`, `--census` (`verify`) | a TrueHD stream | an AC-3 or E-AC-3 stream |

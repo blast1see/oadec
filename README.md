@@ -56,6 +56,8 @@ oadec rules   segment.parity                      # what a rule checks, its defa
 oadec au      film.thd --index 1500               # one access unit, field by field, where a finding points
 oadec decode  film.thd -p 2 -o film-7.1.wav       # a channel presentation as WAVE; damage becomes silence in place
 oadec decode  film.thd -p 2 --start 90 -o cut.wav # from 90 s, at the next major sync
+oadec decode  film.thd -p all -o film.wav         # every presentation in one pass: film.p0.wav, film.p1.wav, ...
+oadec decode  film.thd -p 2 --on-layout-change split -o film.wav   # a new file where the stream changes
 oadec decode  film.thd --format damf -o out/film  # objects + metadata as a DAMF set
 oadec decode  film.thd --format adm  -o out/film  # objects + metadata as ADM BWF
 oadec thd-demux dump.thd -o film.thd --core core.ac3   # a Blu-ray dump with its core inside
@@ -66,14 +68,18 @@ oadec emdf    film.thd --dump 1                  # and of a TrueHD access unit, 
 oadec info    film.ec3                            # E-AC-3: frames, coding tools, JOC statistics
 oadec decode  film.ec3 --format damf -o out/film  # JOC objects + metadata as a DAMF set
 oadec compare film.ec3 -r ref.f32                 # against a 32-bit float reference (FFmpeg)
+oadec decode  film.ec3 --programme 1 -o p1.wav    # the second programme of an E-AC-3 stream
 ffmpeg -i film.mkv -map 0:a:0 -c copy -f truehd - | oadec verify -   # a stream from a pipe
+ffmpeg -i film.mkv -map 0:a:0 -c copy -f truehd - | oadec decode - --format wav -o - | ffplay -   # decoded as it arrives
 ```
 
 `film.thd` is a raw TrueHD elementary stream, for example extracted with
 mkvextract. Where a command reads a stream, `-` is standard input, so a track
-can go from its container to a verdict without a file in between; the stream
-is held in memory for as long as the command runs, because a command reads
-its stream more than once and a pipe can be read once. Every check `verify` makes, on TrueHD and on AC-3 and E-AC-3, is a named rule with a default
+can go from its container to a verdict without a file in between. `decode
+--format pcm` and `wav` read it once, as it arrives, and `-o -` writes the
+samples to standard output unit by unit ([`docs/streaming.md`](docs/streaming.md));
+every other command holds the stream in memory for as long as it runs,
+because it reads its stream more than once and a pipe can be read once. Every check `verify` makes, on TrueHD and on AC-3 and E-AC-3, is a named rule with a default
 severity and a source (a public specification, a measurement, or another
 implementation), listed in [`docs/conformance-rules.md`](docs/conformance-rules.md);
 a finding says where it is (access unit or frame, byte and bit, substream, time), and

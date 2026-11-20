@@ -145,6 +145,9 @@ targets!(
     eac3_frame,
     eac3_program,
     verdict_parity,
+    truehd_multi,
+    stream_push,
+    eac3_program_config,
 );
 
 /// A target added to the crate and not to the list above would never run.

@@ -867,8 +867,9 @@ length and what follows a fault stays where it belongs in time (`decode
   damaged where they lie do; bytes missing from the file do not, and such a
   gap is left as it is, the output that much shorter, and said.
 * A change of configuration still ends the output where it happens (exit 7);
-  the decoder can follow one (*A change of configuration*, below), and the
-  command line does not yet ask it to,
+  the decoder can follow one (*A change of configuration*, below), and
+  `decode --on-layout-change split` asks it to, writing what follows the
+  change to a file of its own ([`streaming.md`](streaming.md#a-layout-that-changes)),
   and a fault before the first sample of output is still an error (exit 2).
 
 The run says what it did -- `concealed N access units with silence (X ms) in
@@ -973,7 +974,18 @@ processor time of four decoders one after the other (2.39 s against 4.45 s
 for a hundred passes over it, release build), with the same peak memory, and
 no substream decoded twice where four decoders decode substream 0 four
 times, 1 three times and 2 twice
-(`crates/oadec-truehd/examples/presentations.rs`).
+(`crates/oadec-truehd/examples/presentations.rs`). On two object streams of
+a library the share was 66 and 78 per cent: the matrices, the dither and the
+checks of each presentation stay its own, and they weigh more there.
+
+On the command line, `decode -p all` writes every presentation in one pass,
+each to a file of its own ([`streaming.md`](streaming.md#every-presentation-in-one-pass)),
+and `verify --decode` checks every presentation in one pass, on one thread
+where it ran a thread to each presentation. On the object fixture, a hundred
+times over, it took a third less processor time and half as much again of
+wall-clock time: the decodes no longer run side by side. What it says is the
+same, byte for byte, which a test holds on every fixture and recipe, damaged
+and cut.
 
 ## FBB (DVD-Audio)
 

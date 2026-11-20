@@ -54,7 +54,7 @@ use oadec_truehd::{Extractor, Unit};
 
 use crate::api::{
     CORE_DECODE_IS_AC3, KEEP_DUPLICATES_IS_TRUEHD, ON_ERROR_IS_TRUEHD, OnError,
-    PRESENTATION_IS_TRUEHD, PcmOptions, START_IS_TRUEHD_SAMPLES,
+    PRESENTATION_IS_TRUEHD, PROGRAMME_IS_AC3, PcmOptions, START_IS_TRUEHD_SAMPLES,
 };
 use crate::calls::{Format, refusal};
 use crate::decode::{self, ConfigStop, Delivery, Taken, WavSample, WavSpec};
@@ -109,6 +109,14 @@ pub enum LayoutChange {
     /// does not carry, as a decode to a file always has. A TrueHD stream has
     /// no such layout and refuses it. The change is still a fault (exit 7).
     Fixed,
+    /// The samples go on in the layout the stream changed to, and the sink
+    /// is told so by [`StreamEvent::ConfigChange`] with the new layout, so
+    /// that it can begin anew: a writer of files writes the next part. A
+    /// TrueHD presentation a change takes away ends there, told with no new
+    /// layout, and the change that brings it back is told as any other. A
+    /// change the stream signals and the decode followed is not a fault of
+    /// what was delivered.
+    Split,
 }
 
 impl LayoutChange {
@@ -118,6 +126,7 @@ impl LayoutChange {
         match self {
             Self::Stop => "stop",
             Self::Fixed => "fixed",
+            Self::Split => "split",
         }
     }
 }
@@ -270,6 +279,10 @@ pub struct PcmFrame<'a> {
     /// headerless file of the decode holds.
     pub bytes: &'a [u8],
 }
+
+/// What a [`StreamSink`] gives back: [`anyhow::Result`], named here for a
+/// sink whose crate does not use `anyhow` itself.
+pub type SinkResult = Result<()>;
 
 /// Where a decode of a stream as it arrives writes what it makes.
 ///
@@ -567,6 +580,9 @@ impl StreamDecoder {
             if pcm.core_only || !pcm.dither || !pcm.tpnp || pcm.ecpl_full {
                 return Err(refusal(CORE_DECODE_IS_AC3));
             }
+            if pcm.programme.is_some() {
+                return Err(refusal(PROGRAMME_IS_AC3));
+            }
             if self.options.on_layout_change == Some(LayoutChange::Fixed) {
                 return Err(refusal(FIXED_LAYOUT_IS_EAC3));
             }
@@ -796,6 +812,8 @@ impl Drop for Checks {
 struct TrueHd {
     extractor: Extractor,
     opts: decode::Options,
+    /// A change of configuration is followed ([`LayoutChange::Split`]).
+    follow: bool,
     delivery: Option<Delivery>,
     checks: Checks,
     waiting: VecDeque<Waiting>,
@@ -817,6 +835,7 @@ impl TrueHd {
         let pcm = &options.pcm;
         Self {
             extractor: Extractor::new(),
+            follow: options.on_layout_change == Some(LayoutChange::Split),
             opts: decode::Options {
                 presentation: pcm.presentation,
                 format: decode::Format::Pcm,
@@ -870,8 +889,11 @@ impl TrueHd {
             {
                 self.format = Format::Mlp;
             }
-            self.delivery
-                .insert(Delivery::new(&self.opts, presentation)?)
+            let mut delivery = Delivery::new(&self.opts, presentation)?;
+            if self.follow {
+                delivery.session.follow_changes();
+            }
+            self.delivery.insert(delivery)
         };
         self.kept.bytes.clear();
         self.said.clear();
@@ -913,7 +935,40 @@ impl TrueHd {
                 new_rate: None,
             });
         }
-        let pcm = if taken == Taken::Written {
+        if let (Taken::Changed | Taken::Gone, Some((old, old_rate))) = (taken, self.opened) {
+            let what = delivery.session.last_change.unwrap_or("the configuration");
+            let new = (taken == Taken::Changed)
+                .then_some(self.kept.spec)
+                .flatten()
+                .map(|spec| {
+                    (
+                        Layout {
+                            channels: spec.channels,
+                            mask: spec.mask,
+                            sample: spec.sample,
+                        },
+                        spec.rate,
+                    )
+                });
+            events.push(StreamEvent::ConfigChange {
+                unit: index,
+                byte_offset: unit.offset,
+                what: if new.is_some() {
+                    what.to_string()
+                } else {
+                    format!("{what}, and the presentation is not in the new configuration")
+                },
+                policy: LayoutChange::Split,
+                old,
+                old_rate,
+                new: new.map(|(layout, _)| layout),
+                new_rate: new.map(|(_, rate)| rate),
+            });
+            if let Some(new) = new {
+                self.opened = Some(new);
+            }
+        }
+        let pcm = if matches!(taken, Taken::Written | Taken::Changed) {
             let spare = self.spare.pop().unwrap_or_default();
             std::mem::replace(&mut self.kept.bytes, spare)
         } else {
@@ -992,7 +1047,7 @@ impl TrueHd {
         for f in listed.new_in(&scan.diag.tally, self.units, pushed) {
             sink.event(&StreamEvent::Finding(f))?;
         }
-        let check = crate::verify::truehd_check(*scan);
+        let check = crate::verify::truehd_check_of(*scan, self.follow);
         let Some(delivery) = self.delivery else {
             return Err(crate::info::no_stream_named(&options.name));
         };
@@ -1104,7 +1159,34 @@ impl Groups {
             });
             (layout, rate)
         };
-        if !self.core_only {
+        if self.policy == LayoutChange::Split {
+            // each group has its own channels: a group whose channels differ
+            // from the group before it begins the output anew
+            if frame.layout_changed {
+                self.order = eac3::output_order(&chans, self.order_kind);
+                let ordered: Vec<_> = self.order.iter().map(|&i| chans[i]).collect();
+                let (mask, warning) = eac3::channel_mask(&ordered);
+                if let Some(warning) = warning {
+                    self.event(StreamEvent::Remark(warning));
+                }
+                let layout = Layout {
+                    channels: chans.len() as u16,
+                    mask,
+                    sample: WavSample::Float32,
+                };
+                self.event(StreamEvent::ConfigChange {
+                    unit: frame.index,
+                    byte_offset: start,
+                    what: "the channels of the programme".to_string(),
+                    policy: LayoutChange::Split,
+                    old,
+                    old_rate,
+                    new: Some(layout),
+                    new_rate: Some(rate),
+                });
+                self.opened = Some((layout, rate));
+            }
+        } else if !self.core_only {
             if frame.layout_changed && !self.changed {
                 self.changed = true;
                 let byte_offset = start;
@@ -1157,6 +1239,14 @@ impl Ac3 {
                     ecpl_full: pcm.ecpl_full,
                     block_info: false,
                     samples: true,
+                },
+                oadec_eac3::ProgramConfig {
+                    programme: pcm.programme,
+                    layout: if options.on_layout_change == Some(LayoutChange::Split) {
+                        oadec_eac3::LayoutPolicy::Follow
+                    } else {
+                        oadec_eac3::LayoutPolicy::Fixed
+                    },
                 },
                 Tally::<oadec_eac3::RuleId>::DEFAULT_MAX_PER_RULE,
             ),
