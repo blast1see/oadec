@@ -280,6 +280,10 @@ pub struct PcmFrame<'a> {
     pub bytes: &'a [u8],
 }
 
+/// What a [`StreamSink`] gives back: [`anyhow::Result`], named here for a
+/// sink whose crate does not use `anyhow` itself.
+pub type SinkResult = Result<()>;
+
 /// Where a decode of a stream as it arrives writes what it makes.
 ///
 /// It is told [`StreamEvent::Opened`] before the first samples, every event

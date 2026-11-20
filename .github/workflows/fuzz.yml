@@ -56,6 +56,9 @@ jobs:
           - eac3_frame
           - eac3_program
           - verdict_parity
+          - truehd_multi
+          - stream_push
+          - eac3_program_config
     steps:
       - uses: actions/checkout@v4
       # rust-toolchain.toml names the toolchain the seeds are cut with
