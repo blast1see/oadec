@@ -26,15 +26,7 @@ pub(crate) const STDOUT: &str = "-";
 /// the samples ended. It is the status a shell gives a process that a
 /// `SIGPIPE` ended (128 + 13), so a script that already lets `head` close a
 /// pipe early lets `oadec` do it too.
-#[allow(
-    dead_code,
-    reason = "the decode to standard output ends with it once it is built"
-)]
 pub(crate) const EXIT_RECEIVER_CLOSED: u8 = 141;
-
-/// What a decode says until it can write to standard output.
-pub(crate) const NOT_YET: &str = "decoding to or from a pipe as the stream arrives \
-     (-o -, --json, --report, --on-layout-change stop on an E-AC-3 stream) is not implemented yet";
 
 /// What a decode is asked of where its output and its report go.
 #[derive(Debug, Clone, Copy)]
@@ -51,6 +43,8 @@ pub(crate) struct Asked<'a> {
     pub stdout_is_terminal: bool,
     /// What `--on-layout-change` asks.
     pub on_layout_change: Option<LayoutChange>,
+    /// The use of the queue is asked for (`--pipeline-stats`).
+    pub pipeline_stats: bool,
 }
 
 /// Refuses what a decode cannot do with where its output and its report go,
@@ -94,6 +88,12 @@ pub(crate) fn check(asked: &Asked<'_>) -> anyhow::Result<()> {
     if objects.is_some() && asked.on_layout_change.is_some() {
         anyhow::bail!(LAYOUT_CHANGE_IS_SAMPLES);
     }
+    if objects.is_some() && asked.pipeline_stats {
+        anyhow::bail!(
+            "--pipeline-stats measures the queue of a decode to samples: it applies to \
+             --format pcm or wav"
+        );
+    }
     Ok(())
 }
 
@@ -104,10 +104,6 @@ pub(crate) fn check(asked: &Asked<'_>) -> anyhow::Result<()> {
 /// being closed or is not connected as well, depending on who held the other
 /// end; each of those is the receiver gone, and none is a failure of the
 /// decode.
-#[allow(
-    dead_code,
-    reason = "the decode to standard output asks it once it is built"
-)]
 pub(crate) fn receiver_closed(err: &anyhow::Error) -> bool {
     err.chain()
         .filter_map(|cause| cause.downcast_ref::<io::Error>())
@@ -116,8 +112,17 @@ pub(crate) fn receiver_closed(err: &anyhow::Error) -> bool {
 
 /// [`receiver_closed`] for one error of a write.
 pub(crate) fn is_receiver_closed(err: &io::Error) -> bool {
-    let _ = err;
-    false
+    /// `ERROR_BROKEN_PIPE`, `ERROR_NO_DATA` (the pipe is being closed) and
+    /// `ERROR_PIPE_NOT_CONNECTED`: what a write to a pipe whose reader has
+    /// gone gives on Windows, by who held the other end.
+    #[cfg(windows)]
+    const CLOSED: [i32; 3] = [109, 232, 233];
+    #[cfg(not(windows))]
+    const CLOSED: [i32; 0] = [];
+    err.kind() == io::ErrorKind::BrokenPipe
+        || err
+            .raw_os_error()
+            .is_some_and(|code| CLOSED.contains(&code))
 }
 
 #[cfg(test)]
@@ -132,6 +137,7 @@ mod tests {
             report: None,
             stdout_is_terminal: false,
             on_layout_change: None,
+            pipeline_stats: false,
         }
     }
 

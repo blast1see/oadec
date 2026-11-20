@@ -13,8 +13,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use oadec_engine::api::{self, PcmBytes, PcmOptions, Source, Verdict};
 use oadec_engine::stream::{
-    LayoutChange, PcmFrame, PcmSink, QUEUE_PIECES, StreamDecoder, StreamEnd, StreamEvent,
-    StreamOptions, decode_reader,
+    LayoutChange, PcmFrame, QUEUE_PIECES, StreamDecoder, StreamEnd, StreamEvent, StreamOptions,
+    StreamSink, decode_reader,
 };
 
 const NAME: &str = "<stdin>";
@@ -67,7 +67,7 @@ struct Told {
     units: Vec<u64>,
 }
 
-impl PcmSink for Told {
+impl StreamSink for Told {
     fn event(&mut self, event: &StreamEvent) -> anyhow::Result<()> {
         self.events.push(event.clone());
         Ok(())
@@ -262,7 +262,7 @@ struct Slow {
     pcm: u64,
 }
 
-impl PcmSink for Slow {
+impl StreamSink for Slow {
     fn event(&mut self, _: &StreamEvent) -> anyhow::Result<()> {
         Ok(())
     }
@@ -357,7 +357,7 @@ fn a_change_of_layout_ends_the_output_or_keeps_it_as_asked() {
     assert!(told.pcm == alone, "the output ends where the second begins");
     // and TrueHD has no layout to keep
     let fixed = StreamOptions {
-        on_layout_change: LayoutChange::Fixed,
+        on_layout_change: Some(LayoutChange::Fixed),
         ..StreamOptions::new(NAME)
     };
     assert!(pushed(&both, &fixed, || 4096).1.is_err());
@@ -367,11 +367,37 @@ fn a_change_of_layout_ends_the_output_or_keeps_it_as_asked() {
     let both = [first.clone(), fixture("eac3-71-tones.ec3")].concat();
     let (stopped, end) = pushed(&both, &options, lengths(6, 9000));
     assert_eq!(end.expect("decoded").verdict(), Verdict::Faulty);
-    assert!(stopped.events.iter().any(|e| matches!(
-        e,
-        StreamEvent::ConfigChange { byte_offset, policy: LayoutChange::Stop, .. }
-            if *byte_offset == first.len() as u64
-    )));
+    // The change is told at the frame group the decoder marks, where that
+    // group starts. Every frame of the first stream is 512 bytes. The decoder
+    // of the independent substream holds a frame back, and the group that
+    // comes out of it once the first frame of the 7.1 programme is in is the
+    // last group of the stereo one, which it marks: the change is told one
+    // group early, as the decode of a file counts it.
+    let changes: Vec<(u64, u64)> = stopped
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            StreamEvent::ConfigChange {
+                unit,
+                byte_offset,
+                policy: LayoutChange::Stop,
+                old,
+                old_rate,
+                new_rate,
+                ..
+            } => {
+                assert_eq!((old.channels, *old_rate), (2, 48_000));
+                assert_eq!(*new_rate, Some(48_000));
+                Some((*unit, *byte_offset))
+            }
+            _ => None,
+        })
+        .collect();
+    let groups = first.len() as u64 / 512;
+    assert!(
+        matches!(changes.as_slice(), [(unit, at)] if *at == unit * 512 && *unit + 1 >= groups && *unit <= groups),
+        "{changes:?}"
+    );
     let (kept, end) = pushed(&both, &fixed, lengths(7, 9000));
     assert_eq!(end.expect("decoded").verdict(), Verdict::Faulty);
     // the layout kept is the one a file of the same bytes has
@@ -380,6 +406,11 @@ fn a_change_of_layout_ends_the_output_or_keeps_it_as_asked() {
         kept.pcm == filled,
         "the kept layout differs from the file's"
     );
+    // Stopped, the samples are a beginning of the samples of the whole, and
+    // not the samples of the first stream decoded alone: an E-AC-3 decoder
+    // carries a held frame and transient pre-noise processing from one frame
+    // group to the next, so the last groups before the change are decoded
+    // with the first groups of the second stream behind them.
     assert!(!stopped.pcm.is_empty() && stopped.pcm.len() < filled.len());
     assert!(filled.starts_with(&stopped.pcm));
 }

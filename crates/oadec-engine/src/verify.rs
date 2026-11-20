@@ -262,9 +262,14 @@ fn stream_check(source: &Source, go_on: &dyn Fn() -> bool) -> Result<StreamCheck
         return crate::eac3::stream_check(source, go_on);
     }
     let scan = scan::scan_while(source, Tally::DEFAULT_MAX_PER_RULE, false, go_on)?;
+    Ok(truehd_check(scan))
+}
+
+/// The verdict of `verify` on a TrueHD stream, from a finished scan of it.
+pub(crate) fn truehd_check(scan: scan::Scan) -> StreamCheck {
     // the default verdict of `verify`: every counter it has always read, and
     // the rules without a counter that fail a stream by default
-    Ok(StreamCheck {
+    StreamCheck {
         clean: scan.first_major_sync.is_some() && scan.diag.tally.passes(Severity::Error),
         first_problem: scan.first_error.or_else(|| {
             scan.diag
@@ -273,7 +278,7 @@ fn stream_check(source: &Source, go_on: &dyn Fn() -> bool) -> Result<StreamCheck
                 .find(|(r, _)| r.info().severity >= Severity::Error)
                 .map(|(r, t)| format!("{}: {}", r.info().id, t.first.message))
         }),
-    })
+    }
 }
 
 /// The checks of `verify` going over a stream on a thread of their own, for a

@@ -28,6 +28,7 @@ mod joc_offset;
 mod pipe;
 mod progress;
 mod repair;
+mod samples;
 mod thd_demux;
 
 use std::io::IsTerminal as _;
@@ -46,7 +47,7 @@ use oadec_engine::decode::{Format, OnError, Order};
 use oadec_engine::eac3_objects::{JocLowBand, JocLowFir, JocOverrides, JocPhase};
 use oadec_engine::integrity::Verdict;
 use oadec_engine::source::Source;
-use oadec_engine::stream::{FIXED_LAYOUT_IS_EAC3, LayoutChange};
+use oadec_engine::stream::LayoutChange;
 use oadec_engine::{api, damf, decode, eac3, eac3_objects, emdf, oamd};
 use oadec_truehd::Severity;
 
@@ -59,6 +60,10 @@ struct Cli {
 }
 
 #[derive(Debug, Subcommand)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "one command line is parsed once a run, and decode has the most options"
+)]
 enum Command {
     /// Print what a stream declares about itself.
     Info {
@@ -496,6 +501,10 @@ enum Command {
     },
 }
 
+/// What `--warp-mode` with a sample output is told.
+const WARP_IS_OBJECTS: &str =
+    "--warp-mode names a warp mode in an object output: it applies to --format damf or adm";
+
 /// Exit code when a verification finds non-conformance.
 const EXIT_NONCONFORMANT: u8 = 7;
 
@@ -638,11 +647,9 @@ where
                 report: report.as_deref(),
                 stdout_is_terminal: to_stdout && std::io::stdout().is_terminal(),
                 on_layout_change,
+                pipeline_stats: pipeline_stats.is_some(),
             }) {
                 break 'decode Err(e);
-            }
-            if to_stdout || json || report.is_some() || pipeline_stats.is_some() {
-                break 'decode Err(anyhow::anyhow!(pipe::NOT_YET));
             }
             // what the command line names, as the types the work takes
             let format = Format::from(format);
@@ -653,6 +660,62 @@ where
             let isf = isf.unwrap_or(IsfArg::Error);
             let fps = fps.unwrap_or_else(|| "24".to_string());
             let adm_interpolation = adm_interpolation.unwrap_or(InterpolationArg::Profile);
+            if matches!(format, Format::Pcm | Format::Wav) {
+                // What does not depend on the stream is refused before it is
+                // read, in the order the checks below make; what depends on
+                // it is refused by the decode once it has told the codec, in
+                // the same words.
+                let joc_measured = joc_lag.is_some()
+                    || joc_low_band.is_some()
+                    || joc_phase.is_some()
+                    || joc_low_fir.is_some();
+                let joc_read =
+                    no_clip_gain || flat_quadrature || sparse_as_printed || steep_as_printed;
+                let refused = damf::check_presentation(format, presentation)
+                    .and_then(|()| {
+                        damf::check_interpolation(adm_interpolation.into(), dolby_origin_tag)
+                    })
+                    .err()
+                    .or_else(|| {
+                        [
+                            (given_for_objects, api::OBJECT_OPTIONS_ARE_OBJECTS),
+                            (given_for_adm, api::ADM_OPTIONS_ARE_ADM),
+                            (given_for_damf, api::FPS_IS_DAMF),
+                            (warp_mode.is_some(), WARP_IS_OBJECTS),
+                            (joc_measured, api::JOC_MEASURES_EAC3_OBJECTS),
+                            (joc_read, api::JOC_READINGS_ARE_EAC3_OBJECTS),
+                        ]
+                        .into_iter()
+                        .find(|(given, _)| *given)
+                        .map(|(_, words)| anyhow::anyhow!(words))
+                    });
+                if let Some(e) = refused {
+                    break 'decode Err(e);
+                }
+                break 'decode samples::decode(
+                    samples::Asked {
+                        file,
+                        output,
+                        wave: format == Format::Wav,
+                        pcm: api::PcmOptions {
+                            presentation,
+                            order,
+                            keep_duplicates,
+                            start,
+                            on_error,
+                            core_only,
+                            dither: !no_dither,
+                            tpnp: !no_tpnp,
+                            ecpl_full: ecpl_spec,
+                        },
+                        on_layout_change,
+                        json,
+                        report,
+                        pipeline_stats,
+                    },
+                    err,
+                );
+            }
             let verdict = stream_named(&file).and_then(|source| {
                 if let Err(e) = damf::check_presentation(format, presentation).and_then(|()| {
                     damf::check_interpolation(adm_interpolation.into(), dolby_origin_tag)
@@ -669,21 +732,10 @@ where
                     // The beds and the objects of an object output are in the
                     // order its format gives them, whatever is asked.
                     Err(anyhow::anyhow!(api::ORDER_IS_SAMPLES))
-                } else if on_layout_change == Some(LayoutChange::Fixed)
-                    && !eac3::is_eac3(&source).unwrap_or(false)
-                {
-                    Err(anyhow::anyhow!(FIXED_LAYOUT_IS_EAC3))
-                } else if on_layout_change == Some(LayoutChange::Stop)
-                    && eac3::is_eac3(&source).unwrap_or(false)
-                {
-                    Err(anyhow::anyhow!(pipe::NOT_YET))
                 } else if warp_mode.is_some() && !matches!(format, Format::Damf | Format::Adm) {
                     // Samples have nowhere to say it, and an option that reads as
                     // applied while changing nothing is the defect named below.
-                    Err(anyhow::anyhow!(
-                        "--warp-mode names a warp mode in an object output: it applies to \
-                     --format damf or adm"
-                    ))
+                    Err(anyhow::anyhow!(WARP_IS_OBJECTS))
                 } else if (joc_lag.is_some()
                     || joc_low_band.is_some()
                     || joc_phase.is_some()

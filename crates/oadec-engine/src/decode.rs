@@ -695,6 +695,34 @@ impl WavSpec {
     }
 }
 
+/// The extensible `fmt ` chunk of a WAVE output of samples shaped as
+/// `spec`, with its header: what a file and a stream of the decode both say.
+pub(crate) fn wave_fmt_chunk(spec: WavSpec) -> Vec<u8> {
+    let bits = spec.block_align() / spec.channels.max(1) * 8;
+    let mut out = Vec::with_capacity(48);
+    out.extend_from_slice(b"fmt ");
+    out.extend_from_slice(&40u32.to_le_bytes());
+    out.extend_from_slice(&0xFFFEu16.to_le_bytes()); // WAVE_FORMAT_EXTENSIBLE
+    out.extend_from_slice(&spec.channels.to_le_bytes());
+    out.extend_from_slice(&spec.rate.to_le_bytes());
+    out.extend_from_slice(&(spec.rate * u32::from(spec.block_align())).to_le_bytes());
+    out.extend_from_slice(&spec.block_align().to_le_bytes());
+    out.extend_from_slice(&bits.to_le_bytes());
+    out.extend_from_slice(&22u16.to_le_bytes()); // cbSize
+    out.extend_from_slice(&bits.to_le_bytes()); // valid bits
+    out.extend_from_slice(&spec.mask.to_le_bytes());
+    // KSDATAFORMAT_SUBTYPE_PCM (1) or KSDATAFORMAT_SUBTYPE_IEEE_FLOAT (3)
+    let format = match spec.sample {
+        WavSample::Int24 => 0x01,
+        WavSample::Float32 => 0x03,
+    };
+    out.extend_from_slice(&[
+        format, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B,
+        0x71,
+    ]);
+    out
+}
+
 /// A WAVE file being written.
 ///
 /// The header goes out first with its sizes unknown, the samples after it,
@@ -716,33 +744,13 @@ pub struct WavOut {
 impl WavOut {
     /// Writes the header to `out`.
     pub fn create(mut out: BufWriter<File>, spec: WavSpec) -> std::io::Result<Self> {
-        let bits = spec.block_align() / spec.channels.max(1) * 8;
         out.write_all(b"RIFF")?;
         out.write_all(&0u32.to_le_bytes())?;
         out.write_all(b"WAVE")?;
         out.write_all(b"JUNK")?;
         out.write_all(&oadec_spatial::DS64_LEN.to_le_bytes())?;
         out.write_all(&[0; oadec_spatial::DS64_LEN as usize])?;
-        out.write_all(b"fmt ")?;
-        out.write_all(&40u32.to_le_bytes())?;
-        out.write_all(&0xFFFEu16.to_le_bytes())?; // WAVE_FORMAT_EXTENSIBLE
-        out.write_all(&spec.channels.to_le_bytes())?;
-        out.write_all(&spec.rate.to_le_bytes())?;
-        out.write_all(&(spec.rate * u32::from(spec.block_align())).to_le_bytes())?;
-        out.write_all(&spec.block_align().to_le_bytes())?;
-        out.write_all(&bits.to_le_bytes())?;
-        out.write_all(&22u16.to_le_bytes())?; // cbSize
-        out.write_all(&bits.to_le_bytes())?; // valid bits
-        out.write_all(&spec.mask.to_le_bytes())?;
-        // KSDATAFORMAT_SUBTYPE_PCM (1) or KSDATAFORMAT_SUBTYPE_IEEE_FLOAT (3)
-        let format = match spec.sample {
-            WavSample::Int24 => 0x01,
-            WavSample::Float32 => 0x03,
-        };
-        out.write_all(&[
-            format, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38,
-            0x9B, 0x71,
-        ])?;
+        out.write_all(&wave_fmt_chunk(spec))?;
         out.write_all(b"data")?;
         out.write_all(&0u32.to_le_bytes())?;
         Ok(Self {
@@ -1010,6 +1018,11 @@ fn default_presentation(source: &Source) -> usize {
             .ok()
             .and_then(|(units, _)| units.into_iter().next())
     });
+    default_presentation_of(first.as_ref())
+}
+
+/// [`default_presentation`] of a stream whose first access unit is `first`.
+pub(crate) fn default_presentation_of(first: Option<&Unit>) -> usize {
     first
         .and_then(|unit| AccessUnit::parse(&unit.bytes, None).ok())
         .and_then(|(au, _)| au.major_sync)
@@ -1058,6 +1071,110 @@ impl Decoded {
     }
 }
 
+/// What a decode of a TrueHD presentation does with each access unit,
+/// whichever pass hands the units over: [`decode`] from a source, or a
+/// stream decoded as it arrives.
+#[derive(Debug)]
+pub(crate) struct Delivery {
+    pub(crate) session: Session,
+    output_started: bool,
+    /// Samples written, per channel.
+    pub(crate) samples: u64,
+    /// Where the output ended at a change of configuration.
+    pub(crate) stopped: Option<ConfigStop>,
+    buf: Vec<u8>,
+}
+
+/// What an access unit came to in a [`Delivery`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Taken {
+    /// Nothing was written: the unit came before the start, was a duplicate
+    /// dropped, or came after the output ended.
+    Nothing,
+    /// Its samples were written.
+    Written,
+    /// The configuration changed at it and the output ends before it.
+    Stopped,
+}
+
+impl Delivery {
+    /// A delivery of `presentation` as `opts` ask.
+    ///
+    /// # Errors
+    /// A start before the beginning of the stream.
+    pub(crate) fn new(opts: &Options, presentation: usize) -> Result<Self> {
+        let mut session = Session::new(presentation, opts.keep_duplicates, opts.order);
+        session.on_error(opts.on_error);
+        if let Some(seconds) = opts.start {
+            if seconds < 0.0 {
+                bail!("--start takes a time in seconds, not {seconds}");
+            }
+            session.start_at(seconds);
+        }
+        Ok(Self {
+            session,
+            output_started: false,
+            samples: 0,
+            stopped: None,
+            buf: Vec::with_capacity(160 * 16 * 3),
+        })
+    }
+
+    /// Decodes `unit` and writes its samples to `sink`; what the decode has
+    /// to say goes to `remarks`.
+    ///
+    /// # Errors
+    /// What the decode gives where it cannot go on, and what the sink gives.
+    pub(crate) fn take(
+        &mut self,
+        unit: &Unit,
+        sink: &mut dyn PcmSink,
+        remarks: &mut dyn Write,
+    ) -> Result<Taken> {
+        if self.stopped.is_some() {
+            // the rest is still framed, so the verdict covers the whole file
+            return Ok(Taken::Nothing);
+        }
+        let session = &mut self.session;
+        let index = session.stats().map_or(0, |s| s.units);
+        let frame = match session.decode(unit, remarks) {
+            Ok(Some(frame)) => frame,
+            Ok(None) => return Ok(Taken::Nothing),
+            Err(e) => {
+                return match ConfigStop::from_error(&e, index, unit.offset) {
+                    Some(stop) if self.output_started => {
+                        self.stopped = Some(stop);
+                        Ok(Taken::Stopped)
+                    }
+                    _ => Err(e),
+                };
+            }
+        };
+        if !self.output_started {
+            self.output_started = true;
+            if sink.states_the_channels()
+                && let Some(warning) = frame.mask_warning
+            {
+                writeln!(remarks, "warning: {warning}")?;
+            }
+            sink.begin(WavSpec {
+                channels: frame.channels as u16,
+                rate: frame.sampling_frequency,
+                mask: frame.channel_mask,
+                sample: WavSample::Int24,
+            })?;
+        }
+        let buf = &mut self.buf;
+        buf.clear();
+        buf.resize(frame.lead_silence * frame.order.len() * 3, 0);
+        let clipped = pack_24le(frame.pcm, frame.order, buf);
+        self.samples += (frame.lead_silence + frame.pcm.len()) as u64;
+        session.clipped += clipped;
+        sink.write(buf)?;
+        Ok(Taken::Written)
+    }
+}
+
 /// Runs the command.
 pub fn run(source: &Source, output: &Path, opts: &Options, err: &mut dyn Write) -> Result<bool> {
     let mut file = PcmFile::create(output, opts.format == Format::Wav)?;
@@ -1083,59 +1200,16 @@ pub fn decode(
     let presentation = opts
         .presentation
         .unwrap_or_else(|| default_presentation(source));
-    let mut session = Session::new(presentation, opts.keep_duplicates, opts.order);
-    session.on_error(opts.on_error);
-    if let Some(seconds) = opts.start {
-        if seconds < 0.0 {
-            bail!("--start takes a time in seconds, not {seconds}");
-        }
-        session.start_at(seconds);
-    }
-    let mut output_started = false;
-    let mut samples: u64 = 0;
-    let mut stopped: Option<ConfigStop> = None;
-    let mut buf = Vec::with_capacity(160 * 16 * 3);
+    let mut delivery = Delivery::new(opts, presentation)?;
     let pass = input::for_each_unit(source, |unit| {
-        if stopped.is_some() {
-            // the rest is still framed, so the verdict covers the whole file
-            return Ok(());
-        }
-        let index = session.stats().map_or(0, |s| s.units);
-        let frame = match session.decode(&unit, remarks) {
-            Ok(Some(frame)) => frame,
-            Ok(None) => return Ok(()),
-            Err(e) => {
-                return match ConfigStop::from_error(&e, index, unit.offset) {
-                    Some(stop) if output_started => {
-                        stopped = Some(stop);
-                        Ok(())
-                    }
-                    _ => Err(e),
-                };
-            }
-        };
-        if !output_started {
-            output_started = true;
-            if sink.states_the_channels()
-                && let Some(warning) = frame.mask_warning
-            {
-                writeln!(remarks, "warning: {warning}")?;
-            }
-            sink.begin(WavSpec {
-                channels: frame.channels as u16,
-                rate: frame.sampling_frequency,
-                mask: frame.channel_mask,
-                sample: WavSample::Int24,
-            })?;
-        }
-        buf.clear();
-        buf.resize(frame.lead_silence * frame.order.len() * 3, 0);
-        let clipped = pack_24le(frame.pcm, frame.order, &mut buf);
-        samples += (frame.lead_silence + frame.pcm.len()) as u64;
-        session.clipped += clipped;
-        sink.write(&buf)?;
-        Ok(())
+        delivery.take(&unit, sink, remarks).map(|_| ())
     })?;
+    let Delivery {
+        session,
+        samples,
+        stopped,
+        ..
+    } = delivery;
     if session.stats().is_none() {
         // Nothing framed as TrueHD: there is no output to deliver and nothing
         // to judge, which is an unusable input (exit 2), not a clean run.

@@ -463,8 +463,13 @@ impl Scan {
     }
 
     fn new(source: &Source, max_per_rule: usize) -> Self {
+        Self::named(source.name(), max_per_rule)
+    }
+
+    /// A scan of nothing yet, of the stream reports call `name`.
+    pub(crate) fn named(name: &str, max_per_rule: usize) -> Self {
         Self {
-            file: source.name().to_string(),
+            file: name.to_string(),
             file_bytes: 0,
             units: 0,
             major_syncs: 0,
@@ -560,7 +565,7 @@ impl Scan {
         }
     }
 
-    fn take_unit(&mut self, unit: &Unit, since_major_sync: &mut u64) {
+    pub(crate) fn take_unit(&mut self, unit: &Unit, since_major_sync: &mut u64) {
         let index = self.units;
         self.units += 1;
         let at_unit = Location::unit(index, unit.offset);
@@ -1287,7 +1292,7 @@ impl Scan {
         }
     }
 
-    fn finish(&mut self, summary: PassSummary) {
+    pub(crate) fn finish(&mut self, summary: PassSummary) {
         if let Some(gap) = summary.final_gap {
             self.take_gap(gap, None);
         }

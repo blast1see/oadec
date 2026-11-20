@@ -41,18 +41,24 @@ pub fn is_eac3(source: &Source) -> Result<bool> {
     let mut head = vec![0u8; SNIFF_BYTES];
     let n = f.read(&mut head)?;
     head.truncate(n);
+    Ok(is_eac3_head(&head))
+}
+
+/// [`is_eac3`] of the first bytes of a stream, as one read of
+/// [`SNIFF_BYTES`] gives them: all of them where the stream is shorter.
+pub(crate) fn is_eac3_head(head: &[u8]) -> bool {
     // The first two bytes are not enough. A Blu-ray TrueHD track can carry an
     // AC-3 core frame in front of the MLP stream, so a file that opens with
     // the AC-3 sync word may still be TrueHD; FFmpeg and MediaInfo both give
     // up on one. A major sync with an access-unit chain behind it decides.
-    if truehd_start(&head).is_some() {
-        return Ok(false);
+    if truehd_start(head).is_some() {
+        return false;
     }
-    Ok(head.starts_with(&[0x0B, 0x77]))
+    head.starts_with(&[0x0B, 0x77])
 }
 
 /// How far into a file to look for the shape of the stream.
-const SNIFF_BYTES: usize = 64 << 10;
+pub(crate) const SNIFF_BYTES: usize = 64 << 10;
 
 /// The offset where a TrueHD stream starts inside `head`, if one does.
 ///
@@ -108,7 +114,7 @@ fn for_each_frame_and_gap(
 }
 
 /// What one read asks the source for.
-const READ_BYTES: usize = 4 << 20;
+pub(crate) const READ_BYTES: usize = 4 << 20;
 
 /// [`for_each_frame_and_gap`] with the size of a read as `read_bytes`, which
 /// a test makes small enough for a short stream to be read in many pieces.
@@ -232,6 +238,233 @@ fn fill(
     Ok(read > 0)
 }
 
+/// What [`Splitter::next`] came to.
+#[derive(Debug)]
+pub(crate) enum Split<'a> {
+    /// A syncframe, at `offset` in the stream.
+    Frame {
+        offset: u64,
+        bytes: &'a [u8],
+        header: FrameHeader,
+    },
+    /// Bytes that are no syncframe: what `on_gap` of [`frames_and_gaps`] is
+    /// told.
+    Gap {
+        offset: u64,
+        sync_error: bool,
+        bytes: u64,
+    },
+    /// Nothing can be decided before more bytes come, or the end.
+    Wait,
+    /// The stream has ended, and everything in it was told.
+    End,
+}
+
+/// [`frames_and_gaps`] for bytes that are pushed as they arrive.
+///
+/// What it tells is what [`frames_and_gaps`] tells of the same bytes in a
+/// file read `read_bytes` at a time, wherever the pieces were cut: the same
+/// syncframes, the same gaps, the same sync errors. The reads of the file are
+/// where it decides how a run of bytes that is no syncframe is told, so they
+/// are counted here as they would fall; nothing waits for them that does not
+/// depend on them, and a syncframe is told as soon as it and the two bytes
+/// after it are in.
+#[derive(Debug)]
+pub(crate) struct Splitter {
+    read_bytes: usize,
+    /// The bytes pushed and not yet given up, from offset `start`.
+    data: Vec<u8>,
+    start: u64,
+    /// Where the window of the file's reader begins: the next byte to decide.
+    lo: u64,
+    /// Where its window ends once the stream is long enough: what its reads
+    /// asked for so far.
+    target: u64,
+    /// The file's reader was given nothing by its last read.
+    eof: bool,
+    /// The stream has ended.
+    finished: bool,
+    ended: bool,
+    /// The step the reader is at has been filled for: a step that waited
+    /// for bytes goes on where it waited, and is not filled for again.
+    filled: bool,
+    /// Sync errors and bytes skipped so far.
+    pub(crate) sync_errors: u64,
+    pub(crate) skipped: u64,
+}
+
+impl Splitter {
+    pub(crate) fn new(read_bytes: usize) -> Self {
+        Self {
+            read_bytes,
+            data: Vec::new(),
+            start: 0,
+            lo: 0,
+            target: 0,
+            eof: false,
+            finished: false,
+            ended: false,
+            filled: false,
+            sync_errors: 0,
+            skipped: 0,
+        }
+    }
+
+    /// The next bytes of the stream.
+    pub(crate) fn push(&mut self, bytes: &[u8]) {
+        let taken = (self.lo - self.start) as usize;
+        if taken > 0 && taken >= self.data.len() / 2 {
+            self.data.drain(..taken);
+            self.start = self.lo;
+        }
+        self.data.extend_from_slice(bytes);
+    }
+
+    /// The stream has ended.
+    pub(crate) fn finish(&mut self) {
+        self.finished = true;
+    }
+
+    fn data_end(&self) -> u64 {
+        self.start + self.data.len() as u64
+    }
+
+    /// The end of the window as far as the bytes in hand show it: the end
+    /// itself, or less.
+    fn known_end(&self) -> u64 {
+        self.target.min(self.data_end())
+    }
+
+    /// The end of the window, where it is known.
+    fn end(&self) -> Option<u64> {
+        (self.finished || self.data_end() >= self.target).then(|| self.known_end())
+    }
+
+    /// One read of `most` bytes by the file's reader, which gives what is
+    /// left of the stream up to that; `None` where that is not known yet.
+    fn fill(&mut self, most: usize) -> Option<()> {
+        let end = self.end()?;
+        if self.data_end() > end {
+            self.target = end + most as u64;
+        } else if self.finished {
+            self.eof = true;
+        } else {
+            return None;
+        }
+        Some(())
+    }
+
+    fn bytes(&self, from: u64, to: u64) -> &[u8] {
+        &self.data[(from - self.start) as usize..(to - self.start) as usize]
+    }
+
+    fn gap(&mut self, sync_error: bool, bytes: u64) -> Split<'_> {
+        self.filled = false;
+        let offset = self.lo;
+        self.sync_errors += u64::from(sync_error);
+        self.skipped += bytes;
+        self.lo += bytes;
+        Split::Gap {
+            offset,
+            sync_error,
+            bytes,
+        }
+    }
+
+    /// What the next bytes are.
+    pub(crate) fn next(&mut self) -> Split<'_> {
+        loop {
+            if self.ended {
+                return Split::End;
+            }
+            let lo = self.lo;
+            // the reader is filled again when less than 4096 bytes are left,
+            // once a step
+            if !self.filled {
+                if !self.eof && self.known_end() - lo < 4096 {
+                    match self.end() {
+                        None => return Split::Wait,
+                        Some(end) if end - lo < 4096 => {
+                            if self.fill(self.read_bytes).is_none() {
+                                return Split::Wait;
+                            }
+                        }
+                        Some(_) => {}
+                    }
+                }
+                self.filled = true;
+            }
+            let known = self.known_end();
+            if known - lo < 8 {
+                let Some(end) = self.end() else {
+                    return Split::Wait;
+                };
+                if end - lo < 8 {
+                    if self.eof {
+                        self.ended = true;
+                        return self.gap(false, end - lo);
+                    }
+                    self.filled = false;
+                    continue;
+                }
+            }
+            let Some(pos) = find_sync(self.bytes(lo, known), 0) else {
+                // none in the window: all of it is skipped, once its end is
+                // known
+                let Some(end) = self.end() else {
+                    return Split::Wait;
+                };
+                self.ended = self.eof;
+                return self.gap(false, end - lo);
+            };
+            if pos > 0 {
+                return self.gap(true, pos as u64);
+            }
+            let Ok(header) = FrameHeader::parse(self.bytes(lo, known)) else {
+                return self.gap(true, 1);
+            };
+            let fb = header.frame_bytes as u64;
+            if known - lo < fb {
+                let Some(end) = self.end() else {
+                    return Split::Wait;
+                };
+                if end - lo < fb {
+                    if self.eof {
+                        self.ended = true;
+                        return self.gap(false, end - lo);
+                    }
+                    let most = ((fb - (end - lo)) as usize).max(self.read_bytes);
+                    if self.fill(most).is_none() {
+                        return Split::Wait;
+                    }
+                    self.filled = false;
+                    continue;
+                }
+            }
+            // the next frame must start with a sync word, or the window end
+            let next_ok = if known - lo >= fb + 2 {
+                self.bytes(lo + fb, lo + fb + 2) == [0x0B, 0x77]
+            } else {
+                let Some(end) = self.end() else {
+                    return Split::Wait;
+                };
+                (end - lo == fb && self.eof) || end - lo < fb + 2
+            };
+            if !next_ok {
+                return self.gap(true, 1);
+            }
+            self.lo += fb;
+            self.filled = false;
+            self.ended = self.eof && self.end() == Some(self.lo);
+            return Split::Frame {
+                offset: lo,
+                bytes: self.bytes(lo, lo + fb),
+                header,
+            };
+        }
+    }
+}
+
 fn syntax_name(h: &FrameHeader) -> &'static str {
     match h.syntax {
         Syntax::Ac3 => "AC-3",
@@ -245,7 +478,10 @@ fn syntax_name(h: &FrameHeader) -> &'static str {
 /// substream's own channels, which is the 5.1-compatible downmix a decoder
 /// limited to 5.1 would produce and clause E.2.8.2 allows -- useful for
 /// comparing against a reference decoder that only renders that far.
-fn output_channels(frame: &ProgramFrame, core_only: bool) -> (Vec<ChannelLoc>, Vec<&[f32]>) {
+pub(crate) fn output_channels(
+    frame: &ProgramFrame,
+    core_only: bool,
+) -> (Vec<ChannelLoc>, Vec<&[f32]>) {
     if core_only {
         let part = &frame.parts[0];
         return (
@@ -264,7 +500,7 @@ fn output_channels(frame: &ProgramFrame, core_only: bool) -> (Vec<ChannelLoc>, V
 /// Interchange order is the order of the WAVE mask bits, which each channel
 /// location carries with it, so the order and the mask below can never
 /// disagree.
-fn output_order(chans: &[ChannelLoc], order: Order) -> Vec<usize> {
+pub(crate) fn output_order(chans: &[ChannelLoc], order: Order) -> Vec<usize> {
     let mut idx: Vec<usize> = (0..chans.len()).collect();
     if order == Order::Interchange {
         idx.sort_by_key(|&i| chans[i].interchange_rank());
@@ -277,7 +513,7 @@ fn output_order(chans: &[ChannelLoc], order: Order) -> Vec<usize> {
 ///
 /// `bytes` is made the size of the frame and every byte of it is written, so
 /// it can be the buffer of the frame before and is allocated once.
-fn interleave(bytes: &mut Vec<u8>, pcm: &[&[f32]], order: &[usize], samples: usize) {
+pub(crate) fn interleave(bytes: &mut Vec<u8>, pcm: &[&[f32]], order: &[usize], samples: usize) {
     let channels = order.len();
     bytes.resize(samples * channels * 4, 0);
     // A channel at a time: one run through the samples of a channel and one
@@ -302,7 +538,7 @@ fn interleave(bytes: &mut Vec<u8>, pcm: &[&[f32]], order: &[usize], samples: usi
 ///
 /// With a mask of zero comes the warning that says why, for the caller to
 /// pass on.
-fn channel_mask(chans: &[ChannelLoc]) -> (u32, Option<String>) {
+pub(crate) fn channel_mask(chans: &[ChannelLoc]) -> (u32, Option<String>) {
     let mask = chans.iter().fold(0, |a, c| a | c.wave_mask());
     if mask.count_ones() as usize == chans.len() {
         (mask, None)
@@ -844,7 +1080,7 @@ struct SubStats {
 
 /// Summary of a full pass over a stream.
 #[derive(Debug, Default)]
-struct Pass {
+pub(crate) struct Pass {
     frames: u64,
     independent: u64,
     dependent: u64,
@@ -1062,90 +1298,153 @@ fn pass_listing(
     listed: usize,
     mut on_pcm: impl FnMut(&ProgramFrame) -> Result<()>,
 ) -> Result<(Pass, u64, u64)> {
-    let mut dec = ProgramDecoder::new(opts);
-    let mut p = Pass::default();
-    // The findings are filed from two places that are two closures: the walk
-    // over the bytes, and the frames it yields.
-    let diag = std::cell::RefCell::new(Diag::new(listed));
-    let mut seen = ProgramSeen::default();
-    let (frames, sync_errors, skipped) = for_each_frame_and_gap(
+    // The walk is told from two places that are two closures: the syncframes
+    // of the bytes, and what is between them.
+    let walk = std::cell::RefCell::new(Walk::new(opts, listed));
+    let (_, sync_errors, skipped) = for_each_frame_and_gap(
         source,
         |offset, bytes, header| {
-            if !go_on(&p) {
+            let walk = &mut *walk.borrow_mut();
+            if !go_on(&walk.p) {
                 bail!("the pass was given up");
             }
-            let key = (header.stream_type as u8, header.substream_id);
-            *p.substreams.entry(key).or_default() += 1;
-            match header.stream_type {
-                oadec_eac3::StreamType::Dependent => p.dependent += 1,
-                _ => p.independent += 1,
-            }
-            dec.push(bytes, header)?;
-            let diag = &mut *diag.borrow_mut();
-            while let Some(frame) = dec.pop() {
-                account(&mut p, &frame, &mut on_pcm, diag)?;
-            }
-            // what assembling the programme counted while it took this frame
-            seen.file(dec.stats(), Location::byte(offset), diag);
-            Ok(())
+            walk.frame(offset, bytes, header, &mut on_pcm)
         },
-        |offset, sync_error, bytes| {
-            let diag = &mut *diag.borrow_mut();
-            if sync_error {
-                diag.add(RuleId::FrameSync, Location::byte(offset), 1, || {
-                    "no syncframe starts here".to_string()
-                });
-            }
-            if bytes > 0 {
-                diag.add(RuleId::FrameSkipped, Location::byte(offset), bytes, || {
-                    let s = if bytes == 1 { "" } else { "s" };
-                    format!("{bytes} byte{s} that belong to no syncframe")
-                });
-            }
-        },
+        |offset, sync_error, bytes| walk.borrow_mut().gap(offset, sync_error, bytes),
     )?;
-    let mut diag = diag.into_inner();
-    dec.finish()?;
-    while let Some(frame) = dec.pop() {
-        account(&mut p, &frame, &mut on_pcm, &mut diag)?;
-    }
-    seen.file(dec.stats(), Location::default(), &mut diag);
-    p.program = dec.stats().clone();
-    p.layout = dec.layout().cloned();
-    // decode errors of the independent substream are the ones that stop a
-    // decode; a dependent substream's are reported against that substream
-    p.decode_errors = p
-        .program
-        .decode_errors
-        .iter()
-        .filter(|((t, _), _)| *t != 1)
-        .map(|(_, n)| *n)
-        .sum();
-    for ((t, id), n) in &p.program.decode_errors {
-        if *t == 1 {
-            p.subs.entry((*t, *id)).or_default().decode_errors = *n;
+    walk.into_inner().end(sync_errors, skipped, &mut on_pcm)
+}
+
+/// A pass over an AC-3 family stream, told one syncframe and one gap at a
+/// time: what [`pass_listing`] does with what the bytes of a file are, and
+/// what a stream decoded as it arrives does with what its splitter tells.
+#[derive(Debug)]
+pub(crate) struct Walk {
+    dec: ProgramDecoder,
+    p: Pass,
+    diag: Diag,
+    seen: ProgramSeen,
+}
+
+impl Walk {
+    pub(crate) fn new(opts: Options, listed: usize) -> Self {
+        Self {
+            dec: ProgramDecoder::new(opts),
+            p: Pass::default(),
+            diag: Diag::new(listed),
+            seen: ProgramSeen::default(),
         }
     }
-    if p.first_error.is_none() {
-        p.first_error = p.program.first_error.clone();
+
+    /// The findings so far.
+    pub(crate) fn diag(&self) -> &Diag {
+        &self.diag
     }
-    if p.first_fault.is_none() {
-        p.first_fault = p.program.first_error.clone();
+
+    /// A syncframe at `offset`; the frame groups it completes go to
+    /// `on_pcm`.
+    pub(crate) fn frame(
+        &mut self,
+        offset: u64,
+        bytes: &[u8],
+        header: &FrameHeader,
+        mut on_pcm: &mut dyn FnMut(&ProgramFrame) -> Result<()>,
+    ) -> Result<()> {
+        let p = &mut self.p;
+        let key = (header.stream_type as u8, header.substream_id);
+        *p.substreams.entry(key).or_default() += 1;
+        match header.stream_type {
+            oadec_eac3::StreamType::Dependent => p.dependent += 1,
+            _ => p.independent += 1,
+        }
+        self.dec.push(bytes, header)?;
+        while let Some(frame) = self.dec.pop() {
+            account(p, &frame, &mut on_pcm, &mut self.diag)?;
+        }
+        // what assembling the programme counted while it took this frame
+        self.seen
+            .file(self.dec.stats(), Location::byte(offset), &mut self.diag);
+        Ok(())
     }
-    if p.emdf.missing_containers() > 0
-        && p.emdf.first_error.is_none()
-        && let Some(frame) = p.emdf.first_missing
-    {
-        p.emdf.first_error = Some(format!(
-            "frame {frame}: no EMDF container in the skip fields"
-        ));
+
+    /// Bytes at `offset` that are no syncframe.
+    pub(crate) fn gap(&mut self, offset: u64, sync_error: bool, bytes: u64) {
+        let diag = &mut self.diag;
+        if sync_error {
+            diag.add(RuleId::FrameSync, Location::byte(offset), 1, || {
+                "no syncframe starts here".to_string()
+            });
+        }
+        if bytes > 0 {
+            diag.add(RuleId::FrameSkipped, Location::byte(offset), bytes, || {
+                let s = if bytes == 1 { "" } else { "s" };
+                format!("{bytes} byte{s} that belong to no syncframe")
+            });
+        }
     }
-    p.emdf.file_missing(&mut diag);
-    p.diag = diag;
-    // a rule and its counter are one fact told twice
-    debug_assert_eq!(disagreement(&p, sync_errors, skipped), None);
-    let _ = frames;
-    Ok((p, sync_errors, skipped))
+
+    /// The stream has ended, with `sync_errors` and `skipped` bytes: the
+    /// frame groups still held go to `on_pcm`, and the pass is drawn up.
+    pub(crate) fn end(
+        self,
+        sync_errors: u64,
+        skipped: u64,
+        mut on_pcm: &mut dyn FnMut(&ProgramFrame) -> Result<()>,
+    ) -> Result<(Pass, u64, u64)> {
+        let Self {
+            mut dec,
+            mut p,
+            mut diag,
+            mut seen,
+        } = self;
+        dec.finish()?;
+        while let Some(frame) = dec.pop() {
+            account(&mut p, &frame, &mut on_pcm, &mut diag)?;
+        }
+        seen.file(dec.stats(), Location::default(), &mut diag);
+        p.program = dec.stats().clone();
+        p.layout = dec.layout().cloned();
+        // decode errors of the independent substream are the ones that stop a
+        // decode; a dependent substream's are reported against that substream
+        p.decode_errors = p
+            .program
+            .decode_errors
+            .iter()
+            .filter(|((t, _), _)| *t != 1)
+            .map(|(_, n)| *n)
+            .sum();
+        for ((t, id), n) in &p.program.decode_errors {
+            if *t == 1 {
+                p.subs.entry((*t, *id)).or_default().decode_errors = *n;
+            }
+        }
+        if p.first_error.is_none() {
+            p.first_error = p.program.first_error.clone();
+        }
+        if p.first_fault.is_none() {
+            p.first_fault = p.program.first_error.clone();
+        }
+        if p.emdf.missing_containers() > 0
+            && p.emdf.first_error.is_none()
+            && let Some(frame) = p.emdf.first_missing
+        {
+            p.emdf.first_error = Some(format!(
+                "frame {frame}: no EMDF container in the skip fields"
+            ));
+        }
+        p.emdf.file_missing(&mut diag);
+        p.diag = diag;
+        // a rule and its counter are one fact told twice
+        debug_assert_eq!(disagreement(&p, sync_errors, skipped), None);
+        Ok((p, sync_errors, skipped))
+    }
+}
+
+impl Pass {
+    /// The findings of the pass by rule.
+    pub(crate) fn diag(&self) -> &Diag {
+        &self.diag
+    }
 }
 
 /// What assembling the programme had counted the last time it was looked
@@ -2460,6 +2759,25 @@ pub fn report_with(source: &Source, options: &ReportOptions) -> Result<Report> {
 }
 
 impl Report {
+    /// The report of a decode whose pass a stream drove, as [`decode_into`]
+    /// gives it; `None` where the stream held no whole syncframe.
+    pub(crate) fn delivered(
+        name: &str,
+        (p, sync_errors, skipped): (Pass, u64, u64),
+        elapsed: f64,
+    ) -> Option<Self> {
+        (p.independent + p.dependent > 0).then(|| Self {
+            name: name.to_string(),
+            pass: Box::new(p),
+            sync_errors,
+            skipped,
+            elapsed,
+            // a decode is given no threshold: the report of its pass has the
+            // one `verify` has when it is given none
+            fail_on: Severity::Error,
+        })
+    }
+
     /// The syntax of the first frame that decoded, AC-3 or E-AC-3; `None`
     /// where none did.
     #[must_use]
@@ -3410,6 +3728,121 @@ mod tests {
                 whole,
                 "{read_bytes} bytes a read"
             );
+        }
+    }
+
+    /// Everything the reader of a file tells, call by call.
+    #[derive(Debug, PartialEq, Eq)]
+    enum Told {
+        Frame(u64, usize),
+        Gap(u64, bool, u64),
+    }
+
+    fn told_by_the_file(stream: &[u8], read_bytes: usize) -> (Vec<Told>, u64, u64) {
+        let source = Source::memory("a stream", stream.to_vec());
+        let told = std::cell::RefCell::new(Vec::new());
+        let (_, sync_errors, skipped) = frames_and_gaps(
+            &source,
+            read_bytes,
+            |offset, bytes, _| {
+                told.borrow_mut().push(Told::Frame(offset, bytes.len()));
+                Ok(())
+            },
+            |offset, sync_error, bytes| {
+                told.borrow_mut().push(Told::Gap(offset, sync_error, bytes));
+            },
+        )
+        .expect("a pass over bytes in memory");
+        (told.into_inner(), sync_errors, skipped)
+    }
+
+    fn told_by_the_splitter(
+        stream: &[u8],
+        read_bytes: usize,
+        piece: usize,
+    ) -> (Vec<Told>, u64, u64) {
+        let mut splitter = Splitter::new(read_bytes);
+        let mut told = Vec::new();
+        let take = |splitter: &mut Splitter, told: &mut Vec<Told>| loop {
+            match splitter.next() {
+                Split::Frame { offset, bytes, .. } => {
+                    assert_eq!(
+                        bytes,
+                        &stream[offset as usize..offset as usize + bytes.len()]
+                    );
+                    told.push(Told::Frame(offset, bytes.len()));
+                }
+                Split::Gap {
+                    offset,
+                    sync_error,
+                    bytes,
+                } => told.push(Told::Gap(offset, sync_error, bytes)),
+                Split::Wait | Split::End => return,
+            }
+        };
+        for chunk in stream.chunks(piece.max(1)) {
+            splitter.push(chunk);
+            take(&mut splitter, &mut told);
+        }
+        splitter.finish();
+        take(&mut splitter, &mut told);
+        assert!(matches!(splitter.next(), Split::End));
+        (told, splitter.sync_errors, splitter.skipped)
+    }
+
+    fn name_of_reads(read_bytes: usize, piece: usize, name: &str) -> String {
+        format!("{name}: reads of {read_bytes}, pieces of {piece}")
+    }
+
+    /// A stream pushed in pieces is split as the reader of a file splits the
+    /// same bytes: the same frames, the same gaps told in the same calls,
+    /// whatever the size of its reads and wherever the pieces are cut. The
+    /// stream is the one above, with bytes that are no frame in three places
+    /// and a half frame at its end, and the reads are small enough for the
+    /// runs of those bytes to be told in several gaps.
+    #[test]
+    fn a_stream_pushed_in_pieces_is_split_as_its_file_is_read() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
+        );
+        let clean = std::fs::read(path).expect("the fixture");
+        const FRAME: usize = 1792;
+        let other = |n: usize| -> Vec<u8> { (0..n).map(|i| (i % 7) as u8 + 1).collect() };
+        let mut gappy = other(300);
+        gappy.extend_from_slice(&clean[..10 * FRAME]);
+        gappy.extend(other(5000));
+        gappy.extend_from_slice(&clean[10 * FRAME..20 * FRAME]);
+        gappy.extend(other(9000));
+        gappy.extend_from_slice(&clean[20 * FRAME..30 * FRAME]);
+        gappy.extend_from_slice(&clean[..FRAME / 2]);
+        let mut damaged = clean.clone();
+        for at in [5, 3 * FRAME + 2, 20_000, 50_001] {
+            damaged[at] ^= 0x77;
+        }
+        // a sync word cut by every read of seven bytes
+        let mut straddled = other(13);
+        straddled.extend_from_slice(&clean[..4 * FRAME]);
+        for (name, stream) in [
+            ("clean", &clean),
+            ("gappy", &gappy),
+            ("damaged", &damaged),
+            ("straddled", &straddled),
+        ] {
+            for read_bytes in [1, 7, 100, 4096, 4097, 5000, 9001, READ_BYTES] {
+                let file = told_by_the_file(stream, read_bytes);
+                for piece in [1, 3, 1792, 4099, usize::MAX] {
+                    let split = told_by_the_splitter(stream, read_bytes, piece);
+                    let at = name_of_reads(read_bytes, piece, name);
+                    let first = split.0.iter().zip(&file.0).position(|(a, b)| a != b);
+                    assert_eq!(
+                        first.map(|i| (&split.0[i], &file.0[i])),
+                        None,
+                        "{at}: the first call that differs"
+                    );
+                    assert_eq!(split, file, "{at}");
+                }
+            }
         }
     }
 

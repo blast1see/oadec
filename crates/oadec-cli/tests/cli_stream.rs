@@ -268,7 +268,17 @@ fn a_stream_that_ends_badly_on_a_pipe_is_what_its_bytes_in_a_file_are() {
             ("a byte changed", damaged),
             ("ended halfway", bytes[..len / 2].to_vec()),
         ] {
-            let (file, written) = of_file(&case, &["--format", "pcm"], &dir, "badly");
+            // A 7.1 programme cut inside its last frame group loses the
+            // dependent substream of that group, which is a change of its
+            // channels: standard output ends there unless asked otherwise,
+            // and a file keeps its layout unless asked otherwise. The file is
+            // asked what standard output does.
+            let (file, written) = of_file(
+                &case,
+                &["--format", "pcm", "--on-layout-change", "stop"],
+                &dir,
+                "badly",
+            );
             let pipe = of_pipe(&case, &["--format", "pcm"]);
             let at = format!("{name}, {how}");
             assert_eq!(pipe.status.code(), file.status.code(), "{at}");
