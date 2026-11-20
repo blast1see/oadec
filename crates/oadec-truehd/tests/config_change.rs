@@ -246,4 +246,30 @@ fn a_presentation_the_change_takes_away_is_an_error_of_its_own() {
             Err(e) => panic!("{name}: unit {k}: {e}"),
         }
     }
+    // While it is gone the presentation counts nothing: no unit, no sample.
+    let samples = |part: usize| -> u64 {
+        alone[part]
+            .as_ref()
+            .unwrap()
+            .0
+            .iter()
+            .map(|out| match out {
+                Out::Samples { rows, .. } => rows.len() as u64,
+                other => panic!("{name}: part {part} alone: {other:?}"),
+            })
+            .sum()
+    };
+    let stats = decoder.stats();
+    assert_eq!(
+        stats.units,
+        (starts[1] + units.len() - starts[2]) as u64,
+        "{name}: units counted"
+    );
+    assert_eq!(
+        stats.samples,
+        samples(0) + samples(2),
+        "{name}: samples counted"
+    );
+    assert_eq!(stats.concealed_units, 0, "{name}");
+    assert_eq!(stats.lossless_mismatches, 0, "{name}");
 }

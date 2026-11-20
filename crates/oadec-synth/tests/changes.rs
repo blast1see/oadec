@@ -268,6 +268,14 @@ fn a_presentation_left_out_is_gone_and_comes_back() {
     }
     assert!(pcm[0] == known(&changed, 0, 2) && pcm[2] == known(&changed, 2, 2));
     assert!(pcm[1].is_empty());
+    // while it is gone the presentation counts nothing
+    let gone_units = starts[2] - starts[1];
+    assert_eq!(decoder.stats().units, (units.len() - gone_units) as u64);
+    let samples: usize = [0, 2]
+        .iter()
+        .map(|&part| known(&changed, part, 2)[0].len())
+        .sum();
+    assert_eq!(decoder.stats().samples, samples as u64);
 
     let mut multi = MultiDecoder::new(&first_sync(&units), &[0, 1, 2]).unwrap();
     multi.on_config_change(OnConfigChange::Continue);
@@ -298,6 +306,11 @@ fn a_presentation_left_out_is_gone_and_comes_back() {
             assert_eq!(flags, [false, false, true, false], "unit {k}");
         }
     }
+    assert_eq!(
+        multi.stats(2).map(|s| (s.units, s.samples)),
+        Some((decoder.stats().units, decoder.stats().samples)),
+        "the one-pass decoder counts what the single one counts"
+    );
     for (p, parts) in pcm.iter().enumerate() {
         for (part, got) in parts.iter().enumerate() {
             if p == 2 && part == 1 {
@@ -446,7 +459,7 @@ fn one_pass_gives_every_presentation_of_every_recipe() {
 fn each_substream_of_a_written_stream_is_decoded_once_a_unit() {
     let mut streams: Vec<(&str, Vec<Vec<u8>>)> = RECIPES
         .iter()
-        .filter(|r| r.make().layout.above.len() > 0)
+        .filter(|r| !r.make().layout.above.is_empty())
         .map(|r| (r.name, recipe_units(r)))
         .collect();
     streams.extend(CHANGES.iter().map(|c| (c.name, units(&written(c)))));

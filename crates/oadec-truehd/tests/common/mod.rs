@@ -127,6 +127,21 @@ pub fn configs(units: &[Vec<u8>]) -> Vec<StreamConfig> {
         .collect()
 }
 
+/// The configuration in force at each unit, a unit whose framing is
+/// damaged keeping the one before it.
+pub fn configs_tolerant(units: &[Vec<u8>]) -> Vec<StreamConfig> {
+    let mut config: Option<StreamConfig> = None;
+    units
+        .iter()
+        .map(|unit| {
+            if let Ok((_, next)) = AccessUnit::parse(unit, config.as_ref()) {
+                config = Some(next);
+            }
+            config.clone().expect("the first unit parses")
+        })
+        .collect()
+}
+
 /// The presentations a decoder can be set up for at the start of the stream.
 pub fn presentations(units: &[Vec<u8>]) -> Vec<usize> {
     let config = first_config(units);
@@ -211,7 +226,7 @@ pub fn single(
 /// `units` with one byte of the segment of `substream` in unit `unit`
 /// turned over, in the middle of the segment.
 pub fn damage_substream(units: &mut [Vec<u8>], unit: usize, substream: usize) {
-    let config = configs(units)[unit].clone();
+    let config = configs_tolerant(units)[unit].clone();
     let (au, _) = AccessUnit::parse(&units[unit], Some(&config)).expect("the unit parses");
     let range = au.segment_range(substream);
     assert!(
@@ -222,10 +237,33 @@ pub fn damage_substream(units: &mut [Vec<u8>], unit: usize, substream: usize) {
     units[unit][middle] ^= 0x5A;
 }
 
-/// `units` with the check nibble of the header of unit `unit` turned over,
-/// so the unit's framing does not read.
+/// `units` with the first four bytes of the segment of `substream` in unit
+/// `unit` set, so that its block header and restart header do not read.
+pub fn scramble_segment(units: &mut [Vec<u8>], unit: usize, substream: usize) {
+    let config = configs_tolerant(units)[unit].clone();
+    let (au, _) = AccessUnit::parse(&units[unit], Some(&config)).expect("the unit parses");
+    let range = au.segment_range(substream);
+    assert!(
+        range.len() >= 4,
+        "unit {unit} substream {substream} is short"
+    );
+    for b in &mut units[unit][range.start..range.start + 4] {
+        *b = 0xFF;
+    }
+}
+
+/// `units` with the check nibble of the header of unit `unit` turned over.
+/// The parse of the unit does not refuse it: the nibble is checked, and its
+/// failure counted, by `verify`.
 pub fn damage_framing(units: &mut [Vec<u8>], unit: usize) {
     units[unit][0] ^= 0xF0;
+}
+
+/// `units` with the length the header of unit `unit` declares set past the
+/// end of the unit, so the unit's framing does not read.
+pub fn break_framing(units: &mut [Vec<u8>], unit: usize) {
+    units[unit][0] |= 0x0F;
+    units[unit][1] = 0xFF;
 }
 
 /// FNV-1a, 64 bits.

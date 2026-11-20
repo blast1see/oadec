@@ -1,11 +1,18 @@
-//! Sample reconstruction for one presentation: recorrelation, rematrixing,
-//! remapping and the lossless check.
+//! Sample reconstruction: recorrelation, rematrixing, remapping and the
+//! lossless check, for one presentation ([`Decoder`]) or several at once
+//! ([`MultiDecoder`](crate::MultiDecoder)), on the same code.
 //!
 //! The decoder drives the segment parser block by block. After every block the
 //! coded samples of the substream are recorrelated (FIR/IIR prediction); when the
-//! substream is the top of the requested presentation the union of the
+//! substream is the top of a requested presentation the union of the
 //! recorrelated channels of every substream in the presentation is rematrixed
 //! with that substream's matrices and remapped to output channels.
+//!
+//! Each substream is parsed and recorrelated once an access unit, whatever
+//! number of presentations read it. What a presentation makes of the
+//! substreams -- the rematrixing, the output, the lossless check, the
+//! dither its matrices draw, its damage, its counters and its timing -- is
+//! its own (`docs/truehd.md`, *Several presentations in one pass*).
 //!
 //! All arithmetic is integer: 64-bit accumulators, 18-bit fixed-point matrix
 //! coefficients, and the wrap-around and masking behaviour that the format
@@ -19,6 +26,7 @@ use crate::error::{Error, Result};
 use crate::extra::{ExtraData, ExtraKind};
 use crate::matrix::Matrixing;
 use crate::presentation::{MAX_PRESENTATIONS, PresentationKind};
+use crate::restart::RestartHeader;
 use crate::segment::Segment;
 use crate::state::{
     MAX_CHANNELS, MAX_MATRICES, MAX_SAMPLES_PER_AU, ParserState, SYNC_A, SYNC_B, SYNC_C,
@@ -212,7 +220,8 @@ struct UnitOut {
     concealed: bool,
 }
 
-/// Decoder state of one substream.
+/// Decoder state of one substream: what its segments carry from block to
+/// block and from unit to unit, whatever presentation reads it.
 #[derive(Debug, Clone)]
 struct SubstreamDecoder {
     /// A restart header has been applied.
@@ -223,11 +232,8 @@ struct SubstreamDecoder {
     max_matrix_chan: usize,
     ch_assign: [u8; MAX_CHANNELS],
     dither_shift: u8,
-    dither_seed: u32,
     max_bits: u8,
     output_timing: u16,
-    /// Dither table of sync words B and C (regenerated per access unit).
-    dither_table: [i32; 256],
     /// FIR history per channel, most recent output first.
     fir_hist: [[i32; FILTER_ORDER]; MAX_CHANNELS],
     /// IIR history per channel, most recent input first.
@@ -238,21 +244,10 @@ struct SubstreamDecoder {
     m: [[i32; REMATRIX_COLUMNS]; MAX_MATRICES],
     /// Scaled delta coefficients of sync word C.
     d: [[i32; MAX_CHANNELS]; MAX_MATRICES],
-    /// Lossless check word of the current access unit.
-    lossless_au: u32,
-    /// Lossless check word accumulated since the restart header.
-    lossless_accum: u32,
-    /// Lossless check word of the previous access unit.
-    lossless_prev: u32,
-    /// Sign-folded OR of every output of the access unit.
-    output_bits: u32,
     /// Samples of the access unit decoded so far.
     decoded: usize,
     /// Trailing silent samples declared by the termination word.
     zero_samples: usize,
-    /// Part of the section since the restart header was concealed, so its
-    /// lossless check word cannot hold.
-    spoiled: bool,
 }
 
 impl Default for SubstreamDecoder {
@@ -265,22 +260,15 @@ impl Default for SubstreamDecoder {
             max_matrix_chan: 0,
             ch_assign: core::array::from_fn(|i| i as u8),
             dither_shift: 0,
-            dither_seed: 0,
             max_bits: 24,
             output_timing: 0,
-            dither_table: [0; 256],
             fir_hist: [[0; FILTER_ORDER]; MAX_CHANNELS],
             iir_hist: [[0; FILTER_ORDER]; MAX_CHANNELS],
             recorrelated: Box::new([[0; MAX_CHANNELS]; MAX_SAMPLES_PER_AU]),
             m: [[0; REMATRIX_COLUMNS]; MAX_MATRICES],
             d: [[0; MAX_CHANNELS]; MAX_MATRICES],
-            lossless_au: 0,
-            lossless_accum: 0,
-            lossless_prev: 0,
-            output_bits: 0,
             decoded: 0,
             zero_samples: 0,
-            spoiled: false,
         }
     }
 }
@@ -295,20 +283,14 @@ impl SubstreamDecoder {
         self.max_matrix_chan = ss.max_matrix_chan;
         self.ch_assign = ss.ch_assign;
         self.dither_shift = ss.dither_shift;
-        self.dither_seed = ss.dither_seed;
         self.max_bits = ss.max_bits;
         self.output_timing = output_timing;
-        self.dither_table = [0; 256];
         self.fir_hist = [[0; FILTER_ORDER]; MAX_CHANNELS];
         self.iir_hist = [[0; FILTER_ORDER]; MAX_CHANNELS];
         self.m = [[0; REMATRIX_COLUMNS]; MAX_MATRICES];
         self.d = [[0; MAX_CHANNELS]; MAX_MATRICES];
-        self.lossless_au = 0;
-        self.lossless_accum = 0;
-        self.output_bits = 0;
-        self.spoiled = false;
-        // `recorrelated`, `decoded`, `zero_samples` and `lossless_prev` describe
-        // the access unit in progress and the previous one; they stay.
+        // `recorrelated`, `decoded` and `zero_samples` describe the access
+        // unit in progress; they stay.
     }
 
     /// Loads the scaled matrix and delta coefficients after a `matrixing()` block.
@@ -432,269 +414,6 @@ pub fn fold_lossless(word: u32) -> u8 {
     (x ^ (x >> 8)) as u8
 }
 
-/// Everything the block callback needs besides the parser state and buffers.
-#[derive(Debug, Clone)]
-struct Core {
-    sub: [SubstreamDecoder; 4],
-    /// Rematrix buffer of the presentation being decoded.
-    rematrix: Box<[[i32; REMATRIX_COLUMNS]; MAX_SAMPLES_PER_AU]>,
-    /// Output rows of the presentation being decoded.
-    output: Box<[[i32; MAX_CHANNELS]; MAX_SAMPLES_PER_AU]>,
-    samples_per_au: usize,
-    /// Substream whose matrices produce the output.
-    top: usize,
-    substream_mask: u8,
-    stats: DecodeStats,
-    unit_index: u64,
-    /// Output timing of the previous access unit's restart header of `top`, for
-    /// duplicate detection.
-    duplicate_timing: bool,
-    duplicate_samples: bool,
-    /// Input/output timing, branches and duplicates.
-    timing: TimingModel,
-    /// The current access unit has begun in the timing model and not ended.
-    unit_open: bool,
-    /// The output timing jump of the restart header of `top` in the current
-    /// access unit, if it carries one (see [`Decoder::output_delta`]).
-    output_delta: Option<u16>,
-}
-
-impl Core {
-    fn on_block(
-        &mut self,
-        i: usize,
-        block: &Block,
-        state: &ParserState,
-        buf: &SampleBuffer,
-    ) -> Result<()> {
-        let ss = &state.substream[i];
-        if let Some(rh) = &block.restart {
-            let rt = self.timing.restart_header(i, rh.output_timing);
-            let sd = &mut self.sub[i];
-            if i == self.top {
-                self.output_delta = rt.output_delta;
-            }
-            if sd.active && i == self.top {
-                if rt.branch.is_some_and(|b| b.is_valid()) || sd.spoiled {
-                    // The check word spans the splice, or silence that stood in
-                    // for damage; the header belongs to the new section.
-                    self.stats.lossless_checks_skipped += 1;
-                } else {
-                    self.stats.lossless_checks += 1;
-                    let computed = fold_lossless(sd.lossless_accum);
-                    if computed != rh.lossless_check {
-                        self.stats.lossless_mismatches += 1;
-                        let unit = self.unit_index;
-                        self.stats.note(|| {
-                            format!(
-                                "access unit {unit}: substream {i}: lossless check {computed:#04X} differs from header {:#04X}",
-                                rh.lossless_check
-                            )
-                        });
-                    }
-                }
-                if rt.duplicate_timing {
-                    self.duplicate_timing = true;
-                }
-            }
-            sd.restart(ss, rh.output_timing);
-        }
-        let sd = &mut self.sub[i];
-        if !sd.active {
-            return Err(Error::malformed(format!(
-                "substream {i}: block before a restart header"
-            )));
-        }
-        if let Some(header) = &block.header {
-            if let Some(m) = header.matrixing {
-                sd.update_matrices(ss, m);
-            }
-            for ch in ss.min_chan..=ss.max_chan {
-                if let Some(cp) = header.channel[ch]
-                    && cp.new_iir
-                    && ss.iir[ch].new_states
-                {
-                    sd.iir_hist[ch] = ss.iir[ch].state;
-                }
-            }
-        }
-        let n0 = sd.decoded;
-        let n1 = n0 + block.block_size;
-        if n1 > buf.len || n1 > MAX_SAMPLES_PER_AU {
-            return Err(Error::malformed(format!(
-                "substream {i}: block samples {n0}..{n1} beyond the buffer"
-            )));
-        }
-        for ch in ss.min_chan..=ss.max_chan {
-            sd.recorrelate(ss, ch, n0, n1, buf)?;
-        }
-        if i == self.top {
-            self.rematrix_block(i, state, buf, n0, n1);
-        }
-        let sd = &mut self.sub[i];
-        sd.decoded = n1;
-        if n1 == self.samples_per_au {
-            if sd.sync_word == SYNC_C {
-                for pmi in 0..ss.primitive_matrices {
-                    for ch in 0..=sd.max_matrix_chan {
-                        sd.m[pmi][ch] = sd.m[pmi][ch].wrapping_add(sd.d[pmi][ch]);
-                    }
-                }
-            }
-            if i == self.top {
-                if sd.output_bits >> sd.max_bits != 0 {
-                    self.stats.max_bits_violations += 1;
-                    let unit = self.unit_index;
-                    let max_bits = sd.max_bits;
-                    self.stats.note(|| {
-                        format!(
-                            "access unit {unit}: substream {i}: outputs exceed max_bits {max_bits}"
-                        )
-                    });
-                }
-                if self.duplicate_timing && sd.lossless_au == sd.lossless_prev {
-                    self.duplicate_samples = true;
-                }
-                sd.lossless_prev = sd.lossless_au;
-            }
-        }
-        Ok(())
-    }
-
-    /// Rematrixes and remaps samples `n0..n1` of the presentation topped by substream `i`.
-    #[allow(
-        clippy::needless_range_loop,
-        reason = "matrix rows, coefficients and bypassed bits share one index"
-    )]
-    fn rematrix_block(
-        &mut self,
-        i: usize,
-        state: &ParserState,
-        buf: &SampleBuffer,
-        n0: usize,
-        n1: usize,
-    ) {
-        // Union of the recorrelated channels of every substream in the presentation.
-        for j in 0..=i {
-            if (self.substream_mask >> j) & 1 == 0 {
-                continue;
-            }
-            let (lo, hi) = (self.sub[j].min_chan, self.sub[j].max_chan);
-            for n in n0..n1 {
-                let src = &self.sub[j].recorrelated[n];
-                self.rematrix[n][lo..=hi].copy_from_slice(&src[lo..=hi]);
-            }
-        }
-        let ss = &state.substream[i];
-        let sd = &mut self.sub[i];
-        let mmc = sd.max_matrix_chan;
-        let matrices = ss.primitive_matrices;
-        let spa = self.samples_per_au;
-        let table_len = spa.next_power_of_two();
-        let table_mask = table_len - 1;
-        if n0 == 0 {
-            sd.lossless_au = 0;
-            sd.output_bits = 0;
-            if sd.sync_word != SYNC_A {
-                fill_table_bc(&mut sd.dither_seed, &mut sd.dither_table[..table_len]);
-            }
-        }
-        let recip = (1i64 << 16) / spa as i64;
-        // A `0x31EC` matrix is interpolated over the access unit by a delta
-        // for every coefficient, and most of the time it stands still: its
-        // deltas are zero then, the sum of the samples by them is zero
-        // whatever the samples are, and it is not multiplied out. Over the
-        // widest presentations of six object streams 83 to 100 per cent of
-        // the matrices applied stand still, and the deltas were half of what
-        // the stage multiplied.
-        let moving = moving_matrices(&sd.d, matrices, mmc);
-        for n in n0..n1 {
-            let row = &mut self.rematrix[n];
-            let lsb = &buf.bypassed_lsb[n];
-            match sd.sync_word {
-                SYNC_A => {
-                    let (a, b) = noise_pair_a(&mut sd.dither_seed, sd.dither_shift);
-                    row[mmc + 1] = a;
-                    row[mmc + 2] = b;
-                    for pmi in 0..matrices {
-                        let out_ch = usize::from(ss.matrix_ch[pmi]);
-                        let mut acc = 0i64;
-                        for ch in 0..=mmc + 2 {
-                            acc += i64::from(row[ch]) * i64::from(sd.m[pmi][ch]);
-                        }
-                        row[out_ch] = matrix_output(
-                            acc,
-                            ss.quant_step_size[out_ch],
-                            lsb[pmi],
-                            ss.lsb_bypass_used[pmi],
-                        );
-                    }
-                }
-                SYNC_B => {
-                    for pmi in 0..matrices {
-                        let out_ch = usize::from(ss.matrix_ch[pmi]);
-                        let mut acc = 0i64;
-                        for ch in 0..=mmc {
-                            acc += i64::from(row[ch]) * i64::from(sd.m[pmi][ch]);
-                        }
-                        let scale = ss.dither_scale[pmi];
-                        if scale != 0 {
-                            let index = (matrices - pmi) * (2 * n + 1) + n;
-                            acc += i64::from(sd.dither_table[index & table_mask]) << (11 + scale);
-                        }
-                        row[out_ch] = matrix_output(
-                            acc,
-                            ss.quant_step_size[out_ch],
-                            lsb[pmi],
-                            ss.lsb_bypass_used[pmi],
-                        );
-                    }
-                }
-                _ => {
-                    for pmi in 0..matrices {
-                        let out_ch = usize::from(ss.matrix_ch[pmi]);
-                        let mut acc = 0i64;
-                        let mut acc_delta = 0i64;
-                        if moving[pmi] {
-                            for ch in 0..=mmc {
-                                let v = i64::from(row[ch]);
-                                acc += v * i64::from(sd.m[pmi][ch]);
-                                acc_delta += v * i64::from(sd.d[pmi][ch]);
-                            }
-                        } else {
-                            for ch in 0..=mmc {
-                                acc += i64::from(row[ch]) * i64::from(sd.m[pmi][ch]);
-                            }
-                        }
-                        let scale = ss.dither_scale[pmi];
-                        if scale != 0 {
-                            let index = (matrices - pmi) * (2 * n + 1) + n;
-                            acc += i64::from(sd.dither_table[index & table_mask]) << (11 + scale);
-                        }
-                        acc += (acc_delta >> MATRIX_FRAC) * n as i64 * (recip << 2);
-                        row[out_ch] =
-                            matrix_output(acc, ss.quant_step_size[out_ch], lsb[pmi], false);
-                    }
-                }
-            }
-            // remap
-            let out = &mut self.output[n];
-            let mut check = 0u32;
-            let mut bits = 0u32;
-            for chi in 0..=mmc {
-                let shift = ss.output_shift[chi];
-                let v = shift_left(row[chi], i32::from(shift));
-                out[usize::from(sd.ch_assign[chi])] = v;
-                check ^= (v as u32 & 0xFF_FFFF) << (chi & 7);
-                bits |= (v ^ (v >> 31)) as u32;
-            }
-            sd.lossless_au ^= check;
-            sd.lossless_accum ^= check;
-            sd.output_bits |= bits;
-        }
-    }
-}
-
 /// Which of the first `matrices` matrices move: which have, among the deltas
 /// the matrix stage reads, those of channels `0..=max_matrix_chan`, one that
 /// is not zero. A delta beyond those channels, or of a matrix beyond the
@@ -734,136 +453,1043 @@ fn matrix_output(acc: i64, qss: u32, bypassed_lsb: i32, uncut: bool) -> i32 {
     sum.wrapping_add(bypassed_lsb)
 }
 
-/// Decoder for one presentation of a TrueHD stream.
+/// What one presentation came to in the access unit being decoded.
+#[derive(Debug, Clone, Copy)]
+enum Outcome {
+    /// Nothing yet.
+    Pending,
+    /// Samples, or silence standing in for damage with the fault that caused
+    /// it (an index into the unit's [`Faults`]).
+    Out(UnitOut, Option<usize>),
+    /// The unit could not be read for this presentation: the fault, not yet
+    /// concealed.
+    Failed(usize),
+    /// The configuration in force does not carry the presentation.
+    Gone,
+}
+
+/// The faults of the access unit being decoded, each made once and lent to
+/// every presentation it reaches.
+#[derive(Debug, Default)]
+struct Faults(Vec<Option<Error>>);
+
+impl Faults {
+    fn push(&mut self, e: Error) -> usize {
+        self.0.push(Some(e));
+        self.0.len() - 1
+    }
+
+    fn get(&self, k: usize) -> Option<&Error> {
+        self.0.get(k).and_then(Option::as_ref)
+    }
+
+    fn take(&mut self, k: usize) -> Option<Error> {
+        self.0.get_mut(k).and_then(Option::take)
+    }
+}
+
+impl Clone for Faults {
+    /// The faults of a unit are lent and taken within its decode; a clone
+    /// starts without them.
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+/// Everything one presentation decodes on its own: the matrices of its top
+/// substream over the recorrelated channels of every substream it reads,
+/// and what reads the result -- the output, the lossless check, the dither
+/// drawn for its matrices, its damage, its counters and its timing.
 #[derive(Debug, Clone)]
-pub struct Decoder {
+struct Lane {
+    presentation: usize,
+    /// The configuration in force does not carry the presentation.
+    gone: bool,
+    /// Substream whose matrices produce the output.
+    top: usize,
+    substream_mask: u8,
+    keep_duplicates: bool,
+    /// A restart header of `top` has been applied for this presentation.
+    top_active: bool,
+    /// The register the dither and noise of `top`'s matrices are drawn from.
+    dither_seed: u32,
+    /// Dither table of sync words B and C (regenerated per access unit).
+    dither_table: [i32; 256],
+    /// Lossless check word of the current access unit.
+    lossless_au: u32,
+    /// Lossless check word accumulated since the restart header.
+    lossless_accum: u32,
+    /// Lossless check word of the previous access unit.
+    lossless_prev: u32,
+    /// Sign-folded OR of every output of the access unit.
+    output_bits: u32,
+    /// Part of the section since the restart header of `top` was concealed,
+    /// so its lossless check word cannot hold.
+    spoiled: bool,
+    /// Rematrix buffer.
+    rematrix: Box<[[i32; REMATRIX_COLUMNS]; MAX_SAMPLES_PER_AU]>,
+    /// Output rows.
+    output: Box<[[i32; MAX_CHANNELS]; MAX_SAMPLES_PER_AU]>,
+    stats: DecodeStats,
+    unit_index: u64,
+    /// The restart header of `top` repeats the output timing of the one
+    /// before, and the unit's samples repeat the unit before: duplicate
+    /// detection.
+    duplicate_timing: bool,
+    duplicate_samples: bool,
+    /// Input/output timing, branches and duplicates.
+    timing: TimingModel,
+    /// The current access unit has begun in the timing model and not ended.
+    unit_open: bool,
+    /// The output timing jump of the restart header of `top` in the current
+    /// access unit, if it carries one (see [`Decoder::output_delta`]).
+    output_delta: Option<u16>,
+    /// Substreams a fault left untrustworthy for this presentation: each is
+    /// read again from its next restart header, and the presentation is
+    /// silent until every one of its substreams has been.
+    damaged: [bool; 4],
+    /// A substream of the presentation is damaged in this unit.
+    silent: bool,
+    /// The first fault of this unit.
+    fault: Option<usize>,
+    outcome: Outcome,
+}
+
+/// The substream whose matrices make presentation `presentation`, and the
+/// substreams it reads, under `config`.
+fn top_of(config: &StreamConfig, presentation: usize) -> Result<(usize, u8)> {
+    let map = &config.presentations;
+    let top = match map.kind(presentation) {
+        PresentationKind::Independent | PresentationKind::DownmixOf(_) => presentation,
+        PresentationKind::CopyOf(i) => i,
+        PresentationKind::Invalid => {
+            return Err(Error::malformed(format!(
+                "presentation {presentation} is not available"
+            )));
+        }
+    };
+    if top >= usize::from(config.substreams) {
+        return Err(Error::malformed(format!(
+            "presentation {presentation} needs substream {top} but the stream has {}",
+            config.substreams
+        )));
+    }
+    Ok((top, map.mask(top)))
+}
+
+impl Lane {
+    fn new(presentation: usize, config: &StreamConfig, timing: StreamTiming) -> Result<Self> {
+        let (top, substream_mask) = top_of(config, presentation)?;
+        Ok(Self {
+            presentation,
+            gone: false,
+            top,
+            substream_mask,
+            keep_duplicates: false,
+            top_active: false,
+            dither_seed: 0,
+            dither_table: [0; 256],
+            lossless_au: 0,
+            lossless_accum: 0,
+            lossless_prev: 0,
+            output_bits: 0,
+            spoiled: false,
+            rematrix: Box::new([[0; REMATRIX_COLUMNS]; MAX_SAMPLES_PER_AU]),
+            output: Box::new([[0; MAX_CHANNELS]; MAX_SAMPLES_PER_AU]),
+            stats: DecodeStats::default(),
+            unit_index: 0,
+            duplicate_timing: false,
+            duplicate_samples: false,
+            timing: TimingModel::new(timing),
+            unit_open: false,
+            output_delta: None,
+            damaged: [false; 4],
+            silent: false,
+            fault: None,
+            outcome: Outcome::Pending,
+        })
+    }
+
+    /// Sets the presentation up again under the configuration a change
+    /// brought, or marks it gone when that configuration does not carry it.
+    /// Its counters and its record of the timing stay.
+    fn follow(&mut self, config: &StreamConfig, timing: StreamTiming) {
+        let Ok((top, substream_mask)) = top_of(config, self.presentation) else {
+            self.gone = true;
+            return;
+        };
+        self.gone = false;
+        self.top = top;
+        self.substream_mask = substream_mask;
+        self.top_active = false;
+        self.dither_seed = 0;
+        self.dither_table = [0; 256];
+        self.lossless_au = 0;
+        self.lossless_accum = 0;
+        self.lossless_prev = 0;
+        self.output_bits = 0;
+        self.spoiled = false;
+        self.duplicate_timing = false;
+        self.duplicate_samples = false;
+        self.timing.begin_again(timing);
+        self.unit_open = false;
+        self.output_delta = None;
+        self.damaged = [false; 4];
+    }
+
+    /// Reads substream `i` in this unit: not stopped, and `i` one of its.
+    fn reads(&self, i: usize) -> bool {
+        !self.gone
+            && !matches!(self.outcome, Outcome::Failed(_))
+            && i <= self.top
+            && (self.substream_mask >> i) & 1 == 1
+    }
+
+    /// A restart header of substream `i` that this presentation reads: the
+    /// timing of every substream, and for `top` the lossless check of the
+    /// section it closes and the state of the matrices' dither.
+    fn restart_header(&mut self, i: usize, rh: &RestartHeader, ss: &SubstreamState) {
+        let rt = self.timing.restart_header(i, rh.output_timing);
+        if i != self.top {
+            return;
+        }
+        self.output_delta = rt.output_delta;
+        if self.top_active {
+            if rt.branch.is_some_and(|b| b.is_valid()) || self.spoiled {
+                // The check word spans the splice, or silence that stood in
+                // for damage; the header belongs to the new section.
+                self.stats.lossless_checks_skipped += 1;
+            } else {
+                self.stats.lossless_checks += 1;
+                let computed = fold_lossless(self.lossless_accum);
+                if computed != rh.lossless_check {
+                    self.stats.lossless_mismatches += 1;
+                    let unit = self.unit_index;
+                    self.stats.note(|| {
+                        format!(
+                            "access unit {unit}: substream {i}: lossless check {computed:#04X} differs from header {:#04X}",
+                            rh.lossless_check
+                        )
+                    });
+                }
+            }
+            if rt.duplicate_timing {
+                self.duplicate_timing = true;
+            }
+        }
+        self.top_active = true;
+        self.dither_seed = ss.dither_seed;
+        self.dither_table = [0; 256];
+        self.lossless_au = 0;
+        self.lossless_accum = 0;
+        self.output_bits = 0;
+        self.spoiled = false;
+    }
+
+    /// The end of the access unit in `top`: the `max_bits` check and
+    /// duplicate detection.
+    fn end_of_top(&mut self, i: usize, max_bits: u8) {
+        if self.output_bits >> max_bits != 0 {
+            self.stats.max_bits_violations += 1;
+            let unit = self.unit_index;
+            self.stats.note(|| {
+                format!("access unit {unit}: substream {i}: outputs exceed max_bits {max_bits}")
+            });
+        }
+        if self.duplicate_timing && self.lossless_au == self.lossless_prev {
+            self.duplicate_samples = true;
+        }
+        self.lossless_prev = self.lossless_au;
+    }
+
+    /// Rematrixes and remaps samples `n0..n1` of the presentation, `top`
+    /// being substream `i`.
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "matrix rows, coefficients and bypassed bits share one index"
+    )]
+    #[allow(clippy::too_many_arguments, reason = "the block and where it stands")]
+    fn rematrix_block(
+        &mut self,
+        sub: &[SubstreamDecoder; 4],
+        i: usize,
+        state: &ParserState,
+        buf: &SampleBuffer,
+        n0: usize,
+        n1: usize,
+        spa: usize,
+    ) {
+        // Union of the recorrelated channels of every substream in the presentation.
+        for j in 0..=i {
+            if (self.substream_mask >> j) & 1 == 0 {
+                continue;
+            }
+            let (lo, hi) = (sub[j].min_chan, sub[j].max_chan);
+            for n in n0..n1 {
+                let src = &sub[j].recorrelated[n];
+                self.rematrix[n][lo..=hi].copy_from_slice(&src[lo..=hi]);
+            }
+        }
+        let ss = &state.substream[i];
+        let sd = &sub[i];
+        let mmc = sd.max_matrix_chan;
+        let matrices = ss.primitive_matrices;
+        let table_len = spa.next_power_of_two();
+        let table_mask = table_len - 1;
+        if n0 == 0 {
+            self.lossless_au = 0;
+            self.output_bits = 0;
+            if sd.sync_word != SYNC_A {
+                fill_table_bc(&mut self.dither_seed, &mut self.dither_table[..table_len]);
+            }
+        }
+        let recip = (1i64 << 16) / spa as i64;
+        // A `0x31EC` matrix is interpolated over the access unit by a delta
+        // for every coefficient, and most of the time it stands still: its
+        // deltas are zero then, the sum of the samples by them is zero
+        // whatever the samples are, and it is not multiplied out. Over the
+        // widest presentations of six object streams 83 to 100 per cent of
+        // the matrices applied stand still, and the deltas were half of what
+        // the stage multiplied.
+        let moving = moving_matrices(&sd.d, matrices, mmc);
+        // The presentation's state apart, so that nothing the loop writes is
+        // read back through `self`.
+        let rematrix = &mut *self.rematrix;
+        let output = &mut *self.output;
+        let dither_table = &self.dither_table;
+        let mut dither_seed = self.dither_seed;
+        let mut lossless_au = self.lossless_au;
+        let mut lossless_accum = self.lossless_accum;
+        let mut output_bits = self.output_bits;
+        for n in n0..n1 {
+            let row = &mut rematrix[n];
+            let lsb = &buf.bypassed_lsb[n];
+            match sd.sync_word {
+                SYNC_A => {
+                    let (a, b) = noise_pair_a(&mut dither_seed, sd.dither_shift);
+                    row[mmc + 1] = a;
+                    row[mmc + 2] = b;
+                    for pmi in 0..matrices {
+                        let out_ch = usize::from(ss.matrix_ch[pmi]);
+                        let mut acc = 0i64;
+                        for ch in 0..=mmc + 2 {
+                            acc += i64::from(row[ch]) * i64::from(sd.m[pmi][ch]);
+                        }
+                        row[out_ch] = matrix_output(
+                            acc,
+                            ss.quant_step_size[out_ch],
+                            lsb[pmi],
+                            ss.lsb_bypass_used[pmi],
+                        );
+                    }
+                }
+                SYNC_B => {
+                    for pmi in 0..matrices {
+                        let out_ch = usize::from(ss.matrix_ch[pmi]);
+                        let mut acc = 0i64;
+                        for ch in 0..=mmc {
+                            acc += i64::from(row[ch]) * i64::from(sd.m[pmi][ch]);
+                        }
+                        let scale = ss.dither_scale[pmi];
+                        if scale != 0 {
+                            let index = (matrices - pmi) * (2 * n + 1) + n;
+                            acc += i64::from(dither_table[index & table_mask]) << (11 + scale);
+                        }
+                        row[out_ch] = matrix_output(
+                            acc,
+                            ss.quant_step_size[out_ch],
+                            lsb[pmi],
+                            ss.lsb_bypass_used[pmi],
+                        );
+                    }
+                }
+                _ => {
+                    for pmi in 0..matrices {
+                        let out_ch = usize::from(ss.matrix_ch[pmi]);
+                        let mut acc = 0i64;
+                        let mut acc_delta = 0i64;
+                        if moving[pmi] {
+                            for ch in 0..=mmc {
+                                let v = i64::from(row[ch]);
+                                acc += v * i64::from(sd.m[pmi][ch]);
+                                acc_delta += v * i64::from(sd.d[pmi][ch]);
+                            }
+                        } else {
+                            for ch in 0..=mmc {
+                                acc += i64::from(row[ch]) * i64::from(sd.m[pmi][ch]);
+                            }
+                        }
+                        let scale = ss.dither_scale[pmi];
+                        if scale != 0 {
+                            let index = (matrices - pmi) * (2 * n + 1) + n;
+                            acc += i64::from(dither_table[index & table_mask]) << (11 + scale);
+                        }
+                        acc += (acc_delta >> MATRIX_FRAC) * n as i64 * (recip << 2);
+                        row[out_ch] =
+                            matrix_output(acc, ss.quant_step_size[out_ch], lsb[pmi], false);
+                    }
+                }
+            }
+            // remap
+            let out = &mut output[n];
+            let mut check = 0u32;
+            let mut bits = 0u32;
+            for chi in 0..=mmc {
+                let shift = ss.output_shift[chi];
+                let v = shift_left(row[chi], i32::from(shift));
+                out[usize::from(sd.ch_assign[chi])] = v;
+                check ^= (v as u32 & 0xFF_FFFF) << (chi & 7);
+                bits |= (v ^ (v >> 31)) as u32;
+            }
+            lossless_au ^= check;
+            lossless_accum ^= check;
+            output_bits |= bits;
+        }
+        self.dither_seed = dither_seed;
+        self.lossless_au = lossless_au;
+        self.lossless_accum = lossless_accum;
+        self.output_bits = output_bits;
+    }
+
+    /// Marks substream `from` and every substream of the presentation after
+    /// it as damaged: they did not read this access unit.
+    fn damage_from(&mut self, from: usize) {
+        for i in from..4 {
+            if (self.substream_mask >> i) & 1 == 1 {
+                self.damaged[i] = true;
+            }
+        }
+    }
+
+    /// Writes `len` rows of silence for the current unit and counts them.
+    fn silence(&mut self, len: usize, channels: usize) -> UnitOut {
+        for row in &mut self.output[..len] {
+            row.fill(0);
+        }
+        self.spoiled = true;
+        self.output_delta = None;
+        self.stats.units += 1;
+        self.stats.samples += len as u64;
+        self.stats.concealed_units += 1;
+        self.stats.concealed_samples += len as u64;
+        self.unit_index += 1;
+        UnitOut {
+            len,
+            channels,
+            duplicate: false,
+            concealed: true,
+        }
+    }
+
+    /// One access unit of silence for a unit that could not be read for this
+    /// presentation; the clocks move on as if it had been.
+    fn conceal_unit(&mut self, unit: &[u8], spa: usize, channels: usize) -> UnitOut {
+        if !self.damaged.iter().any(|d| *d) {
+            self.damage_from(0);
+        }
+        if !self.unit_open && unit.len() >= 4 {
+            // The extractor framed the unit, so its header is sound: the
+            // length and the input timing keep the input clock in step.
+            let length_words = u32::from(u16::from_be_bytes([unit[0], unit[1]]) & 0x0FFF);
+            let input_timing = u16::from_be_bytes([unit[2], unit[3]]);
+            self.timing.begin_unit(input_timing, length_words);
+            self.unit_open = true;
+        }
+        if self.unit_open {
+            self.timing.end_unit();
+            self.unit_open = false;
+        }
+        self.silence(spa, channels)
+    }
+}
+
+/// One block of substream `i`: what the substream carries on, once, and for
+/// each presentation in `reading` (a bit per lane) what it makes of it.
+#[allow(clippy::too_many_arguments, reason = "the block and where it stands")]
+fn on_block(
+    sub: &mut [SubstreamDecoder; 4],
+    lanes: &mut [Lane],
+    reading: u8,
+    spa: usize,
+    i: usize,
+    block: &Block,
+    state: &ParserState,
+    buf: &SampleBuffer,
+) -> Result<()> {
+    let ss = &state.substream[i];
+    if let Some(rh) = &block.restart {
+        for (k, lane) in lanes.iter_mut().enumerate() {
+            if (reading >> k) & 1 == 1 {
+                lane.restart_header(i, rh, ss);
+            }
+        }
+        sub[i].restart(ss, rh.output_timing);
+    }
+    let sd = &mut sub[i];
+    if !sd.active {
+        return Err(Error::malformed(format!(
+            "substream {i}: block before a restart header"
+        )));
+    }
+    if let Some(header) = &block.header {
+        if let Some(m) = header.matrixing {
+            sd.update_matrices(ss, m);
+        }
+        for ch in ss.min_chan..=ss.max_chan {
+            if let Some(cp) = header.channel[ch]
+                && cp.new_iir
+                && ss.iir[ch].new_states
+            {
+                sd.iir_hist[ch] = ss.iir[ch].state;
+            }
+        }
+    }
+    let n0 = sd.decoded;
+    let n1 = n0 + block.block_size;
+    if n1 > buf.len || n1 > MAX_SAMPLES_PER_AU {
+        return Err(Error::malformed(format!(
+            "substream {i}: block samples {n0}..{n1} beyond the buffer"
+        )));
+    }
+    for ch in ss.min_chan..=ss.max_chan {
+        sd.recorrelate(ss, ch, n0, n1, buf)?;
+    }
+    for (k, lane) in lanes.iter_mut().enumerate() {
+        if (reading >> k) & 1 == 1 && lane.top == i {
+            lane.rematrix_block(sub, i, state, buf, n0, n1, spa);
+        }
+    }
+    let sd = &mut sub[i];
+    sd.decoded = n1;
+    if n1 == spa {
+        if sd.sync_word == SYNC_C {
+            for pmi in 0..ss.primitive_matrices {
+                for ch in 0..=sd.max_matrix_chan {
+                    sd.m[pmi][ch] = sd.m[pmi][ch].wrapping_add(sd.d[pmi][ch]);
+                }
+            }
+        }
+        let max_bits = sd.max_bits;
+        for (k, lane) in lanes.iter_mut().enumerate() {
+            if (reading >> k) & 1 == 1 && lane.top == i {
+                lane.end_of_top(i, max_bits);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The substreams of a stream, each decoded once an access unit, and the
+/// presentations made of them: what [`Decoder`] and
+/// [`MultiDecoder`](crate::MultiDecoder) both stand on.
+#[derive(Debug, Clone)]
+pub(crate) struct Engine {
     config: StreamConfig,
     parser: ParserState,
-    presentation: usize,
     buffers: [Box<SampleBuffer>; 4],
-    core: Core,
-    keep_duplicates: bool,
-    /// Substreams a fault left untrustworthy: each is read again from its
-    /// next restart header, and the presentation is silent until every one
-    /// of its substreams has been.
-    damaged: [bool; 4],
-    /// What a change of configuration does.
+    sub: [SubstreamDecoder; 4],
+    samples_per_au: usize,
+    /// One for each presentation asked for, in increasing order.
+    lanes: Vec<Lane>,
     on_config_change: OnConfigChange,
     /// The change of configuration the last access unit carried.
     change: Option<ConfigChange>,
+    /// Access units given.
+    given: u64,
+    faults: Faults,
+    substream_decodes: [u64; 4],
+    substream_faults: [u64; 4],
+}
+
+impl Engine {
+    /// An engine for `presentations` (distinct, increasing, at most four).
+    pub(crate) fn new(major_sync: &MajorSync, presentations: &[usize]) -> Result<Self> {
+        let config = StreamConfig::from_major_sync(major_sync)?;
+        let lanes = presentations
+            .iter()
+            .map(|&p| Lane::new(p, &config, StreamTiming::new(major_sync, &config)))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self {
+            parser: ParserState::new(&config),
+            buffers: core::array::from_fn(|_| Box::default()),
+            sub: core::array::from_fn(|_| SubstreamDecoder::default()),
+            samples_per_au: usize::from(config.samples_per_au),
+            config,
+            lanes,
+            on_config_change: OnConfigChange::default(),
+            change: None,
+            given: 0,
+            faults: Faults::default(),
+            substream_decodes: [0; 4],
+            substream_faults: [0; 4],
+        })
+    }
+
+    pub(crate) fn on_config_change(&mut self, policy: OnConfigChange) {
+        self.on_config_change = policy;
+    }
+
+    pub(crate) fn keep_duplicates(&mut self, keep: bool) {
+        for lane in &mut self.lanes {
+            lane.keep_duplicates = keep;
+        }
+    }
+
+    pub(crate) fn config_change(&self) -> Option<&ConfigChange> {
+        self.change.as_ref()
+    }
+
+    pub(crate) fn units(&self) -> u64 {
+        self.given
+    }
+
+    pub(crate) fn substream_decodes(&self) -> [u64; 4] {
+        self.substream_decodes
+    }
+
+    pub(crate) fn substream_faults(&self) -> [u64; 4] {
+        self.substream_faults
+    }
+
+    pub(crate) fn lanes(&self) -> usize {
+        self.lanes.len()
+    }
+
+    pub(crate) fn presentation_of(&self, lane: usize) -> usize {
+        self.lanes[lane].presentation
+    }
+
+    pub(crate) fn stats(&self, lane: usize) -> &DecodeStats {
+        &self.lanes[lane].stats
+    }
+
+    fn channels(&self, lane: usize) -> usize {
+        self.sub[self.lanes[lane].top].max_matrix_chan + 1
+    }
+
+    /// Substreams the presentations read in a unit under the configuration
+    /// in force, as a mask.
+    fn needed(&self) -> u8 {
+        let mut needed = 0;
+        for lane in &self.lanes {
+            if !lane.gone {
+                needed |= lane.substream_mask & ((2u8 << lane.top) - 1);
+            }
+        }
+        needed & ((1u8 << self.config.substreams.min(4)) - 1)
+    }
+
+    /// The configuration changed at a major sync and the decoder follows:
+    /// the substreams start again under the new one, and each presentation
+    /// is set up again or is gone.
+    fn follow(&mut self, ms: &MajorSync, config: StreamConfig, what: &'static str, unit: u64) {
+        let old = core::mem::replace(&mut self.config, config);
+        self.parser = ParserState::new(&self.config);
+        self.sub = core::array::from_fn(|_| SubstreamDecoder::default());
+        self.samples_per_au = usize::from(self.config.samples_per_au);
+        for lane in &mut self.lanes {
+            lane.follow(&self.config, StreamTiming::new(ms, &self.config));
+        }
+        self.change = Some(ConfigChange {
+            unit,
+            what,
+            old,
+            new: self.config.clone(),
+        });
+    }
+
+    /// Decodes one access unit for every presentation, leaving what each
+    /// came to in its lane. A fault comes back in the lanes it reaches, as
+    /// [`Outcome::Failed`] when the unit could not be read for the
+    /// presentation and beside silence otherwise. The error is a change of
+    /// configuration under [`OnConfigChange::Stop`].
+    ///
+    /// A segment that parses but fails its parity, CRC, end-pointer or
+    /// sample-count check is a fault with `conceal`: its samples are not to
+    /// be trusted, nor the substream's state after it. Without, it is
+    /// counted and decoded as it stands, as it always was.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one access unit, in the order the single decoder always read it"
+    )]
+    pub(crate) fn decode_unit(&mut self, unit: &[u8], conceal: bool) -> Result<()> {
+        self.change = None;
+        self.faults.0.clear();
+        let index = self.given;
+        self.given += 1;
+        for lane in &mut self.lanes {
+            lane.output_delta = None;
+            lane.silent = false;
+            lane.fault = None;
+            lane.outcome = Outcome::Pending;
+        }
+        let (au, config) = match AccessUnit::parse(unit, Some(&self.config)) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                let needed = self.needed();
+                for (s, faults) in self.substream_faults.iter_mut().enumerate() {
+                    *faults += u64::from((needed >> s) & 1);
+                }
+                let k = self.faults.push(e);
+                for lane in &mut self.lanes {
+                    lane.outcome = if lane.gone {
+                        Outcome::Gone
+                    } else {
+                        lane.damage_from(0);
+                        Outcome::Failed(k)
+                    };
+                }
+                return Ok(());
+            }
+        };
+        if let Some(ms) = &au.major_sync {
+            if let Some(what) = self.config.incompatible_with(&config) {
+                match self.on_config_change {
+                    OnConfigChange::Stop => return Err(Error::ConfigChanged { what }),
+                    OnConfigChange::Continue => self.follow(ms, config, what, index),
+                }
+            } else {
+                self.parser.update(&config);
+                for lane in &mut self.lanes {
+                    if !lane.gone {
+                        lane.timing.update_config(StreamTiming::new(ms, &config));
+                    }
+                }
+                self.config = config;
+            }
+        }
+        for lane in &mut self.lanes {
+            if lane.gone {
+                lane.outcome = Outcome::Gone;
+                continue;
+            }
+            if let Some(extra) = &au.extra {
+                lane.stats.take_extra(lane.unit_index, extra);
+            }
+            lane.duplicate_timing = false;
+            lane.duplicate_samples = false;
+            if lane
+                .timing
+                .begin_unit(au.header.input_timing, u32::from(au.header.length_words))
+            {
+                lane.stats.input_jumps += 1;
+            }
+            lane.unit_open = true;
+        }
+        let needed = self.needed();
+        let spa = self.samples_per_au;
+        for i in 0..4 {
+            let mut reading = 0u8;
+            for (k, lane) in self.lanes.iter_mut().enumerate() {
+                if !lane.reads(i) {
+                    continue;
+                }
+                self.sub[i].decoded = 0;
+                self.sub[i].zero_samples = 0;
+                let Some(entry) = au.directory.get(i) else {
+                    lane.damage_from(i);
+                    lane.outcome = Outcome::Failed(self.faults.push(Error::malformed(format!(
+                        "access unit without a directory entry for substream {i}"
+                    ))));
+                    continue;
+                };
+                if unit.get(au.segment_range(i)).is_none() {
+                    lane.damage_from(i);
+                    lane.outcome = Outcome::Failed(self.faults.push(Error::malformed(format!(
+                        "substream {i} range outside the access unit"
+                    ))));
+                    continue;
+                }
+                if lane.damaged[i] {
+                    if entry.restart_nonexistent {
+                        // still waiting for the restart header that makes it sound
+                        lane.silent = true;
+                        continue;
+                    }
+                    lane.damaged[i] = false;
+                }
+                if !self.parser.substream[i].restart_seen && entry.restart_nonexistent {
+                    lane.damaged[i] = true;
+                    lane.silent = true;
+                    if lane.fault.is_none() {
+                        lane.fault = Some(self.faults.push(Error::malformed(format!(
+                            "substream {i}: no restart header seen yet"
+                        ))));
+                    }
+                    continue;
+                }
+                reading |= 1 << k;
+            }
+            let mut decoded = false;
+            if reading != 0 {
+                let entry = &au.directory[i];
+                let bytes = &unit[au.segment_range(i)];
+                let sub = &mut self.sub;
+                let lanes = &mut self.lanes;
+                let parsed = Segment::parse_with(
+                    bytes,
+                    &mut self.parser,
+                    i,
+                    entry.crc_present,
+                    &mut self.buffers[i],
+                    |block, state, buf| on_block(sub, lanes, reading, spa, i, block, state, buf),
+                );
+                match parsed {
+                    Err(e) => {
+                        // this substream is unsound until its next restart
+                        // header; the others read on, each from its own segment
+                        let k = self.faults.push(e);
+                        for (j, lane) in self.lanes.iter_mut().enumerate() {
+                            if (reading >> j) & 1 == 1 {
+                                lane.damaged[i] = true;
+                                lane.silent = true;
+                                lane.fault.get_or_insert(k);
+                            }
+                        }
+                    }
+                    Ok(seg) => {
+                        if let Some(t) = seg.terminator
+                            && t.zero_samples_indicated
+                        {
+                            self.sub[i].zero_samples = usize::from(t.zero_samples);
+                        }
+                        let sound =
+                            seg.parity_ok && seg.crc_ok && seg.end_ok && seg.sample_count_ok;
+                        decoded = sound || !conceal;
+                        if !sound {
+                            let mut failed = None;
+                            for (j, lane) in self.lanes.iter_mut().enumerate() {
+                                if (reading >> j) & 1 == 0 {
+                                    continue;
+                                }
+                                lane.stats.segment_problems += 1;
+                                let unit_index = lane.unit_index;
+                                lane.stats.note(|| {
+                                    format!(
+                                        "access unit {unit_index}: substream {i}: segment integrity problem"
+                                    )
+                                });
+                                if conceal {
+                                    lane.damaged[i] = true;
+                                    lane.silent = true;
+                                    if lane.fault.is_none() {
+                                        let k = *failed.get_or_insert_with(|| {
+                                            let names = [
+                                                (!seg.parity_ok, "parity"),
+                                                (!seg.crc_ok, "CRC"),
+                                                (!seg.end_ok, "end pointer"),
+                                                (!seg.sample_count_ok, "sample count"),
+                                            ]
+                                            .iter()
+                                            .filter(|(f, _)| *f)
+                                            .map(|(_, n)| *n)
+                                            .collect::<Vec<_>>()
+                                            .join(", ");
+                                            self.faults.push(Error::malformed(format!(
+                                                "substream {i}: the segment fails its {names} check"
+                                            )))
+                                        });
+                                        lane.fault = Some(k);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (needed >> i) & 1 == 1 {
+                if decoded {
+                    self.substream_decodes[i] += 1;
+                } else {
+                    self.substream_faults[i] += 1;
+                }
+            }
+        }
+        for k in 0..self.lanes.len() {
+            let channels = self.channels(k);
+            let lane = &mut self.lanes[k];
+            if !matches!(lane.outcome, Outcome::Pending) {
+                continue;
+            }
+            lane.timing.end_unit();
+            lane.unit_open = false;
+            lane.stats.valid_branches = lane.timing.valid_branches() as u64;
+            lane.stats.invalid_branches = lane.timing.invalid_branches() as u64;
+            if lane.silent {
+                // A substream of the presentation is damaged: what the others
+                // decoded cannot be rematrixed without it.
+                let delta = lane.output_delta;
+                let out = lane.silence(spa, channels);
+                lane.output_delta = delta;
+                lane.outcome = Outcome::Out(out, lane.fault);
+                continue;
+            }
+            let len = spa.saturating_sub(self.sub[lane.top].zero_samples);
+            let duplicate =
+                lane.duplicate_timing && lane.duplicate_samples && !lane.keep_duplicates;
+            lane.stats.units += 1;
+            if duplicate {
+                lane.stats.duplicates += 1;
+            } else {
+                lane.stats.samples += len as u64;
+            }
+            lane.unit_index += 1;
+            lane.outcome = Outcome::Out(
+                UnitOut {
+                    len,
+                    channels,
+                    duplicate,
+                    concealed: false,
+                },
+                None,
+            );
+        }
+        Ok(())
+    }
+
+    /// Stands silence in for every presentation the unit could not be read
+    /// for, with the fault beside it.
+    pub(crate) fn conceal_failed(&mut self, unit: &[u8]) {
+        let spa = self.samples_per_au;
+        for k in 0..self.lanes.len() {
+            if let Outcome::Failed(fault) = self.lanes[k].outcome {
+                let channels = self.channels(k);
+                let out = self.lanes[k].conceal_unit(unit, spa, channels);
+                self.lanes[k].outcome = Outcome::Out(out, Some(fault));
+            }
+        }
+    }
+
+    /// A change of configuration stopped the decode: no unit is open.
+    pub(crate) fn close_units(&mut self) {
+        for lane in &mut self.lanes {
+            lane.unit_open = false;
+        }
+    }
+
+    /// Decodes one access unit and conceals what could not be read, for
+    /// every presentation.
+    pub(crate) fn decode_concealing(&mut self, unit: &[u8]) -> Result<()> {
+        match self.decode_unit(unit, true) {
+            Ok(()) => {
+                self.conceal_failed(unit);
+                Ok(())
+            }
+            Err(e) => {
+                self.close_units();
+                Err(e)
+            }
+        }
+    }
+
+    fn lend(&self, lane: usize, out: UnitOut) -> Decoded<'_> {
+        let lane = &self.lanes[lane];
+        Decoded {
+            pcm: &lane.output[..out.len],
+            channels: out.channels,
+            duplicate: out.duplicate,
+            concealed: out.concealed,
+            output_delta: lane.output_delta,
+        }
+    }
+
+    /// What presentation `lane` came to in the last unit: its samples and
+    /// fault, `None` when it is gone.
+    pub(crate) fn lent(&self, lane: usize) -> Option<(Decoded<'_>, Option<&Error>)> {
+        match self.lanes[lane].outcome {
+            Outcome::Out(out, fault) => {
+                Some((self.lend(lane, out), fault.and_then(|k| self.faults.get(k))))
+            }
+            Outcome::Failed(k) => unreachable!("fault {k} left unconcealed"),
+            Outcome::Pending | Outcome::Gone => None,
+        }
+    }
+}
+
+/// Decoder for one presentation of a TrueHD stream.
+#[derive(Debug, Clone)]
+pub struct Decoder {
+    engine: Engine,
 }
 
 impl Decoder {
     /// Creates a decoder for `presentation` (0..=3) of the stream described by
     /// its first major sync.
     pub fn new(major_sync: &MajorSync, presentation: usize) -> Result<Self> {
-        let config = StreamConfig::from_major_sync(major_sync)?;
-        let map = &config.presentations;
-        let top = match map.kind(presentation) {
-            PresentationKind::Independent | PresentationKind::DownmixOf(_) => presentation,
-            PresentationKind::CopyOf(i) => i,
-            PresentationKind::Invalid => {
-                return Err(Error::malformed(format!(
-                    "presentation {presentation} is not available"
-                )));
-            }
-        };
-        if top >= usize::from(config.substreams) {
-            return Err(Error::malformed(format!(
-                "presentation {presentation} needs substream {top} but the stream has {}",
-                config.substreams
-            )));
-        }
-        let parser = ParserState::new(&config);
-        let core = Core {
-            sub: core::array::from_fn(|_| SubstreamDecoder::default()),
-            rematrix: Box::new([[0; REMATRIX_COLUMNS]; MAX_SAMPLES_PER_AU]),
-            output: Box::new([[0; MAX_CHANNELS]; MAX_SAMPLES_PER_AU]),
-            samples_per_au: usize::from(config.samples_per_au),
-            top,
-            substream_mask: map.mask(top),
-            stats: DecodeStats::default(),
-            unit_index: 0,
-            duplicate_timing: false,
-            duplicate_samples: false,
-            timing: TimingModel::new(StreamTiming::new(major_sync, &config)),
-            unit_open: false,
-            output_delta: None,
-        };
         Ok(Self {
-            config,
-            parser,
-            presentation,
-            buffers: core::array::from_fn(|_| Box::default()),
-            core,
-            keep_duplicates: false,
-            damaged: [false; 4],
-            on_config_change: OnConfigChange::default(),
-            change: None,
+            engine: Engine::new(major_sync, &[presentation])?,
         })
+    }
+
+    fn lane(&self) -> &Lane {
+        &self.engine.lanes[0]
     }
 
     /// Keeps access units flagged as duplicates instead of marking them.
     pub fn keep_duplicates(&mut self, keep: bool) {
-        self.keep_duplicates = keep;
+        self.engine.keep_duplicates(keep);
     }
 
     /// What to do at a major sync that changes the configuration;
     /// [`OnConfigChange::Stop`] unless set.
     pub fn on_config_change(&mut self, policy: OnConfigChange) {
-        self.on_config_change = policy;
+        self.engine.on_config_change(policy);
     }
 
     /// The change of configuration the last access unit carried, if it
     /// carried one and the decoder followed it. Valid until the next access
-    /// unit is decoded.
+    /// unit is decoded; readable after a unit that came back
+    /// [`Error::PresentationGone`] too.
     #[must_use]
     pub fn config_change(&self) -> Option<&ConfigChange> {
-        self.change.as_ref()
+        self.engine.config_change()
     }
 
     /// The requested presentation.
     #[must_use]
     pub fn presentation(&self) -> usize {
-        self.presentation
+        self.lane().presentation
     }
 
     /// The stream configuration in force.
     #[must_use]
     pub fn config(&self) -> &StreamConfig {
-        &self.config
+        &self.engine.config
     }
 
     /// The presentation whose substream produces the output (differs from the
     /// requested one only when that is a copy).
     #[must_use]
     pub fn source_presentation(&self) -> usize {
-        self.core.top
+        self.lane().top
     }
 
     /// Output channels of the presentation (known after the first access unit).
     #[must_use]
     pub fn channels(&self) -> usize {
-        self.core.sub[self.core.top].max_matrix_chan + 1
+        self.engine.channels(0)
     }
 
-    /// Counters so far.
+    /// Counters so far. Units in which a change of configuration had taken
+    /// the presentation away are not counted.
     #[must_use]
     pub fn stats(&self) -> &DecodeStats {
-        &self.core.stats
+        &self.lane().stats
     }
 
     /// The timing model (jumps, branches) so far.
     #[must_use]
     pub fn timing(&self) -> &TimingModel {
-        &self.core.timing
+        &self.lane().timing
     }
 
     /// Decodes one access unit.
     pub fn decode(&mut self, unit: &[u8]) -> Result<Decoded<'_>> {
-        match self.decode_unit(unit, false)? {
-            (out, None) => Ok(self.lend(out)),
-            (_, Some(e)) => Err(e),
+        self.engine.decode_unit(unit, false)?;
+        match self.engine.lanes[0].outcome {
+            Outcome::Out(out, None) => Ok(self.engine.lend(0, out)),
+            Outcome::Out(_, Some(k)) | Outcome::Failed(k) => Err(self.take(k)),
+            Outcome::Gone | Outcome::Pending => Err(self.gone()),
         }
     }
 
@@ -877,10 +1503,12 @@ impl Decoder {
     /// changes: a restart header re-initialises everything its substream's
     /// decoding carries. The lossless check word of a section that took
     /// silence is skipped, not failed. Returns the fault that was concealed,
-    /// if any; a change of configuration is not concealed but returned.
+    /// if any; a change of configuration is not concealed but returned
+    /// (under [`OnConfigChange::Stop`]), and so is a presentation that a
+    /// change followed took away ([`Error::PresentationGone`]).
     pub fn decode_concealing(&mut self, unit: &[u8]) -> Result<(Decoded<'_>, Option<Error>)> {
         let (out, fault) = self.concealing_unit(unit)?;
-        Ok((self.lend(out), fault))
+        Ok((self.engine.lend(0, out), fault))
     }
 
     /// Decodes one access unit as [`Decoder::decode_concealing`] does, and
@@ -891,24 +1519,32 @@ impl Decoder {
     pub fn decode_following(&mut self, unit: &[u8]) -> Result<Following<'_>> {
         let (out, fault) = self.concealing_unit(unit)?;
         Ok(Following {
-            decoded: self.lend(out),
+            decoded: self.engine.lend(0, out),
             fault,
-            change: self.change.as_ref(),
+            change: self.engine.config_change(),
         })
     }
 
     /// The body of [`Decoder::decode_concealing`], before the samples are lent.
     fn concealing_unit(&mut self, unit: &[u8]) -> Result<(UnitOut, Option<Error>)> {
-        match self.decode_unit(unit, true) {
-            Ok((out, fault)) => Ok((out, fault)),
-            Err(e @ Error::ConfigChanged { .. }) => {
-                self.core.unit_open = false;
-                Err(e)
-            }
-            Err(e) => {
-                let out = self.conceal_unit(unit);
-                Ok((out, Some(e)))
-            }
+        self.engine.decode_concealing(unit)?;
+        match self.engine.lanes[0].outcome {
+            Outcome::Out(out, fault) => Ok((out, fault.map(|k| self.take(k)))),
+            Outcome::Gone | Outcome::Pending | Outcome::Failed(_) => Err(self.gone()),
+        }
+    }
+
+    /// Fault `k` of the unit, given away.
+    fn take(&mut self, k: usize) -> Error {
+        self.engine
+            .faults
+            .take(k)
+            .unwrap_or_else(|| Error::malformed("a fault given away twice"))
+    }
+
+    fn gone(&self) -> Error {
+        Error::PresentationGone {
+            presentation: self.lane().presentation,
         }
     }
 
@@ -919,236 +1555,7 @@ impl Decoder {
     /// substream, or it is the first restart.
     #[must_use]
     pub fn output_delta(&self) -> Option<u16> {
-        self.core.output_delta
-    }
-
-    fn lend(&self, out: UnitOut) -> Decoded<'_> {
-        Decoded {
-            pcm: &self.core.output[..out.len],
-            channels: out.channels,
-            duplicate: out.duplicate,
-            concealed: out.concealed,
-            output_delta: self.core.output_delta,
-        }
-    }
-
-    /// Marks substream `from` and every substream of the presentation after
-    /// it as damaged: they did not read this access unit.
-    fn damage_from(&mut self, from: usize) {
-        for i in from..4 {
-            if (self.core.substream_mask >> i) & 1 == 1 {
-                self.damaged[i] = true;
-            }
-        }
-    }
-
-    /// One access unit of silence for a unit whose framing
-    /// [`Decoder::decode_unit`] could not read; the clocks move on as if it
-    /// had been.
-    fn conceal_unit(&mut self, unit: &[u8]) -> UnitOut {
-        if !self.damaged.iter().any(|d| *d) {
-            self.damage_from(0);
-        }
-        if !self.core.unit_open && unit.len() >= 4 {
-            // The extractor framed the unit, so its header is sound: the
-            // length and the input timing keep the input clock in step.
-            let length_words = u32::from(u16::from_be_bytes([unit[0], unit[1]]) & 0x0FFF);
-            let input_timing = u16::from_be_bytes([unit[2], unit[3]]);
-            self.core.timing.begin_unit(input_timing, length_words);
-            self.core.unit_open = true;
-        }
-        if self.core.unit_open {
-            self.core.timing.end_unit();
-            self.core.unit_open = false;
-        }
-        let spa = self.core.samples_per_au;
-        self.silence(spa)
-    }
-
-    /// Writes `len` rows of silence for the current unit and counts them.
-    fn silence(&mut self, len: usize) -> UnitOut {
-        let channels = self.channels();
-        for row in &mut self.core.output[..len] {
-            row.fill(0);
-        }
-        let top = self.core.top;
-        self.core.sub[top].spoiled = true;
-        self.core.output_delta = None;
-        self.core.stats.units += 1;
-        self.core.stats.samples += len as u64;
-        self.core.stats.concealed_units += 1;
-        self.core.stats.concealed_samples += len as u64;
-        self.core.unit_index += 1;
-        UnitOut {
-            len,
-            channels,
-            duplicate: false,
-            concealed: true,
-        }
-    }
-
-    /// Decodes one access unit. A fault in a substream's segment damages that
-    /// substream and leaves the others to be read, the unit taking silence and
-    /// the fault coming back beside it; a fault in the unit's framing comes
-    /// back as the error, with the unit not read. With `conceal`, a segment
-    /// that parses but fails its parity, CRC, end-pointer or sample-count
-    /// check is a fault too: its samples are not to be trusted, nor the
-    /// substream's state after it. Without, it is counted and decoded as it
-    /// stands, as it always was.
-    fn decode_unit(&mut self, unit: &[u8], conceal: bool) -> Result<(UnitOut, Option<Error>)> {
-        self.core.output_delta = None;
-        self.change = None;
-        let (au, config) = match AccessUnit::parse(unit, Some(&self.config)) {
-            Ok(parsed) => parsed,
-            Err(e) => {
-                self.damage_from(0);
-                return Err(e);
-            }
-        };
-        if let Some(ms) = &au.major_sync {
-            if let Some(what) = self.config.incompatible_with(&config) {
-                return Err(Error::ConfigChanged { what });
-            }
-            self.parser.update(&config);
-            self.core
-                .timing
-                .update_config(StreamTiming::new(ms, &config));
-            self.config = config;
-        }
-        if let Some(extra) = &au.extra {
-            self.core.stats.take_extra(self.core.unit_index, extra);
-        }
-        self.core.duplicate_timing = false;
-        self.core.duplicate_samples = false;
-        if self
-            .core
-            .timing
-            .begin_unit(au.header.input_timing, u32::from(au.header.length_words))
-        {
-            self.core.stats.input_jumps += 1;
-        }
-        self.core.unit_open = true;
-        let top = self.core.top;
-        let mut silent = false;
-        let mut fault = None;
-        for i in 0..=top {
-            if (self.core.substream_mask >> i) & 1 == 0 {
-                continue;
-            }
-            self.core.sub[i].decoded = 0;
-            self.core.sub[i].zero_samples = 0;
-            let Some(entry) = au.directory.get(i) else {
-                self.damage_from(i);
-                return Err(Error::malformed(format!(
-                    "access unit without a directory entry for substream {i}"
-                )));
-            };
-            let Some(bytes) = unit.get(au.segment_range(i)) else {
-                self.damage_from(i);
-                return Err(Error::malformed(format!(
-                    "substream {i} range outside the access unit"
-                )));
-            };
-            if self.damaged[i] {
-                if entry.restart_nonexistent {
-                    // still waiting for the restart header that makes it sound
-                    silent = true;
-                    continue;
-                }
-                self.damaged[i] = false;
-            }
-            if !self.parser.substream[i].restart_seen && entry.restart_nonexistent {
-                self.damaged[i] = true;
-                silent = true;
-                fault.get_or_insert_with(|| {
-                    Error::malformed(format!("substream {i}: no restart header seen yet"))
-                });
-                continue;
-            }
-            let core = &mut self.core;
-            let seg = match Segment::parse_with(
-                bytes,
-                &mut self.parser,
-                i,
-                entry.crc_present,
-                &mut self.buffers[i],
-                |block, state, buf| core.on_block(i, block, state, buf),
-            ) {
-                Ok(seg) => seg,
-                Err(e) => {
-                    // this substream is unsound until its next restart
-                    // header; the others read on, each from its own segment
-                    self.damaged[i] = true;
-                    silent = true;
-                    fault.get_or_insert(e);
-                    continue;
-                }
-            };
-            if let Some(t) = seg.terminator
-                && t.zero_samples_indicated
-            {
-                self.core.sub[i].zero_samples = usize::from(t.zero_samples);
-            }
-            if !(seg.parity_ok && seg.crc_ok && seg.end_ok && seg.sample_count_ok) {
-                self.core.stats.segment_problems += 1;
-                let unit_index = self.core.unit_index;
-                self.core.stats.note(|| {
-                    format!("access unit {unit_index}: substream {i}: segment integrity problem")
-                });
-                if conceal {
-                    self.damaged[i] = true;
-                    silent = true;
-                    let failed = [
-                        (!seg.parity_ok, "parity"),
-                        (!seg.crc_ok, "CRC"),
-                        (!seg.end_ok, "end pointer"),
-                        (!seg.sample_count_ok, "sample count"),
-                    ]
-                    .iter()
-                    .filter(|(f, _)| *f)
-                    .map(|(_, n)| *n)
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                    fault.get_or_insert_with(|| {
-                        Error::malformed(format!(
-                            "substream {i}: the segment fails its {failed} check"
-                        ))
-                    });
-                }
-            }
-        }
-        self.core.timing.end_unit();
-        self.core.unit_open = false;
-        self.core.stats.valid_branches = self.core.timing.valid_branches() as u64;
-        self.core.stats.invalid_branches = self.core.timing.invalid_branches() as u64;
-        let spa = self.core.samples_per_au;
-        if silent {
-            // A substream of the presentation is damaged: what the others
-            // decoded cannot be rematrixed without it.
-            let delta = self.core.output_delta;
-            let out = self.silence(spa);
-            self.core.output_delta = delta;
-            return Ok((out, fault));
-        }
-        let len = spa.saturating_sub(self.core.sub[top].zero_samples);
-        let duplicate =
-            self.core.duplicate_timing && self.core.duplicate_samples && !self.keep_duplicates;
-        self.core.stats.units += 1;
-        if duplicate {
-            self.core.stats.duplicates += 1;
-        } else {
-            self.core.stats.samples += len as u64;
-        }
-        self.core.unit_index += 1;
-        Ok((
-            UnitOut {
-                len,
-                channels: self.core.sub[top].max_matrix_chan + 1,
-                duplicate,
-                concealed: false,
-            },
-            None,
-        ))
+        self.lane().output_delta
     }
 }
 

@@ -226,6 +226,33 @@ impl TimingModel {
         self.config = config;
     }
 
+    /// Starts the model again at a major sync that changes the configuration
+    /// of the stream (a decoder that follows the change, `OnConfigChange::Continue`).
+    ///
+    /// What was counted stays counted: the units, the jumps and the branches
+    /// seen. What judges continuity starts again, as it does for a new
+    /// stream: the input timing of the unit before, and the output timing of
+    /// each substream's last restart header. Under another configuration the
+    /// timing before the change says nothing of the timing after it, and the
+    /// first restart header of each substream has no output delta.
+    pub fn begin_again(&mut self, config: StreamTiming) {
+        let counted = (
+            self.units,
+            std::mem::take(&mut self.branches),
+            self.input_jumps,
+            self.output_jumps,
+            self.peak_rate_changes,
+        );
+        *self = Self::new(config);
+        (
+            self.units,
+            self.branches,
+            self.input_jumps,
+            self.output_jumps,
+            self.peak_rate_changes,
+        ) = counted;
+    }
+
     /// Starts an access unit; returns whether its input timing jumped.
     pub fn begin_unit(&mut self, input_timing: u16, length_words: u32) -> bool {
         let spa = self.config.samples_per_au;

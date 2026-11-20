@@ -6,8 +6,8 @@
 mod common;
 
 use common::{
-    FIXTURES, OBJECTS, Out, SPLICES, configs, damage_framing, damage_substream, first_sync,
-    fixture_units, presentations, single, splice,
+    FIXTURES, OBJECTS, Out, SPLICES, break_framing, configs, configs_tolerant, damage_substream,
+    first_sync, fixture_units, presentations, scramble_segment, single, splice,
 };
 use oadec_truehd::{
     AccessUnit, MultiDecoder, OnConfigChange, PresentationKind, PresentationOut, StreamConfig,
@@ -118,6 +118,19 @@ fn every_presentation_of_every_fixture_is_its_own_decoder() {
     }
 }
 
+/// Item 4 over the whole object stream, not the cut the other tests read:
+/// every presentation in one pass against a `Decoder` of each.
+#[test]
+fn the_whole_object_stream_in_one_pass_is_every_presentation_s_own_decoder() {
+    let units = fixture_units(OBJECTS, false);
+    holds_to_single(
+        OBJECTS,
+        &units,
+        &presentations(&units),
+        OnConfigChange::Stop,
+    );
+}
+
 /// Items 3 and 4 over a change of configuration: with `Stop` the one-pass
 /// decoder ends where every single decoder ends, with the same error; with
 /// `Continue` each presentation is its own decoder's, the one a change
@@ -140,17 +153,28 @@ const FAULTS: &[(usize, Option<usize>)] = &[
     (20, Some(1)),
     (50, Some(3)),
     (90, Some(0)),
+    // restart headers at 125, 250, 375, 500, 625
     (130, None),
-    (200, Some(2)),
-    (204, Some(3)),
+    (260, Some(2)),
+    // the framing of a unit fails while substream 2 waits for its restart
+    (270, None),
+    (380, Some(1)),
+    (510, Some(2)),
+    (514, Some(3)),
 ];
+
+/// Of [`FAULTS`], the segments whose first bytes are scrambled, so that
+/// they do not parse; the others have a byte turned over in the middle,
+/// which their check bytes find.
+const SCRAMBLED: &[(usize, usize)] = &[(380, 1)];
 
 fn damaged_objects() -> Vec<Vec<u8>> {
     let mut units = fixture_units(OBJECTS, true);
     for &(unit, substream) in FAULTS {
         match substream {
+            Some(s) if SCRAMBLED.contains(&(unit, s)) => scramble_segment(&mut units, unit, s),
             Some(s) => damage_substream(&mut units, unit, s),
-            None => damage_framing(&mut units, unit),
+            None => break_framing(&mut units, unit),
         }
     }
     units
@@ -162,6 +186,24 @@ fn damaged_objects() -> Vec<Vec<u8>> {
 #[test]
 fn damage_reaches_the_presentations_their_own_decoders_say() {
     let units = damaged_objects();
+    // a fault of each kind is among them: a segment that fails its checks,
+    // one that does not parse at all, and a unit whose framing fails
+    let (outs, _) = single(&units, 1, OnConfigChange::Stop);
+    let faults: Vec<String> = outs
+        .iter()
+        .filter_map(|out| match out {
+            Out::Samples { fault, .. } => fault.clone(),
+            _ => None,
+        })
+        .collect();
+    assert!(faults.iter().any(|f| f.contains("fails its")), "{faults:?}");
+    assert!(faults.iter().any(|f| f.contains("truncated")), "{faults:?}");
+    assert!(
+        faults
+            .iter()
+            .any(|f| !f.contains("fails its") && !f.contains("truncated")),
+        "a segment that does not parse: {faults:?}"
+    );
     for selected in selections(&presentations(&units)) {
         holds_to_single("damaged objects", &units, &selected, OnConfigChange::Stop);
     }
@@ -235,20 +277,14 @@ fn expected_counters(
     (decodes, faulted)
 }
 
-/// The configuration in force at each unit, a unit whose framing is
-/// damaged keeping the one before it.
-fn configs_tolerant(units: &[Vec<u8>]) -> Vec<StreamConfig> {
-    let mut config: Option<StreamConfig> = None;
-    units
-        .iter()
-        .map(|unit| {
-            if let Ok((_, next)) = AccessUnit::parse(unit, config.as_ref()) {
-                config = Some(next);
-            }
-            config.clone().expect("the first unit parses")
-        })
-        .collect()
-}
+/// A stream the counters are asked of: its name, its units, the faults
+/// placed in it, and the policy it is decoded with.
+type Case<'a> = (
+    &'a str,
+    &'a [Vec<u8>],
+    &'a [(usize, Option<usize>)],
+    OnConfigChange,
+);
 
 /// Item 6. The substream counters are exactly what the directories and the
 /// selection say: once a unit for a substream that is needed, present and
@@ -260,7 +296,7 @@ fn each_substream_is_decoded_once_a_unit() {
     let clean = fixture_units(OBJECTS, true);
     let damaged = damaged_objects();
     let (spliced, _) = splice(SPLICES[3].1);
-    let cases: [(&str, &[Vec<u8>], &[(usize, Option<usize>)], OnConfigChange); 3] = [
+    let cases: [Case<'_>; 3] = [
         ("objects", &clean, &[], OnConfigChange::Stop),
         ("damaged objects", &damaged, FAULTS, OnConfigChange::Stop),
         (

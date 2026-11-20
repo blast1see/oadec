@@ -866,7 +866,9 @@ length and what follows a fault stays where it belongs in time (`decode
   underestimate it twice over) and agree with it within a factor of two. Bytes
   damaged where they lie do; bytes missing from the file do not, and such a
   gap is left as it is, the output that much shorter, and said.
-* A change of configuration still ends the output where it happens (exit 7),
+* A change of configuration still ends the output where it happens (exit 7);
+  the decoder can follow one (*A change of configuration*, below), and the
+  command line does not yet ask it to,
   and a fault before the first sample of output is still an error (exit 2).
 
 The run says what it did -- `concealed N access units with silence (X ms) in
@@ -883,6 +885,95 @@ out one unit early, and its `plc` property changed nothing on TrueHD
 (`docs/audit/evidence/verification-upgrade-2026-11/08-concealment.json`).
 Repeating a 40-sample unit is a buzz at 1.2 kHz; silence is a gap the ear
 reads as one.
+
+## A change of configuration
+
+A major sync may say the stream is now something else: another substream
+count, another `substream_info`, another number of samples to the unit,
+another sampling rate (`StreamConfig::incompatible_with`). A decoder stops
+there by default (`OnConfigChange::Stop`): the unit is not decoded and the
+change comes back as the error `ConfigChanged`, everything before it sound.
+That is what it always did.
+
+With `OnConfigChange::Continue` it follows the change. The unit that carries
+the major sync is decoded once, with the new configuration, and is neither
+left out nor read twice. Everything a substream carries starts again, as at
+the first unit of a stream: the parser state, the filter histories, the
+matrices, the lossless check word, the damage. The counters do not:
+`DecodeStats` counts on across the change, and the timing model keeps the
+units, jumps and branches it has counted while what judges continuity
+starts again (`TimingModel::begin_again`): the input timing of the unit
+before the change and the output timing of each substream's last restart
+header say nothing of the timing after it, so the first restart header of
+each substream after a change has no output delta, as at the start of a
+stream, and its lossless check is not made. The change is reported beside
+the samples of the unit that carries it (`Decoder::decode_following`, or
+`Decoder::config_change` afterwards): the index of the unit, what changed,
+and the configuration before and after.
+
+A presentation exists under a configuration when a decoder could be set up
+for it there (`StreamConfig::has_presentation`): the stream carries it, or
+carries the presentation under it that it is a copy of. So a change from
+eight channels to six leaves the eight-channel presentation in place as a
+copy of the six, with six channels. A presentation the new configuration
+cannot make at all is gone: its decoder gives the error `PresentationGone`
+at every unit until a change brings it back, and decodes it from the unit
+of that change on; while it is gone it gives no samples, never empty ones
+and never another presentation's, and counts no unit and no sample.
+
+The written streams `change-channels`, `change-rate` and
+`change-presentation` (`crates/oadec-synth/src/change.rs`) carry one change
+of each kind, recipes laid end to end, and the tests hold every sample of
+them to what the recipes were written from. The fixtures laid end to end
+do the same for the streams of other encoders, an object stream among them
+whose object presentation a change takes away and brings back.
+
+## Several presentations in one pass
+
+A presentation reads the substreams under its own, and the four
+presentations of an object stream read substream 0 four times when each is
+decoded by itself. `MultiDecoder` decodes every presentation asked for in
+one pass, and each substream of a unit once.
+
+Shared, once a unit for every substream a selected presentation reads: the
+segment parse and its state (restart headers, block headers, filter and
+matrix coefficients, the Huffman decoding of the samples), the prediction
+(FIR and IIR) and the recorrelated channels, and the matrix and delta
+coefficients with their interpolation at the end of the unit. Each
+presentation's own, from there on: the rematrixing, which reads the
+recorrelated channels of every substream the presentation reads through the
+matrices of its top substream; the dither and the noise those matrices
+draw; the remap to output channels and the output; the lossless check word,
+the `max_bits` check and duplicate detection, which read the output; the
+timing model, which hears the restart headers of the substreams the
+presentation reads; its damage, its concealment and its counters.
+
+So the sharing ends just before the matrices. That is where a presentation
+starts to differ from another: the matrices of substream 1 make the
+six-channel presentation and are no part of the eight-channel one, which
+the matrices of substream 2 make out of the same coded channels. Every
+presentation has a top substream of its own, so each set of matrices still
+runs once a unit; only a presentation that is a copy of the one under it
+runs the matrices of that one a second time, to keep everything of it its
+own.
+
+Damage is a view of each presentation over the shared decoding. A fault in
+a substream's segment silences every presentation that reads it until its
+next restart header, and those alone; a unit whose framing fails silences
+every presentation. The substream is parsed again as soon as one
+presentation reads it, so a presentation still waiting does not hold
+another back. What a restart header does not set again, the check word of
+the unit before (duplicate detection) among it, is kept per presentation.
+
+Every presentation is what a `Decoder` of it alone gives, sample for
+sample, with the same faults and the same counters; the tests hold the two
+to that on every fixture and recipe, damaged and changing. Four
+presentations of the object fixture in one pass took 54 per cent of the
+processor time of four decoders one after the other (2.39 s against 4.45 s
+for a hundred passes over it, release build), with the same peak memory, and
+no substream decoded twice where four decoders decode substream 0 four
+times, 1 three times and 2 twice
+(`crates/oadec-truehd/examples/presentations.rs`).
 
 ## FBB (DVD-Audio)
 

@@ -15,7 +15,7 @@
 //! the output, the lossless check, the dither and noise drawn for its
 //! matrices, its damage and its concealment.
 
-use crate::decoder::{ConfigChange, DecodeStats, Decoded, OnConfigChange};
+use crate::decoder::{ConfigChange, DecodeStats, Decoded, Engine, OnConfigChange};
 use crate::error::{Error, Result};
 use crate::presentation::MAX_PRESENTATIONS;
 use crate::sync::MajorSync;
@@ -24,24 +24,11 @@ use crate::sync::MajorSync;
 const SUBSTREAMS: usize = 4;
 
 /// Decoder for several presentations of one TrueHD stream at once.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MultiDecoder {
-    /// The presentations asked for.
-    selected: [bool; MAX_PRESENTATIONS],
-    /// What a change of configuration does.
-    on_config_change: OnConfigChange,
-    /// Keeps access units flagged as duplicates instead of marking them.
-    keep_duplicates: bool,
-    /// The counters of each presentation, as its own decoder keeps them.
-    stats: [DecodeStats; MAX_PRESENTATIONS],
-    /// Access units given.
-    units: u64,
-    /// Per substream, the access units it was decoded in.
-    substream_decodes: [u64; SUBSTREAMS],
-    /// Per substream, the access units in which a selected presentation
-    /// needed it, the unit carried it, and it could not be decoded: a fault
-    /// in its segment, or a wait for its next restart header after one.
-    substream_faults: [u64; SUBSTREAMS],
+    engine: Engine,
+    /// The lane of each presentation asked for.
+    lane: [Option<usize>; MAX_PRESENTATIONS],
 }
 
 impl MultiDecoder {
@@ -52,10 +39,23 @@ impl MultiDecoder {
     /// What [`Decoder::new`](crate::Decoder::new) gives for any one of the
     /// presentations; and for none at all.
     pub fn new(major_sync: &MajorSync, presentations: &[usize]) -> Result<Self> {
-        let _ = (major_sync, presentations);
-        Err(Error::Unsupported(
-            "decoding several presentations in one pass is not built yet".to_string(),
-        ))
+        let mut asked: Vec<usize> = presentations.to_vec();
+        asked.sort_unstable();
+        asked.dedup();
+        if asked.is_empty() {
+            return Err(Error::malformed("no presentation asked for"));
+        }
+        if let Some(&p) = asked.iter().find(|&&p| p >= MAX_PRESENTATIONS) {
+            return Err(Error::malformed(format!(
+                "presentation {p} is not available"
+            )));
+        }
+        let engine = Engine::new(major_sync, &asked)?;
+        let mut lane = [None; MAX_PRESENTATIONS];
+        for k in 0..engine.lanes() {
+            lane[engine.presentation_of(k)] = Some(k);
+        }
+        Ok(Self { engine, lane })
     }
 
     /// What to do at a major sync that changes the configuration;
@@ -64,13 +64,13 @@ impl MultiDecoder {
     /// configuration does not carry is [`PresentationOut::Gone`] until a
     /// later change brings it back.
     pub fn on_config_change(&mut self, policy: OnConfigChange) {
-        self.on_config_change = policy;
+        self.engine.on_config_change(policy);
     }
 
     /// Keeps access units flagged as duplicates instead of marking them, for
     /// every presentation ([`Decoder::keep_duplicates`](crate::Decoder::keep_duplicates)).
     pub fn keep_duplicates(&mut self, keep: bool) {
-        self.keep_duplicates = keep;
+        self.engine.keep_duplicates(keep);
     }
 
     /// Decodes one access unit for every selected presentation, standing
@@ -81,10 +81,17 @@ impl MultiDecoder {
     /// # Errors
     /// A change of configuration under [`OnConfigChange::Stop`].
     pub fn decode_concealing(&mut self, unit: &[u8]) -> Result<MultiDecoded<'_>> {
-        let _ = unit;
-        Err(Error::Unsupported(
-            "decoding several presentations in one pass is not built yet".to_string(),
-        ))
+        self.engine.decode_concealing(unit)?;
+        let engine = &self.engine;
+        Ok(MultiDecoded {
+            outputs: self.lane.map(|lane| {
+                lane.map(|k| match engine.lent(k) {
+                    Some((decoded, fault)) => PresentationOut::Available { decoded, fault },
+                    None => PresentationOut::Gone,
+                })
+            }),
+            change: engine.config_change(),
+        })
     }
 
     /// The counters of presentation `p`, the same a
@@ -92,32 +99,36 @@ impl MultiDecoder {
     /// `p` was not selected.
     #[must_use]
     pub fn stats(&self, p: usize) -> Option<&DecodeStats> {
-        if self.selected.get(p).copied().unwrap_or(false) {
-            self.stats.get(p)
-        } else {
-            None
-        }
+        let k = (*self.lane.get(p)?)?;
+        Some(self.engine.stats(k))
     }
 
     /// Access units given so far.
     #[must_use]
     pub fn units(&self) -> u64 {
-        self.units
+        self.engine.units()
     }
 
     /// Per substream, the access units it was decoded in: once each, however
     /// many of the selected presentations read it.
     #[must_use]
     pub fn substream_decodes(&self) -> [u64; SUBSTREAMS] {
-        self.substream_decodes
+        self.engine.substream_decodes()
     }
 
-    /// Per substream, the access units in which a selected presentation
-    /// needed it, the unit carried it, and it could not be decoded: a fault
-    /// in its segment, or a wait for its next restart header after one.
+    /// Per substream, the access units in which it was needed and present
+    /// and was not decoded. Needed: a selected presentation that the
+    /// configuration in force carries reads it. Present: the configuration
+    /// in force has it. Not decoded: a fault in its segment (one that does
+    /// not parse, or fails its parity, CRC, end-pointer or sample-count
+    /// check), a wait for its next restart header after a fault, or the
+    /// unit's framing failing -- a unit whose framing fails counts as
+    /// carrying every substream of the configuration in force. For every
+    /// substream `substream_decodes()[s] + substream_faults()[s]` is the
+    /// number of units in which it was needed and present.
     #[must_use]
     pub fn substream_faults(&self) -> [u64; SUBSTREAMS] {
-        self.substream_faults
+        self.engine.substream_faults()
     }
 }
 
