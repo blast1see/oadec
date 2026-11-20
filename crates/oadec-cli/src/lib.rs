@@ -39,7 +39,7 @@ use clap::{Parser, Subcommand};
 
 use crate::args::{
     FormatArg, InterpolationArg, IsfArg, JocLowBandArg, LayoutChangeArg, OnErrorArg, OrderArg,
-    WarpArg,
+    PresentationArg, WarpArg,
 };
 use crate::compare::RefFormat;
 use oadec_engine::damf::Warp;
@@ -193,9 +193,11 @@ enum Command {
         /// Presentation to decode (0 = 2ch, 1 = 6ch, 2 = 8ch, 3 = 16ch objects);
         /// 2 when absent, or for a DVD-Audio (FBB) stream the widest it
         /// carries. The object formats (damf, adm) always decode 3 and refuse
-        /// any other value.
-        #[arg(short, long)]
-        presentation: Option<usize>,
+        /// any other value. `all`: every presentation the stream carries, in
+        /// one pass, each to a file of its own (OUT.p0.wav, OUT.p1.wav, ...),
+        /// each the file -p N writes; TrueHD to a file only.
+        #[arg(short, long, value_name = "N|all")]
+        presentation: Option<PresentationArg>,
         /// Output container.
         #[arg(long, value_enum, default_value_t = FormatArg::Wav)]
         format: FormatArg,
@@ -525,6 +527,25 @@ enum Command {
     },
 }
 
+/// What `-p all` with an object output is told.
+const EVERY_IS_SAMPLES: &str = "-p all writes every presentation of a TrueHD stream as samples, \
+     a file each; an object output is of presentation 3: ask for --format pcm or wav";
+
+/// What `-p all` to standard output, or with a report of a stream decode, is
+/// told.
+const EVERY_IS_FILES: &str = "-p all writes every presentation to a file of its own \
+     (OUT.p0.wav, OUT.p1.wav, ...): name a file, and leave out -o -, --json, --report and \
+     --on-layout-change, which are of the decode of one presentation";
+
+/// What `-p all` with `--on-error stop` is told.
+const EVERY_CONCEALS: &str = "-p all conceals an access unit it cannot read, as decode does \
+     when --on-error is absent: --on-error stop is of the decode of one presentation";
+
+/// What `-p all` with an option of another decode is told.
+const EVERY_TAKES_LITTLE: &str = "-p all decodes a TrueHD stream to samples: it takes --format, \
+     --order and --keep-duplicates, and none of the options of an object output or of an AC-3 \
+     family decode";
+
 /// What `--warp-mode` with a sample output is told.
 const WARP_IS_OBJECTS: &str =
     "--warp-mode names a warp mode in an object output: it applies to --format damf or adm";
@@ -667,6 +688,73 @@ where
                 dolby_origin_tag || adm_allow_non_profile_rate || adm_interpolation.is_some();
             let given_for_damf = fps.is_some();
             let given_for_samples = order.is_some();
+            let (presentation, every) = match presentation {
+                Some(PresentationArg::One(p)) => (Some(p), false),
+                Some(PresentationArg::All) => (None, true),
+                None => (None, false),
+            };
+            if every {
+                // Every presentation is a file of its own, written in one pass
+                // over a stream it reads as it reads any file.
+                let refused = if matches!(format, FormatArg::Damf | FormatArg::Adm) {
+                    Some(EVERY_IS_SAMPLES)
+                } else if output.as_os_str() == pipe::STDOUT {
+                    Some(EVERY_IS_FILES)
+                } else if start.is_some() {
+                    Some(api::START_IS_TRUEHD_SAMPLES)
+                } else if on_error == Some(OnErrorArg::Stop) {
+                    Some(EVERY_CONCEALS)
+                } else if json
+                    || report.is_some()
+                    || pipeline_stats.is_some()
+                    || on_layout_change.is_some()
+                {
+                    Some(EVERY_IS_FILES)
+                } else {
+                    None
+                };
+                if let Some(words) = refused {
+                    break 'decode Err(anyhow::anyhow!(words));
+                }
+                let order = order.map_or(Order::Interchange, Order::from);
+                break 'decode stream_named(&file)
+                    .and_then(|source| {
+                        if eac3::is_eac3(&source).unwrap_or(false) {
+                            Err(anyhow::anyhow!(api::PRESENTATION_IS_TRUEHD))
+                        } else if no_bed_conform
+                            || all_events
+                            || loss_report.is_some()
+                            || isf.is_some()
+                            || fps.is_some()
+                            || dolby_origin_tag
+                            || adm_allow_non_profile_rate
+                            || adm_interpolation.is_some()
+                            || warp_mode.is_some()
+                            || core_only
+                            || no_dither
+                            || no_tpnp
+                            || ecpl_spec
+                            || programme.is_some()
+                        {
+                            Err(anyhow::anyhow!(EVERY_TAKES_LITTLE))
+                        } else {
+                            decode::run_every(
+                                &source,
+                                &output,
+                                Format::from(format),
+                                order,
+                                keep_duplicates,
+                                err,
+                            )
+                        }
+                    })
+                    .map(|verdict| {
+                        if matches!(verdict, Verdict::Clean) {
+                            eprintln!("done");
+                        }
+                        ExitCode::from(verdict.exit_code())
+                    });
+            }
             // Where the samples and the report go is settled before the
             // stream is read: a pipe that was read cannot be read again.
             let to_stdout = output.as_os_str() == pipe::STDOUT;

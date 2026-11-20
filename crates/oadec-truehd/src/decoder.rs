@@ -1417,6 +1417,33 @@ impl Engine {
             Outcome::Pending | Outcome::Failed(_) => None,
         }
     }
+
+    /// What lane `lane` came to in an access unit decoded without
+    /// concealment ([`Engine::decode_unit`] with `conceal` false), as
+    /// [`Decoder::decode`] gives it: the samples, or the fault that kept the
+    /// presentation from them. `None` for a lane left without an outcome.
+    pub(crate) fn strict(&self, lane: usize) -> Option<Strict<'_>> {
+        match self.lanes[lane].outcome {
+            Outcome::Out(out, None) => Some(Strict::Samples(self.lend(lane, out))),
+            Outcome::Out(_, Some(k)) | Outcome::Failed(k) => self.faults.get(k).map(Strict::Fault),
+            Outcome::Gone => Some(Strict::Gone),
+            Outcome::Pending => None,
+        }
+    }
+}
+
+/// What one presentation came to in an access unit decoded by
+/// [`MultiDecoder::decode`](crate::MultiDecoder::decode), without
+/// concealment: what [`Decoder::decode`] gives for it.
+#[derive(Debug, Clone, Copy)]
+pub enum Strict<'a> {
+    /// Its samples.
+    Samples(Decoded<'a>),
+    /// The fault that kept it from them: the error [`Decoder::decode`]
+    /// returns for the unit.
+    Fault(&'a Error),
+    /// The configuration in force does not carry it.
+    Gone,
 }
 
 /// What one presentation came to in an access unit, lent out.

@@ -16,7 +16,7 @@
 //! matrices, its damage and its concealment.
 
 use crate::decoder::{
-    ConfigChange, DecodeStats, Decoded, Engine, Lent, OnConfigChange, no_outcome,
+    ConfigChange, DecodeStats, Decoded, Engine, Lent, OnConfigChange, Strict, no_outcome,
 };
 use crate::error::{Error, Result};
 use crate::presentation::MAX_PRESENTATIONS;
@@ -101,6 +101,27 @@ impl MultiDecoder {
         })
     }
 
+    /// Decodes one access unit for every presentation asked for, without
+    /// concealment: each presentation comes to what [`Decoder::decode`] of a
+    /// decoder of its own gives for the unit, its samples or the fault that
+    /// kept it from them, and the others go on. An error of the unit itself,
+    /// which no presentation can read, is the error of the call.
+    ///
+    /// [`Decoder::decode`]: crate::Decoder::decode
+    ///
+    /// # Errors
+    /// What [`Decoder::decode`] returns for a unit no presentation reads,
+    /// and a unit that left a presentation without an outcome.
+    pub fn decode(&mut self, unit: &[u8]) -> Result<StrictDecoded<'_>> {
+        self.engine.decode_unit(unit, false)?;
+        let mut outputs = [None; MAX_PRESENTATIONS];
+        for (p, lane) in self.lane.iter().enumerate() {
+            let Some(k) = *lane else { continue };
+            outputs[p] = Some(self.engine.strict(k).ok_or_else(|| no_outcome(p))?);
+        }
+        Ok(StrictDecoded { outputs })
+    }
+
     /// The counters of presentation `p`, the same a
     /// [`Decoder`](crate::Decoder) of it alone would have kept; `None` when
     /// `p` was not selected.
@@ -179,4 +200,19 @@ pub enum PresentationOut<'a> {
     /// The configuration in force does not carry the presentation: it has no
     /// samples in this access unit.
     Gone,
+}
+
+/// One access unit decoded by [`MultiDecoder::decode`]: for each presentation
+/// asked for, what a strict decoder of its own made of it.
+#[derive(Debug, Clone, Copy)]
+pub struct StrictDecoded<'a> {
+    outputs: [Option<Strict<'a>>; MAX_PRESENTATIONS],
+}
+
+impl<'a> StrictDecoded<'a> {
+    /// What presentation `p` came to; `None` for one not asked for.
+    #[must_use]
+    pub fn presentation(&self, p: usize) -> Option<Strict<'a>> {
+        self.outputs.get(p).copied().flatten()
+    }
 }

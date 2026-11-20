@@ -1,0 +1,162 @@
+//! `decode -p all`: every presentation of a TrueHD stream in one pass, each
+//! to a file of its own, each the file `decode -p N` writes.
+
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output, Stdio};
+
+fn oadec(args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(args)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run oadec")
+}
+
+fn text(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).replace("\r\n", "\n")
+}
+
+fn temp(tag: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("oadec-every-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+/// The TrueHD and MLP fixtures, and the streams of the synthesiser's recipes
+/// written to `dir`.
+fn streams(dir: &Path) -> Vec<PathBuf> {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures");
+    let mut found: Vec<PathBuf> = std::fs::read_dir(&fixtures)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| matches!(p.extension().and_then(|e| e.to_str()), Some("thd" | "mlp")))
+        .collect();
+    found.sort();
+    for recipe in oadec_synth::recipe::RECIPES {
+        let path = dir.join(format!("{}.thd", recipe.name));
+        std::fs::write(
+            &path,
+            recipe.make().stream().expect("the recipe writes").bytes,
+        )
+        .unwrap();
+        found.push(path);
+    }
+    found
+}
+
+/// The lines a run said, but the one of its speed.
+fn said(out: &Output) -> Vec<String> {
+    text(&out.stderr)
+        .lines()
+        .filter(|l| !l.starts_with("speed:"))
+        .map(ToString::to_string)
+        .collect()
+}
+
+#[test]
+fn every_presentation_in_one_pass_is_the_file_of_its_own_decode() {
+    let dir = temp("files");
+    let mut compared = 0;
+    for stream in streams(&dir) {
+        let name = stream.to_str().unwrap();
+        for (format, ext) in [("wav", "wav"), ("pcm", "pcm")] {
+            let all_dir = dir.join("all");
+            let _ = std::fs::remove_dir_all(&all_dir);
+            std::fs::create_dir_all(&all_dir).unwrap();
+            let base = all_dir.join(format!("out.{ext}"));
+            let every = oadec(&[
+                "decode",
+                name,
+                "-p",
+                "all",
+                "--format",
+                format,
+                "-o",
+                base.to_str().unwrap(),
+            ]);
+            let lines = said(&every);
+            let mut worst = 0;
+            let mut written = 0;
+            for p in 0..4 {
+                let part = all_dir.join(format!("out.p{p}.{ext}"));
+                if !part.exists() {
+                    continue;
+                }
+                written += 1;
+                let one = dir.join(format!("one.{ext}"));
+                let alone = oadec(&[
+                    "decode",
+                    name,
+                    "-p",
+                    &p.to_string(),
+                    "--format",
+                    format,
+                    "-o",
+                    one.to_str().unwrap(),
+                ]);
+                let at = format!("{name}, {format}, presentation {p}");
+                assert!(
+                    std::fs::read(&part).unwrap()
+                        == std::fs::read(&one).expect("the decode of one wrote"),
+                    "{at}: the files differ"
+                );
+                // what the decode of one says of itself, the decode of all says
+                for line in said(&alone).iter().filter(|l| *l != "done") {
+                    let line = line.replace("warning: ", &format!("warning: presentation {p}: "));
+                    assert!(lines.contains(&line), "{at}: {line:?} is not said");
+                }
+                worst = worst.max(alone.status.code().unwrap_or(2));
+                compared += 1;
+            }
+            assert!(
+                written > 0,
+                "{name}: no presentation was written: {lines:?}"
+            );
+            assert_eq!(every.status.code(), Some(worst), "{name}: {lines:?}");
+        }
+    }
+    assert!(compared > 40, "{compared}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn every_presentation_is_refused_where_it_cannot_be_files_of_samples() {
+    let dir = temp("refused");
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures");
+    let thd = fixtures.join("authored-scene.mlp");
+    let ec3 = fixtures.join("authored-scene.ec3");
+    let out = dir.join("out.wav");
+    let (thd, ec3, out) = (
+        thd.to_str().unwrap(),
+        ec3.to_str().unwrap(),
+        out.to_str().unwrap(),
+    );
+    for args in [
+        vec!["decode", thd, "-p", "all", "-o", "-"],
+        vec!["decode", thd, "-p", "all", "--format", "damf", "-o", out],
+        vec!["decode", thd, "-p", "all", "--start", "1", "-o", out],
+        vec!["decode", thd, "-p", "all", "--on-error", "stop", "-o", out],
+        vec!["decode", thd, "-p", "all", "--json", "-o", out],
+        vec!["decode", ec3, "-p", "all", "-o", out],
+        vec!["decode", thd, "-p", "every", "-o", out],
+    ] {
+        let ran = oadec(&args);
+        assert_eq!(
+            ran.status.code(),
+            Some(2),
+            "{args:?}: {}",
+            text(&ran.stderr)
+        );
+        assert!(ran.stdout.is_empty(), "{args:?}");
+    }
+    assert!(
+        std::fs::read_dir(&dir).unwrap().next().is_none(),
+        "a refused decode wrote"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
