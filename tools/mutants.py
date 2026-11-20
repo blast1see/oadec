@@ -569,20 +569,26 @@ MUTANTS = [
      'let checks = told.recv().ok().and_then(|_| None::<Result<LosslessChecks>>);'),
     ('the last units of a stream not handed to the decodes of its presentations',
      'crates/oadec-engine/src/verify.rs',
-     '        // the units after the last full hand-over\n        let _ = to.send(batch);',
-     '        // the units after the last full hand-over\n        drop(batch);'),
+     """        // the units after the last full hand-over
+        give(units);""",
+     """        // the units after the last full hand-over
+        drop(units);"""),
     ('a decode of verify --decode handed every unit twice',
      'crates/oadec-engine/src/verify.rs',
-     '            batch.push(unit);\n            if batch.len() == UNITS_AT_A_TIME {',
-     '            batch.push(unit.clone());\n            batch.push(unit);\n            if batch.len() == UNITS_AT_A_TIME {'),
+     """                let _ = to.send(Arc::clone(&units));
+""",
+     """                let _ = to.send(Arc::clone(&units));
+                let _ = to.send(Arc::clone(&units));
+"""),
     ('the first unit of every hand-over not decoded',
      'crates/oadec-engine/src/verify.rs',
      '        for unit in handed.iter() {',
      '        for unit in handed.iter().skip(1) {'),
     ('a presentation that stopped at a fault going on with the next unit',
      'crates/oadec-engine/src/verify.rs',
-     '                Ok(out) => {\n                    for track in tracks.iter_mut().filter(|t| !t.stopped) {',
-     '                Ok(out) => {\n                    for track in tracks.iter_mut() {'),
+     """                    error = Some(format!("{e:#}"));
+                    break 'stream;""",
+     """                    error = Some(format!("{e:#}"));"""),
     ('a presentation the stream carries left out of verify --decode',
      'crates/oadec-engine/src/verify.rs',
      '        .filter(|&p| config.presentations.is_carried(p))\n        .collect();\n    let per_presentation',
@@ -3142,10 +3148,6 @@ MUTANTS = [
      'crates/oadec-engine/src/eac3.rs',
      '            if holds_nothing(&e) {',
      '            if false {'),
-    ('wiring: the counters of a presentation that stopped taken at the end',
-     'crates/oadec-engine/src/verify.rs',
-     '                track.stats = d.stats(track.presentation).cloned();',
-     '                track.stats = None;'),
     ('wiring: a followed TrueHD change keeps the old rate',
      'crates/oadec-engine/src/decode.rs',
      '            self.shaper.sampling_frequency = config.sampling_frequency;\n',

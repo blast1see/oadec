@@ -980,12 +980,15 @@ checks of each presentation stay its own, and they weigh more there.
 
 On the command line, `decode -p all` writes every presentation in one pass,
 each to a file of its own ([`streaming.md`](streaming.md#every-presentation-in-one-pass)),
-and `verify --decode` checks every presentation in one pass, on one thread
-where it ran a thread to each presentation. On the object fixture, a hundred
-times over, it took a third less processor time and half as much again of
-wall-clock time: the decodes no longer run side by side. What it says is the
-same, byte for byte, which a test holds on every fixture and recipe, damaged
-and cut.
+while `verify --decode` keeps a decoder of its own for each presentation,
+each on a thread of its own. The one pass on one thread took a third less
+processor time there and half as much again of wall-clock time, on the
+object fixture a hundred times over, and `verify --decode` is the check a
+delivery is held to, run on whole films: the clock comes first. The strict
+decode of the one pass (`MultiDecoder::decode`), where each presentation
+stops at its first fault as a decoder of its own does, makes the checks
+`verify --decode` makes, which a test holds on every fixture and recipe,
+damaged and cut.
 
 ## FBB (DVD-Audio)
 
