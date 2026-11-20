@@ -942,12 +942,19 @@ impl ProgramDecoder {
         Ok(())
     }
 
-    /// Under [`LayoutPolicy::Follow`], flushes and resets each substream the
-    /// group closed before `g` had and `g` has not: it has left the
-    /// programme, and its decoder still holds the look-ahead of its last
-    /// frame, which would otherwise wait for [`MAX_PENDING_GROUPS`] groups
-    /// and be counted as a stall. The flushed frame is what the substream
-    /// decodes to when its run ends there; if it comes back, it starts clean.
+    /// Under [`LayoutPolicy::Follow`], flushes each substream the group
+    /// closed before `g` had and `g` has not, and gives it a new decoder: it
+    /// has left the programme, and its decoder still holds the look-ahead of
+    /// its last frame, which would otherwise wait for [`MAX_PENDING_GROUPS`]
+    /// groups and be counted as a stall. The flushed frame is what the
+    /// substream decodes to when its run ends there.
+    ///
+    /// If it comes back, it decodes as a substream that starts there. A new
+    /// decoder rather than [`Decoder::reset`]: a reset forgets the overlap
+    /// and the look-ahead but keeps the dither generator, which a dependent
+    /// substream never reseeds from its frames, so after a reset the
+    /// substream's zero-bit mantissas would draw on from where they stood
+    /// groups before.
     ///
     /// # Errors
     ///
@@ -963,7 +970,7 @@ impl ProgramDecoder {
                 let at = sub.inflight.pop_front().unwrap_or(g.index);
                 sub.ready.push_back((at, d));
             }
-            sub.dec.reset();
+            sub.dec = Decoder::new(self.opts);
             sub.inflight.clear();
         }
         Ok(())

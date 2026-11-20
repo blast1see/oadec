@@ -210,9 +210,13 @@ struct Run {
 /// The frames through a programme decoder: made with `new` for `None`, with
 /// `with_config` otherwise.
 fn run(frames: &[Vec<u8>], config: Option<ProgramConfig>) -> Run {
+    run_with(Options::default(), frames, config)
+}
+
+fn run_with(opts: Options, frames: &[Vec<u8>], config: Option<ProgramConfig>) -> Run {
     let mut dec = match config {
-        None => ProgramDecoder::new(Options::default()),
-        Some(c) => ProgramDecoder::with_config(Options::default(), c),
+        None => ProgramDecoder::new(opts),
+        Some(c) => ProgramDecoder::with_config(opts, c),
     };
     let mut out = Vec::new();
     for frame in frames {
@@ -388,7 +392,14 @@ fn assert_tones(groups: &[ProgramFrame], what: &str) {
 /// The frames through a decoder of one substream: what that substream
 /// decodes to on its own, flushed at the end.
 fn decode_alone<'a>(frames: impl IntoIterator<Item = &'a Vec<u8>>) -> Vec<Vec<Vec<f32>>> {
-    let mut dec = Decoder::new(Options::default());
+    decode_alone_with(Options::default(), frames)
+}
+
+fn decode_alone_with<'a>(
+    opts: Options,
+    frames: impl IntoIterator<Item = &'a Vec<u8>>,
+) -> Vec<Vec<Vec<f32>>> {
+    let mut dec = Decoder::new(opts);
     let mut out = Vec::new();
     for frame in frames {
         if let Some(d) = dec.decode(frame).expect("the fixture decodes") {
@@ -749,81 +760,176 @@ fn the_default_programme_is_programme_0_and_never_missing() {
     }
 }
 
+/// The 7.1 fixture with the dependent frame kept in the groups `present`
+/// says and left out of the others.
+fn with_dependent_where(present: &[bool]) -> Vec<Group> {
+    let t = tones();
+    assert_eq!(present.len(), t.len());
+    t.into_iter()
+        .zip(present)
+        .map(|(mut g, &keep)| {
+            if !keep {
+                g.truncate(1);
+            }
+            g
+        })
+        .collect()
+}
+
+/// Which of the 40 groups carry the dependent frame: those in `runs`.
+fn present_in(runs: &[std::ops::Range<usize>]) -> Vec<bool> {
+    (0..40)
+        .map(|n| runs.iter().any(|r| r.contains(&n)))
+        .collect()
+}
+
+/// A pass under [`LayoutPolicy::Follow`] over the 7.1 fixture with the
+/// dependent frame only where `present` says: every group has its own
+/// channels, each the very samples of the substream channel it comes from.
+///
+/// The core's reference is a decoder of its own over all forty independent
+/// frames. Each run of dependent frames has a reference of its own: a decoder
+/// that starts fresh at the run's first group and is flushed at its last,
+/// which is what a substream that left the programme and came back must
+/// decode to. Nothing is filled with silence, nothing left out, nothing
+/// moved in time, and the change is flagged exactly where it happens.
+fn assert_followed(opts: Options, r: &Run, present: &[bool], what: &str) {
+    let t = tones();
+    let core = decode_alone_with(opts, t.iter().map(|g| &g[0]));
+    assert_eq!(core.len(), 40);
+    // the reference of each group's dependent frame, by group
+    let mut dependent: Vec<Option<Vec<Vec<f32>>>> = vec![None; 40];
+    let mut n = 0;
+    while n < 40 {
+        if !present[n] {
+            n += 1;
+            continue;
+        }
+        let start = n;
+        while n < 40 && present[n] {
+            n += 1;
+        }
+        let run = decode_alone_with(opts, t[start..n].iter().map(|g| &g[1]));
+        assert_eq!(run.len(), n - start, "{what}: the run from group {start}");
+        for (k, pcm) in run.into_iter().enumerate() {
+            dependent[start + k] = Some(pcm);
+        }
+    }
+    let changes = (1..40).filter(|&n| present[n] != present[n - 1]).count();
+
+    assert_eq!(r.end, Ok(()), "{what}");
+    assert_eq!(r.groups.len(), 40, "{what}");
+    let total: usize = r.groups.iter().map(ProgramFrame::samples).sum();
+    assert_eq!(total, 40 * 1536, "{what}: samples");
+    for (n, g) in r.groups.iter().enumerate() {
+        assert_eq!(g.index, n as u64, "{what}");
+        let seven = present[n];
+        let want: &[ChannelLoc] = if seven { &SEVEN_ONE } else { &FIVE_ONE };
+        assert_eq!(g.layout.channels, want, "{what}: group {n}");
+        assert_eq!(
+            g.layout_changed,
+            n > 0 && present[n] != present[n - 1],
+            "{what}: group {n}, the change is flagged where it happens"
+        );
+        for (i, loc) in g.layout.channels.iter().enumerate() {
+            let c = &core[n];
+            let d = dependent[n].as_ref();
+            let dep = |k: usize| -> &[f32] { &d.expect("a dependent frame")[k] };
+            let source: &[f32] = match (loc, seven) {
+                (ChannelLoc::L, _) => &c[0],
+                (ChannelLoc::C, _) => &c[1],
+                (ChannelLoc::R, _) => &c[2],
+                (ChannelLoc::Ls, false) => &c[3],
+                (ChannelLoc::Rs, false) => &c[4],
+                (ChannelLoc::Lfe, _) => &c[5],
+                (ChannelLoc::Ls, true) => dep(0),
+                (ChannelLoc::Rs, true) => dep(1),
+                (ChannelLoc::Lrs, true) => dep(2),
+                (ChannelLoc::Rrs, true) => dep(3),
+                _ => panic!("{what}: group {n} has {loc:?}"),
+            };
+            assert_eq!(g.channel(i).len(), 1536, "{what}: group {n}");
+            assert!(
+                g.channel(i) == source,
+                "{what}: group {n}, {} is not the samples it was coded as",
+                loc.name()
+            );
+            if n >= 2 {
+                assert!(
+                    g.channel(i).iter().any(|&s| s != 0.0),
+                    "{what}: group {n}, {} is silent",
+                    loc.name()
+                );
+            }
+        }
+    }
+    assert_eq!(
+        r.stats.layout_follows, changes as u64,
+        "{what}: every change, followed"
+    );
+    assert_eq!(
+        r.stats.layout_changes, 0,
+        "{what}: a change the stream signals is not a fault"
+    );
+    assert!(r.stats.is_clean(), "{what}: {:?}", r.stats);
+}
+
 /// Acceptance 6. Following the layout over 5.1, 7.1 and 5.1 again, every
 /// group has its own channels, each the very samples of the substream channel
 /// it comes from: nothing filled with silence, nothing left out, nothing
 /// moved in time, and the change flagged on the two groups where it happens.
 #[test]
 fn following_the_layout_gives_each_group_its_own_channels() {
-    let t = tones();
-    let core = decode_alone(t.iter().map(|g| &g[0]));
-    let dependent = decode_alone(t[10..30].iter().map(|g| &g[1]));
-    assert_eq!((core.len(), dependent.len()), (40, 20));
-
-    let check = |r: &Run, what: &str| {
-        assert_eq!(r.end, Ok(()), "{what}");
-        assert_eq!(r.groups.len(), 40, "{what}");
-        let total: usize = r.groups.iter().map(ProgramFrame::samples).sum();
-        assert_eq!(total, 40 * 1536, "{what}: samples");
-        for (n, g) in r.groups.iter().enumerate() {
-            assert_eq!(g.index, n as u64, "{what}");
-            let seven = (10..30).contains(&n);
-            let want: &[ChannelLoc] = if seven { &SEVEN_ONE } else { &FIVE_ONE };
-            assert_eq!(g.layout.channels, want, "{what}: group {n}");
-            assert_eq!(
-                g.layout_changed,
-                n == 10 || n == 30,
-                "{what}: group {n}, the change is flagged where it happens"
-            );
-            for (i, loc) in g.layout.channels.iter().enumerate() {
-                let c = &core[n];
-                let source: &[f32] = match (loc, seven) {
-                    (ChannelLoc::L, _) => &c[0],
-                    (ChannelLoc::C, _) => &c[1],
-                    (ChannelLoc::R, _) => &c[2],
-                    (ChannelLoc::Ls, false) => &c[3],
-                    (ChannelLoc::Rs, false) => &c[4],
-                    (ChannelLoc::Lfe, _) => &c[5],
-                    (ChannelLoc::Ls, true) => &dependent[n - 10][0],
-                    (ChannelLoc::Rs, true) => &dependent[n - 10][1],
-                    (ChannelLoc::Lrs, true) => &dependent[n - 10][2],
-                    (ChannelLoc::Rrs, true) => &dependent[n - 10][3],
-                    _ => panic!("{what}: group {n} has {loc:?}"),
-                };
-                assert_eq!(g.channel(i).len(), 1536, "{what}: group {n}");
-                assert!(
-                    g.channel(i) == source,
-                    "{what}: group {n}, {} is not the samples it was coded as",
-                    loc.name()
-                );
-                if n >= 2 {
-                    assert!(
-                        g.channel(i).iter().any(|&s| s != 0.0),
-                        "{what}: group {n}, {} is silent",
-                        loc.name()
-                    );
-                }
-            }
-        }
-        assert_tones(&r.groups[10..30], what);
-        assert_eq!(
-            r.stats.layout_follows, 2,
-            "{what}: the two changes, followed"
-        );
-        assert_eq!(
-            r.stats.layout_changes, 0,
-            "{what}: a change the stream signals is not a fault"
-        );
-        assert!(r.stats.is_clean(), "{what}: {:?}", r.stats);
-    };
-
+    let present = present_in(std::slice::from_ref(&(10..30)));
     let seq = five_seven_five();
-    check(&run(&flatten(&seq), follow(None)), "following");
+    assert_eq!(flatten(&seq), flatten(&with_dependent_where(&present)));
+    let r = run(&flatten(&seq), follow(None));
+    assert_followed(Options::default(), &r, &present, "following");
+    assert_eq!(r.stats.layout_follows, 2);
+    assert_tones(&r.groups[10..30], "following");
     // and as the second programme of a stream of two
     let two = interleaved(&scene(), &as_programme(&seq, 1));
     let r = run(&flatten(&two), follow(Some(1)));
-    check(&r, "following programme 1");
+    assert_followed(Options::default(), &r, &present, "following programme 1");
     assert_eq!(r.stats.other_program_frames, 63);
+}
+
+/// Acceptance 6, a substream that comes back. Over 7.1, 5.1 and 7.1 again
+/// the dependent substream leaves and returns, and when it returns it decodes
+/// as a fresh decoder would from that group on. Two things of the decoder it
+/// had must not reach its first frame back, and each pass below holds one of
+/// them to that:
+///
+/// - the transform overlap its last frame before leaving left behind, which
+///   would be mixed into the first block back: the pass without dither,
+///   where nothing else could differ;
+/// - its dither generator, which a dependent substream never reseeds from its
+///   frames (only an independent one does), so a decoder that was only reset
+///   would draw its zero-bit mantissas on from where it stood groups before:
+///   the pass with dither, the default.
+///
+/// And a substream can leave and come back twice in one stream.
+#[test]
+fn a_substream_that_leaves_and_comes_back_starts_afresh() {
+    let without_dither = Options {
+        dither: false,
+        ..Options::default()
+    };
+    for opts in [without_dither, Options::default()] {
+        for (runs, changes) in [(vec![0..12, 24..40], 2u64), (vec![0..8, 14..22, 28..40], 4)] {
+            let present = present_in(&runs);
+            let what = format!(
+                "following, dither {}, the dependent in groups {runs:?}",
+                opts.dither
+            );
+            let frames = flatten(&with_dependent_where(&present));
+            let r = run_with(opts, &frames, follow(None));
+            assert_followed(opts, &r, &present, &what);
+            assert_eq!(r.stats.layout_follows, changes, "{what}");
+            let last = runs.last().expect("a run");
+            assert_tones(&r.groups[last.clone()], &what);
+        }
+    }
 }
 
 /// Acceptance 7. Keeping the first group's layout over 5.1, 7.1 and 5.1 does
