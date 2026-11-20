@@ -1,9 +1,12 @@
 //! Decodes the independent substream 0 of an E-AC-3 or AC-3 stream to a
 //! 32-bit float WAVE file, with the experimental decorrelation of the coupled
 //! channels set as the arguments say (`oadec_eac3::decorr`,
-//! `docs/eac3.md`). It is how the mode is run before the command line has a
-//! flag for it; the decorrelation is this decoder's estimate and a decode
-//! with it is not claimed to equal Dolby's.
+//! `docs/eac3.md`), with the scope given by hand. The command line has the
+//! mode as `oadec decode --decorrelate`, which takes the scope from the
+//! programme; of a stream whose programme is its independent substream
+//! alone it writes what this writes with `experimental core-only`. The
+//! decorrelation is this decoder's estimate and a decode with it is not
+//! claimed to equal Dolby's.
 //!
 //! ```text
 //! cargo run --release -p oadec-eac3 --example decorrelate -- \

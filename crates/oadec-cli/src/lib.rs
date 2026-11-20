@@ -363,6 +363,17 @@ enum Command {
         /// names the ones it does (exit 2). A TrueHD stream refuses it.
         #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=7))]
         programme: Option<u8>,
+        /// AC-3/E-AC-3 to wav or pcm, EXPERIMENTAL: decorrelate the coupled
+        /// channels of an E-AC-3 programme that is its independent substream
+        /// alone, in 2/0 or 3/2, as Dolby's decoders were measured to do. Its
+        /// weight is this decoder's estimate fitted on measurements, and a
+        /// decode with it is not claimed to equal Dolby's. Off when absent;
+        /// the report says where it was applied and why not elsewhere. An
+        /// AC-3 stream and a programme with dependent substreams are decoded
+        /// as without it, --core-only included; an object output and a
+        /// TrueHD stream refuse it.
+        #[arg(long)]
+        decorrelate: bool,
     },
     /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
     /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
@@ -673,6 +684,7 @@ where
             report,
             pipeline_stats,
             programme,
+            decorrelate,
         } => 'decode: {
             // An option that is absent is told from one given at its default,
             // which is what lets one that does not apply be refused.
@@ -735,6 +747,7 @@ where
                             || no_tpnp
                             || ecpl_spec
                             || programme.is_some()
+                            || decorrelate
                         {
                             Err(anyhow::anyhow!(EVERY_TAKES_LITTLE))
                         } else {
@@ -839,6 +852,7 @@ where
                             tpnp: !no_tpnp,
                             ecpl_full: ecpl_spec,
                             programme,
+                            decorrelate,
                         },
                         on_layout_change,
                         json,
@@ -902,6 +916,13 @@ where
                     // across frames, and the object writers walk the whole programme
                     // to build one metadata timeline.
                     Err(anyhow::anyhow!(api::START_IS_TRUEHD_SAMPLES))
+                } else if decorrelate
+                    && (matches!(format, Format::Damf | Format::Adm)
+                        || !eac3::is_eac3(&source).unwrap_or(false))
+                {
+                    // The objects are made from the channels as the standard
+                    // has them, and a TrueHD stream has no coupling.
+                    Err(anyhow::anyhow!(api::DECORRELATE_IS_AC3_SAMPLES))
                 } else if (core_only || no_dither || no_tpnp || ecpl_spec)
                     && !eac3::is_eac3(&source).unwrap_or(false)
                 {
@@ -987,6 +1008,7 @@ where
                             tpnp: !no_tpnp,
                             ecpl_full: ecpl_spec,
                             programme,
+                            decorrelate,
                         },
                         out,
                         err,

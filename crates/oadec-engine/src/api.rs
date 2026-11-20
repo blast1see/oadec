@@ -116,6 +116,12 @@ pub const ORDER_IS_SAMPLES: &str = "--order names the channel order of a sample 
 pub const REFERENCE_IS_FLOAT: &str = "--reference-format names the integer format of the \
      reference of a TrueHD stream; the reference of an AC-3 or E-AC-3 stream is 32-bit float";
 
+/// What `--decorrelate` on a TrueHD stream, or with an object output, is
+/// told.
+pub const DECORRELATE_IS_AC3_SAMPLES: &str = "--decorrelate turns on the experimental \
+     decorrelation of the coupled channels in the decode of an AC-3 or E-AC-3 stream to samples \
+     (--format wav or pcm); an object output and a TrueHD stream are never decorrelated";
+
 /// What `--programme` on a TrueHD stream, or with an object output, is told.
 pub const PROGRAMME_IS_AC3: &str = "--programme names a programme of an AC-3 or E-AC-3 \
      stream by the substream id of its independent substream, 0 to 7, and applies to its samples \
@@ -384,6 +390,11 @@ pub struct PcmOptions {
     /// independent substream; `None` for programme 0, which is not missed
     /// when absent. A TrueHD stream refuses it.
     pub programme: Option<u8>,
+    /// AC-3 family: the experimental decorrelation of the coupled channels
+    /// (`oadec_eac3::decorr`). Its weight is this decoder's estimate fitted
+    /// on measurements, and a decode with it is not claimed to equal
+    /// Dolby's. A TrueHD stream refuses it.
+    pub decorrelate: bool,
 }
 
 impl Default for PcmOptions {
@@ -400,6 +411,7 @@ impl Default for PcmOptions {
             tpnp: true,
             ecpl_full: false,
             programme: None,
+            decorrelate: false,
         }
     }
 }
@@ -478,6 +490,7 @@ pub fn decode_pcm(
                 tpnp: options.tpnp,
                 ecpl_full: options.ecpl_full,
                 programme: options.programme,
+                decorrelate: options.decorrelate,
             },
             sink,
             remarks,
@@ -488,6 +501,9 @@ pub fn decode_pcm(
     }
     if options.programme.is_some() {
         return Err(refusal(PROGRAMME_IS_AC3));
+    }
+    if options.decorrelate {
+        return Err(refusal(DECORRELATE_IS_AC3_SAMPLES));
     }
     Ok(Pcm::TrueHd(Box::new(crate::decode::decode(
         source,

@@ -69,6 +69,7 @@ oadec info    film.ec3                            # E-AC-3: frames, coding tools
 oadec decode  film.ec3 --format damf -o out/film  # JOC objects + metadata as a DAMF set
 oadec compare film.ec3 -r ref.f32                 # against a 32-bit float reference (FFmpeg)
 oadec decode  film.ec3 --programme 1 -o p1.wav    # the second programme of an E-AC-3 stream
+oadec decode  film.ec3 --decorrelate -o film.wav  # EXPERIMENTAL: the coupled channels decorrelated
 ffmpeg -i film.mkv -map 0:a:0 -c copy -f truehd - | oadec verify -   # a stream from a pipe
 ffmpeg -i film.mkv -map 0:a:0 -c copy -f truehd - | oadec decode - --format wav -o - | ffplay -   # decoded as it arrives
 ```
@@ -93,6 +94,13 @@ is (`encode_to_atmos_ddp` takes it as `damf`, `encode_to_dthd` as
 `atmos_mezz`). The ADM file passes the Dolby validators only with
 `--dolby-origin-tag`, which writes the creator string they insist on; the
 flag is off by default and the DAMF output needs no such marker.
+
+`decode --decorrelate` is experimental and off by default: it decorrelates the
+coupled channels of an E-AC-3 programme that is its independent substream alone,
+as Dolby's decoders were measured to do. Its weight is this decoder's estimate fitted on measurements, and a decode with it is not claimed to equal Dolby's. An AC-3 stream and a
+programme with dependent substreams are decoded as without it, and the summary
+and the report say where it was applied and why not elsewhere
+([`docs/eac3.md`](docs/eac3.md)).
 
 An output that names no warp mode is encoded as warping, which most E-AC-3 Atmos
 streams do not declare. `--warp-mode stream` keeps what the stream declares; a TrueHD

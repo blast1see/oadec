@@ -244,9 +244,19 @@ four are the same specification, and for enhanced coupling they disagree.
   decorrelation, and a decode with it is not claimed to equal Dolby's: the
   filter and the signs are taken as measured above, and the weight `a` is
   this decoder's own estimate, fitted on Dolby's decodes of test signals,
-  with no randomness in it. The example
+  with no randomness in it.
+
+  On the command line `decode --decorrelate` turns it on, for a decode to
+  samples (`--format wav` or `pcm`, to a file or to standard output). The
+  option is experimental and off by default. Its weight is this decoder's
+  estimate fitted on measurements, and a decode with it is not claimed to
+  equal Dolby's. An object output and a TrueHD stream refuse it (exit 2):
+  the objects of a JOC stream are made of the core as the standard has it,
+  with the option or without. The example
   `cargo run --release -p oadec-eac3 --example decorrelate -- in.ec3 out.wav experimental core-only`
-  decodes a stream with it.
+  decodes the independent substream with the scope given by hand; of the
+  two fixtures whose programme is that substream alone it writes, bit for
+  bit, what `decode --decorrelate` writes.
 
   Where it runs: an E-AC-3 independent substream that the caller says is
   the whole programme (`ProgrammeScope::CoreOnly`), in 2/0 without the LFE
@@ -259,6 +269,27 @@ four are the same specification, and for enhanced coupling they disagree.
   coupling, a coupling channel coded with the hybrid transform and a
   concealed frame are left as the standard has them, and
   `Decoder::decorrelation_status` says why.
+
+  The scope comes from the programme (`ProgramConfig::decorrelation`). A
+  decoder sees only its own substream, and a dependent substream comes
+  after the independent frame of its group, so with the mode on each
+  independent frame of the programme waits for the frame after it, or for
+  the end of the stream, before it is decoded: a dependent frame there says
+  the programme has dependent substreams (`WithDependents`), anything else
+  says it is the independent substream alone (`CoreOnly`). A change of
+  scope in mid-stream, a dependent substream that comes or goes, sets the
+  filters to rest, and a decoder made anew for a substream that comes back
+  is told the mode as the first was. `--core-only` takes its scope from the
+  programme too, not from what it writes: the 5.1 core of a 7.1 programme
+  is left as it is. Every group, sample and count is what it is with the
+  mode off, but for the samples the decorrelation changes; each group comes
+  one frame later, and what a waiting frame counts is filed where the frame
+  is. With the mode off nothing waits. The summary of a decode and its
+  JSON report (`decorrelation`) say, for the programme, the outcome of
+  every frame of its substreams: applied, or not and why
+  (`decorrelation not applied: AC-3 stream`, `... unproven mapping
+  (programme has dependent substreams)`, `... concealed frame`, and the
+  others above), and how many frames each.
 
   What Dolby's decoder was measured to do with the weight. Thirty-four
   stereo test signals (`tools/coupling_mix.py signals`), each encoded by

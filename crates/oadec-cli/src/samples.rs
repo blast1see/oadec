@@ -420,7 +420,7 @@ fn report(
             StreamEvent::Remark(line) => json!({ "event": "remark", "text": line }),
         })
         .collect();
-    json!({
+    let mut report = json!({
         "stream": name,
         "format": end.format.name(),
         "output": output,
@@ -437,7 +437,12 @@ fn report(
             Verdict::Faulty => "faulty",
         },
         "exit_code": verdict.exit_code(),
-    })
+    });
+    // said only where --decorrelate asked for it
+    if let Some(said) = end.decorrelation() {
+        report["decorrelation"] = said;
+    }
+    report
 }
 
 fn sample_name(sample: oadec_engine::api::WavSample) -> &'static str {

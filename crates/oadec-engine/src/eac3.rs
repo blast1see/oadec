@@ -1138,6 +1138,12 @@ pub(crate) struct Pass {
     /// as silence in their place, and the first of them.
     concealed: u64,
     first_concealed: Option<u64>,
+    /// The programme whose decode the experimental decorrelation was on
+    /// for (`--decorrelate`); `None` with it off, and then nothing is said
+    /// of it.
+    decorrelating: Option<u8>,
+    /// What it did ([`ProgramDecoder::decorrelation`]).
+    decorrelated: Vec<(oadec_eac3::DecorrelationStatus, u64)>,
 }
 
 /// What the frames of a stream say of its downmix to two channels, and how
@@ -1328,21 +1334,57 @@ pub(crate) struct Walk {
     p: Pass,
     diag: Diag,
     seen: ProgramSeen,
+    /// Where the independent frame begins that waits in the programme
+    /// decoder for the frame after it ([`ProgramConfig::decorrelation`]),
+    /// so that what taking it counts is filed where it is.
+    held_at: Option<u64>,
 }
 
 impl Walk {
     pub(crate) fn new(opts: Options, config: ProgramConfig, listed: usize) -> Self {
+        let decorrelating = (config.decorrelation != oadec_eac3::Decorrelation::Off)
+            .then(|| config.programme.unwrap_or(0));
         Self {
             dec: ProgramDecoder::with_config(opts, config),
-            p: Pass::default(),
+            p: Pass {
+                decorrelating,
+                ..Pass::default()
+            },
             diag: Diag::new(listed),
             seen: ProgramSeen::default(),
+            held_at: None,
         }
     }
 
     /// The findings so far.
     pub(crate) fn diag(&self) -> &Diag {
         &self.diag
+    }
+
+    /// With the decorrelation on, the independent frame that waits for the
+    /// one after it ([`ProgramConfig::decorrelation`]), taken as `next` says
+    /// (`None`: the stream has ended): the frame groups it completes go to
+    /// `on_pcm`, and what it counts is filed where the frame is, as it is
+    /// with the decorrelation off. Where it is, if a frame waited.
+    ///
+    /// [`Self::frame`] and [`Self::end`] call it; a caller that tells what
+    /// is filed frame by frame calls it before them, to tell what the
+    /// waiting frame let go where that frame is.
+    pub(crate) fn settle(
+        &mut self,
+        next: Option<&FrameHeader>,
+        mut on_pcm: &mut dyn FnMut(&ProgramFrame) -> Result<()>,
+    ) -> Result<Option<u64>> {
+        let Some(held_at) = self.held_at.take() else {
+            return Ok(None);
+        };
+        self.dec.settle(next)?;
+        while let Some(frame) = self.dec.pop() {
+            account(&mut self.p, &frame, &mut on_pcm, &mut self.diag)?;
+        }
+        self.seen
+            .file(self.dec.stats(), Location::byte(held_at), &mut self.diag);
+        Ok(Some(held_at))
     }
 
     /// A syncframe at `offset`; the frame groups it completes go to
@@ -1354,6 +1396,8 @@ impl Walk {
         header: &FrameHeader,
         mut on_pcm: &mut dyn FnMut(&ProgramFrame) -> Result<()>,
     ) -> Result<()> {
+        // the independent frame before this one, if it waited for this one
+        self.settle(Some(header), on_pcm)?;
         let p = &mut self.p;
         let key = (header.stream_type as u8, header.substream_id);
         *p.substreams.entry(key).or_default() += 1;
@@ -1368,6 +1412,9 @@ impl Walk {
         // what assembling the programme counted while it took this frame
         self.seen
             .file(self.dec.stats(), Location::byte(offset), &mut self.diag);
+        if self.dec.is_waiting() {
+            self.held_at = Some(offset);
+        }
         Ok(())
     }
 
@@ -1390,16 +1437,19 @@ impl Walk {
     /// The stream has ended, with `sync_errors` and `skipped` bytes: the
     /// frame groups still held go to `on_pcm`, and the pass is drawn up.
     pub(crate) fn end(
-        self,
+        mut self,
         sync_errors: u64,
         skipped: u64,
         mut on_pcm: &mut dyn FnMut(&ProgramFrame) -> Result<()>,
     ) -> Result<(Pass, u64, u64)> {
+        // the end of the stream lets the last waiting frame go
+        self.settle(None, on_pcm)?;
         let Self {
             mut dec,
             mut p,
             mut diag,
             mut seen,
+            ..
         } = self;
         dec.finish().map_err(programme_missing)?;
         while let Some(frame) = dec.pop() {
@@ -1407,6 +1457,7 @@ impl Walk {
         }
         seen.file(dec.stats(), Location::default(), &mut diag);
         p.program = dec.stats().clone();
+        p.decorrelated = dec.decorrelation().to_vec();
         p.layout = dec.layout().cloned();
         // decode errors of the independent substream are the ones that stop a
         // decode; a dependent substream's are reported against that substream
@@ -2133,7 +2184,51 @@ fn pass_json(
         "first_error": p.first_error.as_ref().or(e.first_error.as_ref()),
         "seconds": elapsed,
     });
+    let mut report = report;
+    if let Some(said) = decorrelation_json(p) {
+        report["decorrelation"] = said;
+    }
     Some(report)
+}
+
+/// What a report says the experimental decorrelation did, where it was on:
+/// the programme, and for each outcome whether it was applied, the reason
+/// where it was not, and the substream frames it was the outcome of, in the
+/// order each was first met.
+fn decorrelation_json(p: &Pass) -> Option<Value> {
+    let programme = p.decorrelating?;
+    let frames: Vec<Value> = p
+        .decorrelated
+        .iter()
+        .map(|(status, n)| match status {
+            oadec_eac3::DecorrelationStatus::Applied => {
+                json!({ "applied": true, "reason": null, "frames": n })
+            }
+            oadec_eac3::DecorrelationStatus::NotApplied(why) => {
+                json!({ "applied": false, "reason": why.reason(), "frames": n })
+            }
+        })
+        .collect();
+    Some(json!({
+        "mode": "experimental",
+        "programme": programme,
+        "frames": frames,
+    }))
+}
+
+/// What the summary says the decorrelation did, frame by frame: the
+/// frames of each outcome, in the order each was first met.
+fn decorrelation_said(done: &[(oadec_eac3::DecorrelationStatus, u64)]) -> String {
+    if done.is_empty() {
+        return "no frame decoded".to_string();
+    }
+    done.iter()
+        .map(|(status, n)| {
+            let s = if *n == 1 { "" } else { "s" };
+            format!("{n} substream frame{s}, {status}")
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 /// What is said of a stream that has frames none of which decodes: there is
@@ -2319,6 +2414,13 @@ fn print_pass(
             out,
             "Other programmes:  {} frames skipped (only the first independent substream is decoded)",
             p.program.other_program_frames
+        )?;
+    }
+    if let Some(programme) = p.decorrelating {
+        writeln!(
+            out,
+            "Decorrelation:     experimental, programme {programme}: {}",
+            decorrelation_said(&p.decorrelated)
         )?;
     }
     writeln!(
@@ -2732,6 +2834,15 @@ fn programme(programme: Option<u8>) -> ProgramConfig {
     }
 }
 
+/// The decorrelation mode `--decorrelate` asks for.
+pub(crate) fn decorrelation(decorrelate: bool) -> oadec_eac3::Decorrelation {
+    if decorrelate {
+        oadec_eac3::Decorrelation::Experimental
+    } else {
+        oadec_eac3::Decorrelation::Off
+    }
+}
+
 /// A programme asked for that the stream does not carry, said as a stream
 /// that holds nothing to deliver: no output is kept of it. Any other error
 /// of the end of a pass is the error it was.
@@ -2878,6 +2989,13 @@ impl Report {
         findings(&self.pass, self.sync_errors, self.skipped)
     }
 
+    /// What the experimental decorrelation did, as the JSON reports say it;
+    /// `None` where it was off (`--decorrelate` absent).
+    #[must_use]
+    pub fn decorrelation(&self) -> Option<Value> {
+        decorrelation_json(&self.pass)
+    }
+
     /// Prints the line that closes the text of `verify`.
     pub fn print_verdict(&self, out: &mut dyn Write) -> io::Result<()> {
         writeln!(
@@ -2926,6 +3044,9 @@ pub struct DecodeOptions {
     /// The programme decoded; `None` for programme 0
     /// ([`ProgramConfig::programme`]).
     pub programme: Option<u8>,
+    /// The experimental decorrelation of the coupled channels
+    /// ([`ProgramConfig::decorrelation`]); off when false.
+    pub decorrelate: bool,
 }
 
 /// `oadec decode` for AC-3 family streams: 32-bit float samples, as raw
@@ -2979,7 +3100,10 @@ pub fn decode_into(
             block_info: false,
             samples: true,
         },
-        programme(opts.programme),
+        ProgramConfig {
+            decorrelation: decorrelation(opts.decorrelate),
+            ..programme(opts.programme)
+        },
         |frame| {
             let (chans, pcm) = output_channels(frame, opts.core_only);
             if !header_written {
