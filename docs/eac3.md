@@ -237,6 +237,27 @@ four are the same specification, and for enhanced coupling they disagree.
   Dolby's then differ, in the coupled region of an E-AC-3 stream whose
   channels have wideband content of their own, by as much as two
   decorrelated copies of one signal do: 0 to 9 dB.
+
+  An experimental mode does it (`oadec_eac3::decorr`,
+  `Decoder::set_decorrelation`), off by default. It takes the filter and
+  the signs as measured above and computes `a` by a rule of its own, with
+  no randomness in it: per block and per coupling sub-band, from how alike
+  a channel's content under the coupling begin frequency is to the sum of
+  the coupled channels there, falling with frequency. That rule is an
+  estimate fitted to the published description and to the measurements
+  here; it is not Dolby's, and a decode with the mode on is not claimed to
+  equal Dolby's. It runs only on an E-AC-3 independent substream that the
+  caller says is the whole programme, in 2/0 or 3/2 with or without the
+  LFE, with standard coupling whose coupling channel is not coded with the
+  hybrid transform. AC-3, a dependent substream, a programme that has one
+  (which channel of a 7.1 programme takes which filter was not worked out),
+  enhanced coupling and a coupling channel coded with the hybrid transform
+  are left as the standard has them, and the decoder says why. The filter
+  state is zero at the start, after a frame it conceals and after a change
+  of mode or scope; a bin out of coupling in a block starts again from
+  zero; the first block of a run of coupled blocks of a bin comes out as
+  the plain decode. Checkpoint 1 of the work: the interface and the gates
+  are built, the processing is not.
   `docs/audit/evidence/engine-round-2026-11/52-what-dolbys-decoders-do-to-coupled-channels.json` is the record.
 - **Decoder delay.** The first 256 output samples are the first block's
   half window over silence. The Dolby decoder drops them; FFmpeg and oadec

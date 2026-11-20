@@ -50,6 +50,45 @@ pair of each block and sub-band is taken out.
 the dither this one draws: the filtered part is made of the coefficients
 without bits as well.
 
+    python tools/coupling_mix.py measure reference.f32 ours.wav --channels 2 --first 49 --sub-bands 8 --out measure.json
+
+sets a decode of this decoder with its experimental decorrelation
+(`oadec_eac3::decorr`, which is not Dolby's rule and is not claimed to equal
+Dolby's decode) against a reference decode of the same stream, and reports,
+for every channel and every coupling sub-band of the coupled region, figures
+that say how far the two stand apart and in what way. Both decodes are taken
+back to coefficients as `regions` takes them; the first blocks are left out as
+there. The figures, under the names the JSON report gives them:
+
+- `power_difference_db`: ten times the logarithm of the power of ours over
+  the power of the reference, summed over the blocks and the twelve
+  coefficients of the sub-band. A decorrelation that keeps the level of a
+  channel stands near 0.
+- `spectral_difference_db`: the largest of the same figure taken coefficient
+  by coefficient within the sub-band (each summed over the blocks), which
+  says whether the power is where it should be inside the sub-band and not
+  only in sum.
+- `coherence_ours`, `coherence_reference` and `coherence_difference`: for
+  every pair of channels that take the filter with opposite signs (left and
+  right, the surround pair), the magnitude of the normalised cross-spectrum
+  of the two channels in the sub-band, over the blocks, in each decode, and
+  ours less the reference. The target is a difference of 0.10 or less.
+- `phase_ours_degrees` and `phase_reference_degrees`: the angle of the same
+  cross-spectrum, which says whether the two channels lead or lag each other
+  as the reference has them.
+- `pre_echo_db`: in the blocks of the reference where a transient falls (the
+  energy of the block over that of the block before by more than 10 dB, in
+  the coupled region), the energy ours has in the coupled region of the block
+  before the transient over the energy the reference has there. A filter along
+  the blocks smears a transient forward, not back; a figure above 0 says ours
+  puts energy before it.
+- `boundary_discontinuity_db`: the power of the difference between the last
+  sample of one block and the first of the next, over the samples of the
+  decode, of ours over the reference, for the coupled region filtered out of
+  each decode. A decorrelation that steps at the blocks stands above 0.
+
+The report is JSON, and the same two decodes give the same report.
+
     python tools/coupling_mix.py --self-check
 
 makes two decodes of which the answer is known and reads it back.
@@ -442,7 +481,8 @@ def main():
     make = commands.add_parser('signals', help='write the test signals')
     make.add_argument('directory', type=Path)
     for name, text in (('regions', 'the own region and the coupled region of every channel'),
-                       ('mix', 'the filter along the blocks and the mix of every block')):
+                       ('mix', 'the filter along the blocks and the mix of every block'),
+                       ('measure', 'a decorrelated decode of ours against a reference, by channel and sub-band')):
         sub = commands.add_parser(name, help=text)
         sub.add_argument('reference', type=Path, help='the other decode: 32-bit float, headerless or WAVE')
         sub.add_argument('ours', type=Path, help='this decoder\'s decode: 32-bit float WAVE')
@@ -455,6 +495,12 @@ def main():
             sub.add_argument('--learn', type=int, help='the channel the filter is fitted on')
             sub.add_argument('--taps', type=int, default=40)
             sub.add_argument('--rounds', type=int, default=3)
+        if name == 'measure':
+            sub.add_argument('--pairs', default='0:1',
+                             help='the pairs of channels that take the filter with opposite signs, as a:b,c:d '
+                                  '(coded order: 0:1 for 2/0, 0:2,3:4 for 3/2)')
+            sub.add_argument('--transient-db', type=float, default=10.0,
+                             help='how much louder than the block before a block is that holds a transient')
     args = parser.parse_args()
     if args.self_check:
         return self_check()
@@ -468,6 +514,9 @@ def main():
         return 0
     if args.first < 9 or args.sub_bands < 1 or args.first + SUB_BAND * args.sub_bands > 253:
         print('the coupled region is not inside the 253 coefficients of a channel', file=sys.stderr)
+        return 2
+    if args.command == 'measure':
+        print('measure: not built yet (checkpoint 1 of the decorrelation work)', file=sys.stderr)
         return 2
     reference, ours = read_decode(args.reference, args.channels), read_decode(args.ours, args.channels)
     theirs, mine = as_coefficients(reference, ours, args.lag)

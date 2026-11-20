@@ -1,10 +1,11 @@
 //! Stream-level decoder: syncframes in, PCM out.
 
 use crate::bsi::Bsi;
+use crate::decorr::{Decorrelation, Decorrelator, NotApplied, ProgrammeScope, Status};
 use crate::ecpl;
 use crate::error::{Eac3Error, Result};
 use crate::frame::{Block, Coverage, Frame, N, Noise, Options, crc_ok};
-use crate::header::FrameHeader;
+use crate::header::{FrameHeader, StreamType, Syntax};
 use crate::imdct::Imdct;
 use crate::tables::CHANNEL_ORDER;
 use crate::tpnp;
@@ -61,6 +62,13 @@ pub struct Decoder {
     /// Decoded samples waiting for transient pre-noise processing, which can
     /// reach into frames that are not decoded yet (clause E.3.7).
     post: tpnp::Post<Decoded>,
+    /// The experimental decorrelation of the coupled channels, off unless
+    /// [`Decoder::set_decorrelation`] turns it on (`crate::decorr`).
+    decorrelation: Decorrelation,
+    scope: ProgrammeScope,
+    decorrelator: Decorrelator,
+    /// What the decorrelation did to the frame rendered last.
+    decorrelation_status: Status,
 }
 
 impl Default for Decoder {
@@ -83,7 +91,107 @@ impl Decoder {
             hold: None,
             holding: false,
             post: tpnp::Post::new(),
+            decorrelation: Decorrelation::Off,
+            scope: ProgrammeScope::Unknown,
+            decorrelator: Decorrelator::new(),
+            decorrelation_status: Status::NotApplied(NotApplied::Off),
         }
+    }
+
+    /// Turns the experimental decorrelation of the coupled channels on or
+    /// off (`crate::decorr`), and says what programme this decoder's
+    /// substream is part of, which the decoder cannot see for itself.
+    ///
+    /// The coupled channels are decorrelated only when `mode` is
+    /// [`Decorrelation::Experimental`], `scope` is
+    /// [`ProgrammeScope::CoreOnly`], the stream is an E-AC-3 independent
+    /// substream and its layout is 2/0 or 3/2 with or without the LFE. The
+    /// weight it uses is an estimate of this decoder's, not Dolby's rule, and
+    /// a decode with it is not claimed to equal Dolby's. Any change of mode
+    /// or scope sets the filters to rest.
+    pub fn set_decorrelation(&mut self, mode: Decorrelation, scope: ProgrammeScope) {
+        if (mode, scope) != (self.decorrelation, self.scope) {
+            self.decorrelator.reset();
+        }
+        self.decorrelation = mode;
+        self.scope = scope;
+        self.decorrelation_status = Status::NotApplied(match self.gate_of_mode() {
+            Err(why) => why,
+            Ok(()) => NotApplied::NothingDecoded,
+        });
+    }
+
+    /// What the decorrelation did to the frame this decoder rendered last.
+    ///
+    /// A frame is rendered when it is decoded, or one call later where the
+    /// decoder holds a frame for enhanced coupling; a frame with transient
+    /// pre-noise processing may come out of [`Self::decode`] after the
+    /// frame this reports on.
+    #[must_use]
+    pub fn decorrelation_status(&self) -> Status {
+        self.decorrelation_status
+    }
+
+    /// The part of the gate that the mode and the scope decide.
+    fn gate_of_mode(&self) -> std::result::Result<(), NotApplied> {
+        match (self.decorrelation, self.scope) {
+            (Decorrelation::Off, _) => Err(NotApplied::Off),
+            (_, ProgrammeScope::Unknown) => Err(NotApplied::ScopeUnknown),
+            (_, ProgrammeScope::WithDependents) => Err(NotApplied::WithDependents),
+            (Decorrelation::Experimental, ProgrammeScope::CoreOnly) => Ok(()),
+        }
+    }
+
+    /// Whether a frame may be decorrelated at all, before its blocks are
+    /// looked at.
+    fn gate(&self, header: &FrameHeader, concealed: bool) -> std::result::Result<(), NotApplied> {
+        self.gate_of_mode()?;
+        if header.syntax == Syntax::Ac3 {
+            return Err(NotApplied::Ac3);
+        }
+        match header.stream_type {
+            StreamType::Independent => {}
+            StreamType::Dependent => return Err(NotApplied::DependentSubstream),
+            StreamType::Converted => return Err(NotApplied::Converted),
+        }
+        if crate::decorr::roles(header.acmod, header.lfeon).is_none() {
+            return Err(NotApplied::Layout);
+        }
+        if concealed {
+            return Err(NotApplied::Concealed);
+        }
+        if !self.opts.samples {
+            return Err(NotApplied::NoSamples);
+        }
+        Ok(())
+    }
+
+    /// Decorrelates the coupled channels of one frame where the gate lets
+    /// it, and records what was done. Where it does not, the filters are set
+    /// to rest, so that a stream that leaves the gate and comes back starts
+    /// as a fresh decoder would.
+    fn decorrelate(&mut self, frame: &mut Frame, concealed: bool) {
+        if self.decorrelation == Decorrelation::Off {
+            return;
+        }
+        if let Err(why) = self.gate(&frame.header, concealed) {
+            self.decorrelator.reset();
+            self.decorrelation_status = Status::NotApplied(why);
+            return;
+        }
+        let (acmod, lfeon) = (frame.header.acmod, frame.header.lfeon);
+        let mut status = None;
+        for block in &mut frame.blocks {
+            let done =
+                self.decorrelator
+                    .block(acmod, lfeon, block.coupling.as_ref(), &mut block.coeffs);
+            status = match (status, done) {
+                (_, Ok(())) | (Some(Status::Applied), _) => Some(Status::Applied),
+                (None, Err(why)) => Some(Status::NotApplied(why)),
+                (keep, Err(_)) => keep,
+            };
+        }
+        self.decorrelation_status = status.unwrap_or(Status::NotApplied(NotApplied::NoCoupling));
     }
 
     /// Forgets the overlap history and any held frame (after a splice or an
@@ -93,6 +201,7 @@ impl Decoder {
         self.ecpl.reset();
         self.hold = None;
         self.post.reset();
+        self.decorrelator.reset();
     }
 
     /// Names of the output channels in coded order for a header.
@@ -146,6 +255,7 @@ impl Decoder {
             blksw: vec![false; header.nfchans()],
             info: None,
             ecpl: None,
+            coupling: None,
         };
         let frame = Frame {
             header: header.clone(),
@@ -215,7 +325,9 @@ impl Decoder {
             self.layout = Some(layout);
             self.ecpl.reset();
             self.post.reset();
+            self.decorrelator.reset();
         }
+        self.decorrelate(&mut frame, concealed);
         // What the transform makes of the blocks of a frame, and what a
         // frame nobody listens to is counted as.
         let samples = frame.blocks.len() * N;
