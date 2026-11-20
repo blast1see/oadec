@@ -10,8 +10,8 @@ use std::time::Instant;
 use anyhow::{Context, Result, bail};
 use oadec_diag::{Location, Provenance, Severity};
 use oadec_eac3::{
-    ChannelLoc, Coverage, Decoder, FrameHeader, Options, ProgramDecoder, ProgramFrame, RuleId,
-    Syntax, find_sync,
+    ChannelLoc, Coverage, Decoder, Eac3Error, FrameHeader, Options, ProgramConfig, ProgramDecoder,
+    ProgramFrame, RuleId, Syntax, find_sync,
 };
 use oadec_emdf::container::{self, PAYLOAD_ID_JOC, PAYLOAD_ID_OAMD};
 use oadec_emdf::joc::{Joc, JocError, Slope, SparseReading};
@@ -1266,9 +1266,10 @@ fn account_sub(sub: &mut SubStats, index: u64, part: &oadec_eac3::Part, diag: &m
 fn pass(
     source: &Source,
     opts: Options,
+    config: ProgramConfig,
     on_pcm: impl FnMut(&ProgramFrame) -> Result<()>,
 ) -> Result<(Pass, u64, u64)> {
-    pass_while(source, opts, &|| true, on_pcm)
+    pass_while(source, opts, config, &|| true, on_pcm)
 }
 
 /// [`pass`], given up with an error at the first syncframe at which `go_on`
@@ -1276,12 +1277,14 @@ fn pass(
 fn pass_while(
     source: &Source,
     opts: Options,
+    config: ProgramConfig,
     go_on: &dyn Fn() -> bool,
     on_pcm: impl FnMut(&ProgramFrame) -> Result<()>,
 ) -> Result<(Pass, u64, u64)> {
     pass_listing(
         source,
         opts,
+        config,
         &|_| go_on(),
         Diag::DEFAULT_MAX_PER_RULE,
         on_pcm,
@@ -1294,13 +1297,14 @@ fn pass_while(
 fn pass_listing(
     source: &Source,
     opts: Options,
+    config: ProgramConfig,
     go_on: &dyn Fn(&Pass) -> bool,
     listed: usize,
     mut on_pcm: impl FnMut(&ProgramFrame) -> Result<()>,
 ) -> Result<(Pass, u64, u64)> {
     // The walk is told from two places that are two closures: the syncframes
     // of the bytes, and what is between them.
-    let walk = std::cell::RefCell::new(Walk::new(opts, listed));
+    let walk = std::cell::RefCell::new(Walk::new(opts, config, listed));
     let (_, sync_errors, skipped) = for_each_frame_and_gap(
         source,
         |offset, bytes, header| {
@@ -1327,9 +1331,9 @@ pub(crate) struct Walk {
 }
 
 impl Walk {
-    pub(crate) fn new(opts: Options, listed: usize) -> Self {
+    pub(crate) fn new(opts: Options, config: ProgramConfig, listed: usize) -> Self {
         Self {
-            dec: ProgramDecoder::new(opts),
+            dec: ProgramDecoder::with_config(opts, config),
             p: Pass::default(),
             diag: Diag::new(listed),
             seen: ProgramSeen::default(),
@@ -1397,7 +1401,7 @@ impl Walk {
             mut diag,
             mut seen,
         } = self;
-        dec.finish()?;
+        dec.finish().map_err(programme_missing)?;
         while let Some(frame) = dec.pop() {
             account(&mut p, &frame, &mut on_pcm, &mut diag)?;
         }
@@ -2703,6 +2707,10 @@ pub struct ReportOptions {
     pub max_per_rule: usize,
     /// Make the samples of every frame, which `verify --decode` asks for.
     pub decode: bool,
+    /// The programme reported on, by the substream id of its independent
+    /// substream; `None` for programme 0, which is not missed when absent
+    /// ([`ProgramConfig::programme`]).
+    pub programme: Option<u8>,
 }
 
 impl Default for ReportOptions {
@@ -2711,8 +2719,45 @@ impl Default for ReportOptions {
             fail_on: Severity::Error,
             max_per_rule: Diag::DEFAULT_MAX_PER_RULE,
             decode: false,
+            programme: None,
         }
     }
+}
+
+/// The programme a pass decodes, with the layout it always kept.
+fn programme(programme: Option<u8>) -> ProgramConfig {
+    ProgramConfig {
+        programme,
+        ..ProgramConfig::default()
+    }
+}
+
+/// A programme asked for that the stream does not carry, said as a stream
+/// that holds nothing to deliver: no output is kept of it. Any other error
+/// of the end of a pass is the error it was.
+fn programme_missing(e: Eac3Error) -> anyhow::Error {
+    match e {
+        Eac3Error::ProgrammeNotFound { wanted, seen } => {
+            let carried = if seen.is_empty() {
+                "none".to_string()
+            } else {
+                seen.iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            crate::calls::no_stream(format!(
+                "programme {wanted} is not in the stream; the programmes it carries: {carried}"
+            ))
+        }
+        e => e.into(),
+    }
+}
+
+/// Whether `e` says the stream holds nothing to deliver: no stream at all, or
+/// not the programme asked for.
+pub(crate) fn holds_nothing(e: &anyhow::Error) -> bool {
+    e.chain().any(|cause| cause.is::<crate::calls::NoStream>())
 }
 
 /// Reads the whole stream to gather what `info` and `verify` report, and
@@ -2737,6 +2782,7 @@ pub fn report_with(source: &Source, options: &ReportOptions) -> Result<Report> {
             samples: options.decode,
             ..Options::default()
         },
+        programme(options.programme),
         &|_| true,
         options.max_per_rule,
         |_| Ok(()),
@@ -2864,7 +2910,7 @@ fn check_pass(source: &Source, go_on: &dyn Fn() -> bool) -> Result<(Pass, u64, u
         samples: false,
         ..Options::default()
     };
-    pass_while(source, unheard, go_on, |_| Ok(()))
+    pass_while(source, unheard, ProgramConfig::default(), go_on, |_| Ok(()))
 }
 
 /// Options of `decode` for AC-3 family streams.
@@ -2877,6 +2923,9 @@ pub struct DecodeOptions {
     pub ecpl_full: bool,
     /// Write only the independent substream's channels.
     pub core_only: bool,
+    /// The programme decoded; `None` for programme 0
+    /// ([`ProgramConfig::programme`]).
+    pub programme: Option<u8>,
 }
 
 /// `oadec decode` for AC-3 family streams: 32-bit float samples, as raw
@@ -2892,7 +2941,17 @@ pub fn decode(
         bail!("object output of E-AC-3 JOC streams is not implemented yet");
     }
     let mut file = crate::decode::PcmFile::create(output, opts.format == Format::Wav)?;
-    let report = decode_into(source, opts, &mut file, err)?;
+    let report = match decode_into(source, opts, &mut file, err) {
+        Ok(report) => report,
+        Err(e) => {
+            // a programme that is not there leaves no file, as a stream that
+            // holds nothing does
+            if holds_nothing(&e) {
+                crate::decode::PcmSink::nothing(&mut file);
+            }
+            return Err(e);
+        }
+    };
     report.print(false, out, err)?;
     Ok(report.findings().report_clean(err)?)
 }
@@ -2920,6 +2979,7 @@ pub fn decode_into(
             block_info: false,
             samples: true,
         },
+        programme(opts.programme),
         |frame| {
             let (chans, pcm) = output_channels(frame, opts.core_only);
             if !header_written {
@@ -2978,6 +3038,9 @@ pub struct CompareOptions {
     pub dither: bool,
     /// List the N (frame, block) pairs with the largest deviation.
     pub worst: usize,
+    /// The programme compared; `None` for programme 0
+    /// ([`ProgramConfig::programme`]).
+    pub programme: Option<u8>,
 }
 
 /// Prints the side information of every block of one substream of frame group
@@ -3141,6 +3204,7 @@ pub fn compare(
             block_info: false,
             samples: true,
         },
+        programme(opts.programme),
         |frame| {
             let (chans, pcm) = output_channels(frame, opts.core_only);
             if order.is_empty() {
@@ -4028,6 +4092,7 @@ mod tests {
             let (whole, _, _) = pass_listing(
                 &source,
                 Options::default(),
+                ProgramConfig::default(),
                 &|_| true,
                 Diag::DEFAULT_MAX_PER_RULE,
                 |_| Ok(()),

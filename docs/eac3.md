@@ -369,6 +369,26 @@ extend it. Four clauses settle everything a decoder needs.
 - **A second programme is legal.** Clause E.2.8.3: another independent substream
   is another programme. The default is programme 1, and the rest are skipped,
   dependents included.
+- **Choosing a programme.** `ProgramConfig::programme` names the programme by
+  the `substreamid` of its independent substream. `None` is programme 0, the
+  default of clause E.2.8.3, and its absence is not an error: a stream without
+  it decodes to nothing and its frames are counted as another programme's.
+  `Some(n)` is an explicit choice, `Some(0)` included; a programme asked for
+  that never comes is `ProgrammeNotFound` at the end of the stream, with the
+  ids that did come, ascending. A dependent substream belongs to the
+  independent substream before it, whatever its own id, and frames of a
+  programme not chosen reach no decoder. On the command line it is
+  `--programme N` on `decode`, `compare`, `info` and `verify`; a programme the
+  stream does not carry ends the run with exit 2, names the ones it does, and
+  leaves no output (to standard output nothing is written, not even a header).
+- **A programme whose channels change.** With `LayoutPolicy::Fixed` the
+  programme keeps the channels of its first group; a group with another set is
+  flagged and counted in `layout_changes`, the channels it lacks are silent and
+  the ones it adds are left out. With `LayoutPolicy::Follow` each group comes
+  out with its own channels, flagged where they change and counted in
+  `layout_follows`, which is not a fault; a substream that leaves the programme
+  is flushed at the group it is missing from, so its last frame is delivered
+  without waiting for the pending window.
 
 **Two maps occur in the wild, and the file name does not say which.** Sweeping
 the 40 eight-channel E-AC-3 tracks in one library, ten seconds from ten minutes

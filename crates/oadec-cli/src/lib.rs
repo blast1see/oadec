@@ -73,6 +73,12 @@ enum Command {
         /// Machine-readable JSON instead of text.
         #[arg(long)]
         json: bool,
+        /// AC-3/E-AC-3: the programme to read, by the substream id of its
+        /// independent substream (0 to 7); programme 0 when absent, as
+        /// always. A programme the stream does not carry is an error that
+        /// names the ones it does (exit 2). A TrueHD stream refuses it.
+        #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=7))]
+        programme: Option<u8>,
     },
     /// Check the integrity of every access unit or frame and report the failure counts.
     Verify {
@@ -116,6 +122,12 @@ enum Command {
         /// listed, the ones at zero included.
         #[arg(long)]
         census: bool,
+        /// AC-3/E-AC-3: the programme to read, by the substream id of its
+        /// independent substream (0 to 7); programme 0 when absent, as
+        /// always. A programme the stream does not carry is an error that
+        /// names the ones it does (exit 2). A TrueHD stream refuses it.
+        #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=7))]
+        programme: Option<u8>,
     },
     /// Print one access unit of a TrueHD stream field by field, with where each
     /// part sits in the file: the place a finding of verify points to, opened up.
@@ -343,6 +355,12 @@ enum Command {
         /// bytes were read, as JSON to FILE.
         #[arg(long, hide = true, value_name = "FILE")]
         pipeline_stats: Option<PathBuf>,
+        /// AC-3/E-AC-3: the programme to read, by the substream id of its
+        /// independent substream (0 to 7); programme 0 when absent, as
+        /// always. A programme the stream does not carry is an error that
+        /// names the ones it does (exit 2). A TrueHD stream refuses it.
+        #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=7))]
+        programme: Option<u8>,
     },
     /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
     /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
@@ -392,6 +410,12 @@ enum Command {
         /// E-AC-3: list the N blocks with the largest deviation.
         #[arg(long, default_value_t = 0)]
         worst: usize,
+        /// AC-3/E-AC-3: the programme to read, by the substream id of its
+        /// independent substream (0 to 7); programme 0 when absent, as
+        /// always. A programme the stream does not carry is an error that
+        /// names the ones it does (exit 2). A TrueHD stream refuses it.
+        #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=7))]
+        programme: Option<u8>,
     },
     /// Print the side information of one E-AC-3 frame, block by block.
     #[command(hide = true)]
@@ -531,8 +555,12 @@ where
     // goes out as it did when it was printed.
     let (out, err) = (&mut std::io::stdout(), &mut std::io::stderr());
     let result = match cli.command {
-        Command::Info { file, json } => stream_named(&file)
-            .and_then(|source| api::info(&source))
+        Command::Info {
+            file,
+            json,
+            programme,
+        } => stream_named(&file)
+            .and_then(|source| api::info_of(&source, programme))
             .and_then(|report| report.print(json, out, err))
             .map(|()| ExitCode::SUCCESS),
         Command::Verify {
@@ -544,6 +572,7 @@ where
             trace_fifo,
             require_disc,
             census,
+            programme,
         } => stream_named(&file)
             .and_then(|source| {
                 api::verify(
@@ -558,6 +587,7 @@ where
                             .filter_map(|d| oadec_truehd::disc::Disc::from_id(d))
                             .collect(),
                         census,
+                        programme,
                     },
                 )
             })
@@ -621,6 +651,7 @@ where
             json,
             report,
             pipeline_stats,
+            programme,
         } => 'decode: {
             // An option that is absent is told from one given at its default,
             // which is what lets one that does not apply be refused.
@@ -719,6 +750,7 @@ where
                             dither: !no_dither,
                             tpnp: !no_tpnp,
                             ecpl_full: ecpl_spec,
+                            programme,
                         },
                         on_layout_change,
                         json,
@@ -744,6 +776,13 @@ where
                     // The beds and the objects of an object output are in the
                     // order its format gives them, whatever is asked.
                     Err(anyhow::anyhow!(api::ORDER_IS_SAMPLES))
+                } else if programme.is_some()
+                    && (matches!(format, Format::Damf | Format::Adm)
+                        || !eac3::is_eac3(&source).unwrap_or(false))
+                {
+                    // Programme 0 is the one an object programme is of, and a
+                    // TrueHD stream has presentations and no programmes.
+                    Err(anyhow::anyhow!(api::PROGRAMME_IS_AC3))
                 } else if warp_mode.is_some() && !matches!(format, Format::Damf | Format::Adm) {
                     // Samples have nowhere to say it, and an option that reads as
                     // applied while changing nothing is the defect named below.
@@ -859,6 +898,7 @@ where
                             dither: !no_dither,
                             tpnp: !no_tpnp,
                             ecpl_full: ecpl_spec,
+                            programme,
                         },
                         out,
                         err,
@@ -935,6 +975,7 @@ where
             no_tpnp,
             ecpl_spec,
             worst,
+            programme,
         } => {
             let equal = stream_named(&file).and_then(|source| {
                 let ac3 = eac3::is_eac3(&source).unwrap_or(false);
@@ -951,6 +992,8 @@ where
                     Err(anyhow::anyhow!(api::CORE_DECODE_IS_AC3))
                 } else if !ac3 && worst > 0 {
                     Err(anyhow::anyhow!(api::WORST_IS_AC3))
+                } else if !ac3 && programme.is_some() {
+                    Err(anyhow::anyhow!(api::PROGRAMME_IS_AC3))
                 } else if ac3 {
                     eac3::compare(
                         &source,
@@ -964,6 +1007,7 @@ where
                             core_only,
                             dither: !no_dither,
                             worst,
+                            programme,
                         },
                         out,
                         err,

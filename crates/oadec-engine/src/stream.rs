@@ -54,7 +54,7 @@ use oadec_truehd::{Extractor, Unit};
 
 use crate::api::{
     CORE_DECODE_IS_AC3, KEEP_DUPLICATES_IS_TRUEHD, ON_ERROR_IS_TRUEHD, OnError,
-    PRESENTATION_IS_TRUEHD, PcmOptions, START_IS_TRUEHD_SAMPLES,
+    PRESENTATION_IS_TRUEHD, PROGRAMME_IS_AC3, PcmOptions, START_IS_TRUEHD_SAMPLES,
 };
 use crate::calls::{Format, refusal};
 use crate::decode::{self, ConfigStop, Delivery, Taken, WavSample, WavSpec};
@@ -566,6 +566,9 @@ impl StreamDecoder {
         } else {
             if pcm.core_only || !pcm.dither || !pcm.tpnp || pcm.ecpl_full {
                 return Err(refusal(CORE_DECODE_IS_AC3));
+            }
+            if pcm.programme.is_some() {
+                return Err(refusal(PROGRAMME_IS_AC3));
             }
             if self.options.on_layout_change == Some(LayoutChange::Fixed) {
                 return Err(refusal(FIXED_LAYOUT_IS_EAC3));
@@ -1157,6 +1160,10 @@ impl Ac3 {
                     ecpl_full: pcm.ecpl_full,
                     block_info: false,
                     samples: true,
+                },
+                oadec_eac3::ProgramConfig {
+                    programme: pcm.programme,
+                    ..oadec_eac3::ProgramConfig::default()
                 },
                 Tally::<oadec_eac3::RuleId>::DEFAULT_MAX_PER_RULE,
             ),
