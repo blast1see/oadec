@@ -209,6 +209,12 @@ pub struct Layout {
     /// noise, assignment and protection is said of the first substream; each
     /// of these says its own.
     pub above: Vec<Above>,
+    /// `substream_info` as the major sync states it, in place of the one
+    /// encoders write for the substreams of the stream. A stream that
+    /// changes its configuration uses it to leave a presentation out: the
+    /// eight-channel one of a stream of two substreams is the six channels
+    /// unless this says the stream has none.
+    pub substream_info: Option<u8>,
 }
 
 /// A substream over the first. It codes the channels it adds to those of the
@@ -282,6 +288,7 @@ impl Layout {
             protection: None,
             heavy_drc: None,
             above: Vec::new(),
+            substream_info: None,
         }
     }
 
@@ -762,13 +769,16 @@ fn major_sync(layout: &Layout, peak_data_rate: u64) -> Vec<u8> {
     // one from bit 4. Each reads its own substream and the ones under it,
     // and a presentation without a substream of its own the ones of the
     // presentation under it.
-    let substream_info = match (layout.family, layout.above.len()) {
-        (Family::Mlp, _) => 0x05,
-        (Family::TrueHd, 0) => 0x14,
-        (Family::TrueHd, 1) => 0x3C,
-        (Family::TrueHd, _) => 0x7C,
-    };
-    w.put(8, substream_info);
+    let substream_info =
+        layout
+            .substream_info
+            .unwrap_or(match (layout.family, layout.above.len()) {
+                (Family::Mlp, _) => 0x05,
+                (Family::TrueHd, 0) => 0x14,
+                (Family::TrueHd, 1) => 0x3C,
+                (Family::TrueHd, _) => 0x7C,
+            });
+    w.put(8, u64::from(substream_info));
     match layout.family {
         Family::TrueHd => {
             // Channel meaning. No start-up gain of the heavy dynamic range

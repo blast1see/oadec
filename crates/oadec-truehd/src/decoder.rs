@@ -18,7 +18,7 @@ use crate::dither::{fill_table_bc, noise_pair_a};
 use crate::error::{Error, Result};
 use crate::extra::{ExtraData, ExtraKind};
 use crate::matrix::Matrixing;
-use crate::presentation::PresentationKind;
+use crate::presentation::{MAX_PRESENTATIONS, PresentationKind};
 use crate::segment::Segment;
 use crate::state::{
     MAX_CHANNELS, MAX_MATRICES, MAX_SAMPLES_PER_AU, ParserState, SYNC_A, SYNC_B, SYNC_C,
@@ -141,6 +141,66 @@ pub struct Decoded<'a> {
     pub concealed: bool,
     /// See [`Decoder::output_delta`].
     pub output_delta: Option<u16>,
+}
+
+/// What a decoder does at a major sync that changes the configuration it was
+/// set up for: the substream count, `substream_info`, the samples per access
+/// unit or the sampling frequency ([`StreamConfig::incompatible_with`]).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum OnConfigChange {
+    /// The access unit is not decoded and [`Error::ConfigChanged`] comes back
+    /// for it; everything before it was decoded and is sound. What a decoder
+    /// has always done.
+    #[default]
+    Stop,
+    /// The decoder sets itself up again for the new configuration and goes
+    /// on. The access unit that carries the change is decoded once, with the
+    /// new configuration, and the change is reported beside it
+    /// ([`Decoder::decode_following`], [`Decoder::config_change`]).
+    Continue,
+}
+
+/// A change of configuration a decoder followed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfigChange {
+    /// Index of the access unit that carries the change, counted from the
+    /// first the decoder was given.
+    pub unit: u64,
+    /// What changed, as [`StreamConfig::incompatible_with`] names it.
+    pub what: &'static str,
+    /// The configuration before the change.
+    pub old: StreamConfig,
+    /// The configuration the access unit and those after it are decoded with.
+    pub new: StreamConfig,
+}
+
+impl ConfigChange {
+    /// The presentations the change takes away: decodable before it and not
+    /// after ([`StreamConfig::has_presentation`]).
+    #[must_use]
+    pub fn gone(&self) -> [bool; MAX_PRESENTATIONS] {
+        core::array::from_fn(|p| self.old.has_presentation(p) && !self.new.has_presentation(p))
+    }
+
+    /// The presentations the change brings: decodable after it and not
+    /// before.
+    #[must_use]
+    pub fn back(&self) -> [bool; MAX_PRESENTATIONS] {
+        core::array::from_fn(|p| !self.old.has_presentation(p) && self.new.has_presentation(p))
+    }
+}
+
+/// One access unit decoded by [`Decoder::decode_following`]: the samples,
+/// the fault that was concealed if any, and the change of configuration the
+/// unit carries if it carries one, all lent by one borrow of the decoder.
+#[derive(Debug)]
+pub struct Following<'a> {
+    /// The samples.
+    pub decoded: Decoded<'a>,
+    /// The fault that was concealed, as [`Decoder::decode_concealing`] gives it.
+    pub fault: Option<Error>,
+    /// The change of configuration this access unit carries.
+    pub change: Option<&'a ConfigChange>,
 }
 
 /// What [`Decoder::decode`] made of one access unit, before it is lent out.
@@ -687,6 +747,10 @@ pub struct Decoder {
     /// next restart header, and the presentation is silent until every one
     /// of its substreams has been.
     damaged: [bool; 4],
+    /// What a change of configuration does.
+    on_config_change: OnConfigChange,
+    /// The change of configuration the last access unit carried.
+    change: Option<ConfigChange>,
 }
 
 impl Decoder {
@@ -734,12 +798,28 @@ impl Decoder {
             core,
             keep_duplicates: false,
             damaged: [false; 4],
+            on_config_change: OnConfigChange::default(),
+            change: None,
         })
     }
 
     /// Keeps access units flagged as duplicates instead of marking them.
     pub fn keep_duplicates(&mut self, keep: bool) {
         self.keep_duplicates = keep;
+    }
+
+    /// What to do at a major sync that changes the configuration;
+    /// [`OnConfigChange::Stop`] unless set.
+    pub fn on_config_change(&mut self, policy: OnConfigChange) {
+        self.on_config_change = policy;
+    }
+
+    /// The change of configuration the last access unit carried, if it
+    /// carried one and the decoder followed it. Valid until the next access
+    /// unit is decoded.
+    #[must_use]
+    pub fn config_change(&self) -> Option<&ConfigChange> {
+        self.change.as_ref()
     }
 
     /// The requested presentation.
@@ -799,15 +879,35 @@ impl Decoder {
     /// silence is skipped, not failed. Returns the fault that was concealed,
     /// if any; a change of configuration is not concealed but returned.
     pub fn decode_concealing(&mut self, unit: &[u8]) -> Result<(Decoded<'_>, Option<Error>)> {
+        let (out, fault) = self.concealing_unit(unit)?;
+        Ok((self.lend(out), fault))
+    }
+
+    /// Decodes one access unit as [`Decoder::decode_concealing`] does, and
+    /// lends the change of configuration it carries together with its
+    /// samples. With [`OnConfigChange::Continue`] the unit that carries a
+    /// change is decoded with the new configuration and `change` names it;
+    /// with [`OnConfigChange::Stop`] the change is the error it always was.
+    pub fn decode_following(&mut self, unit: &[u8]) -> Result<Following<'_>> {
+        let (out, fault) = self.concealing_unit(unit)?;
+        Ok(Following {
+            decoded: self.lend(out),
+            fault,
+            change: self.change.as_ref(),
+        })
+    }
+
+    /// The body of [`Decoder::decode_concealing`], before the samples are lent.
+    fn concealing_unit(&mut self, unit: &[u8]) -> Result<(UnitOut, Option<Error>)> {
         match self.decode_unit(unit, true) {
-            Ok((out, fault)) => Ok((self.lend(out), fault)),
+            Ok((out, fault)) => Ok((out, fault)),
             Err(e @ Error::ConfigChanged { .. }) => {
                 self.core.unit_open = false;
                 Err(e)
             }
             Err(e) => {
                 let out = self.conceal_unit(unit);
-                Ok((self.lend(out), Some(e)))
+                Ok((out, Some(e)))
             }
         }
     }
@@ -897,6 +997,7 @@ impl Decoder {
     /// stands, as it always was.
     fn decode_unit(&mut self, unit: &[u8], conceal: bool) -> Result<(UnitOut, Option<Error>)> {
         self.core.output_delta = None;
+        self.change = None;
         let (au, config) = match AccessUnit::parse(unit, Some(&self.config)) {
             Ok(parsed) => parsed,
             Err(e) => {
