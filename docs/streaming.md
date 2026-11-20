@@ -222,8 +222,9 @@ does by default. So it refuses (exit 2): an object output, `-o -`, `--json`,
 and the options of an object output or of an AC-3 or E-AC-3 decode. An AC-3
 or E-AC-3 stream has no presentations and refuses `-p` altogether.
 
-`verify --decode` decodes every presentation the same way, in one pass on one
-thread, and says what it always said.
+`verify --decode` does not: it decodes each presentation on a thread of its
+own, as it always did, because by the clock that is the faster
+([`truehd.md`](truehd.md#several-presentations-in-one-pass)).
 
 ## Choosing a programme
 

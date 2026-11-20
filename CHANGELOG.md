@@ -28,18 +28,14 @@ Semantic Versioning.
   programme the stream does not carry is exit 2, with the ids it does carry.
 - **`decode -p all`.** Every presentation of a TrueHD stream in one pass, a
   file each (`OUT.p0.wav` and on), each with the bytes and the verdict of a
-  decode of it alone. `verify --decode` checks every presentation in one
-  pass as well, and says what it said before.
+  decode of it alone. A strict decode of the same pass
+  (`MultiDecoder::decode`), where each presentation stops at its first fault
+  as a decoder of its own does, is in the library, and a test holds it to
+  the checks `verify --decode` makes.
 - **Fuzz targets** for the decoder of several presentations, the stream
   decoder pushed bytes in pieces, and the programme decoder with its default
   configuration against the one it always had; a bench of four
   presentations in one pass against four decoders one after another.
-
-### Changed
-
-- `verify --decode` decodes every presentation on one thread, where it ran a
-  thread to each: a third less processor time and half as much again of
-  wall-clock time on the object fixture.
 
 ## [0.9.1] - 2026-11-17
 
