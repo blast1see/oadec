@@ -19,9 +19,22 @@ use oadec_engine::stream::{
 
 const NAME: &str = "<stdin>";
 
+/// The three AC-3 family streams of generated signals are the fixtures of
+/// `oadec-eac3`; every other stream is a fixture of the command line.
+const OF_EAC3: [&str; 3] = [
+    "ac3-20-coupled.ac3",
+    "eac3-20-coupled.ec3",
+    "eac3-71-tones.ec3",
+];
+
 fn fixture(name: &str) -> Vec<u8> {
+    let folder = if OF_EAC3.contains(&name) {
+        "../oadec-eac3/tests/fixtures"
+    } else {
+        "../oadec-cli/tests/fixtures"
+    };
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../oadec-cli/tests/fixtures")
+        .join(folder)
         .join(name);
     std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
