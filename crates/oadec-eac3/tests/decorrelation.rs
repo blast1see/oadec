@@ -17,11 +17,14 @@ const STEREO: &str = "eac3-20-coupled.ec3";
 const AC3: &str = "ac3-20-coupled.ac3";
 const SEVEN_ONE: &str = "eac3-71-tones.ec3";
 
+/// A fixture: the authored scene of the CLI's tests, or one of this crate's.
 fn fixture(name: &str) -> Vec<u8> {
-    let path = format!(
-        "{}/../oadec-cli/tests/fixtures/{name}",
-        env!("CARGO_MANIFEST_DIR")
-    );
+    let folder = if name == SCENE {
+        "../oadec-cli/tests/fixtures"
+    } else {
+        "tests/fixtures"
+    };
+    let path = format!("{}/{folder}/{name}", env!("CARGO_MANIFEST_DIR"));
     std::fs::read(path).expect("the fixture")
 }
 
