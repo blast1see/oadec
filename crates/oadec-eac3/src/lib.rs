@@ -11,6 +11,7 @@
 pub mod bitalloc;
 pub mod bsi;
 pub mod decoder;
+pub mod decorr;
 pub mod dither;
 pub mod ecpl;
 pub mod error;
@@ -26,9 +27,11 @@ pub mod vq;
 
 pub use bsi::{Bsi, Downmix};
 pub use decoder::{Decoded, Decoder, find_sync};
+pub use decorr::{Decorrelation, NotApplied, ProgrammeScope, Status as DecorrelationStatus};
 pub use error::{Eac3Error, Result};
 pub use frame::{
-    Block, BlockInfo, Coverage, EcplBlock, EcplChannel, Frame, Noise, Options, Partial, Transient,
+    Block, BlockInfo, Coupling, Coverage, EcplBlock, EcplChannel, Frame, Noise, Options, Partial,
+    Transient,
 };
 pub use header::{BLOCK_SAMPLES, FrameHeader, SYNC_WORD, StreamType, Syntax};
 pub use program::{
