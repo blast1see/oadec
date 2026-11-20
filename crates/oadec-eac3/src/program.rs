@@ -618,6 +618,51 @@ struct GroupSlot {
     core: Option<usize>,
 }
 
+/// What a [`ProgramDecoder`] does when a group carries a different set of
+/// channels from the group before it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum LayoutPolicy {
+    /// The programme keeps the channels of its first group. A group that
+    /// carries another set is reported in [`ProgramFrame::layout_changed`] and
+    /// counted in [`ProgramStats::layout_changes`]; the programme's channels
+    /// it does not carry are silent, and the channels it carries that the
+    /// programme does not have are left out. For a writer that fixes its
+    /// channel count when it writes its header.
+    #[default]
+    Fixed,
+    /// Each group comes out with its own channels: [`ProgramFrame::layout`]
+    /// is the group's, [`ProgramFrame::layout_changed`] is set on the group
+    /// whose channels differ from the group before it, nothing is filled with
+    /// silence and no channel is left out. A change of channels is what the
+    /// stream says (clause E.2.8), not a fault, so it is not counted in
+    /// [`ProgramStats::layout_changes`].
+    Follow,
+}
+
+/// Which programme a [`ProgramDecoder`] decodes, and how it follows the
+/// programme's channels.
+///
+/// The default, `programme: None` and [`LayoutPolicy::Fixed`], is what
+/// [`ProgramDecoder::new`] does.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ProgramConfig {
+    /// The programme to decode, named by the substream id of its independent
+    /// substream (clause E.2.8.3).
+    ///
+    /// `None` decodes programme 0, the default programme, and never reports
+    /// it missing: a stream that does not carry it gives no groups and counts
+    /// its frames in [`ProgramStats::other_program_frames`]. `Some(n)` is an
+    /// explicit choice, `Some(0)` included: when no frame of programme `n`
+    /// came, [`ProgramDecoder::finish`] returns
+    /// [`Eac3Error::ProgrammeNotFound`](crate::error::Eac3Error::ProgrammeNotFound).
+    /// A substream id is three bits, so a value above 7 names no programme
+    /// a stream can carry: it never matches, and `finish` reports it not
+    /// found.
+    pub programme: Option<u8>,
+    /// What happens when the programme's channels change in mid-stream.
+    pub layout: LayoutPolicy,
+}
+
 /// Decodes one programme of an Enhanced AC-3 stream: an independent substream
 /// and the dependent substreams that immediately follow it (clause E.2.8.2).
 ///
@@ -637,6 +682,7 @@ struct GroupSlot {
 #[derive(Debug)]
 pub struct ProgramDecoder {
     opts: Options,
+    config: ProgramConfig,
     subs: Vec<Sub>,
     slots: BTreeMap<SubstreamKey, usize>,
     open: Option<GroupSlot>,
@@ -652,10 +698,24 @@ pub struct ProgramDecoder {
 }
 
 impl ProgramDecoder {
+    /// Decodes programme 0 and keeps the channels of its first group: the
+    /// same as [`Self::with_config`] with [`ProgramConfig::default`].
     #[must_use]
     pub fn new(opts: Options) -> Self {
+        Self::with_config(opts, ProgramConfig::default())
+    }
+
+    /// Decodes the programme `config` names and follows its channels as
+    /// `config` says.
+    ///
+    /// Frames of any other programme are counted in
+    /// [`ProgramStats::other_program_frames`] and reach no decoder: they
+    /// change neither the chosen programme's samples nor its groups.
+    #[must_use]
+    pub fn with_config(opts: Options, config: ProgramConfig) -> Self {
         Self {
             opts,
+            config,
             subs: Vec::new(),
             slots: BTreeMap::new(),
             open: None,
@@ -666,6 +726,12 @@ impl ProgramDecoder {
             stats: ProgramStats::default(),
             finished: false,
         }
+    }
+
+    /// The programme and layout policy this decoder was made with.
+    #[must_use]
+    pub fn config(&self) -> ProgramConfig {
+        self.config
     }
 
     /// What the pass has found so far.
@@ -803,7 +869,10 @@ impl ProgramDecoder {
     ///
     /// # Errors
     ///
-    /// Only from flushing a decoder.
+    /// From flushing a decoder, and
+    /// [`Eac3Error::ProgrammeNotFound`](crate::error::Eac3Error::ProgrammeNotFound)
+    /// when [`ProgramConfig::programme`] asked for a programme by name and no
+    /// frame of it came. With `programme: None` the second never happens.
     pub fn finish(&mut self) -> Result<()> {
         for sub in &mut self.subs {
             while let Some(d) = sub.dec.flush()? {
