@@ -74,6 +74,13 @@
 //!    through [`ANGLE_FIRST`] and [`ANGLE_LAST`] ([`base_angle`]),
 //!    `rho_others` is the mean smoothed `rho` of the other channels that
 //!    take part, and `t` is held to [`ANGLE_MAX`].
+//!
+//! A property of this rule, which the mode does not hide: when a channel's
+//! own region goes silent, its `rho` goes to 1 and `b` to 0 while `D` still
+//! rings with a transient of the blocks before, so the tail of the
+//! transient loses its filtered part and the channel keeps about `a^2` of
+//! the transient's power. On the authored scene that is up to 3,1 dB in the
+//! left channel (`docs/eac3.md`).
 
 use crate::frame::{Coupling, N};
 
@@ -414,7 +421,7 @@ impl Decorrelator {
 
     /// Whether one block of a stream whose layout is `(acmod, lfeon)` and
     /// whose coupling is `coupling` can be decorrelated, and if it can, the
-    /// roles of its channels.
+    /// roles of its channels and the coupling.
     ///
     /// # Errors
     ///
@@ -423,7 +430,7 @@ impl Decorrelator {
         acmod: u8,
         lfeon: bool,
         coupling: Option<&Coupling>,
-    ) -> Result<&'static [Role], NotApplied> {
+    ) -> Result<(&'static [Role], &Coupling), NotApplied> {
         let roles = roles(acmod, lfeon).ok_or(NotApplied::Layout)?;
         let coupling = coupling.ok_or(NotApplied::NoCoupling)?;
         if coupling.enhanced {
@@ -432,7 +439,7 @@ impl Decorrelator {
         if coupling.aht {
             return Err(NotApplied::Aht);
         }
-        Ok(roles)
+        Ok((roles, coupling))
     }
 
     /// Decorrelates the coupled region of one block in place, `coeffs` being
@@ -452,15 +459,12 @@ impl Decorrelator {
         coupling: Option<&Coupling>,
         coeffs: &mut [[f64; N]],
     ) -> Result<(), NotApplied> {
-        let roles = match Self::check(acmod, lfeon, coupling) {
-            Ok(roles) => roles,
+        let (roles, coupling) = match Self::check(acmod, lfeon, coupling) {
+            Ok(checked) => checked,
             Err(why) => {
                 self.reset();
                 return Err(why);
             }
-        };
-        let Some(coupling) = coupling else {
-            unreachable!("check refuses a block without coupling");
         };
         if coeffs.len() != roles.len() {
             self.reset();
@@ -634,6 +638,145 @@ mod tests {
         let (first, _) = pair(0.0, 1.0, FIT_FIRST_CENTRE);
         let (last, _) = pair(0.0, 1.0, FIT_LAST_CENTRE);
         assert!((first - 0.93).abs() < 1e-5 && (last - 0.81).abs() < 1e-5);
+    }
+
+    /// The term for the other channels: with `rho_others < 1` a channel is
+    /// turned further than with `rho_others = 1`, by `1 + OTHERS (1 -
+    /// rho_others)`, wherever the angle stays under [`ANGLE_MAX`].
+    #[test]
+    fn the_other_channels_turn_a_channel_further_by_the_documented_factor() {
+        for rho in [0.0, 0.4] {
+            for centre in [FIT_FIRST_CENTRE, 80.0, FIT_LAST_CENTRE] {
+                let (alone, _) = pair(rho, 1.0, centre);
+                for rho_others in [0.0, 0.25, 0.5, 0.75] {
+                    let (a, _) = pair(rho, rho_others, centre);
+                    let factor = 1.0 + OTHERS * (1.0 - rho_others);
+                    let wanted = (alone.acos() * factor).min(ANGLE_MAX);
+                    assert!(a < alone, "rho_others {rho_others} did not turn it further");
+                    assert!((a.acos() - wanted).abs() < 1e-12, "{} {wanted}", a.acos());
+                }
+            }
+        }
+    }
+
+    /// What the constants give where both channels of `low-both` have noise
+    /// of their own (every `rho` 0), against what Dolby's decoder gave the
+    /// left channel there: 0,72 in the first fitted sub-band and 0,61 in the
+    /// last (`docs/eac3.md`). One factor for all sub-bands is fitted at the
+    /// middle, where the two meet to 1e-3; at the ends it is 0,09 and 0,11
+    /// off, which is the simplification [`OTHERS`] states, and the test
+    /// holds them to 0,12.
+    #[test]
+    fn the_low_both_figures_come_out_of_the_constants() {
+        let middle = 0.5 * (FIT_FIRST_CENTRE + FIT_LAST_CENTRE);
+        let measured_middle = 0.5 * (0.72f64.acos() + 0.61f64.acos());
+        let (a, _) = pair(0.0, 0.0, middle);
+        assert!((a - measured_middle.cos()).abs() < 1e-3, "{a}");
+        let (first, _) = pair(0.0, 0.0, FIT_FIRST_CENTRE);
+        let (last, _) = pair(0.0, 0.0, FIT_LAST_CENTRE);
+        assert!((first - 0.72).abs() < 0.12, "{first}");
+        assert!((last - 0.61).abs() < 0.12, "{last}");
+        // And `low-left`, where the right channel has nothing of its own.
+        let (first, _) = pair(0.0, 1.0, FIT_FIRST_CENTRE);
+        let (last, _) = pair(0.0, 1.0, FIT_LAST_CENTRE);
+        assert!((first - 0.93).abs() < 1e-9 && (last - 0.81).abs() < 1e-9);
+    }
+
+    /// A stereo block whose left channel has noise of its own in bins 12 to
+    /// 29, and whose right channel has, where `right_own`, noise of its own
+    /// in bins 30 to 47, where the left channel has nothing: the left
+    /// channel's share is the same either way, and only what the other
+    /// channel has of its own changes. The coupled region is the same for
+    /// the same seed.
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "a bin addresses the same place in both channels"
+    )]
+    fn apart_block(seed: &mut u32, right_own: bool) -> Vec<[f64; N]> {
+        let c = stereo_coupling();
+        let mut coeffs = vec![[0.0; N]; 2];
+        for bin in 12..30 {
+            coeffs[0][bin] = 0.1 * lcg(seed);
+        }
+        for bin in 30..48 {
+            let r = 0.1 * lcg(seed);
+            if right_own {
+                coeffs[1][bin] = r;
+            }
+        }
+        for bin in c.start..c.end {
+            let x = 0.05 * lcg(seed);
+            coeffs[0][bin] = x * 0.8;
+            coeffs[1][bin] = x * 0.6;
+        }
+        coeffs
+    }
+
+    /// At the level of a block: the same left channel is decorrelated more
+    /// when the right channel has content of its own under the coupling
+    /// begin frequency than when it has none. What is compared is the power
+    /// the decorrelation adds to the left channel's coupled region,
+    /// `sum (Y - X)^2` over 24 blocks; with `rho_others` near 0 the angle is
+    /// some 1,6 times as large, and the power of `Y - X` grows with the
+    /// square of the angle.
+    #[test]
+    fn a_channel_is_decorrelated_more_when_the_other_has_content_of_its_own() {
+        let c = stereo_coupling();
+        let moved = |right_own: bool| {
+            let mut dec = Decorrelator::new();
+            let mut seed = 21;
+            let mut sum = 0.0;
+            for _ in 0..24 {
+                let plain = apart_block(&mut seed, right_own);
+                let mut out = plain.clone();
+                assert_eq!(dec.block(2, false, Some(&c), &mut out), Ok(()));
+                for bin in c.start..c.end {
+                    sum += (out[0][bin] - plain[0][bin]).powi(2);
+                }
+            }
+            sum
+        };
+        let (alone, beside) = (moved(false), moved(true));
+        assert!(alone > 0.0, "the left channel was not decorrelated at all");
+        assert!(beside > 1.5 * alone, "{beside} against {alone}");
+    }
+
+    /// Bins on both sides of the coupled region, under its start and at and
+    /// above its end, hold content of their own here and must come out to
+    /// the bit as they went in, block after block, while the region itself
+    /// moves. The fixtures cannot show the upper edge: in both, the coupled
+    /// region ends where the channels' bandwidth does.
+    #[test]
+    fn bins_on_both_sides_of_the_coupled_region_are_left_as_they_are() {
+        let c = Coupling {
+            start: 49,
+            end: 49 + 6 * Coupling::SUB_BAND,
+            ..stereo_coupling()
+        };
+        let mut dec = Decorrelator::new();
+        let mut seed = 31;
+        let mut moved = false;
+        for _ in 0..12 {
+            let mut plain = vec![[0.0; N]; 2];
+            for ch in plain.iter_mut() {
+                for v in ch.iter_mut() {
+                    *v = 0.1 * lcg(&mut seed);
+                }
+            }
+            let mut out = plain.clone();
+            assert_eq!(dec.block(2, false, Some(&c), &mut out), Ok(()));
+            for ch in 0..2 {
+                for bin in (0..c.start).chain(c.end..N) {
+                    assert_eq!(
+                        out[ch][bin].to_bits(),
+                        plain[ch][bin].to_bits(),
+                        "channel {ch} bin {bin}"
+                    );
+                }
+                moved |= out[ch][c.start..c.end] != plain[ch][c.start..c.end];
+            }
+        }
+        assert!(moved, "the coupled region did not move");
     }
 
     /// Acceptance 10 at the level of a block: a coupling channel coded with

@@ -286,13 +286,26 @@ four are the same specification, and for enhanced coupling they disagree.
   `D(X)` are uncorrelated along the blocks and the pair stands still while
   `D` rings out. On the stereo fixture `eac3-20-coupled.ec3`, whose coupled
   region is noise, every channel and coupling sub-band keeps its power to
-  0,014 dB in the coefficients and in the samples. On the authored scene,
-  whose coupled region is silence but for one transient in its second to
-  last block, a channel loses up to 3,1 dB there, because the stream ends
-  before `D` has rung out and the silent own region of the last blocks
-  takes `b` to 0. `tools/coupling_mix.py measure` sets a decode with the
-  mode on against another decode of the same stream, a reference decoder's
-  among them, by channel and sub-band.
+  0,014 dB in the coefficients and in the samples.
+
+  What the mode does not claim:
+
+  - That it equals Dolby's decode, or that its weight is Dolby's rule.
+  - That a channel keeps its power after a coupled transient. When a
+    channel's own region goes silent, its `rho` goes to 1 and `b` to 0
+    while `D` still rings with the transient, so the tail of the transient
+    loses its filtered part: the channel keeps about `a^2` of the power the
+    transient had. On the authored scene, whose coupled region is silence
+    but for one transient in its second to last block, the left channel
+    loses 1,8 to 3,1 dB there by sub-band, the right 1,0 to 1,7, the right
+    surround 0,3 to 0,6. That is a property of this decoder's rule, not of
+    the stream and not something measured of Dolby's decoders.
+  - That the first block of a run of coupled blocks is decorrelated: it is
+    the plain decode, by this decoder's choice.
+
+  `tools/coupling_mix.py measure` sets a decode with the mode on against
+  another decode of the same stream, a reference decoder's among them, by
+  channel and sub-band.
 - **Decoder delay.** The first 256 output samples are the first block's
   half window over silence. The Dolby decoder drops them; FFmpeg and oadec
   keep them. Object metadata counts time from the first frame's first

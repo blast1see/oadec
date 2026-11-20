@@ -279,6 +279,24 @@ fn changes_only_the_coupled_region(name: &str) {
             .any(|(_, c)| c.is_some_and(|c| !c.aht && !c.enhanced)),
         "{name}: no block with standard coupling"
     );
+    // What the fixture cannot show: in both fixtures the coupled region ends
+    // where the channels' bandwidth does, so every coupled channel is zero
+    // at and above the end of the coupled region, and the comparison below
+    // holds only the lower edge. The upper edge is held at the level of a
+    // block (`bins_on_both_sides_of_the_coupled_region_are_left_as_they_are`
+    // in `decorr.rs`). Should a fixture come to hold something there, this
+    // says so, and the comparison below then holds that edge as well.
+    let above = plain_blocks.iter().any(|(coeffs, c)| {
+        c.is_some_and(|c| {
+            (0..coeffs.len())
+                .filter(|&ch| c.is_coupled(ch))
+                .any(|ch| coeffs[ch][c.end..].iter().any(|v| *v != 0.0))
+        })
+    });
+    assert!(
+        !above,
+        "{name} now holds content above the coupled region: update the note above"
+    );
 
     // In the coefficient domain: only coupled bins of channels that take a
     // part move, and some of them do.
