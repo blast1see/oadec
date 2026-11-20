@@ -160,6 +160,20 @@ headerless samples cannot be told their width changed;
 `--on-layout-change fixed` keeps the layout of the first unit where the codec
 offers it, and the change is still a fault (exit 7).
 
+`--on-layout-change split` (a file output only; `-o -` refuses it, exit 2)
+follows the change instead: the samples after it go on in the next part,
+`NAME.002.wav` and on, each with its own header. A change the stream signals
+and the decode followed is not a fault by itself, because nothing of what was
+delivered is wrong: every sample is in a part shaped as it was coded. So it
+leaves the verdict alone. For E-AC-3 the programme decoder counts it in
+`layout_follows`, which no verdict reads; for TrueHD the checks of `verify`
+count it under `config.changed`, which the delivery leaves out of its
+verdict when it followed the change, and every other rule still counts: a
+join of two streams that breaks the timing (`timing.invalid_branch`) is a
+fault, exit 7, whether or not the change was followed. `verify` itself is not
+told what a decode followed, and calls such a stream non-conformant as it
+always did.
+
 What cannot go to standard output is refused before the stream is read, exit
 2: `--format damf` or `adm`, whose files are gone back over when they are
 closed; standard output on a terminal; and `--report -`, which would put JSON

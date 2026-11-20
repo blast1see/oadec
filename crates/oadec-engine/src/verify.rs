@@ -267,15 +267,44 @@ fn stream_check(source: &Source, go_on: &dyn Fn() -> bool) -> Result<StreamCheck
 
 /// The verdict of `verify` on a TrueHD stream, from a finished scan of it.
 pub(crate) fn truehd_check(scan: scan::Scan) -> StreamCheck {
-    // the default verdict of `verify`: every counter it has always read, and
-    // the rules without a counter that fail a stream by default
+    truehd_check_of(scan, false)
+}
+
+/// [`truehd_check`] of a delivery that followed the changes of
+/// configuration: a change the stream signals at a major sync and the
+/// delivery followed is not a fault of what it delivered, so
+/// `config.changed` is left out of the verdict; every other rule is in it.
+pub(crate) fn truehd_check_of(scan: scan::Scan, followed: bool) -> StreamCheck {
+    let counts = |rule: RuleId| !(followed && rule == RuleId::ConfigChanged);
+    let clean = if followed {
+        !scan
+            .diag
+            .tally
+            .iter()
+            .any(|(r, _)| counts(r) && r.info().severity >= Severity::Error)
+    } else {
+        // the default verdict of `verify`: every counter it has always read,
+        // and the rules without a counter that fail a stream by default
+        scan.diag.tally.passes(Severity::Error)
+    };
+    let first_error = if followed
+        && scan
+            .diag
+            .tally
+            .get(RuleId::ConfigChanged)
+            .is_some_and(|t| scan.first_error.as_deref() == Some(t.first.message.as_str()))
+    {
+        None
+    } else {
+        scan.first_error
+    };
     StreamCheck {
-        clean: scan.first_major_sync.is_some() && scan.diag.tally.passes(Severity::Error),
-        first_problem: scan.first_error.or_else(|| {
+        clean: scan.first_major_sync.is_some() && clean,
+        first_problem: first_error.or_else(|| {
             scan.diag
                 .tally
                 .iter()
-                .find(|(r, _)| r.info().severity >= Severity::Error)
+                .find(|(r, _)| counts(*r) && r.info().severity >= Severity::Error)
                 .map(|(r, t)| format!("{}: {}", r.info().id, t.first.message))
         }),
     }

@@ -176,6 +176,11 @@ pub(crate) enum LayoutChangeArg {
     /// E-AC-3 programme writes silence in the channels a frame group does
     /// not carry (exit 7). A TrueHD stream refuses it.
     Fixed,
+    /// Go on in the new layout in a file of its own: the samples after the
+    /// change are written to the next part, `NAME.002.wav`, `NAME.003.wav`,
+    /// each with its own header. A change the stream signals and the decode
+    /// followed is not a fault by itself. Refused with -o -.
+    Split,
 }
 
 impl From<LayoutChangeArg> for LayoutChange {
@@ -183,6 +188,7 @@ impl From<LayoutChangeArg> for LayoutChange {
         match arg {
             LayoutChangeArg::Stop => Self::Stop,
             LayoutChangeArg::Fixed => Self::Fixed,
+            LayoutChangeArg::Split => Self::Split,
         }
     }
 }

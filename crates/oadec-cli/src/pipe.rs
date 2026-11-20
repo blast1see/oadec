@@ -67,6 +67,12 @@ pub(crate) fn check(asked: &Asked<'_>) -> anyhow::Result<()> {
              --format pcm or wav. The stream itself can come in on standard input"
         );
     }
+    if asked.to_stdout && asked.on_layout_change == Some(LayoutChange::Split) {
+        anyhow::bail!(
+            "--on-layout-change split writes each layout to a file of its own (out.wav, \
+             out.002.wav, ...), and standard output is one stream: name a file, or ask for stop"
+        );
+    }
     if asked.to_stdout && asked.stdout_is_terminal {
         anyhow::bail!(
             "-o - writes binary samples to standard output, and standard output is a terminal \

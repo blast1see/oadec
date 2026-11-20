@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use oadec_truehd::{AccessUnit, ChannelLabel, DecodeStats, Decoder, Unit};
+use oadec_truehd::{AccessUnit, ChannelLabel, DecodeStats, Decoder, OnConfigChange, Unit};
 
 use crate::input;
 use crate::integrity::Findings;
@@ -113,6 +113,10 @@ pub struct Frame<'a> {
     /// Samples of silence to write before `pcm`: what a gap before this
     /// access unit took ([`OnError::Conceal`]).
     pub lead_silence: usize,
+    /// The access unit carries a change of configuration the session
+    /// followed ([`Session::follow_changes`]): what comes from it on is
+    /// shaped as this frame says, and not as the frames before it.
+    pub changed: bool,
 }
 
 /// A decoder plus the bookkeeping the commands share.
@@ -166,6 +170,23 @@ pub struct Session {
     /// measured with.
     bytes_seen: u64,
     units_seen: u64,
+    /// A change of configuration is followed, not stopped at.
+    follow: bool,
+    /// What changed at the last access unit, when it carried a change the
+    /// session followed.
+    pub last_change: Option<&'static str>,
+    /// The presentation is not in the configuration of the stream now: a
+    /// change took it away, and none has brought it back yet.
+    pub gone: bool,
+}
+
+/// The substream whose matrices make presentation `p` of `config`: the
+/// presentation itself, or the one it is a copy of.
+fn source_of(config: &oadec_truehd::StreamConfig, p: usize) -> usize {
+    match config.presentations.kind(p) {
+        oadec_truehd::PresentationKind::CopyOf(i) => i,
+        _ => p,
+    }
 }
 
 impl Session {
@@ -196,7 +217,19 @@ impl Session {
             position: 0,
             bytes_seen: 0,
             units_seen: 0,
+            follow: false,
+            last_change: None,
+            gone: false,
         }
+    }
+
+    /// Follows a change of configuration at a major sync instead of
+    /// stopping at it ([`OnConfigChange::Continue`]): the unit that carries
+    /// the change is decoded with the new configuration and its frame says
+    /// so ([`Frame::changed`]); while the presentation is not in the
+    /// configuration nothing is decoded and [`Session::gone`] is set.
+    pub fn follow_changes(&mut self) {
+        self.follow = true;
     }
 
     /// Sets what to do with an access unit that cannot be read; a session
@@ -286,9 +319,32 @@ impl Session {
             }
             let mut decoder = Decoder::new(ms, self.presentation)?;
             decoder.keep_duplicates(self.keep_duplicates);
+            if self.follow {
+                decoder.on_config_change(OnConfigChange::Continue);
+            }
             self.labels = ChannelLabel::presentation(ms, decoder.source_presentation());
             self.sampling_frequency = decoder.config().sampling_frequency;
             self.decoder = Some(decoder);
+        }
+        self.last_change = None;
+        if self.follow
+            && unit.has_major_sync
+            && let Some(decoder) = &self.decoder
+            && let Some((ms, config, what)) = AccessUnit::parse(&unit.bytes, None)
+                .ok()
+                .and_then(|(au, _)| au.major_sync)
+                .and_then(|ms| {
+                    let config = oadec_truehd::StreamConfig::from_major_sync(&ms).ok()?;
+                    let what = decoder.config().incompatible_with(&config)?;
+                    Some((ms, config, what))
+                })
+        {
+            // The unit is decoded with the configuration it carries, and its
+            // samples are labelled and ordered by it.
+            self.labels = ChannelLabel::presentation(&ms, source_of(&config, self.presentation));
+            self.sampling_frequency = config.sampling_frequency;
+            self.order.clear();
+            self.last_change = Some(what);
         }
         let sampling_frequency = self.sampling_frequency;
         let decoder = self.decoder.as_mut().expect("decoder created above");
@@ -299,16 +355,25 @@ impl Session {
         } else {
             0.0
         };
-        let (decoded, fault) = match self.on_error {
-            OnError::Stop => (
-                decoder
-                    .decode(&unit.bytes)
-                    .with_context(|| format!("decoding access unit at byte {}", unit.offset))?,
-                None,
-            ),
-            OnError::Conceal => decoder
-                .decode_concealing(&unit.bytes)
-                .with_context(|| format!("decoding access unit at byte {}", unit.offset))?,
+        let decoded = match self.on_error {
+            OnError::Stop => decoder.decode(&unit.bytes).map(|d| (d, None)),
+            OnError::Conceal => decoder.decode_concealing(&unit.bytes),
+        };
+        let (decoded, fault) = match decoded {
+            Ok(decoded) => {
+                self.gone = false;
+                decoded
+            }
+            // a change took the presentation away: nothing of it is decoded
+            // until a change brings it back
+            Err(oadec_truehd::Error::PresentationGone { .. }) if self.follow => {
+                self.gone = true;
+                return Ok(None);
+            }
+            Err(e) => {
+                return Err(anyhow::Error::new(e)
+                    .context(format!("decoding access unit at byte {}", unit.offset)));
+            }
         };
         // a stretch the extractor passed over: the silence it took goes
         // before this unit, when the clocks say how much that was. Before the
@@ -392,6 +457,7 @@ impl Session {
             channel_mask: self.mask,
             mask_warning: self.mask_warning.as_deref(),
             lead_silence,
+            changed: self.last_change.is_some(),
         }))
     }
 
@@ -1083,6 +1149,8 @@ pub(crate) struct Delivery {
     /// Where the output ended at a change of configuration.
     pub(crate) stopped: Option<ConfigStop>,
     buf: Vec<u8>,
+    /// That the presentation is gone was told, and nothing has come since.
+    gone_told: bool,
 }
 
 /// What an access unit came to in a [`Delivery`].
@@ -1095,6 +1163,14 @@ pub(crate) enum Taken {
     Written,
     /// The configuration changed at it and the output ends before it.
     Stopped,
+    /// The configuration changed at it, the change was followed, and its
+    /// samples, shaped by the new configuration, were written after the
+    /// sink was begun again with that shape.
+    Changed,
+    /// The configuration changed at it and the presentation is not in the
+    /// new one: nothing of it is written until a change brings it back. Told
+    /// once, at the first unit it is gone at.
+    Gone,
 }
 
 impl Delivery {
@@ -1117,6 +1193,7 @@ impl Delivery {
             samples: 0,
             stopped: None,
             buf: Vec::with_capacity(160 * 16 * 3),
+            gone_told: false,
         })
     }
 
@@ -1138,8 +1215,7 @@ impl Delivery {
         let session = &mut self.session;
         let index = session.stats().map_or(0, |s| s.units);
         let frame = match session.decode(unit, remarks) {
-            Ok(Some(frame)) => frame,
-            Ok(None) => return Ok(Taken::Nothing),
+            Ok(frame) => frame,
             Err(e) => {
                 return match ConfigStop::from_error(&e, index, unit.offset) {
                     Some(stop) if self.output_started => {
@@ -1149,6 +1225,13 @@ impl Delivery {
                     _ => Err(e),
                 };
             }
+        };
+        let Some(frame) = frame else {
+            if self.session.gone && !self.gone_told {
+                self.gone_told = true;
+                return Ok(Taken::Gone);
+            }
+            return Ok(Taken::Nothing);
         };
         if !self.output_started {
             self.output_started = true;
@@ -1163,7 +1246,16 @@ impl Delivery {
                 mask: frame.channel_mask,
                 sample: WavSample::Int24,
             })?;
+        } else if frame.changed {
+            sink.begin(WavSpec {
+                channels: frame.channels as u16,
+                rate: frame.sampling_frequency,
+                mask: frame.channel_mask,
+                sample: WavSample::Int24,
+            })?;
         }
+        let changed = frame.changed;
+        self.gone_told = false;
         let buf = &mut self.buf;
         buf.clear();
         buf.resize(frame.lead_silence * frame.order.len() * 3, 0);
@@ -1171,7 +1263,11 @@ impl Delivery {
         self.samples += (frame.lead_silence + frame.pcm.len()) as u64;
         session.clipped += clipped;
         sink.write(buf)?;
-        Ok(Taken::Written)
+        Ok(if changed {
+            Taken::Changed
+        } else {
+            Taken::Written
+        })
     }
 }
 
