@@ -23,6 +23,17 @@ pub enum Error {
         /// What changed, as a phrase ("the sampling frequency").
         what: &'static str,
     },
+    /// A change of configuration that the decoder followed
+    /// ([`crate::decoder::OnConfigChange::Continue`]) left the stream without
+    /// the presentation it decodes. Nothing is decoded in its place, and no
+    /// other presentation stands in for it; the decoder goes on following
+    /// the stream, and decodes the presentation again from the access unit
+    /// whose major sync brings it back.
+    #[error("presentation {presentation} is not in the stream after a change of configuration")]
+    PresentationGone {
+        /// The presentation the decoder was set up for.
+        presentation: usize,
+    },
 }
 
 impl Error {
