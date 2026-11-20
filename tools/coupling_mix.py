@@ -57,8 +57,17 @@ sets a decode of this decoder with its experimental decorrelation
 Dolby's decode) against a reference decode of the same stream, and reports,
 for every channel and every coupling sub-band of the coupled region, figures
 that say how far the two stand apart and in what way. Both decodes are taken
-back to coefficients as `regions` takes them; the first blocks are left out as
-there. The figures, under the names the JSON report gives them:
+back to coefficients as `regions` takes them; the first `--skip` blocks (300
+by default, as there) are left out. With `--plain`, a decode of this decoder
+without the decorrelation, it also reports how far each of the two moved the
+power of the plain decode. The figures, under the names the JSON report gives
+them:
+
+- `ours_over_plain_db` and `reference_over_plain_db` (with `--plain`): the
+  power of each decode in the sub-band over that of the plain decode, summed
+  over the blocks and the twelve coefficients, so that what the
+  decorrelation of each decoder does to the level of a channel can be put
+  side by side.
 
 - `power_difference_db`: ten times the logarithm of the power of ours over
   the power of the reference, summed over the blocks and the twelve
@@ -68,24 +77,29 @@ there. The figures, under the names the JSON report gives them:
   by coefficient within the sub-band (each summed over the blocks), which
   says whether the power is where it should be inside the sub-band and not
   only in sum.
-- `coherence_ours`, `coherence_reference` and `coherence_difference`: for
-  every pair of channels that take the filter with opposite signs (left and
-  right, the surround pair), the magnitude of the normalised cross-spectrum
-  of the two channels in the sub-band, over the blocks, in each decode, and
-  ours less the reference. The target is a difference of 0.10 or less.
-- `phase_ours_degrees` and `phase_reference_degrees`: the angle of the same
-  cross-spectrum, which says whether the two channels lead or lag each other
-  as the reference has them.
-- `pre_echo_db`: in the blocks of the reference where a transient falls (the
-  energy of the block over that of the block before by more than 10 dB, in
-  the coupled region), the energy ours has in the coupled region of the block
-  before the transient over the energy the reference has there. A filter along
-  the blocks smears a transient forward, not back; a figure above 0 says ours
-  puts energy before it.
-- `boundary_discontinuity_db`: the power of the difference between the last
-  sample of one block and the first of the next, over the samples of the
-  decode, of ours over the reference, for the coupled region filtered out of
-  each decode. A decorrelation that steps at the blocks stands above 0.
+- `pairs`: for every pair of channels that take the filter with opposite
+  signs (`--pairs`; left and right, the surround pair), by sub-band:
+  `coherence_ours` and `coherence_reference`, the magnitude of the
+  normalised cross-spectrum of the two channels over the blocks, in each
+  decode, and `coherence_difference`, ours less the reference, whose target
+  is 0.10 or less in magnitude; `phase_ours_degrees` and
+  `phase_reference_degrees`, the angle of the same cross-spectrum, which says
+  whether the two channels lead or lag each other as the reference has them.
+  The cross-spectrum is of the discrete Fourier transform of the same
+  windowed blocks of 512 samples, whose bin `k` lies half a bin under the
+  coefficient `k`; the coefficients are real and carry no phase.
+- `pre_echo_db`, by channel: in the blocks where the reference has a
+  transient in the coupled region (the energy of the block over that of the
+  block before by more than `--transient-db`, 10 dB by default), the energy
+  ours has in the coupled region of the block before over the energy the
+  reference has there, summed over those blocks. A filter along the blocks
+  smears a transient forward, not back; a figure above 0 says ours puts
+  energy before it. `null` where the reference has no transient.
+- `boundary_discontinuity_db`, by channel: the power of the step from the
+  last sample of a block of 256 to the first of the next, summed over the
+  decode, of ours over the reference, for the coupled region alone (each
+  decode taken back to samples from its coupled coefficients). A
+  decorrelation that steps at the blocks stands above 0.
 
 The report is JSON, and the same two decodes give the same report.
 
@@ -107,7 +121,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dither_probe import coefficients, read_decode, samples  # noqa: E402
+from dither_probe import HALF, N, WINDOW, coefficients, read_decode, samples  # noqa: E402
 
 RATE = 48000
 SECONDS = 12
@@ -408,6 +422,100 @@ def study(theirs, mine, first, sub_bands, taps=40, rounds=3, learn_from=None):
     return report
 
 
+# ---- a decorrelated decode against a reference
+
+def figure_db(num, den):
+    if den <= 0 or num <= 0:
+        return None if num == den == 0 else (200.0 if den <= 0 else -200.0)
+    return round(float(10 * np.log10(num / den)), 3)
+
+
+def spectra(pcm, lag, count):
+    """The discrete Fourier transform of every windowed block of 512 samples
+    of one channel, from `lag` on, bins 0 to 255."""
+    out = np.empty((count, HALF), dtype=complex)
+    for b in range(count):
+        out[b] = np.fft.rfft(pcm[lag + b * HALF:lag + b * HALF + N] * WINDOW)[:HALF]
+    return out
+
+
+def measure(reference, ours, plain, first, sub_bands, lag, pairs, transient_db, skip):
+    """The figures of `measure`, described at the head of the file."""
+    channels = reference.shape[1]
+    n = min(len(reference), len(ours) - lag) // HALF * HALF
+    if plain is not None:
+        n = min(n, (len(plain) - lag) // HALF * HALF)
+    blocks = (n - N) // HALF + 1
+    if blocks <= skip + 8:
+        return None
+    last = first + SUB_BAND * sub_bands
+    r = [coefficients(reference[:n, ch])[skip:] for ch in range(channels)]
+    m = [coefficients(ours[lag:lag + n, ch])[skip:] for ch in range(channels)]
+    p = None if plain is None else [coefficients(plain[lag:lag + n, ch])[skip:] for ch in range(channels)]
+    bands = [(first + SUB_BAND * s, first + SUB_BAND * (s + 1)) for s in range(sub_bands)]
+    report = {'blocks': blocks - skip, 'first': first, 'sub_bands': sub_bands, 'channels': [], 'pairs': []}
+    for ch in range(channels):
+        row = {'channel': ch, 'power_difference_db': [], 'spectral_difference_db': []}
+        if p is not None:
+            row['ours_over_plain_db'] = []
+            row['reference_over_plain_db'] = []
+        for lo, hi in bands:
+            pm = (m[ch][:, lo:hi] ** 2).sum(axis=0)
+            pr = (r[ch][:, lo:hi] ** 2).sum(axis=0)
+            row['power_difference_db'].append(figure_db(float(pm.sum()), float(pr.sum())))
+            each = [figure_db(float(a), float(b)) for a, b in zip(pm, pr)]
+            each = [v for v in each if v is not None]
+            row['spectral_difference_db'].append(max(each, key=abs) if each else None)
+            if p is not None:
+                pp = float((p[ch][:, lo:hi] ** 2).sum())
+                row['ours_over_plain_db'].append(figure_db(float(pm.sum()), pp))
+                row['reference_over_plain_db'].append(figure_db(float(pr.sum()), pp))
+        er = (r[ch][:, first:last] ** 2).sum(axis=1)
+        em = (m[ch][:, first:last] ** 2).sum(axis=1)
+        hits = [b for b in range(1, len(er)) if er[b] > er[b - 1] * 10 ** (transient_db / 10) and er[b] > 0]
+        row['transients'] = len(hits)
+        row['pre_echo_db'] = (figure_db(float(sum(em[b - 1] for b in hits)), float(sum(er[b - 1] for b in hits)))
+                              if hits else None)
+        steps = []
+        for c in (m[ch], r[ch]):
+            only = np.zeros_like(c)
+            only[:, first:last] = c[:, first:last]
+            y = samples(only)[HALF:-HALF]
+            at = np.arange(HALF, len(y), HALF)
+            steps.append(float(((y[at] - y[at - 1]) ** 2).sum()))
+        row['boundary_discontinuity_db'] = figure_db(steps[0], steps[1])
+        report['channels'].append(row)
+    count = blocks - skip
+    for a, b in pairs:
+        if a >= channels or b >= channels:
+            return None
+        fr = [spectra(reference[:, ch], 0, blocks)[skip:skip + count] for ch in (a, b)]
+        fm = [spectra(ours[:, ch], lag, blocks)[skip:skip + count] for ch in (a, b)]
+        row = {'pair': [a, b], 'coherence_ours': [], 'coherence_reference': [], 'coherence_difference': [],
+               'phase_ours_degrees': [], 'phase_reference_degrees': []}
+        for lo, hi in bands:
+            values = []
+            for x, y in (fm, fr):
+                cross = complex((x[:, lo:hi] * np.conj(y[:, lo:hi])).sum())
+                power = float((np.abs(x[:, lo:hi]) ** 2).sum() * (np.abs(y[:, lo:hi]) ** 2).sum())
+                values.append((abs(cross) / np.sqrt(power) if power > 0 else None, float(np.degrees(np.angle(cross)))))
+            (co, po), (cr, pr_) = values
+            row['coherence_ours'].append(None if co is None else round(float(co), 4))
+            row['coherence_reference'].append(None if cr is None else round(float(cr), 4))
+            row['coherence_difference'].append(None if co is None or cr is None else round(float(co - cr), 4))
+            row['phase_ours_degrees'].append(round(po, 2))
+            row['phase_reference_degrees'].append(round(pr_, 2))
+        report['pairs'].append(row)
+    return report
+
+
+def parse_pairs(text):
+    try:
+        return [tuple(int(v) for v in part.split(':')) for part in text.split(',') if part]
+    except ValueError:
+        return None
+
+
 # ---- a known answer
 
 def self_check():
@@ -501,6 +609,9 @@ def main():
                                   '(coded order: 0:1 for 2/0, 0:2,3:4 for 3/2)')
             sub.add_argument('--transient-db', type=float, default=10.0,
                              help='how much louder than the block before a block is that holds a transient')
+            sub.add_argument('--plain', type=Path,
+                             help='a decode of ours without the decorrelation, same format and lag as ours')
+            sub.add_argument('--skip', type=int, default=SKIP, help='blocks left out at the start')
     args = parser.parse_args()
     if args.self_check:
         return self_check()
@@ -516,8 +627,27 @@ def main():
         print('the coupled region is not inside the 253 coefficients of a channel', file=sys.stderr)
         return 2
     if args.command == 'measure':
-        print('measure: not built yet (checkpoint 1 of the decorrelation work)', file=sys.stderr)
-        return 2
+        pairs = parse_pairs(args.pairs)
+        if not pairs or any(len(pair) != 2 for pair in pairs) or args.skip < 0:
+            print('--pairs is a:b,c:d and --skip is not negative', file=sys.stderr)
+            return 2
+        reference, ours = read_decode(args.reference, args.channels), read_decode(args.ours, args.channels)
+        plain = None if args.plain is None else read_decode(args.plain, args.channels)
+        report = measure(reference, ours, plain, args.first, args.sub_bands, args.lag, pairs,
+                         args.transient_db, args.skip)
+        if report is None:
+            print('the decodes cannot be compared as asked: too short, or a pair names a channel they lack',
+                  file=sys.stderr)
+            return 1
+        text = json.dumps(report, indent=1) + '\n'
+        if args.out:
+            args.out.write_text(text, encoding='utf-8')
+        for row in report['channels']:
+            print(f"channel {row['channel']}: power {row['power_difference_db']} dB, pre-echo {row['pre_echo_db']} dB, "
+                  f"boundaries {row['boundary_discontinuity_db']} dB")
+        for row in report['pairs']:
+            print(f"pair {row['pair']}: coherence difference {row['coherence_difference']}")
+        return 0
     reference, ours = read_decode(args.reference, args.channels), read_decode(args.ours, args.channels)
     theirs, mine = as_coefficients(reference, ours, args.lag)
     if args.command == 'regions':

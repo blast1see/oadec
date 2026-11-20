@@ -237,28 +237,62 @@ four are the same specification, and for enhanced coupling they disagree.
   Dolby's then differ, in the coupled region of an E-AC-3 stream whose
   channels have wideband content of their own, by as much as two
   decorrelated copies of one signal do: 0 to 9 dB.
+  `docs/audit/evidence/engine-round-2026-11/52-what-dolbys-decoders-do-to-coupled-channels.json` is the record.
 
   An experimental mode does it (`oadec_eac3::decorr`,
-  `Decoder::set_decorrelation`), off by default. It takes the filter and
-  the signs as measured above and computes `a` by a rule of its own, with
-  no randomness in it: per block and per coupling sub-band, from how alike
-  a channel's content under the coupling begin frequency is to the sum of
-  the coupled channels there, falling with frequency. That rule is an
-  estimate fitted to the published description and to the measurements
-  here; it is not Dolby's, and a decode with the mode on is not claimed to
-  equal Dolby's. It runs only on an E-AC-3 independent substream that the
-  caller says is the whole programme, in 2/0 or 3/2 with or without the
-  LFE, with standard coupling whose coupling channel is not coded with the
-  hybrid transform. AC-3, a dependent substream, a programme that has one
-  (which channel of a 7.1 programme takes which filter was not worked out),
-  enhanced coupling and a coupling channel coded with the hybrid transform
-  are left as the standard has them, and the decoder says why. The filter
-  state is zero at the start, after a frame it conceals and after a change
-  of mode or scope; a bin out of coupling in a block starts again from
-  zero; the first block of a run of coupled blocks of a bin comes out as
-  the plain decode. Checkpoint 1 of the work: the interface and the gates
-  are built, the processing is not.
-  `docs/audit/evidence/engine-round-2026-11/52-what-dolbys-decoders-do-to-coupled-channels.json` is the record.
+  `Decoder::set_decorrelation`), off by default. It is not Dolby's
+  decorrelation, and a decode with it is not claimed to equal Dolby's: the
+  filter and the signs are taken as measured above, and the weight `a` is
+  this decoder's own estimate, with no randomness in it.
+
+  Where it runs: an E-AC-3 independent substream that the caller says is
+  the whole programme (`ProgrammeScope::CoreOnly`), in 2/0 without the LFE
+  or 3/2 with or without it, in a block with standard coupling whose
+  coupling channel is not coded with the hybrid transform. The left and the
+  right take `b` with opposite signs, the surround pair too, and the centre
+  and the LFE are left alone. AC-3, a dependent substream, a programme that
+  has one (which channel of a 7.1 programme takes which filter was not
+  worked out), a substream converted from AC-3, 2/0 with the LFE, enhanced
+  coupling, a coupling channel coded with the hybrid transform and a
+  concealed frame are left as the standard has them, and
+  `Decoder::decorrelation_status` says why.
+
+  The weight, per block, per channel and per coupling sub-band:
+  `rho` is the share of what the channel has under the coupling begin
+  frequency, from bin 2, that the other coupled channels have too, taken
+  bin by bin (`s = clamp(X S / X^2, 0, 1)` with `S` the sum of the others,
+  weighted by `X^2`), and 1 for a channel with nothing there; it is smoothed
+  along the blocks by one half. Then `a = cos t` and `b = sin t`, so that
+  `a^2 + b^2 = 1`, with `t = (1 - rho) t0(f) (1 + 0,677 (1 - rho_others))`,
+  `rho_others` the mean of the other channels' `rho`, and `t` held to 60
+  degrees. `t0` rises with the centre bin `f` of the sub-band along the line
+  through `acos 0,93` at bin 54,5 and `acos 0,81` at bin 138,5. Those two
+  figures and the 0,677 are fitted on what Dolby's decoder gave the left
+  channel of the test signals `low-left` and `low-both` (above, and
+  evidence 52), with the left channel's `rho` taken as 0 there and the
+  right's as 1 or 0; the bins left out, the smoothing and the 60 degrees are
+  choices. They are estimates of this decoder, not Dolby's rule.
+
+  The filter state is zero at the start, after a reset, a change of layout,
+  mode or scope, and across a concealed frame. A bin that is not coupled in
+  a block starts again from zero; when the coupling range changes, the bins
+  that stay keep their past. The first block of a run of coupled blocks of
+  a bin comes out as the plain decode and only fills the filter, which is
+  this decoder's choice: `a X` alone would take the level of that block
+  down by `a^2`. A state value under 1e-30 is taken as zero, so that silence
+  does not run the recursion through subnormal numbers.
+
+  What `a^2 + b^2 = 1` keeps is the power of a channel where `X` and
+  `D(X)` are uncorrelated along the blocks and the pair stands still while
+  `D` rings out. On the stereo fixture `eac3-20-coupled.ec3`, whose coupled
+  region is noise, every channel and coupling sub-band keeps its power to
+  0,014 dB in the coefficients and in the samples. On the authored scene,
+  whose coupled region is silence but for one transient in its second to
+  last block, a channel loses up to 3,1 dB there, because the stream ends
+  before `D` has rung out and the silent own region of the last blocks
+  takes `b` to 0. `tools/coupling_mix.py measure` sets a decode with the
+  mode on against another decode of the same stream, a reference decoder's
+  among them, by channel and sub-band.
 - **Decoder delay.** The first 256 output samples are the first block's
   half window over silence. The Dolby decoder drops them; FFmpeg and oadec
   keep them. Object metadata counts time from the first frame's first

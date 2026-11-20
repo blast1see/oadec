@@ -5,7 +5,7 @@
 //! that it equals Dolby's decode, which it is not claimed to.
 //! `tools/coupling_mix.py measure` sets a decode against a reference decode.
 
-use oadec_eac3::decorr::{ALLPASS, Decorrelator, Delayed, Role, roles};
+use oadec_eac3::decorr::{ALLPASS, ANGLE_MAX, Decorrelator, Delayed, Role, roles};
 use oadec_eac3::frame::N;
 use oadec_eac3::{
     Coupling, Decoder, Decorrelation, DecorrelationStatus, Frame, FrameHeader, Noise, NotApplied,
@@ -144,9 +144,12 @@ fn blocks(frames: &[(FrameHeader, &[u8])]) -> Vec<(Vec<[f64; N]>, Option<Couplin
     out
 }
 
+/// A block of every coded channel, after the decorrelator, and what it said.
+type Said = (Vec<[f64; N]>, Result<(), NotApplied>);
+
 /// The blocks of `frames` run through one decorrelator, as the decoder runs
 /// them, with what it said of each.
-fn decorrelated(frames: &[(FrameHeader, &[u8])]) -> Vec<(Vec<[f64; N]>, Result<(), NotApplied>)> {
+fn decorrelated(frames: &[(FrameHeader, &[u8])]) -> Vec<Said> {
     let (acmod, lfeon) = (frames[0].0.acmod, frames[0].0.lfeon);
     let mut dec = Decorrelator::new();
     blocks(frames)
@@ -444,6 +447,10 @@ fn lcg(seed: &mut u32) -> f64 {
 
 /// A stereo block in which both channels have content of their own under
 /// the coupling, which is one waveform times a coordinate above it.
+#[allow(
+    clippy::needless_range_loop,
+    reason = "a bin addresses the same place in both channels"
+)]
 fn stereo_block(seed: &mut u32, c: &Coupling) -> Vec<[f64; N]> {
     let mut coeffs = vec![[0.0; N]; 2];
     for bin in 4..c.start {
@@ -610,10 +617,13 @@ fn the_centre_and_the_lfe_are_untouched() {
     let stream = fixture(SCENE);
     let frames = core(&stream);
     assert_eq!((frames[0].0.acmod, frames[0].0.lfeon), (7, true));
+    let mut left_moved = false;
     for ((plain, _), (out, _)) in blocks(&frames).iter().zip(&decorrelated(&frames)) {
         assert_eq!(out[1], plain[1], "the centre");
         assert_eq!(out[5], plain[5], "the LFE");
+        left_moved |= out[0] != plain[0];
     }
+    assert!(left_moved, "nothing was decorrelated, so nothing was shown");
 }
 
 // ---------------------------------------------------------------------
@@ -628,6 +638,11 @@ fn two_fresh_decoders_agree_to_the_bit() {
         let two = decode(&frames, experimental(ProgrammeScope::CoreOnly));
         assert!(one.pcm == two.pcm, "{name}");
         assert_eq!(one.status, two.status);
+        assert!(one.status.contains(&DecorrelationStatus::Applied), "{name}");
+        assert!(
+            one.pcm != plain(&frames).pcm,
+            "{name}: nothing was decorrelated"
+        );
     }
 }
 
@@ -647,6 +662,13 @@ fn a_late_start_converges() {
         |_, _| {},
         &[],
     );
+    let reference = plain(&frames);
+    assert!(
+        early.pcm[2 * LATE..] != reference.pcm[2 * LATE..],
+        "nothing was decorrelated where the two are compared"
+    );
+    // Where the late decoder starts, the two stand apart: it has no past.
+    assert!(early.pcm[LATE + 1] != late.pcm[1]);
     let mut worst = 0.0f32;
     for (a, b) in early.pcm[2 * LATE..].iter().zip(&late.pcm[LATE..]) {
         for (ca, cb) in a.iter().zip(b) {
@@ -660,7 +682,9 @@ fn a_late_start_converges() {
 
 /// Decodes from frame 0 with `between` acting before frame `at` and
 /// `concealed` frames, and holds what comes out from frame `at + 1` on to a
-/// fresh decoder started at `at`.
+/// fresh decoder started at `at`. A decoder without `between`, and without
+/// the concealed frame just before `at`, keeps its past at `at` and must
+/// stand apart from the fresh one: else the test shows nothing.
 fn starts_from_rest_at(at: usize, concealed: &[usize], between: impl FnMut(usize, &mut Decoder)) {
     let stream = fixture(STEREO);
     let frames = core(&stream);
@@ -679,6 +703,18 @@ fn starts_from_rest_at(at: usize, concealed: &[usize], between: impl FnMut(usize
         &[],
     );
     assert!(through.pcm[at + 1..] == fresh.pcm[1..]);
+    let others: Vec<usize> = concealed.iter().copied().filter(|&n| n + 1 != at).collect();
+    let control = decode_with(
+        &frames,
+        0,
+        experimental(ProgrammeScope::CoreOnly),
+        |_, _| {},
+        &others,
+    );
+    assert!(
+        control.pcm[at + 1..] != fresh.pcm[1..],
+        "a decoder whose filters were not set to rest stands with the fresh one"
+    );
 }
 
 #[test]
@@ -716,8 +752,8 @@ fn a_change_of_scope_sets_the_filters_to_rest() {
 // 9. Power, measured.
 
 /// The power of every channel in every coupling sub-band, summed over the
-/// blocks from the second frame to the last, of the plain coefficients and
-/// of the decorrelated ones, must stand within 0,1 dB of each other.
+/// blocks from the second frame to the last, of the decorrelated
+/// coefficients over the plain ones, in dB, as `(channel, sub-band, dB)`.
 ///
 /// It is measured on the coefficients the decorrelation hands to the
 /// transform. The windowed overlap-add of the transform is orthogonal, so
@@ -725,12 +761,53 @@ fn a_change_of_scope_sets_the_filters_to_rest() {
 /// first frame is left out: its first block is the plain decode by rule.
 /// A sub-band whose plain power is more than 100 dB under the loudest is
 /// left out as silence.
-fn power_stays(name: &str) {
+///
+/// `a^2 + b^2 = 1` keeps the power only where `X` and `D(X)` are
+/// uncorrelated over the window: the power of `a X + b D(X)` is that of `X`
+/// plus `2 a b` times their correlation. Along the blocks the coefficients
+/// of noise are uncorrelated and those of a steady tone are not.
+///
+/// `tail` blocks are run through the decorrelator after the last one: the
+/// block whose coupled region is loudest, with its coupled region silent,
+/// so that what `D` still holds of the last blocks comes out and is
+/// counted, under the weight that block's own region makes. With `tail` zero the window ends
+/// where the stream does, and what `D` holds then is lost, as it is in a
+/// decode.
+fn power_figures(name: &str, tail: usize) -> Vec<(usize, usize, f64)> {
     let stream = fixture(name);
     let frames = core(&stream);
+    let (acmod, lfeon) = (frames[0].0.acmod, frames[0].0.lfeon);
     let blocks_per_frame = usize::from(frames[0].0.blocks);
-    let plain_blocks = blocks(&frames);
-    let done = decorrelated(&frames);
+    let mut plain_blocks = blocks(&frames);
+    let coupled_energy = |(coeffs, coupling): &(Vec<[f64; N]>, Option<Coupling>)| {
+        coupling.map_or(0.0, |c| {
+            coeffs
+                .iter()
+                .map(|ch| ch[c.start..c.end].iter().map(|v| v * v).sum::<f64>())
+                .sum::<f64>()
+        })
+    };
+    let loudest_block = plain_blocks
+        .iter()
+        .max_by(|p, q| coupled_energy(p).total_cmp(&coupled_energy(q)))
+        .cloned()
+        .expect("a block");
+    let (mut silent, held_coupling) = loudest_block;
+    if let Some(c) = held_coupling {
+        for channel in &mut silent {
+            channel[c.start..c.end].fill(0.0);
+        }
+    }
+    plain_blocks.extend(std::iter::repeat_n((silent, held_coupling), tail));
+    let mut dec = Decorrelator::new();
+    let done: Vec<_> = plain_blocks
+        .iter()
+        .map(|(coeffs, coupling)| {
+            let mut out = coeffs.clone();
+            let _ = dec.block(acmod, lfeon, coupling.as_ref(), &mut out);
+            (out, ())
+        })
+        .collect();
     let nch = plain_blocks[0].0.len();
     // (channel, sub-band) -> (plain, decorrelated)
     let mut sums = vec![[(0.0f64, 0.0f64); 18]; nch];
@@ -750,37 +827,69 @@ fn power_stays(name: &str) {
     }
     let loudest = sums.iter().flatten().map(|s| s.0).fold(0.0f64, f64::max);
     assert!(loudest > 0.0, "{name}: no power in the coupled region");
-    let mut measured = 0;
-    let mut changed = false;
+    let mut figures = Vec::new();
     for (ch, row) in sums.iter().enumerate() {
         for (s, (p, q)) in row.iter().enumerate() {
-            if *p < loudest * 1e-10 {
-                continue;
+            if *p >= loudest * 1e-10 {
+                figures.push((ch, s, 10.0 * (q / p).log10()));
             }
-            measured += 1;
-            changed |= p != q;
-            let db = 10.0 * (q / p).log10();
-            assert!(
-                db.abs() <= 0.1,
-                "{name}: channel {ch} sub-band {s}: {db:+.3} dB"
-            );
         }
     }
-    assert!(measured > 0, "{name}: nothing measured");
+    assert!(!figures.is_empty(), "{name}: nothing measured");
     assert!(
-        changed,
+        figures.iter().any(|f| f.2 != 0.0),
         "{name}: nothing was decorrelated, so nothing was measured"
     );
+    for (ch, s, db) in &figures {
+        println!("{name}, tail {tail}: channel {ch} sub-band {s}: {db:+.3} dB");
+    }
+    figures
 }
 
+/// The stereo fixture is noise in the coupled region, and keeps its power
+/// to 0,1 dB in every channel and sub-band.
 #[test]
 fn power_stays_in_stereo() {
-    power_stays(STEREO);
+    for (ch, s, db) in power_figures(STEREO, 0) {
+        assert!(db.abs() <= 0.1, "channel {ch} sub-band {s}: {db:+.3} dB");
+    }
 }
 
+/// The authored scene is sines under 6 kHz, and its coupled region, bins
+/// 133 to 205, is close to silence, some 110 dB down, but for one transient
+/// in block 376 of 378, where the stream ends.
+///
+/// With the window ending where the stream does, two blocks after the
+/// transient, what `D` makes of it is mostly cut off, and the blocks after
+/// it have an own region that is silent, which takes `b` to 0: a channel
+/// keeps about `a^2` of its power there. Those figures fall with the
+/// sub-band as `a` does, down to -3,1 dB, and they are what a decode of this
+/// stream gives. They are asserted only against `10 log a^2` at the largest
+/// angle, -6 dB, and 0,1 dB above: a sub-band can lose no more than the
+/// filtered part, and gain nothing it did not have.
+///
+/// With a tail of 32 blocks that keeps the own region of the transient's
+/// block, which a pole radius of 0,7555 leaves 1e-4 of the filter's past,
+/// the figures stand within 0,47 dB: what is left is the weight moving with
+/// the smoothing while `D` rings out, and the transient reaching into the
+/// blocks around it. The bound asserted is 0,6 dB. A pair whose squares do
+/// not sum to 1 breaks it: `b = 1 - a` stands at -1,7 to -2,7 dB in the left
+/// channel and -0,64 in the right surround under the same measurement.
 #[test]
-fn power_stays_in_five_one() {
-    power_stays(SCENE);
+fn power_of_the_scene_is_measured() {
+    let floor = 20.0 * ANGLE_MAX.cos().log10();
+    for (ch, s, db) in power_figures(SCENE, 0) {
+        assert!(
+            (floor - 0.1..=0.1).contains(&db),
+            "channel {ch} sub-band {s}: {db:+.3} dB"
+        );
+    }
+    for (ch, s, db) in power_figures(SCENE, 32) {
+        assert!(
+            db.abs() <= 0.6,
+            "with a tail: channel {ch} sub-band {s}: {db:+.3} dB"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------
