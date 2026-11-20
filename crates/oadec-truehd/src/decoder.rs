@@ -1085,6 +1085,16 @@ impl Engine {
     fn follow(&mut self, ms: &MajorSync, config: StreamConfig, what: &'static str, unit: u64) {
         let old = core::mem::replace(&mut self.config, config);
         self.parser = ParserState::new(&self.config);
+        // Nothing of a substream is read under the new configuration before
+        // its first restart header -- the new parser state refuses a block
+        // before one -- and a restart header sets everything a substream
+        // carries but the samples of the unit in progress
+        // (`SubstreamDecoder::restart`, and the test
+        // `a_restart_header_sets_everything_a_substream_carries`). Those
+        // samples are what this line is for: a substream under the top one
+        // that delivers fewer samples than the unit, or none, leaves the
+        // matrices above reading rows it did not write, and they are to be
+        // the new configuration's silence, never the old one's samples.
         self.sub = core::array::from_fn(|_| SubstreamDecoder::default());
         self.samples_per_au = usize::from(self.config.samples_per_au);
         for lane in &mut self.lanes {
@@ -1393,17 +1403,37 @@ impl Engine {
         }
     }
 
-    /// What presentation `lane` came to in the last unit: its samples and
-    /// fault, `None` when it is gone.
-    pub(crate) fn lent(&self, lane: usize) -> Option<(Decoded<'_>, Option<&Error>)> {
+    /// What presentation `lane` came to in the last unit. `None` when the
+    /// unit left it without an outcome to lend: not decoded, or a fault not
+    /// concealed. After [`Engine::decode_concealing`] has returned `Ok` every
+    /// presentation has one; the callers make an error of `None` all the same.
+    pub(crate) fn lent(&self, lane: usize) -> Option<Lent<'_>> {
         match self.lanes[lane].outcome {
-            Outcome::Out(out, fault) => {
-                Some((self.lend(lane, out), fault.and_then(|k| self.faults.get(k))))
-            }
-            Outcome::Failed(k) => unreachable!("fault {k} left unconcealed"),
-            Outcome::Pending | Outcome::Gone => None,
+            Outcome::Out(out, fault) => Some(Lent::Samples(
+                self.lend(lane, out),
+                fault.and_then(|k| self.faults.get(k)),
+            )),
+            Outcome::Gone => Some(Lent::Gone),
+            Outcome::Pending | Outcome::Failed(_) => None,
         }
     }
+}
+
+/// What one presentation came to in an access unit, lent out.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Lent<'a> {
+    /// Its samples, and the fault that was concealed in them.
+    Samples(Decoded<'a>, Option<&'a Error>),
+    /// The configuration in force does not carry it.
+    Gone,
+}
+
+/// The error for a unit that left a presentation without an outcome, which
+/// the decoders never do: said, not panicked on.
+pub(crate) fn no_outcome(presentation: usize) -> Error {
+    Error::malformed(format!(
+        "presentation {presentation}: the access unit left it without an outcome"
+    ))
 }
 
 /// Decoder for one presentation of a TrueHD stream.
@@ -1489,7 +1519,8 @@ impl Decoder {
         match self.engine.lanes[0].outcome {
             Outcome::Out(out, None) => Ok(self.engine.lend(0, out)),
             Outcome::Out(_, Some(k)) | Outcome::Failed(k) => Err(self.take(k)),
-            Outcome::Gone | Outcome::Pending => Err(self.gone()),
+            Outcome::Gone => Err(self.gone()),
+            Outcome::Pending => Err(no_outcome(self.lane().presentation)),
         }
     }
 
@@ -1530,7 +1561,9 @@ impl Decoder {
         self.engine.decode_concealing(unit)?;
         match self.engine.lanes[0].outcome {
             Outcome::Out(out, fault) => Ok((out, fault.map(|k| self.take(k)))),
-            Outcome::Gone | Outcome::Pending | Outcome::Failed(_) => Err(self.gone()),
+            Outcome::Gone => Err(self.gone()),
+            Outcome::Failed(k) => Err(self.take(k)),
+            Outcome::Pending => Err(no_outcome(self.lane().presentation)),
         }
     }
 
@@ -1563,6 +1596,181 @@ impl Decoder {
 mod tests {
     use super::*;
     use crate::filter::FilterCoeffs;
+
+    /// What a restart header sets of a substream, field by field. The
+    /// pattern names every field, so a field added to the struct does not
+    /// compile here until it is put on one side or the other.
+    #[allow(clippy::type_complexity, reason = "every field, as it is")]
+    fn set_by_restart(
+        sd: &SubstreamDecoder,
+    ) -> (
+        (
+            bool,
+            u16,
+            usize,
+            usize,
+            usize,
+            [u8; MAX_CHANNELS],
+            u8,
+            u8,
+            u16,
+        ),
+        (
+            [[i32; FILTER_ORDER]; MAX_CHANNELS],
+            [[i32; FILTER_ORDER]; MAX_CHANNELS],
+            [[i32; REMATRIX_COLUMNS]; MAX_MATRICES],
+            [[i32; MAX_CHANNELS]; MAX_MATRICES],
+        ),
+    ) {
+        let SubstreamDecoder {
+            active,
+            sync_word,
+            min_chan,
+            max_chan,
+            max_matrix_chan,
+            ch_assign,
+            dither_shift,
+            max_bits,
+            output_timing,
+            fir_hist,
+            iir_hist,
+            m,
+            d,
+            // The unit in progress, which a restart header does not touch:
+            // `decoded` and `zero_samples` are set to nought at the start of
+            // every unit before the substream is read, and `recorrelated`
+            // is written before it is read except where a substream
+            // delivers fewer samples than the unit (`Engine::follow`).
+            recorrelated: _,
+            decoded: _,
+            zero_samples: _,
+        } = sd;
+        (
+            (
+                *active,
+                *sync_word,
+                *min_chan,
+                *max_chan,
+                *max_matrix_chan,
+                *ch_assign,
+                *dither_shift,
+                *max_bits,
+                *output_timing,
+            ),
+            (*fir_hist, *iir_hist, *m, *d),
+        )
+    }
+
+    /// A substream decoder with every field away from what the restart
+    /// header of the test sets it to.
+    fn worn() -> SubstreamDecoder {
+        SubstreamDecoder {
+            active: false,
+            sync_word: SYNC_C,
+            min_chan: 3,
+            max_chan: 9,
+            max_matrix_chan: 11,
+            ch_assign: core::array::from_fn(|i| (MAX_CHANNELS - 1 - i) as u8),
+            dither_shift: 7,
+            max_bits: 5,
+            output_timing: 999,
+            fir_hist: [[7; FILTER_ORDER]; MAX_CHANNELS],
+            iir_hist: [[-3; FILTER_ORDER]; MAX_CHANNELS],
+            recorrelated: Box::new([[5; MAX_CHANNELS]; MAX_SAMPLES_PER_AU]),
+            m: [[9; REMATRIX_COLUMNS]; MAX_MATRICES],
+            d: [[-9; MAX_CHANNELS]; MAX_MATRICES],
+            decoded: 17,
+            zero_samples: 4,
+        }
+    }
+
+    /// A restart header leaves nothing of what a substream carried before
+    /// it: a decoder that has run and a fresh one come out of the same
+    /// header the same, every field but the samples of the unit in progress.
+    #[test]
+    fn a_restart_header_sets_everything_a_substream_carries() {
+        let mut ss = SubstreamState {
+            sync_word: SYNC_B,
+            restart_seen: true,
+            min_chan: 2,
+            max_chan: 5,
+            max_matrix_chan: 5,
+            dither_shift: 3,
+            max_bits: 20,
+            ..SubstreamState::default()
+        };
+        ss.ch_assign = core::array::from_fn(|i| i as u8);
+        ss.ch_assign[0] = 1;
+        ss.ch_assign[1] = 0;
+        let mut used = worn();
+        used.restart(&ss, 77);
+        let mut fresh = SubstreamDecoder::default();
+        fresh.restart(&ss, 77);
+        assert_eq!(set_by_restart(&used), set_by_restart(&fresh));
+        // and the worn one was worn in every field the header sets
+        let worn = worn();
+        let (a, b) = (set_by_restart(&worn), set_by_restart(&fresh));
+        assert_ne!(a.0.0, b.0.0);
+        assert_ne!(a.0.1, b.0.1);
+        assert_ne!(a.0.2, b.0.2);
+        assert_ne!(a.0.3, b.0.3);
+        assert_ne!(a.0.4, b.0.4);
+        assert_ne!(a.0.5, b.0.5);
+        assert_ne!(a.0.6, b.0.6);
+        assert_ne!(a.0.7, b.0.7);
+        assert_ne!(a.0.8, b.0.8);
+        assert_ne!(a.1.0, b.1.0);
+        assert_ne!(a.1.1, b.1.1);
+        assert_ne!(a.1.2, b.1.2);
+        assert_ne!(a.1.3, b.1.3);
+    }
+
+    fn fixture_units(name: &str) -> Vec<Vec<u8>> {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../oadec-cli/tests/fixtures")
+            .join(name);
+        let bytes = std::fs::read(&path).unwrap();
+        let mut extractor = crate::extract::Extractor::new();
+        extractor.push(&bytes);
+        let mut units = Vec::new();
+        while let Some(unit) = extractor.next_unit().unwrap() {
+            units.push(unit.bytes.to_vec());
+        }
+        units.extend(
+            extractor
+                .finish()
+                .unwrap()
+                .0
+                .into_iter()
+                .map(|u| u.bytes.to_vec()),
+        );
+        units
+    }
+
+    /// Following a change leaves no substream state of the configuration
+    /// before it: every substream decoder is a fresh one, the samples of the
+    /// unit in progress included.
+    #[test]
+    fn a_change_followed_starts_every_substream_afresh() {
+        let before = fixture_units("truehd-51-88k.thd");
+        let after = fixture_units("truehd-20-44k.thd");
+        let (first, _) = AccessUnit::parse(&before[0], None).unwrap();
+        let mut decoder = Decoder::new(first.major_sync.as_ref().unwrap(), 0).unwrap();
+        for unit in &before[..20] {
+            decoder.decode(unit).unwrap();
+        }
+        let engine = &mut decoder.engine;
+        assert!(engine.sub.iter().any(|sd| sd.active && sd.decoded > 0));
+        let (au, config) = AccessUnit::parse(&after[0], Some(&engine.config)).unwrap();
+        let what = engine.config.incompatible_with(&config).unwrap();
+        engine.follow(au.major_sync.as_ref().unwrap(), config, what, 20);
+        let fresh = SubstreamDecoder::default();
+        for (i, sd) in engine.sub.iter().enumerate() {
+            assert_eq!(set_by_restart(sd), set_by_restart(&fresh), "substream {i}");
+            assert!(sd.recorrelated == fresh.recorrelated, "substream {i}");
+            assert_eq!((sd.decoded, sd.zero_samples), (0, 0), "substream {i}");
+        }
+    }
 
     #[test]
     fn lossless_fold_matches_the_reference_definition() {

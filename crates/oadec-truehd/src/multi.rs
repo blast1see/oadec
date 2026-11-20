@@ -15,7 +15,9 @@
 //! the output, the lossless check, the dither and noise drawn for its
 //! matrices, its damage and its concealment.
 
-use crate::decoder::{ConfigChange, DecodeStats, Decoded, Engine, OnConfigChange};
+use crate::decoder::{
+    ConfigChange, DecodeStats, Decoded, Engine, Lent, OnConfigChange, no_outcome,
+};
 use crate::error::{Error, Result};
 use crate::presentation::MAX_PRESENTATIONS;
 use crate::sync::MajorSync;
@@ -82,15 +84,20 @@ impl MultiDecoder {
     /// A change of configuration under [`OnConfigChange::Stop`].
     pub fn decode_concealing(&mut self, unit: &[u8]) -> Result<MultiDecoded<'_>> {
         self.engine.decode_concealing(unit)?;
-        let engine = &self.engine;
+        let mut outputs = [None; MAX_PRESENTATIONS];
+        for (p, lane) in self.lane.iter().enumerate() {
+            let Some(k) = *lane else { continue };
+            outputs[p] = Some(match self.engine.lent(k) {
+                Some(Lent::Samples(decoded, fault)) => {
+                    PresentationOut::Available { decoded, fault }
+                }
+                Some(Lent::Gone) => PresentationOut::Gone,
+                None => return Err(no_outcome(p)),
+            });
+        }
         Ok(MultiDecoded {
-            outputs: self.lane.map(|lane| {
-                lane.map(|k| match engine.lent(k) {
-                    Some((decoded, fault)) => PresentationOut::Available { decoded, fault },
-                    None => PresentationOut::Gone,
-                })
-            }),
-            change: engine.config_change(),
+            outputs,
+            change: self.engine.config_change(),
         })
     }
 
