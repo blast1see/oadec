@@ -330,6 +330,57 @@ fn a_stream_decoded_again_tells_the_same_in_the_same_order() {
     }
 }
 
+/// What a sink was told, in one list: the unit of every finding and of
+/// every piece of samples, in the order they came.
+#[derive(Debug, Default)]
+struct InOrder(Vec<(bool, u64)>);
+
+impl StreamSink for InOrder {
+    fn event(&mut self, event: &StreamEvent) -> anyhow::Result<()> {
+        if let StreamEvent::Finding(f) = event {
+            self.0.push((false, f.unit));
+        }
+        Ok(())
+    }
+
+    fn pcm(&mut self, frame: PcmFrame<'_>) -> anyhow::Result<()> {
+        self.0.push((true, frame.unit));
+        Ok(())
+    }
+}
+
+/// A unit is told its findings before its samples, and after the samples of
+/// the units before it, though the checks run on a thread of their own: a
+/// receiver that stops at a finding has not been given the samples of the
+/// unit it is in.
+#[test]
+fn a_unit_is_told_its_findings_before_its_samples() {
+    let mut bytes = fixture("authored-scene.mlp");
+    for at in [10_000, 100_000, 200_000, 300_000] {
+        bytes[at] ^= 0x41;
+    }
+    let mut told = InOrder::default();
+    decode_reader(
+        Box::new(std::io::Cursor::new(bytes)),
+        StreamOptions::new(NAME),
+        &mut told,
+    )
+    .expect("the stream decodes");
+    let findings: Vec<usize> = (0..told.0.len()).filter(|&i| !told.0[i].0).collect();
+    assert!(findings.len() > 1, "damage is found");
+    for i in findings {
+        let unit = told.0[i].1;
+        assert!(
+            told.0[..i].iter().all(|&(pcm, u)| !pcm || u < unit),
+            "the samples of unit {unit} or after were told before a finding in it"
+        );
+        assert!(
+            told.0[i..].iter().all(|&(pcm, u)| !pcm || u >= unit),
+            "the samples of a unit before {unit} were told after a finding in it"
+        );
+    }
+}
+
 /// Two streams end to end change their layout where the second begins.
 #[test]
 fn a_change_of_layout_ends_the_output_or_keeps_it_as_asked() {
