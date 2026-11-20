@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, VecDeque};
 
 use crate::bsi::Bsi;
 use crate::decoder::{Decoded, Decoder};
-use crate::error::Result;
+use crate::error::{Eac3Error, Result};
 use crate::frame::Options;
 use crate::header::{FrameHeader, StreamType};
 use crate::tables::CHANNEL_ORDER;
@@ -453,11 +453,15 @@ pub struct ProgramFrame {
     /// The substreams of this group in bitstream order; `parts[0]` is the
     /// independent one.
     pub parts: Vec<Part>,
-    /// This group carried a different set of channels from the programme's, so
-    /// the ones it did not carry are silent.
+    /// This group carried a different set of channels from the programme's.
+    /// Under [`LayoutPolicy::Fixed`] the programme's are the first group's,
+    /// and the ones this group did not carry are silent; under
+    /// [`LayoutPolicy::Follow`] they are the group before's, and `layout` is
+    /// this group's own.
     pub layout_changed: bool,
-    /// Set only when `layout_changed`: the programme's channels materialised,
-    /// with silence where this group had nothing.
+    /// Set only when a group under [`LayoutPolicy::Fixed`] changed the
+    /// layout: the programme's channels materialised, with silence where this
+    /// group had nothing.
     filled: Vec<Vec<f32>>,
 }
 
@@ -474,7 +478,7 @@ impl ProgramFrame {
     /// programme channel is a borrow of one substream's decoded channel.
     #[must_use]
     pub fn channel(&self, i: usize) -> &[f32] {
-        if self.layout_changed {
+        if !self.filled.is_empty() {
             return &self.filled[i];
         }
         let (part, coded) = self.layout.sources[i];
@@ -517,8 +521,13 @@ pub struct ProgramStats {
     pub other_program_frames: u64,
     /// Dependent frames with no independent substream before them.
     pub orphan_dependents: u64,
-    /// Groups whose channel set differed from the programme's.
+    /// Groups whose channel set differed from the programme's, under
+    /// [`LayoutPolicy::Fixed`].
     pub layout_changes: u64,
+    /// Groups whose channel set differed from the group before's, under
+    /// [`LayoutPolicy::Follow`]. The stream says so, and each group comes out
+    /// with its own channels, so it is not a fault.
+    pub layout_follows: u64,
     /// Dependent frames dropped because their block count or sample rate did
     /// not match the independent substream (clause E.1.3.1.2).
     pub misaligned: u64,
@@ -690,6 +699,11 @@ pub struct ProgramDecoder {
     next_group: u64,
     /// Substream id of the programme the frames now arriving belong to.
     program: Option<u8>,
+    /// Bit `n` set once an independent frame of programme `n` arrived.
+    seen: u8,
+    /// Under [`LayoutPolicy::Follow`], the substreams of the group closed
+    /// last, to tell which one has left the programme.
+    last_members: Vec<usize>,
     layout: Option<ProgramLayout>,
     stats: ProgramStats,
     /// Set by [`Self::finish`]: no frame is coming any more, so a waiting
@@ -722,6 +736,8 @@ impl ProgramDecoder {
             pending: VecDeque::new(),
             next_group: 0,
             program: None,
+            seen: 0,
+            last_members: Vec::new(),
             layout: None,
             stats: ProgramStats::default(),
             finished: false,
@@ -740,7 +756,9 @@ impl ProgramDecoder {
         &self.stats
     }
 
-    /// The programme's channel layout, once a group has been emitted.
+    /// The programme's channel layout, once a group has been emitted: under
+    /// [`LayoutPolicy::Fixed`] the first group's, which every group comes out
+    /// in, and under [`LayoutPolicy::Follow`] the last emitted group's.
     #[must_use]
     pub fn layout(&self) -> Option<&ProgramLayout> {
         self.layout.as_ref()
@@ -784,6 +802,9 @@ impl ProgramDecoder {
         // which programme a dependent frame is part of.
         if !dependent {
             self.program = Some(header.substream_id);
+            // a substream id is three bits; the mask keeps a header built by
+            // hand from shifting out of range
+            self.seen |= 1 << (header.substream_id & 7);
         }
         if dependent && self.program.is_none() {
             self.stats.orphan_dependents += 1;
@@ -791,7 +812,9 @@ impl ProgramDecoder {
                 .note("a dependent substream before any independent one".to_string());
             return Ok(());
         }
-        if self.program != Some(0) {
+        // Before any slot, group or decoder is touched: a frame of another
+        // programme changes nothing of the chosen one.
+        if self.program != Some(self.config.programme.unwrap_or(0)) {
             self.stats.other_program_frames += 1;
             return Ok(());
         }
@@ -881,7 +904,16 @@ impl ProgramDecoder {
             }
         }
         self.finished = true;
-        self.close_open_group()
+        self.close_open_group()?;
+        match self.config.programme {
+            Some(wanted) if wanted > 7 || self.seen & (1 << wanted) == 0 => {
+                Err(Eac3Error::ProgrammeNotFound {
+                    wanted,
+                    seen: (0..8).filter(|id| self.seen & (1 << id) != 0).collect(),
+                })
+            }
+            _ => Ok(()),
+        }
     }
 
     /// Moves the open group, if any, to the groups waiting for their frames.
@@ -898,11 +930,41 @@ impl ProgramDecoder {
         let Some(g) = self.open.take() else {
             return Ok(());
         };
+        if self.config.layout == LayoutPolicy::Follow {
+            self.flush_departed(&g)?;
+        }
         self.pending.push_back(g);
         self.stats.max_pending_groups = self.stats.max_pending_groups.max(self.pending.len());
         if !self.finished && self.pending.len() >= MAX_PENDING_GROUPS && !self.front_ready() {
             self.flush_front_blockers()?;
             self.release_front();
+        }
+        Ok(())
+    }
+
+    /// Under [`LayoutPolicy::Follow`], flushes and resets each substream the
+    /// group closed before `g` had and `g` has not: it has left the
+    /// programme, and its decoder still holds the look-ahead of its last
+    /// frame, which would otherwise wait for [`MAX_PENDING_GROUPS`] groups
+    /// and be counted as a stall. The flushed frame is what the substream
+    /// decodes to when its run ends there; if it comes back, it starts clean.
+    ///
+    /// # Errors
+    ///
+    /// Only from flushing a decoder.
+    fn flush_departed(&mut self, g: &GroupSlot) -> Result<()> {
+        let last = std::mem::replace(&mut self.last_members, g.members.clone());
+        for s in last {
+            if g.members.contains(&s) {
+                continue;
+            }
+            let sub = &mut self.subs[s];
+            while let Some(d) = sub.dec.flush()? {
+                let at = sub.inflight.pop_front().unwrap_or(g.index);
+                sub.ready.push_back((at, d));
+            }
+            sub.dec.reset();
+            sub.inflight.clear();
         }
         Ok(())
     }
@@ -1073,6 +1135,25 @@ impl ProgramDecoder {
                 ));
             }
         }
+        if self.config.layout == LayoutPolicy::Follow {
+            // each group comes out as it was coded; a change is flagged on the
+            // group where it happens and is not a fault
+            let layout_changed = self
+                .layout
+                .as_ref()
+                .is_some_and(|before| before.channels != layout.channels);
+            if layout_changed {
+                self.stats.layout_follows += 1;
+            }
+            self.layout = Some(layout.clone());
+            return Some(ProgramFrame {
+                index: g.index,
+                layout,
+                parts,
+                layout_changed,
+                filled: Vec::new(),
+            });
+        }
         let programme = self.layout.get_or_insert_with(|| layout.clone());
         let mut layout_changed = false;
         let mut filled = Vec::new();
@@ -1132,9 +1213,10 @@ mod tests {
     /// noticed, which is the worst place for that to be possible: the whole
     /// point of the first defect was that a truncated programme used to be
     /// called clean. The list is what makes the difference, so the list is what
-    /// is pinned -- and `other_program_frames` and `lfe_implied` are in it as
-    /// the two that must *not* count, since a second programme is legal and an
-    /// implied LFE is a documented reading.
+    /// is pinned -- and `other_program_frames`, `lfe_implied` and
+    /// `layout_follows` are in it as counters that must *not* count, since a
+    /// second programme is legal, an implied LFE is a documented reading, and
+    /// a change of layout followed is what the stream says.
     #[test]
     fn every_counter_in_the_verdict_can_make_a_stream_unclean() {
         assert!(ProgramStats::default().is_clean(), "an empty pass is clean");
@@ -1168,8 +1250,10 @@ mod tests {
             "a decode error left the programme looking clean"
         );
 
-        let leaves_it_clean: [(&str, Set); 4] = [
+        let leaves_it_clean: [(&str, Set); 5] = [
             ("other_program_frames", |s| s.other_program_frames = 1),
+            // a change of layout the stream signals, followed
+            ("layout_follows", |s| s.layout_follows = 1),
             ("lfe_implied", |s| s.lfe_implied = 1),
             ("groups", |s| s.groups = 1),
             // a healthy stream always has a group waiting for its look-ahead

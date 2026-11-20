@@ -152,8 +152,11 @@ fn one_after_the_other(a: &[Group], b: &[Group]) -> Vec<Group> {
     a.iter().chain(b).cloned().collect()
 }
 
+/// A way of spoiling a frame.
+type Damage = fn(&[u8]) -> Vec<u8>;
+
 /// Every frame of the groups passed through `damage`.
-fn damaged(groups: &[Group], damage: fn(&[u8]) -> Vec<u8>) -> Vec<Group> {
+fn damaged(groups: &[Group], damage: Damage) -> Vec<Group> {
     groups
         .iter()
         .map(|g| g.iter().map(|f| damage(f)).collect())
@@ -303,6 +306,14 @@ fn digest(groups: &[ProgramFrame]) -> u64 {
         }
     }
     h.0
+}
+
+/// The stats' `Debug` text as it read before `layout_follows` existed: the
+/// pinned digests were recorded then. The field is taken out only when it is
+/// zero, which it must be for every pinned decode, so a pass that counted a
+/// followed change would not match.
+fn pinned_stats_text(stats: &ProgramStats) -> String {
+    format!("{stats:?}").replacen(", layout_follows: 0,", ",", 1)
 }
 
 fn text_digest(text: &str) -> u64 {
@@ -510,7 +521,7 @@ fn new_and_the_default_configuration_decode_as_before() {
             name,
             a.groups.len(),
             digest(&a.groups),
-            text_digest(&format!("{:?}", a.stats)),
+            text_digest(&pinned_stats_text(&a.stats)),
         ));
     }
     assert_eq!(
@@ -625,7 +636,7 @@ fn damage_to_the_other_programme_changes_nothing_of_the_chosen_one() {
         ("scene and tones", scene(), t.clone()),
         ("two halves of tones", t[..20].to_vec(), t[20..].to_vec()),
     ];
-    let damages: [(&str, fn(&[u8]) -> Vec<u8>); 2] = [
+    let damages: [(&str, Damage); 2] = [
         ("undecodable", undecodable),
         ("failing its CRC", failing_its_crc),
     ];
@@ -796,6 +807,10 @@ fn following_the_layout_gives_each_group_its_own_channels() {
         }
         assert_tones(&r.groups[10..30], what);
         assert_eq!(
+            r.stats.layout_follows, 2,
+            "{what}: the two changes, followed"
+        );
+        assert_eq!(
             r.stats.layout_changes, 0,
             "{what}: a change the stream signals is not a fault"
         );
@@ -828,6 +843,7 @@ fn keeping_the_first_layout_folds_the_seven_one_groups_into_five_one() {
         assert_eq!(r.end, Ok(()), "{what}");
         assert_eq!(r.groups.len(), 40, "{what}");
         assert_eq!(r.stats.layout_changes, 20, "{what}");
+        assert_eq!(r.stats.layout_follows, 0, "{what}: nothing is followed");
         for (n, g) in r.groups.iter().enumerate() {
             let seven = (10..30).contains(&n);
             assert_eq!(g.layout.channels, FIVE_ONE, "{what}: group {n}");
