@@ -983,6 +983,10 @@ mod tests {
     /// channels with content in no band in common are as apart as two with
     /// other noise in the same band.
     #[test]
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "a bin addresses the same place in both channels"
+    )]
     fn the_highest_band_in_common_decides() {
         let same_noise = moved_by(|seed, own| {
             for bin in 37..49 {
