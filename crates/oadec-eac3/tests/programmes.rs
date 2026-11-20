@@ -25,11 +25,18 @@ use oadec_eac3::{
 /// that follow it.
 type Group = Vec<Vec<u8>>;
 
+/// A committed stream: the authored scene from the CLI's fixtures, the
+/// generated signals from this crate's own.
 fn fixture(name: &str) -> Vec<u8> {
-    let path = format!(
-        "{}/../oadec-cli/tests/fixtures/{name}",
-        env!("CARGO_MANIFEST_DIR")
-    );
+    let path = if name == "authored-scene.ec3" {
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../oadec-cli/tests/fixtures/authored-scene.ec3"
+        )
+        .to_string()
+    } else {
+        format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"))
+    };
     std::fs::read(&path).unwrap_or_else(|e| panic!("{path}: {e}"))
 }
 
