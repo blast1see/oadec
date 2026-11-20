@@ -1,8 +1,8 @@
 # Decoding a stream as it arrives
 
-`oadec decode --format pcm|wav` reads its stream once, as it arrives, from a
-file or from standard input (`-`), and writes its samples to a file or to
-standard output (`-o -`) unit by unit:
+`oadec decode --format pcm|wav` reads its stream once, as it arrives, from
+standard input (`-`), and writes its samples to a file or to standard output
+(`-o -`) unit by unit:
 
 ```text
 mkvextract tracks input.mkv 1:/dev/stdout | oadec decode - --format wav -o - | ffplay -
@@ -12,8 +12,24 @@ Nothing of the stream is held in memory but the units being decoded, a queue
 of a megabyte between the reader and the decode, the 64 KiB at most that tell
 the codecs apart, and what the checks of a TrueHD stream have still to look
 at. The first samples are on standard output as soon as the first units have
-decoded, long before the stream has ended. A decode from a file to a file
-reads the same way, once, and writes what it always wrote.
+decoded, long before the stream has ended.
+
+## Which decode takes which path
+
+| `decode --format pcm\|wav` | Path |
+|---|---|
+| `-` as input, or `-o -` as output | read once, as a stream |
+| a file to a file, with `--json`, `--report`, `--on-layout-change` (or the hidden `--pipeline-stats`) | read once, as a stream: what those options report is of that path |
+| a file to a file, with none of them | the decode it always was: the checks of `verify` read the file on a thread of their own beside the decode |
+
+The last row is the faster where the stream is a file. A TrueHD decode hands
+every access unit to the checks when it reads its stream once, and the checks
+are then held to the decode; two readers of a file are not held to each
+other, and on a processor whose cores differ in speed the one-pass decode of
+a file measured up to a fifth slower. Both paths decode with the
+same code (`decode::Delivery`), write the same bytes, say the same and end
+with the same exit code, which a test holds on every fixture, clean and
+damaged.
 
 ## Which commands read standard input as a stream
 
@@ -130,6 +146,15 @@ too. What the receiver read is a correct beginning of the samples. Windows
 reports the closed pipe in more than one way depending on who held the other
 end (`ERROR_BROKEN_PIPE`, `ERROR_NO_DATA`, `ERROR_PIPE_NOT_CONNECTED`); each
 of them is the same end of the run, and none is a panic or exit 2.
+
+That is what was measured under Git Bash and with the pipes a program makes
+for the processes it starts. Under the native pipeline of PowerShell 7 (7.6
+measured) a receiver that closes early never reaches `oadec` as an error of a
+write: PowerShell stands between the two programs, says itself that the pipe
+is being closed (`ResourceUnavailable`), gives no exit code, and may leave
+`oadec` blocked on a pipe it neither reads nor closes. It does the same to
+any program, Git's `cat` among them. `cmd.exe` was not tried. Nothing is
+promised of a shell that was not measured.
 
 ## How the decode is laid out
 

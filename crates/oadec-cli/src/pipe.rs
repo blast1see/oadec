@@ -112,17 +112,20 @@ pub(crate) fn receiver_closed(err: &anyhow::Error) -> bool {
 
 /// [`receiver_closed`] for one error of a write.
 pub(crate) fn is_receiver_closed(err: &io::Error) -> bool {
-    /// `ERROR_BROKEN_PIPE`, `ERROR_NO_DATA` (the pipe is being closed) and
-    /// `ERROR_PIPE_NOT_CONNECTED`: what a write to a pipe whose reader has
-    /// gone gives on Windows, by who held the other end.
+    err.kind() == io::ErrorKind::BrokenPipe || err.raw_os_error().is_some_and(is_closed_code)
+}
+
+/// Whether `code`, an error code of the system, is a write to a pipe whose
+/// reader has gone: on Windows `ERROR_BROKEN_PIPE`, `ERROR_NO_DATA` (the pipe
+/// is being closed) and `ERROR_PIPE_NOT_CONNECTED`, by who held the other
+/// end. Rust names the first two [`io::ErrorKind::BrokenPipe`] and not the
+/// third; the codes are held here so that none of them rests on that.
+fn is_closed_code(code: i32) -> bool {
     #[cfg(windows)]
     const CLOSED: [i32; 3] = [109, 232, 233];
     #[cfg(not(windows))]
     const CLOSED: [i32; 0] = [];
-    err.kind() == io::ErrorKind::BrokenPipe
-        || err
-            .raw_os_error()
-            .is_some_and(|code| CLOSED.contains(&code))
+    CLOSED.contains(&code)
 }
 
 #[cfg(test)]
@@ -230,17 +233,25 @@ mod tests {
 
     /// The codes Windows gives a write to a pipe whose reader has gone:
     /// `ERROR_BROKEN_PIPE`, `ERROR_NO_DATA` (the pipe is being closed) and
-    /// `ERROR_PIPE_NOT_CONNECTED`.
+    /// `ERROR_PIPE_NOT_CONNECTED`, each by its code alone and as an error of
+    /// a write; and codes that are no closed pipe.
     #[cfg(windows)]
     #[test]
     fn every_code_windows_gives_a_closed_pipe_is_the_receiver_gone() {
+        assert!(is_closed_code(109), "ERROR_BROKEN_PIPE");
+        assert!(is_closed_code(232), "ERROR_NO_DATA");
+        assert!(is_closed_code(233), "ERROR_PIPE_NOT_CONNECTED");
         for code in [109, 232, 233] {
             assert!(
                 is_receiver_closed(&io::Error::from_raw_os_error(code)),
                 "{code}"
             );
         }
-        // a handle that is wrong is not a reader that went away
+        // a handle that is wrong, and a file that is not there, are not a
+        // reader that went away
+        for code in [0, 2, 6, 110, 231, 234] {
+            assert!(!is_closed_code(code), "{code}");
+        }
         assert!(!is_receiver_closed(&io::Error::from_raw_os_error(6)));
     }
 }

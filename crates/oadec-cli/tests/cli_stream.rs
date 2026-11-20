@@ -757,3 +757,125 @@ fn a_change_of_layout_on_standard_output_ends_the_samples_or_keeps_the_layout() 
     assert_eq!(objects.0.status.code(), Some(2));
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// What a run printed, without the line of its speed.
+fn without_speed(bytes: &[u8]) -> Vec<String> {
+    text(bytes)
+        .lines()
+        .filter(|l| !l.to_ascii_lowercase().starts_with("speed:"))
+        .map(ToString::to_string)
+        .collect()
+}
+
+/// A decode from a file to a file reads the file twice, the checks of
+/// `verify` beside the decode, unless a report of it is asked for, which
+/// reads it once as a stream. The two write the same bytes, say the same,
+/// and end with the same exit code, for every fixture, clean and damaged.
+#[test]
+fn a_decode_from_a_file_to_a_file_is_the_same_on_either_path() {
+    let dir = temp("paths");
+    let mut cases: Vec<(String, Vec<u8>)> = Vec::new();
+    let cli = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures");
+    let mut names: Vec<String> = std::fs::read_dir(&cli)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .filter(|n| [".thd", ".mlp", ".ec3"].iter().any(|x| n.ends_with(x)))
+        .collect();
+    names.sort();
+    names.extend(OF_EAC3.iter().map(ToString::to_string));
+    for name in names {
+        cases.push((name.clone(), fixture(&name)));
+    }
+    cases.push(("synthetic.ac3".to_string(), synthetic_ac3()));
+    for (name, bytes) in cases.clone() {
+        let mut damaged = bytes.clone();
+        damaged[bytes.len() / 2] ^= 0x41;
+        cases.push((format!("{name}, damaged"), damaged));
+    }
+    assert!(cases.len() >= 28, "{}", cases.len());
+    let input = dir.join("in.bin");
+    for (name, bytes) in cases {
+        std::fs::write(&input, &bytes).unwrap();
+        for format in ["pcm", "wav"] {
+            let (by_walks, by_stream) = (dir.join("walks.out"), dir.join("stream.out"));
+            let report = dir.join("report.json");
+            for f in [&by_walks, &by_stream] {
+                let _ = std::fs::remove_file(f);
+            }
+            let input = input.to_str().unwrap();
+            let walks = run(&[
+                "decode",
+                input,
+                "--format",
+                format,
+                "-o",
+                by_walks.to_str().unwrap(),
+            ]);
+            let stream = run(&[
+                "decode",
+                input,
+                "--format",
+                format,
+                "-o",
+                by_stream.to_str().unwrap(),
+                "--report",
+                report.to_str().unwrap(),
+            ]);
+            let at = format!("{name}, {format}");
+            assert_eq!(walks.status.code(), stream.status.code(), "{at}");
+            assert_eq!(
+                std::fs::read(&by_walks).ok(),
+                std::fs::read(&by_stream).ok(),
+                "{at}: what was written differs"
+            );
+            assert_eq!(
+                without_speed(&walks.stderr),
+                without_speed(&stream.stderr),
+                "{at}"
+            );
+            assert_eq!(
+                without_speed(&walks.stdout),
+                without_speed(&stream.stdout),
+                "{at}"
+            );
+        }
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A start past the end of the stream delivers nothing on the path that reads
+/// the stream once as well: it is refused by its own cause, exit 2, and
+/// leaves no output behind, from a pipe or with a report asked for.
+#[test]
+fn a_start_past_the_end_leaves_nothing_on_the_stream_path() {
+    let dir = temp("start");
+    let path = fixture_path("authored-scene.mlp");
+    let out = dir.join("nothing.pcm");
+    let report = dir.join("report.json");
+    let args = ["--format", "pcm", "-p", "2", "--start", "9999", "-o"];
+    let from_pipe = {
+        let mut all = vec!["decode", "-"];
+        all.extend_from_slice(&args);
+        all.push(out.to_str().unwrap());
+        piped(&all, &fixture("authored-scene.mlp"))
+    };
+    let with_report = {
+        let mut all = vec!["decode", path.to_str().unwrap()];
+        all.extend_from_slice(&args);
+        all.extend_from_slice(&[out.to_str().unwrap(), "--report", report.to_str().unwrap()]);
+        run(&all)
+    };
+    for (how, ran) in [("from a pipe", from_pipe), ("with a report", with_report)] {
+        let said = text(&ran.stderr);
+        assert_eq!(ran.status.code(), Some(2), "{how}: {said}");
+        assert!(said.contains("past the end of the stream"), "{how}: {said}");
+        assert!(
+            !out.exists(),
+            "{how}: a refused start left an output behind"
+        );
+        assert!(!report.exists(), "{how}: a report of nothing");
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}

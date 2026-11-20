@@ -660,7 +660,19 @@ where
             let isf = isf.unwrap_or(IsfArg::Error);
             let fps = fps.unwrap_or_else(|| "24".to_string());
             let adm_interpolation = adm_interpolation.unwrap_or(InterpolationArg::Profile);
-            if matches!(format, Format::Pcm | Format::Wav) {
+            // A decode to samples reads its stream once, as it arrives, where
+            // either end is a pipe or a report of that decode is asked for.
+            // From a file to a file it is the decode it always was, the
+            // checks of `verify` reading the file beside it: two readers of
+            // a file are faster than one that hands its units to the other
+            // (docs/streaming.md).
+            let streamed = file.as_os_str() == oadec_engine::source::STDIN
+                || to_stdout
+                || json
+                || report.is_some()
+                || pipeline_stats.is_some()
+                || on_layout_change.is_some();
+            if streamed && matches!(format, Format::Pcm | Format::Wav) {
                 // What does not depend on the stream is refused before it is
                 // read, in the order the checks below make; what depends on
                 // it is refused by the decode once it has told the codec, in

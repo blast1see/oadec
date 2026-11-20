@@ -212,14 +212,15 @@ pub(crate) fn decode(asked: Asked, err: &mut dyn Write) -> Result<ExitCode> {
             "queue_high_water": end.queue.high_water,
             "bytes_read": end.bytes,
             "opened": 1,
+            "units_waiting_bound": end.queue.units_bound,
+            "units_waiting_high_water": end.queue.units_high_water,
         });
         std::fs::write(path, format!("{stats:#}\n"))
             .with_context(|| format!("writing {}", path.display()))?;
     }
     let verdict = end.verdict();
-    let report = (asked.json || asked.report.is_some())
-        .then(|| report(&name, asked.wave, &end, &events, verdict));
-    if let (Some(report), Some(path)) = (&report, &asked.report) {
+    let report = report(&name, asked.wave, &end, &events, verdict);
+    if let Some(path) = &asked.report {
         let text = format!("{report:#}\n");
         if path.as_os_str() == pipe::STDOUT {
             io::stdout().write_all(text.as_bytes())?;
@@ -228,7 +229,7 @@ pub(crate) fn decode(asked: Asked, err: &mut dyn Write) -> Result<ExitCode> {
         }
     }
     if asked.json {
-        let line = format!("{}\n", report.as_ref().expect("asked for above"));
+        let line = format!("{report}\n");
         if to_stdout {
             err.write_all(line.as_bytes())?;
         } else {

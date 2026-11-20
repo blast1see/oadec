@@ -46,7 +46,7 @@ use std::io::{self, Read, Write};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use oadec_diag::{Rule, Tally};
@@ -301,13 +301,19 @@ pub trait StreamSink {
     }
 }
 
-/// How the queue of [`decode_reader`] was used.
+/// How the queues of a decode were used.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct QueueStats {
-    /// The most pieces it may hold.
+    /// The most pieces the queue of [`decode_reader`] may hold; 0 where the
+    /// bytes were pushed.
     pub bound: usize,
     /// The most pieces it held at once.
     pub high_water: usize,
+    /// The most decoded units of a TrueHD stream that may wait for their
+    /// checks; 0 for an AC-3 family stream, which nothing waits in.
+    pub units_bound: usize,
+    /// The most that waited at once.
+    pub units_high_water: usize,
 }
 
 /// What a decode of a stream as it arrives came to.
@@ -390,6 +396,10 @@ impl StreamEnd {
 ///
 /// The bytes may be cut anywhere: a unit that is not whole yet waits for the
 /// rest, and what comes out is the same whatever the pieces were.
+///
+/// A call that ends with an error ends the decode: every call after it,
+/// [`push`](Self::push), [`flush`](Self::flush) and
+/// [`finish`](Self::finish), gives an error too, and nothing more is told.
 #[derive(Debug)]
 pub struct StreamDecoder {
     options: StreamOptions,
@@ -400,6 +410,11 @@ pub struct StreamDecoder {
     head: Vec<u8>,
     codec: Option<Codec>,
     walking: Walking,
+    /// A call ended with an error.
+    failed: bool,
+    /// A pause the checks of a TrueHD stream make before each batch: for a
+    /// test that makes them the slower of the two.
+    pace: Option<Duration>,
 }
 
 #[derive(Debug)]
@@ -424,7 +439,17 @@ impl StreamDecoder {
             head: Vec::new(),
             codec: None,
             walking,
+            failed: false,
+            pace: None,
         }
+    }
+
+    /// The same decode with checks that pause for `pace` before each batch
+    /// of units they take.
+    #[cfg(test)]
+    fn with_slow_checks(mut self, pace: Duration) -> Self {
+        self.pace = Some(pace);
+        self
     }
 
     /// The options it was made with.
@@ -438,19 +463,27 @@ impl StreamDecoder {
     ///
     /// # Errors
     /// When the stream cannot be decoded as it was asked, an option that
-    /// does not apply to its codec among them, and what the sink gives.
+    /// does not apply to its codec among them, what the sink gives, and
+    /// when a call before this one ended with an error.
     pub fn push(&mut self, bytes: &[u8], sink: &mut dyn StreamSink) -> Result<()> {
+        self.going()?;
+        let pushed = self.push_on(bytes, sink);
+        self.failed = pushed.is_err();
+        pushed
+    }
+
+    fn push_on(&mut self, bytes: &[u8], sink: &mut dyn StreamSink) -> Result<()> {
         self.pushed += bytes.len() as u64;
-        if self.codec.is_none() {
-            self.head.extend_from_slice(bytes);
-            if self.head.len() < LOOK_AHEAD {
-                return Ok(());
-            }
-            let head = std::mem::take(&mut self.head);
-            self.begin(&head[..LOOK_AHEAD])?;
-            return self.feed(&head, sink);
+        if let Some(codec) = &mut self.codec {
+            return feed(codec, bytes, &mut self.walking, sink);
         }
-        self.feed(bytes, sink)
+        self.head.extend_from_slice(bytes);
+        if self.head.len() < LOOK_AHEAD {
+            return Ok(());
+        }
+        let head = std::mem::take(&mut self.head);
+        let codec = self.codec.insert(self.begin(&head[..LOOK_AHEAD])?);
+        feed(codec, &head, &mut self.walking, sink)
     }
 
     /// The stream has ended: whatever is still held is decoded and written,
@@ -459,29 +492,64 @@ impl StreamDecoder {
     ///
     /// # Errors
     /// When the stream held nothing to decode, which is said in the words a
-    /// file of the same bytes is told, and what the sink gives. A stream
-    /// that held nothing, and a start past its end, deliver nothing, and the
-    /// error says so by its kind: [`crate::Error::NoStream`].
+    /// file of the same bytes is told, what the sink gives, and when a call
+    /// before this one ended with an error. A stream that held nothing, and
+    /// a start past its end, deliver nothing, and the error says so by its
+    /// kind: [`crate::Error::NoStream`].
     pub fn finish(mut self, sink: &mut dyn StreamSink) -> Result<StreamEnd> {
-        if self.codec.is_none() {
-            let head = std::mem::take(&mut self.head);
-            self.begin(&head)?;
-            self.feed(&head, sink)?;
-        }
+        self.going()?;
+        let codec = match self.codec.take() {
+            Some(codec) => codec,
+            None => {
+                let head = std::mem::take(&mut self.head);
+                let mut codec = self.begin(&head)?;
+                feed(&mut codec, &head, &mut self.walking, sink)?;
+                codec
+            }
+        };
         let elapsed = || self.started.elapsed().as_secs_f64();
-        match self.codec.take() {
-            Some(Codec::TrueHd(t)) => t.finish(&self.options, self.pushed, sink, elapsed),
-            Some(Codec::Ac3(a)) => a.finish(&self.options, self.pushed, sink, elapsed),
-            None => unreachable!("the codec is told apart above"),
+        match codec {
+            Codec::TrueHd(t) => t.finish(&self.options, self.pushed, sink, elapsed),
+            Codec::Ac3(a) => a.finish(&self.options, self.pushed, sink, elapsed),
         }
+    }
+
+    /// Tells `sink` everything decoded so far: what waits for the checks of
+    /// `verify` is waited for. A caller that is about to wait for more of the
+    /// stream says it, so that what was decoded is out before then;
+    /// [`decode_reader`] does. Nothing else waits for it: what is told is
+    /// the same whether it is said or not.
+    ///
+    /// # Errors
+    /// What the sink gives, and when a call before this one ended with an
+    /// error.
+    pub fn flush(&mut self, sink: &mut dyn StreamSink) -> Result<()> {
+        self.going()?;
+        let flushed = match &mut self.codec {
+            Some(Codec::TrueHd(t)) => t.tell(sink, true),
+            Some(Codec::Ac3(_)) | None => Ok(()),
+        };
+        self.failed = flushed.is_err();
+        flushed
+    }
+
+    /// An error where a call before ended with one.
+    fn going(&self) -> Result<()> {
+        if self.failed {
+            anyhow::bail!(
+                "the decode of {} ended with an error, and takes nothing more",
+                self.options.name
+            );
+        }
+        Ok(())
     }
 
     /// Tells the codec apart by the first bytes of the stream, and refuses
     /// what the options ask that does not apply to it, in the words a decode
     /// of a file refuses it in.
-    fn begin(&mut self, head: &[u8]) -> Result<()> {
+    fn begin(&self, head: &[u8]) -> Result<Codec> {
         let pcm = &self.options.pcm;
-        self.codec = Some(if eac3::is_eac3_head(head) {
+        Ok(if eac3::is_eac3_head(head) {
             if pcm.on_error.is_some() {
                 return Err(refusal(ON_ERROR_IS_TRUEHD));
             }
@@ -502,32 +570,21 @@ impl StreamDecoder {
             if self.options.on_layout_change == Some(LayoutChange::Fixed) {
                 return Err(refusal(FIXED_LAYOUT_IS_EAC3));
             }
-            Codec::TrueHd(Box::new(TrueHd::new(&self.options)))
-        });
-        Ok(())
+            Codec::TrueHd(Box::new(TrueHd::new(&self.options, self.pace)))
+        })
     }
+}
 
-    /// Tells `sink` everything decoded so far: what waits for the checks of
-    /// `verify` is waited for. A caller that is about to wait for more of the
-    /// stream says it, so that what was decoded is out before then;
-    /// [`decode_reader`] does. Nothing else waits for it: what is told is
-    /// the same whether it is said or not.
-    ///
-    /// # Errors
-    /// What the sink gives.
-    pub fn flush(&mut self, sink: &mut dyn StreamSink) -> Result<()> {
-        match &mut self.codec {
-            Some(Codec::TrueHd(t)) => t.tell(sink, true),
-            Some(Codec::Ac3(_)) | None => Ok(()),
-        }
-    }
-
-    fn feed(&mut self, bytes: &[u8], sink: &mut dyn StreamSink) -> Result<()> {
-        match &mut self.codec {
-            Some(Codec::TrueHd(t)) => t.push(bytes, &mut self.walking, sink),
-            Some(Codec::Ac3(a)) => a.push(bytes, &mut self.walking, sink),
-            None => Ok(()),
-        }
+/// Feeds `bytes` to the decode of the codec told apart.
+fn feed(
+    codec: &mut Codec,
+    bytes: &[u8],
+    walking: &mut Walking,
+    sink: &mut dyn StreamSink,
+) -> Result<()> {
+    match codec {
+        Codec::TrueHd(t) => t.push(bytes, walking, sink),
+        Codec::Ac3(a) => a.push(bytes, walking, sink),
     }
 }
 
@@ -619,7 +676,7 @@ struct Checks {
 }
 
 impl Checks {
-    fn spawn(name: &str) -> Self {
+    fn spawn(name: &str, pace: Option<Duration>) -> Self {
         let (to, batches) = mpsc::sync_channel::<Vec<Unit>>(UNITS_AHEAD / BATCH);
         let (found, from) = mpsc::channel();
         let name = name.to_string();
@@ -631,6 +688,9 @@ impl Checks {
             let mut since_major_sync = 0;
             let mut listed = Listed::default();
             for units in batches {
+                if let Some(pace) = pace {
+                    std::thread::sleep(pace);
+                }
                 let mut told = Vec::with_capacity(units.len());
                 for unit in &units {
                     let index = scan.units;
@@ -748,10 +808,12 @@ struct TrueHd {
     /// Buffers of samples that were told, to be written into again: a unit
     /// is a few hundred samples, and there are a million of them in an hour.
     spare: Vec<Vec<u8>>,
+    /// The most units that waited for their checks at once.
+    waiting_high: usize,
 }
 
 impl TrueHd {
-    fn new(options: &StreamOptions) -> Self {
+    fn new(options: &StreamOptions, pace: Option<Duration>) -> Self {
         let pcm = &options.pcm;
         Self {
             extractor: Extractor::new(),
@@ -764,7 +826,7 @@ impl TrueHd {
                 on_error: pcm.on_error.unwrap_or(OnError::Conceal),
             },
             delivery: None,
-            checks: Checks::spawn(&options.name),
+            checks: Checks::spawn(&options.name, pace),
             waiting: VecDeque::new(),
             units: 0,
             format: Format::TrueHd,
@@ -775,6 +837,7 @@ impl TrueHd {
             },
             said: Vec::new(),
             spare: Vec::new(),
+            waiting_high: 0,
         }
     }
 
@@ -795,7 +858,9 @@ impl TrueHd {
     fn unit(&mut self, unit: Unit, sink: &mut dyn StreamSink) -> Result<()> {
         let index = self.units;
         self.units += 1;
-        if self.delivery.is_none() {
+        let delivery = if let Some(delivery) = &mut self.delivery {
+            delivery
+        } else {
             let presentation = self
                 .opts
                 .presentation
@@ -805,9 +870,9 @@ impl TrueHd {
             {
                 self.format = Format::Mlp;
             }
-            self.delivery = Some(Delivery::new(&self.opts, presentation)?);
-        }
-        let delivery = self.delivery.as_mut().expect("made above");
+            self.delivery
+                .insert(Delivery::new(&self.opts, presentation)?)
+        };
         self.kept.bytes.clear();
         self.said.clear();
         let opened_before = self.kept.spec.is_some();
@@ -859,6 +924,7 @@ impl TrueHd {
             events,
             pcm,
         });
+        self.waiting_high = self.waiting_high.max(self.waiting.len());
         // decoded, the unit goes to the checks
         self.checks.take(unit)?;
         self.tell(sink, false)
@@ -873,7 +939,9 @@ impl TrueHd {
             let Some(found) = self.checks.next(wait, all)? else {
                 return Ok(());
             };
-            let unit = self.waiting.pop_front().expect("not empty");
+            let Some(unit) = self.waiting.pop_front() else {
+                return Ok(());
+            };
             for f in found {
                 sink.event(&StreamEvent::Finding(f))?;
             }
@@ -949,7 +1017,11 @@ impl TrueHd {
             samples: delivery.samples,
             units: self.units,
             bytes: pushed,
-            queue: QueueStats::default(),
+            queue: QueueStats {
+                units_bound: UNITS_AHEAD + 1,
+                units_high_water: self.waiting_high,
+                ..QueueStats::default()
+            },
             told: Told::TrueHd {
                 summary: Box::new(summary),
                 stopped: delivery.stopped,
@@ -1007,7 +1079,9 @@ impl Groups {
         let start = self.start_of(frame.index);
         let (chans, pcm) = eac3::output_channels(frame, self.core_only);
         let rate = frame.core().header.sample_rate;
-        if self.opened.is_none() {
+        let (old, old_rate) = if let Some(opened) = self.opened {
+            opened
+        } else {
             self.order = eac3::output_order(&chans, self.order_kind);
             let ordered: Vec<_> = self.order.iter().map(|&i| chans[i]).collect();
             let (mask, warning) = eac3::channel_mask(&ordered);
@@ -1028,12 +1102,12 @@ impl Groups {
                 layout,
                 rate,
             });
-        }
+            (layout, rate)
+        };
         if !self.core_only {
             if frame.layout_changed && !self.changed {
                 self.changed = true;
                 let byte_offset = start;
-                let (old, old_rate) = self.opened.expect("opened above");
                 self.event(StreamEvent::ConfigChange {
                     unit: frame.index,
                     byte_offset,
@@ -1066,7 +1140,7 @@ impl Groups {
 #[derive(Debug)]
 struct Ac3 {
     splitter: Splitter,
-    walk: Option<Walk>,
+    walk: Walk,
     groups: Groups,
     listed: Listed,
 }
@@ -1076,7 +1150,7 @@ impl Ac3 {
         let pcm = &options.pcm;
         Self {
             splitter: Splitter::new(eac3::READ_BYTES),
-            walk: Some(Walk::new(
+            walk: Walk::new(
                 oadec_eac3::Options {
                     dither: pcm.dither,
                     tpnp: pcm.tpnp,
@@ -1085,7 +1159,7 @@ impl Ac3 {
                     samples: true,
                 },
                 Tally::<oadec_eac3::RuleId>::DEFAULT_MAX_PER_RULE,
-            )),
+            ),
             groups: Groups {
                 core_only: pcm.core_only,
                 order_kind: pcm.order,
@@ -1116,7 +1190,7 @@ impl Ac3 {
 
     /// Takes whatever the splitter can tell, and tells `sink`.
     fn split(&mut self, walking: &mut Walking, sink: &mut dyn StreamSink) -> Result<()> {
-        let walk = self.walk.as_mut().expect("the walk lasts until the end");
+        let walk = &mut self.walk;
         loop {
             let offset = match self.splitter.next() {
                 Split::Wait | Split::End => return Ok(()),
@@ -1159,14 +1233,17 @@ impl Ac3 {
         self.splitter.finish();
         let mut nobody = Walking::of(None, "reading", 0);
         self.split(&mut nobody, sink)?;
-        let walk = self.walk.take().expect("the walk lasts until the end");
-        let (sync_errors, skipped) = (self.splitter.sync_errors, self.splitter.skipped);
-        let groups = &mut self.groups;
-        let pass = walk.end(sync_errors, skipped, &mut |frame| groups.group(frame))?;
-        let found = self
-            .listed
-            .new_in(pass.0.diag(), self.groups.groups, pushed);
-        tell_groups(&mut self.groups, found, sink)?;
+        let Self {
+            splitter,
+            walk,
+            mut groups,
+            mut listed,
+        } = self;
+        let pass = walk.end(splitter.sync_errors, splitter.skipped, &mut |frame| {
+            groups.group(frame)
+        })?;
+        let found = listed.new_in(pass.0.diag(), groups.groups, pushed);
+        tell_groups(&mut groups, found, sink)?;
         let Some(report) = eac3::Report::delivered(&options.name, pass, elapsed()) else {
             return Err(crate::info::no_stream_named(&options.name));
         };
@@ -1176,13 +1253,13 @@ impl Ac3 {
                 _ => Format::Eac3,
             },
             findings: report.findings(),
-            samples: self.groups.samples,
-            units: self.groups.groups,
+            samples: groups.samples,
+            units: groups.groups,
             bytes: pushed,
             queue: QueueStats::default(),
             told: Told::Ac3 {
                 report: Box::new(report),
-                stopped: self.groups.stopped,
+                stopped: groups.stopped,
             },
         })
     }
@@ -1211,8 +1288,13 @@ fn tell_groups(groups: &mut Groups, found: Vec<Finding>, sink: &mut dyn StreamSi
 /// not take.
 ///
 /// When the decode ends with an error before the reader has ended, the
-/// reader is left to end by itself: it stops at its next piece, and a read
-/// that never returns is never waited for.
+/// reader is not waited for: it stops when it next has a piece to put in
+/// the queue. A read that does not return, of a pipe or a socket whose
+/// other end stays open and silent, holds its thread, and the reader with
+/// it, until the read returns; nothing safe can cut a read short. A caller
+/// that keeps running after an error, as a process that ends does not, is
+/// to close the source, the other end of the pipe or the socket, and the
+/// thread then ends.
 ///
 /// # Errors
 /// What reading gives, and what [`StreamDecoder::push`] and
@@ -1276,10 +1358,8 @@ pub fn decode_reader(
     let _ = reader.join();
     let mut end = decoder.finish(sink)?;
     sink.flush()?;
-    end.queue = QueueStats {
-        bound: QUEUE_PIECES,
-        high_water,
-    };
+    end.queue.bound = QUEUE_PIECES;
+    end.queue.high_water = high_water;
     debug_assert_eq!(end.bytes, read.load(Ordering::Relaxed));
     Ok(end)
 }
@@ -1312,6 +1392,133 @@ pub fn stream_wave_header(spec: WavSpec) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A TrueHD stream of 2 400 access units, with four bytes changed.
+    fn damaged_truehd() -> Vec<u8> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../oadec-cli/tests/fixtures/authored-scene.mlp"
+        );
+        let mut bytes = std::fs::read(path).expect("the fixture");
+        for at in [10_000, 100_000, 200_000, 300_000] {
+            bytes[at] ^= 0x41;
+        }
+        bytes
+    }
+
+    /// What a sink was told, in one list.
+    #[derive(Debug, Default)]
+    struct InOrder(Vec<Told>);
+
+    #[derive(Debug, PartialEq)]
+    enum Told {
+        Finding(Finding),
+        Pcm(u64),
+    }
+
+    impl StreamSink for InOrder {
+        fn event(&mut self, event: &StreamEvent) -> Result<()> {
+            if let StreamEvent::Finding(f) = event {
+                self.0.push(Told::Finding(f.clone()));
+            }
+            Ok(())
+        }
+
+        fn pcm(&mut self, frame: PcmFrame<'_>) -> Result<()> {
+            self.0.push(Told::Pcm(frame.unit));
+            Ok(())
+        }
+    }
+
+    /// The findings the checks make at each access unit of `bytes`, by the
+    /// unit they are made at, from a scan of the units outside the decode.
+    fn made_at(bytes: &[u8]) -> Vec<Vec<Finding>> {
+        let mut extractor = Extractor::new();
+        extractor.push(bytes);
+        let mut units = Vec::new();
+        while let Some(unit) = extractor.next_unit().expect("framed") {
+            units.push(unit);
+        }
+        units.extend(extractor.finish().expect("framed").0);
+        let mut scan = Scan::named("", oadec_truehd::Tally::DEFAULT_MAX_PER_RULE);
+        let (mut since, mut listed) = (0, Listed::default());
+        units
+            .iter()
+            .map(|unit| {
+                let index = scan.units;
+                scan.take_unit(unit, &mut since);
+                listed.new_in(&scan.diag.tally, index, unit.offset)
+            })
+            .collect()
+    }
+
+    /// The findings the checks make at a unit are told before the samples of
+    /// that unit and after the samples of the units before it. A finding
+    /// says which unit it is about, which can be the unit before the one it
+    /// was made at, so the unit it was made at is taken from a scan of the
+    /// same units outside the decode.
+    #[test]
+    fn the_findings_made_at_a_unit_are_told_before_its_samples() {
+        let bytes = damaged_truehd();
+        let made = made_at(&bytes);
+        let expected: Vec<(u64, &Finding)> = made
+            .iter()
+            .enumerate()
+            .flat_map(|(k, found)| found.iter().map(move |f| (k as u64, f)))
+            .collect();
+        assert!(expected.len() > 4, "damage is found");
+        let mut told = InOrder::default();
+        let mut decoder = StreamDecoder::new(StreamOptions::new("<stdin>"));
+        for piece in bytes.chunks(70_000) {
+            decoder.push(piece, &mut told).expect("pushed");
+        }
+        decoder.finish(&mut told).expect("decoded");
+        let (mut next, mut last_pcm) = (0, None::<u64>);
+        for event in &told.0 {
+            match event {
+                Told::Finding(f) if next < expected.len() => {
+                    let (at, made) = expected[next];
+                    assert_eq!(f, made, "the findings are the checks' own, in order");
+                    assert!(
+                        last_pcm.is_none_or(|u| u < at),
+                        "a finding made at unit {at} after the samples of unit {last_pcm:?}"
+                    );
+                    next += 1;
+                }
+                // what the end of the stream adds, after every unit
+                Told::Finding(_) => {}
+                Told::Pcm(unit) => {
+                    assert!(
+                        expected.get(next).is_none_or(|&(at, _)| at > *unit),
+                        "the samples of unit {unit} before a finding made at it"
+                    );
+                    last_pcm = Some(*unit);
+                }
+            }
+        }
+        assert_eq!(next, expected.len(), "every finding was told");
+    }
+
+    /// Checks slower than the decode hold it back: no more decoded units
+    /// wait for them than the bound, and with checks this slow as many do.
+    #[test]
+    fn slow_checks_hold_the_decode_to_its_bound() {
+        let bytes = damaged_truehd();
+        let mut told = InOrder::default();
+        let mut decoder = StreamDecoder::new(StreamOptions::new("<stdin>"))
+            .with_slow_checks(Duration::from_millis(15));
+        for piece in bytes.chunks(64 << 10) {
+            decoder.push(piece, &mut told).expect("pushed");
+        }
+        let end = decoder.finish(&mut told).expect("decoded");
+        assert_eq!(end.queue.units_bound, UNITS_AHEAD + 1);
+        assert_eq!(
+            end.queue.units_high_water, end.queue.units_bound,
+            "{:?}",
+            end.queue
+        );
+        assert_eq!(end.units, 2400);
+    }
 
     fn le32(bytes: &[u8], at: usize) -> u32 {
         u32::from_le_bytes(bytes[at..at + 4].try_into().expect("four bytes"))

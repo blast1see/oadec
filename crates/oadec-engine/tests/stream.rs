@@ -414,3 +414,113 @@ fn a_change_of_layout_ends_the_output_or_keeps_it_as_asked() {
     assert!(!stopped.pcm.is_empty() && stopped.pcm.len() < filled.len());
     assert!(filled.starts_with(&stopped.pcm));
 }
+
+/// What a sink that holds bytes back is told: samples, and the times it is
+/// to let them go.
+#[derive(Debug, Default)]
+struct Flushes(Vec<&'static str>);
+
+impl StreamSink for Flushes {
+    fn event(&mut self, _: &StreamEvent) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn pcm(&mut self, _: PcmFrame<'_>) -> anyhow::Result<()> {
+        self.0.push("pcm");
+        Ok(())
+    }
+
+    fn flush(&mut self) -> anyhow::Result<()> {
+        self.0.push("flush");
+        Ok(())
+    }
+}
+
+/// A sink that holds bytes back is not left holding the last of them: a
+/// flush follows the last samples, for a stream of either family.
+#[test]
+fn a_flush_follows_the_last_samples() {
+    for name in ["truehd-20-44k.thd", "eac3-20-coupled.ec3"] {
+        let mut told = Flushes::default();
+        decode_reader(
+            Box::new(std::io::Cursor::new(fixture(name))),
+            StreamOptions::new(NAME),
+            &mut told,
+        )
+        .expect("the stream decodes");
+        let last = told.0.iter().rposition(|&t| t == "pcm").expect("samples");
+        assert!(
+            told.0[last..].contains(&"flush"),
+            "{name}: nothing let the last samples go"
+        );
+    }
+}
+
+/// A sink that fails at its first samples.
+#[derive(Debug, Default)]
+struct Failing;
+
+impl StreamSink for Failing {
+    fn event(&mut self, _: &StreamEvent) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn pcm(&mut self, _: PcmFrame<'_>) -> anyhow::Result<()> {
+        anyhow::bail!("the receiver went away")
+    }
+}
+
+/// What is pushed, how, and to what.
+type Case<'a> = (&'a str, StreamOptions, &'a [u8], Box<dyn StreamSink>);
+
+/// A call that ends with an error ends the decode: every call after it is
+/// an error too, and none panics, whatever the error was.
+#[test]
+fn after_an_error_every_call_is_an_error() {
+    // longer than what is held to tell the codecs apart, so that a push
+    // decodes; the TrueHD stream has more units than wait for their checks
+    let ec3 = fixture("eac3-71-tones.ec3");
+    let thd = fixture("authored-scene.mlp");
+    // an option the codec refuses once it is told apart
+    let refused = StreamOptions {
+        pcm: PcmOptions {
+            on_error: Some(api::OnError::Stop),
+            ..PcmOptions::default()
+        },
+        ..StreamOptions::new(NAME)
+    };
+    let cases: Vec<Case<'_>> = vec![
+        ("a refusal", refused, &ec3, Box::new(Told::default())),
+        (
+            "a sink that fails",
+            StreamOptions::new(NAME),
+            &thd,
+            Box::new(Failing),
+        ),
+        (
+            "a sink that fails, E-AC-3",
+            StreamOptions::new(NAME),
+            &ec3,
+            Box::new(Failing),
+        ),
+    ];
+    for (what, options, bytes, mut sink) in cases {
+        let mut decoder = StreamDecoder::new(options);
+        let first = decoder.push(bytes, &mut *sink);
+        let first = format!("{:#}", first.expect_err(what));
+        let again = decoder.push(&bytes[..100], &mut *sink).expect_err(what);
+        assert!(
+            format!("{again:#}").contains("ended with an error"),
+            "{what}: {again:#} after {first}"
+        );
+        assert!(decoder.push(&[], &mut *sink).is_err(), "{what}");
+        assert!(decoder.flush(&mut *sink).is_err(), "{what}");
+        assert!(decoder.finish(&mut *sink).is_err(), "{what}");
+    }
+    // and an error at the end of the stream is the error of the end
+    let mut decoder = StreamDecoder::new(StreamOptions::new(NAME));
+    decoder
+        .push(&[0u8; 100], &mut Told::default())
+        .expect("held");
+    assert!(decoder.finish(&mut Told::default()).is_err());
+}
