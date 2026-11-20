@@ -79,7 +79,12 @@ pub const LOOK_AHEAD: usize = eac3::SNIFF_BYTES;
 
 /// Access units the checks of a TrueHD stream may be behind its decode, and
 /// decoded units that may wait for them to catch up.
-const UNITS_AHEAD: usize = 256;
+const UNITS_AHEAD: usize = 1024;
+
+/// Access units handed to the checks at a time. A unit is a few hundred
+/// bytes and there are 1 200 of them in a second of audio: one by one, the
+/// two threads spent more time waking each other than checking.
+const BATCH: usize = 64;
 
 /// What [`LayoutChange::Fixed`] on a TrueHD stream is told.
 pub const FIXED_LAYOUT_IS_EAC3: &str = "--on-layout-change fixed keeps the layout of the first \
@@ -502,6 +507,21 @@ impl StreamDecoder {
         Ok(())
     }
 
+    /// Tells `sink` everything decoded so far: what waits for the checks of
+    /// `verify` is waited for. A caller that is about to wait for more of the
+    /// stream says it, so that what was decoded is out before then;
+    /// [`decode_reader`] does. Nothing else waits for it: what is told is
+    /// the same whether it is said or not.
+    ///
+    /// # Errors
+    /// What the sink gives.
+    pub fn flush(&mut self, sink: &mut dyn StreamSink) -> Result<()> {
+        match &mut self.codec {
+            Some(Codec::TrueHd(t)) => t.tell(sink, true),
+            Some(Codec::Ac3(_)) | None => Ok(()),
+        }
+    }
+
     fn feed(&mut self, bytes: &[u8], sink: &mut dyn StreamSink) -> Result<()> {
         match &mut self.codec {
             Some(Codec::TrueHd(t)) => t.push(bytes, &mut self.walking, sink),
@@ -588,14 +608,19 @@ struct Waiting {
 /// their own.
 #[derive(Debug)]
 struct Checks {
-    to: Option<SyncSender<Unit>>,
-    from: Receiver<Vec<Finding>>,
+    to: Option<SyncSender<Vec<Unit>>>,
+    from: Receiver<Vec<Vec<Finding>>>,
     thread: Option<std::thread::JoinHandle<Box<Scan>>>,
+    /// Units that go to the checks together, once there are [`BATCH`].
+    batch: Vec<Unit>,
+    /// The findings of each unit the checks have told and the decode has
+    /// not, in order.
+    found: VecDeque<Vec<Finding>>,
 }
 
 impl Checks {
     fn spawn(name: &str) -> Self {
-        let (to, units) = mpsc::sync_channel::<Unit>(UNITS_AHEAD);
+        let (to, batches) = mpsc::sync_channel::<Vec<Unit>>(UNITS_AHEAD / BATCH);
         let (found, from) = mpsc::channel();
         let name = name.to_string();
         let thread = std::thread::spawn(move || {
@@ -605,11 +630,14 @@ impl Checks {
             ));
             let mut since_major_sync = 0;
             let mut listed = Listed::default();
-            for unit in units {
-                let index = scan.units;
-                scan.take_unit(&unit, &mut since_major_sync);
-                let new = listed.new_in(&scan.diag.tally, index, unit.offset);
-                if found.send(new).is_err() {
+            for units in batches {
+                let mut told = Vec::with_capacity(units.len());
+                for unit in &units {
+                    let index = scan.units;
+                    scan.take_unit(unit, &mut since_major_sync);
+                    told.push(listed.new_in(&scan.diag.tally, index, unit.offset));
+                }
+                if found.send(told).is_err() {
                     break;
                 }
             }
@@ -619,11 +647,27 @@ impl Checks {
             to: Some(to),
             from,
             thread: Some(thread),
+            batch: Vec::with_capacity(BATCH),
+            found: VecDeque::new(),
         }
     }
 
-    fn send(&mut self, unit: Unit) -> Result<()> {
-        let sent = self.to.as_ref().map(|to| to.send(unit));
+    /// The next unit, checked with the units of its batch.
+    fn take(&mut self, unit: Unit) -> Result<()> {
+        self.batch.push(unit);
+        if self.batch.len() >= BATCH {
+            self.send()?;
+        }
+        Ok(())
+    }
+
+    /// The units of the batch go to the checks, however many there are.
+    fn send(&mut self) -> Result<()> {
+        if self.batch.is_empty() {
+            return Ok(());
+        }
+        let batch = std::mem::replace(&mut self.batch, Vec::with_capacity(BATCH));
+        let sent = self.to.as_ref().map(|to| to.send(batch));
         if matches!(sent, Some(Ok(()))) {
             Ok(())
         } else {
@@ -632,16 +676,29 @@ impl Checks {
     }
 
     /// The findings of the next unit: waiting for them, or `None` where they
-    /// are not in yet.
-    fn next(&mut self, wait: bool) -> Result<Option<Vec<Finding>>> {
-        if wait {
-            return self.from.recv().map(Some).map_err(|_| self.failed());
+    /// are not in yet. With `all`, the units that wait for a batch are sent
+    /// first; without, the next unit is in a batch that was sent, because
+    /// more units wait than a batch holds, and a batch is not cut short for
+    /// it: once the checks are the slower, cut short they would go one unit
+    /// at a time.
+    fn next(&mut self, wait: bool, all: bool) -> Result<Option<Vec<Finding>>> {
+        if let Some(found) = self.found.pop_front() {
+            return Ok(Some(found));
         }
-        match self.from.try_recv() {
-            Ok(found) => Ok(Some(found)),
-            Err(TryRecvError::Empty) => Ok(None),
-            Err(TryRecvError::Disconnected) => Err(self.failed()),
-        }
+        let told = if wait {
+            if all {
+                self.send()?;
+            }
+            self.from.recv().map_err(|_| self.failed())?
+        } else {
+            match self.from.try_recv() {
+                Ok(told) => told,
+                Err(TryRecvError::Empty) => return Ok(None),
+                Err(TryRecvError::Disconnected) => return Err(self.failed()),
+            }
+        };
+        self.found.extend(told);
+        Ok(self.found.pop_front())
     }
 
     /// The scan, once every unit was sent; `None` where it was joined
@@ -688,6 +745,9 @@ struct TrueHd {
     opened: Option<(Layout, u32)>,
     kept: Kept,
     said: Vec<u8>,
+    /// Buffers of samples that were told, to be written into again: a unit
+    /// is a few hundred samples, and there are a million of them in an hour.
+    spare: Vec<Vec<u8>>,
 }
 
 impl TrueHd {
@@ -714,6 +774,7 @@ impl TrueHd {
                 ..Kept::default()
             },
             said: Vec::new(),
+            spare: Vec::new(),
         }
     }
 
@@ -746,7 +807,6 @@ impl TrueHd {
             }
             self.delivery = Some(Delivery::new(&self.opts, presentation)?);
         }
-        self.checks.send(unit.clone())?;
         let delivery = self.delivery.as_mut().expect("made above");
         self.kept.bytes.clear();
         self.said.clear();
@@ -789,7 +849,8 @@ impl TrueHd {
             });
         }
         let pcm = if taken == Taken::Written {
-            std::mem::take(&mut self.kept.bytes)
+            let spare = self.spare.pop().unwrap_or_default();
+            std::mem::replace(&mut self.kept.bytes, spare)
         } else {
             Vec::new()
         };
@@ -798,6 +859,8 @@ impl TrueHd {
             events,
             pcm,
         });
+        // decoded, the unit goes to the checks
+        self.checks.take(unit)?;
         self.tell(sink, false)
     }
 
@@ -807,7 +870,7 @@ impl TrueHd {
     fn tell(&mut self, sink: &mut dyn StreamSink, all: bool) -> Result<()> {
         while !self.waiting.is_empty() {
             let wait = all || self.waiting.len() > UNITS_AHEAD;
-            let Some(found) = self.checks.next(wait)? else {
+            let Some(found) = self.checks.next(wait, all)? else {
                 return Ok(());
             };
             let unit = self.waiting.pop_front().expect("not empty");
@@ -822,6 +885,11 @@ impl TrueHd {
                     unit: unit.unit,
                     bytes: &unit.pcm,
                 })?;
+                if self.spare.len() < BATCH {
+                    let mut spare = unit.pcm;
+                    spare.clear();
+                    self.spare.push(spare);
+                }
             }
         }
         Ok(())
@@ -934,6 +1002,9 @@ impl Groups {
 
     fn group(&mut self, frame: &oadec_eac3::ProgramFrame) -> Result<()> {
         self.groups = self.groups.max(frame.index + 1);
+        // the starts of the groups before this one are given up here, so
+        // they are held for the groups in flight and no longer
+        let start = self.start_of(frame.index);
         let (chans, pcm) = eac3::output_channels(frame, self.core_only);
         let rate = frame.core().header.sample_rate;
         if self.opened.is_none() {
@@ -961,7 +1032,7 @@ impl Groups {
         if !self.core_only {
             if frame.layout_changed && !self.changed {
                 self.changed = true;
-                let byte_offset = self.start_of(frame.index);
+                let byte_offset = start;
                 let (old, old_rate) = self.opened.expect("opened above");
                 self.event(StreamEvent::ConfigChange {
                     unit: frame.index,
@@ -1189,6 +1260,7 @@ pub fn decode_reader(
         let piece = match pieces.try_recv() {
             Ok(piece) => piece,
             Err(TryRecvError::Empty) => {
+                decoder.flush(sink)?;
                 sink.flush()?;
                 match pieces.recv() {
                     Ok(piece) => piece,
@@ -1206,7 +1278,7 @@ pub fn decode_reader(
     sink.flush()?;
     end.queue = QueueStats {
         bound: QUEUE_PIECES,
-        high_water: high_water.min(QUEUE_PIECES),
+        high_water,
     };
     debug_assert_eq!(end.bytes, read.load(Ordering::Relaxed));
     Ok(end)

@@ -145,7 +145,8 @@ the stream is shorter: what a decode of a file reads of its head to do the
 same. It is decoded as the rest of the stream is, once the codec is known.
 
 A TrueHD access unit goes to the decoder and to the checks of `verify`, which
-run on a thread of their own, 256 units behind the decode at most: the checks
+run on a thread of their own, in batches of 64 units and 1 024 units behind
+the decode at most: the checks
 are made on the units the decode reads, and on no copy of the stream. A unit
 is told when its checks are in: its findings first, then what the decode said
 of it, then its samples. So the samples, the report and the order of its

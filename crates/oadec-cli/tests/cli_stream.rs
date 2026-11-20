@@ -348,14 +348,17 @@ fn the_first_samples_are_out_before_the_stream_has_ended() {
     let (tell, told) = mpsc::channel();
     reading(child.stdout.take().expect("its stdout"), tell);
     let mut stdin = child.stdin.take().expect("its stdin");
-    // what tells the codec is in the first of these; the rest is held back
-    let half = bytes.len() / 2;
+    // What tells the codec is in the first 64 KiB of these, and the samples
+    // of the rest are a quarter of a megabyte: less than what is held back
+    // for standard output, so they come out only because the decode lets
+    // them go when it waits for more of the stream.
+    let held_back = 128 << 10;
     // a run that ends early closes the pipe, and is caught below
-    let _ = stdin.write_all(&bytes[..half]);
+    let _ = stdin.write_all(&bytes[..held_back]);
     let _ = stdin.flush();
     let first = told.recv_timeout(PATIENCE);
     // the rest, and the end of the stream, only now
-    let _ = stdin.write_all(&bytes[half..]);
+    let _ = stdin.write_all(&bytes[held_back..]);
     drop(stdin);
     let status = wait(&mut child, "a decode of a pipe");
     let first = first.expect("samples came out while the stream was still open");
