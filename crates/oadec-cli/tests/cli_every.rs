@@ -47,6 +47,24 @@ fn streams(dir: &Path) -> Vec<PathBuf> {
     found
 }
 
+/// The presentations `info` says the stream carries itself: neither a copy
+/// of another nor absent.
+fn carried(stream: &str) -> Vec<usize> {
+    let info = oadec(&["info", stream]);
+    assert!(info.status.success(), "{stream}: {}", text(&info.stderr));
+    let carried: Vec<usize> = text(&info.stdout)
+        .lines()
+        .filter_map(|line| {
+            let (index, rest) = line.trim_start().split_once(": substreams ")?;
+            let kind = rest.rsplit_once('[')?.1;
+            (!kind.starts_with("copy of") && !kind.starts_with("not carried"))
+                .then(|| index.parse().ok())?
+        })
+        .collect();
+    assert!(!carried.is_empty(), "{stream}: info lists no presentation");
+    carried
+}
+
 /// The lines a run said, but the one of its speed.
 fn said(out: &Output) -> Vec<String> {
     text(&out.stderr)
@@ -79,13 +97,13 @@ fn every_presentation_in_one_pass_is_the_file_of_its_own_decode() {
             ]);
             let lines = said(&every);
             let mut worst = 0;
-            let mut written = 0;
+            let mut written = Vec::new();
             for p in 0..4 {
                 let part = all_dir.join(format!("out.p{p}.{ext}"));
                 if !part.exists() {
                     continue;
                 }
-                written += 1;
+                written.push(p);
                 let one = dir.join(format!("one.{ext}"));
                 let alone = oadec(&[
                     "decode",
@@ -111,10 +129,9 @@ fn every_presentation_in_one_pass_is_the_file_of_its_own_decode() {
                 worst = worst.max(alone.status.code().unwrap_or(2));
                 compared += 1;
             }
-            assert!(
-                written > 0,
-                "{name}: no presentation was written: {lines:?}"
-            );
+            // a presentation that is a copy of another is that one, and is
+            // not written again
+            assert_eq!(written, carried(name), "{name}: {lines:?}");
             assert_eq!(every.status.code(), Some(worst), "{name}: {lines:?}");
         }
     }
