@@ -30,6 +30,22 @@ const NN: usize = 2 * N;
 /// `unit_amplitude_and_zero_angle_return_the_carrier` measures it.
 const OLA_GAIN: f64 = 2.0;
 
+/// The de-correlation values of clause E.3.5.5.3 given from outside, so the
+/// synthesis can be held against `tools/ecpl_reference.py` with the same
+/// draws. A test hook: the decoder's own values are never replaced by it.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct RandomValues {
+    /// `rand_notrans[ch][bin]`, one row per full-bandwidth channel
+    /// (`MAX_FBW` rows), each value on `[-1, 1)`.
+    pub notrans: Vec<[f64; N]>,
+    /// `rand_trans[ch][bnd]` in draw order: per block with enhanced coupling,
+    /// per coupled channel after the first in ascending order, per band, a
+    /// transient in the channel or not. The decoder's own source draws in
+    /// the same order.
+    pub trans: Vec<f64>,
+}
+
 /// Deferred enhanced coupling synthesis; one per decoder.
 #[derive(Debug)]
 pub struct Synth {
@@ -75,6 +91,16 @@ impl Synth {
             trans: Noise::new(0x85EB_CA6B),
             y,
         }
+    }
+
+    /// A synthesiser whose de-correlation values are `values` rather than
+    /// its own (a test hook, see [`RandomValues`]). Running past the end of
+    /// `values.trans` panics.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn with_random_values(values: RandomValues) -> Self {
+        let _ = values;
+        unimplemented!("P3 stop 2: the hook is the contract of stop 1")
     }
 
     /// Forgets the previous block (after a splice or an error).

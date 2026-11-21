@@ -210,6 +210,16 @@ impl Decoder {
         self.decorrelation_status = status.unwrap_or(Status::NotApplied(NotApplied::NoCoupling));
     }
 
+    /// Feeds the enhanced coupling synthesis of the full ATSC reading
+    /// ([`crate::frame::Options::ecpl_full`]) `values` instead of its own
+    /// de-correlation values. A test hook for the comparison with
+    /// `tools/ecpl_reference.py`; it changes nothing on the default path.
+    #[doc(hidden)]
+    pub fn set_ecpl_random(&mut self, values: ecpl::RandomValues) {
+        let _ = values;
+        unimplemented!("P3 stop 2: the hook is the contract of stop 1")
+    }
+
     /// Forgets the overlap history and any held frame (after a splice or an
     /// error). Drain [`Decoder::flush`] first if the held frame is wanted.
     pub fn reset(&mut self) {

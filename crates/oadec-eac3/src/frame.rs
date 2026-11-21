@@ -266,6 +266,32 @@ pub struct EcplBlock {
     pub coeffs: [f64; N],
 }
 
+impl EcplBlock {
+    /// The block the parser builds from the syntax elements of clause
+    /// E.3.3: `ecpl_begin_subbnd`, `ecpl_end_subbnd`, `ecplbndstrc` (entries
+    /// below `max(9, begin + 1)` are ignored, as the syntax never sends
+    /// them), `ecplangleintrp`, the coupled channels and the coefficients.
+    /// The parser and the reference test share it, so the band layout is
+    /// held against the reference too.
+    ///
+    /// # Errors
+    ///
+    /// [`crate::Eac3Error::Syntax`] when `begin >= end` or `end` is past
+    /// the sub-band table, or no channel is coupled.
+    #[doc(hidden)]
+    pub fn from_syntax(
+        begin: usize,
+        end: usize,
+        bndstrc: &[bool; 22],
+        angle_interp: bool,
+        chans: Vec<Option<EcplChannel>>,
+        coeffs: [f64; N],
+    ) -> crate::Result<Self> {
+        let _ = (begin, end, bndstrc, angle_interp, chans, coeffs);
+        unimplemented!("P3 stop 2: the constructor is the contract of stop 1")
+    }
+}
+
 /// One channel's transient pre-noise processing for one frame
 /// (ATSC A/52:2018 clause E.3.7).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
