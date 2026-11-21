@@ -182,6 +182,20 @@ impl JocDecoder {
         self.interp.get(obj)?.get(ts)
     }
 
+    /// The matrix [`Self::reconstruct`] applies to object `obj` in time slot
+    /// `ts` of the frame in flight, `[ch][sb]`: [`Self::matrix`] after the lag
+    /// of [`Self::set_lag`] has moved it, so that the first `lag` slots meet
+    /// the tail of the frame before. Read only, for measuring (the object
+    /// tap of the engine). `None` outside the frame or the objects.
+    #[must_use]
+    pub fn applied(&self, obj: usize, ts: usize) -> Option<&[[f64; BANDS]; MAX_CHANNELS]> {
+        if ts < self.lag {
+            self.carried.get(obj)?.get(ts)
+        } else {
+            self.interp.get(obj)?.get(ts - self.lag)
+        }
+    }
+
     /// Keeps the previous matrices for a frame without side information.
     pub fn hold(&mut self, num_ts: usize) {
         self.carry();

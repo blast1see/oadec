@@ -31,6 +31,9 @@ use crate::decode::format_duration;
 use crate::eac3::for_each_frame;
 use crate::integrity::{Findings, Verdict};
 
+mod tap;
+pub use tap::{JocTap, TapOptions, TapSlot, TapStart};
+
 /// Samples the core decoder emits before the first frame's audio proper (the
 /// first block's half window). The Dolby decoder drops them; the metadata
 /// timing counts from the first frame's first sample as it does.
@@ -1069,6 +1072,27 @@ pub fn joc_pcm(source: &crate::source::Source, opts: &Options) -> Result<JocPcm>
         frames: pl.frames,
         splices: pl.splices,
     })
+}
+
+/// [`joc_pcm`] with a [`JocTap`] reading every time slot of the object path:
+/// the same decode, the same [`JocPcm`] to the byte, and the tap told what
+/// each stage held (`TapSlot`). The tap is borrowed for the call and runs on
+/// the decoding thread. With `TapOptions::default()` the objects are those of
+/// [`joc_pcm`]; `measure` turns on what only a measurement asks for.
+///
+/// # Errors
+/// What [`joc_pcm`] refuses.
+///
+/// Round 5, stop 1: the signature is fixed and the decode is not wired yet,
+/// so this refuses every stream; [`joc_pcm`] does not pass through it.
+pub fn joc_pcm_tapped(
+    source: &crate::source::Source,
+    opts: &Options,
+    measure: TapOptions,
+    tap: &mut dyn JocTap,
+) -> Result<JocPcm> {
+    let _ = (source, opts, measure, tap);
+    bail!("the JOC tap is not wired yet (round 5, stop 2)")
 }
 
 /// What a decode of the objects of an E-AC-3 JOC stream wrote.
