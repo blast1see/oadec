@@ -1,0 +1,806 @@
+{
+ "what": "Enhanced coupling, Dolby profile: what Dolby's decoder does to an enhanced coupled channel beyond the amplitude, measured as a black box (round 5, P2)",
+ "answer": "Nothing of its own. Dolby's decoder makes of an enhanced coupling block exactly what it makes of a standard coupling block with the same coupled coefficients: a stream with one amplitude code a frame and its twin, the same frames with standard coordinates of the same values, decode to the same bytes in dlbac3dec, on 13 carriers of 13 (Dolby's encoder, FFmpeg and TotalCode Studio; 2/0 and 5.1; 128 to 640 kbit/s; with and without the hybrid transform on the coupling channel) and on six more pairs of selections. The amplitude-dependent decorrelation of round 4 is the decorrelation Dolby's decoder applies to every coupled channel (a X + b D(X), evidence 52), its weight moving with the level the code leaves. Angle, chaos, the angle interpolation and the transient flag are not read at all (12 streams, one Dolby decode). A model of it for enhanced coupling is a model of the standard coupling decorrelation; the candidate on hand, the existing experimental rule (--decorrelate) laid over enhanced coupling, fails the promotion criterion on every holdout, so no model is added and the conformance row stays NOT MET",
+ "method": [
+  "tools/ecpl_amp_sweep.py make/dolby/analyse: the round-4 sweep, written down; on the round-4 clip every stream and decode is the bytes of round 4 and the table is the same cell for cell",
+  "eac3-ecpl-inject --plan, with the directives of this round: 'target standard' writes standard coordinates of the value of each enhanced coupling amplitude (every code of table E3.10 is one exactly), 'seed zero' pads every rewritten frame so the dither seed word, the 16 bits that end 18 bits before the end, is zero in both twins; 'band', 'channel', 'rest' and 'amp pattern' select",
+  "dlbac3dec out-ch-config=7 (5.1) or 0 (2/0), drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true",
+  "tools/ecpl_weights.py: per amplitude code the pair (a, b) of a X + b D(X) and the coherence, D the all-pass learned on the stream",
+  "tools/ecpl_promotion.py over the carrier files written by ecpl_amp_sweep.py cells; the candidate model's decode is oadec decode --decorrelate of the standard twin, whose coefficients are those of the sweep bit for bit"
+ ],
+ "reproduced_round_4": {
+  "clip_sha256": "f70ad6baf1b4533972d3c3e7e0319f52c2a9161978999e14dfee1a6e509c17d4",
+  "stream_sha256": "9bc26c26b956855e0e5d44473b33c79b770f1716c97c5b291d3007ec407cbaf1",
+  "pairs_further": "50 of 128 (L R Ls Rs), largest 4.04 dB at Rs code 9, gain 0.448 to 1.000",
+  "cells_different_from_round_4": 0,
+  "correction": "the centre of the clip is coupled (all five channels in 19 782 of 19 830 blocks), so the conversion does touch it; the 2.4 dB the centre moves is not a floor the conversion leaves alone, it is the centre's own departure moving with the code (Dolby does not decorrelate the centre: its gain is 1.000)"
+ },
+ "angle_chaos_flags": {
+  "streams": [
+   "a0-c0",
+   "a0-c3",
+   "a0-c7",
+   "a16-c0",
+   "a16-c3",
+   "a16-c7",
+   "a32-c0",
+   "a32-c3",
+   "a32-c7",
+   "x-angle-sweep-chaos7-trans",
+   "x-interp1",
+   "x-reuse2",
+   "x-reuse3",
+   "x-trans-always"
+  ],
+  "dolby_groups": [
+   [
+    "a0-c0",
+    "a0-c3",
+    "a0-c7",
+    "a16-c0",
+    "a16-c3",
+    "a16-c7",
+    "a32-c0",
+    "a32-c3",
+    "a32-c7",
+    "x-angle-sweep-chaos7-trans",
+    "x-interp1",
+    "x-trans-always"
+   ],
+   [
+    "x-reuse2"
+   ],
+   [
+    "x-reuse3"
+   ]
+  ],
+  "reading": "every angle {0, pi/2, pi} x chaos {0, 3, 7}, an angle sweep with chaos 7 and every block a transient, interpolation on, transients on: one Dolby decode, the sweep's. The two reuse streams differ in round 4's way only by their dither seed: with 'seed zero' reuse every 3 decodes as the sweep in Dolby's decoder"
+ },
+ "the_filter": {
+  "learned_from_the_sweep": {
+   "denominator": [
+    -0.0944,
+    0.0242,
+    -0.3959
+   ],
+   "real_pole": 0.7557,
+   "pair": [
+    0.7238,
+    117.18
+   ]
+  },
+  "learned_from_standard_coupling_of_the_same_clip": {
+   "denominator": [
+    -0.0943,
+    0.0241,
+    -0.3959
+   ],
+   "real_pole": 0.7557,
+   "pair": [
+    0.7238,
+    117.18
+   ]
+  },
+  "same_frames_every_code": "with one code for the whole stream (codes 0 to 28), L and R take an angle atan2(|b|, a) of 0.58 to 0.60 from code 0 to 10 that falls to 0.02 to 0.05 at code 28; Ls and Rs take 0.38 and 0.40 at code 0 and 0.96 and 0.83 from code 6 on"
+ },
+ "carriers": [
+  {
+   "carrier": "dee-51-384-noise",
+   "what": "DEE 5.2.1, 5.1 384 kbit/s, ecpl_signals.py noise (seed 3)",
+   "role": "holdout",
+   "sha256": "00bd29548f8336ec876728f061f998b0b4d048335aeaaeca758ca1283ee8ae0a",
+   "layout": "5.1",
+   "kbps": 384,
+   "coupled_bins": [
+    109,
+    193
+   ],
+   "coupled_channels": [
+    "L",
+    "C",
+    "R",
+    "Ls",
+    "Rs"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.9989,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "0d10570b6f55509ab158a8386eea6077"
+   },
+   "enhanced_further_than_standard": "48 of 160",
+   "largest_db": 34.242,
+   "largest_at": [
+    31,
+    "C"
+   ],
+   "gain_range": [
+    0.2993,
+    1.0003
+   ]
+  },
+  {
+   "carrier": "dee-51-640-tones",
+   "what": "DEE 5.2.1, 5.1 640 kbit/s, ecpl_signals.py tones",
+   "role": null,
+   "sha256": null,
+   "coupling": "none: no coupled block, so not a carrier"
+  },
+  {
+   "carrier": "dee-st128-noise",
+   "what": "DEE 5.2.1 dee_ddp_encoder -e ddp --data-rate 128 -c stereo, ecpl_signals.py noise (seed 2)",
+   "role": "holdout",
+   "sha256": "a20d856852774fb5f2341c96eea47b13c2952cab145809904fe8e320d297471f",
+   "layout": "2.0",
+   "kbps": 128,
+   "coupled_bins": [
+    61,
+    133
+   ],
+   "coupled_channels": [
+    "L",
+    "R"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.9957,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "addaa783c82783f30514fe15f9720342"
+   },
+   "enhanced_further_than_standard": "40 of 64",
+   "largest_db": 1.032,
+   "largest_at": [
+    30,
+    "R"
+   ],
+   "gain_range": [
+    0.6032,
+    0.9279
+   ]
+  },
+  {
+   "carrier": "dee-st192-bursts",
+   "what": "DEE 5.2.1, 2/0 192 kbit/s, ecpl_signals.py bursts",
+   "role": "holdout",
+   "sha256": "97c0356f9f677517353c2008f3699b9f24ea2466e1588161c9778ba62c5d1b8c",
+   "layout": "2.0",
+   "kbps": 192,
+   "coupled_bins": [
+    109,
+    217
+   ],
+   "coupled_channels": [
+    "L",
+    "R"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.0,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "be00099bdf8451312368b2aff18625a3"
+   },
+   "enhanced_further_than_standard": "9 of 64",
+   "largest_db": 1.944,
+   "largest_at": [
+    5,
+    "R"
+   ],
+   "gain_range": [
+    0.7888,
+    1.0156
+   ]
+  },
+  {
+   "carrier": "ff-51-384-tones",
+   "what": "FFmpeg eac3, 5.1 384 kbit/s, -channel_coupling 1 -cpl_start_band 6, ecpl_signals.py tones",
+   "role": "holdout",
+   "sha256": "68ac4716667fea024f010e5b3c49586489a9c16218fc743418fb34d2e3c3ee07",
+   "layout": "5.1",
+   "kbps": 384,
+   "coupled_bins": [
+    109,
+    193
+   ],
+   "coupled_channels": [
+    "L",
+    "C",
+    "R",
+    "Ls",
+    "Rs"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.0,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "e664fdae7b6de047d842d505d20245a3"
+   },
+   "enhanced_further_than_standard": "19 of 160",
+   "largest_db": 63.847,
+   "largest_at": [
+    0,
+    "C"
+   ],
+   "gain_range": [
+    0.1671,
+    1.0
+   ]
+  },
+  {
+   "carrier": "ff-51-640-film",
+   "what": "FFmpeg eac3, 5.1 640 kbit/s, -channel_coupling 1 -cpl_start_band 6, the same film master",
+   "role": "holdout",
+   "sha256": "4912f3705ecbf8c3e8dda9d942c25a8f39bf05711869c79323d51b2b465ff06b",
+   "layout": "5.1",
+   "kbps": 640,
+   "coupled_bins": [
+    109,
+    217
+   ],
+   "coupled_channels": [
+    "L",
+    "C",
+    "R",
+    "Ls",
+    "Rs"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.0,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "b7ec58b147b2d181d9a255138e514362"
+   },
+   "enhanced_further_than_standard": "58 of 160",
+   "largest_db": 16.271,
+   "largest_at": [
+    27,
+    "C"
+   ],
+   "gain_range": [
+    0.0581,
+    1.0
+   ]
+  },
+  {
+   "carrier": "ff-st128-film",
+   "what": "FFmpeg eac3, 2/0 128 kbit/s, -channel_coupling 1, 30 s of a film master (L R)",
+   "role": "holdout",
+   "sha256": "e5d27c1c60e98305b39c07bd518e0964f6ed6fabf5d1dab957401a30e8a14394",
+   "layout": "2.0",
+   "kbps": 128,
+   "coupled_bins": [
+    49,
+    145
+   ],
+   "coupled_channels": [
+    "L",
+    "R"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.0,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "3cdc42087c2a572393eab10e249ca144"
+   },
+   "enhanced_further_than_standard": "6 of 64",
+   "largest_db": 0.603,
+   "largest_at": [
+    5,
+    "L"
+   ],
+   "gain_range": [
+    0.7602,
+    1.0129
+   ]
+  },
+  {
+   "carrier": "ff-st128-tones",
+   "what": "FFmpeg eac3, 2/0 128 kbit/s, -channel_coupling 1, tools/ecpl_signals.py tones",
+   "role": "holdout",
+   "sha256": "73cd139c982ea956c2e0b8fef71bdae37b57fe2327bceb51f634e525e5e884c7",
+   "layout": "2.0",
+   "kbps": 128,
+   "coupled_bins": [
+    49,
+    145
+   ],
+   "coupled_channels": [
+    "L",
+    "R"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.0,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "aa34ac0651ffd453447a95bdee720017"
+   },
+   "enhanced_further_than_standard": "52 of 64",
+   "largest_db": 0.727,
+   "largest_at": [
+    15,
+    "R"
+   ],
+   "gain_range": [
+    0.5125,
+    1.0
+   ]
+  },
+  {
+   "carrier": "ff-st192-noise",
+   "what": "FFmpeg eac3, 2/0 192 kbit/s, -channel_coupling 1, ecpl_signals.py noise (seed 2)",
+   "role": "holdout",
+   "sha256": "268d091b41868eb21c5c29fa6dd0b69b6da941a36783de908ad5c5b1c98b806e",
+   "layout": "2.0",
+   "kbps": 192,
+   "coupled_bins": [
+    133,
+    217
+   ],
+   "coupled_channels": [
+    "L",
+    "R"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.0,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "f8795717ec922e71a9dbd9ef8aacbcb9"
+   },
+   "enhanced_further_than_standard": "21 of 64",
+   "largest_db": 0.42,
+   "largest_at": [
+    5,
+    "L"
+   ],
+   "gain_range": [
+    0.7887,
+    1.0
+   ]
+  },
+  {
+   "carrier": "lib-51-256-D",
+   "what": "a library stream, 5.1 256 kbit/s, encoder unknown",
+   "role": "library",
+   "sha256": "7bfb47eace190975c0aba1955275a7b0eb8417afc92351f8f46fdc20a0cb4a88",
+   "layout": "5.1",
+   "kbps": 256,
+   "coupled_bins": [
+    73,
+    109
+   ],
+   "coupled_channels": [
+    "L",
+    "C",
+    "R",
+    "Ls",
+    "Rs"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.7545,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "3fd48f0a0bea0496ce4f0a1f03d127aa"
+   },
+   "enhanced_further_than_standard": "50 of 160",
+   "largest_db": 20.163,
+   "largest_at": [
+    27,
+    "C"
+   ],
+   "gain_range": [
+    0.3324,
+    1.0
+   ]
+  },
+  {
+   "carrier": "lib-st128-C",
+   "what": "a library stream, 2/0 128 kbit/s, encoder unknown",
+   "role": "library",
+   "sha256": "f78fde945c9c26224d34e84bee3a76088a4a04f6fd6bf0f65bbc560ef554a6a0",
+   "layout": "2.0",
+   "kbps": 128,
+   "coupled_bins": [
+    61,
+    133
+   ],
+   "coupled_channels": [
+    "L",
+    "R"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.8043,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "9d0ac9e18a61b5849ca382dba304825e"
+   },
+   "enhanced_further_than_standard": "25 of 64",
+   "largest_db": 3.2,
+   "largest_at": [
+    5,
+    "L"
+   ],
+   "gain_range": [
+    0.8349,
+    1.0001
+   ]
+  },
+  {
+   "carrier": "round-4-clip",
+   "what": "the round-4 clip: a library title's head, Dolby's encoder, 5.1 384 kbit/s",
+   "role": "fit",
+   "sha256": "f70ad6baf1b4533972d3c3e7e0319f52c2a9161978999e14dfee1a6e509c17d4",
+   "layout": "5.1",
+   "kbps": 384,
+   "coupled_bins": [
+    109,
+    193
+   ],
+   "coupled_channels": [
+    "L",
+    "C",
+    "R",
+    "Ls",
+    "Rs"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.8376,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "69e180bfa4969b0b4e64476339f5b17c"
+   },
+   "enhanced_further_than_standard": "83 of 160",
+   "largest_db": 4.04,
+   "largest_at": [
+    9,
+    "Rs"
+   ],
+   "gain_range": [
+    0.4485,
+    1.0003
+   ]
+  },
+  {
+   "carrier": "tc-51-192-six",
+   "what": "MainConcept TotalCode Studio 5.3, 5.1 192 kbit/s, six noises",
+   "role": "holdout",
+   "sha256": "ff067f479b95cdc93aff31f1bcf2853f6c6d76179e94198d32a5cf90b958edd6",
+   "layout": "5.1",
+   "kbps": 192,
+   "coupled_bins": [
+    49,
+    109
+   ],
+   "coupled_channels": [
+    "L",
+    "C",
+    "R",
+    "Ls",
+    "Rs"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.9978,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "77356b208ffd23cefe05985030982aa8"
+   },
+   "enhanced_further_than_standard": "3 of 160",
+   "largest_db": 2.014,
+   "largest_at": [
+    31,
+    "C"
+   ],
+   "gain_range": [
+    0.2637,
+    1.0003
+   ]
+  },
+  {
+   "carrier": "tc-st128-wide",
+   "what": "MainConcept TotalCode Studio 5.3, 2/0 128 kbit/s, wide noise",
+   "role": "holdout",
+   "sha256": "d6f728cc881ce7febab828b0d6c09b8cac52f2cc50d8102d29d57a2335ba86c8",
+   "layout": "2.0",
+   "kbps": 128,
+   "coupled_bins": [
+    61,
+    133
+   ],
+   "coupled_channels": [
+    "L",
+    "R"
+   ],
+   "share_of_coupled_blocks_with_aht": 0.9978,
+   "sweep_and_its_standard_twin": {
+    "oadec_decodes_the_same": true,
+    "dolby_decodes_the_same": true,
+    "dolby_md5": "c75bd5c925b19fd33369297e5223c145"
+   },
+   "enhanced_further_than_standard": "25 of 64",
+   "largest_db": 0.234,
+   "largest_at": [
+    9,
+    "R"
+   ],
+   "gain_range": [
+    0.6361,
+    0.9989
+   ]
+  }
+ ],
+ "promotion": {
+  "model": "standard-decorrelation: the existing experimental rule of oadec_eac3::decorr over enhanced coupling blocks",
+  "promoted": false,
+  "reasons": [
+   "holdout carriers that do not pass: ff-51-384-tones, ff-51-640-film, ff-st128-film, ff-st128-tones, ff-st192-noise, dee-51-384-noise, dee-st128-noise, dee-st192-bursts, tc-51-192-six, tc-st128-wide"
+  ],
+  "carriers": [
+   {
+    "carrier": "round-4-clip",
+    "role": "fit",
+    "layout": "5.1",
+    "cpl_aht": true,
+    "source": "film-A",
+    "cells": 160,
+    "better": 5,
+    "share": 0.0312,
+    "worst_db": -17.232,
+    "median_db": -0.308,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 5,
+     "better": 0,
+     "worst_db": -17.232,
+     "median_db": -10.584
+    }
+   },
+   {
+    "carrier": "ff-51-384-tones",
+    "role": "holdout",
+    "layout": "5.1",
+    "cpl_aht": false,
+    "source": "tones-51",
+    "cells": 160,
+    "better": 62,
+    "share": 0.3875,
+    "worst_db": -38.265,
+    "median_db": 0.0,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 5,
+     "better": 0,
+     "worst_db": -38.265,
+     "median_db": -37.995
+    }
+   },
+   {
+    "carrier": "ff-51-640-film",
+    "role": "holdout",
+    "layout": "5.1",
+    "cpl_aht": false,
+    "source": "film-E-51",
+    "cells": 160,
+    "better": 26,
+    "share": 0.1625,
+    "worst_db": -37.326,
+    "median_db": -2.83,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 5,
+     "better": 0,
+     "worst_db": -37.326,
+     "median_db": -34.506
+    }
+   },
+   {
+    "carrier": "ff-st128-film",
+    "role": "holdout",
+    "layout": "2.0",
+    "cpl_aht": false,
+    "source": "film-E",
+    "cells": 64,
+    "better": 42,
+    "share": 0.6562,
+    "worst_db": -35.474,
+    "median_db": 2.368,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 2,
+     "better": 0,
+     "worst_db": -35.474,
+     "median_db": -34.296
+    }
+   },
+   {
+    "carrier": "ff-st128-tones",
+    "role": "holdout",
+    "layout": "2.0",
+    "cpl_aht": false,
+    "source": "tones-20",
+    "cells": 64,
+    "better": 60,
+    "share": 0.9375,
+    "worst_db": -36.789,
+    "median_db": 26.733,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 2,
+     "better": 0,
+     "worst_db": -36.789,
+     "median_db": -36.685
+    }
+   },
+   {
+    "carrier": "ff-st192-noise",
+    "role": "holdout",
+    "layout": "2.0",
+    "cpl_aht": false,
+    "source": "noise-20",
+    "cells": 64,
+    "better": 60,
+    "share": 0.9375,
+    "worst_db": -43.88,
+    "median_db": 6.295,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 2,
+     "better": 0,
+     "worst_db": -43.88,
+     "median_db": -43.583
+    }
+   },
+   {
+    "carrier": "dee-51-384-noise",
+    "role": "holdout",
+    "layout": "5.1",
+    "cpl_aht": true,
+    "source": "noise-51",
+    "cells": 160,
+    "better": 0,
+    "share": 0.0,
+    "worst_db": 0.0,
+    "median_db": 0.0,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 5,
+     "better": 0,
+     "worst_db": 0.0,
+     "median_db": 0.0
+    }
+   },
+   {
+    "carrier": "dee-st128-noise",
+    "role": "holdout",
+    "layout": "2.0",
+    "cpl_aht": true,
+    "source": "noise-20",
+    "cells": 64,
+    "better": 0,
+    "share": 0.0,
+    "worst_db": -0.009,
+    "median_db": 0.0,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 2,
+     "better": 0,
+     "worst_db": 0.0,
+     "median_db": 0.0
+    }
+   },
+   {
+    "carrier": "dee-st192-bursts",
+    "role": "holdout",
+    "layout": "2.0",
+    "cpl_aht": false,
+    "source": "bursts-20",
+    "cells": 64,
+    "better": 2,
+    "share": 0.0312,
+    "worst_db": -76.102,
+    "median_db": -34.463,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 2,
+     "better": 0,
+     "worst_db": -76.102,
+     "median_db": -74.785
+    }
+   },
+   {
+    "carrier": "tc-51-192-six",
+    "role": "holdout",
+    "layout": "5.1",
+    "cpl_aht": true,
+    "source": "six-noises",
+    "cells": 160,
+    "better": 0,
+    "share": 0.0,
+    "worst_db": -0.001,
+    "median_db": 0.0,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 5,
+     "better": 0,
+     "worst_db": 0.0,
+     "median_db": 0.0
+    }
+   },
+   {
+    "carrier": "tc-st128-wide",
+    "role": "holdout",
+    "layout": "2.0",
+    "cpl_aht": true,
+    "source": "wide-noise",
+    "cells": 64,
+    "better": 0,
+    "share": 0.0,
+    "worst_db": 0.0,
+    "median_db": 0.0,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 2,
+     "better": 0,
+     "worst_db": 0.0,
+     "median_db": 0.0
+    }
+   }
+  ],
+  "library_streams_independence_not_verified": [
+   {
+    "carrier": "lib-51-256-D",
+    "role": "holdout",
+    "layout": "5.1",
+    "cpl_aht": true,
+    "source": "film-D",
+    "cells": 160,
+    "better": 35,
+    "share": 0.2188,
+    "worst_db": -0.406,
+    "median_db": -0.007,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 5,
+     "better": 0,
+     "worst_db": 0.0,
+     "median_db": 0.0
+    }
+   },
+   {
+    "carrier": "lib-st128-C",
+    "role": "holdout",
+    "layout": "2.0",
+    "cpl_aht": true,
+    "source": "film-C",
+    "cells": 64,
+    "better": 10,
+    "share": 0.1562,
+    "worst_db": -7.798,
+    "median_db": -0.451,
+    "off_identical": true,
+    "passes": false,
+    "code_31": {
+     "cells": 2,
+     "better": 0,
+     "worst_db": -7.798,
+     "median_db": -7.783
+    }
+   }
+  ]
+ },
+ "not_measured": [
+  "a 5.1 640 kbit/s carrier with the hybrid transform on the coupling channel: DEE 5.2.1 writes no coupling at 640 kbit/s 5.1 (two signals), FFmpeg has no hybrid transform; not measurable here",
+  "eac3017 (2/0 224 kbit/s, no hybrid transform): coupling begins at sub-band 15, which enhanced coupling cannot address; not converted",
+  "whether the library streams are of another title than the round-4 clip: not known, so they stand apart as unverified"
+ ],
+ "default_output": "no line of the default decode changed: ecpl::Model has Off only, and oadec's decode of every stream is the bytes of the round-5 base"
+}

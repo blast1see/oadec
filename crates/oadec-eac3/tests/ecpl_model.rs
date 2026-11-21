@@ -151,7 +151,7 @@ fn with_the_model_off_the_decode_is_unchanged() {
 /// The model off on a stream with enhanced coupling: the bytes of the
 /// round-5 base, and the same with every model on a stream without it.
 #[test]
-#[ignore = "r5 durak 2: needs the enhanced coupling fixture ecpl-20-amp-sweep.ec3 in tests/fixtures"]
+#[ignore = "r5 durak 2: the fixture ecpl-20-amp-sweep.ec3 is not in tests/fixtures (the root .gitignore takes *.ec3); oadec-cli ecpl_inject tests hold the same hashes on a stream made in the test"]
 fn with_the_model_off_enhanced_coupling_decodes_as_at_the_base() {
     let stream = fixture(ECPL_FIXTURE)
         .unwrap_or_else(|| panic!("r5 durak 2: tests/fixtures/{ECPL_FIXTURE} is not there yet"));

@@ -68,6 +68,9 @@ pub struct Shape {
 struct At {
     frame: usize,
     block: usize,
+    /// The block counted over the converted frames' blocks, from 0: the
+    /// index of `amp pattern`.
+    global: usize,
 }
 
 /// How a plan file sets one of the three codes.
@@ -85,7 +88,16 @@ enum Rule {
     /// Every code of the table spread over the channels and bands of a
     /// block, moving from block to block.
     All,
+    /// The codes of `amp pattern`, one a block, in turn.
+    Pattern,
 }
+
+/// The longest `amp pattern`.
+const PATTERN_MAX: usize = 64;
+/// The most enhanced coupling bands a block has (clause E.2.3.3.16).
+const ECPL_BANDS: usize = 22;
+/// The most full-bandwidth channels.
+const FBW: usize = 5;
 
 /// When a plan file sets a per-block flag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -109,7 +121,34 @@ enum Every {
 /// trans never | always | walk | alternate
 /// reuse every <n>      # ecplparam1e/2e = 0 where block % n == n - 1
 /// frames all | every <n>  # convert frames f with f % n == 0, copy the rest
+/// amp pattern <c0>,<c1>,...  # one code a block, in turn (1 to 64 codes)
+/// band <b>[,<b>...]     # the codes above go to these bands only (0-21)
+/// channel <c>[,<c>...]  # ... and to these coded channels only (0-4)
+/// rest <0-31>           # the amplitude of every other band and channel
+/// target enhanced | standard
+/// seed zero            # pad every frame so its dither seed word is zero
 /// ```
+///
+/// `band` and `channel` narrow what the amplitude, angle and chaos rules
+/// write to the bands and coded channels they name; every other band and
+/// channel takes the amplitude `rest` (0, unity, when not given) and angle
+/// and chaos 0. `target standard` keeps the standard coupling of the stream
+/// and writes, for every coupled channel, standard coordinates whose value
+/// is that of the enhanced coupling amplitude the plan gives the channel:
+/// every code of table E3.10 is a standard coordinate exactly
+/// ([`standard_coordinate`]), so a decoder that reads both alike makes the
+/// same coefficients of the two streams. It takes no `band` (standard
+/// coupling has bands of its own), and writes no angle, chaos, interpolation
+/// or transient, which standard coupling does not have.
+///
+/// `seed zero` pads every rewritten frame, where the padding before the
+/// frame tail is shorter than a word, by one more word. A decoder of an
+/// independent E-AC-3 substream seeds its dither from the 16 bits that end
+/// 18 bits before the end of the frame (`oadec_eac3::dither`), which the
+/// padding makes zero: two streams rewritten from the same frames are then
+/// dithered alike whatever the length of what was rewritten, which is what
+/// sets an enhanced coupling stream beside its `target standard` twin. Left
+/// out, the frames are as long as they need to be, as before.
 ///
 /// `reuse` makes the decoder keep the codes of the block before (clause
 /// E.3.3); a block whose channel is coupled for the first time still
@@ -125,6 +164,19 @@ pub struct Plan {
     trans: Every,
     reuse_every: usize,
     frames_every: usize,
+    /// The codes of `amp pattern`, `pattern_len` of them.
+    pattern: [u8; PATTERN_MAX],
+    pattern_len: usize,
+    /// Bit `b` set: band `b` takes the rules; 0 is every band.
+    bands: u32,
+    /// Bit `c` set: coded channel `c` takes the rules; 0 is every channel.
+    channels: u8,
+    /// The amplitude of the bands and channels the rules leave out.
+    rest: u32,
+    /// Write standard coordinates instead of enhanced coupling.
+    standard: bool,
+    /// Pad every frame so that its dither seed word is zero.
+    zero_seed: bool,
 }
 
 impl Default for Plan {
@@ -137,6 +189,13 @@ impl Default for Plan {
             trans: Every::Walk,
             reuse_every: 0,
             frames_every: 1,
+            pattern: [0; PATTERN_MAX],
+            pattern_len: 0,
+            bands: 0,
+            channels: 0,
+            rest: 0,
+            standard: false,
+            zero_seed: false,
         }
     }
 }
@@ -189,8 +248,60 @@ impl Plan {
                 }
                 Ok(n)
             };
+            let list = |v: &str, max: u32| -> Result<Vec<u32>> {
+                v.split(',')
+                    .map(|c| {
+                        let n: u32 = c.trim().parse().with_context(|| {
+                            format!("plan line {}: {c} is not a number", no + 1)
+                        })?;
+                        if n > max {
+                            bail!("plan line {}: {key} {n} is above {max}", no + 1);
+                        }
+                        Ok(n)
+                    })
+                    .collect()
+            };
             match key {
+                "amp" if arg(0)? == "pattern" => {
+                    let codes = list(arg(1)?, 31)?;
+                    if codes.len() > PATTERN_MAX {
+                        bail!(
+                            "plan line {}: amp pattern of {} codes, {PATTERN_MAX} at most",
+                            no + 1,
+                            codes.len()
+                        );
+                    }
+                    for (slot, c) in plan.pattern.iter_mut().zip(&codes) {
+                        *slot = *c as u8;
+                    }
+                    plan.pattern_len = codes.len();
+                    plan.amp = Rule::Pattern;
+                }
                 "amp" => plan.amp = rule(arg(0)?, 31)?,
+                "band" => {
+                    plan.bands = list(arg(0)?, ECPL_BANDS as u32 - 1)?
+                        .iter()
+                        .fold(0, |m, b| m | 1 << b);
+                }
+                "channel" => {
+                    plan.channels = list(arg(0)?, FBW as u32 - 1)?
+                        .iter()
+                        .fold(0, |m, c| m | 1 << c);
+                }
+                "rest" => plan.rest = code(arg(0)?, 31)?,
+                "seed" => {
+                    plan.zero_seed = match arg(0)? {
+                        "zero" => true,
+                        v => bail!("plan line {}: seed {v}", no + 1),
+                    };
+                }
+                "target" => {
+                    plan.standard = match arg(0)? {
+                        "enhanced" => false,
+                        "standard" => true,
+                        v => bail!("plan line {}: target {v}", no + 1),
+                    };
+                }
                 "angle" => plan.angle = rule(arg(0)?, 63)?,
                 "chaos" => plan.chaos = rule(arg(0)?, 7)?,
                 "interp" => {
@@ -221,8 +332,42 @@ impl Plan {
                 _ => bail!("plan line {}: unknown directive {line}", no + 1),
             }
         }
+        if plan.standard && plan.bands != 0 {
+            bail!("target standard takes no band: standard coupling has bands of its own");
+        }
         Ok(plan)
     }
+
+    /// Whether the rules write band `bnd` of coded channel `ch`; where they
+    /// do not, the band takes `rest`.
+    fn selects(&self, ch: usize, bnd: usize) -> bool {
+        (self.channels == 0 || ch < 8 && self.channels & (1 << ch) != 0)
+            && (self.bands == 0 || bnd < 32 && self.bands & (1 << bnd) != 0)
+    }
+}
+
+/// The standard coupling coordinate whose value is the enhanced coupling
+/// amplitude of `code`, as `(cplcoexp, cplcomant, mstrcplco)`.
+///
+/// The amplitude is `ecplampmanttab / 32` shifted down by `ecplampexptab`
+/// (table E3.10), the coordinate `(cplcomant + 16) / 32` shifted down by
+/// `cplcoexp + 3 mstrcplco` (clause 7.4.3, `cplcomant / 16` where `cplcoexp`
+/// is 15), and a coupled coefficient is the coupling channel times the
+/// amplitude in the one and times eight times the coordinate in the other.
+/// Every mantissa of the table is one of 32, 27, 23, 19 and 16, so the
+/// amplitude over eight is `(m + 16) / 32` with `m` 0, 11, 7, 3 or 0 shifted
+/// by two or three more; code 31, minus infinity, is exponent 15 and
+/// mantissa 0.
+#[must_use]
+pub fn standard_coordinate(code: u32) -> (u32, u32, u32) {
+    if code >= 31 {
+        return (15, 0, 0);
+    }
+    let mant = u32::from(oadec_eac3::tables::ECPL_AMP_MANT[code as usize]);
+    let exp = u32::from(oadec_eac3::tables::ECPL_AMP_EXP[code as usize]);
+    // mant / 256 = (m + 16) / 32 / 2^s
+    let (m, s) = if mant == 32 { (0, 2) } else { (mant - 16, 3) };
+    (s + exp, m, 0)
 }
 
 /// The shape flags and the plan over them: what every code of every block
@@ -235,6 +380,9 @@ struct Pattern {
 
 impl Pattern {
     fn codes(&self, at: At, ch: usize, bnd: usize) -> (u32, u32, u32) {
+        if !self.plan.selects(ch, bnd) {
+            return (self.plan.rest, 0, 0);
+        }
         let (wa, wg, wc) = coords(at.block, ch, bnd, self.shape);
         let spread = ch * 22 + bnd + at.block;
         let amp = match self.plan.amp {
@@ -242,12 +390,14 @@ impl Pattern {
             Rule::Fixed(k) => k,
             Rule::SweepFrames => (at.frame % 32) as u32,
             Rule::All => (spread % 32) as u32,
+            Rule::Pattern => u32::from(self.plan.pattern[at.global % self.plan.pattern_len.max(1)]),
         };
         let angle = match self.plan.angle {
             Rule::Walk | Rule::WalkMax(_) => wg,
             Rule::Fixed(k) => k,
             Rule::SweepFrames => (at.frame % 64) as u32,
             Rule::All => ((spread + at.frame * 6) % 64) as u32,
+            Rule::Pattern => 0,
         };
         let chaos = match self.plan.chaos {
             Rule::Walk => wc,
@@ -266,6 +416,7 @@ impl Pattern {
             Rule::Fixed(k) => k,
             Rule::SweepFrames => (at.frame % 8) as u32,
             Rule::All => ((ch + bnd + at.block + at.frame) % 8) as u32,
+            Rule::Pattern => 0,
         };
         (amp, angle, chaos)
     }
@@ -396,6 +547,50 @@ fn coord_bits(
     (w.finish(), len)
 }
 
+/// Standard coupling coordinates for one block (clause 7.4.3, with the
+/// E-AC-3 rule that the first coordinates of a channel are implied): for
+/// every coupled channel the amplitude the plan gives its band 0, as the
+/// standard coordinate of the same value, in every band; and in 2/0, where
+/// the strategy uses phase flags, every flag 0.
+fn standard_coord_bits(
+    at: At,
+    info: &BlockInfo,
+    acmod: u8,
+    firstcplcos: &mut [bool],
+    pat: &Pattern,
+) -> (Vec<u8>, usize) {
+    let mut w = BitWriter::new();
+    let mut any_new = false;
+    for (ch, &coupled) in info.chincpl.iter().enumerate() {
+        if !coupled {
+            firstcplcos[ch] = true;
+            continue;
+        }
+        let fresh = if firstcplcos[ch] {
+            firstcplcos[ch] = false;
+            true
+        } else {
+            let fresh = !pat.reuse(at);
+            w.write_bit(fresh); // cplcoe
+            fresh
+        };
+        if fresh {
+            any_new = true;
+            let (exp, mant, master) = standard_coordinate(pat.codes(at, ch, 0).0);
+            w.write(master, 2);
+            for _ in 0..info.ncplbnd {
+                w.write(exp, 4);
+                w.write(mant, 4);
+            }
+        }
+    }
+    if acmod == 2 && info.phsflginu && any_new {
+        w.write_zeros(info.ncplbnd);
+    }
+    let len = w.position();
+    (w.finish(), len)
+}
+
 /// The enhanced coupling coordinates of one block, or `None` when it carries
 /// none. A block that switches coupling off sets `firstcplcos` for every
 /// channel (clause E.1.2.4), so the first coordinates after it are implied
@@ -438,12 +633,35 @@ fn rewrite(bytes: &[u8], frame: &Frame, number: usize, pat: &Pattern) -> Result<
     let mut edits: Vec<Edit> = Vec::new();
     let mut firstcplcos = vec![true; frame.header.nfchans()];
     let mut nbnd = 0usize;
+    let blocks = frame.blocks.len();
     for (i, b) in frame.blocks.iter().enumerate() {
         let Some(info) = &b.info else {
             bail!("the frame was parsed without the records of its blocks");
         };
         if info.ecplinu {
             bail!("the stream already uses enhanced coupling");
+        }
+        let at = At {
+            frame: number,
+            block: i,
+            global: number * blocks + i,
+        };
+        if pat.plan.standard {
+            if !info.cplinu {
+                firstcplcos.fill(true);
+                continue;
+            }
+            if let Some((start, end)) = info.cpl_coord_span {
+                let (bits, len) =
+                    standard_coord_bits(at, info, frame.header.acmod, &mut firstcplcos, pat);
+                edits.push(Edit {
+                    start,
+                    end,
+                    bits,
+                    len,
+                });
+            }
+            continue;
         }
         if let Some(bit) = info.ecplinu_bit {
             edits.push(Edit {
@@ -470,10 +688,6 @@ fn rewrite(bytes: &[u8], frame: &Frame, number: usize, pat: &Pattern) -> Result<
         if info.cpl_coord_span.is_some() && nbnd == 0 {
             bail!("coupling coordinates before any strategy");
         }
-        let at = At {
-            frame: number,
-            block: i,
-        };
         edits.extend(block_coords(at, info, nbnd, &mut firstcplcos, pat));
     }
     if edits.is_empty() {
@@ -498,7 +712,12 @@ fn rewrite(bytes: &[u8], frame: &Frame, number: usize, pat: &Pattern) -> Result<
     // error check, and grows to the next whole word
     let body_bits = w.position();
     let need = body_bits + TAIL_BITS;
-    let words = need.div_ceil(16);
+    let mut words = need.div_ceil(16);
+    // the dither seed is the word that ends 18 bits before the end: zero when
+    // a whole word of padding stands there
+    if pat.plan.zero_seed && words * 16 - need < 16 {
+        words += 1;
+    }
     if words == 0 || words > 2048 {
         bail!("the rewritten frame needs {words} words");
     }
@@ -610,7 +829,11 @@ mod tests {
             chaos: 2,
             interp: 0,
         };
-        let at = At { frame: 3, block: 4 };
+        let at = At {
+            frame: 3,
+            block: 4,
+            global: 22,
+        };
         let named = Pattern {
             shape: flat,
             plan: Plan::parse(
@@ -733,7 +956,11 @@ interp 1
             shape: shape(),
             plan: Plan::default(),
         };
-        let at = At { frame: 9, block: 4 };
+        let at = At {
+            frame: 9,
+            block: 4,
+            global: 58,
+        };
         assert_eq!(pat.codes(at, 1, 2), coords(4, 1, 2, shape()));
         assert!(pat.transient(at) && !pat.reuse(at) && pat.converts(9));
     }
@@ -967,7 +1194,11 @@ interp 1
         .iter()
         .enumerate()
         .map(|(i, b)| {
-            let at = At { frame: 0, block: i };
+            let at = At {
+                frame: 0,
+                block: i,
+                global: i,
+            };
             block_coords(at, b, nbnd, &mut first, &pat).map(|e| e.len)
         })
         .collect();
@@ -978,5 +1209,220 @@ interp 1
         let after = amps + nbnd * (6 + 3) + 1;
         assert_eq!(lens[2], None);
         assert_eq!(lens[3], Some(1 + amps + 2 * after));
+    }
+
+    /// Every amplitude of table E3.10 is a standard coordinate exactly: eight
+    /// times the coordinate, read as clause 7.4.3 reads it, is the amplitude.
+    #[test]
+    fn every_amplitude_is_a_standard_coordinate() {
+        for code in 0..32u8 {
+            let (exp, mant, master) = standard_coordinate(u32::from(code));
+            assert!(exp <= 15 && mant <= 15 && master <= 3, "code {code}");
+            let temp = if exp == 15 {
+                f64::from(mant) / 16.0
+            } else {
+                (f64::from(mant) + 16.0) / 32.0
+            };
+            let co = temp * 2f64.powi(-((exp + 3 * master) as i32));
+            assert_eq!(
+                (co * 8.0).to_bits(),
+                oadec_eac3::frame::ecpl_amplitude(code).to_bits(),
+                "code {code}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_selections_the_pattern_and_the_target_are_read_and_refused_by_name() {
+        let p =
+            Plan::parse("amp pattern 31,31,10\nband 0,3\nchannel 1,4\nrest 7\ntarget standard\n");
+        assert!(p.is_err(), "target standard with a band was taken");
+        let p = Plan::parse("amp pattern 31,31,10\nband 0,3\nchannel 1,4\nrest 7\n").expect("plan");
+        assert_eq!(p.amp, Rule::Pattern);
+        assert_eq!(&p.pattern[..p.pattern_len], &[31, 31, 10]);
+        assert_eq!(
+            (p.bands, p.channels, p.rest, p.standard),
+            (0b1001, 0b1_0010, 7, false)
+        );
+        assert!(
+            Plan::parse("target standard\nchannel 0")
+                .expect("plan")
+                .standard
+        );
+        let long = format!("amp pattern {}", vec!["1"; 65].join(","));
+        for bad in [
+            "band 22",
+            "channel 5",
+            "rest 32",
+            "amp pattern 32",
+            "amp pattern",
+            "amp pattern 1,,2",
+            long.as_str(),
+            "target sideways",
+            "band x",
+        ] {
+            assert!(Plan::parse(bad).is_err(), "{bad} was taken");
+        }
+
+        let pat = Pattern {
+            shape: shape(),
+            plan: Plan::parse("amp pattern 31,31,10\nangle 16\nband 2\nchannel 1\nrest 4\n")
+                .expect("plan"),
+        };
+        for global in 0..9 {
+            let at = At {
+                frame: global / 6,
+                block: global % 6,
+                global,
+            };
+            let want = [31, 31, 10][global % 3];
+            assert_eq!(pat.codes(at, 1, 2), (want, 16, 0), "block {global}");
+            // a band or a channel the rules leave out takes the rest
+            assert_eq!(pat.codes(at, 1, 3), (4, 0, 0));
+            assert_eq!(pat.codes(at, 0, 2), (4, 0, 0));
+        }
+    }
+
+    /// The amplitude of a plan written as standard coordinates decodes to the
+    /// samples the same plan written as enhanced coupling decodes to in the
+    /// default (amplitude-only) reading, bit for bit: the coupled
+    /// coefficients are the same products, drawn the same dither. Both are
+    /// written with `seed zero`, which makes the dither seed of every frame
+    /// the same; without it the seed is whatever bits the rewrite leaves 18
+    /// bits before the end, and the two differ there.
+    #[test]
+    fn a_standard_target_decodes_as_the_amplitudes_it_stands_for() {
+        let decode = |frames: &[Vec<u8>]| -> Vec<u32> {
+            let mut dec = Decoder::new(Options::default());
+            let mut out = Vec::new();
+            for f in frames {
+                if let Some(d) = dec.decode(f).expect("decode") {
+                    out.extend(d.pcm.iter().flatten().map(|v| v.to_bits()));
+                }
+            }
+            while let Some(d) = dec.flush().expect("flush") {
+                out.extend(d.pcm.iter().flatten().map(|v| v.to_bits()));
+            }
+            out
+        };
+        for (plan, tag) in [
+            (
+                "amp sweep-frames\nangle 0\nchaos 0\nseed zero\n",
+                "std-sweep",
+            ),
+            (
+                "amp pattern 0,9,31,12,4\nchannel 1\nrest 3\nseed zero\n",
+                "std-pattern",
+            ),
+        ] {
+            let enhanced = inject(plan, &format!("{tag}-e"));
+            let standard = inject(&format!("{plan}target standard\n"), &format!("{tag}-s"));
+            let opts = Options {
+                block_info: true,
+                ..Options::default()
+            };
+            for f in &standard {
+                let frame = Frame::parse(f, &mut Noise::default(), opts).expect("frame");
+                assert!(
+                    frame.blocks.iter().all(|b| b.ecpl.is_none()),
+                    "{tag}: enhanced coupling written"
+                );
+                assert!(
+                    frame.blocks.iter().any(|b| b.coupling.is_some()),
+                    "{tag}: coupling lost"
+                );
+            }
+            let (e, s) = (decode(&enhanced), decode(&standard));
+            assert!(!e.is_empty());
+            assert_eq!(e.len(), s.len(), "{tag}");
+            let off = e.iter().zip(&s).filter(|(a, b)| a != b).count();
+            assert_eq!(off, 0, "{tag}: {off} samples differ");
+        }
+    }
+
+    /// FNV-1a (64 bits), so the test below needs no crate.
+    fn fnv1a(bytes: &[u8]) -> u64 {
+        bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, &b| {
+            (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3)
+        })
+    }
+
+    /// The amplitude sweep of the stereo fixture, as the injector of the
+    /// round-5 base wrote it, decodes as it did there with the enhanced
+    /// coupling model off (`oadec_eac3::ecpl::Model`), and as without the
+    /// call. The stream is made here rather than kept as a fixture; its
+    /// bytes, and the decode's (each coded channel whole, one after the
+    /// other, little-endian `f32`), are held to their hashes at the base,
+    /// which `crates/oadec-eac3/tests/ecpl_model.rs` holds too.
+    #[test]
+    fn with_the_model_off_the_sweep_decodes_as_at_the_base() {
+        let frames = inject(
+            "amp sweep-frames\nangle 0\nchaos 0\ninterp 0\ntrans never\n",
+            "base",
+        );
+        let stream: Vec<u8> = frames.concat();
+        assert_eq!(fnv1a(&stream), 0x777c_055d_311d_b85c, "the injector moved");
+        let decode = |model: Option<oadec_eac3::ecpl::Model>| -> Vec<u8> {
+            let mut dec = Decoder::new(Options::default());
+            if let Some(m) = model {
+                dec.set_ecpl_model(m);
+            }
+            let mut chans: Vec<Vec<f32>> = Vec::new();
+            let mut keep = |pcm: &[Vec<f32>]| {
+                chans.resize_with(chans.len().max(pcm.len()), Vec::new);
+                for (all, ch) in chans.iter_mut().zip(pcm) {
+                    all.extend_from_slice(ch);
+                }
+            };
+            for f in &frames {
+                if let Some(d) = dec.decode(f).expect("decode") {
+                    keep(&d.pcm);
+                }
+            }
+            while let Some(d) = dec.flush().expect("flush") {
+                keep(&d.pcm);
+            }
+            chans
+                .iter()
+                .flatten()
+                .flat_map(|v| v.to_le_bytes())
+                .collect()
+        };
+        let plain = decode(None);
+        assert_eq!(
+            fnv1a(&plain),
+            0x697b_7fda_2252_4d29,
+            "the default decode moved"
+        );
+        assert_eq!(plain, decode(Some(oadec_eac3::ecpl::Model::Off)));
+    }
+
+    #[test]
+    fn a_band_and_a_channel_take_the_rules_and_the_rest_takes_rest() {
+        let frames = inject(
+            "amp 10\nangle 0\nchaos 0\nband 1\nchannel 1\nrest 31\n",
+            "select",
+        );
+        let opts = Options {
+            block_info: true,
+            ecpl_full: true,
+            ..Options::default()
+        };
+        let mut seen = 0;
+        for bytes in &frames {
+            let frame = Frame::parse(bytes, &mut Noise::default(), opts).expect("frame");
+            for b in &frame.blocks {
+                let Some(e) = &b.ecpl else { continue };
+                for (ch, c) in e.chans.iter().enumerate() {
+                    let Some(c) = c else { continue };
+                    for (bnd, &a) in c.amp.iter().enumerate() {
+                        let want = if ch == 1 && bnd == 1 { 10 } else { 31 };
+                        assert_eq!(a, want, "channel {ch} band {bnd}");
+                    }
+                    seen += 1;
+                }
+            }
+        }
+        assert!(seen > 0);
     }
 }

@@ -23,6 +23,8 @@ default -- only when all of this holds (`docs/eac3.md`):
    encoded from.
 
 The fitting carriers are reported by the same figures, and do not decide.
+The cells of amplitude code 31 (minus infinity) count like any other and
+are reported apart as well.
 
 One file a carrier, written by the measurement (Durak 2):
 
@@ -88,6 +90,8 @@ def judge(c: dict) -> dict:
     better = sum(1 for g in gains if g > 0)
     worst = min(gains)
     share = better / len(gains)
+    # code 31 is minus infinity: the cells count, and are shown apart as well
+    silent = [cell["model_db"] - cell["amp_only_db"] for cell in c["cells"] if cell.get("code") == 31]
     return {
         "carrier": c["carrier"], "role": c["role"], "layout": c["layout"],
         "cpl_aht": c["cpl_aht"], "source": c["source"], "cells": len(gains),
@@ -95,6 +99,9 @@ def judge(c: dict) -> dict:
         "median_db": round(sorted(gains)[len(gains) // 2], 3),
         "off_identical": c["off_identical"],
         "passes": share >= SHARE and worst >= -WORST_DB,
+        "code_31": None if not silent else {
+            "cells": len(silent), "better": sum(1 for g in silent if g > 0),
+            "worst_db": round(min(silent), 3), "median_db": round(sorted(silent)[len(silent) // 2], 3)},
     }
 
 
@@ -198,6 +205,10 @@ def main() -> int:
         print(f"{r['role']:8} {r['carrier']:28} {r['layout']} aht={str(r['cpl_aht']):5} "
               f"better {r['better']}/{r['cells']} ({100 * r['share']:.1f} %) worst {r['worst_db']:+.2f} dB "
               f"median {r['median_db']:+.2f} dB off-identical={r['off_identical']} {'PASS' if r['passes'] else 'fail'}")
+        if r["code_31"]:
+            s = r["code_31"]
+            print(f"{'':8} {'  of them code 31':28}     better {s['better']}/{s['cells']} worst {s['worst_db']:+.2f} dB "
+                  f"median {s['median_db']:+.2f} dB")
     print("PROMOTED" if ok else "NOT PROMOTED: " + "; ".join(out["reasons"]))
     if a.json:
         a.json.write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
