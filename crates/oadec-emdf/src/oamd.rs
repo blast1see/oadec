@@ -60,7 +60,16 @@ pub const ISF_OBJECTS: [Option<usize>; 8] = [
 /// intermediate spatial format (table 11b, "SR" notation: `SR7.5.3.0` is
 /// seven, five, three and none); 6 and 7 are reserved. The objects of a
 /// format are its rings in that order, MULZ, each numbered from 1.
-pub const ISF_RINGS: [Option<[u8; 4]>; 8] = [None; 8]; // P4 stop 1: filled at stop 2
+pub const ISF_RINGS: [Option<[u8; 4]>; 8] = [
+    Some([3, 1, 0, 0]),
+    Some([5, 3, 0, 0]),
+    Some([7, 3, 0, 0]),
+    Some([9, 5, 0, 0]),
+    Some([7, 5, 3, 0]),
+    Some([15, 9, 5, 1]),
+    None,
+    None,
+];
 
 /// The names of the objects of intermediate spatial format `index` in MULZ
 /// order (`M1` … `Z1`, table 11b), or `None` for a reserved index.

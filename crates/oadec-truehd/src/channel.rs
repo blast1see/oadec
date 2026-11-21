@@ -237,8 +237,13 @@ impl IsfFormat {
     /// The channels of the format in MULZ order.
     #[must_use]
     pub fn labels(&self) -> Vec<IsfChannel> {
-        // P4 stop 1: the contract only; the body comes at stop 2.
-        Vec::new()
+        let [m, u, l, z] = self.rings;
+        (1..=m)
+            .map(IsfChannel::M)
+            .chain((1..=u).map(IsfChannel::U))
+            .chain((1..=l).map(IsfChannel::L))
+            .chain((1..=z).map(IsfChannel::Z))
+            .collect()
     }
 }
 
@@ -249,9 +254,13 @@ impl IsfFormat {
 /// TS 103 420 table 11b gives the same indices are not among them.
 #[must_use]
 pub fn sixteen_channel_isf(index: u8) -> Option<IsfFormat> {
-    // P4 stop 1: the contract only; the body comes at stop 2.
-    let _ = index;
-    None
+    let (name, rings) = match index {
+        2 => ("SR7.3.0.0", [7, 3, 0, 0]),
+        3 => ("SR9.5.0.0", [9, 5, 0, 0]),
+        4 => ("SR7.5.3.0", [7, 5, 3, 0]),
+        _ => return None,
+    };
+    Some(IsfFormat { index, name, rings })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -413,8 +422,13 @@ impl ChannelLabel {
     /// dynamic objects follow them unlabelled.
     #[must_use]
     pub fn sixteen_channel_with_isf(extra: &ExtraChannelMeaning) -> Vec<Self> {
-        // P4 stop 1: the contract only; the ISF channels come at stop 2.
-        Self::sixteen_channel(extra)
+        let mut labels = Self::sixteen_channel(extra);
+        if extra.has_isf()
+            && let Some(format) = sixteen_channel_isf(extra.isf_index)
+        {
+            labels.extend(format.labels().into_iter().map(Self::Isf));
+        }
+        labels
     }
 }
 
@@ -670,8 +684,9 @@ impl ChannelLabel {
     }
 
     /// Labels of the channels a presentation outputs, in stream order. For the
-    /// object presentation only the bed channels are labelled; the remaining
-    /// output channels are the dynamic objects, in order.
+    /// object presentation the bed channels and the channels of the
+    /// intermediate spatial format are labelled; the remaining output
+    /// channels are the dynamic objects, in order.
     ///
     /// An FBB (DVD-Audio) stream has two presentations at most: with two
     /// substreams, a two-channel downmix in substream 0 and the whole
@@ -697,7 +712,7 @@ impl ChannelLabel {
                 .channel_meaning
                 .extra
                 .as_ref()
-                .map(Self::sixteen_channel)
+                .map(Self::sixteen_channel_with_isf)
                 .unwrap_or_default(),
         }
     }

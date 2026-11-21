@@ -46,6 +46,55 @@ implements the whole syntax; `oadec oamd` walks a TrueHD stream and reports.
   objects. In a dynamic-object-only program with `b_lfe_present` the LFE is
   object 0 and counts as a bed channel (no render info is coded for it).
 
+## Intermediate spatial format
+
+A programme can carry intermediate spatial format (ISF) objects between its
+beds and its dynamic objects: signals for loudspeaker positions on stacked
+rings, middle (M), upper (U), lower (L) and zenith (Z). What a format is
+called, how many channels each ring has and in what order the channels come
+is public; where a ring is, and where a channel sits on it, is not.
+
+| Source | What it says | What it does not |
+|---|---|---|
+| ETSI TS 103 420 V1.2.1, 5.6.0.11, table 11b | `intermediate_spatial_format_idx` 0 to 5: SR3.1.0.0, SR5.3.0.0, SR7.3.0.0, SR9.5.0.0, SR7.5.3.0, SR15.9.5.1 (4, 8, 10, 14, 15 and 30 objects); 6 and 7 reserved. The objects in MULZ order, `M1 M2 M3 U1` to `M1 … M15 U1 … U9 L1 … L5 Z1` (notes 1 and 2: "SR" is stacked ring, MULZ the order the signals come in). | Any azimuth, elevation or coordinate. |
+| Dolby TrueHD High-Level Bitstream Description (2018), 4.4, tables 17 and 19 | `16ch_intermediate_spatial_format` of the major sync: `010b` BH7.3.0.0 (10 channels), `011b` BH9.5.0.0 (14), `100b` BH7.5.3.0 (15); `000b`, `001b` and `101b` to `111b` reserved. The channels in M.U.L.Z. order, after the loudspeaker feeds and before the dynamic objects; together they are the channels of `16ch_channel_count`. The example: content `0111b`, C and LFE, `010b`, two objects is "C LFE M1 M2 M3 M4 M5 M6 M7 U1 U2 U3 Obj1 Obj2". | Any coordinate. |
+| US 9,807,538 B2 (Dolby), figures 4 and 5 | The rings and the BH notation; the channels of a ring "uniformly spread", channel 1 at 0° (front), the rest anticlockwise, azimuth (n − 1)/N · 360°. | Any ring elevation. It is a patent's example ("one form of speaker arrangement"), and its own list for BH9.5.0.1 does not match its counting rule. |
+| US 11,322,164 B2 and US 2018/0254047 A1 (Dolby) | The BH notation; channels "may be uniformly distributed"; BH3.1.0.0 "approximately" C, Ls, Rs and zenith. | Any number. |
+
+So `oadec` names the ISF channels and gives their samples, and puts them nowhere:
+
+* `decode` writes the 16-channel presentation with the ISF channels labelled
+  `M1` … in MULZ order after the bed; the dynamic objects after them stay
+  `obj1` …. WAVE has no speaker bit for an ISF channel, so the channel mask
+  is unassigned, as it is for objects.
+* `info` names the format and its channels (`ISF SR7.5.3.0 M1 … L3 (15)`),
+  and `info --json` gives `sixteen_channel.isf`: index, name, whether the
+  value is reserved, channels and labels. A stream without ISF channels has
+  no such field.
+* `oamd` and `metadata` give the name and the objects of the ISF type of the
+  programme (`ISF objects:`), all six of table 11b; the payload parser counts
+  thirty objects for SR15.9.5.1 though no 16-channel presentation can carry
+  them.
+* DAMF and the Dolby Atmos master ADM profile have no place for them:
+  `--isf error` (the default) refuses the output, `--isf drop` writes the beds
+  and dynamic objects without them and declares the loss. There is no
+  `--isf objects`, and a valid ADM file is no evidence that ISF channels were
+  placed or converted without loss.
+* The major sync can declare only the three formats of table 19. A stream that
+  declares 0, 1 or 5, which TS 103 420 gives to other formats, is read as one
+  that declares 6 or 7: it decodes, `info` says
+  `ISF 16ch_intermediate_spatial_format 0 (reserved)`, and DAMF and ADM refuse
+  it with that name. A major sync whose bed, ISF channels and dynamic objects
+  do not come to `16ch_channel_count` is refused by DAMF and ADM by name.
+
+The streams `crates/oadec-cli/tests/cli_isf.rs` writes with `oadec-synth`
+(SR7.3.0.0 alone and with C, LFE and two objects, SR9.5.0.0 with LFE and an
+object, SR7.5.3.0 with LFE) decode to the samples they were written from;
+`truehdd` gives the same samples of the 16-channel presentation. FFmpeg's
+decoder reads no 16-channel presentation, and Dolby's decoder, without an
+Evolution frame of object metadata in the stream, gives two channels; neither
+was a check of these.
+
 ## Timing
 
 `md_update_info` carries `sample_offset` (0, a table value 8/16/18/24, or 5

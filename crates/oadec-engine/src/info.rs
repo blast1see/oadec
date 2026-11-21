@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use oadec_truehd::sync::FbbFormat;
-use oadec_truehd::{ChannelLabel, MajorSync, PresentationKind};
+use oadec_truehd::{ChannelLabel, MajorSync, PresentationKind, sixteen_channel_isf};
 use std::io::{self, Write};
 
 use crate::scan::{self, Scan};
@@ -100,7 +100,22 @@ fn print_presentations(ms: &MajorSync, out: &mut dyn Write) -> io::Result<()> {
                         parts.push(format!("bed {} ({})", labels(&bed), bed.len()));
                     }
                     if extra.has_isf() {
-                        parts.push(format!("ISF index {}", extra.isf_index));
+                        parts.push(match sixteen_channel_isf(extra.isf_index) {
+                            Some(format) => {
+                                let channels: Vec<ChannelLabel> =
+                                    format.labels().into_iter().map(ChannelLabel::Isf).collect();
+                                format!(
+                                    "ISF {} {} ({})",
+                                    format.name,
+                                    labels(&channels),
+                                    channels.len()
+                                )
+                            }
+                            None => format!(
+                                "ISF 16ch_intermediate_spatial_format {} (reserved)",
+                                extra.isf_index
+                            ),
+                        });
                     }
                     let dyn_objects = extra.dynamic_objects();
                     if dyn_objects > 0 {
@@ -456,18 +471,37 @@ impl Report {
                 "reserved2": cm.reserved2,
                 "extra_present": cm.extra_present,
             });
-            value["sixteen_channel"] = serde_json::json!(extra.map(|x| serde_json::json!({
-                "channels": x.channels(),
-                "dyn_object_only": x.dyn_object_only,
-                "lfe_present": x.lfe_present,
-                "content_description": x.content_description,
-                "lfe_only": x.lfe_only,
-                "bed_assignment": x.sixteench_channel_assignment,
-                "isf_index": x.isf_index,
-                "dynamic_objects": x.dynamic_objects(),
-                "dialogue_norm": x.sixteench_dialogue_norm,
-                "mix_level": x.sixteench_mix_level,
-            })));
+            value["sixteen_channel"] = serde_json::json!(extra.map(|x| {
+                let mut v = serde_json::json!({
+                    "channels": x.channels(),
+                    "dyn_object_only": x.dyn_object_only,
+                    "lfe_present": x.lfe_present,
+                    "content_description": x.content_description,
+                    "lfe_only": x.lfe_only,
+                    "bed_assignment": x.sixteench_channel_assignment,
+                    "isf_index": x.isf_index,
+                    "dynamic_objects": x.dynamic_objects(),
+                    "dialogue_norm": x.sixteench_dialogue_norm,
+                    "mix_level": x.sixteench_mix_level,
+                });
+                // only where there is one, so that the report of a stream
+                // without ISF channels stays as it was
+                if x.has_isf() {
+                    let format = sixteen_channel_isf(x.isf_index);
+                    v["isf"] = serde_json::json!({
+                        "index": x.isf_index,
+                        "name": format.map(|f| f.name),
+                        "reserved": format.is_none(),
+                        "channels": format.map(|f| f.channels()),
+                        "labels": format.map(|f| f
+                            .labels()
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()),
+                    });
+                }
+                v
+            }));
         }
         Ok(value)
     }

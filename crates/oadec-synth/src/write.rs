@@ -48,6 +48,8 @@ const RESTART_SYNC_NOISE: u64 = 0x31EA;
 /// The restart sync word of a substream with a table of dither in their
 /// place: the one encoders give the substreams over the first.
 const RESTART_SYNC_DITHER: u64 = 0x31EB;
+/// The restart sync word of the object presentation's substream, the fourth.
+const RESTART_SYNC_OBJECTS: u64 = 0x31EC;
 /// The dither a `0x31EB` substream draws on: 256 values that are part of the
 /// format, named by the top eight bits of the noise register. The two public
 /// decoders carry the same table (`noise_table` in FFmpeg, `DITHER_LUT` in
@@ -215,6 +217,9 @@ pub struct Layout {
     /// eight-channel one of a stream of two substreams is the six channels
     /// unless this says the stream has none.
     pub substream_info: Option<u8>,
+    /// The 16-channel presentation: what the major sync says of it. Only with
+    /// a fourth substream ([`Above::objects`]).
+    pub sixteen: Option<Sixteen>,
 }
 
 /// A substream over the first. It codes the channels it adds to those of the
@@ -241,6 +246,10 @@ pub struct Above {
     pub assignment: Vec<usize>,
     /// Its restart headers set `error_protect`.
     pub protection: Option<Protection>,
+    /// It is the substream of the 16-channel object presentation, the
+    /// fourth: its restart sync word is `0x31EC` and it has no noise
+    /// channels. The writer gives it no matrices.
+    pub object: bool,
 }
 
 impl Above {
@@ -255,8 +264,40 @@ impl Above {
             noise_seeds: Vec::new(),
             assignment: Vec::new(),
             protection: None,
+            object: false,
         }
     }
+
+    /// The fourth substream, of the 16-channel object presentation: `channels`
+    /// more channels, restart sync word `0x31EC`, no matrices.
+    #[must_use]
+    pub fn objects(channels: usize) -> Self {
+        Self {
+            object: true,
+            ..Self::new(channels)
+        }
+    }
+}
+
+/// What the major sync says of the 16-channel presentation
+/// (`16ch_channel_meaning`, TrueHD description section 4.4), each field as it
+/// is coded, so that a stream can say what it should not.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Sixteen {
+    /// `16ch_channel_count`: the channels of the presentation minus one;
+    /// `None` for the channels the stream codes.
+    pub channel_count: Option<u8>,
+    /// `16ch_content_description`: bit 0 loudspeaker feeds, bit 1 an
+    /// intermediate spatial format, bit 2 dynamic objects.
+    pub content_description: u8,
+    /// `lfe_only`, with bit 0.
+    pub lfe_only: bool,
+    /// `16ch_channel_assignment`, with bit 0 and not `lfe_only`.
+    pub assignment: u16,
+    /// `16ch_intermediate_spatial_format`, with bit 1.
+    pub isf: u8,
+    /// `16ch_dynamic_object_count`: the dynamic objects minus one, with bit 2.
+    pub dynamic_object_count: u8,
 }
 
 /// What a protected block states of itself. Neither field has a public
@@ -333,6 +374,7 @@ impl Layout {
             heavy_drc: None,
             above: Vec::new(),
             substream_info: None,
+            sixteen: None,
         }
     }
 
@@ -875,7 +917,8 @@ fn major_sync(layout: &Layout, peak_data_rate: u64) -> Vec<u8> {
     w.put(15, peak_data_rate);
     // the substreams, and no object presentation to say more of
     w.put(4, 1 + layout.above.len() as u64);
-    w.put(4, 0);
+    // the object presentation reads every substream
+    w.put(4, if layout.sixteen.is_some() { 3 } else { 0 });
     // Which substreams each presentation reads (`substream_info`): two bits
     // for the six-channel one from bit 2 and three for the eight-channel
     // one from bit 4. Each reads its own substream and the ones under it,
@@ -888,7 +931,8 @@ fn major_sync(layout: &Layout, peak_data_rate: u64) -> Vec<u8> {
                 (Family::Mlp, _) => 0x05,
                 (Family::TrueHd, 0) => 0x14,
                 (Family::TrueHd, 1) => 0x3C,
-                (Family::TrueHd, _) => 0x7C,
+                (Family::TrueHd, 2) => 0x7C,
+                (Family::TrueHd, _) => 0xFC,
             });
     w.put(8, u64::from(substream_info));
     match layout.family {
@@ -911,8 +955,13 @@ fn major_sync(layout: &Layout, peak_data_rate: u64) -> Vec<u8> {
             w.put(5, 31);
             w.put(6, 0);
             w.put(6, 0);
-            // a reserved bit, and no extension
-            w.put(2, 0);
+            // a reserved bit, and the extra channel meaning of the
+            // 16-channel presentation if there is one
+            w.put(1, 0);
+            w.put_bool(layout.sixteen.is_some());
+            if let Some(sixteen) = layout.sixteen {
+                put_sixteen(&mut w, &sixteen, layout.total_channels());
+            }
         }
         // DVD-Audio lays these eight bytes out otherwise, and no source says
         // how; they are left at zero
@@ -921,6 +970,45 @@ fn major_sync(layout: &Layout, peak_data_rate: u64) -> Vec<u8> {
     let crc = CRC16_MAJOR_SYNC.update_bytes(0, w.bytes());
     w.put(16, u64::from(crc));
     w.into_bytes()
+}
+
+/// `extra_channel_meaning` with `16ch_channel_meaning` in it: a length,
+/// the fields, and zeros to the length; the major sync stays a whole number
+/// of 16-bit words.
+fn put_sixteen(w: &mut BitWriter, sixteen: &Sixteen, channels: usize) {
+    let mut f = BitWriter::new();
+    // a dialogue level of -31 dB and a mix level of 0, as the others have
+    f.put(5, 31);
+    f.put(6, 0);
+    f.put(
+        5,
+        u64::from(sixteen.channel_count.unwrap_or((channels - 1) as u8)),
+    );
+    // not dynamic objects only: the content is described
+    f.put_bool(false);
+    f.put(4, u64::from(sixteen.content_description));
+    if sixteen.content_description & 1 != 0 {
+        // no channel distribution, a reserved bit, then the LFE alone or a
+        // reserved bit and the assignment
+        f.put_bool(false);
+        f.put(1, 0);
+        f.put_bool(sixteen.lfe_only);
+        if !sixteen.lfe_only {
+            f.put(1, 0);
+            f.put(10, u64::from(sixteen.assignment));
+        }
+    }
+    if sixteen.content_description & 2 != 0 {
+        f.put(3, u64::from(sixteen.isf));
+    }
+    if sixteen.content_description & 4 != 0 {
+        f.put(5, u64::from(sixteen.dynamic_object_count));
+    }
+    // `(length + 1) * 16` bits from the length field on
+    let length = (4 + f.len_bits()).div_ceil(16) - 1;
+    w.put(4, length as u64);
+    w.append(&f);
+    w.put(((length + 1) * 16 - 4 - f.len_bits()) as u32, 0);
 }
 
 /// What a block sends for one channel.
@@ -949,6 +1037,8 @@ struct Sub<'a> {
     /// Its restart sync word is `0x31EB`: a table of dither where a `0x31EA`
     /// substream has two noise channels.
     dither: bool,
+    /// Its restart sync word is `0x31EC`.
+    object: bool,
     noise_shift: u8,
     noise_seeds: &'a [u32],
     assignment: &'a [usize],
@@ -987,6 +1077,7 @@ impl Layout {
             first: 0,
             last: self.channels - 1,
             dither: false,
+            object: false,
             noise_shift: self.noise_shift,
             noise_seeds: &self.noise_seeds,
             assignment: &self.assignment,
@@ -999,7 +1090,8 @@ impl Layout {
                 top: i + 1 == self.above.len(),
                 first,
                 last: first + above.channels - 1,
-                dither: above.dither,
+                dither: above.dither || above.object,
+                object: above.object,
                 noise_shift: above.noise_shift,
                 noise_seeds: &above.noise_seeds,
                 assignment: &above.assignment,
@@ -1510,6 +1602,9 @@ fn segment(
             return Err("an output shift for each channel, of -8 to 7".into());
         }
         let steps = stated_steps(work.subs, &sub, plan, block, within)?;
+        if sub.object && !block.matrices.is_empty() {
+            return Err("the writer gives the 0x31EC substream no matrices".into());
+        }
         let matrices_change = block.matrices != run.matrices;
         let shifts_change = shifts != run.shifts;
         let steps_change = steps != run.steps;
@@ -1588,7 +1683,9 @@ fn segment(
                 let start = w.len_bits();
                 w.put(
                     14,
-                    if sub.dither {
+                    if sub.object {
+                        RESTART_SYNC_OBJECTS
+                    } else if sub.dither {
                         RESTART_SYNC_DITHER
                     } else {
                         RESTART_SYNC_NOISE
@@ -1836,15 +1933,24 @@ fn check_above(layout: &Layout) -> Result<(), String> {
             "substreams over the first are TrueHD's here, and the first has two channels".into(),
         );
     }
-    if layout.above.len() > 2
+    let objects = layout.above.len() == 3;
+    if layout.above.len() > 3
         || layout
             .above
             .iter()
             .zip([4, 2])
             .any(|(above, channels)| above.channels != channels)
+        || layout
+            .above
+            .iter()
+            .enumerate()
+            .any(|(i, above)| above.object != (i == 2))
+        || (objects && !(1..=8).contains(&layout.above[2].channels))
+        || objects != layout.sixteen.is_some()
     {
         return Err(
-            "a second substream of four channels and a third of two: six channels and eight are \
+            "a second substream of four channels, a third of two and a fourth of the objects with \
+             one to eight and what the major sync says of them: six channels, eight and sixteen are \
              the layouts the major sync of this writer names"
                 .into(),
         );
@@ -1855,6 +1961,15 @@ fn check_above(layout: &Layout) -> Result<(), String> {
         .any(|above| above.noise_shift > 15 || above.noise_seeds.iter().any(|&s| s > 0x7F_FFFF))
     {
         return Err("a noise shift of 0 to 15 and a register of 23 bits".into());
+    }
+    if let Some(sixteen) = layout.sixteen
+        && (sixteen.content_description > 15
+            || sixteen.assignment > 0x3FF
+            || sixteen.isf > 7
+            || sixteen.dynamic_object_count > 31
+            || sixteen.channel_count.is_some_and(|c| c > 31))
+    {
+        return Err("16ch_channel_meaning fields wider than their bits".into());
     }
     Ok(())
 }
@@ -1984,9 +2099,10 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
         units.push(segments);
         spans.push(unit_spans);
     }
+    let sync_len = major_sync(layout, 0).len();
     let unit_len = |k: usize, segments: &[Vec<u8>]| {
         let sync = if k.is_multiple_of(layout.sync_interval) {
-            28
+            sync_len
         } else {
             0
         };

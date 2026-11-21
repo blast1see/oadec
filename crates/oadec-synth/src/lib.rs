@@ -33,5 +33,5 @@ pub use change::{CHANGES, Change, Changed, Part};
 pub use recipe::{Made, PROBES, Probe, RECIPES, Recipe, pcm_bytes};
 pub use write::{
     Above, BlockPlan, BlockSpans, Check, Coding, Family, Filter, Layout, Matrix, Protection,
-    Stream, UnitPlan, flip_and_reseal, write,
+    Sixteen, Stream, UnitPlan, flip_and_reseal, write,
 };
