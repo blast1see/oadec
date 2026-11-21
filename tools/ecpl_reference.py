@@ -2,12 +2,13 @@
 """Independent reference for enhanced coupling (ATSC A/52:2018 clause E.3.5.5).
 
 Written from the text of the standard, not from oadec's Rust code. The clause
-numbers are A/52:2018's; ETSI TS 102 366 V1.2.1 clause E.2.5.5 prints the same
-process word for word (docs/eac3.md). It takes a case file, runs clause
+numbers are A/52:2018's. ETSI TS 102 366 V1.2.1 clause E.2.5.5 prints the same
+process except for two signs, which `text` selects (docs/eac3.md). It takes a
+case file, runs clause
 E.3.5.5.1 to E.3.5.5.4 over every block of the case, and writes the
 transform coefficients of every coupled channel.
 
-    python tools/ecpl_reference.py CASE.case -o CASE.ref.f32 [--f64] [--all]
+    python tools/ecpl_reference.py CASE.case -o CASE.ref32.bin [--f64] [--all]
 
 Only numpy is needed. The reference is a measuring instrument for the
 `--ecpl-spec` path; it says nothing about what Dolby's decoders do, and a
@@ -21,6 +22,11 @@ Case file (text, UTF-8, one directive a line, `#` starts a comment)
         Table 6.33 prints the window to five decimals. `table` uses the
         printed values; `kbd5` the Kaiser-Bessel-derived window with
         alpha 5, which the reference checks rounds to every printed entry.
+    text a52-2018|ts102366-v121
+        Which printing of the two lines the editions disagree on:
+        A/52:2018 (the default) `ampbnd *= 1 + 0.38 * chaos` and
+        `angle += chaos * rand`; V1.2.1 `1 - 0,38 * chaos` and
+        `angle += -chaos * rand`.
     ola-gain 2|1
         Clause E.3.5.5.1 step 3 prints the overlap-add without the factor 2
         that clause 6.9.4 step 6 carries; as printed the chain is 6.02 dB
@@ -328,6 +334,7 @@ class Case:
     def __init__(self, path: Path) -> None:
         self.window = "kbd5"
         self.gain = 2.0
+        self.text = "a52-2018"
         self.random: tuple[str, str] | None = None
         self.mant: tuple[int, float] | None = None
         self.blocks: list[Block] = []
@@ -352,6 +359,10 @@ class Case:
                     if words[1] not in ("kbd5", "table"):
                         raise ValueError("window kbd5|table")
                     self.window = words[1]
+                elif head == "text":
+                    if words[1] not in ("a52-2018", "ts102366-v121"):
+                        raise ValueError("text a52-2018|ts102366-v121")
+                    self.text = words[1]
                 elif head == "ola-gain":
                     self.gain = float(words[1])
                 elif head == "random":
@@ -463,7 +474,9 @@ def run(case: Case) -> list[tuple[int, int, np.ndarray]]:
             amp = [ampbnd(a) for a in c["amp"]]
             chaos = [0.0 if ch == first else ECPLCHAOSTAB[v] for v in c["chaos"]]
             if not c["trans"] and ch != first:
-                amp = [a * (1 - 0.38 * h) for a, h in zip(amp, chaos)]
+                # E.3.5.5.2: A/52:2018 `1 + 0.38 * chaos`, V1.2.1 `1 - 0,38 * chaos`
+                sign = 1.0 if case.text == "a52-2018" else -1.0
+                amp = [a * (1 + sign * 0.38 * h) for a, h in zip(amp, chaos)]
             angle_bnd = [0.0 if ch == first else ECPLANGLETAB[v] for v in c["angle"]]
             rand_trans = [trans.draw() for _ in range(nbnd)] if ch != first else [0.0] * nbnd
             if b.interp:
@@ -474,7 +487,8 @@ def run(case: Case) -> list[tuple[int, int, np.ndarray]]:
             for j, k in enumerate(range(b.start, b.stop)):
                 bnd = bnd_of_bin[k]
                 r = rand_trans[bnd] if c["trans"] else notrans[ch][k]
-                a = rel[j] + -chaos[bnd] * r
+                # E.3.5.5.3: A/52:2018 `+= chaos * rand`, V1.2.1 `+= -chaos * rand`
+                a = rel[j] + (chaos[bnd] if case.text == "a52-2018" else -chaos[bnd]) * r
                 if a < -1.0:
                     a += 2.0
                 elif a >= 1.0:

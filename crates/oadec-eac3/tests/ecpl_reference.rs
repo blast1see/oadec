@@ -1,18 +1,18 @@
 //! The enhanced coupling synthesis of the full reading (`--ecpl-spec`)
 //! held against `tools/ecpl_reference.py`, a reference written from the text
-//! of ETSI TS 102 366 V1.2.1 clause E.2.5.5 (which A/52:2018 clause E.3.5.5
-//! is said to print word for word; that comparison waits for a copy of
-//! A/52:2018), and not from this crate.
+//! of ATSC A/52:2018 clause E.3.5.5, and not from this crate. ETSI TS 102 366
+//! V1.2.1 clause E.2.5.5 prints the same process but for two signs; the
+//! reference reads either (`text`), the decoder and these cases A/52:2018.
 //!
 //! Each case is a `.case` file under `tests/ecpl_reference/` (the format is
 //! in the reference's own documentation, `make_cases.py` writes them) and
-//! the reference's answer to it, `.ref.f32`. The test builds every block
+//! the reference's answer to it, `.ref32.bin`. The test builds every block
 //! with `EcplBlock::from_syntax`, feeds the case's random values through
 //! `Synth::with_random_values`, and wants every case within 100 dB of the
 //! reference: the error energy over all the coefficients of the case at
 //! least 100 dB below their energy.
 //!
-//! With `OADEC_ECPL_REF_F64` naming a directory of `<case>.ref.f64` files
+//! With `OADEC_ECPL_REF_F64` naming a directory of `<case>.ref64.bin` files
 //! (the reference run with `--f64`), the same comparison runs against those,
 //! which takes the f32 rounding of the files kept here out of the figure.
 //!
@@ -129,6 +129,7 @@ fn parse(path: &Path) -> Case {
             "ecplref" => assert_eq!(words[1], "1"),
             "window" => case.window = words[1].into(),
             "ola-gain" => case.gain = words[1].parse().expect("gain"),
+            "text" => assert_eq!(words[1], "a52-2018", "the decoder follows A/52:2018"),
             "random" => {
                 assert_eq!(words[1], "lcg", "only lcg random values are kept here");
                 case.random_seed = words[2].parse().expect("seed");
@@ -269,7 +270,7 @@ fn below(got: &[f64], want: &[f64]) -> f64 {
 fn every_case_of_the_matrix_has_its_reference_answer() {
     let mut missing = Vec::new();
     for name in CASES {
-        for ext in ["case", "ref.f32"] {
+        for ext in ["case", "ref32.bin"] {
             let path = dir().join(format!("{name}.{ext}"));
             if !path.exists() {
                 missing.push(path.display().to_string());
@@ -287,8 +288,8 @@ fn the_full_reading_is_within_100_db_of_the_reference() {
         let case = parse(&dir().join(format!("{name}.case")));
         let got = decode(&case);
         let want = match &full {
-            Some(d) => reference(&d.join(format!("{name}.ref.f64")), true),
-            None => reference(&dir().join(format!("{name}.ref.f32")), false),
+            Some(d) => reference(&d.join(format!("{name}.ref64.bin")), true),
+            None => reference(&dir().join(format!("{name}.ref32.bin")), false),
         };
         assert_eq!(got.len(), want.len(), "{name}: coefficient count");
         let signal: f64 = want.iter().map(|v| v * v).sum();

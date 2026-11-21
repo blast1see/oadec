@@ -601,7 +601,7 @@ ETSI TS 102 366 **V1.2.1** clause E.2.5.5, ATSC **A/52:2012** and
 reconstruct a non-aliased carrier `Z[k]` from the previous, current and next
 blocks, rotate it per band by `ecplangle`, de-correlate it per bin by
 `ecplchaos`, then project back. They name the fields and loop them over every
-band, `9 x necplbnd`. The three agree word for word; V1.4.1 is the odd one
+band, `9 x necplbnd`. The three agree on the process; V1.4.1 is the odd one
 out, and it is nine bits short.
 
 **What Dolby does.** Rewriting a real stream's standard coupling as enhanced
@@ -659,47 +659,59 @@ V1.4.1's count would desynchronise the block.
 The default reading and `--ecpl-spec` answer two different questions, and a
 measurement of one is no evidence for the other.
 
-**The full reading (`--ecpl-spec`) against the text.** Its source is ETSI TS
-102 366 V1.2.1 clause E.2.5.5. A/52:2018 clause E.3.5.5 is said to print the
-same words, but no copy of A/52:2018 was at hand when the reading was checked,
-so the line-by-line comparison with it is still owed. `tools/ecpl_reference.py`
-is an independent reference written from that text with numpy, nothing taken
-from this crate: the inverse transform of clause 6.9.4.1 steps 1 to 5, the
-carrier, the amplitudes, the angle interpolation and the products, as the
-pseudo-code writes them. It takes a case file of syntax elements, the random
-values of clause E.2.5.5.3 from a stated generator or from a file, and the
-test `tests/ecpl_reference.rs` feeds the decoder the same values through a
-test hook (`Synth::with_random_values`; the decoder's own source is not
-touched). Fifteen cases cover angle codes 0 to 63 flat, interpolated and
-across +/-pi, amplitude codes 0 to 31, chaos codes 0 to 7 with and without a
-transient, 1 to 22 bands, merged bands, a first coupled channel that is not
-channel 0, enhanced coupling switching off and on, and the end of the
-stream. Measured: within 151,5 to 153,0 dB of every case against the f32
-answers kept in the repository (their rounding floor) and 269,6 to 281,8 dB
-against the reference's f64 answers.
+**The full reading (`--ecpl-spec`) against the text.** Its source is ATSC
+A/52:2018 clause E.3.5.5 (`A52-2018.pdf`, 1 919 274 bytes, SHA-256
+`4580b631f5ac1aafdd31034f28d5fc9c29bce72a3d3f6367e3d9746906e0ffa1`).
+`tools/ecpl_reference.py` is an independent reference written from that text
+with numpy, nothing taken from this crate: the inverse transform of clause
+7.9.4.1 steps 1 to 5, the carrier, the amplitudes, the angle interpolation
+and the products, as the pseudo-code writes them. It takes a case file of
+syntax elements, the random values of clause E.3.5.5.3 from a stated
+generator or from a file, and the test `tests/ecpl_reference.rs` feeds the
+decoder the same values through a test hook (`Synth::with_random_values`; the
+decoder's own source is not touched). Fifteen cases cover angle codes 0 to 63
+flat, interpolated and across +/-pi, amplitude codes 0 to 31, chaos codes 0
+to 7 with and without a transient, 1 to 22 bands, merged bands, a first
+coupled channel that is not channel 0, enhanced coupling switching off and
+on, and the end of the stream. Measured: within 151,7 to 152,7 dB of every case
+against the f32 answers kept in the repository (their rounding floor) and
+268,9 to 282,9 dB against the reference's f64 answers.
 
-Held to the printed text, the full reading changed in three places, each in a
-commit of its own so that a different A/52:2018 text can take it back alone:
+**A/52:2018 and ETSI TS 102 366 V1.2.1 are not word for word the same.** Set
+side by side, clause E.3.5.5 and clause E.2.5.5 differ in wording and layout
+and in exactly two lines of pseudo-code, both signs of the chaos term:
 
-- **Chaos raises the amplitude.** Clause E.2.5.5.2 prints `ampbnd *= 1 -
-  0,38 * chaos` for a channel after the first without a transient; the chaos
-  table runs from 0 to -1, so the amplitude rises, to 1,38 at code 7. The
-  code had the sign the other way, 6,95 dB apart at code 7.
-- **The chaos term is subtracted from the angle**: `angle += -chaos * rand`.
-  The random values are symmetric, so only a given sequence tells the two
-  signs apart.
+| | ATSC A/52:2018 E.3.5.5 | ETSI TS 102 366 V1.2.1 E.2.5.5 |
+|---|---|---|
+| amplitude (.2) | `ampbnd[ch][bnd] *= 1 + 0.38 * chaos[ch][bnd];` | `ampbnd[ch][bnd] *= 1 - 0,38 * chaos[ch][bnd];` |
+| angle (.3) | `angle[ch][bin] += chaos[ch][bin] * rand[ch][bin];` | `angle[ch][bin] += -chaos[ch][bin] * rand[ch][bin];` |
+
+Everything else agrees: the tables of amplitudes, angles and chaos (E3.10 to
+E3.12), the 256 printed values of the window (Table 7.33 and Table 6.33), the
+`1/N` of the transform of step 5, and the overlap-add of step 3, printed
+without the factor two in both. The chaos table runs from 0 to -1, so
+A/52:2018 lowers the amplitude, to 0,62 at code 7, and V1.2.1 raises it, to
+1,38; the angle signs agree in distribution, since the random values are
+symmetric, and only a given sequence tells them apart. The full reading
+follows A/52:2018, which is what the code did from the start; for a while it
+followed V1.2.1, and the commits that did so and undid it stand apart in the
+history. The reference reads either printing (`text a52-2018|ts102366-v121`).
+A/52:2012 was not compared.
+
+Held to the text, the full reading changed in one place:
+
 - **Every channel draws its own transient values.** `rand_trans` "must be
-  unique for each band [bnd] and channel [ch]"; one value per band had been
-  shared by every channel. Now every coupled channel after the first draws
-  one per band and block, a transient in it or not, so the draws have a fixed
-  order the reference can follow.
+  unique for each band [bnd] and channel [ch]" in both editions; one value
+  per band had been shared by every channel. Now every coupled channel after
+  the first draws one per band and block, a transient in it or not, so the
+  draws have a fixed order the reference can follow.
 
-A fourth fix is in the decoder, not the clause: a whole frame without enhanced
-coupling (standard coupling, or a concealed frame) did not tell the synthesis
-that the next enhanced block's predecessor is zero, so the last enhanced block
-before it stood in. A stream that switches the tool off and on at frame
-boundaries, with a concealed frame in it, is now decoded bit for bit as the
-synthesis run block by block over the whole stream.
+A second fix is in the decoder, not the clause: a whole frame without
+enhanced coupling (standard coupling, or a concealed frame) did not tell the
+synthesis that the next enhanced block's predecessor is zero, so the last
+enhanced block before it stood in. A stream that switches the tool off and on
+at frame boundaries, with a concealed frame in it, is now decoded bit for bit
+as the synthesis run block by block over the whole stream.
 
 How much the chaos de-correlates, measured on the reference (two channels of
 the same carrier and codes, 22 bands, 320 blocks over eight seeds; mean
@@ -708,16 +720,16 @@ correlation, a statistic rather than a requirement of any one block):
 | chaos code | amplitude | correlation, no transient | with a transient |
 |---:|---:|---:|---:|
 | 0 | 1,000 | 1,000 | 1,000 |
-| 1 | 1,054 | 0,967 | 0,967 |
-| 2 | 1,109 | 0,871 | 0,872 |
-| 3 | 1,163 | 0,724 | 0,726 |
-| 4 | 1,217 | 0,543 | 0,545 |
-| 5 | 1,271 | 0,348 | 0,351 |
-| 6 | 1,326 | 0,160 | 0,163 |
-| 7 | 1,380 | -0,003 | 0,002 |
+| 1 | 0,946 | 0,967 | 0,967 |
+| 2 | 0,891 | 0,870 | 0,873 |
+| 3 | 0,837 | 0,721 | 0,728 |
+| 4 | 0,783 | 0,538 | 0,548 |
+| 5 | 0,729 | 0,342 | 0,354 |
+| 6 | 0,674 | 0,155 | 0,166 |
+| 7 | 0,620 | -0,005 | 0,003 |
 
 (The amplitude column applies without a transient only.) There is no
-unconditional conservation of power to look for: the clause raises the
+unconditional conservation of power to look for: the clause scales the
 amplitude and rotates each bin, and the projection back onto the real
 transform drops what the rotation moves out of it.
 

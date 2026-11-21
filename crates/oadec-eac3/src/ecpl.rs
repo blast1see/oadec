@@ -13,7 +13,8 @@
 //! ETSI TS 102 366 V1.4.1 does not describe any of this: its clause E.2.5.5
 //! reduces enhanced coupling to a real-valued gain. The full process is in
 //! ETSI TS 102 366 V1.2.1 clause E.2.5.5 and in ATSC A/52:2012 and A/52:2018
-//! clause E.3.5.5, which agree word for word. See `docs/eac3.md`.
+//! clause E.3.5.5. This follows A/52:2018; V1.2.1 prints the two chaos terms
+//! with the opposite sign. See `docs/eac3.md`.
 
 use std::f64::consts::PI;
 
@@ -196,7 +197,7 @@ impl Synth {
             let Some(c) = slot else { continue };
             let first = ch == ecpl.first_ch;
             // rand_trans is "unique for each band [bnd] and channel [ch]" and
-            // new every block (clause E.2.5.5.3, V1.2.1). It is drawn for
+            // new every block (A/52:2018 clause E.3.5.5.3). It is drawn for
             // every channel after the first, a transient in it or not, so the
             // draws follow the order of `RandomValues::trans`.
             if !first {

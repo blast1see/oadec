@@ -4,11 +4,11 @@
     python make_cases.py [DIR]
 
 The cases are plain text in the format `tools/ecpl_reference.py` documents;
-the reference answers them (`.ref.f32`), and `tests/ecpl_reference.rs` holds
+the reference answers them (`.ref32.bin`), and `tests/ecpl_reference.rs` holds
 the decoder to the answers. To write them all again, from this directory:
 
     python make_cases.py .
-    for c in *.case; do python ../../../../tools/ecpl_reference.py "$c" -o "${c%.case}.ref.f32"; done
+    for c in *.case; do python ../../../../tools/ecpl_reference.py "$c" -o "${c%.case}.ref32.bin"; done
 
 Everything is a function of the case name, so the files are the same on
 every run. This script needs nothing beyond Python; the reference needs numpy.
