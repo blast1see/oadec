@@ -19,7 +19,7 @@
  ],
  "tolerance": "none: byte equality",
  "generated_by": "round 5 P3 stop 2 (measure scripts outside the repository)",
- "utc": "2026-11-21T12:14:52Z",
+ "utc": "2026-11-21T12:16:34Z",
  "head": "7f1a847",
  "harness": {
   "cases": 27,
@@ -642,5 +642,54 @@
    "findings": 0
   },
   "grouping_verified_against_profile_text": false
+ },
+ "damf_event_key_probe": {
+  "question": "Do Dolby's encoders read screenFactor, depthFactor and trimBypass of a DAMF event?",
+  "set": "oadec atmos-author crates/oadec-cli/tests/fixtures/authored-scene.json (1 bed + 6 objects)",
+  "e_ac3_joc": [
+   {
+    "name": "base1",
+    "encoder_exit": 0,
+    "sha256": "4d86370933b50d6e"
+   },
+   {
+    "name": "base2",
+    "encoder_exit": 0,
+    "sha256": "4d86370933b50d6e"
+   },
+   {
+    "name": "screen_half",
+    "encoder_exit": 0,
+    "sha256": "4d86370933b50d6e"
+   },
+   {
+    "name": "screen_full",
+    "encoder_exit": 0,
+    "sha256": "4d86370933b50d6e"
+   },
+   {
+    "name": "trimbypass_true",
+    "encoder_exit": 0,
+    "sha256": "4d86370933b50d6e"
+   },
+   {
+    "name": "base3",
+    "encoder_exit": 0,
+    "sha256": "4d86370933b50d6e"
+   },
+   {
+    "name": "screen_half_depth1",
+    "encoder_exit": 0,
+    "sha256": "4d86370933b50d6e"
+   }
+  ],
+  "e_ac3_joc_note": "the first screen_half_depth1 replaced no text (the set writes depthFactor 0.0) and was run again with that text; every variant is the control's bytes",
+  "truehd": {
+   "t_base": "0 screen-referenced updates, 0 payloads with trim",
+   "t_screen_half (screenFactor 0.5, depthFactor 1.0)": "0 screen-referenced updates, 0 payloads with trim",
+   "t_trimbypass_true": "0 screen-referenced updates, 0 payloads with trim",
+   "note": "TrueHD encodes of one set differ from run to run in a few bytes, so the stream is read back, not hashed"
+  },
+  "reading": "neither encoder reads the three keys: the E-AC-3 JOC stream is the control's bytes and the TrueHD stream carries no screen reference and no trim element"
  }
 }
