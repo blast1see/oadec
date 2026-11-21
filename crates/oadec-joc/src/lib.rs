@@ -687,6 +687,63 @@ mod tests {
         }
     }
 
+    /// What `applied` reads is what `reconstruct` multiplies by, slot by slot,
+    /// with and without a lag: in the slots the lag fills from the frame
+    /// before as in the rest.
+    #[test]
+    fn the_applied_matrix_is_the_one_the_reconstruction_uses() {
+        const NCH: usize = 5;
+        const NUM_TS: usize = 24;
+        let input: Vec<[Complex; BANDS]> = (0..NCH)
+            .map(|ch| {
+                std::array::from_fn(|sb| Complex {
+                    re: 1.0 + ch as f64 + sb as f64 / 64.0,
+                    im: 0.5 - ch as f64 * 0.25 + sb as f64 / 128.0,
+                })
+            })
+            .collect();
+        for lag in [0usize, 3] {
+            let mut d = JocDecoder::new(NCH, 1);
+            d.set_lag(lag);
+            // a ramp in the second frame, from a different first one, so that
+            // every slot and the carried ones differ
+            d.update(
+                &one_object(Slope::Steep, 1, [1, 0], &[[150, 120, 100, 80, 60]], NCH),
+                NUM_TS,
+            );
+            d.update(
+                &one_object(Slope::Smooth, 1, [0, 0], &[[40, 60, 80, 100, 120]], NCH),
+                NUM_TS,
+            );
+            let mut seen = std::collections::HashSet::new();
+            for ts in 0..NUM_TS {
+                let m = *d.applied(0, ts).expect("a matrix in the frame");
+                if lag == 0 {
+                    assert_eq!(
+                        Some(&m),
+                        d.matrix(0, ts),
+                        "lag 0: the frame's own, slot {ts}"
+                    );
+                } else if ts >= lag {
+                    assert_eq!(Some(&m), d.matrix(0, ts - lag), "slot {ts}");
+                }
+                seen.insert(format!("{m:?}"));
+                let mut out = vec![[Complex::default(); BANDS]];
+                d.reconstruct(ts, &input, &mut out);
+                for sb in 0..BANDS {
+                    let mut want = Complex::default();
+                    for (ch, x) in input.iter().enumerate() {
+                        want = want.plus(x[sb].scale(m[ch][sb]));
+                    }
+                    assert_eq!(out[0][sb], want, "lag {lag}, slot {ts}, subband {sb}");
+                }
+            }
+            assert!(seen.len() > NUM_TS / 2, "lag {lag}: the slots differ");
+        }
+        let d = JocDecoder::new(NCH, 1);
+        assert!(d.applied(1, 0).is_none(), "no such object");
+    }
+
     #[test]
     fn band_map_matches_the_examples_of_table_54() {
         let m15 = band_map(15);

@@ -159,6 +159,15 @@ struct Pipeline {
     /// Whether to restore the level the encoder took off (`--no-clip-gain`
     /// turns it off, for measuring the difference).
     apply_clip_gain: bool,
+    /// What each JOC input channel carries into its [`Quadrature`]; told to a
+    /// tap.
+    carry: Vec<Carry>,
+    /// Time slots the matrices are held back by; told to a tap.
+    lag: usize,
+    /// At a splice, clear the analysis, quadrature and synthesis banks as
+    /// well as the matrix history ([`TapOptions::reset_banks`]). Off but for
+    /// a measurement that asks for it.
+    reset_banks: bool,
 }
 
 /// `--joc-low-band`: how the lowest subband of a channel that carries the
@@ -599,15 +608,29 @@ impl Pipeline {
             low_delay,
             clip_gain: 1.0,
             apply_clip_gain: clip_gain,
+            carry,
+            lag,
+            reset_banks: false,
         })
     }
 
     /// Feeds one frame of core PCM (per coded channel) and its JOC payload.
     fn frame(&mut self, pcm: &[&[f32]], joc: Option<&Joc>) {
+        self.frame_tapped(pcm, joc, None);
+    }
+
+    /// [`Self::frame`], telling `tap` what every time slot held.
+    fn frame_tapped(
+        &mut self,
+        pcm: &[&[f32]],
+        joc: Option<&Joc>,
+        mut tap: Option<&mut dyn JocTap>,
+    ) {
         let samples = pcm[0].len();
         let num_ts = samples / BANDS;
         // what this frame starts from: a frame without a payload keeps it
         let before = self.clip_gain;
+        let mut reset = false;
         match joc {
             Some(j) => {
                 // Clause 6.3.3.3: the sequence counter increments every frame
@@ -618,6 +641,10 @@ impl Pipeline {
                 // first frame, so it is forgotten here.
                 if j.seq_count == 0 && self.frames > 0 {
                     self.joc.reset();
+                    if self.reset_banks {
+                        self.reset_the_banks();
+                    }
+                    reset = true;
                     self.splices += 1;
                 } else if let Some(prev) = self.last_seq
                     && j.seq_count != Joc::seq_count_after(prev)
@@ -663,6 +690,20 @@ impl Pipeline {
             }
             self.joc
                 .reconstruct(ts, &self.slots_rot, &mut self.slots_out);
+            if let Some(tap) = tap.as_deref_mut() {
+                tap.slot(&TapSlot {
+                    frame: self.frames,
+                    ts,
+                    seq_count: joc.map(|j| j.seq_count),
+                    reset,
+                    flush: false,
+                    downmix: &self.slots_rot,
+                    objects: &self.slots_out,
+                    decoder: &self.joc,
+                    clip_gain_before: before,
+                    clip_gain: of_the_frame,
+                });
+            }
             for (obj, syn) in self.synthesis.iter_mut().enumerate() {
                 syn.step(&self.slots_out[obj], &mut out);
                 if let Some(e) = self.object_element[obj] {
@@ -689,8 +730,21 @@ impl Pipeline {
         self.frames += 1;
     }
 
+    /// Clears every bank: the analysis and quadrature of every downmix
+    /// channel and the synthesis of every object.
+    fn reset_the_banks(&mut self) {
+        self.analysis.iter_mut().for_each(Analysis::reset);
+        self.quad.iter_mut().for_each(Quadrature::reset);
+        self.synthesis.iter_mut().for_each(Synthesis::reset);
+    }
+
     /// Runs zeros through the banks so the objects catch up with the core.
     fn flush(&mut self) {
+        self.flush_tapped(None);
+    }
+
+    /// [`Self::flush`], telling `tap` what every time slot held.
+    fn flush_tapped(&mut self, mut tap: Option<&mut dyn JocTap>) {
         let zeros = vec![
             vec![0.0f32; DECODER_DELAY + DELAY + self.low_delay + BANDS];
             self.joc_inputs.iter().max().map_or(1, |m| m + 1)
@@ -714,6 +768,20 @@ impl Pipeline {
             }
             self.joc
                 .reconstruct(ts, &self.slots_rot, &mut self.slots_out);
+            if let Some(tap) = tap.as_deref_mut() {
+                tap.slot(&TapSlot {
+                    frame: self.frames,
+                    ts,
+                    seq_count: None,
+                    reset: false,
+                    flush: true,
+                    downmix: &self.slots_rot,
+                    objects: &self.slots_out,
+                    decoder: &self.joc,
+                    clip_gain_before: self.clip_gain,
+                    clip_gain: self.clip_gain,
+                });
+            }
             for (obj, syn) in self.synthesis.iter_mut().enumerate() {
                 syn.step(&self.slots_out[obj], &mut out);
                 if let Some(e) = self.object_element[obj] {
@@ -961,6 +1029,16 @@ pub struct JocPcm {
 /// What [`write`] refuses, and [`MissingDownmix`] (as the error's source)
 /// when the programme does not carry the downmix.
 pub fn joc_pcm(source: &crate::source::Source, opts: &Options) -> Result<JocPcm> {
+    joc_pcm_with(source, opts, TapOptions::default(), None)
+}
+
+/// The body of [`joc_pcm`] and [`joc_pcm_tapped`].
+fn joc_pcm_with(
+    source: &crate::source::Source,
+    opts: &Options,
+    measure: TapOptions,
+    mut tap: Option<&mut dyn JocTap>,
+) -> Result<JocPcm> {
     let mut decoder = ProgramDecoder::new(opts.core);
     let mut pipeline: Option<Pipeline> = None;
     let mut channels: Vec<ChannelLoc> = Vec::new();
@@ -1019,13 +1097,30 @@ pub fn joc_pcm(source: &crate::source::Source, opts: &Options) -> Result<JocPcm>
             )?);
             dmx_config = header.dmx_config;
             core = vec![Vec::new(); channels.len()];
+            let pl = pipeline.as_mut().expect("created above");
+            pl.reset_banks = measure.reset_banks;
+            if let Some(tap) = tap.as_mut() {
+                tap.start(&TapStart {
+                    rate,
+                    dmx_config,
+                    channels: header.num_channels,
+                    objects: header.num_objects,
+                    carry: pl.carry.clone(),
+                    lag: pl.lag,
+                    object_delay: DECODER_DELAY + DELAY + pl.low_delay,
+                });
+            }
         }
         let pl = pipeline.as_mut().expect("created above");
         let pcm: Vec<&[f32]> = (0..frame.channels()).map(|i| frame.channel(i)).collect();
         for (to, from) in core.iter_mut().zip(&pcm) {
             to.extend(from.iter().map(|&v| f64::from(v)));
         }
-        pl.frame(&pcm, payloads.joc.as_ref());
+        pl.frame_tapped(
+            &pcm,
+            payloads.joc.as_ref(),
+            tap.as_mut().map(|t| &mut **t as &mut dyn JocTap),
+        );
         core_samples += frame.samples();
         Ok(())
     };
@@ -1044,7 +1139,7 @@ pub fn joc_pcm(source: &crate::source::Source, opts: &Options) -> Result<JocPcm>
     let Some(mut pl) = pipeline else {
         bail!("no decodable frames");
     };
-    pl.flush();
+    pl.flush_tapped(tap);
     // as long as the core less the decoder delay, as `write` makes it
     let target = core_samples.saturating_sub(DECODER_DELAY);
     let mut elements: Vec<Vec<f64>> = pl
@@ -1082,17 +1177,13 @@ pub fn joc_pcm(source: &crate::source::Source, opts: &Options) -> Result<JocPcm>
 ///
 /// # Errors
 /// What [`joc_pcm`] refuses.
-///
-/// Round 5, stop 1: the signature is fixed and the decode is not wired yet,
-/// so this refuses every stream; [`joc_pcm`] does not pass through it.
 pub fn joc_pcm_tapped(
     source: &crate::source::Source,
     opts: &Options,
     measure: TapOptions,
     tap: &mut dyn JocTap,
 ) -> Result<JocPcm> {
-    let _ = (source, opts, measure, tap);
-    bail!("the JOC tap is not wired yet (round 5, stop 2)")
+    joc_pcm_with(source, opts, measure, Some(tap))
 }
 
 /// What a decode of the objects of an E-AC-3 JOC stream wrote.
