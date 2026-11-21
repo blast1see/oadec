@@ -401,6 +401,54 @@ fn timeless(mut report: Value) -> Value {
     report
 }
 
+/// `verify --decode` of a TrueHD stream entered between two major syncs, as a
+/// cut of a longer stream is: read once, it reports what a file of it reports.
+/// The framer passes over what is before the first major sync in both, so the
+/// decodes of both begin at it, and the report says what was passed over.
+#[test]
+fn verify_decode_of_a_stream_entered_between_major_syncs_is_that_of_its_file() {
+    for name in [
+        "truehd-51-88k.thd",
+        "truehd-20-44k.thd",
+        "mlp-51-96k.mlp",
+        "authored-scene.mlp",
+    ] {
+        let whole = read(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../oadec-cli/tests/fixtures")
+                .join(name),
+        );
+        // the first access unit, by the length its header gives, in words
+        let first = usize::from(u16::from_be_bytes([whole[0], whole[1]]) & 0x0FFF) * 2;
+        let bytes = whole[first..].to_vec();
+        let options = VerifyOptions {
+            decode: true,
+            ..VerifyOptions::default()
+        };
+        let of_source =
+            api::verify(&Source::memory(NAME, bytes.clone()), &options).expect("verified");
+        let of_reader =
+            api::verify_from(NAME, Cut::new(&bytes, 9000, 23), &options, None).expect("verified");
+        let (a, b) = (
+            of_source.json().expect("json").map(timeless),
+            of_reader.json().expect("json").map(timeless),
+        );
+        assert_eq!(b, a, "{name}");
+        assert_eq!(of_reader.clean(), of_source.clean(), "{name}");
+        let a = a.expect("a report");
+        // the bytes before the first major sync were passed over, and the
+        // presentations were decoded from there
+        assert!(
+            a["failures"]["skipped_bytes"].as_u64().unwrap_or(0) > 0,
+            "{name}: {a}"
+        );
+        assert!(
+            a["lossless_checks"]["evaluated"].as_u64().unwrap_or(0) > 0,
+            "{name}: {a}"
+        );
+    }
+}
+
 #[test]
 fn a_call_that_reads_a_stream_once_reports_what_the_call_of_its_source_reports() {
     for path in streams() {

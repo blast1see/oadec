@@ -464,6 +464,7 @@ fn a_feature_length_stream_piped_into_a_report_is_not_held_whole() {
     let path = std::env::var_os("OADEC_LONG_STREAM")
         .expect("OADEC_LONG_STREAM names the stream this test reads");
     for (args, codes) in LONG_RUNS {
+        let began = std::time::Instant::now();
         let (out, peak) = piped_with_peak(args, |to| {
             let mut from = std::fs::File::open(&path).expect("the stream");
             // a command that refused the stream has stopped reading
@@ -476,6 +477,12 @@ fn a_feature_length_stream_piped_into_a_report_is_not_held_whole() {
             text(&out.stderr)
         );
         let peak = peak.expect("the memory of the process");
+        eprintln!(
+            "{args:?}: {:.1} MiB at most, {:.1} s, exit {:?}",
+            peak as f64 / f64::from(1 << 20),
+            began.elapsed().as_secs_f64(),
+            out.status.code()
+        );
         assert!(peak <= PEAK, "{args:?}: {} MiB at most", peak >> 20);
     }
 }

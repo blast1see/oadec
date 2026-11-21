@@ -1969,4 +1969,121 @@ mod tests {
             assert_eq!(Arc::strong_count(&given_up), 1, "{name}");
         }
     }
+
+    /// The decodes of `verify --decode` of a stream read once, lent `units`
+    /// one at a time as a pass lends them: what the scan and the decodes
+    /// came to.
+    fn beside(units: &[Unit]) -> (Box<scan::Scan>, Option<Result<LosslessChecks>>) {
+        use crate::pipeline::{Codec, Framed, Head, PassEnd, Stage, UnitRef};
+        std::thread::scope(|scope| {
+            let mut beside = Beside {
+                scope,
+                scanning: scan::Scanning::new("lent", Tally::DEFAULT_MAX_PER_RULE, false),
+                first: None,
+                hand: None,
+                refused: None,
+            };
+            for (index, unit) in units.iter().enumerate() {
+                let lent = UnitRef {
+                    index: index as u64,
+                    offset: unit.offset,
+                    bytes: &unit.bytes,
+                    head: Head::TrueHd(unit),
+                };
+                beside.unit(&lent).expect("lent");
+            }
+            let end = PassEnd {
+                codec: Codec::TrueHd,
+                bytes: 0,
+                units: units.len() as u64,
+                framed: Framed::TrueHd(input::PassSummary {
+                    stats: oadec_truehd::ExtractStats::default(),
+                    trailing_bytes: 0,
+                    final_gap: None,
+                    file_bytes: 0,
+                }),
+            };
+            beside.finish(&end).expect("finished");
+            let checks = match (beside.hand, beside.refused) {
+                (Some(hand), _) => Some(Ok(summed(hand.end()))),
+                (None, Some(e)) => Some(Err(e)),
+                (None, None) => None,
+            };
+            (beside.scanning.scan, checks)
+        })
+    }
+
+    /// A first access unit that does not parse, which no framer of a file
+    /// has been seen to hand out (it locks on a major sync whose check
+    /// holds): the scan has the first major sync only at the unit after
+    /// it, and the decodes that begin there are handed the first unit,
+    /// which was held for them, and stop at it, as a decode of a file of
+    /// the same units does. Without any major sync no decode begins, and
+    /// nothing is held past the end.
+    #[test]
+    fn the_first_unit_is_held_for_decodes_that_begin_after_it() {
+        let mut whole = Vec::new();
+        std::io::Read::read_to_end(
+            &mut fixture("truehd-51-88k.thd").open().expect("opened"),
+            &mut whole,
+        )
+        .expect("read");
+        let (units, ms) = units_of(&whole);
+        let ms = ms.expect("a major sync");
+        // a unit whose length says more than it holds does not parse
+        let broken = Unit {
+            offset: 0,
+            bytes: vec![0x0F, 0xFF, 0, 0, 0, 0, 0, 0],
+            has_major_sync: false,
+            resynced: false,
+            gap_before: None,
+        };
+        let parse_error = AccessUnit::parse(&broken.bytes, None)
+            .expect_err("it does not parse")
+            .to_string();
+        let mut lent = vec![broken.clone()];
+        lent.extend(units.iter().cloned());
+        let (scan, checks) = beside(&lent);
+        assert_eq!(scan.units, lent.len() as u64);
+        assert_eq!(scan.first_major_sync.as_ref(), Some(&ms));
+        let checks = checks.expect("the decodes began").expect("they could");
+        // every presentation carried, each stopped at the first unit
+        let carried = (0..MAX_PRESENTATIONS)
+            .filter(|&p| {
+                StreamConfig::from_major_sync(&ms)
+                    .unwrap()
+                    .presentations
+                    .is_carried(p)
+            })
+            .count();
+        assert_eq!(checks.per_presentation.len(), carried);
+        for p in &checks.per_presentation {
+            assert_eq!(
+                p.error.as_deref(),
+                Some(parse_error.as_str()),
+                "{}",
+                p.presentation
+            );
+            assert_eq!(p.evaluated, 0);
+        }
+        // what a decode of the same units, all of them handed over, says
+        let handed = std::thread::scope(|scope| {
+            let mut hand = hand_over(scope, &ms).expect("begun");
+            for unit in &lent {
+                hand.take(unit.clone());
+            }
+            hand.end()
+        });
+        assert_eq!(
+            serde_json::to_value(&checks.per_presentation).unwrap(),
+            serde_json::to_value(&handed).unwrap()
+        );
+        // the stream as it is: the decodes begin at the first unit
+        let (_, as_is) = beside(&units);
+        assert!(as_is.expect("begun").expect("could").evaluated > 0);
+        // and no major sync at all: no decode, as the file path has none
+        let (scan, none) = beside(&[broken.clone(), broken]);
+        assert!(scan.first_major_sync.is_none());
+        assert!(none.is_none());
+    }
 }
