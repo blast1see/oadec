@@ -95,6 +95,26 @@ pub const MAX_OBJECTS: usize = 118;
 /// Tracks the profile allows in one file.
 pub const MAX_TRACKS: usize = 128;
 
+/// XML element instances the profile allows of one kind (`MAX_ELEMENT_COUNT`,
+/// general limits): 118 objects and at most five DirectSpeakers sets.
+pub const MAX_ELEMENTS: usize = 123;
+
+/// The ADM profile guard of round 5 (P3, task 2), as a skeleton: what an
+/// `axml` chunk has more of than the profile allows, one stderr line each.
+///
+/// Stop 1 lays down the signature and the tests (`tests/ledger_completeness.rs`,
+/// ignored); nothing calls it and it counts nothing yet, so no output and no
+/// exit code depends on it. Stop 2 counts `audioObject` and `audioPackFormat`
+/// against [`MAX_ELEMENTS`], the channel-level elements against
+/// [`MAX_TRACKS`] and the `Objects` type against [`MAX_OBJECTS`], from the
+/// chunk the writer has already written, so that the file's bytes cannot
+/// depend on the count.
+#[must_use]
+pub fn profile_overruns(axml: &str) -> Vec<String> {
+    let _ = axml;
+    Vec::new()
+}
+
 /// Summary returned when the file is closed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdmSummary {

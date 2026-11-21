@@ -109,6 +109,29 @@ pub enum LossKind {
 }
 
 impl LossKind {
+    /// Every kind, in reporting order. The loss report's schema
+    /// (`docs/schemas/loss-report.schema.json`) lists the same names, and a
+    /// test holds the two together.
+    pub const ALL: [Self; 17] = [
+        Self::RampReplaced,
+        Self::ImportanceOmitted,
+        Self::BedEventDropped,
+        Self::BedGainDropped,
+        Self::ScreenReferenceDropped,
+        Self::TrimBypassDropped,
+        Self::DistanceDropped,
+        Self::DivergenceDropped,
+        Self::TrimConfigDropped,
+        Self::WarpModeDropped,
+        Self::SizeAxesCollapsed,
+        Self::LateFirstEventHeld,
+        Self::SamePositionSuperseded,
+        Self::EventBeyondEndDropped,
+        Self::IsfDropped,
+        Self::OutOfOrderWrittenAsIs,
+        Self::NonProfileSampleRate,
+    ];
+
     /// The class the kind is reported under.
     #[must_use]
     pub const fn class(self) -> LossClass {
@@ -418,6 +441,40 @@ mod tests {
         assert_eq!(a.ramp_sources().get(&1536), Some(&2));
         assert_eq!(a.ramp_sources().get(&32), Some(&1));
         assert_eq!(a.count(LossKind::BedEventDropped), 1);
+    }
+
+    /// `ALL` names every kind once, in the order the variants are declared,
+    /// which is the order the ledger reports them in: a kind added to the
+    /// enum and not to the list fails the match below.
+    #[test]
+    fn all_lists_every_kind_once_in_reporting_order() {
+        let index = |kind: LossKind| match kind {
+            LossKind::RampReplaced => 0,
+            LossKind::ImportanceOmitted => 1,
+            LossKind::BedEventDropped => 2,
+            LossKind::BedGainDropped => 3,
+            LossKind::ScreenReferenceDropped => 4,
+            LossKind::TrimBypassDropped => 5,
+            LossKind::DistanceDropped => 6,
+            LossKind::DivergenceDropped => 7,
+            LossKind::TrimConfigDropped => 8,
+            LossKind::WarpModeDropped => 9,
+            LossKind::SizeAxesCollapsed => 10,
+            LossKind::LateFirstEventHeld => 11,
+            LossKind::SamePositionSuperseded => 12,
+            LossKind::EventBeyondEndDropped => 13,
+            LossKind::IsfDropped => 14,
+            LossKind::OutOfOrderWrittenAsIs => 15,
+            LossKind::NonProfileSampleRate => 16,
+        };
+        for (i, kind) in LossKind::ALL.iter().enumerate() {
+            assert_eq!(index(*kind), i, "{kind:?}");
+        }
+        assert!(LossKind::ALL.windows(2).all(|w| w[0] < w[1]));
+        let mut names: Vec<&str> = LossKind::ALL.iter().map(|k| k.name()).collect();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), LossKind::ALL.len(), "names are unique");
     }
 
     #[test]

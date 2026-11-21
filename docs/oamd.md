@@ -168,3 +168,57 @@ cross-checks for the object metadata are therefore truehdd's `.atmos.metadata`
 events and the round trips through the Dolby encoder (see the DAMF notes).
 The presentation types it prints ("Downmix of 6-channel presentation",
 "Independent") match `oadec info`.
+
+## Field by field: what reaches DAMF and ADM
+
+*Draft of round 5 (P3, stop 1). Nothing below changes what oadec writes; it says
+what it writes today and what the loss ledger says of it. "Not measured" means
+no evidence file of this repository answers the question.*
+
+Eight questions per field: how the bitstream carries it; whether oadec parses it
+right; whether the programme model (`crates/oadec-spatial/src/program.rs`) keeps
+it; whether DAMF can carry it and whether the ADM profile (Dolby Atmos Master ADM
+Profile v1.0, `docs/audit/evidence/adm/01-spec-extracts.json`) can; what Dolby's
+tools do with it; whether the loss can be avoided or is a limit of the format;
+and whether the ledger (`crates/oadec-spatial/src/loss.rs`, `--loss-report`,
+`docs/schemas/loss-report.schema.json`) reports it. Line numbers are of the
+commit that adds this section; `oamd.rs` is `crates/oadec-emdf/src/oamd.rs`, the others are in
+`crates/oadec-spatial/src/`.
+
+| Field | Bitstream (TS 103 420) | Parsed | Model | DAMF | ADM | Dolby tools | Avoidable? | Ledger |
+|---|---|---|---|---|---|---|---|---|
+| Position, extended precision | `object_render_info` 6+6+1+4 bits or a 3-bit differential; `ext_prec_pos` steps in element 5 | yes, `oamd.rs:612-633`, steps `oamd.rs:940-950`; the bit order of `ext_prec_pos_presence` measured (above) | `ObjectState.pos`, `program.rs:350` | `pos`, exact (`damf.rs:410`) | cartesian X/Y, Z omitted at 0 (`adm.rs:722-731`) | what sounds alone comes back at its place, 296 of 296 (`dolby-tools.md`, *A matrix of round trips*) | nothing is lost | nothing to report |
+| Distance | `b_object_distance_specified`, at infinity or `distance_factor` (table 15) | yes, `oamd.rs:634-641` | **no**: dropped in `Timeline::push`, `program.rs:562-580` | no key known | `absoluteDistance` shall not be used | not measured; no stream of the library or of the 269 encodes carries one | profile limit; BS.2076 has `absoluteDistance` (outside the profile) | `distance-dropped` (unrepresentable), `program.rs:578`, per event and per change |
+| Divergence | element 5 `object_divergence`, tables 41/42 | yes, `oamd.rs:910-931` | **no**: `program.rs:582-592` | no key known | `objectDivergence` shall not be used | not measured | profile limit; BS.2076 has `objectDivergence` | `divergence-dropped` (unrepresentable), `program.rs:590` |
+| Trim configurations | trim element, `global_trim_mode == 2`, nine configurations | yes, `oamd.rs:833-865` | **no**; only the per-object bypass (below) | trim keys accepted, encoder output unchanged in every layout tried (`02-damf-key-probe.json`) | no field | `atmos_info` reports auto trims whatever the set says | a format limit as far as measured | `trim-config-dropped` (unrepresentable), once per change, `program.rs:508` |
+| Trim bypass | `b_disable_trim_per_obj`, or `global_trim_mode == 1` | yes, `oamd.rs:867-875` | `trim_bypass`, `program.rs:490-497` | `trimBypass`, exact (`damf.rs:425-431`); whether an encoder reads it: not measured | no field | not measured | profile limit | `trim-bypass-dropped` (profile reduction) for objects, `adm.rs:844`; **a bed's first state is not counted** (below) |
+| Gain | `object_gain`: 0 dB, mute, 6-bit dB, or the previous object's | yes, `oamd.rs:520-529` | `gain`, exact | `gain` in dB | as Dolby's converters write it, ten decimals of the float32 factor (`adm.rs:715`) | the encoders drop it; the Conversion Tool carries -6 dB as `0.5011872053` (`adm-remediation-dolby.json`) | nothing lost by oadec | nothing to report |
+| Gain ramp | `ramp_duration` (table 25) or 11 bits | yes | `ramp`, exact | `rampLength`, exact | 250 samples after the first block (profile table 11), or the source with `--adm-interpolation real` (outside the profile) | Dolby's converters write 0 then 250 (`adm-dolby-reference.json`, S1) | profile limit | `ramp-replaced` (profile reduction) with the source lengths, `adm.rs:704` |
+| Importance | `object_priority`, 5 bits or 1.0 | yes, `oamd.rs:531-536` | `importance`, exact | `importance` | only the inactive marker `<importance>0</importance>` | the Conversion Tool writes none on active objects (S3) | profile limit | `importance-omitted` (profile reduction), `adm.rs:838`, active objects only; **a bed's first importance is not counted** |
+| Size, three axes | `object_size_idx` 1 (one value) or 2 (three) | yes, `oamd.rs:649-661` | three axes, `program.rs:267` | one `size`, the width (`damf.rs:421`) | `width`=`depth`=`height` of the width (`adm.rs:733-737`); the profile requires the three equal | the encoders render a size into elements; the Conversion Tool writes the same triple and `diffuse 1`; a three-axis size: not measured | DAMF: format limit; ADM: profile limit, three axes outside it | `size-axes-collapsed` (approximation), both writers, per event |
+| Screen reference | `b_object_use_screen_ref`, `screen_factor` 3 bits, `depth_factor` table 16 | yes, `oamd.rs:664-672` | as `screen_factor` (0 when absent) and `depth_factor` (0.25 when absent), `program.rs:359-360`; no flag of its own, though `screen_factor` is never 0 when present | `screenFactor`, `depthFactor` (`damf.rs:437-452`); whether an encoder reads them: not measured | `screenRef` shall not be used | not measured; no stream carries one | ADM: profile limit; DAMF: carried as far as oadec knows | ADM: `screen-reference-dropped` (profile reduction), `adm.rs:841`; DAMF: nothing, and nothing is lost unless an encoder ignores the keys |
+| Snap | `b_object_snap` | yes, `oamd.rs:673` | `snap` | `snap` | `channelLock` 1 (`adm.rs:740`) | the encoder renders the lock into a place (`dolby-tools.md`, *What the encoders do*) | nothing lost | nothing to report |
+| Zones 0 to 5, elevation | `zone_constraints_idx` 3 bits (table 20), `b_enable_elevation` | yes, `oamd.rs:645-646` | `zones`, `elevation` | `zones` by name, `elevation` | zone rectangles of profile tables 12 and 13 (`adm.rs:746-759`) | the encoder renders a zone into places; the Conversion Tool's zones agree (harness C17) | nothing lost | nothing to report |
+| Zones 6 and 7 | reserved values of table 20 | read as given | kept as 6 or 7 | written `zones: all` (`program.rs:245`) | an empty `<zoneExclusion>`, or only the elevation zones (`adm.rs:746`) | not measured | a reading of a reserved value | **nothing**; proposed `reserved-zone-read-as-all` (approximation) |
+| Warp mode | trim element `warp_mode`, 2 bits | yes, `oamd.rs:833` | per payload, `program.rs:498-505` | `warpMode` with `--warp-mode stream`, none by default | `dbmd` segment 9 byte 152 with `--warp-mode stream` | measured: `02-damf-key-probe.json`, `03-warp-roundtrip.json`, `04-warp-render.json` (`dolby-tools.md`, *The warp mode*) | avoidable on request; the default keeps its bytes | `warp-mode-dropped` (approximation), once per change, `program.rs:503` |
+| ISF | `content_description` bit 1, `intermediate_spatial_format_idx` (table 11b) | yes, `oamd.rs:323-329` | counted (`Program.isf_objects`), no position: `program.rs:533` | none: refused, or left out with `--isf drop` | none: likewise | none | not avoidable: no public source places an ISF channel (above) | `isf-dropped` (declared loss, exit 4), `damf.rs:150`, `adm.rs:293` |
+| `dbmd` chunk | not in OAMD; ADM only | n/a | n/a | n/a | segment 7 constant; segment 9 tool names, bed mask and warp mode; segment 10 channel flags; the rest copied from a Dolby conversion (`dbmd.rs`) | learned from two Conversion Tool outputs; the meaning of the copied bytes is not public | unknown (UNK) | not a ledger matter; no byte is made up |
+| `additional_table_data` | per object info block, `b_additional_table_data_exists`, 4-bit size and bytes | yes, `oamd.rs:763-768` | **no** | no place | no place | not measured; census 0 | format limit | **nothing**; proposed `additional-table-data-dropped` |
+| Alternate object data | `b_alternate_object_data_present`, `alternate_object_data_id_idx` per element | yes, `oamd.rs:1095-1099` | **no**: the first object, trim and extended elements are read (`oamd.rs:1182-1206`), the others are not | no place | no place | not measured; census 0 | format limit | **nothing**; proposed `alternate-object-data-dropped` |
+| Elements 3, 4 and reserved ids | `oa_element_id_idx` without a syntax here (`truehdd` names 3 and 4 headphone and object description) | kept as bytes, `oamd.rs:1018-1028` | **no** | no place | no place | not measured; census 0 | format limit | **nothing**; proposed `unknown-element-dropped` |
+| `b_bed_chan_distribute` | programme assignment, with beds | yes, `oamd.rs:293` | **no** (`Program` keeps the beds only) | `bedDistribution` accepted, encoder output unchanged (`02-damf-key-probe.json`, on a set whose bed is the LFE alone, so not conclusive) | no field | see DAMF | a format limit as far as measured | **nothing**; proposed `bed-distribute-dropped` |
+| `reserved_data`, object element `reserved` | `content_description` bit 3, 4-bit size and bytes; 5 reserved bits | yes, `oamd.rs:337-340`, `oamd.rs:711-715` | **no** | no place | no place | census 0 | format limit | **nothing**; proposed `reserved-data-dropped` |
+
+What the ledger does not say today, and what stop 2 adds, all of classes that
+leave the exit code at 0 (`crates/oadec-spatial/tests/ledger_completeness.rs`
+holds the red tests):
+
+- the six fields marked **nothing** above, each a kind of its own;
+- the first state of a bed channel in ADM: a DirectSpeakers block has no
+  importance and no trim bypass, and `bed-gain-dropped` asks only of the gain
+  and of activity (`adm.rs:412-418`), so an LFE whose importance is not 1 or
+  whose trim is bypassed loses it without a line. They go under
+  `importance-omitted` and `trim-bypass-dropped`.
+
+None of the committed fixtures carries any of these fields, so no recorded loss
+report changes with them (`crates/oadec-cli/tests/loss-golden/`).

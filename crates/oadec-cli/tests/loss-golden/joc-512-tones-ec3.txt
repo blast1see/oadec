@@ -1,0 +1,24 @@
+$ oadec decode ../oadec-eac3/tests/fixtures/joc-512-tones.ec3 --format damf --loss-report <out>/loss.json -o <out>/x
+exit 0
+[stderr ledger] none
+[loss report]
+{
+  "declared_loss": false,
+  "losses": [],
+  "overrides": [],
+  "ramp_sources": {},
+  "target": "damf"
+}
+
+$ oadec decode ../oadec-eac3/tests/fixtures/joc-512-tones.ec3 --format adm --loss-report <out>/loss.json -o <out>/x
+exit 0
+[stderr ledger] none
+[loss report]
+{
+  "declared_loss": false,
+  "losses": [],
+  "overrides": [],
+  "ramp_sources": {},
+  "target": "adm"
+}
+

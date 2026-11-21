@@ -1,0 +1,78 @@
+$ oadec decode isf-sr7.3.0.0.thd --format damf --loss-report <out>/loss.json -o <out>/x
+exit 2
+[stderr ledger]
+error: the programme carries 10 intermediate-spatial-format objects (SR7.3.0.0), which DAMF and the Dolby Atmos master ADM profile cannot represent; pass --isf drop to write the beds and dynamic objects without them
+[loss report] not written
+
+$ oadec decode isf-sr7.3.0.0.thd --format adm --loss-report <out>/loss.json -o <out>/x
+exit 2
+[stderr ledger]
+error: the programme carries 10 intermediate-spatial-format objects (SR7.3.0.0), which DAMF and the Dolby Atmos master ADM profile cannot represent; pass --isf drop to write the beds and dynamic objects without them
+[loss report] not written
+
+$ oadec decode isf-sr7.3.0.0.thd --format damf --isf drop --loss-report <out>/loss.json -o <out>/x
+exit 4
+[stderr ledger]
+damf: written with loss: 10 ISF elements dropped
+[loss report]
+{
+  "declared_loss": true,
+  "losses": [
+    {
+      "class": "declared-loss",
+      "count": 10,
+      "examples": [
+        {
+          "element": 0,
+          "sample": 0
+        },
+        {
+          "element": 1,
+          "sample": 0
+        },
+        {
+          "element": 2,
+          "sample": 0
+        }
+      ],
+      "kind": "isf-dropped"
+    }
+  ],
+  "overrides": [],
+  "ramp_sources": {},
+  "target": "damf"
+}
+
+$ oadec decode isf-sr7.3.0.0.thd --format adm --isf drop --loss-report <out>/loss.json -o <out>/x
+exit 4
+[stderr ledger]
+adm: written with loss: 10 ISF elements dropped
+[loss report]
+{
+  "declared_loss": true,
+  "losses": [
+    {
+      "class": "declared-loss",
+      "count": 10,
+      "examples": [
+        {
+          "element": 0,
+          "sample": 0
+        },
+        {
+          "element": 1,
+          "sample": 0
+        },
+        {
+          "element": 2,
+          "sample": 0
+        }
+      ],
+      "kind": "isf-dropped"
+    }
+  ],
+  "overrides": [],
+  "ramp_sources": {},
+  "target": "adm"
+}
+
