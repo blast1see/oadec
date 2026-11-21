@@ -34,7 +34,10 @@ use crate::integrity::{Findings, Verdict};
 /// Samples the core decoder emits before the first frame's audio proper (the
 /// first block's half window). The Dolby decoder drops them; the metadata
 /// timing counts from the first frame's first sample as it does.
-const DECODER_DELAY: usize = 256;
+///
+/// Public so that a test can work out from the constants, before it looks at
+/// any sample, where an object and the core channel it was made of meet.
+pub const DECODER_DELAY: usize = 256;
 
 /// Samples a change of the clip gain takes: the first block of a frame.
 const CLIP_GAIN_RAMP: usize = 256;
@@ -873,6 +876,84 @@ impl Tally {
         f.first_problem(self.first_error.as_deref().or(stats.first_error.as_deref()));
         f
     }
+}
+
+/// The programme of a stream does not carry every channel its JOC downmix
+/// configuration needs (TS 103 420 table 47).
+///
+/// Raised by the object decode in place of the bare message it used to give,
+/// so that what is missing is named in the words of table 47 and a caller can
+/// tell this refusal from any other.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MissingDownmix {
+    /// `joc_dmx_config_idx`.
+    pub dmx_config: u8,
+    /// The table 47 names of the downmix channels no programme channel feeds,
+    /// in table order (`"Lb"`, `"Tfl"`, ...).
+    pub missing: Vec<&'static str>,
+    /// The programme channels as coded, by their TS 102 366 names.
+    pub channels: Vec<&'static str>,
+}
+
+impl fmt::Display for MissingDownmix {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "JOC downmix configuration {} needs {}, which the programme channels {:?} do not carry",
+            self.dmx_config,
+            self.missing.join(", "),
+            self.channels
+        )
+    }
+}
+
+impl std::error::Error for MissingDownmix {}
+
+/// The JOC objects of an E-AC-3 stream as samples, decoded the way the object
+/// output decodes them but held in memory and without Object Audio Metadata:
+/// every object the payload carries, in payload order, and the LFE beside
+/// them. What the tests of the downmix configurations read; it writes nothing
+/// and changes nothing the DAMF and ADM outputs write.
+#[derive(Debug, Clone)]
+pub struct JocPcm {
+    /// Sample rate.
+    pub rate: u32,
+    /// `joc_dmx_config_idx` of the first payload.
+    pub dmx_config: u8,
+    /// The programme channels as coded.
+    pub channels: Vec<ChannelLoc>,
+    /// The programme channel each JOC downmix input is taken from, in the
+    /// order of table 47.
+    pub inputs: Vec<usize>,
+    /// The core decode of every programme channel, the first
+    /// [`DECODER_DELAY`] samples dropped and no clip gain applied: what the
+    /// objects are made of.
+    pub core: Vec<Vec<f64>>,
+    /// Every JOC object, aligned with `core` sample for sample by the delays
+    /// the decode drops (`object_delay`).
+    pub objects: Vec<Vec<f64>>,
+    /// The LFE as the object programme carries it (clip gain applied), when
+    /// the core has one.
+    pub lfe: Option<Vec<f64>>,
+    /// Samples dropped at the head of every object: [`DECODER_DELAY`], the
+    /// analysis and synthesis banks and the hold of the low-band operator.
+    pub object_delay: usize,
+    /// Frame groups decoded.
+    pub frames: u64,
+    /// Frames whose sequence counter said the stream was spliced.
+    pub splices: u64,
+}
+
+/// Decodes the JOC objects of an E-AC-3 stream into memory with the pipeline
+/// of [`write`], taking every object the first payload declares and no
+/// programme from metadata.
+///
+/// # Errors
+/// What [`write`] refuses, and [`MissingDownmix`] (as the error's source)
+/// when the programme does not carry the downmix.
+pub fn joc_pcm(source: &crate::source::Source, opts: &Options) -> Result<JocPcm> {
+    let _ = (source, opts);
+    bail!("joc_pcm is not implemented yet (P2 stop 1: contract only)")
 }
 
 /// What a decode of the objects of an E-AC-3 JOC stream wrote.

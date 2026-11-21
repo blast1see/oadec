@@ -207,6 +207,19 @@ impl ChannelLoc {
             _ => return None,
         })
     }
+
+    /// The name table 47 of TS 103 420 gives downmix input `input` of
+    /// configuration `dmx_config`: `L R C Ls Rs` for all five, then `Lb Rb`
+    /// for configuration 1 and `Tfl Tfr` for 2 and 4. `None` for an input the
+    /// configuration does not have and for a reserved configuration. The LFE
+    /// is no input (table 47, note).
+    ///
+    /// Stop 1 of P2: the contract only; it names nothing yet.
+    #[must_use]
+    pub const fn joc_input_name(dmx_config: u8, input: usize) -> Option<&'static str> {
+        let _ = (dmx_config, input);
+        None
+    }
 }
 
 /// Channel locations of the custom channel map by `chanmap` bit, in the same
