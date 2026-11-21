@@ -1,0 +1,18 @@
+ecplref 1
+window kbd5
+ola-gain 2
+random lcg 111
+mant lcg 112 1.0
+block nfchans=3 begin=20 end=21 bndstrc=0000000000000000000000 interp=1
+ch 0 amp=0 angle=0 chaos=0 trans=0
+ch 1 amp=1 angle=21 chaos=1 trans=0
+ch 2 amp=2 angle=42 chaos=2 trans=0
+block nfchans=3 begin=20 end=21 bndstrc=0000000000000000000000 interp=1
+ch 0 amp=0 angle=1 chaos=1 trans=0
+ch 1 amp=1 angle=22 chaos=2 trans=0
+ch 2 amp=2 angle=43 chaos=3 trans=0
+block nfchans=3 begin=20 end=21 bndstrc=0000000000000000000000 interp=1
+ch 0 amp=0 angle=2 chaos=2 trans=0
+ch 1 amp=1 angle=23 chaos=3 trans=0
+ch 2 amp=2 angle=44 chaos=4 trans=0
+end
