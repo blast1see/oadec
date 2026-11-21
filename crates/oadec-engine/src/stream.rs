@@ -46,7 +46,7 @@ use std::io::{self, Read, Write};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::{Context, Result};
 use oadec_diag::{Rule, Tally};
@@ -435,9 +435,75 @@ pub struct StreamDecoder {
     walking: Walking,
     /// A call ended with an error.
     failed: bool,
-    /// A pause the checks of a TrueHD stream make before each batch: for a
-    /// test that makes them the slower of the two.
-    pace: Option<Duration>,
+    /// What the checks of a TrueHD stream wait on before each batch, and
+    /// what the decode tells of its units: for a test that holds the checks
+    /// back. Never set outside the tests.
+    gate: Option<Arc<Gate>>,
+}
+
+/// Holds the checks of a TrueHD stream back until a test lets them go, and
+/// hears from the decode how far it has gone: a test of the bound on the
+/// units that wait for the checks, which waits on these and on no clock.
+#[derive(Debug, Default)]
+struct Gate {
+    state: std::sync::Mutex<GateState>,
+    changed: std::sync::Condvar,
+}
+
+/// What a [`Gate`] has been told. Only a test reads it.
+#[derive(Debug, Default, Clone, Copy)]
+#[cfg_attr(not(test), allow(dead_code))]
+struct GateState {
+    /// The checks may take their units.
+    open: bool,
+    /// Units decoded so far.
+    decoded: u64,
+    /// Units that wait for their checks, as of the last one decoded.
+    waiting: usize,
+    /// The most units that ever waited at once.
+    most: usize,
+    /// The decode has had to wait for the checks before the end of the
+    /// stream.
+    held: bool,
+}
+
+impl Gate {
+    fn tell(&self, change: impl FnOnce(&mut GateState)) {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        change(&mut state);
+        self.changed.notify_all();
+    }
+
+    /// The checks wait here, before each batch, until the gate is open.
+    fn pass(&self) {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        while !state.open {
+            state = self
+                .changed
+                .wait(state)
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+        }
+    }
+
+    /// One more unit is decoded, and `waiting` wait for their checks.
+    fn decoded(&self, waiting: usize) {
+        self.tell(|state| {
+            state.decoded += 1;
+            state.waiting = waiting;
+            state.most = state.most.max(waiting);
+        });
+    }
+
+    /// The decode waits for the checks with units still to come.
+    fn held(&self) {
+        self.tell(|state| state.held = true);
+    }
 }
 
 #[derive(Debug)]
@@ -463,15 +529,15 @@ impl StreamDecoder {
             codec: None,
             walking,
             failed: false,
-            pace: None,
+            gate: None,
         }
     }
 
-    /// The same decode with checks that pause for `pace` before each batch
-    /// of units they take.
+    /// The same decode with checks held at `gate` until it is open, and a
+    /// decode that tells it of every unit.
     #[cfg(test)]
-    fn with_slow_checks(mut self, pace: Duration) -> Self {
-        self.pace = Some(pace);
+    fn with_held_checks(mut self, gate: Arc<Gate>) -> Self {
+        self.gate = Some(gate);
         self
     }
 
@@ -599,7 +665,7 @@ impl StreamDecoder {
             if self.options.on_layout_change == Some(LayoutChange::Fixed) {
                 return Err(refusal(FIXED_LAYOUT_IS_EAC3));
             }
-            Codec::TrueHd(Box::new(TrueHd::new(&self.options, self.pace)))
+            Codec::TrueHd(Box::new(TrueHd::new(&self.options, self.gate.clone())))
         })
     }
 }
@@ -705,7 +771,7 @@ struct Checks {
 }
 
 impl Checks {
-    fn spawn(name: &str, pace: Option<Duration>) -> Self {
+    fn spawn(name: &str, gate: Option<Arc<Gate>>) -> Self {
         let (to, batches) = mpsc::sync_channel::<Vec<Unit>>(UNITS_AHEAD / BATCH);
         let (found, from) = mpsc::channel();
         let name = name.to_string();
@@ -717,8 +783,8 @@ impl Checks {
             let mut since_major_sync = 0;
             let mut listed = Listed::default();
             for units in batches {
-                if let Some(pace) = pace {
-                    std::thread::sleep(pace);
+                if let Some(gate) = &gate {
+                    gate.pass();
                 }
                 let mut told = Vec::with_capacity(units.len());
                 for unit in &units {
@@ -841,10 +907,12 @@ struct TrueHd {
     spare: Vec<Vec<u8>>,
     /// The most units that waited for their checks at once.
     waiting_high: usize,
+    /// What a test holds the checks with, and is told of every unit.
+    gate: Option<Arc<Gate>>,
 }
 
 impl TrueHd {
-    fn new(options: &StreamOptions, pace: Option<Duration>) -> Self {
+    fn new(options: &StreamOptions, gate: Option<Arc<Gate>>) -> Self {
         let pcm = &options.pcm;
         Self {
             extractor: Extractor::new(),
@@ -858,7 +926,7 @@ impl TrueHd {
                 on_error: pcm.on_error.unwrap_or(OnError::Conceal),
             },
             delivery: None,
-            checks: Checks::spawn(&options.name, pace),
+            checks: Checks::spawn(&options.name, gate.clone()),
             waiting: VecDeque::new(),
             units: 0,
             format: Format::TrueHd,
@@ -870,6 +938,7 @@ impl TrueHd {
             said: Vec::new(),
             spare: Vec::new(),
             waiting_high: 0,
+            gate,
         }
     }
 
@@ -993,6 +1062,9 @@ impl TrueHd {
             pcm,
         });
         self.waiting_high = self.waiting_high.max(self.waiting.len());
+        if let Some(gate) = &self.gate {
+            gate.decoded(self.waiting.len());
+        }
         // decoded, the unit goes to the checks
         self.checks.take(unit)?;
         self.tell(sink, false)
@@ -1004,6 +1076,12 @@ impl TrueHd {
     fn tell(&mut self, sink: &mut dyn StreamSink, all: bool) -> Result<()> {
         while !self.waiting.is_empty() {
             let wait = all || self.waiting.len() > UNITS_AHEAD;
+            if wait
+                && !all
+                && let Some(gate) = &self.gate
+            {
+                gate.held();
+            }
             let Some(found) = self.checks.next(wait, all)? else {
                 return Ok(());
             };
@@ -1617,25 +1695,81 @@ mod tests {
         assert_eq!(next, expected.len(), "every finding was told");
     }
 
-    /// Checks slower than the decode hold it back: no more decoded units
-    /// wait for them than the bound, and with checks this slow as many do.
+    /// Opens its gate when it goes: a test that fails does not leave the
+    /// decode it holds waiting for checks that never come.
+    struct Opens(Arc<Gate>);
+
+    impl Drop for Opens {
+        fn drop(&mut self) {
+            self.0.tell(|state| state.open = true);
+        }
+    }
+
+    impl Gate {
+        /// What it has been told, once `until` holds of it.
+        fn until(&self, until: impl Fn(&GateState) -> bool) -> GateState {
+            let mut state = self
+                .state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            while !until(&state) {
+                state = self
+                    .changed
+                    .wait(state)
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+            }
+            *state
+        }
+    }
+
+    /// Checks that do not keep up hold the decode back. Held until the test
+    /// lets them go, they leave the decode stopped with as many units
+    /// waiting for them as the bound, not one more, and the stream not
+    /// ended; let go, they see the stream to its end with never more units
+    /// waiting. Nothing here waits on a clock: the test waits until the
+    /// decode says it waits, or has more units waiting than the bound.
     #[test]
     fn slow_checks_hold_the_decode_to_its_bound() {
         let bytes = damaged_truehd();
-        let mut told = InOrder::default();
-        let mut decoder = StreamDecoder::new(StreamOptions::new("<stdin>"))
-            .with_slow_checks(Duration::from_millis(15));
-        for piece in bytes.chunks(64 << 10) {
-            decoder.push(piece, &mut told).expect("pushed");
-        }
-        let end = decoder.finish(&mut told).expect("decoded");
-        assert_eq!(end.queue.units_bound, UNITS_AHEAD + 1);
-        assert_eq!(
-            end.queue.units_high_water, end.queue.units_bound,
-            "{:?}",
-            end.queue
+        let bound = UNITS_AHEAD + 1;
+        let gate = Arc::new(Gate::default());
+        let opens = Opens(Arc::clone(&gate));
+        let held_with = Arc::clone(&gate);
+        // made on the thread it runs on: a decode is not sent between threads
+        let decode = std::thread::spawn(move || {
+            let mut decoder =
+                StreamDecoder::new(StreamOptions::new("<stdin>")).with_held_checks(held_with);
+            let mut told = InOrder::default();
+            for piece in bytes.chunks(64 << 10) {
+                decoder.push(piece, &mut told)?;
+            }
+            let end = decoder.finish(&mut told)?;
+            anyhow::Ok((end, told))
+        });
+        // the decode goes as far as it may while the checks take nothing
+        let held = gate.until(|state| state.held || state.most > bound);
+        assert!(
+            held.most <= bound,
+            "{} units waited for checks that took none: the bound is {bound}",
+            held.most
         );
+        assert_eq!(held.waiting, bound, "{held:?}");
+        assert_eq!(held.decoded, bound as u64, "{held:?}");
+        assert!(
+            !decode.is_finished(),
+            "the decode went on without its checks"
+        );
+        drop(opens);
+        let (end, told) = decode
+            .join()
+            .expect("the decode did not panic")
+            .expect("decoded");
+        assert_eq!(end.queue.units_bound, bound);
+        assert_eq!(end.queue.units_high_water, bound, "{:?}", end.queue);
+        assert!(gate.until(|_| true).most <= bound);
         assert_eq!(end.units, 2400);
+        let samples = told.0.iter().filter(|t| matches!(t, Told::Pcm(_))).count();
+        assert!(samples > bound, "the rest of the stream was told");
     }
 
     fn le32(bytes: &[u8], at: usize) -> u32 {
