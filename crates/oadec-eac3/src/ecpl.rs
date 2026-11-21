@@ -47,6 +47,45 @@ pub struct RandomValues {
     pub trans: Vec<f64>,
 }
 
+/// A model of what Dolby's decoders do to enhanced coupled channels besides
+/// the amplitude, laid over the default (amplitude-only) reading.
+///
+/// Measured against the Reference Player's `dlbac3dec`, the coupled channels
+/// of an enhanced coupling block come out decorrelated by an amount that
+/// depends on the amplitude code (a least-squares gain of 0,45 to 1,00 of
+/// Dolby's decode on the amplitude-only one; `docs/eac3.md`). No model of it
+/// has passed the promotion criterion yet, so [`Model::Off`] is the only
+/// one, and the decode is the same with it as without it. A model applies to
+/// the amplitude-only reading alone: the full reading of
+/// [`crate::frame::Options::ecpl_full`] is the text of the standard, and no
+/// model is laid over it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum Model {
+    /// Nothing besides the amplitude: the default decode.
+    #[default]
+    Off,
+}
+
+impl Model {
+    /// Every model, [`Model::Off`] first.
+    pub const ALL: &'static [Model] = &[Model::Off];
+
+    /// The name a command line gives the model.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Model::Off => "off",
+        }
+    }
+
+    /// The model of that name, if there is one.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|m| m.name() == name)
+    }
+}
+
 /// Deferred enhanced coupling synthesis; one per decoder.
 #[derive(Debug)]
 pub struct Synth {

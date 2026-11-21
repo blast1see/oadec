@@ -17,6 +17,7 @@ use std::collections::{BTreeMap, VecDeque};
 use crate::bsi::Bsi;
 use crate::decoder::{Decoded, Decoder};
 use crate::decorr::{Decorrelation, ProgrammeScope, Status as DecorrelationStatus};
+use crate::ecpl;
 use crate::error::{Eac3Error, Result};
 use crate::frame::Options;
 use crate::header::{FrameHeader, StreamType};
@@ -773,6 +774,9 @@ pub struct ProgramDecoder {
     held: Option<Held>,
     /// What the decorrelation did, as [`Self::decorrelation`] says it.
     decorrelated: Vec<(DecorrelationStatus, u64)>,
+    /// The enhanced coupling model every decoder of the programme is told
+    /// ([`Self::with_ecpl_model`]).
+    ecpl_model: ecpl::Model,
 }
 
 impl ProgramDecoder {
@@ -808,7 +812,26 @@ impl ProgramDecoder {
             defer: config.decorrelation != Decorrelation::Off,
             held: None,
             decorrelated: Vec::new(),
+            ecpl_model: ecpl::Model::Off,
         }
+    }
+
+    /// This decoder, with `model` laid over the amplitude-only reading of
+    /// enhanced coupling in every substream of the programme
+    /// ([`Decoder::set_ecpl_model`]). [`ecpl::Model::Off`], the default, is
+    /// the decode without the call. Given before the first frame; a decoder
+    /// made already keeps the model it was told.
+    #[must_use]
+    pub fn with_ecpl_model(mut self, model: ecpl::Model) -> Self {
+        self.ecpl_model = model;
+        self
+    }
+
+    /// The model [`Self::with_ecpl_model`] gave; [`ecpl::Model::Off`] when
+    /// none was.
+    #[must_use]
+    pub fn ecpl_model(&self) -> ecpl::Model {
+        self.ecpl_model
     }
 
     /// This decoder, made to hold each independent frame until the next
@@ -826,6 +849,9 @@ impl ProgramDecoder {
     /// mode where it is on. Its scope is told frame by frame.
     fn new_decoder(&self) -> Decoder {
         let mut dec = Decoder::new(self.opts);
+        if self.ecpl_model != ecpl::Model::Off {
+            dec.set_ecpl_model(self.ecpl_model);
+        }
         if self.config.decorrelation != Decorrelation::Off {
             dec.set_decorrelation(self.config.decorrelation, ProgrammeScope::Unknown);
         }
