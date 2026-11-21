@@ -1,0 +1,140 @@
+{
+ "what": "decode --programme all: every programme of an AC-3 family stream decoded from one read of the stream, each to a file of its own; decode -p all with --json and --report. Each member is held to the decode of that member alone, from the same stream: its file byte for byte, its exit code, and every field of its report",
+ "method": "No stream of more than one programme exists in the local corpus (every E-AC-3 stream there carries substream id 0 alone), so the streams of several programmes are written: the frame groups of a stream of one programme, the substreamid of each independent frame rewritten and its CRC put right, interleaved group by group; nothing else of a frame is touched (crates/oadec-cli/tests/support/programmes.rs). The tests hold one programme, eight (ids 0 to 7), ids apart (0, 2, 5), a programme that begins late and one that ends early, damage to one programme, a change of layout in one programme, a programme with a dependent substream beside one without, a programme whose file cannot be written, and the report against the report of each decode alone. Over the local corpus, every stream of one programme or presentation is decoded with --programme all (AC-3 family) or -p all --report (TrueHD) and each member set against its decode alone. Peak memory and time are measured on a stream of eight programmes written from eight corpus streams, and on the same stream ten times over",
+ "commands": [
+  "cargo test --workspace --locked --no-fail-fast",
+  "oadec decode <stream> --programme all --report <report.json> -o <dir>/all.wav, then oadec decode <stream> --programme N --json -o <one.wav> for every programme the report lists (AC-3 family)",
+  "oadec decode <stream> -p all --report <report.json> -o <dir>/all.wav, oadec decode <stream> -p N --json -o <one.wav>, and oadec decode <stream> -p all -o <plain>/all.wav (TrueHD)",
+  "oadec decode <stream> --programme all --pipeline-stats <stats.json> -o <dir>/all.wav, three runs, the peak working set and the processor time of the process read from Windows (GetProcessMemoryInfo, GetProcessTimes)",
+  "oadec decode <stream> --programme N -o <one.wav> for N = 0 to 7"
+ ],
+ "versions": {
+  "oadec": "oadec 0.9.1, release build of the round-4 programme branch (91a31db)",
+  "rustc": "1.99.1 (rust-toolchain.toml)",
+  "machine": "Windows 11, release profile, one run at a time"
+ },
+ "synthetic_streams": {
+  "sources": {
+   "eac3-20-coupled.ec3": {
+    "in": "crates/oadec-eac3/tests/fixtures",
+    "bytes": 32256,
+    "sha256": "c4f71d7449f59e6b39cd4c3819702cd8501bc4ff5276546db5d6cf452150bdef",
+    "is": "stereo, one independent substream"
+   },
+   "eac3-71-tones.ec3": {
+    "in": "crates/oadec-eac3/tests/fixtures",
+    "bytes": 163840,
+    "sha256": "d0d9ed8aba5f72bbc4205f7f385ae1c762b276f89411b123196e69b6838fc91b",
+    "is": "7.1, an independent and a dependent substream a group"
+   }
+  },
+  "tests": "crates/oadec-cli/tests/cli_programmes_all.rs (11), crates/oadec-cli/tests/cli_every.rs (3), crates/oadec-engine/src/stream.rs tests every_programme_is_decoded_from_one_read_of_the_stream, every_member_is_refused_by_the_codec_that_has_none, a_change_of_layout_is_told_where_the_group_of_its_programme_begins",
+  "result": "every test passes: every programme's file is the file of its decode alone, byte for byte, and its exit code its decode's; the run's exit code is 2 if any member's is, else 7 if any is, else 4 if any is, else 0; the report of every programme holds every field of the report of its decode alone; two runs give the same report to the byte; a counting reader is read once, every byte once and nothing after its end"
+ },
+ "corpus": {
+  "streams": 125,
+  "by_folder": {
+   "ec3": 56,
+   "clips": 29,
+   "thd": 40
+  },
+  "left_out": "one TrueHD stream of 2.5 GB, for the time it takes",
+  "list_sha256": "ea90c8251ce233de0b99aad28dd0c29203daffe66a800837467ecb526050b794",
+  "list_sha256_is": "SHA-256 of the lines '<sha256>  <folder>/<name>' of the 125 streams, sorted by name, joined by newlines",
+  "result": "125 of 125: every member file byte-identical to the decode of that member alone, every member exit code the same, every report entry equal to the report of the decode alone field by field, the combined exit code the weightiest of the members' and the run's own; for TrueHD the files of -p all --report byte-identical to those of -p all, with the same exit code. Members: 71 streams of one programme or presentation exiting 0, 9 exiting 7; 38 of four presentations, 4 of two, 2 of three exiting 0; one of four presentations exiting 7. No stream carried more than one programme"
+ },
+ "memory_and_time": {
+  "sources": {
+   "ec3/eac3005.ec3": {
+    "programme": 0,
+    "bytes": 7680000,
+    "sha256": "7e65baab03f677eeae1a367021edabe607d70b8c61fbbe99c2d16c0a80ea96b4",
+    "is": "E-AC-3 with a dependent substream"
+   },
+   "ec3/eac3027.ec3": {
+    "programme": 1,
+    "bytes": 4800000,
+    "sha256": "4c5de3cb7c32ef9eae14284751e424a57b23e8b1ad44f480b9facbb4e132e5fc",
+    "is": "E-AC-3 with a dependent substream"
+   },
+   "ec3/eac3000.ec3": {
+    "programme": 2,
+    "bytes": 7680000,
+    "sha256": "edcd6cdb41c347b4251ab20e3935120f82813e9ef76f7c30f6e6164dac840d43"
+   },
+   "ec3/eac3001.ec3": {
+    "programme": 3,
+    "bytes": 7680000,
+    "sha256": "ee80fd7e8ab5ff14e343832bf883d765a3ff844972de0679ccdc2c0ebf35470b"
+   },
+   "ec3/eac3003.ec3": {
+    "programme": 4,
+    "bytes": 7680000,
+    "sha256": "8d75ad7cb9883923d6c09a3eb085b850944248e151231898545ec910e0027daa"
+   },
+   "ec3/eac3006.ec3": {
+    "programme": 5,
+    "bytes": 5760000,
+    "sha256": "4d6c6d5758836a1453cdd24cdae13b50ff3b515d00d0022300a69d51985b30c0"
+   },
+   "ec3/eac3008.ec3": {
+    "programme": 6,
+    "bytes": 7680000,
+    "sha256": "e62553fee6f6d86d8b2566479ca720b69bd83fc0f242d2b2f87fdd7a20578b9c"
+   },
+   "ec3/eac3010.ec3": {
+    "programme": 7,
+    "bytes": 7680000,
+    "sha256": "41a687f886b138241d17be77c1a1688548a2269d63807a8e8cc3928db1c3f288"
+   }
+  },
+  "streams": {
+   "once": {
+    "bytes": 56640000,
+    "sha256": "a0904e4af39033305e2dc81237688eb0ed517fbc03ecda59e18fc847c237a665",
+    "groups_per_programme": 1875,
+    "seconds_per_programme": 60
+   },
+   "ten_times": {
+    "bytes": 566400000,
+    "sha256": "c8358b56ad01533a305ad8b89916bbf3c39be04d89f275d303d863807c04d515",
+    "groups_per_programme": 18750,
+    "seconds_per_programme": 600
+   }
+  },
+  "every_programme": {
+   "once": {
+    "exit": 0,
+    "peak_working_set_mib": 42.7,
+    "peak_commit_mib": 38.4,
+    "wall_s_min_of_3": 1.47,
+    "processor_s_min_of_3": 1.39,
+    "bytes_read": 56640000,
+    "opened": 1
+   },
+   "ten_times": {
+    "exit": 0,
+    "peak_working_set_mib": 42.9,
+    "peak_commit_mib": 38.6,
+    "wall_s_min_of_3": 39.6,
+    "processor_s_min_of_3": 13.81,
+    "bytes_read": 566400000,
+    "opened": 1
+   }
+  },
+  "each_programme_alone": {
+   "once": {
+    "wall_s_sum_of_8": 1.52,
+    "processor_s_sum_of_8": 1.48,
+    "largest_peak_working_set_mib": 14.9
+   },
+   "ten_times": {
+    "wall_s_sum_of_8": 17.06,
+    "processor_s_sum_of_8": 13.33,
+    "largest_peak_working_set_mib": 14.9
+   }
+  },
+  "reading": "The peak memory of the decode of every programme is 0.5 per cent higher on the stream ten times longer: it does not grow with the stream. Its processor time grows with the stream, and is within 4 per cent of the eight decodes of one programme. Ten times over, the decode of every programme writes 6.0 GB to eight files at once, and its wall time, 39.6 s against 13.8 s of processor time, is that of the disk; the decodes of one programme wrote over one file each time"
+ },
+ "fixed": "A stream of several programmes put the start of a frame group of a programme at the independent frame of that count among every programme of the stream: a change of layout in programme 1 was told at byte 23040 instead of 46592, and the starts were held for the length of the stream (58 on the test stream). The starts kept are now of the programme's own independent frames. Streams of one programme report as before"
+}

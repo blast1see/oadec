@@ -1,0 +1,66 @@
+{
+ "what": "JOC downmix configurations 1 and 2 (TS 103 420 table 47), and the temporal interpolation of two data points, checked on authored streams against the standard, not against Dolby. Dolby's decoder discards a rewritten JOC payload (keyed protection), so no comparison with it is possible; none was made",
+ "method": "An independent reference of TS 103 420 clauses 6.5 and 6.6 (tools/joc_reference.py, not a copy of the Rust code) computes the matrices of 13 cases in f64; its Huffman trees are built from the ETSI table file (ts_103420_tables.c), read as data only. A payload writer written from clause 6.2 (crates/oadec-engine/tests/support/joc_writer.rs) writes the cases, and a carrier puts them into the metadata substream of E-AC-3 streams (crates/oadec-engine/tests/support/carrier.rs). The objects are decoded in memory (joc_pcm) and set against their source channel passed through the QMF analysis and synthesis banks alone, and against the core channel itself",
+ "commands": [
+  "cargo test -p oadec-engine --test joc_configs --locked",
+  "python tools/joc_reference.py check (13 cases hold)",
+  "a numpy model of clauses 7.2 and 7.3 with the same prototype window, for the floor of the banks",
+  "the default outputs of the branch against the main release of d5fdd6c on every stream at hand: decode --format wav, --format damf with --loss-report and --format adm where the stream carries JOC, verify --json; logs compared without their speed lines"
+ ],
+ "versions": {
+  "oadec": "oadec 0.9.1, release build of the round-4 JOC branch (c8b1f54)",
+  "rustc": "1.99.1 (rust-toolchain.toml)",
+  "etsi_tables": "ts_103420v010201p0.zip, 7 195 bytes, SHA-256 a79cf108c4529b7d9ca9525c871183a70b1732ed6df03a3d85b2f31be46eeced, from etsi.org; read as data, no file of it is in the repository",
+  "dolby_encoding_engine": "5.7.2 (dee_ddpjoc_encoder, --encoder bluray --data-rate 1152 --start 0), for the fixture only"
+ },
+ "repository_files": {
+  "crates/oadec-engine/tests/support/joc_vectors.json": "85b618a7933228fd793d58ffcf3a1e8aa08b97a4ff9fc2f46ac54d6a4bb50123",
+  "tools/joc_reference.py": "203952ca7be5bf2a6c01bef6f4145cad74561c694a274fdb736896bda88f8db3",
+  "crates/oadec-eac3/tests/fixtures/joc-512-tones.ec3": {
+   "sha256": "250c8102e6b008f7062903e887f765be4082b174a3996f0974a3d49792375500",
+   "bytes": 110592,
+   "is": "an authored scene (seven still objects, each a tone at -20 dBFS, a 55 Hz LFE bed) through oadec atmos-author and the Dolby Encoding Engine, frame groups 8 to 31: AC-3 core with a dependent substream of chanmap 0xa010, configuration 4, 15 objects; verify clean; each core channel carries its own tone and the others at least 90 dB below it"
+  }
+ },
+ "results": {
+  "f64_matrices": "13 cases on 27 axes (selection, permutation, zero, negative, different gains, mixtures, dense and sparse, coarse and fine, eight band counts, smooth and steep with one and two data points, 24 slots, a frame edge, hold, absent, configurations 1 and 2): every matrix within 1e-12 of the reference",
+  "objects_to_their_channel_through_the_banks": "configurations 1 and 2, coarse and fine, clip gain 1 and 1.25: 309.3 to 312.8 dB, peak difference at most 1.7e-16",
+  "objects_to_the_core_channel": "75.24 to 87.16 dB per object, peak difference 7.1e-6 to 6.8e-5; bounded by the banks",
+  "qmf_floor": {
+   "reading": "the prototype window of the banks is near perfect reconstruction: analysis then synthesis gives the input back at 75.7 dB, in the Rust code and in an independent numpy model with the same window alike; no JOC object can come closer than about 76 dB to its core channel. A property of the window, measured, not an error",
+   "delay_samples": "577 (the best; 576 and 578 give 8.09 dB, 575 and 579 give 6.97 dB)",
+   "by_signal_db": {
+    "sine 997 Hz with noise": 75.71,
+    "white noise": 78.29,
+    "sine 55 Hz": 75.59,
+    "sine 400 Hz": 87.16,
+    "sine 1000 Hz": 75.27,
+    "sine 4000 Hz": 75.27,
+    "sine 6300 Hz": 78.16,
+    "sine 12000 Hz": 75.38,
+    "sine 20000 Hz": 75.27,
+    "sine at a band edge, 750 Hz": 76.86,
+    "sine mid band, 562.5 Hz": 75.19
+   },
+   "window_perturbed": "the window moved by one f32 ulp at random gives 75.72, 75.71 and 75.72 dB; rounded to f32 again 75.71 dB",
+   "gain_ripple": "the gain of the banks varies with frequency by 0.0014 dB (1.6e-4); after the best gain 78 to 98 dB remain"
+  },
+  "object_delay": "256 + 577 + 640 = 1473 samples from the constants, the best alignment 0 samples from it; nothing adjusted afterwards",
+  "two_data_points": "the smooth and steep interpolation of two data points, the steep switch taking the one-based offsets, held to the reference and to the standard's reading; not measured against Dolby, no material carries them",
+  "missing_downmix_channel": "a programme without a channel the configuration needs is refused with the names of table 47: configuration 2 over 7.1 names Tfl, Tfr; configuration 1 over 5.1.2 names Lb, Rb",
+  "mutations": "16 of 16 caught (the pair placements, the phase of configuration 2, the interpolation points, the dequantisation, table 54, the delay, the splice reset, the clip gain of the LFE, the naming of every missing channel)"
+ },
+ "default_outputs": {
+  "streams": 67,
+  "by_folder": {
+   "ec3": 44,
+   "clips": 20,
+   "fixtures": 3
+  },
+  "list_sha256": "193228b1397d4a3b46147961bb58e3853d3ba09f1c22d7f12536777d63c376e0",
+  "list_sha256_is": "SHA-256 of the lines '<sha256>  <folder>/<name>' of the 67 streams, sorted, joined by newlines",
+  "result": "67 of 67 identical to the main release: 26 carry JOC (configuration 0 once, 3 twenty-three times, 4 twice), 41 none"
+ },
+ "time": "object decode (--format damf) of three configuration-3 streams, median of 9 alternating runs against the main release: -1.72, -1.32 and +0.52 per cent",
+ "open": "the JOC offset validity check (a raw offset above 23, two offsets out of order) is not implemented"
+}
