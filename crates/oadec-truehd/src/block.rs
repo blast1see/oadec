@@ -44,9 +44,12 @@ pub const BLOCK_HEADER_CRC_INIT: u8 = 0xA2;
 /// Panics if the range lies outside `data`.
 #[must_use]
 pub fn block_header_crc(data: &[u8], header: Option<(usize, usize)>) -> u8 {
-    // P4 stop 1: the contract only; the body comes at stop 2.
-    let _ = (data, header);
-    0
+    match header {
+        Some((start, end)) => {
+            BLOCK_HEADER_CRC.update_bits(BLOCK_HEADER_CRC_INIT, data, start, end - start)
+        }
+        None => BLOCK_HEADER_CRC_INIT,
+    }
 }
 
 /// The coded samples of one substream for one access unit.
@@ -264,7 +267,9 @@ impl Block {
                     "substream {substream}: block header before any restart header"
                 )));
             }
+            let start = reader.position();
             block.header = Some(BlockHeader::parse(reader, state, substream)?);
+            block.header_bits = Some((start, reader.position()));
         }
         let ss = &mut state.substream[substream];
         if !ss.restart_seen {
@@ -289,6 +294,8 @@ impl Block {
         }
         if ss.error_protect {
             block.block_header_crc = Some(reader.read(8)? as u8);
+            block.block_header_crc_expected =
+                Some(block_header_crc(reader.data(), block.header_bits));
         }
         Ok(block)
     }
@@ -829,7 +836,10 @@ pub(crate) mod tests {
         let mut state = atmos_state();
         let mut buf = SampleBuffer::default();
         let block = Block::parse(&mut BitReader::new(&w.bytes), &mut state, 0, &mut buf).unwrap();
-        assert_eq!(block.header_bits, None);
+        assert!(
+            block.header_bits.is_some(),
+            "where the header lies is kept either way"
+        );
         assert_eq!(block.block_header_crc_expected, None);
         assert!(block.block_header_crc_ok());
     }

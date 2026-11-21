@@ -1,0 +1,143 @@
+{
+ "what": "block_header_crc of TrueHD protected blocks (error_protect): CRC-8, polynomial 0x1D, register from 0xA2, bits most significant first, shift then XOR the bit in, over the bits of the block header alone (after the block-header and restart-header flags and after the restart header, up to block_data_bits); 0xA2 for a block without a header",
+ "method": "streams written by oadec-synth (recipes and probes named below), wrapped in MP4 with ffmpeg -c:a copy -strict -2 and decoded by the dlbtruehddec element of the Dolby Reference Player as a black box, beside FFmpeg and truehdd (tools/synth_accept.py); check bytes recomputed independently by tools/crc8_reference.py --spans over oadec-synth spans; single faults put in with every other check of the stream (restart header CRC, segment parity and CRC) written again",
+ "versions": {
+  "ffmpeg": "ffmpeg version 2026-11-19-git-01ca75d350-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+  "truehdd": "truehdd b54f209 (truehd library 0.7.1) Built: 2026-08-15 08:27:23 UTC",
+  "dolby": "the dlbtruehddec and dlbac3dec elements of the Dolby Reference Player",
+  "oadec": "oadec 0.9.1"
+ },
+ "independent_reference": "tools/crc8_reference.py --spans: 48 of 48 check bytes of protected-checked are the CRC of their block header; 8 blocks without a header, 38 headers starting inside a byte, header lengths 16, 24, 27, 35 and 36 bits",
+ "streams": {
+  "protected-checked": {
+   "stream_sha256": "e33b1caa981833da94c2e923d524888131414f8214790d1ee69f6c8b753a8b1a",
+   "pcm_sha256": "9a0d4d9344a3264cc262ea4a420bff9024c59aec638e0bd3918f99f812287488",
+   "gave_the_samples": [
+    "ffmpeg",
+    "truehdd",
+    "dolby"
+   ],
+   "gave_others": [],
+   "refused": [],
+   "oadec_verify_exit": 0,
+   "oadec_rules": []
+  },
+  "probe-protected": {
+   "stream_sha256": "ae50bfacbe87b6bb299650ee6eb3e9e4048aa1ca6cf73ec81e83a0faec600ad5",
+   "pcm_sha256": "7b0fabe6913113ea2e81b1c8cf4fa37e5e2dd211e4d892305acd0ea2fcc635da",
+   "gave_the_samples": [
+    "ffmpeg",
+    "truehdd"
+   ],
+   "gave_others": [],
+   "refused": [
+    "dolby"
+   ],
+   "oadec_verify_exit": 7,
+   "oadec_rules": [
+    "block.header_crc"
+   ]
+  },
+  "probe-protected-counting-itself": {
+   "stream_sha256": "bb8ad01c9ff8bcec8b91f63b1ae279478c5e22de6d7556ef7795c8fc1376789a",
+   "pcm_sha256": "7b0fabe6913113ea2e81b1c8cf4fa37e5e2dd211e4d892305acd0ea2fcc635da",
+   "gave_the_samples": [
+    "ffmpeg"
+   ],
+   "gave_others": [],
+   "refused": [
+    "truehdd",
+    "dolby"
+   ],
+   "oadec_verify_exit": 7,
+   "oadec_rules": [
+    "block.data_bits",
+    "block.header_crc"
+   ]
+  },
+  "probe-protected-checked-counting-itself": {
+   "stream_sha256": "6f3aa157bbf5e5805fad0b84bc413dfa7b2798e22e57c90fa58c8efceb800d85",
+   "pcm_sha256": "9a0d4d9344a3264cc262ea4a420bff9024c59aec638e0bd3918f99f812287488",
+   "gave_the_samples": [
+    "ffmpeg"
+   ],
+   "gave_others": [],
+   "refused": [
+    "truehdd",
+    "dolby"
+   ],
+   "oadec_verify_exit": 7,
+   "oadec_rules": [
+    "block.data_bits"
+   ]
+  },
+  "probe-protected-header-struck": {
+   "stream_sha256": "0215c86a1de514528f35847550161ede245538490ccc53f49f7ea5163373ec9d",
+   "pcm_sha256": "9a0d4d9344a3264cc262ea4a420bff9024c59aec638e0bd3918f99f812287488",
+   "gave_the_samples": [
+    "ffmpeg",
+    "truehdd"
+   ],
+   "gave_others": [],
+   "refused": [
+    "dolby"
+   ],
+   "oadec_verify_exit": 7,
+   "oadec_rules": [
+    "block.header_crc"
+   ]
+  }
+ },
+ "single_faults_in_protected_checked": {
+  "one_check_byte_struck_header_block": {
+   "dolby": "differs",
+   "truehdd": "target",
+   "oadec_verify_exit": 7,
+   "oadec_rules": [
+    "block.header_crc"
+   ]
+  },
+  "one_check_byte_struck_headerless_block": {
+   "dolby": "differs",
+   "truehdd": "target",
+   "oadec_verify_exit": 7,
+   "oadec_rules": [
+    "block.header_crc"
+   ]
+  },
+  "restart_header_bit_resealed": {
+   "dolby": "target",
+   "truehdd": "target",
+   "oadec_verify_exit": 0,
+   "oadec_rules": []
+  },
+  "data_bits_bit": {
+   "dolby": "differs",
+   "truehdd": "refused",
+   "oadec_verify_exit": 7,
+   "oadec_rules": [
+    "block.data_bits"
+   ]
+  },
+  "header_bit_resealed": {
+   "dolby": "differs",
+   "truehdd": "refused",
+   "oadec_verify_exit": 7,
+   "oadec_rules": [
+    "segment.syntax"
+   ]
+  }
+ },
+ "single_fault_notes": {
+  "one_check_byte_struck_header_block": "unit 9, a block with a header: Dolby's output is the samples up to unit 8, 40 samples short, other samples up to the next restart header and the samples again after it",
+  "one_check_byte_struck_headerless_block": "the same for a block without a header: the check of a block without a header is checked too, against 0xA2",
+  "restart_header_bit_resealed": "a bit of dither_seed of the first restart header, its CRC written again: Dolby gives the samples, so the restart header is not under block_header_crc",
+  "data_bits_bit": "the lowest bit of block_data_bits of the first block: block.data_bits alone",
+  "header_bit_resealed": "a bit of the first block header flipped in the bytes: the header no longer parses (segment.syntax); probe-protected-header-struck is the isolated form of this fault"
+ },
+ "findings": [
+  "Dolby's decoder gives the samples of protected-checked bit for bit (as FFmpeg and truehdd do): the rule above is the check it holds a protected block to",
+  "Dolby's decoder refuses probe-protected-header-struck (every check byte made over a header with one bit the other way, every other check right) and probe-protected (check bytes nought), and drops audio when the check byte of a single block is wrong: a failing block_header_crc loses audio, so block.header_crc is an error",
+  "Dolby's decoder refuses probe-protected-checked-counting-itself, whose check bytes are right and whose block_data_bits count their own 16 bits: block_data_bits counts the block data alone"
+ ]
+}

@@ -203,8 +203,8 @@ pub const PROBES: &[Probe] = &[
             at_restart: AtRestart::Unfiltered,
             make: || protected(0),
         },
-        rules: &[],
-        fails: false,
+        rules: &["block.header_crc"],
+        fails: true,
     },
     Probe {
         recipe: Recipe {
@@ -214,7 +214,7 @@ pub const PROBES: &[Probe] = &[
             at_restart: AtRestart::Unfiltered,
             make: || protected(16),
         },
-        rules: &["block.data_bits"],
+        rules: &["block.data_bits", "block.header_crc"],
         fails: true,
     },
     Probe {
@@ -260,6 +260,28 @@ pub const PROBES: &[Probe] = &[
         },
         rules: &[],
         fails: false,
+    },
+    Probe {
+        recipe: Recipe {
+            name: "probe-protected-checked-counting-itself",
+            about: "the blocks of protected-checked with the size counting its own sixteen bits as well: the check byte right, so that the size alone is put to a decoder",
+            tools: &["huffman-1", "huffman-2", "block-protection"],
+            at_restart: AtRestart::Unfiltered,
+            make: || protected_checked(16, Check::HeaderCrc),
+        },
+        rules: &["block.data_bits"],
+        fails: true,
+    },
+    Probe {
+        recipe: Recipe {
+            name: "probe-protected-header-struck",
+            about: "the blocks of protected-checked with the check of every block header made over the header with its fourth bit the other way: every other check of the stream right",
+            tools: &["huffman-1", "huffman-2", "block-protection"],
+            at_restart: AtRestart::Unfiltered,
+            make: || protected_checked(0, Check::HeaderCrcOfFlipped(3)),
+        },
+        rules: &["block.header_crc"],
+        fails: true,
     },
 ];
 
@@ -639,6 +661,13 @@ pub const RECIPES: &[Recipe] = &[
         tools: SURROUND_TOOLS,
         at_restart: AtRestart::Unfiltered,
         make: six_blocks,
+    },
+    Recipe {
+        name: "protected-checked",
+        about: "blocks that state the size of their data and the CRC-8 of their block header, as Dolby's decoder takes it: headers of several lengths, aligned and not, and blocks without one",
+        tools: &["huffman-1", "huffman-2", "block-protection"],
+        at_restart: AtRestart::Unfiltered,
+        make: || protected_checked(0, Check::HeaderCrc),
     },
 ];
 
@@ -1852,6 +1881,32 @@ fn protected(counted_beyond_the_data: u16) -> Made {
     Made {
         plans: one_block_units(&layout, units, |_| coding.clone()),
         pcm: vec![noise(n, 12, 66), noise(n, 12, 67)],
+        layout,
+    }
+}
+
+/// Protected blocks as [`protected`] has them, the check byte as `check`
+/// says, and headers of several kinds: in every third unit three blocks, in
+/// the next one block, in the next two blocks that send the guards again.
+fn protected_checked(counted_beyond_the_data: u16, check: Check) -> Made {
+    let mut layout = layout(Family::TrueHd, 48_000);
+    layout.protection = Some(Protection {
+        counted_beyond_the_data,
+        check,
+    });
+    let units = 24;
+    let n = units * layout.samples_per_unit();
+    let coding = two_books();
+    let plans = (0..units)
+        .map(|k| match k % 3 {
+            0 => UnitPlan::uniform(&[8, 16, 16], &coding),
+            1 => UnitPlan::uniform(&[40], &coding),
+            _ => UnitPlan::uniform(&[8, 32], &coding).guarded(0xFF),
+        })
+        .collect();
+    Made {
+        plans,
+        pcm: vec![noise(n, 12, 68), noise(n, 12, 69)],
         layout,
     }
 }

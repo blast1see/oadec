@@ -50,6 +50,7 @@ pub fn scope_of(rule: RuleId, at: &Location, substreams: u8) -> Scope {
         | RuleId::SegmentTerminator
         | RuleId::SegmentUnexpectedTail
         | RuleId::BlockDataBits
+        | RuleId::BlockHeaderCrc
         | RuleId::AuRestartFlag
         | RuleId::AuFraming => Scope::Audio(own),
         // inside a delivered unit; what the extractor passed over is a lost

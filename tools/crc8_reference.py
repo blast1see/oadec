@@ -85,6 +85,68 @@ def selftest():
     return 1 if bad else 0
 
 
+def byte_at_bit(data, bit):
+    v = 0
+    for k in range(8):
+        pos = bit + k
+        v = (v << 1) | ((data[pos // 8] >> (7 - pos % 8)) & 1)
+    return v
+
+
+def check_spans(stream_path, spans_path, args):
+    """Every protected block of a written stream against its check byte.
+
+    The spans are what `oadec-synth spans <name>` prints. Prints a summary
+    and the blocks whose byte is not the check; exit 0 when every byte is.
+    """
+    with open(stream_path, "rb") as f:
+        data = f.read()
+    blocks = matched = 0
+    headless = 0
+    unaligned = 0
+    lengths = set()
+    wrong = []
+    with open(spans_path, encoding="utf-8") as f:
+        for line in f:
+            fields = line.rstrip("\r\n").split("\t")
+            if len(fields) < 7 or fields[6] == "-":
+                continue
+            unit, sub, block, header, check = (
+                fields[0],
+                fields[1],
+                fields[2],
+                fields[4],
+                fields[6],
+            )
+            if header == "-":
+                start = end = 0
+                headless += 1
+            else:
+                start, end = (int(x) for x in header.split("-"))
+                lengths.add(end - start)
+                unaligned += start % 8 != 0
+            want = crc8_bits(
+                data, start, end, args.poly, args.init, not args.lsb_first
+            )
+            got = byte_at_bit(data, int(check))
+            blocks += 1
+            if got == want:
+                matched += 1
+            else:
+                wrong.append((unit, sub, block, got, want))
+    print(
+        "%d protected blocks, %d with the check, %d without a header, "
+        "%d headers unaligned, header lengths %s"
+        % (blocks, matched, headless, unaligned, sorted(lengths))
+    )
+    for unit, sub, block, got, want in wrong[:20]:
+        print(
+            "unit %s substream %s block %s: byte 0x%02X, check 0x%02X"
+            % (unit, sub, block, got, want)
+        )
+    return 0 if blocks and not wrong else 1
+
+
 def main(argv):
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     ap.add_argument("hex", nargs="?")
@@ -94,9 +156,18 @@ def main(argv):
     ap.add_argument("--init", type=lambda s: int(s, 0), default=INIT)
     ap.add_argument("--lsb-first", action="store_true")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument(
+        "--spans",
+        nargs=2,
+        metavar=("STREAM", "SPANS"),
+        help="check every protected block of STREAM at the places SPANS "
+        "(`oadec-synth spans <name>`) gives",
+    )
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
+    if args.spans:
+        return check_spans(args.spans[0], args.spans[1], args)
     if args.hex is None or args.start is None or args.end is None:
         ap.error("HEX START END, or --selftest")
     data = bytes.fromhex(args.hex)

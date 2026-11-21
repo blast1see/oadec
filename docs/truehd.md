@@ -145,8 +145,10 @@ there is no code and it counts as 0. The sample is
 where `sign` centres the range: `1 << (lsb_bits - 1)` without a book, and
 with one `1 << (lsb_bits + 2 - huff_type)`; a shift that would be negative
 makes it 0. With `error_protect` the data is preceded by `block_data_bits:16`
-and followed by `block_header_crc:8`; what the first counts and how the second
-is computed no public source says (*Probes*, below). `last_block_in_segment:1`
+and followed by `block_header_crc:8`. No public source defines either; what
+each holds was found by putting written streams to Dolby's decoder
+(*Protected blocks*, below): the first counts the bits of the block data
+alone, the second is a CRC-8 of the block header. `last_block_in_segment:1`
 closes the block.
 
 **The matrices** of a `0x31EA` substream are `primitive_matrices:4` and then,
@@ -697,8 +699,10 @@ tests as what it does today.
 | `probe-five-blocks`: five blocks to a unit, the bound being four | warns, `segment.block_count` | the samples | refuses (it takes three) | the samples |
 | `probe-sync-every-four`, `probe-sync-every-unit`: major syncs closer than eight units | warns, `sync.major_sync_spacing` | the samples | refuses | the samples |
 | `probe-nine-matrices` | nothing | refuses | the samples | refuses |
-| `probe-protected`: `error_protect`, the size counting the block data alone, the check byte 0 | nothing: the byte is kept and cannot be checked | the samples, and a complaint about the size | the samples | refuses |
-| `probe-protected-counting-itself`: the size counting its own 16 bits too | fails, `block.data_bits` | the samples, no complaint | refuses | refuses |
+| `probe-protected`: `error_protect`, the size counting the block data alone, the check byte 0 | fails, `block.header_crc` | the samples, and a complaint about the size | the samples | refuses |
+| `probe-protected-counting-itself`: the size counting its own 16 bits too | fails, `block.data_bits` and `block.header_crc` | the samples, no complaint | refuses | refuses |
+| `probe-protected-checked-counting-itself`: the check byte right, the size counting its own 16 bits | fails, `block.data_bits` | the samples, no complaint | refuses | refuses |
+| `probe-protected-header-struck`: every check byte made over its header with the fourth bit the other way, every other check right | fails, `block.header_crc` | the samples, and a complaint about the size | the samples | refuses |
 | `probe-bypass-over-step`: a matrix with a bypassed bit over a quantiser step, written to Dolby's reading | nothing | other samples | refuses: its own lossless check fails | the samples |
 | `probe-dither-bypass-over-step`: the same in a second substream, whose matrices have a table of dither | nothing | other samples of the six channels | refuses the six channels: its own lossless check fails | the samples |
 | `probe-dither-three-blocks`: three blocks to a unit in a `0x31EB` substream, the bound being two | warns, `segment.block_count` | the samples | the samples | the samples |
@@ -723,12 +727,44 @@ streams is counted now (*Substreams and presentations*): no first substream
 has more than two matrices in force, no second more than six, no third more
 than eight, and the object substream has up to sixteen.
 
-*What `block_data_bits` counts is still open.* FFmpeg's decoder takes it to
-count its own 16 bits; `truehdd` and this decoder take it to count the block
-data alone, and `block.data_bits` fails a stream on that reading. Dolby's
-decoder refuses a protected block either way, most likely over the check
-byte, whose definition is not public, so it cannot say which. No real stream
-sets `error_protect`: 0 of the restart headers of 157 library tracks.
+### Protected blocks
+
+A restart header with `error_protect` set makes every block of its substream
+state `block_data_bits:16` in front of its data and `block_header_crc:8`
+behind it. No real stream sets it (0 of the restart headers of 157 library
+tracks), and no public source defines either field. What they hold was found
+on streams `oadec-synth` writes and put to Dolby's decoder as a black box
+(`docs/audit/evidence/round-4-2026-11/p4-block-header-crc.json`):
+
+* `block_data_bits` counts the bits of the block data alone, from the end of
+  the 16-bit field to the end of the last sample, as `truehdd` and this decoder
+  read it. FFmpeg's decoder takes it to count its own 16 bits as well; Dolby's
+  refuses such a stream even with every check byte right
+  (`probe-protected-checked-counting-itself`).
+* `block_header_crc` is a CRC-8 of the bits of the block header: polynomial
+  `0x1D`, the register from `0xA2`, the bits most significant first, the
+  register shifted and the bit XORed in after (the restart header's CRC with
+  another start, `oadec_bits::CRC8_RESTART`). The header runs from the bit
+  after the flags that say a block header and a restart header follow, and
+  after the restart header when there is one, to the last bit before
+  `block_data_bits`. A block without a header has the check `0xA2`. The flags,
+  the restart header, `block_data_bits`, the samples and the byte itself are
+  not under it.
+
+Dolby's decoder gives the samples of `protected-checked` bit for bit, whose
+blocks have headers of 16 to 36 bits, aligned and not, and blocks without
+one; so do FFmpeg and `truehdd`, which do not look at the byte. It refuses
+`probe-protected-header-struck`, where every other check of the stream is
+right, and where the byte of a single block is wrong it drops audio from that
+access unit to the next restart header, whether the block has a header or
+not. A bit of the restart header struck and its CRC written again changes
+nothing it gives, which is how the restart header is known to be outside.
+`tools/crc8_reference.py` computes the check bit by bit, apart from the Rust
+code, and agrees with every byte the writer puts down.
+
+`verify` holds a protected block to both: `block.data_bits` and
+`block.header_crc`, each an error. A stream without `error_protect` is not
+touched by either.
 
 ## Decoder buffer
 

@@ -523,15 +523,67 @@ pub struct Stream {
 /// Flips bit `bit` of `stream` and writes again every check that covers it
 /// but `block_header_CRC`: the CRC of the restart header the bit is in, if
 /// any, and the parity and CRC bytes of its segment. A fault put this way
-/// into a block header, a restart header or `block_data_bits` leaves the
-/// check byte of the block the one stated fault it can be found by.
+/// into a block header, a restart header, `block_data_bits` or a
+/// `block_header_CRC` itself is the one fault of the stream.
 ///
 /// # Errors
-/// When the bit is outside every segment, or in a check byte.
+/// When the bit is outside every segment, in the CRC of a restart header or
+/// in the parity or the CRC of its segment, or the segment has none.
 pub fn flip_and_reseal(stream: &mut Stream, bit: usize) -> Result<(), String> {
-    // P4 stop 1: the contract only; the body comes at stop 2.
-    let _ = (stream, bit);
-    Err("flip_and_reseal: not written yet".into())
+    let byte = bit / 8;
+    let in_segment: Vec<BlockSpans> = stream
+        .blocks
+        .iter()
+        .copied()
+        .filter(|b| (b.segment.0..b.segment.1).contains(&byte))
+        .collect();
+    let Some(&first) = in_segment.first() else {
+        return Err(format!("bit {bit} is in no segment"));
+    };
+    let (s0, s1) = first.segment;
+    let sealed = |bytes: &[u8]| {
+        s1 - s0 >= 2 && {
+            let body = &bytes[s0..s1 - 2];
+            bytes[s1 - 2] == xor_bytes(body) ^ PARITY_XOR
+                && bytes[s1 - 1] == CRC8_SUBSTREAM.update_bytes(CRC8_SUBSTREAM_INIT, body)
+        }
+    };
+    if !sealed(&stream.bytes) {
+        return Err("the segment has no parity and CRC to write again".into());
+    }
+    if byte >= s1 - 2 {
+        return Err(format!(
+            "bit {bit} is in the parity or the CRC of its segment"
+        ));
+    }
+    let restart = in_segment.iter().find_map(|b| {
+        b.restart
+            .filter(|&(start, end)| (start..end).contains(&bit))
+    });
+    if let Some((_, end)) = restart
+        && bit >= end - 8
+    {
+        return Err(format!("bit {bit} is in the CRC of a restart header"));
+    }
+    stream.bytes[byte] ^= 0x80 >> (bit % 8);
+    if let Some((start, end)) = restart {
+        let crc = CRC8_RESTART.update_bits(0, &stream.bytes, start, end - 8 - start);
+        for k in 0..8 {
+            let pos = end - 8 + k;
+            let mask = 0x80 >> (pos % 8);
+            if (crc >> (7 - k)) & 1 == 1 {
+                stream.bytes[pos / 8] |= mask;
+            } else {
+                stream.bytes[pos / 8] &= !mask;
+            }
+        }
+    }
+    let body = &stream.bytes[s0..s1 - 2];
+    let parity = xor_bytes(body) ^ PARITY_XOR;
+    let crc = CRC8_SUBSTREAM.update_bytes(CRC8_SUBSTREAM_INIT, body);
+    stream.bytes[s1 - 2] = parity;
+    stream.bytes[s1 - 1] = crc;
+    Ok(())
 }
 
 /// The fewest bits of two's complement that hold every value; 1 for none.
@@ -1412,16 +1464,20 @@ fn segment(
     plan: &UnitPlan,
     work: &mut Work<'_>,
     run: &mut Running,
-) -> Result<Vec<u8>, String> {
+) -> Result<(Vec<u8>, Vec<BlockSpans>), String> {
     let sub = work.subs[s];
     let per_unit = layout.samples_per_unit();
     let restart = k.is_multiple_of(layout.sync_interval);
     let reach = sub.reach();
     let blocks = blocks_of(plan, s);
     let mut w = BitWriter::new();
+    // where each block's fields lie, in bits from the start of the segment
+    let mut spans = Vec::with_capacity(blocks.len());
     // where the block in hand starts in its access unit
     let mut within = 0;
     for (j, block) in blocks.iter().enumerate() {
+        let mut restart_span = None;
+        let mut header_span = None;
         let size = block.size;
         if !(8..=per_unit).contains(&size) {
             return Err(format!("a block of {size} samples"));
@@ -1576,7 +1632,9 @@ fn segment(
                 let len = w.len_bits() - start;
                 let crc = CRC8_RESTART.update_bits(0, w.bytes(), start, len);
                 w.put(8, u64::from(crc));
+                restart_span = Some((start, w.len_bits()));
             }
+            let header_start = w.len_bits();
             // A flag is in the stream only while its guard bit is set, and
             // every guard is set after a restart header. The guards a block
             // sends hold for the rest of its own header.
@@ -1667,6 +1725,7 @@ fn segment(
                 w.put(2, u64::from(state.held.book));
                 w.put(5, u64::from(state.lsbs));
             }
+            header_span = Some((header_start, w.len_bits()));
         }
 
         // The samples: for each one, the bypassed LSB of each matrix that
@@ -1692,22 +1751,50 @@ fn segment(
             }
             run.check ^= check_word((0..reach).map(|ch| outputs[sub.output_of(ch)][at + n]));
         }
+        let mut data_bits_at = None;
         if let Some(protection) = sub.protection {
             let stated = data.len_bits() + usize::from(protection.counted_beyond_the_data);
             if stated > 0xFFFF {
                 return Err(format!("a block of {stated} bits, which 16 cannot state"));
             }
+            data_bits_at = Some(w.len_bits());
             w.put(16, stated as u64);
         }
         w.append(&data);
+        let mut check_at = None;
         if let Some(protection) = sub.protection {
-            // P4 stop 1: the computed checks come at stop 2.
             let check = match protection.check {
                 Check::Stated(byte) => byte,
-                Check::HeaderCrc | Check::HeaderCrcOfFlipped(_) => 0,
+                Check::HeaderCrc => header_crc(w.bytes(), header_span),
+                Check::HeaderCrcOfFlipped(bit) => match header_span {
+                    Some((start, end)) => {
+                        if bit >= end - start {
+                            return Err(format!(
+                                "bit {bit} of a block header of {} bits",
+                                end - start
+                            ));
+                        }
+                        let mut struck = w.bytes().to_vec();
+                        let pos = start + bit;
+                        struck[pos / 8] ^= 0x80 >> (pos % 8);
+                        header_crc(&struck, header_span)
+                    }
+                    None => header_crc(w.bytes(), None),
+                },
             };
+            check_at = Some(w.len_bits());
             w.put(8, u64::from(check));
         }
+        spans.push(BlockSpans {
+            unit: k,
+            substream: s,
+            block: j,
+            segment: (0, 0),
+            restart: restart_span,
+            header: header_span,
+            data_bits: data_bits_at,
+            check: check_at,
+        });
         within += size;
         w.put_bool(j + 1 == blocks.len());
     }
@@ -1724,7 +1811,17 @@ fn segment(
         w.put(8, u64::from(parity));
         w.put(8, u64::from(crc));
     }
-    Ok(w.into_bytes())
+    Ok((w.into_bytes(), spans))
+}
+
+/// `block_header_CRC` of the block header at bits `span` of `bytes`: the
+/// CRC-8 of polynomial `0x1D` from `0xA2`, the bits most significant first;
+/// `0xA2` for a block without a header.
+fn header_crc(bytes: &[u8], span: Option<(usize, usize)>) -> u8 {
+    match span {
+        Some((start, end)) => CRC8_RESTART.update_bits(0xA2, bytes, start, end - start),
+        None => 0xA2,
+    }
 }
 
 /// Whether the writer can write the substreams a layout has over its first:
@@ -1855,6 +1952,7 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
             .collect(),
     };
     let mut units = Vec::with_capacity(plans.len());
+    let mut spans: Vec<Vec<Vec<BlockSpans>>> = Vec::with_capacity(plans.len());
     for (k, plan) in plans.iter().enumerate() {
         for sub in &subs {
             let blocks = blocks_of(plan, sub.index);
@@ -1870,8 +1968,9 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
         // The top substream first: undoing its matrices is what settles the
         // samples every substream codes.
         let mut segments = vec![Vec::new(); subs.len()];
+        let mut unit_spans = vec![Vec::new(); subs.len()];
         for s in std::iter::once(top).chain(0..top) {
-            segments[s] = segment(
+            (segments[s], unit_spans[s]) = segment(
                 layout,
                 s,
                 k,
@@ -1883,6 +1982,7 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
             .map_err(|e| format!("{}: {e}", place(k, s)))?;
         }
         units.push(segments);
+        spans.push(unit_spans);
     }
     let unit_len = |k: usize, segments: &[Vec<u8>]| {
         let sync = if k.is_multiple_of(layout.sync_interval) {
@@ -1907,6 +2007,7 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
 
     let mut bytes = Vec::new();
     let mut unit_offsets = Vec::with_capacity(units.len());
+    let mut blocks = Vec::new();
     for (k, segments) in units.iter().enumerate() {
         let with_sync = k.is_multiple_of(layout.sync_interval);
         let len = unit_len(k, segments);
@@ -1941,7 +2042,19 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
         // the nibble that makes header and directory fold to 0xF
         let nibble = 0xF ^ fold_nibble(xor_bytes(&unit[..4]) ^ xor_bytes(&directory));
         unit[0] |= nibble << 4;
-        for segment in segments {
+        for (segment, local) in segments.iter().zip(&spans[k]) {
+            let first = bytes.len() + unit.len();
+            for span in local {
+                let bit = |at: usize| first * 8 + at;
+                blocks.push(BlockSpans {
+                    segment: (first, first + segment.len()),
+                    restart: span.restart.map(|(a, b)| (bit(a), bit(b))),
+                    header: span.header.map(|(a, b)| (bit(a), bit(b))),
+                    data_bits: span.data_bits.map(bit),
+                    check: span.check.map(bit),
+                    ..*span
+                });
+            }
             unit.extend_from_slice(segment);
         }
         unit_offsets.push(bytes.len());
@@ -1951,8 +2064,7 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
         bytes,
         unit_offsets,
         below: work.below,
-        // P4 stop 1: the spans come at stop 2
-        blocks: Vec::new(),
+        blocks,
     })
 }
 

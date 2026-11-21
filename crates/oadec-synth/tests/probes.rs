@@ -165,8 +165,9 @@ fn what_the_decoders_did_with_each_probe() {
             "probe-nine-matrices",
             r#"gave ["truehdd"], others [], refused ["ffmpeg", "dolby"]"#,
         ),
-        // Dolby's decoder takes no protected block as the writer can write
-        // one: the check byte has no public definition
+        // the check byte nought, which is not the CRC of a block header:
+        // Dolby's decoder refuses it (protected-checked, a recipe, has the
+        // right one and all three give its samples)
         (
             "probe-protected",
             r#"gave ["ffmpeg", "truehdd"], others [], refused ["dolby"]"#,
@@ -223,6 +224,19 @@ fn what_the_decoders_did_with_each_probe() {
             "probe-nine-matrices-over-eight.p1",
             r#"gave ["ffmpeg", "truehdd", "dolby"], others [], refused []"#,
         ),
+        // the check byte right and the size counting its own 16 bits:
+        // Dolby's decoder refuses it, so the size counts the data alone
+        (
+            "probe-protected-checked-counting-itself",
+            r#"gave ["ffmpeg"], others [], refused ["truehdd", "dolby"]"#,
+        ),
+        // every check byte made over a header with a bit the other way and
+        // every other check right: Dolby's decoder refuses it, the other two
+        // do not look at the byte
+        (
+            "probe-protected-header-struck",
+            r#"gave ["ffmpeg", "truehdd"], others [], refused ["dolby"]"#,
+        ),
     ];
     let said: Vec<(&str, &str)> = said.iter().map(|(name, s)| (*name, s.as_str())).collect();
     assert_eq!(said, expected);
@@ -231,7 +245,7 @@ fn what_the_decoders_did_with_each_probe() {
 /// The decoder of this workspace reads every probe to its end and gives the
 /// samples the writer made it from, at every presentation: none of the
 /// bounds a probe steps past is one it stops at. Whether it should is
-/// another matter, and `verify` says of five of them that something is
+/// another matter, and `verify` says of eight of them that something is
 /// wrong. For the bypassed bit over a quantiser step it means that writer
 /// and decoder have the same reading, which is Dolby's.
 #[test]

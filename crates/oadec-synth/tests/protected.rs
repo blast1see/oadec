@@ -57,7 +57,16 @@ fn protected(check: Check, sizes: &[usize], units: usize) -> (Stream, Vec<Vec<i3
             ..Coding::default()
         },
     ];
-    let plans = vec![UnitPlan::uniform(sizes, &coding); units];
+    // the sizes of the first unit, then whole units, then two blocks: a
+    // header that changes the size, one that does not, and one that also
+    // sends new guards
+    let plans: Vec<UnitPlan> = (0..units)
+        .map(|k| match k % 3 {
+            0 => UnitPlan::uniform(sizes, &coding),
+            1 => UnitPlan::uniform(&[40], &coding),
+            _ => UnitPlan::uniform(&[8, 32], &coding).guarded(0xFF),
+        })
+        .collect();
     let stream = write(&layout, &plans, &pcm).expect("the stream is written");
     (stream, pcm)
 }
@@ -149,9 +158,21 @@ fn flip_and_reseal_keeps_every_check_but_the_block_header_crc() {
         assert_eq!(struck.bytes[s1 - 2], parity, "bit {bit}: parity");
         assert_ne!(struck.bytes, stream.bytes, "bit {bit}: flipped");
     }
+    // the checks it writes again are not places for a fault
+    let (s0, s1) = first.segment;
     let mut struck = stream.clone();
     assert!(
-        flip_and_reseal(&mut struck, first.check.unwrap()).is_err(),
-        "a check byte is not a place for a fault"
+        flip_and_reseal(&mut struck, (s1 - 1) * 8).is_err(),
+        "the CRC"
     );
+    assert!(
+        flip_and_reseal(&mut struck, (s1 - 2) * 8 + 3).is_err(),
+        "the parity"
+    );
+    assert!(
+        flip_and_reseal(&mut struck, restart.1 - 1).is_err(),
+        "the restart CRC"
+    );
+    assert!(flip_and_reseal(&mut struck, s0 * 8 - 1).is_err(), "outside");
+    assert_eq!(struck.bytes, stream.bytes);
 }
