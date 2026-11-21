@@ -380,6 +380,26 @@ pub fn report(source: &Source) -> Result<Report> {
     Ok(Report { scan })
 }
 
+/// [`report`] of a TrueHD stream read once from `input`, which reports call
+/// `name`.
+///
+/// # Errors
+/// What reading gives, and a stream that holds no access unit.
+pub fn report_from<R: std::io::Read>(
+    name: &str,
+    input: crate::pipeline::Once<R>,
+    watcher: Option<&std::sync::Arc<dyn crate::source::Watcher>>,
+) -> Result<Report> {
+    let mut scanning = scan::Scanning::new(name, oadec_truehd::Tally::DEFAULT_MAX_PER_RULE, false);
+    crate::pipeline::Pass::run(input, name, watcher, &mut [&mut scanning])?;
+    if scanning.scan.units == 0 {
+        return Err(no_stream_named(name));
+    }
+    Ok(Report {
+        scan: scanning.scan,
+    })
+}
+
 impl Report {
     /// Whether the stream is of the FBB syntax, Meridian Lossless Packing as
     /// DVD-Audio carries it, and not Dolby TrueHD.

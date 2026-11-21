@@ -14,7 +14,9 @@
 //! they stand on, the commands as calls: family by family the report a
 //! command prints, and what it refuses in the words the command says.
 //! [`stream`] decodes a stream as its bytes arrive, reading it once, for a
-//! caller that has a pipe or a socket and not a file.
+//! caller that has a pipe or a socket and not a file; [`pipeline`] is how the
+//! reports of such a stream (`api::info_from` and the calls beside it) read it
+//! once.
 //!
 //! ```
 //! use oadec_engine::Error;

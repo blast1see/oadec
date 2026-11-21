@@ -390,51 +390,76 @@ const LONG_RUNS: [(&[&str], &[i32]); 6] = [
     (&["au", "--index", "4000000000", "-"], &[2]),
 ];
 
-/// A stream several times longer than the bound, piped in, does not make a
-/// report command hold it: what the process holds at its most stays within
-/// [`PEAK`]. Of a TrueHD and of an E-AC-3 stream, each a fixture over and
-/// over, written from here as the command reads it.
-///
-/// On a system that cannot be asked for the memory of a process the test
-/// says so and passes; Linux and Windows can.
-#[test]
-#[ignore = "r5 durak 2: stdin is read whole before a report command starts (2.5 GB held for a 2.6 GB stream)"]
-fn a_long_stream_piped_into_a_report_is_not_held_whole() {
-    const LENGTH: usize = 160 << 20;
-    for name in ["truehd-51-88k.thd", "authored-scene.ec3"] {
-        let once = std::fs::read(fixture(name)).unwrap();
-        for (args, codes) in LONG_RUNS {
-            let (out, peak) = piped_with_peak(args, |to| {
-                let mut written = 0;
-                while written < LENGTH {
-                    // a command that refused the stream has stopped reading
-                    if to.write_all(&once).is_err() {
-                        break;
-                    }
-                    written += once.len();
+/// Runs every command of `runs` over `name` over and over, `length` bytes of
+/// it written from here as the command reads it, and holds what the process
+/// held at its most to [`PEAK`]. On a system that cannot be asked for the
+/// memory of a process it says so and holds nothing.
+fn held_within_the_bound(name: &str, runs: &[(&[&str], &[i32])], length: usize) {
+    let once = std::fs::read(fixture(name)).unwrap();
+    for &(args, codes) in runs {
+        let (out, peak) = piped_with_peak(args, |to| {
+            let mut written = 0;
+            while written < length {
+                // a command that refused the stream has stopped reading
+                if to.write_all(&once).is_err() {
+                    break;
                 }
-            });
-            let at = format!("{args:?} of {name}");
-            assert!(
-                out.status.code().is_some_and(|c| codes.contains(&c)),
-                "{at}: {:?} {}",
-                out.status,
-                text(&out.stderr)
-            );
-            let Some(peak) = peak else {
-                eprintln!("{at}: the memory of a process cannot be asked for here");
-                continue;
-            };
-            assert!(peak <= PEAK, "{at}: {} MiB at most", peak >> 20);
-        }
+                written += once.len();
+            }
+        });
+        let at = format!("{args:?} of {name}");
+        assert!(
+            out.status.code().is_some_and(|c| codes.contains(&c)),
+            "{at}: {:?} {}",
+            out.status,
+            text(&out.stderr)
+        );
+        let Some(peak) = peak else {
+            eprintln!("{at}: the memory of a process cannot be asked for here");
+            continue;
+        };
+        eprintln!("{at}: {:.1} MiB at most", peak as f64 / f64::from(1 << 20));
+        assert!(peak <= PEAK, "{at}: {} MiB at most", peak >> 20);
     }
 }
 
-/// [`a_long_stream_piped_into_a_report_is_not_held_whole`] of a stream of a
-/// feature's length, which no fixture is: the file `OADEC_LONG_STREAM` names
+/// A stream half as long again as the bound, piped in, does not make a report
+/// command hold it: what the process holds at its most stays within [`PEAK`].
+/// Over a TrueHD stream the scan of `verify`, the decodes beside it, the walk
+/// of `emdf` with the checks beside it and the walk of `au`; over an E-AC-3
+/// one, whose frames a build without optimisation parses some ten times
+/// slower, `info`. `info` and `oamd` of TrueHD lend their units to what
+/// `verify` and `emdf` do, and are left to the test of every command, so that
+/// this one takes well under a minute in such a build. Until round 5 the
+/// stream was read whole first, and `info` of 160 MiB held 182 MiB.
+#[test]
+fn a_long_stream_piped_into_a_report_is_not_held_whole() {
+    const LENGTH: usize = 96 << 20;
+    let truehd: Vec<_> = LONG_RUNS
+        .iter()
+        .copied()
+        .filter(|(args, _)| !matches!(args[0], "info" | "oamd"))
+        .collect();
+    held_within_the_bound("truehd-51-88k.thd", &truehd, LENGTH);
+    held_within_the_bound("authored-scene.ec3", &LONG_RUNS[..1], LENGTH);
+}
+
+/// [`a_long_stream_piped_into_a_report_is_not_held_whole`], every command
+/// over both streams, each two and a half times the bound: some ten minutes
+/// in a build without optimisation, so it is run by hand.
+#[test]
+#[ignore = "about ten minutes in a debug build: every report command over 160 MiB of each codec"]
+fn every_report_of_a_long_stream_piped_in_is_held_within_the_bound() {
+    for name in ["truehd-51-88k.thd", "authored-scene.ec3"] {
+        held_within_the_bound(name, &LONG_RUNS, 160 << 20);
+    }
+}
+
+/// [`every_report_of_a_long_stream_piped_in_is_held_within_the_bound`] of a
+/// stream of a feature's length, which no fixture is: the file `OADEC_LONG_STREAM` names
 /// is copied into the pipe as the command reads it, and never held here.
 #[test]
-#[ignore = "r5 durak 2, and media: OADEC_LONG_STREAM names a stream of gigabytes"]
+#[ignore = "media: OADEC_LONG_STREAM names a stream of gigabytes"]
 fn a_feature_length_stream_piped_into_a_report_is_not_held_whole() {
     let path = std::env::var_os("OADEC_LONG_STREAM")
         .expect("OADEC_LONG_STREAM names the stream this test reads");

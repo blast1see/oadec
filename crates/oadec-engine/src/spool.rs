@@ -39,9 +39,10 @@
 //! - Either way the spool has failed: every call after it gives an error, and
 //!   what was pushed is not given back. A writer that spools fails with it.
 
-use std::fs::File;
-use std::io;
-use std::path::PathBuf;
+use std::fs::{File, OpenOptions};
+use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// How much a spool holds in memory when it is asked for no other limit.
 pub const DEFAULT_LIMIT: usize = 16 << 20;
@@ -71,13 +72,81 @@ pub struct Spool {
 #[derive(Debug)]
 struct Spilled {
     /// Closed before the file is removed.
-    file: Option<File>,
+    handle: Option<Handle>,
     path: PathBuf,
+}
+
+/// The file of a spool, being written or being read back.
+#[derive(Debug)]
+enum Handle {
+    Writing(BufWriter<File>),
+    Reading(BufReader<File>),
+}
+
+impl Spilled {
+    /// Makes a file of its own in `dir`, under a name no other file has.
+    fn make(dir: &Path) -> io::Result<Self> {
+        /// Names tried before a spool gives up on finding one.
+        const TRIES: u32 = 16;
+        static MADE: AtomicU64 = AtomicU64::new(0);
+        let mut last = None;
+        for _ in 0..TRIES {
+            let n = MADE.fetch_add(1, Ordering::Relaxed);
+            let path = dir.join(format!("oadec-spool-{}-{n}", std::process::id()));
+            match OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create_new(true)
+                .open(&path)
+            {
+                Ok(file) => {
+                    return Ok(Self {
+                        handle: Some(Handle::Writing(BufWriter::new(file))),
+                        path,
+                    });
+                }
+                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => last = Some(e),
+                Err(e) => return Err(in_dir(dir, &e)),
+            }
+        }
+        Err(in_dir(
+            dir,
+            &last.unwrap_or_else(|| io::Error::other("no name was free")),
+        ))
+    }
+
+    /// Writes `bytes` behind what was written.
+    fn write(&mut self, bytes: &[u8]) -> io::Result<()> {
+        match &mut self.handle {
+            Some(Handle::Writing(w)) => w.write_all(bytes),
+            _ => Err(io::Error::other("the spool file is not being written")),
+        }
+    }
+
+    /// Ends the writing: what was written is read back from its beginning.
+    fn rewind(&mut self) -> io::Result<()> {
+        let Some(Handle::Writing(w)) = self.handle.take() else {
+            return Err(io::Error::other("the spool file is not being written"));
+        };
+        let mut file = w.into_inner().map_err(io::IntoInnerError::into_error)?;
+        file.seek(SeekFrom::Start(0))?;
+        self.handle = Some(Handle::Reading(BufReader::new(file)));
+        Ok(())
+    }
+}
+
+/// What a file that could not be made in `dir` says.
+fn in_dir(dir: &Path, e: &io::Error) -> io::Error {
+    io::Error::new(
+        e.kind(),
+        format!("making a spool file in {}: {e}", dir.display()),
+    )
 }
 
 impl Drop for Spilled {
     fn drop(&mut self) {
-        drop(self.file.take());
+        // the handle is closed first: Windows removes no file that is open
+        drop(self.handle.take());
         let _ = std::fs::remove_file(&self.path);
     }
 }
@@ -135,8 +204,41 @@ impl Spool {
     /// A record longer than [`MAX_RECORD`]; what making or writing the file
     /// gives; and an error at every call after one failed.
     pub fn push(&mut self, record: &[u8]) -> io::Result<()> {
-        let _ = (record, self.failed, &self.dir);
-        Err(crate::pipeline::not_yet("a spool"))
+        if record.len() > MAX_RECORD {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!(
+                    "a record of {} bytes is longer than a spool takes",
+                    record.len()
+                ),
+            ));
+        }
+        if self.failed {
+            return Err(failed());
+        }
+        let len = (record.len() as u32).to_le_bytes();
+        if self.file.is_none() && self.mem.len() + len.len() + record.len() <= self.limit {
+            self.mem.extend_from_slice(&len);
+            self.mem.extend_from_slice(record);
+            self.records += 1;
+            return Ok(());
+        }
+        let written = self.spill(&len, record);
+        self.failed = written.is_err();
+        if written.is_ok() {
+            self.records += 1;
+        }
+        written
+    }
+
+    /// Writes a record into the file, which is made for the first.
+    fn spill(&mut self, len: &[u8], record: &[u8]) -> io::Result<()> {
+        if self.file.is_none() {
+            self.file = Some(Spilled::make(&self.dir)?);
+        }
+        let file = self.file.as_mut().expect("made above");
+        file.write(len)?;
+        file.write(record)
     }
 
     /// Ends the pushing; what is given back reads the records in the order
@@ -144,9 +246,25 @@ impl Spool {
     ///
     /// # Errors
     /// What flushing the file gives, and an error where a push failed.
-    pub fn finish(self) -> io::Result<Records> {
-        Err(crate::pipeline::not_yet("a spool"))
+    pub fn finish(mut self) -> io::Result<Records> {
+        if self.failed {
+            return Err(failed());
+        }
+        let mut file = self.file.take();
+        if let Some(file) = &mut file {
+            file.rewind()?;
+        }
+        Ok(Records {
+            mem: std::mem::take(&mut self.mem),
+            at: 0,
+            file,
+        })
     }
+}
+
+/// What a spool that failed says to every call after.
+fn failed() -> io::Error {
+    io::Error::other("the spool failed earlier and takes nothing more")
 }
 
 /// The records of a spool, read back in the order they were pushed.
@@ -165,7 +283,45 @@ impl Records {
     /// # Errors
     /// What reading the file gives, and a record cut short in it.
     pub fn next_record(&mut self, into: &mut Vec<u8>) -> io::Result<bool> {
-        let _ = (into, self.at, &self.mem, &self.file);
-        Err(crate::pipeline::not_yet("reading a spool back"))
+        into.clear();
+        if let Some(len) = self.mem.get(self.at..self.at + 4) {
+            let len = u32::from_le_bytes(len.try_into().expect("four bytes")) as usize;
+            let from = self.at + 4;
+            into.extend_from_slice(&self.mem[from..from + len]);
+            self.at = from + len;
+            return Ok(true);
+        }
+        let Some(Handle::Reading(file)) = self.file.as_mut().and_then(|f| f.handle.as_mut()) else {
+            return Ok(false);
+        };
+        let mut len = [0u8; 4];
+        let mut held = 0;
+        while held < len.len() {
+            match file.read(&mut len[held..]) {
+                Ok(0) if held == 0 => return Ok(false),
+                Ok(0) => return Err(cut_short()),
+                Ok(n) => held += n,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) => return Err(e),
+            }
+        }
+        let len = u32::from_le_bytes(len) as usize;
+        into.resize(len, 0);
+        file.read_exact(into).map_err(|e| {
+            if e.kind() == io::ErrorKind::UnexpectedEof {
+                cut_short()
+            } else {
+                e
+            }
+        })?;
+        Ok(true)
     }
+}
+
+/// What a record cut short in the file of a spool says.
+fn cut_short() -> io::Error {
+    io::Error::new(
+        io::ErrorKind::UnexpectedEof,
+        "a record in the file of a spool is cut short",
+    )
 }

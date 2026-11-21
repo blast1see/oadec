@@ -441,20 +441,37 @@ struct SubstreamContainers {
 /// frames and 902 sync errors.
 pub(crate) fn for_each_container(
     source: &Source,
-    mut on_container: impl FnMut(&Site, ContainerResult),
+    on_container: impl FnMut(&Site, ContainerResult),
 ) -> Result<Walk> {
     let bytes = source
         .size()
         .with_context(|| format!("opening {}", source.name()))?;
-    let mut walk = Walk {
-        bytes,
-        ..Walk::default()
-    };
+    let mut walk = containers_by(
+        |frame| {
+            crate::eac3::for_each_frame(source, frame)
+                .with_context(|| format!("reading {}", source.name()))
+        },
+        on_container,
+    )?;
+    walk.bytes = bytes;
+    Ok(walk)
+}
+
+pub(crate) use crate::pipeline::{FrameFn, UnitFn};
+
+/// [`for_each_container`] of the syncframes `drive` hands over, as a walk over
+/// a file or a pass over a stream read once does; the walk it returns says
+/// nothing of the length of the stream (`bytes` is 0).
+pub(crate) fn containers_by(
+    drive: impl FnOnce(FrameFn<'_>) -> Result<(u64, u64, u64)>,
+    mut on_container: impl FnMut(&Site, ContainerResult),
+) -> Result<Walk> {
+    let mut walk = Walk::default();
     let mut noise = Noise::default();
     let mut sample_pos: u64 = 0; // first sample of the current independent frame
     let mut substreams: BTreeMap<(bool, u8), SubstreamContainers> = BTreeMap::new();
     let mut last_frame_len: u64 = 0;
-    let (_, sync_errors, skipped) = crate::eac3::for_each_frame(source, |_, frame, header| {
+    let (_, sync_errors, skipped) = drive(&mut |_, frame, header| {
         walk.frames += 1;
         let dependent = header.stream_type == StreamType::Dependent;
         if dependent {
@@ -511,8 +528,7 @@ pub(crate) fn for_each_container(
             on_container(&site, c);
         }
         Ok(())
-    })
-    .with_context(|| format!("reading {}", source.name()))?;
+    })?;
     walk.sync_errors = sync_errors;
     walk.skipped_bytes = skipped;
     // A substream carries EMDF when a container opens in it, or when its frames
@@ -586,10 +602,33 @@ fn report_truehd(source: &Source, opts: &Options, out: &mut dyn Write) -> Result
     // the checks of `verify` read the stream in a pass of their own; run it
     // beside the walk instead of after it
     let check = crate::verify::spawn_stream_check(source);
+    truehd_by(
+        source.name(),
+        opts,
+        out,
+        started,
+        |walk| crate::input::for_each_unit(source, |unit| walk(&unit)),
+        |_| source.size().unwrap_or(0),
+        || crate::verify::join_stream_check(check),
+    )
+}
+
+/// [`report_truehd`] of the access units `drive` hands over, of a stream
+/// reports call `name` and whose length `bytes` says once it has been read;
+/// `verdict` is what `verify`'s checks came to.
+fn truehd_by(
+    name: &str,
+    opts: &Options,
+    out: &mut dyn Write,
+    started: Instant,
+    drive: impl FnOnce(UnitFn<'_>) -> Result<crate::input::PassSummary>,
+    bytes: impl FnOnce(&crate::input::PassSummary) -> u64,
+    verdict: impl FnOnce() -> Result<crate::verify::StreamCheck>,
+) -> Result<Report> {
     let mut s = EmdfSummary::default();
     let mut dumped = 0usize;
     let mut config: Option<oadec_truehd::StreamConfig> = None;
-    let pass = crate::input::for_each_unit(source, |unit| {
+    let pass = drive(&mut |unit| {
         let index = s.frames;
         s.frames += 1;
         let (au, cfg) = match oadec_truehd::AccessUnit::parse(&unit.bytes, config.as_ref()) {
@@ -723,9 +762,9 @@ fn report_truehd(source: &Source, opts: &Options, out: &mut dyn Write) -> Result
         Ok(())
     })?;
     if s.frames == 0 {
-        return Err(crate::info::no_stream(source));
+        return Err(crate::info::no_stream_named(name));
     }
-    s.bytes = source.size().unwrap_or(0);
+    s.bytes = bytes(&pass);
     s.sync_errors = pass.stats.resyncs;
     s.skipped_bytes = pass.stats.skipped_bytes;
     if s.first_error.is_none() && s.skipped_bytes > 0 {
@@ -736,7 +775,7 @@ fn report_truehd(source: &Source, opts: &Options, out: &mut dyn Write) -> Result
     }
     // what the walk does not read -- the audio, the timing, the lossless checks
     // -- `verify` checks: take its verdict rather than re-derive a part of it
-    let stream = crate::verify::join_stream_check(check)?;
+    let stream = verdict()?;
     if s.first_error.is_none() && !stream.clean {
         s.first_error = stream.first_problem.clone();
     }
@@ -793,6 +832,104 @@ pub(crate) fn keep(first: &mut io::Result<()>, wrote: io::Result<()>) {
     }
 }
 
+/// [`run`] of a stream read once from `reader`, which reports call `name`.
+///
+/// # Errors
+/// As [`report_from`], and what writing the report gives.
+pub fn run_from(
+    name: &str,
+    reader: impl std::io::Read,
+    watcher: Option<std::sync::Arc<dyn crate::source::Watcher>>,
+    opts: &Options,
+    out: &mut dyn Write,
+) -> Result<bool> {
+    let report = report_from(name, reader, watcher, opts, out)?;
+    report.print(opts.json, out)?;
+    Ok(report.clean())
+}
+
+/// [`report`] of a stream read once from `reader`, which reports call
+/// `name`: the walk and the checks of `verify` are lent the same units.
+///
+/// # Errors
+/// As [`report`], and what reading gives.
+pub fn report_from(
+    name: &str,
+    reader: impl std::io::Read,
+    watcher: Option<std::sync::Arc<dyn crate::source::Watcher>>,
+    opts: &Options,
+    out: &mut dyn Write,
+) -> Result<Report> {
+    use crate::pipeline::{OnFrame, OnUnit, Pass, ac3_totals};
+    let input = crate::api::head_of(name, reader)?;
+    let codec = input.codec();
+    let watcher = watcher.as_ref();
+    let started = Instant::now();
+    let check = std::cell::RefCell::new(Some(crate::verify::Checking::new(name, codec)));
+    let verdict = || {
+        check.borrow_mut().take().map_or_else(
+            || Err(anyhow::anyhow!("the checks were not made")),
+            |c| c.verdict(),
+        )
+    };
+    match codec {
+        crate::pipeline::Codec::TrueHd => truehd_by(
+            name,
+            opts,
+            out,
+            started,
+            |walk| {
+                let mut on = OnUnit(walk);
+                let end = Pass::run(
+                    input,
+                    name,
+                    watcher,
+                    &mut [&mut on, checking(&mut check.borrow_mut())?],
+                )?;
+                Ok(crate::pipeline::truehd_summary(&end))
+            },
+            |pass| pass.file_bytes,
+            verdict,
+        ),
+        crate::pipeline::Codec::Ac3 => ac3_by(
+            name,
+            opts,
+            out,
+            started,
+            |on_container| {
+                let mut bytes = 0;
+                let mut walk = containers_by(
+                    |frame| {
+                        let mut on = OnFrame(frame);
+                        let end = Pass::run(
+                            input,
+                            name,
+                            watcher,
+                            &mut [&mut on, checking(&mut check.borrow_mut())?],
+                        )?;
+                        bytes = end.bytes;
+                        Ok(ac3_totals(&end))
+                    },
+                    on_container,
+                )?;
+                walk.bytes = bytes;
+                Ok(walk)
+            },
+            verdict,
+        ),
+    }
+}
+
+/// The checks of `verify` a pass is to lend its units to, while they are
+/// there to be lent.
+pub(crate) fn checking(
+    held: &mut Option<crate::verify::Checking>,
+) -> Result<&mut dyn crate::pipeline::Stage> {
+    held.as_mut()
+        .map(|c| c as &mut dyn crate::pipeline::Stage)
+        .ok_or_else(|| anyhow::anyhow!("the checks were taken before the pass"))
+}
+
 /// Walks the stream and judges it. Nothing is printed, but for what `--dump`
 /// asks to see while the walk goes.
 pub fn report(source: &Source, opts: &Options, out: &mut dyn Write) -> Result<Report> {
@@ -806,12 +943,36 @@ pub fn report(source: &Source, opts: &Options, out: &mut dyn Write) -> Result<Re
     // the checks of `verify` read the stream in a pass of their own; run it
     // beside the walk instead of after it
     let check = crate::verify::spawn_stream_check(source);
+    ac3_by(
+        source.name(),
+        opts,
+        out,
+        started,
+        |on_container| for_each_container(source, on_container),
+        || crate::verify::join_stream_check(check),
+    )
+}
+
+/// What the walk over the containers hands each of them to.
+pub(crate) type ContainerFn<'f> = &'f mut dyn FnMut(&Site, ContainerResult);
+
+/// [`report`] of an AC-3 family stream whose containers `walk` hands over,
+/// of a stream reports call `name`; `verdict` is what `verify`'s checks came
+/// to.
+fn ac3_by(
+    name: &str,
+    opts: &Options,
+    out: &mut dyn Write,
+    started: Instant,
+    walk: impl FnOnce(ContainerFn<'_>) -> Result<Walk>,
+    verdict: impl FnOnce() -> Result<crate::verify::StreamCheck>,
+) -> Result<Report> {
     let mut s = EmdfSummary::default();
     let mut dumped = 0usize;
     // what a listing in full could not be written for: the walk goes on and
     // the call ends with it
     let mut wrote: io::Result<()> = Ok(());
-    let walk = for_each_container(source, |site, c| {
+    let walk = walk(&mut |site, c| {
         let &Site {
             frame_index,
             sample_pos,
@@ -929,7 +1090,7 @@ pub fn report(source: &Source, opts: &Options, out: &mut dyn Write) -> Result<Re
     })?;
     wrote?;
     if walk.frames == 0 {
-        return Err(crate::info::no_stream(source));
+        return Err(crate::info::no_stream_named(name));
     }
     s.frames = walk.frames;
     s.independent_frames = walk.independent_frames;
@@ -956,7 +1117,7 @@ pub fn report(source: &Source, opts: &Options, out: &mut dyn Write) -> Result<Re
     // what the walk does not read, a JOC payload, the payload configuration, the
     // complexity index or the audio, `verify` checks: take its verdict rather
     // than re-derive a part of it
-    let stream = crate::verify::join_stream_check(check)?;
+    let stream = verdict()?;
     if s.first_error.is_none() && !stream.clean {
         s.first_error = stream.first_problem.clone();
     }

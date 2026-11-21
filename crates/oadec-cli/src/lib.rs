@@ -48,7 +48,7 @@ use oadec_engine::damf::Warp;
 use oadec_engine::decode::{Format, OnError, Order};
 use oadec_engine::eac3_objects::{JocLowBand, JocLowFir, JocOverrides, JocPhase};
 use oadec_engine::integrity::Verdict;
-use oadec_engine::source::Source;
+use oadec_engine::source::{STDIN_NAME, Source};
 use oadec_engine::stream::LayoutChange;
 use oadec_engine::{api, damf, decode, eac3, eac3_objects, emdf, oamd};
 use oadec_truehd::Severity;
@@ -583,6 +583,17 @@ fn stream_named(file: &std::path::Path) -> anyhow::Result<Source> {
     Ok(progress::watched(Source::named(file)?))
 }
 
+/// Standard input, where the command line names it (`-`), to be read once as
+/// it comes: the report commands read it so and hold nothing of it whole.
+/// Refused where it is a terminal, in the words it always was.
+fn piped(file: &std::path::Path) -> Option<anyhow::Result<std::io::StdinLock<'static>>> {
+    (file.as_os_str() == oadec_engine::source::STDIN).then(|| {
+        oadec_engine::source::piped_stdin()
+            .map(|stdin| stdin.lock())
+            .map_err(anyhow::Error::from)
+    })
+}
+
 /// Runs the command line `args` spells, the program's own name first, and
 /// returns the exit code the process is to end with.
 ///
@@ -604,10 +615,14 @@ where
             file,
             json,
             programme,
-        } => stream_named(&file)
-            .and_then(|source| api::info_of(&source, programme))
-            .and_then(|report| report.print(json, out, err))
-            .map(|()| ExitCode::SUCCESS),
+        } => match piped(&file) {
+            Some(stdin) => stdin.and_then(|stdin| {
+                api::info_from(STDIN_NAME, stdin, programme, Some(progress::unmeasured()))
+            }),
+            None => stream_named(&file).and_then(|source| api::info_of(&source, programme)),
+        }
+        .and_then(|report| report.print(json, out, err))
+        .map(|()| ExitCode::SUCCESS),
         Command::Verify {
             file,
             json,
@@ -618,50 +633,66 @@ where
             require_disc,
             census,
             programme,
-        } => stream_named(&file)
-            .and_then(|source| {
-                api::verify(
-                    &source,
-                    &api::VerifyOptions {
-                        decode,
-                        fail_on: fail_on.as_deref().and_then(Severity::from_name),
-                        max_per_rule,
-                        trace_fifo,
-                        require_disc: require_disc
-                            .iter()
-                            .filter_map(|d| oadec_truehd::disc::Disc::from_id(d))
-                            .collect(),
-                        census,
-                        programme,
-                    },
-                )
-            })
-            .and_then(|report| report.print(json, out, err).map(|()| report.clean()))
-            .map(|clean| {
-                if clean {
-                    ExitCode::SUCCESS
-                } else {
-                    ExitCode::from(EXIT_NONCONFORMANT)
-                }
-            }),
-        Command::Emdf { file, json, dump } => stream_named(&file)
-            .and_then(|source| emdf::run(&source, &emdf::Options { json, dump }, out))
-            .map(|clean| {
-                if clean {
-                    ExitCode::SUCCESS
-                } else {
-                    ExitCode::from(EXIT_NONCONFORMANT)
-                }
-            }),
-        Command::Oamd { file, json, dump } => stream_named(&file)
-            .and_then(|source| oamd::run(&source, &oamd::Options { json, dump }, out))
-            .map(|clean| {
-                if clean {
-                    ExitCode::SUCCESS
-                } else {
-                    ExitCode::from(EXIT_NONCONFORMANT)
-                }
-            }),
+        } => {
+            let asked = api::VerifyOptions {
+                decode,
+                fail_on: fail_on.as_deref().and_then(Severity::from_name),
+                max_per_rule,
+                trace_fifo,
+                require_disc: require_disc
+                    .iter()
+                    .filter_map(|d| oadec_truehd::disc::Disc::from_id(d))
+                    .collect(),
+                census,
+                programme,
+            };
+            match piped(&file) {
+                Some(stdin) => stdin.and_then(|stdin| {
+                    api::verify_from(STDIN_NAME, stdin, &asked, Some(progress::unmeasured()))
+                }),
+                None => stream_named(&file).and_then(|source| api::verify(&source, &asked)),
+            }
+        }
+        .and_then(|report| report.print(json, out, err).map(|()| report.clean()))
+        .map(|clean| {
+            if clean {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(EXIT_NONCONFORMANT)
+            }
+        }),
+        Command::Emdf { file, json, dump } => {
+            let asked = emdf::Options { json, dump };
+            match piped(&file) {
+                Some(stdin) => stdin.and_then(|stdin| {
+                    emdf::run_from(STDIN_NAME, stdin, Some(progress::unmeasured()), &asked, out)
+                }),
+                None => stream_named(&file).and_then(|source| emdf::run(&source, &asked, out)),
+            }
+        }
+        .map(|clean| {
+            if clean {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(EXIT_NONCONFORMANT)
+            }
+        }),
+        Command::Oamd { file, json, dump } => {
+            let asked = oamd::Options { json, dump };
+            match piped(&file) {
+                Some(stdin) => stdin.and_then(|stdin| {
+                    oamd::run_from(STDIN_NAME, stdin, Some(progress::unmeasured()), &asked, out)
+                }),
+                None => stream_named(&file).and_then(|source| oamd::run(&source, &asked, out)),
+            }
+        }
+        .map(|clean| {
+            if clean {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(EXIT_NONCONFORMANT)
+            }
+        }),
         Command::Decode {
             file,
             output,
@@ -1249,9 +1280,13 @@ where
                 }
             })
         }
-        Command::Au { file, index, json } => stream_named(&file)
-            .and_then(|source| au_dump::run(&source, index, json))
-            .map(|()| ExitCode::SUCCESS),
+        Command::Au { file, index, json } => match piped(&file) {
+            Some(stdin) => stdin.and_then(|stdin| {
+                au_dump::run_from(STDIN_NAME, stdin, Some(progress::unmeasured()), index, json)
+            }),
+            None => stream_named(&file).and_then(|source| au_dump::run(&source, index, json)),
+        }
+        .map(|()| ExitCode::SUCCESS),
         Command::Rules { id, json, markdown } => {
             catalog::run(id.as_deref(), json, markdown).map(|()| ExitCode::SUCCESS)
         }

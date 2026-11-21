@@ -473,9 +473,13 @@ fn every_golden_file_belongs_to_a_test() {
     let mut wanted: Vec<String> = STREAMS.iter().map(|s| golden_name(s)).collect();
     wanted.push("rules.txt".to_string());
     wanted.sort();
+    // the files of the transcripts; a directory beside them (the loss reports
+    // keep theirs in one) belongs to the tests that read it
     let mut found: Vec<String> = std::fs::read_dir(golden_dir())
         .expect("the golden directory")
-        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .map(|e| e.unwrap())
+        .filter(|e| e.file_type().is_ok_and(|t| t.is_file()))
+        .map(|e| e.file_name().to_string_lossy().into_owned())
         .collect();
     found.sort();
     assert_eq!(found, wanted, "tests/golden and the tests disagree");

@@ -39,13 +39,65 @@ damaged.
 | Command | Standard input |
 |---|---|
 | `decode --format pcm`, `decode --format wav` | read as a stream, once |
-| `decode --format damf`, `decode --format adm` | taken into memory whole, then decoded |
-| `info`, `verify` (with and without `--decode`), `emdf`, `oamd`, `au`, `compare`, `eac3-blocks` | taken into memory whole, then read as often as the command reads a file |
+| `info`, `verify` (with and without `--decode`), `emdf`, `oamd`, `au` | read once, as it comes (below) |
+| `decode --format damf`, `decode --format adm`, `compare`, `eac3-blocks` | taken into memory whole, then read as often as the command reads a file |
 
-The commands of the second and third rows read their stream more than once,
-on more than one thread, and a pipe can be read once; they hold standard input
-in memory for as long as they run, as they always have. Reading them as a
-stream is a later round of work.
+The commands of the last row read their stream more than once, and a pipe can
+be read once; they hold standard input in memory for as long as they run, as
+they always have. Reading them as a stream is a later round of work.
+
+A file is read as it always was, by every command: what is below is of
+standard input.
+
+## The reports of a stream read once
+
+`info`, `verify`, `emdf`, `oamd` and `au` read standard input once, on the
+thread that runs the command, and hold nothing of it that grows with the
+stream:
+
+```text
+mkvextract tracks input.mkv 1:/dev/stdout | oadec verify -
+```
+
+The first 64 KiB tell the codecs apart, as they do for a file; a pipe that
+gives them a little at a time is read until they are all there. Then the
+stream is framed by the framer a walk over a file uses (an AC-3 family stream
+cut where the reads of four megabytes of a file would cut it), and every
+access unit or syncframe is lent in turn to each part of the command: the
+walk of what the command reports, and the checks of `verify` that `emdf` and
+`oamd` take their verdict from. A file of the stream is read twice for that,
+the checks on a thread of their own; the pipe is read once and each unit is
+looked at by both before the next is read. What the commands print, the JSON
+they write and the exit codes they end with are those of a file of the same
+bytes, but for the name: the stream is `<stdin>`.
+
+What a run holds is a read of four megabytes, the head, and what the report
+keeps: the findings, which are listed in full up to a limit and counted past
+it. A test pipes 96 MiB into the commands and holds each to 64 MiB; a TrueHD
+or E-AC-3 stream of that length is read in 12 to 15 MiB. Two things a report
+keeps grow with the stream, from a file as from a pipe: the decoder-buffer
+trace of `verify --trace-fifo`, a row for every access unit (some hundred
+bytes each, written when the stream has ended), and the event times `emdf`
+keeps of an E-AC-3 stream, eight bytes for each block of object metadata.
+
+`verify --decode` of a TrueHD stream decodes every presentation the stream
+carries on a thread of its own, beside the scan, as it does for a file; the
+units are handed to the decodes 64 at a time, as they are framed. The decodes
+begin at the unit that carries the first major sync, and are handed the first
+unit of the stream before it: a decode that cannot open at the first unit
+stops there, as it does for a file, and no unit between the two is held.
+
+A command that has what it needs before the stream has ended does not read
+the rest: `au` once it has described its unit, and a command that refuses its
+options once the head has told it the codec. Whoever writes into the pipe is
+then told the pipe is closed (`SIGPIPE`/`EPIPE` on Linux, `ERROR_NO_DATA` on
+Windows); `oadec` ends as it does for a file. A stream that ends inside a unit
+is judged as a file that ends there; a read that fails ends the run with
+`reading standard input: …` and exit code 2.
+
+On a terminal the line that says how far the walk has got shows the bytes
+read and the rate, and no bar, percentage or estimate: the length of a pipe is
+not known.
 
 ## What goes where
 
@@ -318,3 +370,10 @@ A program that embeds the engine has the same decode in
 `oadec_engine::stream`: a `StreamDecoder` that is pushed bytes in pieces of
 any size and writes into a `StreamSink`, and `decode_reader`, which reads a
 reader on a thread of its own with the queue above.
+
+The reports of a stream read once are `api::{info_from, verify_from,
+oamd_from, emdf_from}`, beside the calls of a `Source`: each takes a name and
+a reader. What they stand on is `oadec_engine::pipeline`: a `Pass` reads a
+reader once and lends every unit to the `Stage`s it is given, in their order.
+A unit is lent for one call and a stage copies what it keeps; the compiler
+holds it to that.

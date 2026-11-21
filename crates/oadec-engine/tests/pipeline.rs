@@ -6,9 +6,6 @@
 //! the reads that brought it, and a call that reads it once reports what the
 //! call of a [`Source`] of the same bytes reports. A [`Spool`] gives back what
 //! it was given, in order, wherever its limit fell.
-//!
-//! Round 5 builds these; until the second stop every test here is red and
-//! ignored, and `cargo test -- --ignored` shows it.
 
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
@@ -139,7 +136,6 @@ fn told(reader: impl Read) -> (Codec, Vec<String>, PassEnd) {
 }
 
 #[test]
-#[ignore = "r5 durak 2: Pass::run and Once::new are bodies of the second stop"]
 fn a_stream_is_told_alike_however_it_was_cut() {
     for path in streams() {
         let once = read(&path);
@@ -160,7 +156,6 @@ fn a_stream_is_told_alike_however_it_was_cut() {
 }
 
 #[test]
-#[ignore = "r5 durak 2: Pass::run and Once::new are bodies of the second stop"]
 fn a_pass_frames_what_the_walk_over_a_file_frames() {
     for path in streams() {
         let bytes = long(&read(&path));
@@ -197,7 +192,6 @@ fn a_pass_frames_what_the_walk_over_a_file_frames() {
 }
 
 #[test]
-#[ignore = "r5 durak 2: Once::new is a body of the second stop"]
 fn the_head_is_read_again_and_tells_the_codec_a_file_tells() {
     for path in streams() {
         let bytes = read(&path);
@@ -251,7 +245,6 @@ impl Stage for StopAt {
 }
 
 #[test]
-#[ignore = "r5 durak 2: Pass::run is a body of the second stop"]
 fn an_error_of_a_stage_ends_the_pass_at_its_unit_and_nobody_finishes() {
     for name in ["truehd-20-44k.thd", "authored-scene.ec3"] {
         let bytes = read(
@@ -329,7 +322,6 @@ impl Read for Interrupted<'_> {
 }
 
 #[test]
-#[ignore = "r5 durak 2: Pass::run and Once::new are bodies of the second stop"]
 fn a_read_that_fails_ends_the_pass_by_name_and_one_interrupted_is_read_again() {
     // longer than the head, which is read before the pass begins
     let bytes = read(
@@ -343,14 +335,23 @@ fn a_read_that_fails_ends_the_pass_by_name_and_one_interrupted_is_read_again() {
     })
     .expect("the head");
     let error = Pass::run(once, NAME, None, &mut [&mut stage]).expect_err("a read failed");
-    let said = format!("{error:#}");
-    assert!(
-        said.contains(NAME) && said.contains("the cable came out"),
-        "{said}"
+    // standard input is refused in the words it always was
+    assert_eq!(
+        format!("{error:#}"),
+        "reading standard input: the cable came out"
     );
     // told units, and no end
     assert!(!stage.0.is_empty());
     assert!(stage.0.iter().all(|line| !line.starts_with("PassEnd")));
+    // any other stream by its name
+    let once = Once::new(Breaks {
+        good: &bytes[..bytes.len() / 2],
+        at: 0,
+    })
+    .expect("the head");
+    let error =
+        Pass::run(once, "a socket", None, &mut [&mut Told::default()]).expect_err("a read failed");
+    assert_eq!(format!("{error:#}"), "reading a socket: the cable came out");
 
     let whole = told(&bytes[..]);
     let interrupted = told(Interrupted {
@@ -362,7 +363,6 @@ fn a_read_that_fails_ends_the_pass_by_name_and_one_interrupted_is_read_again() {
 }
 
 #[test]
-#[ignore = "r5 durak 2: Pass::run and Once::new are bodies of the second stop"]
 fn a_stream_cut_inside_a_unit_ends_as_the_file_cut_there_ends() {
     for name in ["truehd-51-88k.thd", "mlp-51-96k.mlp", "authored-scene.ec3"] {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -402,7 +402,6 @@ fn timeless(mut report: Value) -> Value {
 }
 
 #[test]
-#[ignore = "r5 durak 2: the calls that read a stream once are bodies of the second stop"]
 fn a_call_that_reads_a_stream_once_reports_what_the_call_of_its_source_reports() {
     for path in streams() {
         let bytes = read(&path);
@@ -516,7 +515,6 @@ fn temp(tag: &str) -> PathBuf {
 }
 
 #[test]
-#[ignore = "r5 durak 2: Spool::push and Spool::finish are bodies of the second stop"]
 fn a_spool_gives_back_what_it_was_given_in_order_wherever_its_limit_fell() {
     let dir = temp("spool");
     let given = records(500);
@@ -561,7 +559,6 @@ fn a_spool_gives_back_what_it_was_given_in_order_wherever_its_limit_fell() {
 }
 
 #[test]
-#[ignore = "r5 durak 2: Spool::push is a body of the second stop"]
 fn a_spool_whose_file_cannot_be_made_fails_and_takes_nothing_more() {
     let nowhere = temp("nowhere").join("not-there");
     let mut spool = Spool::in_dir(8, nowhere.clone());

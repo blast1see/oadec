@@ -104,10 +104,11 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use oadec_eac3::FrameHeader;
-use oadec_truehd::Unit;
+use oadec_truehd::{Extractor, Unit};
 
+use crate::eac3::{Split, Splitter};
 use crate::input::PassSummary;
-use crate::source::Watcher;
+use crate::source::{Walking, Watcher};
 
 /// How much of the head of a stream is held back to tell the codecs apart:
 /// what a walk over a file reads of its head to do the same.
@@ -143,9 +144,29 @@ impl<R: Read> Once<R> {
     ///
     /// # Errors
     /// What reading gives.
-    pub fn new(rest: R) -> io::Result<Self> {
-        let _ = rest;
-        Err(not_yet("telling the codec from the head of a stream"))
+    pub fn new(mut rest: R) -> io::Result<Self> {
+        let mut head = vec![0u8; HEAD];
+        let mut held = 0;
+        while held < HEAD {
+            match rest.read(&mut head[held..]) {
+                Ok(0) => break,
+                Ok(n) => held += n,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) => return Err(e),
+            }
+        }
+        head.truncate(held);
+        let codec = if crate::eac3::is_eac3_head(&head) {
+            Codec::Ac3
+        } else {
+            Codec::TrueHd
+        };
+        Ok(Self {
+            head,
+            at: 0,
+            rest,
+            codec,
+        })
     }
 
     /// The codec the head told.
@@ -158,6 +179,15 @@ impl<R: Read> Once<R> {
     #[must_use]
     pub fn head(&self) -> &[u8] {
         &self.head
+    }
+
+    /// The same stream framed as `codec`, whatever its head told: for a walk
+    /// that frames a stream one way whatever it is, as `oadec au` frames
+    /// every stream as TrueHD.
+    #[must_use]
+    pub fn framed_as(mut self, codec: Codec) -> Self {
+        self.codec = codec;
+        self
     }
 }
 
@@ -300,20 +330,227 @@ impl Pass {
     /// What reading gives, with `name` in its context; the first error a
     /// stage gives, as it is. See the module.
     pub fn run<R: Read>(
-        input: Once<R>,
+        mut input: Once<R>,
         name: &str,
         watcher: Option<&Arc<dyn Watcher>>,
         stages: &mut [&mut dyn Stage],
     ) -> Result<PassEnd> {
-        let _ = (input, watcher, stages);
-        Err(anyhow::Error::new(not_yet("a pass over a stream read once")).context(name.to_string()))
+        let codec = input.codec;
+        // Told to whoever watches; the length of a stream read once is not
+        // known, so the walk has no total.
+        let mut progress = Walking::of(watcher, "reading", 0);
+        let mut buf = vec![0u8; READ];
+        let mut bytes = 0u64;
+        let mut units = 0u64;
+        let mut read = |buf: &mut [u8]| -> Result<usize> {
+            let n = read_some(&mut input, buf).map_err(|e| read_error(name, e))?;
+            bytes += n as u64;
+            Ok(n)
+        };
+        let framed = match codec {
+            Codec::TrueHd => {
+                let mut extractor = Extractor::new();
+                loop {
+                    let n = read(&mut buf)?;
+                    if n == 0 {
+                        break;
+                    }
+                    extractor.push(&buf[..n]);
+                    while let Some(unit) = extractor.next_unit()? {
+                        progress.at(unit.offset);
+                        lend_unit(&unit, &mut units, stages)?;
+                    }
+                }
+                let (rest, trailing_bytes) = extractor.finish()?;
+                for unit in &rest {
+                    lend_unit(unit, &mut units, stages)?;
+                }
+                Framed::TrueHd(PassSummary {
+                    stats: extractor.stats,
+                    trailing_bytes,
+                    final_gap: extractor.take_gap(),
+                    file_bytes: bytes,
+                })
+            }
+            Codec::Ac3 => {
+                // the splitter tells what the walk over a file read
+                // `READ_BYTES` at a time tells, however the bytes come
+                let mut splitter = Splitter::new(crate::eac3::READ_BYTES);
+                let mut ended = false;
+                loop {
+                    match splitter.next() {
+                        Split::Frame {
+                            offset,
+                            bytes: frame,
+                            header,
+                        } => {
+                            progress.at(offset);
+                            let unit = UnitRef {
+                                index: units,
+                                offset,
+                                bytes: frame,
+                                head: Head::Ac3(&header),
+                            };
+                            units += 1;
+                            for stage in stages.iter_mut() {
+                                stage.unit(&unit)?;
+                            }
+                        }
+                        Split::Gap {
+                            offset,
+                            sync_error,
+                            bytes: skipped,
+                        } => {
+                            let gap = Ac3Gap {
+                                offset,
+                                sync_error,
+                                bytes: skipped,
+                            };
+                            for stage in stages.iter_mut() {
+                                stage.gap(&gap);
+                            }
+                        }
+                        Split::End => break,
+                        Split::Wait if ended => break,
+                        Split::Wait => {
+                            let n = read(&mut buf)?;
+                            if n == 0 {
+                                splitter.finish();
+                                ended = true;
+                            } else {
+                                splitter.push(&buf[..n]);
+                            }
+                        }
+                    }
+                }
+                Framed::Ac3 {
+                    frames: units,
+                    sync_errors: splitter.sync_errors,
+                    skipped: splitter.skipped,
+                }
+            }
+        };
+        let end = PassEnd {
+            codec,
+            bytes,
+            units,
+            framed,
+        };
+        for stage in stages.iter_mut() {
+            stage.finish(&end)?;
+        }
+        // the line is cleared when `progress` is dropped, which covers the
+        // `?` paths above as well as this one
+        Ok(end)
     }
 }
 
-/// What a part that is not built yet answers.
-pub(crate) fn not_yet(what: &str) -> io::Error {
-    io::Error::new(
-        io::ErrorKind::Unsupported,
-        format!("{what} is not built yet"),
-    )
+/// What one read of a pass asks for: what a walk over a file asks for.
+const READ: usize = 4 << 20;
+
+/// Lends `unit` to every stage, in order.
+fn lend_unit(unit: &Unit, units: &mut u64, stages: &mut [&mut dyn Stage]) -> Result<()> {
+    let lent = UnitRef {
+        index: *units,
+        offset: unit.offset,
+        bytes: &unit.bytes,
+        head: Head::TrueHd(unit),
+    };
+    *units += 1;
+    for stage in stages.iter_mut() {
+        stage.unit(&lent)?;
+    }
+    Ok(())
+}
+
+/// One read that gives something or the end: a read that was interrupted is
+/// read again.
+fn read_some(from: &mut impl Read, buf: &mut [u8]) -> io::Result<usize> {
+    loop {
+        match from.read(buf) {
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+            read => return read,
+        }
+    }
+}
+
+/// What a read of the stream `name` that failed says: in the words standard
+/// input has always been refused in when it could not be read, and with the
+/// name of any other stream.
+#[must_use]
+pub fn read_error(name: &str, e: io::Error) -> anyhow::Error {
+    let what = if name == crate::source::STDIN_NAME {
+        "reading standard input".to_string()
+    } else {
+        format!("reading {name}")
+    };
+    anyhow::Error::new(io::Error::new(e.kind(), format!("{what}: {e}")))
+}
+
+/// A stage that hands every access unit of a TrueHD stream to a function: a
+/// walk written as the function a walk over a [`Source`](crate::source::Source)
+/// calls, lent to a pass instead. It is told nothing of an AC-3 stream.
+pub(crate) struct OnUnit<'f>(pub(crate) UnitFn<'f>);
+
+/// What a walk over the access units of a stream hands every unit to.
+pub(crate) type UnitFn<'f> = &'f mut dyn FnMut(&Unit) -> Result<()>;
+
+/// What a walk over the syncframes of a stream hands every syncframe to.
+pub(crate) type FrameFn<'f> = &'f mut dyn FnMut(u64, &[u8], &FrameHeader) -> Result<()>;
+
+impl Stage for OnUnit<'_> {
+    fn unit(&mut self, unit: &UnitRef<'_>) -> Result<()> {
+        match unit.truehd() {
+            Some(unit) => (self.0)(unit),
+            None => Ok(()),
+        }
+    }
+
+    fn finish(&mut self, _: &PassEnd) -> Result<()> {
+        Ok(())
+    }
+}
+
+/// A stage that hands every syncframe of an AC-3 family stream to a
+/// function, as [`OnUnit`] does an access unit.
+pub(crate) struct OnFrame<'f>(pub(crate) FrameFn<'f>);
+
+impl Stage for OnFrame<'_> {
+    fn unit(&mut self, unit: &UnitRef<'_>) -> Result<()> {
+        match unit.ac3() {
+            Some(header) => (self.0)(unit.offset, unit.bytes, header),
+            None => Ok(()),
+        }
+    }
+
+    fn finish(&mut self, _: &PassEnd) -> Result<()> {
+        Ok(())
+    }
+}
+
+/// The totals of a walk over an AC-3 family stream, `(frames, sync_errors,
+/// skipped)`, as `eac3::for_each_frame` returns them; zeros for a TrueHD
+/// pass.
+pub(crate) fn ac3_totals(end: &PassEnd) -> (u64, u64, u64) {
+    match end.framed {
+        Framed::Ac3 {
+            frames,
+            sync_errors,
+            skipped,
+        } => (frames, sync_errors, skipped),
+        Framed::TrueHd(_) => (0, 0, 0),
+    }
+}
+
+/// What a walk over a TrueHD stream returns; the default for an AC-3 pass.
+pub(crate) fn truehd_summary(end: &PassEnd) -> PassSummary {
+    match end.framed {
+        Framed::TrueHd(summary) => summary,
+        Framed::Ac3 { .. } => PassSummary {
+            stats: oadec_truehd::ExtractStats::default(),
+            trailing_bytes: 0,
+            final_gap: None,
+            file_bytes: end.bytes,
+        },
+    }
 }
