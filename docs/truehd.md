@@ -659,8 +659,16 @@ So `oadec` leaves such a matrix uncut in both kinds
 (`docs/audit/evidence/engine-round-2026-11/15-synthetic-substreams.json`).
 
 Two things stay as they were. A `0x31EC` substream sends a count of bypassed
-bits, and the writer writes no such substream to ask Dolby's decoder with:
-there the sum is still cut and the bits added. And a stream that has both is
+bits, and Dolby's decoder has not been asked about it: there the sum is
+still cut and the bits added. The writer now writes a `0x31EC` substream
+(the ISF streams of `crates/oadec-cli/tests/cli_isf.rs`), but without its
+matrices, and Dolby's element will not decode the 16-channel presentation of
+a written stream: with `presentation=16` it says the selected presentation
+is not available, and without it gives two channels. A probe of the count
+needs the 16-channel presentation as Dolby's decoder takes it, which by what
+real streams carry means an Evolution frame of object metadata the writer
+does not write yet; until then the reading of the static code is a reading,
+not a finding, and the decoder is not changed. And a stream that has both is
 a probe in either kind, `probe-bypass-over-step` and
 `probe-dither-bypass-over-step`, not a recipe: one decoder from outside gives
 its samples, and that the one is Dolby's own does not make two.
