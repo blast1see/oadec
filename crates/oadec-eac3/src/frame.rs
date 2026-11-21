@@ -212,6 +212,10 @@ pub struct BlockInfo {
     pub deltbae: Vec<u8>,
     pub rematflg: Vec<bool>,
     pub skip_len: usize,
+    /// Bit position of the block's `skiple` (E-AC-3): where it was read, or,
+    /// when `skipflde` is 0 and it was not, where it would have been read.
+    /// `None` for AC-3.
+    pub skip_flag_bit: Option<usize>,
     /// Bit position of `ecplinu`, when the block carries a coupling strategy
     /// and the syntax is E-AC-3.
     pub ecplinu_bit: Option<usize>,
@@ -388,6 +392,8 @@ pub struct Frame {
     /// Bit offset in the frame at which each of `skip_fields` starts, so a
     /// tool can reach back into the frame and rewrite what it found there.
     pub skip_bits: Vec<usize>,
+    /// Bit position of `skipflde` in `audfrm` (E-AC-3); `None` for AC-3.
+    pub skipflde_bit: Option<usize>,
     pub coverage: Coverage,
     /// Bit position after the last audio block.
     pub end_bit: usize,
@@ -473,6 +479,10 @@ struct Parser<'a> {
     frmfgaincode: bool,
     dbaflde: bool,
     skipflde: bool,
+    /// Bit position of `skipflde`, once `audfrm` is read.
+    skipflde_bit: Option<usize>,
+    /// Bit position of the current block's `skiple`, read or not (E-AC-3).
+    skip_flag_bit: Option<usize>,
     cplstre: [bool; MAX_BLOCKS],
     cplinu: [bool; MAX_BLOCKS],
     cplexpstr: [u8; MAX_BLOCKS],
@@ -603,6 +613,8 @@ impl<'a> Parser<'a> {
             frmfgaincode: true,
             dbaflde: true,
             skipflde: true,
+            skipflde_bit: None,
+            skip_flag_bit: None,
             cplstre: [false; MAX_BLOCKS],
             cplinu: [false; MAX_BLOCKS],
             cplexpstr: [EXP_REUSE; MAX_BLOCKS],
@@ -709,6 +721,7 @@ impl<'a> Parser<'a> {
         self.bamode = self.bit()?;
         self.frmfgaincode = self.bit()?;
         self.dbaflde = self.bit()?;
+        self.skipflde_bit = Some(self.r.position());
         self.skipflde = self.bit()?;
         let spxattene = self.bit()?;
         // coupling strategy flags
@@ -844,6 +857,7 @@ impl<'a> Parser<'a> {
     )]
     fn parse_audblk(&mut self, blk: usize, noise: &mut Noise) -> Result<()> {
         self.ecplinu_bit = None;
+        self.skip_flag_bit = None;
         self.cpl_strategy_span = None;
         self.cpl_coord_span = None;
         let acmod = self.h.acmod;
@@ -1394,6 +1408,9 @@ impl<'a> Parser<'a> {
         // skip field
         let mut skip = Vec::new();
         let mut skip_bit = 0usize;
+        if eac3 {
+            self.skip_flag_bit = Some(self.r.position());
+        }
         if (!eac3 || self.skipflde) && self.bit()? {
             let skipl = self.bits(9)? as usize;
             skip.reserve(skipl);
@@ -1717,6 +1734,7 @@ impl<'a> Parser<'a> {
             deltbae: self.deltbae[..nf].to_vec(),
             rematflg: self.rematflg[..self.nrematbd].to_vec(),
             skip_len: self.skip_fields.last().map_or(0, Vec::len),
+            skip_flag_bit: self.skip_flag_bit,
             ecplinu_bit: self.ecplinu_bit,
             cpl_strategy_span: self.cpl_strategy_span,
             cpl_coord_span: self.cpl_coord_span,
@@ -2302,6 +2320,7 @@ impl Frame {
             out_blocks,
             skip_fields,
             skip_bits,
+            skipflde_bit,
             coverage,
             transproc,
             nf,
@@ -2332,6 +2351,7 @@ impl Frame {
             blocks: out_blocks,
             skip_fields,
             skip_bits,
+            skipflde_bit,
             coverage,
             end_bit,
             crc_ok: crc,
@@ -2389,6 +2409,80 @@ fn read_auxdata(frame: &[u8], end_bit: usize) -> (Vec<u8>, bool) {
 mod tests {
     use super::*;
     use crate::tables::EXP_D45;
+
+    /// The bit of one syncframe at `at`.
+    fn bit_at(frame: &[u8], at: usize) -> bool {
+        frame[at >> 3] & (0x80 >> (at & 7)) != 0
+    }
+
+    /// Every syncframe of a fixture under `crates/<dir>`.
+    fn fixture_frames(path: &str) -> Vec<Vec<u8>> {
+        let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(path);
+        let stream = std::fs::read(&file).expect("fixture");
+        let mut out = Vec::new();
+        let mut at = 0usize;
+        while at + 8 <= stream.len() {
+            let header = FrameHeader::parse(&stream[at..]).expect("a syncframe");
+            out.push(stream[at..at + header.frame_bytes].to_vec());
+            at += header.frame_bytes;
+        }
+        out
+    }
+
+    /// `skipflde_bit` and `skip_flag_bit` name the bits they say: where
+    /// `skipflde` is set and `skiple` is 1, the skip field starts ten bits
+    /// later (`skiple`, then nine bits of `skipl`); where `skiple` is 0 or
+    /// was never read, the block has no skip field. AC-3 has neither.
+    #[test]
+    fn the_skip_flag_positions_name_their_bits() {
+        let opts = Options {
+            block_info: true,
+            ..Options::default()
+        };
+        let mut fields = 0usize;
+        let mut unread = 0usize;
+        for frame in fixture_frames("../oadec-cli/tests/fixtures/authored-scene.ec3") {
+            let parsed = Frame::parse(&frame, &mut Noise::default(), opts).expect("frame");
+            if parsed.header.syntax != Syntax::Eac3 {
+                continue;
+            }
+            let flde_at = parsed.skipflde_bit.expect("an E-AC-3 frame has skipflde");
+            let flde = bit_at(&frame, flde_at);
+            for (blk, block) in parsed.blocks.iter().enumerate() {
+                let info = block.info.as_ref().expect("record");
+                let at = info
+                    .skip_flag_bit
+                    .expect("an E-AC-3 block has a skiple place");
+                let has_field = !parsed.skip_fields[blk].is_empty();
+                if flde && bit_at(&frame, at) {
+                    assert_eq!(parsed.skip_bits[blk], at + 10, "block {blk}");
+                    fields += usize::from(has_field);
+                } else {
+                    assert!(!has_field, "block {blk}: a skip field where none is read");
+                    unread += usize::from(!flde);
+                }
+                if blk > 0 {
+                    let before = parsed.blocks[blk - 1].info.as_ref().expect("record");
+                    assert!(
+                        before.end_bit <= at,
+                        "block {blk} points into the block before"
+                    );
+                }
+            }
+        }
+        assert!(
+            fields > 0,
+            "the fixture carries no skip field to check against"
+        );
+        let _ = unread;
+        for frame in fixture_frames("tests/fixtures/ac3-20-coupled.ac3") {
+            let parsed = Frame::parse(&frame, &mut Noise::default(), opts).expect("frame");
+            assert_eq!(parsed.skipflde_bit, None);
+            for block in &parsed.blocks {
+                assert_eq!(block.info.as_ref().expect("record").skip_flag_bit, None);
+            }
+        }
+    }
 
     #[test]
     fn exponent_scale_table() {

@@ -289,6 +289,7 @@ impl Decoder {
             blocks: vec![silence; usize::from(header.blocks)],
             skip_fields: Vec::new(),
             skip_bits: Vec::new(),
+            skipflde_bit: None,
             coverage: Coverage::default(),
             end_bit: 0,
             crc_ok: bytes.len() >= header.frame_bytes && crc_ok(bytes, header),
