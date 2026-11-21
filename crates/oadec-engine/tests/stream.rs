@@ -8,13 +8,14 @@
 
 use std::io::Read;
 use std::path::Path;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::Duration;
 
 use oadec_engine::api::{self, PcmBytes, PcmOptions, Source, Verdict};
 use oadec_engine::stream::{
-    LayoutChange, PcmFrame, QUEUE_PIECES, StreamDecoder, StreamEnd, StreamEvent, StreamOptions,
-    StreamSink, decode_reader,
+    LayoutChange, PIECE, PcmFrame, QUEUE_PIECES, StreamDecoder, StreamEnd, StreamEvent,
+    StreamOptions, StreamSink, decode_reader,
 };
 
 const NAME: &str = "<stdin>";
@@ -256,39 +257,105 @@ fn a_reader_is_read_once_and_to_its_end() {
     assert!(told == whole, "the reader's decode differs from the push");
 }
 
-/// A sink that takes its time.
-#[derive(Default)]
-struct Slow {
+/// A reader of bytes in memory that tells how many it has handed out.
+struct Watched {
+    bytes: Vec<u8>,
+    at: usize,
+    read: Arc<(Mutex<u64>, Condvar)>,
+}
+
+impl Read for Watched {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = buf.len().min(self.bytes.len() - self.at);
+        buf[..n].copy_from_slice(&self.bytes[self.at..self.at + n]);
+        self.at += n;
+        let (read, changed) = &*self.read;
+        *read.lock().expect("the count") += n as u64;
+        changed.notify_all();
+        Ok(n)
+    }
+}
+
+/// A sink that holds the decode at its first samples until the reader has
+/// read `until` bytes: as far as it can go with the decode held.
+struct Held {
+    read: Arc<(Mutex<u64>, Condvar)>,
+    until: u64,
     pcm: u64,
 }
 
-impl StreamSink for Slow {
+impl StreamSink for Held {
     fn event(&mut self, _: &StreamEvent) -> anyhow::Result<()> {
         Ok(())
     }
 
     fn pcm(&mut self, frame: PcmFrame<'_>) -> anyhow::Result<()> {
+        if self.pcm == 0 {
+            let (read, changed) = &*self.read;
+            // not a pace: a reader that never gets this far is a queue that
+            // holds less than its bound, and the test fails instead of
+            // waiting for ever
+            let (read, waited) = changed
+                .wait_timeout_while(
+                    read.lock().expect("the count"),
+                    Duration::from_secs(120),
+                    |read| *read < self.until,
+                )
+                .expect("the count");
+            assert!(
+                !waited.timed_out(),
+                "the reader stopped at {} bytes, short of {}",
+                *read,
+                self.until
+            );
+        }
         self.pcm += frame.bytes.len() as u64;
-        std::thread::sleep(std::time::Duration::from_micros(200));
         Ok(())
     }
 }
 
 /// A slow sink holds the reader back: the queue fills to its bound and no
 /// further, and the decode still ends.
+///
+/// The sink holds the decode at its first samples, which an AC-3 family
+/// stream tells while its first piece is pushed: the decode has taken one
+/// piece. Its reader then reads the pieces the queue holds and one more,
+/// which it cannot hand over; the sink lets the decode go only once that
+/// last piece is read, so the decode comes back to the queue to find it
+/// full. Nothing here waits on a clock, and a reader that reads further is
+/// a queue past its bound, which the high-water mark shows.
 #[test]
 fn a_slow_sink_holds_the_reader_back_and_the_queue_keeps_its_bound() {
     // four megabytes: four times what the queue holds
-    let once = fixture("truehd-20-44k.thd");
+    let once = fixture("eac3-20-coupled.ec3");
     let bytes = once.repeat((4 << 20) / once.len() + 1);
-    let read = Arc::new(AtomicU64::new(0));
-    let reader = Counting {
+    let read = Arc::new((Mutex::new(0), Condvar::new()));
+    let reader = Watched {
         bytes: bytes.clone(),
         at: 0,
-        read,
+        read: Arc::clone(&read),
     };
-    let mut slow = Slow::default();
-    let end = decode_reader(Box::new(reader), StreamOptions::new(NAME), &mut slow)
+    // the first samples are told while the first piece is pushed: the
+    // decode has taken one piece when the sink holds it
+    let mut first = Held {
+        read: Arc::new((Mutex::new(u64::MAX), Condvar::new())),
+        until: 0,
+        pcm: 0,
+    };
+    StreamDecoder::new(StreamOptions::new(NAME))
+        .push(&bytes[..PIECE], &mut first)
+        .expect("pushed");
+    assert!(first.pcm > 0, "no samples from the first piece");
+    // the piece the decode took, the pieces of the queue, and the one the
+    // reader holds
+    let until = ((1 + QUEUE_PIECES + 1) * PIECE) as u64;
+    assert!(until < bytes.len() as u64);
+    let mut held = Held {
+        read,
+        until,
+        pcm: 0,
+    };
+    let end = decode_reader(Box::new(reader), StreamOptions::new(NAME), &mut held)
         .expect("the stream decodes");
     assert_eq!(end.queue.bound, QUEUE_PIECES);
     assert!(end.queue.high_water <= end.queue.bound, "{:?}", end.queue);
@@ -297,7 +364,8 @@ fn a_slow_sink_holds_the_reader_back_and_the_queue_keeps_its_bound() {
         "a sink this slow fills the queue: {:?}",
         end.queue
     );
-    assert!(slow.pcm > 0);
+    assert_eq!(end.bytes, bytes.len() as u64);
+    assert!(held.pcm > 0);
 }
 
 /// A decode on threads tells the same things in the same order every time.
