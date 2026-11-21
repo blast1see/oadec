@@ -6,7 +6,7 @@
 //! appended to a caller-owned [`SampleBuffer`] so that no large structure is
 //! moved around per block.
 
-use oadec_bits::BitReader;
+use oadec_bits::{BitReader, CRC8_RESTART, Crc8};
 
 use crate::error::{Error, Result};
 use crate::filter::{FilterCoeffs, FilterKind};
@@ -21,6 +21,33 @@ use crate::state::{
 
 /// Upper bound of `block_data_bits`.
 pub const MAX_BLOCK_DATA_BITS: u32 = 16000;
+
+/// The CRC-8 `block_header_crc` is: polynomial `0x1D`, the bits fed most
+/// significant first, the register shifted and then the bit XORed in (the
+/// restart header's CRC with another start).
+///
+/// No public document defines the field. The rule was found on written
+/// streams and put to Dolby's decoder as a black box (`docs/truehd.md`,
+/// *Protected blocks*).
+pub const BLOCK_HEADER_CRC: Crc8 = CRC8_RESTART;
+
+/// Where the register of `block_header_crc` starts, and so the check of a
+/// block that has no block header.
+pub const BLOCK_HEADER_CRC_INIT: u8 = 0xA2;
+
+/// The check `block_header_crc` holds of a block: [`BLOCK_HEADER_CRC`] from
+/// [`BLOCK_HEADER_CRC_INIT`] over bits `header.0..header.1` of `data`, the
+/// bits of the block header alone; [`BLOCK_HEADER_CRC_INIT`] when the block
+/// has none.
+///
+/// # Panics
+/// Panics if the range lies outside `data`.
+#[must_use]
+pub fn block_header_crc(data: &[u8], header: Option<(usize, usize)>) -> u8 {
+    // P4 stop 1: the contract only; the body comes at stop 2.
+    let _ = (data, header);
+    0
+}
 
 /// The coded samples of one substream for one access unit.
 ///
@@ -198,9 +225,16 @@ pub struct Block {
     /// Whether the number of bits consumed by the block data matched
     /// `block_data_bits` (always true without error protection).
     pub block_data_bits_ok: bool,
-    /// `block_header_crc` (present with `error_protect`; its definition is not
-    /// public, so it is recorded but not checked).
+    /// `block_header_crc` (present with `error_protect`).
     pub block_header_crc: Option<u8>,
+    /// Where the block header lies in the data of the reader, in bits from
+    /// its first bit to the one after its last: after the flags that say
+    /// a block header and a restart header follow, and after the restart
+    /// header; `None` for a block without one.
+    pub header_bits: Option<(usize, usize)>,
+    /// What `block_header_crc` has to be ([`block_header_crc`]), with
+    /// `error_protect`.
+    pub block_header_crc_expected: Option<u8>,
 }
 
 impl Block {
@@ -218,6 +252,8 @@ impl Block {
             block_data_bits: None,
             block_data_bits_ok: true,
             block_header_crc: None,
+            header_bits: None,
+            block_header_crc_expected: None,
         };
         if reader.read_bool()? {
             if reader.read_bool()? {
@@ -255,6 +291,17 @@ impl Block {
             block.block_header_crc = Some(reader.read(8)? as u8);
         }
         Ok(block)
+    }
+
+    /// Whether `block_header_crc` holds the check of the block header; true
+    /// for a block without `error_protect`.
+    #[must_use]
+    pub fn block_header_crc_ok(&self) -> bool {
+        match (self.block_header_crc, self.block_header_crc_expected) {
+            (Some(stated), Some(expected)) => stated == expected,
+            (None, _) => true,
+            (Some(_), None) => false,
+        }
     }
 }
 
@@ -573,6 +620,218 @@ pub(crate) mod tests {
         let block = Block::parse(&mut r, &mut state, 0, &mut buf).unwrap();
         assert!(!block.block_data_bits_ok);
         assert_eq!(buf.len, 16);
+    }
+
+    /// A CRC-8 of the bits `start..end` of `data` worked one bit at a time,
+    /// from nothing but its arguments: the register shifts left, the bit
+    /// that falls out decides the XOR with `poly`, then the data bit goes
+    /// in. `msb_first` false feeds each byte from its lowest bit.
+    fn crc8_bitwise(
+        poly: u8,
+        init: u8,
+        data: &[u8],
+        start: usize,
+        end: usize,
+        msb_first: bool,
+    ) -> u8 {
+        let mut crc = init;
+        for pos in start..end {
+            let byte = data[pos / 8];
+            let k = pos % 8;
+            let bit = if msb_first {
+                (byte >> (7 - k)) & 1
+            } else {
+                (byte >> k) & 1
+            };
+            let out = crc & 0x80 != 0;
+            crc <<= 1;
+            if out {
+                crc ^= poly;
+            }
+            crc ^= bit;
+        }
+        crc
+    }
+
+    /// A protected restart block (restart header, block header, samples)
+    /// and after it a protected block with only a block header, the header
+    /// of the second starting `pad` bits into its byte. Returns the data,
+    /// where the second block starts and where its header starts and ends.
+    fn two_protected_blocks(pad: usize) -> (Vec<u8>, usize, usize, usize) {
+        let mut w = BitWriter::default();
+        w.push(1, 1);
+        w.push(1, 1);
+        push_restart_header(&mut w, SYNC_A, 0, 0, 0, true);
+        push_plain_block_header(&mut w, 8, 0, 0, 3);
+        w.push(16, 24);
+        for n in 0..8u64 {
+            w.push(3, n);
+        }
+        w.push(8, 0);
+        // padding, so that the header of the second block lands `pad` bits
+        // into a byte
+        while (w.len + 2) % 8 != pad % 8 {
+            w.push(1, 0);
+        }
+        let second = w.len;
+        w.push(1, 1); // block_header_exists
+        w.push(1, 0); // no restart header
+        let start = w.len;
+        push_plain_block_header(&mut w, 8, 0, 0, 4);
+        let end = w.len;
+        w.push(16, 32);
+        for n in 0..8u64 {
+            w.push(4, n);
+        }
+        w.push(8, 0);
+        w.push(16, 0);
+        (w.bytes, second, start, end)
+    }
+
+    /// Parses the first block, then the one at `second`.
+    fn second_block(data: &[u8], second: usize) -> Block {
+        let mut state = atmos_state();
+        let mut buf = SampleBuffer::default();
+        let mut r = BitReader::new(data);
+        Block::parse(&mut r, &mut state, 0, &mut buf).unwrap();
+        r.seek(second).unwrap();
+        Block::parse(&mut r, &mut state, 0, &mut buf).unwrap()
+    }
+
+    /// The polynomial alone: bytes that read the same from either end over a
+    /// byte-aligned range, so the order the bits go in cannot matter, and
+    /// the start of the register the module declares.
+    #[test]
+    fn the_header_crc_has_polynomial_0x1d() {
+        let data = [0xA5, 0x3C, 0x81, 0x66, 0xFF, 0x18];
+        let want = crc8_bitwise(0x1D, BLOCK_HEADER_CRC_INIT, &data, 0, 48, true);
+        assert_ne!(
+            want,
+            crc8_bitwise(0x07, BLOCK_HEADER_CRC_INIT, &data, 0, 48, true),
+            "the vector tells the polynomials apart"
+        );
+        assert_eq!(block_header_crc(&data, Some((0, 48))), want);
+    }
+
+    /// The start of the register alone: no bits go in without a header.
+    #[test]
+    fn the_header_crc_starts_at_0xa2_and_is_that_without_a_header() {
+        assert_eq!(block_header_crc(&[], None), 0xA2);
+        assert_eq!(block_header_crc(&[0x5A; 4], Some((7, 7))), 0xA2);
+    }
+
+    /// The order of the bits alone: a range that starts and ends inside a
+    /// byte, over bytes that differ from their mirror image, with the
+    /// polynomial and the start the module declares.
+    #[test]
+    fn the_header_crc_feeds_the_bits_most_significant_first() {
+        let data = [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC];
+        let (start, end) = (3, 41);
+        let poly = BLOCK_HEADER_CRC.poly();
+        let want = crc8_bitwise(poly, BLOCK_HEADER_CRC_INIT, &data, start, end, true);
+        assert_ne!(
+            want,
+            crc8_bitwise(poly, BLOCK_HEADER_CRC_INIT, &data, start, end, false),
+            "the vector tells the orders apart"
+        );
+        assert_eq!(block_header_crc(&data, Some((start, end))), want);
+    }
+
+    /// The first bit of the range alone: the one after the two flags.
+    #[test]
+    fn the_header_crc_starts_after_the_block_and_restart_flags() {
+        let (data, second, start, _) = two_protected_blocks(5);
+        let block = second_block(&data, second);
+        let (got_start, got_end) = block.header_bits.expect("a header");
+        assert_eq!(got_start, start);
+        assert_eq!(
+            block.block_header_crc_expected,
+            Some(block_header_crc(&data, Some((start, got_end))))
+        );
+    }
+
+    /// The last bit of the range alone: the last of the header, before
+    /// `block_data_bits`.
+    #[test]
+    fn the_header_crc_ends_before_block_data_bits() {
+        let (data, second, _, end) = two_protected_blocks(5);
+        let block = second_block(&data, second);
+        let (got_start, got_end) = block.header_bits.expect("a header");
+        assert_eq!(got_end, end);
+        assert_eq!(
+            block.block_header_crc_expected,
+            Some(block_header_crc(&data, Some((got_start, end))))
+        );
+    }
+
+    /// Byte-aligned and not: the check is the bitwise CRC of the header, and
+    /// a block whose stated byte is that check is whole.
+    #[test]
+    fn aligned_and_unaligned_headers_are_checked() {
+        for pad in [0, 1, 5, 7] {
+            let (mut data, second, start, end) = two_protected_blocks(pad);
+            let want = crc8_bitwise(0x1D, 0xA2, &data, start, end, true);
+            let block = second_block(&data, second);
+            assert_eq!(block.block_header_crc_expected, Some(want), "pad {pad}");
+            assert_eq!(block.block_header_crc_ok(), want == 0, "pad {pad}");
+            // write the check where the byte is and read the block again
+            let at = end + 16 + 32;
+            for k in 0..8 {
+                let bit = (want >> (7 - k)) & 1;
+                let pos = at + k;
+                data[pos / 8] = (data[pos / 8] & !(0x80 >> (pos % 8))) | (bit << (7 - pos % 8));
+            }
+            let block = second_block(&data, second);
+            assert_eq!(block.block_header_crc, Some(want), "pad {pad}");
+            assert!(block.block_header_crc_ok(), "pad {pad}");
+        }
+    }
+
+    /// A protected block without a header has the check 0xA2.
+    #[test]
+    fn a_protected_block_without_a_header_has_the_check_0xa2() {
+        let mut w = BitWriter::default();
+        w.push(1, 1);
+        w.push(1, 1);
+        push_restart_header(&mut w, SYNC_A, 0, 0, 0, true);
+        push_plain_block_header(&mut w, 8, 0, 0, 3);
+        w.push(16, 24);
+        for n in 0..8u64 {
+            w.push(3, n);
+        }
+        w.push(8, 0);
+        let second = w.len;
+        w.push(1, 0); // no block header
+        w.push(16, 24);
+        for n in 0..8u64 {
+            w.push(3, n);
+        }
+        w.push(8, 0xA2);
+        w.push(16, 0);
+        let block = second_block(&w.bytes, second);
+        assert_eq!(block.header_bits, None);
+        assert_eq!(block.block_header_crc_expected, Some(0xA2));
+        assert!(block.block_header_crc_ok());
+    }
+
+    /// Without `error_protect` nothing is expected and nothing is wrong.
+    #[test]
+    fn an_unprotected_block_expects_no_check() {
+        let mut w = BitWriter::default();
+        w.push(1, 1);
+        w.push(1, 1);
+        push_restart_header(&mut w, SYNC_A, 0, 0, 0, false);
+        push_plain_block_header(&mut w, 8, 0, 0, 3);
+        for n in 0..8u64 {
+            w.push(3, n);
+        }
+        w.push(16, 0);
+        let mut state = atmos_state();
+        let mut buf = SampleBuffer::default();
+        let block = Block::parse(&mut BitReader::new(&w.bytes), &mut state, 0, &mut buf).unwrap();
+        assert_eq!(block.header_bits, None);
+        assert_eq!(block.block_header_crc_expected, None);
+        assert!(block.block_header_crc_ok());
     }
 
     #[test]

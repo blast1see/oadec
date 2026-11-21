@@ -8,7 +8,8 @@
 
 use crate::signal::{Rng, noise, offset, shifted, sum, tone};
 use crate::write::{
-    Above, BlockPlan, Coding, Family, Filter, Layout, Matrix, Protection, Stream, UnitPlan, write,
+    Above, BlockPlan, Check, Coding, Family, Filter, Layout, Matrix, Protection, Stream, UnitPlan,
+    write,
 };
 
 /// A recipe made: everything [`write`] takes.
@@ -1843,7 +1844,7 @@ fn protected(counted_beyond_the_data: u16) -> Made {
     let mut layout = layout(Family::TrueHd, 48_000);
     layout.protection = Some(Protection {
         counted_beyond_the_data,
-        check: 0,
+        check: Check::Stated(0),
     });
     let units = 24;
     let n = units * layout.samples_per_unit();

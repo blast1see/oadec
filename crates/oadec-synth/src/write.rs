@@ -266,9 +266,53 @@ pub struct Protection {
     /// What `block_data_bits` counts beyond the bits of the block data: 0
     /// for those alone, 16 with the field itself.
     pub counted_beyond_the_data: u16,
-    /// `block_header_CRC`, as it is written: how it is computed is not
-    /// known.
-    pub check: u8,
+    /// What goes into `block_header_CRC`.
+    pub check: Check,
+}
+
+/// The byte a protected block writes behind its data, `block_header_CRC`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Check {
+    /// This byte, whatever the block holds: what the probes of a check no
+    /// one could compute wrote.
+    Stated(u8),
+    /// The CRC-8 of the bits of the block header (polynomial `0x1D`, the
+    /// register from `0xA2`, the bits most significant first; `0xA2` for a
+    /// block without one), as Dolby's decoder was found to take it
+    /// (`docs/truehd.md`, *Protected blocks*). Written here apart from the
+    /// decoder's reading of it, from the same primitive of `oadec-bits`.
+    HeaderCrc,
+    /// The CRC-8 of the block header with the header bit at this offset
+    /// from its first bit flipped: the stream is that of a header struck
+    /// after its check was made, every other check of the stream (the
+    /// restart header's, the lossless check, the parity and the CRC of the
+    /// segment) right. A block without a header writes the right check.
+    HeaderCrcOfFlipped(usize),
+}
+
+/// Where the fields of one written block lie in the stream, in bits from its
+/// first byte.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlockSpans {
+    /// The access unit.
+    pub unit: usize,
+    /// The substream.
+    pub substream: usize,
+    /// The block in its segment.
+    pub block: usize,
+    /// The segment, in bytes: its first byte and the one after its parity
+    /// and CRC bytes (or after its last byte without them).
+    pub segment: (usize, usize),
+    /// The restart header from its sync word to the byte of its CRC
+    /// included, when the block has one.
+    pub restart: Option<(usize, usize)>,
+    /// The block header, when the block has one: from the bit after the
+    /// flags to the bit before `block_data_bits`.
+    pub header: Option<(usize, usize)>,
+    /// The first bit of `block_data_bits`, with `error_protect`.
+    pub data_bits: Option<usize>,
+    /// The first bit of `block_header_CRC`, with `error_protect`.
+    pub check: Option<usize>,
 }
 
 impl Layout {
@@ -472,6 +516,22 @@ pub struct Stream {
     /// stream of one substream, whose presentation is the samples it was
     /// written from.
     pub below: Vec<Vec<Vec<i32>>>,
+    /// Where the fields of every block lie, in stream order.
+    pub blocks: Vec<BlockSpans>,
+}
+
+/// Flips bit `bit` of `stream` and writes again every check that covers it
+/// but `block_header_CRC`: the CRC of the restart header the bit is in, if
+/// any, and the parity and CRC bytes of its segment. A fault put this way
+/// into a block header, a restart header or `block_data_bits` leaves the
+/// check byte of the block the one stated fault it can be found by.
+///
+/// # Errors
+/// When the bit is outside every segment, or in a check byte.
+pub fn flip_and_reseal(stream: &mut Stream, bit: usize) -> Result<(), String> {
+    // P4 stop 1: the contract only; the body comes at stop 2.
+    let _ = (stream, bit);
+    Err("flip_and_reseal: not written yet".into())
 }
 
 /// The fewest bits of two's complement that hold every value; 1 for none.
@@ -1641,7 +1701,12 @@ fn segment(
         }
         w.append(&data);
         if let Some(protection) = sub.protection {
-            w.put(8, u64::from(protection.check));
+            // P4 stop 1: the computed checks come at stop 2.
+            let check = match protection.check {
+                Check::Stated(byte) => byte,
+                Check::HeaderCrc | Check::HeaderCrcOfFlipped(_) => 0,
+            };
+            w.put(8, u64::from(check));
         }
         within += size;
         w.put_bool(j + 1 == blocks.len());
@@ -1886,6 +1951,8 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
         bytes,
         unit_offsets,
         below: work.below,
+        // P4 stop 1: the spans come at stop 2
+        blocks: Vec::new(),
     })
 }
 

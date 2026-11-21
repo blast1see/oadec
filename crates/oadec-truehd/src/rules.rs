@@ -569,6 +569,24 @@ mod tests {
         }
     }
 
+    /// `block_header_crc` has a rule of its own beside `block.data_bits`,
+    /// with no counter of the time before rules had names, so that the
+    /// `failures` of a report keep their fields.
+    ///
+    /// P4 stop 1: red until stop 2.
+    #[test]
+    fn the_check_byte_of_a_protected_block_has_a_rule() {
+        let rule = RuleId::from_id("block.header_crc").expect("block.header_crc");
+        let info = rule.info();
+        assert_eq!(info.legacy_counter, None);
+        assert!(
+            info.provenance
+                .iter()
+                .any(|p| matches!(p, Provenance::Measured { .. })),
+            "the rule rests on what Dolby's decoder was measured to do"
+        );
+    }
+
     #[test]
     fn every_measured_source_is_in_the_repository() {
         for rule in RuleId::ALL {
