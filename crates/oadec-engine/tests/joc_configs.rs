@@ -44,7 +44,7 @@ const PCM_PEAK: f64 = 1.0 / 32_768.0;
 /// model of clauses 7.2 and 7.3 gives the same 75.71 dB, a gain that ripples
 /// by ±0.0014 dB (1.6e-4) with frequency, 78 to 98 dB left after the best
 /// gain, and the window moved by one f32 ulp at random, or rounded to f32
-/// again, changes nothing (`E:\oadec-work\measure\r4\p2\qmf_probe.txt`). So
+/// again, changes nothing (`docs/audit/evidence/round-4-2026-11/p2-joc-configurations.json`). So
 /// this holds the floor that was measured, rounded down, and a regression
 /// below it fails.
 const QMF_FLOOR_DB: f64 = 75.0;

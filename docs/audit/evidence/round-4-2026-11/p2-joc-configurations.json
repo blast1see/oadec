@@ -43,7 +43,14 @@
     "sine mid band, 562.5 Hz": 75.19
    },
    "window_perturbed": "the window moved by one f32 ulp at random gives 75.72, 75.71 and 75.72 dB; rounded to f32 again 75.71 dB",
-   "gain_ripple": "the gain of the banks varies with frequency by 0.0014 dB (1.6e-4); after the best gain 78 to 98 dB remain"
+   "gain_ripple": "the gain of the banks varies with frequency by 0.0014 dB (1.6e-4); after the best gain 78 to 98 dB remain",
+   "independent_numpy_model_db": 75.71,
+   "delay_576_or_578_db": 8.09,
+   "window_one_f32_ulp_at_random_db": [
+    75.72,
+    75.71,
+    75.72
+   ]
   },
   "object_delay": "256 + 577 + 640 = 1473 samples from the constants, the best alignment 0 samples from it; nothing adjusted afterwards",
   "two_data_points": "the smooth and steep interpolation of two data points, the steep switch taking the one-based offsets, held to the reference and to the standard's reading; not measured against Dolby, no material carries them",

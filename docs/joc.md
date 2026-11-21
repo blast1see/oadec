@@ -160,7 +160,7 @@ that the decoder relies on. Clause numbers refer to that document.
   matrix: the tests of configurations 1 and 2 hold an object to the same
   channel through the bank, which leaves the matrix alone between them, and
   report the distance to the core beside it
-  (`E:\oadec-work\measure\r4\p2\qmf_probe.txt`, not in the repository).
+  (`docs/audit/evidence/round-4-2026-11/p2-joc-configurations.json`).
 - **Matrix alignment.** Clause 6.6.6 multiplies the subband samples of time
   slot `ts` by the matrix of time slot `ts` and says nothing about the filter
   bank that produced them. Taken literally that is ten time slots out.

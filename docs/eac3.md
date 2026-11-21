@@ -758,7 +758,8 @@ channels too, and by an amount that varies with the amplitude code, which
 and the table does not move with it). The centre channel, which the
 conversion does not touch at all, comes out lower in 24 of its 32 buckets, by
 up to 2,4 dB, so differences of that size are the measurement's own; two
-pairs of the 50 are beyond it. `E:\oadec-work\measure\r4\p3` holds the tables.
+pairs of the 50 are beyond it
+(`docs/audit/evidence/round-4-2026-11/p3-ecpl-two-profiles.json`).
 
 - **A plan file sets every code the injector writes** (`eac3-ecpl-inject
   --plan`): fixed codes, every code of a table, one amplitude code a frame,
