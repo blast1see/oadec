@@ -173,6 +173,15 @@ impl JocDecoder {
         self.num_objects
     }
 
+    /// The interpolated matrix of time slot `ts` of the frame last given to
+    /// [`Self::update`] or [`Self::hold`], `[ch][sb]`, as clause 6.6.5 makes
+    /// it: before the lag of [`Self::set_lag`] moves it against the subband
+    /// samples. `None` outside the frame or the objects.
+    #[must_use]
+    pub fn matrix(&self, obj: usize, ts: usize) -> Option<&[[f64; BANDS]; MAX_CHANNELS]> {
+        self.interp.get(obj)?.get(ts)
+    }
+
     /// Keeps the previous matrices for a frame without side information.
     pub fn hold(&mut self, num_ts: usize) {
         self.carry();
