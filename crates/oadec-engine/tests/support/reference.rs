@@ -76,6 +76,15 @@ pub struct PayloadSymbols {
 #[derive(Debug, Clone)]
 pub struct ObjectExpect {
     pub obj: usize,
+    /// The object was absent (or the frame had no payload): only `slots`,
+    /// which must be the held matrix.
+    pub hold: bool,
+    pub num_bands_idx: u8,
+    pub sparse: bool,
+    pub quant_idx: u8,
+    pub steep: bool,
+    /// `joc_offset_ts`, one-based.
+    pub offset_ts: Vec<u8>,
     pub q: Vec<Vec<Vec<u16>>>,
     pub dq: Vec<Vec<Vec<f64>>>,
     /// The slots listed, and `interp[ch][sb]` of each.
@@ -127,11 +136,184 @@ pub fn vectors_path() -> std::path::PathBuf {
 #[must_use]
 pub fn load() -> Vectors {
     let path = vectors_path();
-    let _text = std::fs::read_to_string(&path).unwrap_or_else(|e| {
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| {
         panic!(
-            "{}: {e} (written by `python tools/joc_reference.py vectors`, P2 stop 2)",
+            "{}: {e} (written by `python tools/joc_reference.py vectors`)",
             path.display()
         )
     });
-    unimplemented!("P2 stop 2")
+    let v: Value = serde_json::from_str(&text).expect("the vectors are JSON");
+    Vectors {
+        band_map: v["band_map"]
+            .as_array()
+            .expect("band_map")
+            .iter()
+            .map(|m| ints(m).into_iter().map(|b| b as u8).collect())
+            .collect(),
+        cases: v["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .map(case)
+            .collect(),
+    }
+}
+
+use serde_json::Value;
+
+fn int(v: &Value) -> u64 {
+    v.as_u64().unwrap_or_else(|| panic!("not an integer: {v}"))
+}
+
+fn float(v: &Value) -> f64 {
+    v.as_f64().unwrap_or_else(|| panic!("not a number: {v}"))
+}
+
+fn ints(v: &Value) -> Vec<u64> {
+    v.as_array().expect("an array").iter().map(int).collect()
+}
+
+fn array(v: &Value) -> &Vec<Value> {
+    v.as_array().unwrap_or_else(|| panic!("not an array: {v}"))
+}
+
+/// `[[value, count], ...]` back to the row of 64.
+fn unrle(v: &Value) -> Vec<f64> {
+    let mut out = Vec::new();
+    for run in array(v) {
+        let run = array(run);
+        out.extend(std::iter::repeat_n(float(&run[0]), int(&run[1]) as usize));
+    }
+    out
+}
+
+fn grid3_u16(v: &Value) -> Vec<Vec<Vec<u16>>> {
+    array(v)
+        .iter()
+        .map(|a| {
+            array(a)
+                .iter()
+                .map(|b| ints(b).into_iter().map(|x| x as u16).collect())
+                .collect()
+        })
+        .collect()
+}
+
+fn grid3_f64(v: &Value) -> Vec<Vec<Vec<f64>>> {
+    array(v)
+        .iter()
+        .map(|a| {
+            array(a)
+                .iter()
+                .map(|b| array(b).iter().map(float).collect())
+                .collect()
+        })
+        .collect()
+}
+
+fn symbols(o: &Value) -> ObjectSymbols {
+    ObjectSymbols {
+        obj: int(&o["obj"]) as usize,
+        num_bands_idx: int(&o["num_bands_idx"]) as u8,
+        sparse: o["sparse"].as_bool().expect("sparse"),
+        quant_idx: int(&o["quant_idx"]) as u8,
+        steep: o["steep"].as_bool().expect("steep"),
+        offset_ts_bits: ints(&o["offset_ts_bits"])
+            .into_iter()
+            .map(|b| b as u8)
+            .collect(),
+        mtx: grid3_u16(&o["mtx"]),
+        channel_idx: array(&o["channel_idx"])
+            .iter()
+            .map(|r| ints(r).into_iter().map(|b| b as u8).collect())
+            .collect(),
+        vec: array(&o["vec"])
+            .iter()
+            .map(|r| ints(r).into_iter().map(|b| b as u16).collect())
+            .collect(),
+    }
+}
+
+fn expect(e: &Value) -> ObjectExpect {
+    let hold = e["hold"].as_bool().unwrap_or(false);
+    let slots = array(&e["slots"])
+        .iter()
+        .map(|s| {
+            let s = array(s);
+            (
+                int(&s[0]) as usize,
+                array(&s[1]).iter().map(unrle).collect(),
+            )
+        })
+        .collect();
+    if hold {
+        return ObjectExpect {
+            obj: int(&e["obj"]) as usize,
+            hold,
+            num_bands_idx: 0,
+            sparse: false,
+            quant_idx: 0,
+            steep: false,
+            offset_ts: Vec::new(),
+            q: Vec::new(),
+            dq: Vec::new(),
+            slots,
+        };
+    }
+    ObjectExpect {
+        obj: int(&e["obj"]) as usize,
+        hold,
+        num_bands_idx: int(&e["num_bands_idx"]) as u8,
+        sparse: e["sparse"].as_bool().expect("sparse"),
+        quant_idx: int(&e["quant_idx"]) as u8,
+        steep: e["steep"].as_bool().expect("steep"),
+        offset_ts: ints(&e["offset_ts"]).into_iter().map(|b| b as u8).collect(),
+        q: grid3_u16(&e["q"]),
+        dq: grid3_f64(&e["dq"]),
+        slots,
+    }
+}
+
+fn case(c: &Value) -> Case {
+    Case {
+        name: c["name"].as_str().expect("name").to_string(),
+        axes: array(&c["axes"])
+            .iter()
+            .map(|a| a.as_str().expect("axis").to_string())
+            .collect(),
+        steep_printed: c["steep_printed"].as_bool().expect("steep_printed"),
+        sparse_printed: c["sparse_printed"].as_bool().expect("sparse_printed"),
+        num_ts: int(&c["num_ts"]) as usize,
+        seed: int(&c["seed"]),
+        frames: array(&c["frames"])
+            .iter()
+            .map(|f| FrameCase {
+                payload: (!f["payload"].is_null()).then(|| {
+                    let p = &f["payload"];
+                    PayloadSymbols {
+                        dmx_config: int(&p["dmx_config"]) as u8,
+                        num_objects: int(&p["num_objects"]) as usize,
+                        clipgain_x: int(&p["clipgain_x"]) as u8,
+                        clipgain_y: int(&p["clipgain_y"]) as u8,
+                        seq_count: int(&p["seq_count"]) as u16,
+                        objects: array(&p["objects"]).iter().map(symbols).collect(),
+                    }
+                }),
+                expect: array(&f["expect"]).iter().map(expect).collect(),
+                z: array(&f["z"])
+                    .iter()
+                    .map(|z| {
+                        let z = array(z);
+                        (
+                            int(&z[0]) as usize,
+                            int(&z[1]) as usize,
+                            int(&z[2]) as usize,
+                            float(&z[3]),
+                            float(&z[4]),
+                        )
+                    })
+                    .collect(),
+            })
+            .collect(),
+    }
 }

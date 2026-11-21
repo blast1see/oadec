@@ -19,6 +19,7 @@
 
 pub mod bits;
 pub mod carrier;
+pub mod joc_trees;
 pub mod joc_writer;
 pub mod reference;
 pub mod signal;

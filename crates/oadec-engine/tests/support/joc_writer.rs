@@ -15,6 +15,7 @@
 //! `tools/joc_reference.py` computes both that reading and the printed one.
 
 use super::bits::BitSink;
+use super::joc_trees as trees;
 
 /// Table 50: `joc_num_bands` by `joc_num_bands_idx`.
 pub const NUM_BANDS: [usize; 8] = [1, 3, 5, 7, 9, 12, 15, 23];
@@ -193,7 +194,176 @@ impl PayloadSpec {
 /// point count other than one or two, a point of the wrong shape).
 #[must_use]
 pub fn write_joc(spec: &PayloadSpec) -> Vec<u8> {
-    let _ = BitSink::new();
-    let _ = spec;
-    unimplemented!("P2 stop 2: the writer needs its own copy of the Annex A.1 trees")
+    let nch = num_channels(spec.dmx_config).expect("a defined configuration");
+    let n_obj = spec.objects.len();
+    assert!((1..=16).contains(&n_obj), "{n_obj} objects");
+    let mut w = BitSink::new();
+    // joc_header
+    w.put(u64::from(spec.dmx_config), 3);
+    w.put((n_obj - 1) as u64, 6);
+    w.put(u64::from(spec.ext_config), 3);
+    // joc_info
+    w.put(u64::from(spec.clipgain_x), 3);
+    w.put(u64::from(spec.clipgain_y), 5);
+    w.put(u64::from(spec.seq_count), 10);
+    for o in &spec.objects {
+        w.bit(o.is_some());
+        let Some(o) = o else { continue };
+        let ndp = o.points.len();
+        assert!(ndp == 1 || ndp == 2, "{ndp} data points");
+        w.put(u64::from(o.num_bands_idx), 3);
+        w.bit(o.points.iter().any(Point::is_sparse));
+        w.put(u64::from(o.quant.idx()), 1);
+        // joc_data_point_info
+        w.bit(o.slope == Slope::Steep);
+        w.put((ndp - 1) as u64, 1);
+        if o.slope == Slope::Steep {
+            assert_eq!(o.offsets_ts.len(), ndp, "an offset per data point");
+            for &off in &o.offsets_ts {
+                assert!((1..=32).contains(&off), "offset {off}");
+                w.put(u64::from(off - 1), 5);
+            }
+        }
+    }
+    // joc_data
+    for o in spec.objects.iter().flatten() {
+        let nb = NUM_BANDS[usize::from(o.num_bands_idx)];
+        let sparse = o.points.iter().any(Point::is_sparse);
+        for p in &o.points {
+            assert_eq!(p.is_sparse(), sparse, "every data point in one mode");
+            match symbols(p, o.quant, nch, nb) {
+                Symbols::Dense(mtx) => {
+                    let tree = Code::of(match o.quant {
+                        Quant::Coarse => &trees::COARSE_MTX[..],
+                        Quant::Fine => &trees::FINE_MTX[..],
+                    });
+                    assert_eq!(mtx.len(), nch, "a row per downmix channel");
+                    for row in &mtx {
+                        assert_eq!(row.len(), nb, "a code per band");
+                        for &c in row {
+                            tree.put(&mut w, c);
+                        }
+                    }
+                }
+                Symbols::Sparse { channel_idx, vec } => {
+                    assert_eq!((channel_idx.len(), vec.len()), (nb, nb), "a code per band");
+                    w.put(u64::from(channel_idx[0]), 3);
+                    let idx = Code::of(if nch == 5 {
+                        &trees::IDX_5CH[..]
+                    } else {
+                        &trees::IDX_7CH[..]
+                    });
+                    for &c in &channel_idx[1..] {
+                        idx.put(&mut w, u16::from(c));
+                    }
+                    let values = Code::of(match o.quant {
+                        Quant::Coarse => &trees::COARSE_VEC[..],
+                        Quant::Fine => &trees::FINE_VEC[..],
+                    });
+                    for &c in &vec {
+                        values.put(&mut w, c);
+                    }
+                }
+            }
+        }
+    }
+    w.align();
+    w.into_bytes()
+}
+
+impl Point {
+    fn is_sparse(&self) -> bool {
+        matches!(self, Self::Sparse(_) | Self::RawSparse { .. })
+    }
+}
+
+/// The transmitted symbols of one data point.
+enum Symbols {
+    Dense(Vec<Vec<u16>>),
+    Sparse { channel_idx: Vec<u8>, vec: Vec<u16> },
+}
+
+/// The symbols that clause 6.6.2 turns into the matrix a point asks for:
+/// dense, pseudo-code 3 run backwards from the offset 48/96; sparse, the
+/// measured reading run backwards (index steps modulo the channels from the
+/// resolved index, value steps modulo `nquant` from the seed 50/100).
+fn symbols(p: &Point, quant: Quant, nch: usize, nb: usize) -> Symbols {
+    let n = quant.nquant();
+    match p {
+        Point::Dense(q) => {
+            let offset = n / 2;
+            Symbols::Dense(
+                q.iter()
+                    .map(|row| {
+                        assert_eq!(row.len(), nb, "a value per band");
+                        (0..nb)
+                            .map(|pb| {
+                                let before = if pb == 0 { offset } else { row[pb - 1] };
+                                (row[pb] + n - before) % n
+                            })
+                            .collect()
+                    })
+                    .collect(),
+            )
+        }
+        Point::Sparse(sel) => {
+            assert_eq!(sel.len(), nb, "a channel per band");
+            let seed = if quant == Quant::Coarse { 50 } else { 100 };
+            let mut channel_idx = Vec::with_capacity(nb);
+            let mut vec = Vec::with_capacity(nb);
+            for (pb, &(ch, q)) in sel.iter().enumerate() {
+                assert!(usize::from(ch) < nch && q < n, "band {pb}: ({ch}, {q})");
+                let (prev_ch, prev_q) = if pb == 0 { (0, seed) } else { sel[pb - 1] };
+                channel_idx.push(if pb == 0 {
+                    ch
+                } else {
+                    ((usize::from(ch) + nch - usize::from(prev_ch)) % nch) as u8
+                });
+                vec.push((q + n - prev_q) % n);
+            }
+            Symbols::Sparse { channel_idx, vec }
+        }
+        Point::RawDense(mtx) => Symbols::Dense(mtx.clone()),
+        Point::RawSparse { channel_idx, vec } => Symbols::Sparse {
+            channel_idx: channel_idx.clone(),
+            vec: vec.clone(),
+        },
+    }
+}
+
+/// The codewords of one tree: the path from the root to every leaf, the
+/// left child on a 0 and the right on a 1 (clause 6.6.3).
+struct Code(Vec<Vec<bool>>);
+
+impl Code {
+    fn of(tree: &[[i16; 2]]) -> Self {
+        fn walk(tree: &[[i16; 2]], node: usize, path: &mut Vec<bool>, out: &mut Vec<Vec<bool>>) {
+            for (bit, &child) in tree[node].iter().enumerate() {
+                path.push(bit == 1);
+                if child > 0 {
+                    walk(tree, child as usize, path, out);
+                } else {
+                    let leaf = (-child - 1) as usize;
+                    if out.len() <= leaf {
+                        out.resize(leaf + 1, Vec::new());
+                    }
+                    out[leaf] = path.clone();
+                }
+                path.pop();
+            }
+        }
+        let mut out = Vec::new();
+        walk(tree, 0, &mut Vec::new(), &mut out);
+        Self(out)
+    }
+
+    fn put(&self, w: &mut BitSink, value: u16) {
+        let code = self
+            .0
+            .get(usize::from(value))
+            .unwrap_or_else(|| panic!("{value} has no codeword"));
+        for &b in code {
+            w.bit(b);
+        }
+    }
 }

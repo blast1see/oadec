@@ -144,6 +144,23 @@ that the decoder relies on. Clause numbers refer to that document.
   must be `(j - 2n + 1/2)` as in the matrix equation of clause 7.3, not the
   `(2j - 2n - 1)` of its pseudo-code; only the former reconstructs (78 dB).
   Analysis plus synthesis delays by 577 samples.
+
+  **The bank is near-perfect reconstruction, and 75,7 dB is its floor.**
+  Analysis straight into synthesis, nothing between them, gives back a sine
+  of 997 Hz under noise at 75,72 dB, white noise at 78,3 and single tones
+  from 55 Hz to 20 kHz at 75,2 to 87,2. An independent model of clauses 7.2
+  and 7.3 in numpy, with the same QWIN, gives the same 75,71 dB, so it is the
+  bank and not this implementation of it. Nor is it the rounding of the
+  window: QWIN moved by one f32 step at random, or rounded to f32 again,
+  changes the figure in the second decimal at most. What is left is the
+  prototype itself: the gain of the round trip ripples with frequency by
+  ±0,0014 dB (1,6·10⁻⁴), and after the best gain 78 to 98 dB remain. One
+  sample of delay either side of 577 costs 70 dB. So no JOC object can be
+  nearer than about 76 dB to the core channel it is made of, whatever the
+  matrix: the tests of configurations 1 and 2 hold an object to the same
+  channel through the bank, which leaves the matrix alone between them, and
+  report the distance to the core beside it
+  (`E:\oadec-work\measure\r4\p2\qmf_probe.txt`, not in the repository).
 - **Matrix alignment.** Clause 6.6.6 multiplies the subband samples of time
   slot `ts` by the matrix of time slot `ts` and says nothing about the filter
   bank that produced them. Taken literally that is ten time slots out.
@@ -330,6 +347,54 @@ that the decoder relies on. Clause numbers refer to that document.
   window where the height channels carry signal -- and nothing at all in one
   where they are digitally silent, which is where the comparison tool's default
   window happens to fall on that title.
+
+  Table 53 names `joc_channel_idx` 5 and 6 "Left Back" and "Right Back"
+  whenever there are seven channels, configuration 2 and 4 included, where
+  table 47 makes the same two inputs the top front pair. The index counts
+  inputs, so it is table 47 that says what they are. A programme that lacks
+  a downmix channel is refused by the names of table 47
+  (`MissingDownmix`: configuration 2 over a 7.1 programme lacks `Tfl, Tfr`),
+  and `eac3-joc-config` refuses to relabel a payload with a configuration of
+  another channel count, because `joc_data` is coded per channel and a
+  five-channel payload read as seven is no matrix at all.
+
+- **Configurations 1 and 2 are checked on authored streams against the
+  standard, not against Dolby.** No stream and no Dolby encoder carries
+  either, and Dolby's decoder refuses a rewritten payload (above), so there is
+  nothing of Dolby's to hold them to. What there is: payloads written by a
+  writer of the test support that shares no code with the parser, from the
+  syntax of clause 6.2, put into two carriers -- the 7.1 fixture for
+  configuration 1, and `joc-512-tones.ec3`, a 5.1.2 stream with an AC-3 core
+  that `dee_ddpjoc_encoder --encoder bluray` writes as configuration 4 and the
+  tests relabel 2 -- and `tools/joc_reference.py`, clauses 6.5 and 6.6 written
+  down in Python. The f64 values between the quantized matrix and the subband
+  samples of the objects (dequantization, table 54, interpolation in all four
+  branches over all 24 slots, the matrix applied) agree with it within 10⁻¹²
+  over thirteen cases that cover the shapes of matrix, the two codings and
+  quantizations, every band count and both configurations
+  (`crates/oadec-engine/tests/joc_configs.rs`). Neither configuration carries
+  the phase shift, so no input goes through the operator of configurations
+  3 and 4; every input is held back by its reach all the same, which is what
+  keeps the matrix alignment one for all five configurations.
+
+- **Two data points take the one-point readings, unmeasured.** No stream has
+  two data points, so the measured steep switch `ts < joc_offset_ts - 1` is
+  carried to the second offset as it stands, and smooth interpolation with two
+  points follows pseudo-code 6 as printed: halfway in twelve slots from the
+  previous matrix to the first point, then in twelve to the second. The
+  reference computes both steep readings and the tests pin the carried one;
+  it is a reading, and the first stream with two data points is what can
+  confirm it.
+
+- **Open: refusing an offset the frame cannot hold.** A raw
+  `joc_offset_ts_bits` above 23 names a slot past the 24 of a six-block frame,
+  and two data points whose offsets do not increase have no order to switch
+  in. oadec decodes both as the pseudo-code falls (the switch never fires in
+  the frame, or the first point is never reached and the second follows the
+  previous matrix directly) and reports nothing. The evidence that a
+  conforming stream never does either is static only -- no stream carries
+  them -- so refusing them, and what to hold instead, is left for when there
+  is material to measure the choice on.
 - **Clip gain** (clause 6.3.3.2): `(1 + y/32) 2^(x-4)`, over [1; 8,75]. The
   standard defines the value and never uses it again: the word does not
   appear in clause 6.6, which specifies the whole decode. It is the gain the
