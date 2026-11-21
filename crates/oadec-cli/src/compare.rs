@@ -194,7 +194,7 @@ pub fn run(source: &Source, reference: &Path, opts: &Options, err: &mut dyn Writ
     }
     let elapsed = started.elapsed().as_secs_f64();
     print_summary(&session.summary(), elapsed, err)?;
-    let rate = f64::from(session.sampling_frequency.max(1));
+    let rate = f64::from(session.shaper.sampling_frequency.max(1));
     println!(
         "compared {} samples x {} channels ({}) with the reference",
         sample_index,

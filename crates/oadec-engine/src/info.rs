@@ -339,9 +339,13 @@ fn print_text(scan: &Scan, out: &mut dyn Write) -> io::Result<()> {
 /// access units". A file that is not a stream is an unsupported input, exit 2
 /// (`docs/exit-codes.md`).
 pub fn no_stream(source: &Source) -> anyhow::Error {
+    no_stream_named(source.name())
+}
+
+/// [`no_stream`] of a stream that reports call `name`.
+pub(crate) fn no_stream_named(name: &str) -> anyhow::Error {
     crate::calls::no_stream(format!(
-        "no TrueHD access unit or E-AC-3 syncframe found in {}",
-        source.name()
+        "no TrueHD access unit or E-AC-3 syncframe found in {name}"
     ))
 }
 

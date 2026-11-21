@@ -67,6 +67,13 @@ impl std::fmt::Debug for Walking {
 }
 
 impl Walking {
+    /// Begins the telling of a walk over `total` bytes to `watcher`, or to
+    /// nobody: for a walk over a stream that is no [`Source`].
+    #[must_use]
+    pub fn of(watcher: Option<&Arc<dyn Watcher>>, what: &'static str, total: u64) -> Self {
+        Self(watcher.map(|w| w.begin(what, total)))
+    }
+
     /// The walk has read `done` bytes.
     pub fn at(&mut self, done: u64) {
         if let Some(walk) = &mut self.0 {
@@ -128,15 +135,7 @@ impl Source {
     /// When standard input is a terminal, which has no stream to give, and
     /// when reading it fails.
     pub fn stdin() -> io::Result<Self> {
-        let stdin = io::stdin();
-        if stdin.is_terminal() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "`-` reads the stream from standard input, and standard input is a terminal here: \
-                 pipe a stream into the command",
-            ));
-        }
-        Self::read_whole(STDIN_NAME, stdin.lock())
+        Self::read_whole(STDIN_NAME, piped_stdin()?.lock())
             .map_err(|e| io::Error::new(e.kind(), format!("reading standard input: {e}")))
     }
 
@@ -203,6 +202,23 @@ impl Source {
             From::Pieces(pieces) => pieces.iter().map(|p| p.len() as u64).sum(),
         })
     }
+}
+
+/// Standard input, to be read as a stream: refused where it is a terminal,
+/// which has no stream to give, in the words [`Source::stdin`] refuses it in.
+///
+/// # Errors
+/// When standard input is a terminal.
+pub fn piped_stdin() -> io::Result<io::Stdin> {
+    let stdin = io::stdin();
+    if stdin.is_terminal() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "`-` reads the stream from standard input, and standard input is a terminal here: \
+             pipe a stream into the command",
+        ));
+    }
+    Ok(stdin)
 }
 
 /// Reads `from` to its end in pieces of `len` bytes; the last holds what was

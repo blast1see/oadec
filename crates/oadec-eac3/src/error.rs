@@ -29,6 +29,12 @@ pub enum Eac3Error {
     /// A CRC did not check.
     #[error("{0} check failed")]
     Crc(&'static str),
+    /// A programme was asked for by name and no frame of it came: `wanted`
+    /// is the substream id of its independent substream, and `seen` the
+    /// substream ids of the independent substreams that did come, ascending,
+    /// each once (clause E.2.8.3).
+    #[error("programme {wanted} is not in the stream; the programmes in it are {seen:?}")]
+    ProgrammeNotFound { wanted: u8, seen: Vec<u8> },
 }
 
 /// Result alias of this crate.

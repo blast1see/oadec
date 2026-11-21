@@ -16,7 +16,7 @@ use oadec_bench::{Sample, json, line, measure};
 use oadec_bits::{CRC8_SUBSTREAM, CRC8_SUBSTREAM_INIT, xor_bytes};
 use oadec_eac3::{FrameHeader, Options};
 use oadec_joc::{Analysis, BANDS, Complex, Synthesis};
-use oadec_truehd::{AccessUnit, Decoder, Extractor, Unit};
+use oadec_truehd::{AccessUnit, Decoder, Extractor, MultiDecoder, PresentationOut, Unit};
 
 fn fixture(name: &str) -> Vec<u8> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -46,6 +46,26 @@ fn truehd(units: &[Unit], presentation: usize) -> usize {
     for unit in units {
         let decoded = decoder.decode(&unit.bytes).expect("the unit decodes");
         samples += black_box(decoded.pcm).len();
+    }
+    samples
+}
+
+/// Decodes `units` at every presentation of `presentations` in one pass
+/// and returns the samples it made, of all of them.
+fn truehd_multi(units: &[Unit], presentations: &[usize]) -> usize {
+    let (first, _) = AccessUnit::parse(&units[0].bytes, None).expect("the first unit");
+    let sync = first.major_sync.as_ref().expect("a major sync");
+    let mut decoder = MultiDecoder::new(sync, presentations).expect("the presentations");
+    let mut samples = 0;
+    for unit in units {
+        let decoded = decoder
+            .decode_concealing(&unit.bytes)
+            .expect("the unit decodes");
+        for &p in presentations {
+            if let Some(PresentationOut::Available { decoded, .. }) = decoded.presentation(p) {
+                samples += black_box(decoded.pcm).len();
+            }
+        }
     }
     samples
 }
@@ -161,6 +181,19 @@ fn main() {
             &mut || truehd(&scene_units, presentation),
         );
     }
+    // every presentation, one decoder after another and in one pass: what
+    // `decode -p all` and `verify --decode` do instead
+    let (seconds, _) = truehd_facts(&scene_units, 3);
+    run(
+        "truehd: decode presentations 0 to 3, one after another".to_string(),
+        Some(seconds),
+        &mut || (0..4).map(|p| truehd(&scene_units, p)).sum(),
+    );
+    run(
+        "truehd: decode presentations 0 to 3 in one pass".to_string(),
+        Some(seconds),
+        &mut || truehd_multi(&scene_units, &[0, 1, 2, 3]),
+    );
     let high_rate = units(&fixture("truehd-51-88k.thd"));
     let (seconds, channels) = truehd_facts(&high_rate, 1);
     run(

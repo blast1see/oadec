@@ -11,6 +11,7 @@ use oadec_spatial::{Interpolation, IsfPolicy};
 use oadec_engine::damf::Warp;
 use oadec_engine::decode::{Format, OnError, Order};
 use oadec_engine::eac3_objects::JocLowBand;
+use oadec_engine::stream::LayoutChange;
 
 /// `--format`: the output container.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -35,6 +36,27 @@ impl From<FormatArg> for Format {
             FormatArg::Damf => Self::Damf,
             FormatArg::Adm => Self::Adm,
         }
+    }
+}
+
+/// `-p`, `--presentation` of `decode`: one presentation by its number, or
+/// every one the stream carries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PresentationArg {
+    One(usize),
+    All,
+}
+
+impl std::str::FromStr for PresentationArg {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "all" {
+            return Ok(Self::All);
+        }
+        s.parse()
+            .map(Self::One)
+            .map_err(|_| format!("a presentation is a number, 0 to 3, or all: not {s}"))
     }
 }
 
@@ -159,6 +181,35 @@ impl From<JocLowBandArg> for JocLowBand {
         match arg {
             JocLowBandArg::Filtered => Self::Filtered,
             JocLowBandArg::Untouched => Self::Untouched,
+        }
+    }
+}
+
+/// `--on-layout-change`: what a decode to samples does when the channels or
+/// the sampling frequency change in the middle of the stream.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub(crate) enum LayoutChangeArg {
+    /// End the output at the unit that changed (exit 7). What a decode to
+    /// standard output does when this is absent: a receiver of headerless
+    /// samples cannot be told that their width changed.
+    Stop,
+    /// Keep the layout of the first unit where the codec offers it: an
+    /// E-AC-3 programme writes silence in the channels a frame group does
+    /// not carry (exit 7). A TrueHD stream refuses it.
+    Fixed,
+    /// Go on in the new layout in a file of its own: the samples after the
+    /// change are written to the next part, `NAME.002.wav`, `NAME.003.wav`,
+    /// each with its own header. A change the stream signals and the decode
+    /// followed is not a fault by itself. Refused with -o -.
+    Split,
+}
+
+impl From<LayoutChangeArg> for LayoutChange {
+    fn from(arg: LayoutChangeArg) -> Self {
+        match arg {
+            LayoutChangeArg::Stop => Self::Stop,
+            LayoutChangeArg::Fixed => Self::Fixed,
+            LayoutChangeArg::Split => Self::Split,
         }
     }
 }

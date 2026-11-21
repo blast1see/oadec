@@ -292,6 +292,63 @@ pub struct Block {
     /// channels' `coeffs` are still zero over `start..end`: the synthesis
     /// needs the following block and runs in `crate::ecpl`.
     pub ecpl: Option<Box<EcplBlock>>,
+    /// The coupling the block is decoded with, `None` when it has none. It
+    /// is kept for every block, whatever [`Options::block_info`] says, since
+    /// the decorrelation of the coupled channels reads it
+    /// (`crate::decorr`); it holds no vector.
+    pub coupling: Option<Coupling>,
+}
+
+/// What one audio block's coupling is: the coupled bins, how they fall into
+/// sub-bands and bands, which channels take part, and how the coupling
+/// channel was coded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Coupling {
+    /// First and one-past-last coupled transform bin (`cplstrt` and `cplend`
+    /// of clause 7.4.2, or the region of enhanced coupling).
+    pub start: usize,
+    pub end: usize,
+    /// Bit `ch` set: the full-bandwidth channel `ch`, in coded order, is in
+    /// coupling (`chincpl`).
+    pub channels: u8,
+    /// Bit `s` set: coupling sub-band `s` is joined to the band of the
+    /// sub-band before it (`cplbndstrc`). Bit 0 is never set. Zero under
+    /// enhanced coupling, whose bands are not sub-bands of twelve bins.
+    pub band_structure: u32,
+    /// The block uses enhanced coupling (`ecplinu`).
+    pub enhanced: bool,
+    /// The coupling channel's mantissas are coded with the hybrid transform
+    /// (`cplahtinu`, clause E.2.4).
+    pub aht: bool,
+}
+
+impl Coupling {
+    /// Width of a coupling sub-band in transform bins (clause 7.4.2).
+    pub const SUB_BAND: usize = 12;
+
+    /// Whether the full-bandwidth channel `ch` is in coupling.
+    #[must_use]
+    pub fn is_coupled(&self, ch: usize) -> bool {
+        ch < 8 && self.channels & (1 << ch) != 0
+    }
+
+    /// Number of coupling sub-bands of twelve bins, zero under enhanced
+    /// coupling.
+    #[must_use]
+    pub fn sub_bands(&self) -> usize {
+        if self.enhanced {
+            0
+        } else {
+            (self.end - self.start) / Self::SUB_BAND
+        }
+    }
+
+    /// The bins of coupling sub-band `s`.
+    #[must_use]
+    pub fn sub_band(&self, s: usize) -> std::ops::Range<usize> {
+        let first = self.start + s * Self::SUB_BAND;
+        first..first + Self::SUB_BAND
+    }
 }
 
 /// A parsed syncframe.
@@ -1530,11 +1587,13 @@ impl<'a> Parser<'a> {
 
         // ---- collect ----
         let info = self.opts.block_info.then(|| self.block_info(blk));
+        let coupling = cplinu.then(|| self.coupling(nf));
         self.out_blocks.push(Block {
             coeffs: coef,
             blksw: self.blksw[..nf].to_vec(),
             info,
             ecpl: ecpl_block,
+            coupling,
         });
         Ok(())
     }
@@ -1581,6 +1640,28 @@ impl<'a> Parser<'a> {
             chaos: self.ecplchaos[ch][..n].to_vec(),
             transient: self.ecpltrans[ch],
         })
+    }
+
+    /// The coupling of the block just decoded, which has coupling in use.
+    fn coupling(&self, nf: usize) -> Coupling {
+        let channels = (0..nf)
+            .filter(|&ch| self.chincpl[ch])
+            .fold(0u8, |bits, ch| bits | 1 << ch);
+        let band_structure = if self.ecplinu {
+            0
+        } else {
+            (1..self.ncplsubnd.min(18))
+                .filter(|&s| self.cplbndstrc[s])
+                .fold(0u32, |bits, s| bits | 1 << s)
+        };
+        Coupling {
+            start: self.cplstrt,
+            end: self.cplend,
+            channels,
+            band_structure,
+            enhanced: self.ecplinu,
+            aht: self.ahtinu[CPL] != 0,
+        }
     }
 
     fn block_info(&self, blk: usize) -> BlockInfo {

@@ -25,17 +25,21 @@ mod compare;
 mod ecpl_inject;
 mod joc_config;
 mod joc_offset;
+mod pipe;
 mod progress;
 mod repair;
+mod samples;
 mod thd_demux;
 
+use std::io::IsTerminal as _;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
 use crate::args::{
-    FormatArg, InterpolationArg, IsfArg, JocLowBandArg, OnErrorArg, OrderArg, WarpArg,
+    FormatArg, InterpolationArg, IsfArg, JocLowBandArg, LayoutChangeArg, OnErrorArg, OrderArg,
+    PresentationArg, WarpArg,
 };
 use crate::compare::RefFormat;
 use oadec_engine::damf::Warp;
@@ -43,6 +47,7 @@ use oadec_engine::decode::{Format, OnError, Order};
 use oadec_engine::eac3_objects::{JocLowBand, JocLowFir, JocOverrides, JocPhase};
 use oadec_engine::integrity::Verdict;
 use oadec_engine::source::Source;
+use oadec_engine::stream::LayoutChange;
 use oadec_engine::{api, damf, decode, eac3, eac3_objects, emdf, oamd};
 use oadec_truehd::Severity;
 
@@ -55,6 +60,10 @@ struct Cli {
 }
 
 #[derive(Debug, Subcommand)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "one command line is parsed once a run, and decode has the most options"
+)]
 enum Command {
     /// Print what a stream declares about itself.
     Info {
@@ -64,6 +73,12 @@ enum Command {
         /// Machine-readable JSON instead of text.
         #[arg(long)]
         json: bool,
+        /// AC-3/E-AC-3: the programme to read, by the substream id of its
+        /// independent substream (0 to 7); programme 0 when absent, as
+        /// always. A programme the stream does not carry is an error that
+        /// names the ones it does (exit 2). A TrueHD stream refuses it.
+        #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=7))]
+        programme: Option<u8>,
     },
     /// Check the integrity of every access unit or frame and report the failure counts.
     Verify {
@@ -107,6 +122,12 @@ enum Command {
         /// listed, the ones at zero included.
         #[arg(long)]
         census: bool,
+        /// AC-3/E-AC-3: the programme to read, by the substream id of its
+        /// independent substream (0 to 7); programme 0 when absent, as
+        /// always. A programme the stream does not carry is an error that
+        /// names the ones it does (exit 2). A TrueHD stream refuses it.
+        #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=7))]
+        programme: Option<u8>,
     },
     /// Print one access unit of a TrueHD stream field by field, with where each
     /// part sits in the file: the place a finding of verify points to, opened up.
@@ -163,15 +184,20 @@ enum Command {
         /// Raw TrueHD (.thd/.mlp) or AC-3 / E-AC-3 (.ac3/.ec3) elementary
         /// stream, or `-` to read one from standard input.
         file: PathBuf,
-        /// Output file.
+        /// Output file, or `-` to write the samples to standard output as they
+        /// are decoded (--format pcm or wav; see docs/streaming.md). Nothing
+        /// else is written to standard output then: the summary, the
+        /// warnings and the verdict go to standard error.
         #[arg(short, long)]
         output: PathBuf,
         /// Presentation to decode (0 = 2ch, 1 = 6ch, 2 = 8ch, 3 = 16ch objects);
         /// 2 when absent, or for a DVD-Audio (FBB) stream the widest it
         /// carries. The object formats (damf, adm) always decode 3 and refuse
-        /// any other value.
-        #[arg(short, long)]
-        presentation: Option<usize>,
+        /// any other value. `all`: every presentation the stream carries, in
+        /// one pass, each to a file of its own (OUT.p0.wav, OUT.p1.wav, ...),
+        /// each the file -p N writes; TrueHD to a file only.
+        #[arg(short, long, value_name = "N|all")]
+        presentation: Option<PresentationArg>,
         /// Output container.
         #[arg(long, value_enum, default_value_t = FormatArg::Wav)]
         format: FormatArg,
@@ -307,6 +333,47 @@ enum Command {
             conflicts_with_all = ["flat_quadrature", "joc_low_band"]
         )]
         joc_low_fir: Option<JocLowFir>,
+        /// PCM/WAV: what to do when the channels or the sampling frequency
+        /// change in the middle of the stream. stop: end the output at the
+        /// unit that changed (exit 7), which is what a decode to standard
+        /// output does when this is absent, since a receiver of headerless
+        /// samples cannot be told their width changed. fixed: keep the layout
+        /// of the first frame group, with silence in the channels a group does
+        /// not carry (exit 7), which is what an E-AC-3 decode to a file does
+        /// when this is absent; a TrueHD stream refuses it.
+        #[arg(long, value_enum, value_name = "POLICY")]
+        on_layout_change: Option<LayoutChangeArg>,
+        /// PCM/WAV: the report of the decode as JSON, instead of the summary
+        /// in text: on standard output, or on standard error when the samples
+        /// go to standard output (-o -).
+        #[arg(long)]
+        json: bool,
+        /// PCM/WAV: write the JSON report of the decode to FILE, `-` for
+        /// standard output, which -o - refuses.
+        #[arg(long, value_name = "FILE")]
+        report: Option<PathBuf>,
+        /// Measurement of a decode that reads or writes a pipe: write how the
+        /// queue between the reader and the decode was used, and how many
+        /// bytes were read, as JSON to FILE.
+        #[arg(long, hide = true, value_name = "FILE")]
+        pipeline_stats: Option<PathBuf>,
+        /// AC-3/E-AC-3: the programme to read, by the substream id of its
+        /// independent substream (0 to 7); programme 0 when absent, as
+        /// always. A programme the stream does not carry is an error that
+        /// names the ones it does (exit 2). A TrueHD stream refuses it.
+        #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=7))]
+        programme: Option<u8>,
+        /// AC-3/E-AC-3 to wav or pcm, EXPERIMENTAL: decorrelate the coupled
+        /// channels of an E-AC-3 programme that is its independent substream
+        /// alone, in 2/0 or 3/2, as Dolby's decoders were measured to do. Its
+        /// weight is this decoder's estimate fitted on measurements, and a
+        /// decode with it is not claimed to equal Dolby's. Off when absent;
+        /// the report says where it was applied and why not elsewhere. An
+        /// AC-3 stream and a programme with dependent substreams are decoded
+        /// as without it, --core-only included; an object output and a
+        /// TrueHD stream refuse it.
+        #[arg(long)]
+        decorrelate: bool,
     },
     /// Decode and compare sample by sample with a reference PCM file (TrueHD: integer
     /// formats; E-AC-3: 32-bit float, judged on the SNR because decoders dither).
@@ -356,6 +423,12 @@ enum Command {
         /// E-AC-3: list the N blocks with the largest deviation.
         #[arg(long, default_value_t = 0)]
         worst: usize,
+        /// AC-3/E-AC-3: the programme to read, by the substream id of its
+        /// independent substream (0 to 7); programme 0 when absent, as
+        /// always. A programme the stream does not carry is an error that
+        /// names the ones it does (exit 2). A TrueHD stream refuses it.
+        #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=7))]
+        programme: Option<u8>,
     },
     /// Print the side information of one E-AC-3 frame, block by block.
     #[command(hide = true)]
@@ -465,6 +538,29 @@ enum Command {
     },
 }
 
+/// What `-p all` with an object output is told.
+const EVERY_IS_SAMPLES: &str = "-p all writes every presentation of a TrueHD stream as samples, \
+     a file each; an object output is of presentation 3: ask for --format pcm or wav";
+
+/// What `-p all` to standard output, or with a report of a stream decode, is
+/// told.
+const EVERY_IS_FILES: &str = "-p all writes every presentation to a file of its own \
+     (OUT.p0.wav, OUT.p1.wav, ...): name a file, and leave out -o -, --json, --report and \
+     --on-layout-change, which are of the decode of one presentation";
+
+/// What `-p all` with `--on-error stop` is told.
+const EVERY_CONCEALS: &str = "-p all conceals an access unit it cannot read, as decode does \
+     when --on-error is absent: --on-error stop is of the decode of one presentation";
+
+/// What `-p all` with an option of another decode is told.
+const EVERY_TAKES_LITTLE: &str = "-p all decodes a TrueHD stream to samples: it takes --format, \
+     --order and --keep-duplicates, and none of the options of an object output or of an AC-3 \
+     family decode";
+
+/// What `--warp-mode` with a sample output is told.
+const WARP_IS_OBJECTS: &str =
+    "--warp-mode names a warp mode in an object output: it applies to --format damf or adm";
+
 /// Exit code when a verification finds non-conformance.
 const EXIT_NONCONFORMANT: u8 = 7;
 
@@ -491,8 +587,12 @@ where
     // goes out as it did when it was printed.
     let (out, err) = (&mut std::io::stdout(), &mut std::io::stderr());
     let result = match cli.command {
-        Command::Info { file, json } => stream_named(&file)
-            .and_then(|source| api::info(&source))
+        Command::Info {
+            file,
+            json,
+            programme,
+        } => stream_named(&file)
+            .and_then(|source| api::info_of(&source, programme))
             .and_then(|report| report.print(json, out, err))
             .map(|()| ExitCode::SUCCESS),
         Command::Verify {
@@ -504,6 +604,7 @@ where
             trace_fifo,
             require_disc,
             census,
+            programme,
         } => stream_named(&file)
             .and_then(|source| {
                 api::verify(
@@ -518,6 +619,7 @@ where
                             .filter_map(|d| oadec_truehd::disc::Disc::from_id(d))
                             .collect(),
                         census,
+                        programme,
                     },
                 )
             })
@@ -577,7 +679,13 @@ where
             joc_low_band,
             joc_phase,
             joc_low_fir,
-        } => {
+            on_layout_change,
+            json,
+            report,
+            pipeline_stats,
+            programme,
+            decorrelate,
+        } => 'decode: {
             // An option that is absent is told from one given at its default,
             // which is what lets one that does not apply be refused.
             let given_for_objects = no_bed_conform
@@ -592,6 +700,89 @@ where
                 dolby_origin_tag || adm_allow_non_profile_rate || adm_interpolation.is_some();
             let given_for_damf = fps.is_some();
             let given_for_samples = order.is_some();
+            let (presentation, every) = match presentation {
+                Some(PresentationArg::One(p)) => (Some(p), false),
+                Some(PresentationArg::All) => (None, true),
+                None => (None, false),
+            };
+            if every {
+                // Every presentation is a file of its own, written in one pass
+                // over a stream it reads as it reads any file.
+                let refused = if matches!(format, FormatArg::Damf | FormatArg::Adm) {
+                    Some(EVERY_IS_SAMPLES)
+                } else if output.as_os_str() == pipe::STDOUT {
+                    Some(EVERY_IS_FILES)
+                } else if start.is_some() {
+                    Some(api::START_IS_TRUEHD_SAMPLES)
+                } else if on_error == Some(OnErrorArg::Stop) {
+                    Some(EVERY_CONCEALS)
+                } else if json
+                    || report.is_some()
+                    || pipeline_stats.is_some()
+                    || on_layout_change.is_some()
+                {
+                    Some(EVERY_IS_FILES)
+                } else {
+                    None
+                };
+                if let Some(words) = refused {
+                    break 'decode Err(anyhow::anyhow!(words));
+                }
+                let order = order.map_or(Order::Interchange, Order::from);
+                break 'decode stream_named(&file)
+                    .and_then(|source| {
+                        if eac3::is_eac3(&source).unwrap_or(false) {
+                            Err(anyhow::anyhow!(api::PRESENTATION_IS_TRUEHD))
+                        } else if no_bed_conform
+                            || all_events
+                            || loss_report.is_some()
+                            || isf.is_some()
+                            || fps.is_some()
+                            || dolby_origin_tag
+                            || adm_allow_non_profile_rate
+                            || adm_interpolation.is_some()
+                            || warp_mode.is_some()
+                            || core_only
+                            || no_dither
+                            || no_tpnp
+                            || ecpl_spec
+                            || programme.is_some()
+                            || decorrelate
+                        {
+                            Err(anyhow::anyhow!(EVERY_TAKES_LITTLE))
+                        } else {
+                            decode::run_every(
+                                &source,
+                                &output,
+                                Format::from(format),
+                                order,
+                                keep_duplicates,
+                                err,
+                            )
+                        }
+                    })
+                    .map(|verdict| {
+                        if matches!(verdict, Verdict::Clean) {
+                            eprintln!("done");
+                        }
+                        ExitCode::from(verdict.exit_code())
+                    });
+            }
+            // Where the samples and the report go is settled before the
+            // stream is read: a pipe that was read cannot be read again.
+            let to_stdout = output.as_os_str() == pipe::STDOUT;
+            let on_layout_change = on_layout_change.map(LayoutChange::from);
+            if let Err(e) = pipe::check(&pipe::Asked {
+                format: Format::from(format),
+                to_stdout,
+                json,
+                report: report.as_deref(),
+                stdout_is_terminal: to_stdout && std::io::stdout().is_terminal(),
+                on_layout_change,
+                pipeline_stats: pipeline_stats.is_some(),
+            }) {
+                break 'decode Err(e);
+            }
             // what the command line names, as the types the work takes
             let format = Format::from(format);
             let order = order.map_or(Order::Interchange, Order::from);
@@ -601,6 +792,76 @@ where
             let isf = isf.unwrap_or(IsfArg::Error);
             let fps = fps.unwrap_or_else(|| "24".to_string());
             let adm_interpolation = adm_interpolation.unwrap_or(InterpolationArg::Profile);
+            // A decode to samples reads its stream once, as it arrives, where
+            // either end is a pipe or a report of that decode is asked for.
+            // From a file to a file it is the decode it always was, the
+            // checks of `verify` reading the file beside it: two readers of
+            // a file are faster than one that hands its units to the other
+            // (docs/streaming.md).
+            let streamed = file.as_os_str() == oadec_engine::source::STDIN
+                || to_stdout
+                || json
+                || report.is_some()
+                || pipeline_stats.is_some()
+                || on_layout_change.is_some();
+            if streamed && matches!(format, Format::Pcm | Format::Wav) {
+                // What does not depend on the stream is refused before it is
+                // read, in the order the checks below make; what depends on
+                // it is refused by the decode once it has told the codec, in
+                // the same words.
+                let joc_measured = joc_lag.is_some()
+                    || joc_low_band.is_some()
+                    || joc_phase.is_some()
+                    || joc_low_fir.is_some();
+                let joc_read =
+                    no_clip_gain || flat_quadrature || sparse_as_printed || steep_as_printed;
+                let refused = damf::check_presentation(format, presentation)
+                    .and_then(|()| {
+                        damf::check_interpolation(adm_interpolation.into(), dolby_origin_tag)
+                    })
+                    .err()
+                    .or_else(|| {
+                        [
+                            (given_for_objects, api::OBJECT_OPTIONS_ARE_OBJECTS),
+                            (given_for_adm, api::ADM_OPTIONS_ARE_ADM),
+                            (given_for_damf, api::FPS_IS_DAMF),
+                            (warp_mode.is_some(), WARP_IS_OBJECTS),
+                            (joc_measured, api::JOC_MEASURES_EAC3_OBJECTS),
+                            (joc_read, api::JOC_READINGS_ARE_EAC3_OBJECTS),
+                        ]
+                        .into_iter()
+                        .find(|(given, _)| *given)
+                        .map(|(_, words)| anyhow::anyhow!(words))
+                    });
+                if let Some(e) = refused {
+                    break 'decode Err(e);
+                }
+                break 'decode samples::decode(
+                    samples::Asked {
+                        file,
+                        output,
+                        wave: format == Format::Wav,
+                        pcm: api::PcmOptions {
+                            presentation,
+                            order,
+                            keep_duplicates,
+                            start,
+                            on_error,
+                            core_only,
+                            dither: !no_dither,
+                            tpnp: !no_tpnp,
+                            ecpl_full: ecpl_spec,
+                            programme,
+                            decorrelate,
+                        },
+                        on_layout_change,
+                        json,
+                        report,
+                        pipeline_stats,
+                    },
+                    err,
+                );
+            }
             let verdict = stream_named(&file).and_then(|source| {
                 if let Err(e) = damf::check_presentation(format, presentation).and_then(|()| {
                     damf::check_interpolation(adm_interpolation.into(), dolby_origin_tag)
@@ -617,13 +878,17 @@ where
                     // The beds and the objects of an object output are in the
                     // order its format gives them, whatever is asked.
                     Err(anyhow::anyhow!(api::ORDER_IS_SAMPLES))
+                } else if programme.is_some()
+                    && (matches!(format, Format::Damf | Format::Adm)
+                        || !eac3::is_eac3(&source).unwrap_or(false))
+                {
+                    // Programme 0 is the one an object programme is of, and a
+                    // TrueHD stream has presentations and no programmes.
+                    Err(anyhow::anyhow!(api::PROGRAMME_IS_AC3))
                 } else if warp_mode.is_some() && !matches!(format, Format::Damf | Format::Adm) {
                     // Samples have nowhere to say it, and an option that reads as
                     // applied while changing nothing is the defect named below.
-                    Err(anyhow::anyhow!(
-                        "--warp-mode names a warp mode in an object output: it applies to \
-                     --format damf or adm"
-                    ))
+                    Err(anyhow::anyhow!(WARP_IS_OBJECTS))
                 } else if (joc_lag.is_some()
                     || joc_low_band.is_some()
                     || joc_phase.is_some()
@@ -651,6 +916,13 @@ where
                     // across frames, and the object writers walk the whole programme
                     // to build one metadata timeline.
                     Err(anyhow::anyhow!(api::START_IS_TRUEHD_SAMPLES))
+                } else if decorrelate
+                    && (matches!(format, Format::Damf | Format::Adm)
+                        || !eac3::is_eac3(&source).unwrap_or(false))
+                {
+                    // The objects are made from the channels as the standard
+                    // has them, and a TrueHD stream has no coupling.
+                    Err(anyhow::anyhow!(api::DECORRELATE_IS_AC3_SAMPLES))
                 } else if (core_only || no_dither || no_tpnp || ecpl_spec)
                     && !eac3::is_eac3(&source).unwrap_or(false)
                 {
@@ -735,6 +1007,8 @@ where
                             dither: !no_dither,
                             tpnp: !no_tpnp,
                             ecpl_full: ecpl_spec,
+                            programme,
+                            decorrelate,
                         },
                         out,
                         err,
@@ -811,6 +1085,7 @@ where
             no_tpnp,
             ecpl_spec,
             worst,
+            programme,
         } => {
             let equal = stream_named(&file).and_then(|source| {
                 let ac3 = eac3::is_eac3(&source).unwrap_or(false);
@@ -827,6 +1102,8 @@ where
                     Err(anyhow::anyhow!(api::CORE_DECODE_IS_AC3))
                 } else if !ac3 && worst > 0 {
                     Err(anyhow::anyhow!(api::WORST_IS_AC3))
+                } else if !ac3 && programme.is_some() {
+                    Err(anyhow::anyhow!(api::PROGRAMME_IS_AC3))
                 } else if ac3 {
                     eac3::compare(
                         &source,
@@ -840,6 +1117,7 @@ where
                             core_only,
                             dither: !no_dither,
                             worst,
+                            programme,
                         },
                         out,
                         err,

@@ -16,7 +16,8 @@ use std::collections::{BTreeMap, VecDeque};
 
 use crate::bsi::Bsi;
 use crate::decoder::{Decoded, Decoder};
-use crate::error::Result;
+use crate::decorr::{Decorrelation, ProgrammeScope, Status as DecorrelationStatus};
+use crate::error::{Eac3Error, Result};
 use crate::frame::Options;
 use crate::header::{FrameHeader, StreamType};
 use crate::tables::CHANNEL_ORDER;
@@ -453,11 +454,15 @@ pub struct ProgramFrame {
     /// The substreams of this group in bitstream order; `parts[0]` is the
     /// independent one.
     pub parts: Vec<Part>,
-    /// This group carried a different set of channels from the programme's, so
-    /// the ones it did not carry are silent.
+    /// This group carried a different set of channels from the programme's.
+    /// Under [`LayoutPolicy::Fixed`] the programme's are the first group's,
+    /// and the ones this group did not carry are silent; under
+    /// [`LayoutPolicy::Follow`] they are the group before's, and `layout` is
+    /// this group's own.
     pub layout_changed: bool,
-    /// Set only when `layout_changed`: the programme's channels materialised,
-    /// with silence where this group had nothing.
+    /// Set only when a group under [`LayoutPolicy::Fixed`] changed the
+    /// layout: the programme's channels materialised, with silence where this
+    /// group had nothing.
     filled: Vec<Vec<f32>>,
 }
 
@@ -474,7 +479,7 @@ impl ProgramFrame {
     /// programme channel is a borrow of one substream's decoded channel.
     #[must_use]
     pub fn channel(&self, i: usize) -> &[f32] {
-        if self.layout_changed {
+        if !self.filled.is_empty() {
             return &self.filled[i];
         }
         let (part, coded) = self.layout.sources[i];
@@ -517,8 +522,13 @@ pub struct ProgramStats {
     pub other_program_frames: u64,
     /// Dependent frames with no independent substream before them.
     pub orphan_dependents: u64,
-    /// Groups whose channel set differed from the programme's.
+    /// Groups whose channel set differed from the programme's, under
+    /// [`LayoutPolicy::Fixed`].
     pub layout_changes: u64,
+    /// Groups whose channel set differed from the group before's, under
+    /// [`LayoutPolicy::Follow`]. The stream says so, and each group comes out
+    /// with its own channels, so it is not a fault.
+    pub layout_follows: u64,
     /// Dependent frames dropped because their block count or sample rate did
     /// not match the independent substream (clause E.1.3.1.2).
     pub misaligned: u64,
@@ -577,6 +587,14 @@ impl ProgramStats {
     }
 }
 
+/// Counts one rendered frame of which the decorrelation says `status`.
+fn tally(done: &mut Vec<(DecorrelationStatus, u64)>, status: DecorrelationStatus) {
+    match done.iter_mut().find(|(s, _)| *s == status) {
+        Some((_, n)) => *n += 1,
+        None => done.push((status, 1)),
+    }
+}
+
 /// The most frames a healthy substream's decoder holds back at once: one for
 /// enhanced coupling, whose last block needs the first block of the next frame
 /// (clause E.3.5.5.1), and the frames spanning the `tpnp::REACH_BACK` samples
@@ -618,6 +636,76 @@ struct GroupSlot {
     core: Option<usize>,
 }
 
+/// An independent frame that waits for the frame after it, which says
+/// whether its group has a dependent substream.
+#[derive(Debug)]
+struct Held {
+    bytes: Vec<u8>,
+    header: FrameHeader,
+}
+
+/// What a [`ProgramDecoder`] does when a group carries a different set of
+/// channels from the group before it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum LayoutPolicy {
+    /// The programme keeps the channels of its first group. A group that
+    /// carries another set is reported in [`ProgramFrame::layout_changed`] and
+    /// counted in [`ProgramStats::layout_changes`]; the programme's channels
+    /// it does not carry are silent, and the channels it carries that the
+    /// programme does not have are left out. For a writer that fixes its
+    /// channel count when it writes its header.
+    #[default]
+    Fixed,
+    /// Each group comes out with its own channels: [`ProgramFrame::layout`]
+    /// is the group's, [`ProgramFrame::layout_changed`] is set on the group
+    /// whose channels differ from the group before it, nothing is filled with
+    /// silence and no channel is left out. A change of channels is what the
+    /// stream says (clause E.2.8), not a fault, so it is not counted in
+    /// [`ProgramStats::layout_changes`].
+    Follow,
+}
+
+/// Which programme a [`ProgramDecoder`] decodes, and how it follows the
+/// programme's channels.
+///
+/// The default, `programme: None` and [`LayoutPolicy::Fixed`], is what
+/// [`ProgramDecoder::new`] does.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ProgramConfig {
+    /// The programme to decode, named by the substream id of its independent
+    /// substream (clause E.2.8.3).
+    ///
+    /// `None` decodes programme 0, the default programme, and never reports
+    /// it missing: a stream that does not carry it gives no groups and counts
+    /// its frames in [`ProgramStats::other_program_frames`]. `Some(n)` is an
+    /// explicit choice, `Some(0)` included: when no frame of programme `n`
+    /// came, [`ProgramDecoder::finish`] returns
+    /// [`Eac3Error::ProgrammeNotFound`](crate::error::Eac3Error::ProgrammeNotFound).
+    /// A substream id is three bits, so a value above 7 names no programme
+    /// a stream can carry: it never matches, and `finish` reports it not
+    /// found.
+    pub programme: Option<u8>,
+    /// What happens when the programme's channels change in mid-stream.
+    pub layout: LayoutPolicy,
+    /// The experimental decorrelation of the coupled channels
+    /// (`crate::decorr`); [`Decorrelation::Off`], the default, leaves the
+    /// decode as the standard has it. Its weight is this decoder's estimate
+    /// fitted on measurements, and a decode with it is not claimed to equal
+    /// Dolby's.
+    ///
+    /// A decoder cannot tell whether its independent substream is the whole
+    /// programme, and the decorrelation runs only where it is
+    /// ([`ProgrammeScope::CoreOnly`]). With the mode on, each independent
+    /// frame of the programme waits until the next frame of the stream, or
+    /// its end, shows whether a dependent substream follows it in its group
+    /// ([`ProgramDecoder::settle`]), and its decoder is told the scope that
+    /// shows ([`ProgrammeScope::WithDependents`] where one does). A change of
+    /// scope sets the filters to rest. Every group and count is what it is
+    /// with the mode off, one push later, and so is every sample the
+    /// decorrelation leaves alone. With the mode off nothing waits.
+    pub decorrelation: Decorrelation,
+}
+
 /// Decodes one programme of an Enhanced AC-3 stream: an independent substream
 /// and the dependent substreams that immediately follow it (clause E.2.8.2).
 ///
@@ -637,6 +725,7 @@ struct GroupSlot {
 #[derive(Debug)]
 pub struct ProgramDecoder {
     opts: Options,
+    config: ProgramConfig,
     subs: Vec<Sub>,
     slots: BTreeMap<SubstreamKey, usize>,
     open: Option<GroupSlot>,
@@ -644,28 +733,87 @@ pub struct ProgramDecoder {
     next_group: u64,
     /// Substream id of the programme the frames now arriving belong to.
     program: Option<u8>,
+    /// Bit `n` set once an independent frame of programme `n` arrived.
+    seen: u8,
+    /// Under [`LayoutPolicy::Follow`], the substreams of the group closed
+    /// last, to tell which one has left the programme.
+    last_members: Vec<usize>,
     layout: Option<ProgramLayout>,
     stats: ProgramStats,
     /// Set by [`Self::finish`]: no frame is coming any more, so a waiting
     /// group is delivered without the frames it still lacks.
     finished: bool,
+    /// Whether an independent frame waits for the frame after it before it
+    /// is decoded: with the decorrelation on, and nowhere else but in
+    /// [`Self::deferring`].
+    defer: bool,
+    /// The independent frame waiting so.
+    held: Option<Held>,
+    /// What the decorrelation did, as [`Self::decorrelation`] says it.
+    decorrelated: Vec<(DecorrelationStatus, u64)>,
 }
 
 impl ProgramDecoder {
+    /// Decodes programme 0 and keeps the channels of its first group: the
+    /// same as [`Self::with_config`] with [`ProgramConfig::default`].
     #[must_use]
     pub fn new(opts: Options) -> Self {
+        Self::with_config(opts, ProgramConfig::default())
+    }
+
+    /// Decodes the programme `config` names and follows its channels as
+    /// `config` says.
+    ///
+    /// Frames of any other programme are counted in
+    /// [`ProgramStats::other_program_frames`] and reach no decoder: they
+    /// change neither the chosen programme's samples nor its groups.
+    #[must_use]
+    pub fn with_config(opts: Options, config: ProgramConfig) -> Self {
         Self {
             opts,
+            config,
             subs: Vec::new(),
             slots: BTreeMap::new(),
             open: None,
             pending: VecDeque::new(),
             next_group: 0,
             program: None,
+            seen: 0,
+            last_members: Vec::new(),
             layout: None,
             stats: ProgramStats::default(),
             finished: false,
+            defer: config.decorrelation != Decorrelation::Off,
+            held: None,
+            decorrelated: Vec::new(),
         }
+    }
+
+    /// This decoder, made to hold each independent frame until the next
+    /// frame as [`ProgramConfig::decorrelation`] does, whatever the mode.
+    /// For the tests and the fuzz target that hold the path that waits, with
+    /// the mode off, to the path that does not.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn deferring(mut self) -> Self {
+        self.defer = true;
+        self
+    }
+
+    /// A decoder for a substream of the programme, told the decorrelation
+    /// mode where it is on. Its scope is told frame by frame.
+    fn new_decoder(&self) -> Decoder {
+        let mut dec = Decoder::new(self.opts);
+        if self.config.decorrelation != Decorrelation::Off {
+            dec.set_decorrelation(self.config.decorrelation, ProgrammeScope::Unknown);
+        }
+        dec
+    }
+
+    /// The programme and layout policy this decoder was made with.
+    #[must_use]
+    pub fn config(&self) -> ProgramConfig {
+        self.config
     }
 
     /// What the pass has found so far.
@@ -674,7 +822,19 @@ impl ProgramDecoder {
         &self.stats
     }
 
-    /// The programme's channel layout, once a group has been emitted.
+    /// With [`ProgramConfig::decorrelation`] on, what the experimental
+    /// decorrelation did to the frames of the programme's substreams that
+    /// have been rendered, and to how many frames each, in the order each
+    /// was first met; empty with it off. It is not a fault, and not one of
+    /// the [`ProgramStats`].
+    #[must_use]
+    pub fn decorrelation(&self) -> &[(DecorrelationStatus, u64)] {
+        &self.decorrelated
+    }
+
+    /// The programme's channel layout, once a group has been emitted: under
+    /// [`LayoutPolicy::Fixed`] the first group's, which every group comes out
+    /// in, and under [`LayoutPolicy::Follow`] the last emitted group's.
     #[must_use]
     pub fn layout(&self) -> Option<&ProgramLayout> {
         self.layout.as_ref()
@@ -685,9 +845,10 @@ impl ProgramDecoder {
             return s;
         }
         let s = self.subs.len();
+        let dec = self.new_decoder();
         self.subs.push(Sub {
             key,
-            dec: Decoder::new(self.opts),
+            dec,
             inflight: VecDeque::new(),
             ready: VecDeque::new(),
         });
@@ -706,11 +867,74 @@ impl ProgramDecoder {
     /// substream that stops supplying frames holds no more than
     /// [`MAX_PENDING_GROUPS`] groups back.
     ///
+    /// With [`ProgramConfig::decorrelation`] on, an independent frame of the
+    /// programme waits for the next push, or [`Self::finish`], before any of
+    /// this is done to it ([`Self::settle`]).
+    ///
     /// # Errors
     ///
     /// Only from flushing a decoder: after a failed frame, or one holding a
     /// group back.
     pub fn push(&mut self, bytes: &[u8], header: &FrameHeader) -> Result<()> {
+        let settled = self.settle(Some(header));
+        let dependent = header.stream_type == StreamType::Dependent;
+        let pushed = if self.defer
+            && !dependent
+            && header.substream_id == self.config.programme.unwrap_or(0)
+        {
+            // An independent frame of the programme waits, untouched, for
+            // the frame after it: everything this push would do to it is
+            // done when that frame comes.
+            self.held = Some(Held {
+                bytes: bytes.to_vec(),
+                header: header.clone(),
+            });
+            Ok(())
+        } else {
+            self.take(bytes, header, ProgrammeScope::Unknown)
+        };
+        settled.and(pushed)
+    }
+
+    /// Takes the independent frame that waits for the frame after it, if one
+    /// does, as [`Self::push`] would have taken it when it came, with the
+    /// scope `next` shows: a dependent frame right after it is of its group
+    /// (clause E.1.3.1.2), and any other frame, or the end of the stream
+    /// (`None`), says the group has none. [`Self::push`] and
+    /// [`Self::finish`] call it; a caller that files what the pass counts by
+    /// the frame it was counted at calls it before [`Self::push`], to tell
+    /// what the waiting frame counted from what the next one does.
+    ///
+    /// A frame waits only with [`ProgramConfig::decorrelation`] on. Every
+    /// group, sample and count is then what it is with the decorrelation off
+    /// but for the samples the decorrelation changes; each comes one push
+    /// later.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::push`].
+    pub fn settle(&mut self, next: Option<&FrameHeader>) -> Result<()> {
+        let Some(held) = self.held.take() else {
+            return Ok(());
+        };
+        let scope = if next.is_some_and(|h| h.stream_type == StreamType::Dependent) {
+            ProgrammeScope::WithDependents
+        } else {
+            ProgrammeScope::CoreOnly
+        };
+        self.take(&held.bytes, &held.header, scope)
+    }
+
+    /// Whether an independent frame waits for the frame after it
+    /// ([`Self::settle`]).
+    #[must_use]
+    pub fn is_waiting(&self) -> bool {
+        self.held.is_some()
+    }
+
+    /// What [`Self::push`] does with a frame, the independent frame of the
+    /// programme told `scope` where the decorrelation is on.
+    fn take(&mut self, bytes: &[u8], header: &FrameHeader, scope: ProgrammeScope) -> Result<()> {
         let key = (header.stream_type as u8, header.substream_id);
         let dependent = header.stream_type == StreamType::Dependent;
         // Dependent substreams immediately follow the independent substream
@@ -718,6 +942,9 @@ impl ProgramDecoder {
         // which programme a dependent frame is part of.
         if !dependent {
             self.program = Some(header.substream_id);
+            // a substream id is three bits; the mask keeps a header built by
+            // hand from shifting out of range
+            self.seen |= 1 << (header.substream_id & 7);
         }
         if dependent && self.program.is_none() {
             self.stats.orphan_dependents += 1;
@@ -725,7 +952,9 @@ impl ProgramDecoder {
                 .note("a dependent substream before any independent one".to_string());
             return Ok(());
         }
-        if self.program != Some(0) {
+        // Before any slot, group or decoder is touched: a frame of another
+        // programme changes nothing of the chosen one.
+        if self.program != Some(self.config.programme.unwrap_or(0)) {
             self.stats.other_program_frames += 1;
             return Ok(());
         }
@@ -757,14 +986,53 @@ impl ProgramDecoder {
             return Ok(());
         }
         open.members.push(slot);
+        let scope = if dependent {
+            ProgrammeScope::WithDependents
+        } else {
+            // what the frame waited to learn; a frame that did not wait
+            // cannot know it, and with the decorrelation off needs none
+            scope
+        };
+        self.feed(slot, group, bytes, header, scope)
+    }
+
+    /// Decodes a frame of the programme's substream in `slot`, of `group`,
+    /// as [`Self::push`] says, after telling its decoder `scope` where the
+    /// decorrelation is on.
+    ///
+    /// # Errors
+    ///
+    /// Only from flushing a decoder.
+    fn feed(
+        &mut self,
+        slot: usize,
+        group: u64,
+        bytes: &[u8],
+        header: &FrameHeader,
+        scope: ProgrammeScope,
+    ) -> Result<()> {
+        let key = (header.stream_type as u8, header.substream_id);
+        let dependent = header.stream_type == StreamType::Dependent;
+        let counting = self.config.decorrelation != Decorrelation::Off;
         let sub = &mut self.subs[slot];
+        if counting {
+            // the mode is the decoder's own, given when it was made
+            let mode = sub.dec.decorrelation();
+            sub.dec.set_decorrelation(mode, scope);
+        }
         sub.inflight.push_back(group);
+        let held = sub.dec.holds_a_frame();
         match sub.dec.decode(bytes) {
-            Ok(Some(d)) => {
-                let at = sub.inflight.pop_front().unwrap_or(group);
-                sub.ready.push_back((at, d));
+            Ok(out) => {
+                // a call renders a frame unless it began holding one
+                if counting && (held || !sub.dec.holds_a_frame()) {
+                    tally(&mut self.decorrelated, sub.dec.decorrelation_status());
+                }
+                if let Some(d) = out {
+                    let at = sub.inflight.pop_front().unwrap_or(group);
+                    sub.ready.push_back((at, d));
+                }
             }
-            Ok(None) => {}
             Err(e) => {
                 *self.stats.decode_errors.entry(key).or_default() += 1;
                 let (t, id) = key;
@@ -773,46 +1041,96 @@ impl ProgramDecoder {
                     .note(format!("group {group}, {kind} substream {id}: {e}"));
                 if dependent {
                     sub.inflight.pop_back();
-                    while let Some(d) = sub.dec.flush()? {
-                        let at = sub.inflight.pop_front().unwrap_or(group);
-                        sub.ready.push_back((at, d));
-                    }
-                    sub.dec.reset();
+                    self.drain(slot, group)?;
+                    self.subs[slot].dec.reset();
                     // the failing frame is always the one just fed, and its
                     // group is still open, so dropping the slot from it stops
                     // `pop` waiting for a frame that will never arrive
                     if let Some(open) = self.open.as_mut() {
                         open.members.retain(|&s| s != slot);
                     }
-                } else if let Some(d) = sub.dec.conceal(bytes, header)? {
+                } else {
                     // The programme is what its independent substream makes
                     // it: a group without one has no audio, and a group left
                     // out makes everything after it early. A frame of silence
                     // stands in for the frame, in its group and in its turn.
-                    let at = sub.inflight.pop_front().unwrap_or(group);
-                    sub.ready.push_back((at, d));
+                    let out = sub.dec.conceal(bytes, header)?;
+                    if counting && (held || !sub.dec.holds_a_frame()) {
+                        tally(&mut self.decorrelated, sub.dec.decorrelation_status());
+                    }
+                    if let Some(d) = out {
+                        let at = sub.inflight.pop_front().unwrap_or(group);
+                        sub.ready.push_back((at, d));
+                    }
                 }
             }
         }
         Ok(())
     }
 
+    /// Flushes the decoder of the substream in `slot` into its queue; a
+    /// frame whose group is no longer listed goes to `group`.
+    ///
+    /// # Errors
+    ///
+    /// From flushing the decoder.
+    fn drain(&mut self, slot: usize, group: u64) -> Result<()> {
+        let counting = self.config.decorrelation != Decorrelation::Off;
+        let sub = &mut self.subs[slot];
+        loop {
+            // a flush renders the frame held back, if there is one
+            let held = sub.dec.holds_a_frame();
+            let out = sub.dec.flush()?;
+            if counting && held {
+                tally(&mut self.decorrelated, sub.dec.decorrelation_status());
+            }
+            let Some(d) = out else {
+                return Ok(());
+            };
+            let at = sub.inflight.pop_front().unwrap_or(group);
+            sub.ready.push_back((at, d));
+        }
+    }
+
     /// Closes the stream: drains every substream's look-ahead and closes the
     /// open group. Call [`Self::pop`] in a loop afterwards; it delivers every
     /// group still waiting.
     ///
+    /// An independent frame that waits for the frame after it
+    /// ([`ProgramConfig::decorrelation`]) is taken first. A caller that pops
+    /// after every push and wants [`ProgramStats::max_pending_groups`] to be
+    /// what it is with the decorrelation off calls [`Self::settle`] with
+    /// `None` and pops before this, as after a push; otherwise the groups
+    /// that taking the frame lets go are counted waiting once more.
+    ///
     /// # Errors
     ///
-    /// Only from flushing a decoder.
+    /// From flushing a decoder, and
+    /// [`Eac3Error::ProgrammeNotFound`](crate::error::Eac3Error::ProgrammeNotFound)
+    /// when [`ProgramConfig::programme`] asked for a programme by name and no
+    /// frame of it came. With `programme: None` the second never happens.
     pub fn finish(&mut self) -> Result<()> {
-        for sub in &mut self.subs {
-            while let Some(d) = sub.dec.flush()? {
-                let at = sub.inflight.pop_front().unwrap_or(0);
-                sub.ready.push_back((at, d));
-            }
+        // the end of the stream says a waiting frame's group has no dependent
+        let settled = self.settle(None);
+        settled.and(self.finish_now())
+    }
+
+    /// [`Self::finish`] once no frame waits.
+    fn finish_now(&mut self) -> Result<()> {
+        for s in 0..self.subs.len() {
+            self.drain(s, 0)?;
         }
         self.finished = true;
-        self.close_open_group()
+        self.close_open_group()?;
+        match self.config.programme {
+            Some(wanted) if wanted > 7 || self.seen & (1 << wanted) == 0 => {
+                Err(Eac3Error::ProgrammeNotFound {
+                    wanted,
+                    seen: (0..8).filter(|id| self.seen & (1 << id) != 0).collect(),
+                })
+            }
+            _ => Ok(()),
+        }
     }
 
     /// Moves the open group, if any, to the groups waiting for their frames.
@@ -829,11 +1147,47 @@ impl ProgramDecoder {
         let Some(g) = self.open.take() else {
             return Ok(());
         };
+        if self.config.layout == LayoutPolicy::Follow {
+            self.flush_departed(&g)?;
+        }
         self.pending.push_back(g);
         self.stats.max_pending_groups = self.stats.max_pending_groups.max(self.pending.len());
         if !self.finished && self.pending.len() >= MAX_PENDING_GROUPS && !self.front_ready() {
             self.flush_front_blockers()?;
             self.release_front();
+        }
+        Ok(())
+    }
+
+    /// Under [`LayoutPolicy::Follow`], flushes each substream the group
+    /// closed before `g` had and `g` has not, and gives it a new decoder: it
+    /// has left the programme, and its decoder still holds the look-ahead of
+    /// its last frame, which would otherwise wait for [`MAX_PENDING_GROUPS`]
+    /// groups and be counted as a stall. The flushed frame is what the
+    /// substream decodes to when its run ends there.
+    ///
+    /// If it comes back, it decodes as a substream that starts there. A new
+    /// decoder rather than [`Decoder::reset`]: a reset forgets the overlap
+    /// and the look-ahead but keeps the dither generator, which a dependent
+    /// substream never reseeds from its frames, so after a reset the
+    /// substream's zero-bit mantissas would draw on from where they stood
+    /// groups before.
+    ///
+    /// # Errors
+    ///
+    /// Only from flushing a decoder.
+    fn flush_departed(&mut self, g: &GroupSlot) -> Result<()> {
+        let last = std::mem::replace(&mut self.last_members, g.members.clone());
+        for s in last {
+            if g.members.contains(&s) {
+                continue;
+            }
+            self.drain(s, g.index)?;
+            // the new decoder is told the decorrelation mode, as the first was
+            let dec = self.new_decoder();
+            let sub = &mut self.subs[s];
+            sub.dec = dec;
+            sub.inflight.clear();
         }
         Ok(())
     }
@@ -864,15 +1218,13 @@ impl ProgramDecoder {
             return Ok(());
         };
         let index = g.index;
-        for &s in &g.members {
-            let sub = &mut self.subs[s];
+        for s in g.members.clone() {
+            let sub = &self.subs[s];
             if !sub.ready.is_empty() || sub.inflight.is_empty() {
                 continue;
             }
-            while let Some(d) = sub.dec.flush()? {
-                let at = sub.inflight.pop_front().unwrap_or(index);
-                sub.ready.push_back((at, d));
-            }
+            self.drain(s, index)?;
+            let sub = &mut self.subs[s];
             sub.dec.reset();
             // the decoder holds nothing now: a group still listed lost its
             // frame inside it
@@ -1004,6 +1356,25 @@ impl ProgramDecoder {
                 ));
             }
         }
+        if self.config.layout == LayoutPolicy::Follow {
+            // each group comes out as it was coded; a change is flagged on the
+            // group where it happens and is not a fault
+            let layout_changed = self
+                .layout
+                .as_ref()
+                .is_some_and(|before| before.channels != layout.channels);
+            if layout_changed {
+                self.stats.layout_follows += 1;
+            }
+            self.layout = Some(layout.clone());
+            return Some(ProgramFrame {
+                index: g.index,
+                layout,
+                parts,
+                layout_changed,
+                filled: Vec::new(),
+            });
+        }
         let programme = self.layout.get_or_insert_with(|| layout.clone());
         let mut layout_changed = false;
         let mut filled = Vec::new();
@@ -1063,9 +1434,10 @@ mod tests {
     /// noticed, which is the worst place for that to be possible: the whole
     /// point of the first defect was that a truncated programme used to be
     /// called clean. The list is what makes the difference, so the list is what
-    /// is pinned -- and `other_program_frames` and `lfe_implied` are in it as
-    /// the two that must *not* count, since a second programme is legal and an
-    /// implied LFE is a documented reading.
+    /// is pinned -- and `other_program_frames`, `lfe_implied` and
+    /// `layout_follows` are in it as counters that must *not* count, since a
+    /// second programme is legal, an implied LFE is a documented reading, and
+    /// a change of layout followed is what the stream says.
     #[test]
     fn every_counter_in_the_verdict_can_make_a_stream_unclean() {
         assert!(ProgramStats::default().is_clean(), "an empty pass is clean");
@@ -1099,8 +1471,10 @@ mod tests {
             "a decode error left the programme looking clean"
         );
 
-        let leaves_it_clean: [(&str, Set); 4] = [
+        let leaves_it_clean: [(&str, Set); 5] = [
             ("other_program_frames", |s| s.other_program_frames = 1),
+            // a change of layout the stream signals, followed
+            ("layout_follows", |s| s.layout_follows = 1),
             ("lfe_implied", |s| s.lfe_implied = 1),
             ("groups", |s| s.groups = 1),
             // a healthy stream always has a group waiting for its look-ahead

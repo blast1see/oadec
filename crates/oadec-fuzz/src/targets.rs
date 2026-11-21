@@ -485,3 +485,382 @@ pub fn eac3_program(data: &[u8]) {
         format!("{:?}", decoder.stats())
     );
 }
+
+/// What one presentation came to in an access unit: a digest of its samples
+/// with what the decoder said of them, the presentation gone, or the error
+/// that ended its decode.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Came {
+    Samples {
+        digest: u64,
+        channels: usize,
+        duplicate: bool,
+        concealed: bool,
+        output_delta: Option<u16>,
+        fault: Option<String>,
+    },
+    Gone,
+    Failed(String),
+}
+
+impl Came {
+    fn samples(d: &oadec_truehd::Decoded<'_>, fault: Option<String>) -> Self {
+        assert!(d.pcm.len() <= MAX_SAMPLES_PER_UNIT);
+        assert!(d.channels <= MAX_CHANNELS);
+        let mut digest = 0xcbf2_9ce4_8422_2325u64;
+        for row in d.pcm {
+            for &sample in &row[..d.channels] {
+                digest = (digest ^ u64::from(sample as u32)).wrapping_mul(0x0100_0000_01b3);
+            }
+        }
+        Self::Samples {
+            digest,
+            channels: d.channels,
+            duplicate: d.duplicate,
+            concealed: d.concealed,
+            output_delta: d.output_delta,
+            fault,
+        }
+    }
+}
+
+/// The units of `stream` from its first major sync, at most [`MAX_UNITS`],
+/// and that major sync.
+fn units_from_sync(stream: &[u8]) -> Option<(Vec<Unit>, oadec_truehd::MajorSync)> {
+    let units = units_of(stream);
+    let start = units.iter().position(|u| u.has_major_sync)?;
+    let units: Vec<Unit> = units.into_iter().skip(start).take(MAX_UNITS).collect();
+    let (first, _) = AccessUnit::parse(&units.first()?.bytes, None).ok()?;
+    Some((units, first.major_sync?))
+}
+
+/// A TrueHD or MLP stream decoded at every presentation it carries in one
+/// pass, against a decoder of each presentation alone: unit for unit the same
+/// samples, flags, faults, presentations gone and errors, and at the end the
+/// same counters; concealing, and strict, where a decode of its own stops at
+/// its first fault and the one pass goes on with the others. The first byte
+/// of the input says whether a change of configuration is followed.
+pub fn truehd_multi(data: &[u8]) {
+    use oadec_truehd::{MultiDecoder, OnConfigChange, PresentationOut, Strict};
+    let Some((&first, stream)) = data.split_first() else {
+        return;
+    };
+    let policy = if first & 1 == 0 {
+        OnConfigChange::Stop
+    } else {
+        OnConfigChange::Continue
+    };
+    let Some((units, sync)) = units_from_sync(stream) else {
+        return;
+    };
+    let carried: Vec<usize> = (0..4).filter(|&p| Decoder::new(&sync, p).is_ok()).collect();
+    if carried.is_empty() {
+        return;
+    }
+    for strict in [false, true] {
+        let Ok(mut multi) = MultiDecoder::new(&sync, &carried) else {
+            panic!("a presentation each decoder takes, the one pass refuses");
+        };
+        multi.on_config_change(policy);
+        let mut together: Vec<Vec<Came>> = vec![Vec::new(); 4];
+        let mut stopped = [false; 4];
+        for unit in &units {
+            let came: Vec<(usize, Came)> = if strict {
+                match multi.decode(&unit.bytes) {
+                    Ok(d) => carried
+                        .iter()
+                        .map(|&p| {
+                            let came = match d.presentation(p) {
+                                Some(Strict::Samples(s)) => Came::samples(&s, None),
+                                Some(Strict::Fault(e)) => Came::Failed(e.to_string()),
+                                Some(Strict::Gone) => Came::Gone,
+                                None => panic!("a selected presentation came to nothing"),
+                            };
+                            (p, came)
+                        })
+                        .collect(),
+                    Err(e) => carried
+                        .iter()
+                        .map(|&p| (p, Came::Failed(e.to_string())))
+                        .collect(),
+                }
+            } else {
+                match multi.decode_concealing(&unit.bytes) {
+                    Ok(d) => carried
+                        .iter()
+                        .map(|&p| {
+                            let came = match d.presentation(p) {
+                                Some(PresentationOut::Available { decoded, fault }) => {
+                                    Came::samples(&decoded, fault.map(ToString::to_string))
+                                }
+                                Some(PresentationOut::Gone) => Came::Gone,
+                                None => panic!("a selected presentation came to nothing"),
+                            };
+                            (p, came)
+                        })
+                        .collect(),
+                    Err(e) => carried
+                        .iter()
+                        .map(|&p| (p, Came::Failed(e.to_string())))
+                        .collect(),
+                }
+            };
+            for (p, came) in came {
+                if stopped[p] {
+                    continue;
+                }
+                stopped[p] = matches!(came, Came::Failed(_));
+                together[p].push(came);
+            }
+            if carried.iter().all(|&p| stopped[p]) {
+                break;
+            }
+        }
+        for &p in &carried {
+            let Ok(mut alone) = Decoder::new(&sync, p) else {
+                unreachable!("carried above");
+            };
+            alone.on_config_change(policy);
+            let mut own = Vec::new();
+            for unit in &units {
+                let came = if strict {
+                    match alone.decode(&unit.bytes) {
+                        Ok(d) => Came::samples(&d, None),
+                        Err(oadec_truehd::Error::PresentationGone { .. }) => Came::Gone,
+                        Err(e) => Came::Failed(e.to_string()),
+                    }
+                } else {
+                    match alone.decode_concealing(&unit.bytes) {
+                        Ok((d, fault)) => Came::samples(&d, fault.map(|e| e.to_string())),
+                        Err(oadec_truehd::Error::PresentationGone { .. }) => Came::Gone,
+                        Err(e) => Came::Failed(e.to_string()),
+                    }
+                };
+                let failed = matches!(came, Came::Failed(_));
+                own.push(came);
+                if failed {
+                    break;
+                }
+            }
+            assert_eq!(
+                together[p], own,
+                "presentation {p}, strict {strict}: the one pass differs from its own decoder"
+            );
+            if !stopped[p] {
+                assert_eq!(
+                    multi.stats(p).map(|s| format!("{s:?}")),
+                    Some(format!("{:?}", alone.stats())),
+                    "presentation {p}, strict {strict}: the counters differ"
+                );
+            }
+        }
+    }
+}
+
+/// What a stream decoder told, in order: its events, and its samples by
+/// unit.
+#[derive(Debug, Default, PartialEq)]
+struct Told {
+    events: Vec<String>,
+    pcm: Vec<(u64, u64)>,
+}
+
+impl oadec_engine::stream::StreamSink for Told {
+    fn event(
+        &mut self,
+        event: &oadec_engine::stream::StreamEvent,
+    ) -> oadec_engine::stream::SinkResult {
+        self.events.push(format!("{event:?}"));
+        Ok(())
+    }
+
+    fn pcm(
+        &mut self,
+        frame: oadec_engine::stream::PcmFrame<'_>,
+    ) -> oadec_engine::stream::SinkResult {
+        self.pcm
+            .push((frame.unit, crate::seeds::fnv1a(frame.bytes)));
+        Ok(())
+    }
+}
+
+/// Pushes `stream` in pieces whose lengths `cut` gives, and finishes.
+fn pushed(stream: &[u8], mut cut: impl FnMut() -> usize) -> (Told, Result<String, String>) {
+    use oadec_engine::stream::{StreamDecoder, StreamOptions};
+    let mut told = Told::default();
+    let mut decoder = StreamDecoder::new(StreamOptions::new("<fuzz>"));
+    let mut at = 0;
+    while at < stream.len() {
+        let end = (at + cut().max(1)).min(stream.len());
+        if let Err(e) = decoder.push(&stream[at..end], &mut told) {
+            // a decode that ended with an error takes nothing more, and
+            // says so, whatever is asked of it
+            let again = decoder.push(&stream[at..end], &mut told);
+            assert!(again.is_err(), "a push after an error was taken");
+            assert!(decoder.flush(&mut told).is_err(), "a flush after an error");
+            assert!(
+                decoder.finish(&mut told).is_err(),
+                "a finish after an error"
+            );
+            return (told, Err(format!("{e:#}")));
+        }
+        at = end;
+    }
+    let end = decoder
+        .finish(&mut told)
+        .map(|end| {
+            format!(
+                "{:?} {} {} {}",
+                end.verdict(),
+                end.samples,
+                end.units,
+                end.bytes
+            )
+        })
+        .map_err(|e| format!("{e:#}"));
+    (told, end)
+}
+
+/// A stream of either family decoded as it arrives, in pieces of the lengths
+/// the first byte of the input seeds, against the same bytes pushed whole:
+/// the same events, samples and verdict, or the same error; and after an
+/// error every call is an error, and none panics.
+pub fn stream_push(data: &[u8]) {
+    let Some((&first, stream)) = data.split_first() else {
+        return;
+    };
+    let stream = &stream[..stream.len().min(MAX_UNITS * 4096)];
+    let whole = pushed(stream, || usize::MAX);
+    let mut rng = crate::mutate::Rng::new(u64::from(first));
+    let most = 1 + usize::from(first) * 37;
+    let pieces = pushed(stream, || rng.below(most) + 1);
+    assert!(pieces == whole, "the pieces differ from the whole");
+}
+
+/// The frames of `data` the programme decoder takes: whole syncframes, from
+/// the first that parses, at most [`MAX_FRAMES`].
+fn syncframes(data: &[u8]) -> Vec<(&[u8], FrameHeader)> {
+    let mut out = Vec::new();
+    let mut at = 0;
+    while at + 8 <= data.len() && out.len() < MAX_FRAMES {
+        let Ok(header) = FrameHeader::parse(&data[at..]) else {
+            at += 1;
+            continue;
+        };
+        let Some(frame) = data.get(at..at + header.frame_bytes) else {
+            break;
+        };
+        at += header.frame_bytes.max(1);
+        out.push((frame, header));
+    }
+    out
+}
+
+/// Every group a programme decoder hands out, as text, its samples by
+/// digest; the result of each push and of the end; and the counters.
+fn programme_said(mut decoder: ProgramDecoder, frames: &[(&[u8], FrameHeader)]) -> Vec<String> {
+    let mut said = Vec::new();
+    let take = |decoder: &mut ProgramDecoder, said: &mut Vec<String>| {
+        while let Some(frame) = decoder.pop() {
+            let channels = frame.channels();
+            assert!(channels <= MAX_PROGRAM_CHANNELS);
+            let samples = frame.samples();
+            let mut digest = 0xcbf2_9ce4_8422_2325u64;
+            for i in 0..channels {
+                assert_eq!(frame.channel(i).len(), samples);
+                for v in frame.channel(i) {
+                    digest = (digest ^ u64::from(v.to_bits())).wrapping_mul(0x0100_0000_01b3);
+                }
+            }
+            said.push(format!(
+                "group {} {:?} changed {} {digest:x}",
+                frame.index, frame.layout, frame.layout_changed
+            ));
+        }
+    };
+    for (bytes, header) in frames {
+        said.push(format!(
+            "{:?}",
+            decoder.push(bytes, header).map_err(|e| e.to_string())
+        ));
+        take(&mut decoder, &mut said);
+    }
+    // a frame that waits for the next is let go and popped as after a push;
+    // nothing waits unless the decorrelation is on
+    said.push(format!(
+        "{:?}",
+        decoder.settle(None).map_err(|e| e.to_string())
+    ));
+    take(&mut decoder, &mut said);
+    said.push(format!("{:?}", decoder.finish().map_err(|e| e.to_string())));
+    take(&mut decoder, &mut said);
+    assert!(decoder.stats().max_pending_groups <= MAX_PENDING_GROUPS);
+    said.push(format!("{:?}", decoder.stats()));
+    said
+}
+
+/// The programme decoder made with the default configuration is the one
+/// made with `new`, group for group, sample for sample and count for count;
+/// and made with any programme and either layout policy, it never panics
+/// and keeps its bound on the groups it holds. The first byte of the input
+/// picks the programme.
+///
+/// With the decorrelation off, the decoder that holds each independent
+/// frame until the next frame, as the decorrelation makes it do, is the one
+/// that does not, group for group, sample for sample and count for count,
+/// under either policy, each group a push later; and with the decorrelation
+/// on it never panics and keeps the same bound.
+pub fn eac3_program_config(data: &[u8]) {
+    use oadec_eac3::{Decorrelation, LayoutPolicy, ProgramConfig};
+    let Some((&first, stream)) = data.split_first() else {
+        return;
+    };
+    let options = Options {
+        dither: false,
+        tpnp: true,
+        ecpl_full: false,
+        block_info: false,
+        samples: true,
+    };
+    let frames = syncframes(stream);
+    assert_eq!(
+        programme_said(ProgramDecoder::new(options), &frames),
+        programme_said(
+            ProgramDecoder::with_config(options, ProgramConfig::default()),
+            &frames
+        ),
+        "the default configuration is not what new makes"
+    );
+    for layout in [LayoutPolicy::Fixed, LayoutPolicy::Follow] {
+        let config = ProgramConfig {
+            programme: Some(first % 9),
+            layout,
+            ..ProgramConfig::default()
+        };
+        programme_said(ProgramDecoder::with_config(options, config), &frames);
+        // the configuration above, whose decorrelation is off
+        let plain = config;
+        // the groups come out a push later, which a push that went well
+        // does not show
+        let went_well = format!("{:?}", Ok::<(), String>(()));
+        let delivered = |said: Vec<String>| -> Vec<String> {
+            said.into_iter().filter(|s| *s != went_well).collect()
+        };
+        assert_eq!(
+            delivered(programme_said(
+                ProgramDecoder::with_config(options, plain).deferring(),
+                &frames
+            )),
+            delivered(programme_said(
+                ProgramDecoder::with_config(options, plain),
+                &frames
+            )),
+            "holding the independent frame for its scope changed the decode with the decorrelation off"
+        );
+        let decorrelated = ProgramConfig {
+            decorrelation: Decorrelation::Experimental,
+            ..plain
+        };
+        programme_said(ProgramDecoder::with_config(options, decorrelated), &frames);
+    }
+}

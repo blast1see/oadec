@@ -22,12 +22,14 @@ pub mod ac3;
 pub mod ac3_recipe;
 pub mod ac3_tables;
 pub mod bits;
+pub mod change;
 pub mod recipe;
 pub mod sha256;
 pub mod signal;
 pub mod write;
 
 pub use ac3_recipe::{AC3_PROBES, AC3_RECIPES, Ac3Probe, Ac3Recipe};
+pub use change::{CHANGES, Change, Changed, Part};
 pub use recipe::{Made, PROBES, Probe, RECIPES, Recipe, pcm_bytes};
 pub use write::{
     Above, BlockPlan, Coding, Family, Filter, Layout, Matrix, Protection, Stream, UnitPlan, write,

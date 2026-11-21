@@ -6,6 +6,53 @@ Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **A stream decoded as it arrives.** `decode --format pcm` and `wav` read
+  their stream once, from a file or from standard input, and `-o -` writes
+  the samples to standard output unit by unit, a WAVE header of unknown
+  length first for `wav`. The memory of a run does not grow with its stream.
+  The checks of `verify` run beside the decode and are told before the
+  samples of each unit, so the bytes, the report and the exit code are the
+  same on every run. A receiver that closes the pipe early ends the run with
+  exit 141. A decode of a file to a file with none of the options of this
+  path decodes as it did (`docs/streaming.md`, `docs/exit-codes.md`).
+- **`--on-layout-change stop|fixed|split`.** What a sample decode does where
+  the channels or the sampling frequency of its stream change: end there and
+  exit 7, keep the first layout (E-AC-3 only), or follow the change into a
+  new file, `OUT.002.wav` and on. A change that was followed is not a fault
+  by itself; a TrueHD decoder follows it from the unit that carries it, and
+  an E-AC-3 programme gives each frame group its own channels.
+- **`--programme N`.** `decode`, `compare`, `info` and `verify` choose the
+  programme of an E-AC-3 stream by the id of its independent substream. A
+  programme the stream does not carry is exit 2, with the ids it does carry.
+- **`decode -p all`.** Every presentation of a TrueHD stream in one pass, a
+  file each (`OUT.p0.wav` and on), each with the bytes and the verdict of a
+  decode of it alone. A strict decode of the same pass
+  (`MultiDecoder::decode`), where each presentation stops at its first fault
+  as a decoder of its own does, is in the library, and a test holds it to
+  the checks `verify --decode` makes.
+- **`decode --decorrelate`, experimental and off by default.** A decode of
+  an AC-3 or E-AC-3 stream to samples (`--format wav` or `pcm`, to a file or
+  to standard output) decorrelates the coupled channels of an E-AC-3
+  programme that is its independent substream alone, in 2/0 or 3/2, as
+  Dolby's decoders were measured to do. Its weight is this decoder's
+  estimate fitted on measurements, and a decode with it is not claimed to
+  equal Dolby's. Each independent frame waits for the frame after it, which
+  says whether the programme has a dependent substream; one that has is
+  decoded as without the option, and so is an AC-3 stream, `--core-only`
+  included. The summary and the JSON report say, for the programme, in how
+  many frames it was applied and why not in the others. An object output
+  and a TrueHD stream refuse it (exit 2). Without it nothing waits and
+  nothing changes (`docs/eac3.md`, `docs/streaming.md`).
+- **Fuzz targets** for the decoder of several presentations, the stream
+  decoder pushed bytes in pieces, and the programme decoder with its default
+  configuration against the one it always had; a bench of four
+  presentations in one pass against four decoders one after another. The
+  target of the programme decoder's configurations holds the decoder that
+  makes each independent frame wait, with the decorrelation off, to the one
+  that does not, group for group and sample for sample.
+
 ## [0.9.1] - 2026-11-17
 
 ### Fixed

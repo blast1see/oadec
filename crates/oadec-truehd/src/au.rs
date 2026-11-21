@@ -10,7 +10,7 @@ use oadec_bits::{BitReader, fold_nibble, xor_bytes};
 
 use crate::error::{Error, Result};
 use crate::extra::ExtraData;
-use crate::presentation::PresentationMap;
+use crate::presentation::{PresentationKind, PresentationMap};
 use crate::sync::{FbbFormat, MajorSync};
 
 /// Stream-level parameters in force for an access unit, taken from the last major sync.
@@ -44,6 +44,20 @@ impl StreamConfig {
             self.substream_info,
             self.format_sync == crate::sync::SYNC_FBB,
         )
+    }
+
+    /// Whether presentation `index` can be decoded under this configuration:
+    /// the stream carries it, or carries the one under it that it is a copy
+    /// of, and has the substream that makes it. What
+    /// [`crate::Decoder::new`] accepts.
+    #[must_use]
+    pub fn has_presentation(&self, index: usize) -> bool {
+        let top = match self.presentations.kind(index) {
+            PresentationKind::Independent | PresentationKind::DownmixOf(_) => index,
+            PresentationKind::CopyOf(i) => i,
+            PresentationKind::Invalid => return false,
+        };
+        top < usize::from(self.substreams)
     }
 
     /// Derives the configuration from a major sync.

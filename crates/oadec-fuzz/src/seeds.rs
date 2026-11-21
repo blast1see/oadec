@@ -111,6 +111,10 @@ impl Seeds {
         self.push("truehd_unit_repaired", run.clone());
         self.push("verdict_parity", run.clone());
         self.push("truehd_extract", [&[READ][..], &run].concat());
+        // the one pass, under each policy of a change of configuration
+        self.push("truehd_multi", [&[0u8][..], &run].concat());
+        self.push("truehd_multi", [&[1u8][..], &run].concat());
+        self.push("stream_push", [&[7u8][..], &run].concat());
         if let Ok((first, _)) = AccessUnit::parse(&units[start].bytes, None)
             && let Some(sync) = &first.major_sync
         {
@@ -158,6 +162,10 @@ impl Seeds {
             run.extend_from_slice(frame);
         }
         self.push("eac3_program", run.clone());
+        if !run.is_empty() {
+            self.push("eac3_program_config", [&[0u8][..], &run].concat());
+            self.push("stream_push", [&[3u8][..], &run].concat());
+        }
         self.push("verdict_parity", run);
 
         let mut containers = Vec::new();

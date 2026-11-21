@@ -18,11 +18,14 @@ coefficients they give.
 
     python tools/coupling_mix.py signals <directory>
 
-writes the test signals the finding was made with, fifteen 16-bit WAVE files
-of twelve seconds: a band of noise both channels share above 5 kHz (what an
-encoder at a low rate couples), a tone of 440 Hz under it, and one thing apart
-from file to file (levels that move, noise of the channels' own under the
-coupling begin frequency, ...). `ffmpeg -i low-both.wav -c:a eac3 -b:a 128k
+writes the test signals the finding was made with, thirty-four 16-bit WAVE
+files of twelve seconds: a band of noise both channels share above 5 kHz
+(what an encoder at a low rate couples), a tone of 440 Hz under it, and one
+thing apart from file to file (levels that move, noise of the channels' own
+under the coupling begin frequency, ...). The first fifteen found the
+decorrelation; the other nineteen, one thing at a time, what its weight
+follows, and are what the weight of the experimental mode was fitted and
+held out on (`docs/eac3.md`). `ffmpeg -i low-both.wav -c:a eac3 -b:a 128k
 -f eac3 low-both.ec3` and the same with `ac3` make the streams.
 
     oadec eac3-blocks --frame 100 stream.ec3      (cplbegf, cplendf)
@@ -50,6 +53,59 @@ pair of each block and sub-band is taken out.
 the dither this one draws: the filtered part is made of the coefficients
 without bits as well.
 
+    python tools/coupling_mix.py measure reference.f32 ours.wav --channels 2 --first 49 --sub-bands 8 --out measure.json
+
+sets a decode of this decoder with its experimental decorrelation
+(`oadec_eac3::decorr`, which is not Dolby's rule and is not claimed to equal
+Dolby's decode) against a reference decode of the same stream, and reports,
+for every channel and every coupling sub-band of the coupled region, figures
+that say how far the two stand apart and in what way. Both decodes are taken
+back to coefficients as `regions` takes them; the first `--skip` blocks (300
+by default, as there) are left out. With `--plain`, a decode of this decoder
+without the decorrelation, it also reports how far each of the two moved the
+power of the plain decode. The figures, under the names the JSON report gives
+them:
+
+- `ours_over_plain_db` and `reference_over_plain_db` (with `--plain`): the
+  power of each decode in the sub-band over that of the plain decode, summed
+  over the blocks and the twelve coefficients, so that what the
+  decorrelation of each decoder does to the level of a channel can be put
+  side by side.
+
+- `power_difference_db`: ten times the logarithm of the power of ours over
+  the power of the reference, summed over the blocks and the twelve
+  coefficients of the sub-band. A decorrelation that keeps the level of a
+  channel stands near 0.
+- `spectral_difference_db`: the largest of the same figure taken coefficient
+  by coefficient within the sub-band (each summed over the blocks), which
+  says whether the power is where it should be inside the sub-band and not
+  only in sum.
+- `pairs`: for every pair of channels that take the filter with opposite
+  signs (`--pairs`; left and right, the surround pair), by sub-band:
+  `coherence_ours` and `coherence_reference`, the magnitude of the
+  normalised cross-spectrum of the two channels over the blocks, in each
+  decode, and `coherence_difference`, ours less the reference, whose target
+  is 0.10 or less in magnitude; `phase_ours_degrees` and
+  `phase_reference_degrees`, the angle of the same cross-spectrum, which says
+  whether the two channels lead or lag each other as the reference has them.
+  The cross-spectrum is of the discrete Fourier transform of the same
+  windowed blocks of 512 samples, whose bin `k` lies half a bin under the
+  coefficient `k`; the coefficients are real and carry no phase.
+- `pre_echo_db`, by channel: in the blocks where the reference has a
+  transient in the coupled region (the energy of the block over that of the
+  block before by more than `--transient-db`, 10 dB by default), the energy
+  ours has in the coupled region of the block before over the energy the
+  reference has there, summed over those blocks. A filter along the blocks
+  smears a transient forward, not back; a figure above 0 says ours puts
+  energy before it. `null` where the reference has no transient.
+- `boundary_discontinuity_db`, by channel: the power of the step from the
+  last sample of a block of 256 to the first of the next, summed over the
+  decode, of ours over the reference, for the coupled region alone (each
+  decode taken back to samples from its coupled coefficients). A
+  decorrelation that steps at the blocks stands above 0.
+
+The report is JSON, and the same two decodes give the same report.
+
     python tools/coupling_mix.py --self-check
 
 makes two decodes of which the answer is known and reads it back.
@@ -68,7 +124,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dither_probe import coefficients, read_decode, samples  # noqa: E402
+from dither_probe import HALF, N, WINDOW, coefficients, read_decode, samples  # noqa: E402
 
 RATE = 48000
 SECONDS = 12
@@ -147,6 +203,48 @@ def signals(out):
         'the same noise from 3,5 to 4,5 kHz in both channels')
     put('low-quiet', tone + 0.5 * shared + 0.01 * a, tone + 0.25 * shared + 0.01 * b, 'as low-both, 30 dB lower')
     put('low-only', tone + 0.3 * a, tone + 0.3 * b, 'as low-both, with nothing above 5 kHz')
+
+    # What the weight of Dolby's decorrelation follows, one thing at a time
+    # (docs/eac3.md): the level of a channel's own noise, the tone, the level
+    # of the coupled region, and how alike the two channels' own content is.
+    for level, tag in ((0.1, '10'), (0.03, '03'), (0.6, '60')):
+        put(f'left-n{tag}', tone + 0.5 * shared + level * a, tone + 0.25 * shared,
+            f'as low-left, the noise at {level} in place of 0,3')
+    put('left-notone', 0.5 * shared + 0.3 * a, 0.25 * shared, 'as low-left, without the tone')
+    put('left-eqcpl', tone + 0.4 * shared + 0.3 * a, tone + 0.4 * shared,
+        'as low-left, the shared band at the same level in both channels')
+    put('same-eqcpl', tone + 0.4 * shared + 0.3 * a, tone + 0.4 * shared + 0.3 * a,
+        'the two channels the same')
+    put('same-r125', tone + 0.5 * shared + 0.3 * a, tone + 0.125 * shared + 0.3 * a,
+        'as low-same, the shared band 12 dB lower in the right channel')
+    put('both-eqcpl', tone + 0.4 * shared + 0.3 * a, tone + 0.4 * shared + 0.3 * b,
+        'as low-both, the shared band at the same level in both channels')
+    for degrees in (30, 60):
+        turn = np.radians(degrees)
+        put(f'both-phi{degrees}', tone + 0.4 * shared + 0.3 * a,
+            tone + 0.4 * shared + 0.3 * (np.cos(turn) * a + np.sin(turn) * b),
+            f'the right channel\'s noise {degrees} degrees from the left\'s')
+    put('both-r03', tone + 0.4 * shared + 0.3 * a, tone + 0.4 * shared + 0.03 * b,
+        'as both-eqcpl, the right channel\'s noise 20 dB lower')
+    w1, w2 = band_noise(21, 500, 4500), band_noise(22, 500, 4500)
+    put('wide-both', tone + 0.4 * shared + 0.3 * w1, tone + 0.4 * shared + 0.3 * w2,
+        'different noise from 0,5 to 4,5 kHz in each channel')
+    put('both-cpl08', tone + 0.8 * shared + 0.3 * a, tone + 0.8 * shared + 0.3 * b,
+        'as both-eqcpl, the shared band 6 dB higher')
+    put('both-cpl02', tone + 0.2 * shared + 0.3 * a, tone + 0.2 * shared + 0.3 * b,
+        'as both-eqcpl, the shared band 6 dB lower')
+
+    def sine(f):
+        return 0.2 * np.sin(2 * np.pi * f * t)
+
+    put('tone2k', sine(2000) + 0.5 * shared, sine(2000) + 0.25 * shared, 'a tone of 2 kHz in place of 440 Hz')
+    put('tone2k3k', sine(2000) + 0.5 * shared, sine(3000) + 0.25 * shared,
+        'a tone of 2 kHz in the left channel and of 3 kHz in the right')
+    put('tone2k-left', sine(2000) + 0.5 * shared, 0.25 * shared, 'a tone of 2 kHz in the left channel only')
+    put('chord-both', sine(1500) + sine(2500) + sine(3700) + 0.5 * shared,
+        sine(1700) + sine(2900) + sine(4100) + 0.25 * shared, 'three other tones in each channel')
+    put('noise-tone', sine(2000) + 0.5 * shared + 0.3 * a, sine(3000) + 0.25 * shared + 0.3 * b,
+        'tone2k3k with low-both\'s noise')
     return made
 
 
@@ -369,6 +467,100 @@ def study(theirs, mine, first, sub_bands, taps=40, rounds=3, learn_from=None):
     return report
 
 
+# ---- a decorrelated decode against a reference
+
+def figure_db(num, den):
+    if den <= 0 or num <= 0:
+        return None if num == den == 0 else (200.0 if den <= 0 else -200.0)
+    return round(float(10 * np.log10(num / den)), 3)
+
+
+def spectra(pcm, lag, count):
+    """The discrete Fourier transform of every windowed block of 512 samples
+    of one channel, from `lag` on, bins 0 to 255."""
+    out = np.empty((count, HALF), dtype=complex)
+    for b in range(count):
+        out[b] = np.fft.rfft(pcm[lag + b * HALF:lag + b * HALF + N] * WINDOW)[:HALF]
+    return out
+
+
+def measure(reference, ours, plain, first, sub_bands, lag, pairs, transient_db, skip):
+    """The figures of `measure`, described at the head of the file."""
+    channels = reference.shape[1]
+    n = min(len(reference), len(ours) - lag) // HALF * HALF
+    if plain is not None:
+        n = min(n, (len(plain) - lag) // HALF * HALF)
+    blocks = (n - N) // HALF + 1
+    if blocks <= skip + 8:
+        return None
+    last = first + SUB_BAND * sub_bands
+    r = [coefficients(reference[:n, ch])[skip:] for ch in range(channels)]
+    m = [coefficients(ours[lag:lag + n, ch])[skip:] for ch in range(channels)]
+    p = None if plain is None else [coefficients(plain[lag:lag + n, ch])[skip:] for ch in range(channels)]
+    bands = [(first + SUB_BAND * s, first + SUB_BAND * (s + 1)) for s in range(sub_bands)]
+    report = {'blocks': blocks - skip, 'first': first, 'sub_bands': sub_bands, 'channels': [], 'pairs': []}
+    for ch in range(channels):
+        row = {'channel': ch, 'power_difference_db': [], 'spectral_difference_db': []}
+        if p is not None:
+            row['ours_over_plain_db'] = []
+            row['reference_over_plain_db'] = []
+        for lo, hi in bands:
+            pm = (m[ch][:, lo:hi] ** 2).sum(axis=0)
+            pr = (r[ch][:, lo:hi] ** 2).sum(axis=0)
+            row['power_difference_db'].append(figure_db(float(pm.sum()), float(pr.sum())))
+            each = [figure_db(float(a), float(b)) for a, b in zip(pm, pr)]
+            each = [v for v in each if v is not None]
+            row['spectral_difference_db'].append(max(each, key=abs) if each else None)
+            if p is not None:
+                pp = float((p[ch][:, lo:hi] ** 2).sum())
+                row['ours_over_plain_db'].append(figure_db(float(pm.sum()), pp))
+                row['reference_over_plain_db'].append(figure_db(float(pr.sum()), pp))
+        er = (r[ch][:, first:last] ** 2).sum(axis=1)
+        em = (m[ch][:, first:last] ** 2).sum(axis=1)
+        hits = [b for b in range(1, len(er)) if er[b] > er[b - 1] * 10 ** (transient_db / 10) and er[b] > 0]
+        row['transients'] = len(hits)
+        row['pre_echo_db'] = (figure_db(float(sum(em[b - 1] for b in hits)), float(sum(er[b - 1] for b in hits)))
+                              if hits else None)
+        steps = []
+        for c in (m[ch], r[ch]):
+            only = np.zeros_like(c)
+            only[:, first:last] = c[:, first:last]
+            y = samples(only)[HALF:-HALF]
+            at = np.arange(HALF, len(y), HALF)
+            steps.append(float(((y[at] - y[at - 1]) ** 2).sum()))
+        row['boundary_discontinuity_db'] = figure_db(steps[0], steps[1])
+        report['channels'].append(row)
+    count = blocks - skip
+    for a, b in pairs:
+        if a >= channels or b >= channels:
+            return None
+        fr = [spectra(reference[:, ch], 0, blocks)[skip:skip + count] for ch in (a, b)]
+        fm = [spectra(ours[:, ch], lag, blocks)[skip:skip + count] for ch in (a, b)]
+        row = {'pair': [a, b], 'coherence_ours': [], 'coherence_reference': [], 'coherence_difference': [],
+               'phase_ours_degrees': [], 'phase_reference_degrees': []}
+        for lo, hi in bands:
+            values = []
+            for x, y in (fm, fr):
+                cross = complex((x[:, lo:hi] * np.conj(y[:, lo:hi])).sum())
+                power = float((np.abs(x[:, lo:hi]) ** 2).sum() * (np.abs(y[:, lo:hi]) ** 2).sum())
+                values.append((abs(cross) / np.sqrt(power) if power > 0 else None, float(np.degrees(np.angle(cross)))))
+            (co, po), (cr, pr_) = values
+            row['coherence_ours'].append(None if co is None else round(float(co), 4))
+            row['coherence_reference'].append(None if cr is None else round(float(cr), 4))
+            row['coherence_difference'].append(None if co is None or cr is None else round(float(co - cr), 4))
+            row['phase_ours_degrees'].append(round(po, 2))
+            row['phase_reference_degrees'].append(round(pr_, 2))
+        report['pairs'].append(row)
+    return report
+
+
+def parse_pairs(text):
+    try:
+        return [tuple(int(v) for v in part.split(':')) for part in text.split(',') if part]
+    except ValueError:
+        return None
+
+
 # ---- a known answer
 
 def self_check():
@@ -442,7 +634,8 @@ def main():
     make = commands.add_parser('signals', help='write the test signals')
     make.add_argument('directory', type=Path)
     for name, text in (('regions', 'the own region and the coupled region of every channel'),
-                       ('mix', 'the filter along the blocks and the mix of every block')):
+                       ('mix', 'the filter along the blocks and the mix of every block'),
+                       ('measure', 'a decorrelated decode of ours against a reference, by channel and sub-band')):
         sub = commands.add_parser(name, help=text)
         sub.add_argument('reference', type=Path, help='the other decode: 32-bit float, headerless or WAVE')
         sub.add_argument('ours', type=Path, help='this decoder\'s decode: 32-bit float WAVE')
@@ -455,6 +648,15 @@ def main():
             sub.add_argument('--learn', type=int, help='the channel the filter is fitted on')
             sub.add_argument('--taps', type=int, default=40)
             sub.add_argument('--rounds', type=int, default=3)
+        if name == 'measure':
+            sub.add_argument('--pairs', default='0:1',
+                             help='the pairs of channels that take the filter with opposite signs, as a:b,c:d '
+                                  '(coded order: 0:1 for 2/0, 0:2,3:4 for 3/2)')
+            sub.add_argument('--transient-db', type=float, default=10.0,
+                             help='how much louder than the block before a block is that holds a transient')
+            sub.add_argument('--plain', type=Path,
+                             help='a decode of ours without the decorrelation, same format and lag as ours')
+            sub.add_argument('--skip', type=int, default=SKIP, help='blocks left out at the start')
     args = parser.parse_args()
     if args.self_check:
         return self_check()
@@ -469,6 +671,28 @@ def main():
     if args.first < 9 or args.sub_bands < 1 or args.first + SUB_BAND * args.sub_bands > 253:
         print('the coupled region is not inside the 253 coefficients of a channel', file=sys.stderr)
         return 2
+    if args.command == 'measure':
+        pairs = parse_pairs(args.pairs)
+        if not pairs or any(len(pair) != 2 for pair in pairs) or args.skip < 0:
+            print('--pairs is a:b,c:d and --skip is not negative', file=sys.stderr)
+            return 2
+        reference, ours = read_decode(args.reference, args.channels), read_decode(args.ours, args.channels)
+        plain = None if args.plain is None else read_decode(args.plain, args.channels)
+        report = measure(reference, ours, plain, args.first, args.sub_bands, args.lag, pairs,
+                         args.transient_db, args.skip)
+        if report is None:
+            print('the decodes cannot be compared as asked: too short, or a pair names a channel they lack',
+                  file=sys.stderr)
+            return 1
+        text = json.dumps(report, indent=1) + '\n'
+        if args.out:
+            args.out.write_text(text, encoding='utf-8')
+        for row in report['channels']:
+            print(f"channel {row['channel']}: power {row['power_difference_db']} dB, pre-echo {row['pre_echo_db']} dB, "
+                  f"boundaries {row['boundary_discontinuity_db']} dB")
+        for row in report['pairs']:
+            print(f"pair {row['pair']}: coherence difference {row['coherence_difference']}")
+        return 0
     reference, ours = read_decode(args.reference, args.channels), read_decode(args.ours, args.channels)
     theirs, mine = as_coefficients(reference, ours, args.lag)
     if args.command == 'regions':
