@@ -243,14 +243,13 @@ fn decode(case: &Case) -> Vec<f64> {
 fn reference(path: &Path, f64s: bool) -> Vec<f64> {
     let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
     if f64s {
-        bytes
-            .chunks_exact(8)
-            .map(|c| f64::from_le_bytes(c.try_into().expect("8 bytes")))
-            .collect()
+        let (words, _) = bytes.as_chunks::<8>();
+        words.iter().map(|&w| f64::from_le_bytes(w)).collect()
     } else {
-        bytes
-            .chunks_exact(4)
-            .map(|c| f64::from(f32::from_le_bytes(c.try_into().expect("4 bytes"))))
+        let (words, _) = bytes.as_chunks::<4>();
+        words
+            .iter()
+            .map(|&w| f64::from(f32::from_le_bytes(w)))
             .collect()
     }
 }
