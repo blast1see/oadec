@@ -768,6 +768,49 @@ pairs of the 50 are beyond it. `E:\oadec-work\measure\r4\p3` holds the tables.
   enhanced coupling does not have, and leaving it in shifted every frame of
   the stereo fixture by one bit.
 
+### The plan file of `eac3-ecpl-inject`
+
+`oadec eac3-ecpl-inject IN.ec3 -o OUT.ec3 --plan PLAN` converts the standard
+coupling of every independent frame of programme 0 into enhanced coupling,
+as without `--plan`, and takes the codes it writes from the plan where the
+plan names them. One directive a line; `#` starts a comment, and a blank
+line is nothing:
+
+```text
+amp    walk | sweep-frames | all | <0-31>
+angle  walk | sweep-frames | all | <0-63>
+chaos  walk | walk:<max> | sweep-frames | all | <0-7>
+interp 0 | 1 | alternate
+trans  never | always | walk | alternate
+reuse  every <n>          # the codes of the block before, where block % n == n - 1
+frames all | every <n>    # convert the frames f with f % n == 0, copy the rest
+```
+
+- **A code** writes that code in every band of every channel; `sweep-frames`
+  writes the frame's number modulo the size of the table, one code a frame;
+  `all` spreads every code of the table over the channels and bands of a
+  block, moving from block to block.
+- **What the plan names wins; what it leaves out the shape flags give.**
+  `walk` is the walk the shape flags make: `--flat-amp` and `--flat-angle`
+  set it to code 0, and `--chaos N` bounds the chaos walk, which
+  `chaos walk:<max>` bounds instead. So `--flat-amp` with `amp 7` writes 7,
+  and `--flat-angle` with no `angle` line writes 0. `interp` wins over
+  `--interp`. A directive given twice is the last one.
+- **A plan of no directive is no plan:** an empty file, or one of comments,
+  writes the bytes the injector writes without `--plan`, and so does a plan
+  that names every default (`amp walk`, `angle walk`, `chaos walk`,
+  `trans walk`, `frames all`).
+- **What is refused, by name, before anything is written (exit 2):** a plan
+  file that cannot be read (its path is said), a directive the format does
+  not know and a value it does not take (`plan line N: unknown directive
+  ...`), and a code above the table (`plan line N: amp code 40 is above
+  31`). No output file is made.
+
+A stream written with a plan is a stream `verify` passes as clean: the test
+`crates/oadec-cli/tests/cli_ecpl_plan.rs` holds the four points above, and
+the three streams of the measurement against Dolby's decoder in the section
+before are written again from their plans to the same bytes.
+
 ## The bit allocation where enhanced coupling begins at its lowest sub-band
 
 With `ecplbegf` 0 the coupling channel begins at bin 13, which is band 13 of

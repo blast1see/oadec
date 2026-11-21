@@ -532,16 +532,17 @@ fn put_bits(buf: &mut [u8], at: usize, n: u32, value: u32) {
     }
 }
 
-/// Converts every coupled frame of `path` and writes the result to `out`.
-pub fn run(path: &Path, out: &Path, shape: Shape) -> Result<()> {
-    run_with_plan(path, out, shape, None)
-}
-
-/// [`run`], with the codes a plan file names (see [`Plan`]) over the shape.
+/// Converts every coupled frame of `path` and writes the result to `out`,
+/// with the codes a plan file names (see [`Plan`]) over the shape: a code
+/// the plan names wins over the shape flags, and the flags give the rest.
+/// Without a plan, or with one that names nothing, the output is what the
+/// shape flags alone give. The plan is read before `out` is made, so a plan
+/// that cannot be used leaves no output.
 ///
 /// # Errors
 ///
-/// The plan cannot be read or parsed, or as [`run`].
+/// The plan cannot be read or parsed; the stream cannot be read, or `out`
+/// cannot be written.
 pub fn run_with_plan(path: &Path, out: &Path, shape: Shape, plan: Option<&Path>) -> Result<()> {
     let plan = match plan {
         Some(p) => {
@@ -598,6 +599,51 @@ pub fn run_with_plan(path: &Path, out: &Path, shape: Shape, plan: Option<&Path>)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A code the plan names wins over the shape flags; `walk`, and a
+    /// directive left out, is what the flags give.
+    #[test]
+    fn a_plan_directive_wins_over_the_shape_flags() {
+        let flat = Shape {
+            flat_angle: true,
+            flat_amp: true,
+            chaos: 2,
+            interp: 0,
+        };
+        let at = At { frame: 3, block: 4 };
+        let named = Pattern {
+            shape: flat,
+            plan: Plan::parse(
+                "amp 7
+angle 40
+chaos walk:6
+interp 1
+",
+            )
+            .unwrap(),
+        };
+        let left = Pattern {
+            shape: flat,
+            plan: Plan::parse(
+                "# nothing named
+",
+            )
+            .unwrap(),
+        };
+        let walk_six = Shape { chaos: 6, ..flat };
+        for ch in 0..5 {
+            for bnd in 0..22 {
+                let (amp, angle, chaos) = named.codes(at, ch, bnd);
+                assert_eq!((amp, angle), (7, 40), "{ch}, {bnd}");
+                assert_eq!(chaos, coords(at.block, ch, bnd, walk_six).2);
+                assert_eq!(left.codes(at, ch, bnd), coords(at.block, ch, bnd, flat));
+                assert_eq!(left.codes(at, ch, bnd).0, 0, "--flat-amp gives code 0");
+                assert_eq!(left.codes(at, ch, bnd).1, 0, "--flat-angle gives code 0");
+            }
+        }
+        assert!(named.interp(at), "interp 1 wins over --interp 0");
+        assert!(!left.interp(at));
+    }
 
     use oadec_eac3::ecpl::{RandomValues, Synth};
     use oadec_eac3::imdct::Imdct;

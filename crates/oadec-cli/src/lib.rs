@@ -499,6 +499,10 @@ enum Command {
         /// `ecplangleintrp`: 0 or 1 fixed, 2 to alternate per block.
         #[arg(long, default_value_t = 2)]
         interp: u32,
+        /// A plan file that sets every enhanced coupling code it names (see
+        /// ecpl_inject.rs and docs/eac3.md); the shape flags fill the rest.
+        #[arg(long, value_name = "FILE")]
+        plan: Option<PathBuf>,
     },
     /// Rewrite `joc_dmx_config_idx` (table 47) in every JOC payload of an
     /// E-AC-3 stream and change nothing else, to ask a decoder what it does
@@ -1269,7 +1273,8 @@ where
             flat_angle,
             flat_amp,
             interp,
-        } => ecpl_inject::run(
+            plan,
+        } => ecpl_inject::run_with_plan(
             &file,
             &output,
             ecpl_inject::Shape {
@@ -1278,6 +1283,7 @@ where
                 flat_amp,
                 interp,
             },
+            plan.as_deref(),
         )
         .map(|()| ExitCode::SUCCESS),
         Command::Eac3JocConfig {
