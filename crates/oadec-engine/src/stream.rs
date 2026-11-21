@@ -1585,6 +1585,144 @@ pub fn stream_wave_header(spec: WavSpec) -> Vec<u8> {
     out
 }
 
+// ---------------------------------------------------------------------------
+// Every programme, or every presentation, of one stream in one pass.
+// ---------------------------------------------------------------------------
+
+/// What a decode of every member of a stream decodes: the programmes of an
+/// AC-3 family stream (`decode --programme all`), or the presentations of a
+/// TrueHD stream (`decode -p all` with `--json` or `--report`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Every {
+    /// Every programme an AC-3 or E-AC-3 stream carries, by the substream id
+    /// of its independent substream (clause E.2.8.3). A TrueHD stream
+    /// refuses it ([`EVERY_PROGRAMME_IS_AC3`]).
+    Programmes,
+    /// Every presentation a TrueHD or MLP stream carries itself: a
+    /// presentation that is a copy of another is that one, and is not a
+    /// member. An AC-3 family stream refuses it
+    /// ([`PRESENTATION_IS_TRUEHD`]).
+    Presentations,
+}
+
+/// The refusal of `--programme all` for a stream that has presentations.
+pub const EVERY_PROGRAMME_IS_AC3: &str = "--programme all decodes every programme of an AC-3 or \
+     E-AC-3 stream; a TrueHD stream has presentations: ask for -p all";
+
+/// Where a decode of every member writes what it makes: what a
+/// [`StreamSink`] is told, told for one member at a time.
+///
+/// A member is opened before anything of it is told, and the members are
+/// opened in the order the stream first carries them, which need not be the
+/// order of their ids. The events and samples of one member come in the
+/// order a decode of that member alone tells them ([`StreamSink`]); those of
+/// different members interleave as their units do in the stream.
+pub trait EverySink {
+    /// Member `id` is met for the first time.
+    ///
+    /// # Errors
+    /// Whatever the sink cannot make for it. An error here ends the decode
+    /// of member `id` alone ([`MemberEnd::Failed`]): nothing of it is told
+    /// after.
+    fn open(&mut self, id: u8) -> Result<()>;
+
+    /// Something the decode of member `id` has to say.
+    ///
+    /// # Errors
+    /// Whatever the sink cannot do with it. An error here ends the decode
+    /// of member `id` alone ([`MemberEnd::Failed`]).
+    fn event(&mut self, id: u8, event: &StreamEvent) -> Result<()>;
+
+    /// The samples of a unit of member `id`.
+    ///
+    /// # Errors
+    /// As [`Self::event`].
+    fn pcm(&mut self, id: u8, frame: PcmFrame<'_>) -> Result<()>;
+
+    /// As [`StreamSink::flush`], for every member at once.
+    ///
+    /// # Errors
+    /// Whatever the sink cannot do; the decode ends with it.
+    fn flush(&mut self) -> Result<()> {
+        Ok(())
+    }
+}
+
+/// What the decode of one member came to.
+#[derive(Debug)]
+pub enum MemberEnd {
+    /// It decoded to the end of the stream: what a decode of it alone
+    /// ([`decode_reader`] with [`PcmOptions::programme`] or
+    /// [`PcmOptions::presentation`] naming it) comes to, but for the queue,
+    /// which is the pass's ([`EveryEnd::queue`]), and its elapsed time.
+    Ended(Box<StreamEnd>),
+    /// It could not go on: what a decode of it alone ends with an error at
+    /// (exit 2). Nothing more of it was told after the error; what was told
+    /// before it stays told. The other members are decoded on.
+    Failed {
+        /// Why.
+        error: anyhow::Error,
+        /// Samples of it told before the error, per channel.
+        samples: u64,
+    },
+}
+
+impl MemberEnd {
+    /// The exit code a decode of this member alone ends with: 0, 4 or 7 by
+    /// its verdict, 2 where it failed.
+    #[must_use]
+    pub fn exit_code(&self) -> u8 {
+        match self {
+            Self::Ended(end) => end.verdict().exit_code(),
+            Self::Failed { .. } => 2,
+        }
+    }
+}
+
+/// What a decode of every member came to.
+#[derive(Debug)]
+pub struct EveryEnd {
+    /// The syntax of the stream.
+    pub format: Format,
+    /// Each member, by its id in ascending order.
+    pub members: Vec<(u8, MemberEnd)>,
+    /// Bytes of the stream read, once each.
+    pub bytes: u64,
+    /// How the queue between the reader and the decode was used.
+    pub queue: QueueStats,
+}
+
+/// Reads `from` once, to its end, on a thread of its own, as
+/// [`decode_reader`] does, and decodes every member `every` names into
+/// `sink`, each as a decode of it alone would.
+///
+/// The bytes are framed once and each unit is routed once: for an AC-3
+/// family stream a frame goes to the programme of the independent frame it
+/// is or follows, and each programme has a decoder of its own (dependent
+/// substreams, dither, overlap, look-ahead, concealment, layout and
+/// counts); for a TrueHD stream one [`oadec_truehd::MultiDecoder`] decodes
+/// every presentation and the checks of `verify` run once, beside it. What
+/// is held is bounded by the members and not by the length of the stream.
+///
+/// # Errors
+/// What reading gives; a stream that holds no member, said as a decode of
+/// one says it ([`crate::Error::NoStream`]); an option that does not apply
+/// to the codec, in the words a decode of one refuses it in, and
+/// [`EVERY_PROGRAMME_IS_AC3`] or [`PRESENTATION_IS_TRUEHD`] where `every`
+/// does not; and what [`EverySink::flush`] gives. An error of one member's
+/// decode, or of the sink of one member, is that member's
+/// ([`MemberEnd::Failed`]).
+pub fn decode_reader_every(
+    from: Box<dyn Read + Send>,
+    options: StreamOptions,
+    every: Every,
+    sink: &mut dyn EverySink,
+) -> Result<EveryEnd> {
+    // Stop 1 of round 4, package P1: the contract, not yet the decode.
+    let _ = (from, options, every, sink);
+    anyhow::bail!("decode of every {every:?} member is not implemented yet")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1840,5 +1978,183 @@ mod tests {
         };
         assert_eq!(int.frame_bytes(), 18);
         assert_eq!(float.frame_bytes(), 24);
+    }
+
+    /// A reader that counts the bytes it hands out and the reads asked of it
+    /// after it said the end.
+    #[derive(Debug)]
+    struct Counted {
+        bytes: io::Cursor<Vec<u8>>,
+        read: Arc<AtomicU64>,
+        past_end: Arc<AtomicU64>,
+        ended: bool,
+    }
+
+    impl Read for Counted {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            if self.ended {
+                self.past_end.fetch_add(1, Ordering::Relaxed);
+            }
+            let n = self.bytes.read(buf)?;
+            self.ended |= n == 0;
+            self.read.fetch_add(n as u64, Ordering::Relaxed);
+            Ok(n)
+        }
+    }
+
+    /// The frame groups of an E-AC-3 fixture, each independent frame
+    /// renumbered as programme `id`, its CRCs put right.
+    fn eac3_groups(name: &str, id: u8) -> Vec<Vec<u8>> {
+        let path = format!(
+            "{}/../oadec-eac3/tests/fixtures/{name}",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let stream = std::fs::read(path).expect("the fixture");
+        let mut groups: Vec<Vec<u8>> = Vec::new();
+        let mut at = 0;
+        while at < stream.len() {
+            let header = oadec_eac3::FrameHeader::parse(&stream[at..]).expect("whole frames");
+            let mut frame = stream[at..at + header.frame_bytes].to_vec();
+            if header.stream_type == oadec_eac3::StreamType::Dependent {
+                groups.last_mut().expect("a group").extend(frame);
+            } else {
+                frame[2] = (frame[2] & !0x38) | (id << 3);
+                oadec_eac3::repair::fix_crcs(&mut frame).expect("a whole syncframe");
+                groups.push(frame);
+            }
+            at += header.frame_bytes;
+        }
+        groups
+    }
+
+    /// Programme 0 in stereo and programme 1 in 7.1 (an independent and a
+    /// dependent substream), interleaved group by group.
+    fn two_programmes() -> Vec<u8> {
+        let zero = eac3_groups("eac3-20-coupled.ec3", 0);
+        let one = eac3_groups("eac3-71-tones.ec3", 1);
+        let mut out = Vec::new();
+        for i in 0..zero.len().max(one.len()) {
+            out.extend(zero.get(i).into_iter().flatten());
+            out.extend(one.get(i).into_iter().flatten());
+        }
+        out
+    }
+
+    /// The samples a sink was told, member by member.
+    #[derive(Debug, Default)]
+    struct Members {
+        opened: Vec<u8>,
+        pcm: BTreeMap<u8, Vec<u8>>,
+    }
+
+    impl EverySink for Members {
+        fn open(&mut self, id: u8) -> Result<()> {
+            self.opened.push(id);
+            Ok(())
+        }
+
+        fn event(&mut self, _: u8, _: &StreamEvent) -> Result<()> {
+            Ok(())
+        }
+
+        fn pcm(&mut self, id: u8, frame: PcmFrame<'_>) -> Result<()> {
+            self.pcm
+                .entry(id)
+                .or_default()
+                .extend_from_slice(frame.bytes);
+            Ok(())
+        }
+    }
+
+    /// The samples of one sink.
+    #[derive(Debug, Default)]
+    struct Samples(Vec<u8>);
+
+    impl StreamSink for Samples {
+        fn event(&mut self, _: &StreamEvent) -> Result<()> {
+            Ok(())
+        }
+
+        fn pcm(&mut self, frame: PcmFrame<'_>) -> Result<()> {
+            self.0.extend_from_slice(frame.bytes);
+            Ok(())
+        }
+    }
+
+    /// `decode --programme all` reads its stream once: every byte once, and
+    /// nothing asked of the reader after it said the end; and each programme
+    /// comes out as the decode of it alone, which reads the stream a time
+    /// for each.
+    #[test]
+    fn every_programme_is_decoded_from_one_read_of_the_stream() {
+        let stream = two_programmes();
+        let (read, past_end) = (Arc::new(AtomicU64::new(0)), Arc::new(AtomicU64::new(0)));
+        let reader = Counted {
+            bytes: io::Cursor::new(stream.clone()),
+            read: Arc::clone(&read),
+            past_end: Arc::clone(&past_end),
+            ended: false,
+        };
+        let options = StreamOptions {
+            on_layout_change: None,
+            ..StreamOptions::new("two programmes")
+        };
+        let mut members = Members::default();
+        let end = decode_reader_every(
+            Box::new(reader),
+            options.clone(),
+            Every::Programmes,
+            &mut members,
+        )
+        .expect("every programme decodes");
+        assert_eq!(read.load(Ordering::Relaxed), stream.len() as u64);
+        assert_eq!(past_end.load(Ordering::Relaxed), 0);
+        assert_eq!(end.bytes, stream.len() as u64);
+        assert_eq!(members.opened, [0, 1]);
+        let ids: Vec<u8> = end.members.iter().map(|(id, _)| *id).collect();
+        assert_eq!(ids, [0, 1]);
+        for (id, member) in &end.members {
+            assert_eq!(member.exit_code(), 0, "programme {id}");
+            let mut alone = Samples::default();
+            let mut one = options.clone();
+            one.pcm.programme = Some(*id);
+            decode_reader(Box::new(io::Cursor::new(stream.clone())), one, &mut alone)
+                .expect("the programme decodes alone");
+            assert!(
+                members.pcm.get(id) == Some(&alone.0),
+                "programme {id}: the samples differ from its decode alone"
+            );
+        }
+    }
+
+    /// A TrueHD stream has presentations and refuses `--programme all`, and
+    /// an E-AC-3 stream has programmes and refuses every presentation, each
+    /// in the words a decode of one refuses it in.
+    #[test]
+    fn every_member_is_refused_by_the_codec_that_has_none() {
+        let thd = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../oadec-cli/tests/fixtures/truehd-20-44k.thd"
+        ))
+        .expect("the fixture");
+        for (bytes, every, words) in [
+            (thd, Every::Programmes, EVERY_PROGRAMME_IS_AC3),
+            (
+                two_programmes(),
+                Every::Presentations,
+                PRESENTATION_IS_TRUEHD,
+            ),
+        ] {
+            let mut members = Members::default();
+            let e = decode_reader_every(
+                Box::new(io::Cursor::new(bytes)),
+                StreamOptions::new("refused"),
+                every,
+                &mut members,
+            )
+            .expect_err("refused");
+            assert!(e.to_string().contains(words), "{every:?}: {e}");
+            assert!(members.opened.is_empty(), "{every:?}");
+        }
     }
 }

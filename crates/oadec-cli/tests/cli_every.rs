@@ -139,6 +139,103 @@ fn every_presentation_in_one_pass_is_the_file_of_its_own_decode() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// `-p all --json` and `--report`: every presentation, as `-p N --json`
+/// reports it, with its id and file, by id in ascending order; the files
+/// those of `-p all` without a report; the combined exit code, and the same
+/// report on every run, to the byte.
+#[test]
+fn every_presentation_reported_is_the_report_of_each_and_the_same_every_run() {
+    let dir = temp("reported");
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures");
+    for name in ["authored-scene.mlp", "truehd-51-88k.thd", "mlp-41-48k.mlp"] {
+        let stream = fixtures.join(name);
+        let stream = stream.to_str().unwrap();
+        let plain_dir = dir.join(format!("{name}-plain"));
+        let json_dir = dir.join(format!("{name}-json"));
+        for d in [&plain_dir, &json_dir] {
+            std::fs::create_dir_all(d).unwrap();
+        }
+        let plain = oadec(&[
+            "decode",
+            stream,
+            "-p",
+            "all",
+            "-o",
+            plain_dir.join("out.wav").to_str().unwrap(),
+        ]);
+        let reports: Vec<Vec<u8>> = (0..2)
+            .map(|k| {
+                let report = dir.join(format!("{name}-{k}.json"));
+                let ran = oadec(&[
+                    "decode",
+                    stream,
+                    "-p",
+                    "all",
+                    "--report",
+                    report.to_str().unwrap(),
+                    "-o",
+                    json_dir.join("out.wav").to_str().unwrap(),
+                ]);
+                assert_eq!(ran.status.code(), plain.status.code(), "{name}");
+                std::fs::read(&report).expect("a report")
+            })
+            .collect();
+        assert!(reports[0] == reports[1], "{name}: two runs, two reports");
+        let report: serde_json::Value = serde_json::from_slice(&reports[0]).unwrap();
+        assert_eq!(
+            report["combined_exit_code"],
+            plain.status.code().unwrap(),
+            "{name}"
+        );
+        let entries = report["presentations"].as_array().expect("presentations");
+        let ids: Vec<usize> = entries
+            .iter()
+            .map(|e| e["id"].as_u64().unwrap() as usize)
+            .collect();
+        assert_eq!(ids, carried(stream), "{name}");
+        for entry in entries {
+            let p = entry["id"].to_string();
+            let file = format!("out.p{p}.wav");
+            assert!(
+                std::fs::read(json_dir.join(&file)).unwrap()
+                    == std::fs::read(plain_dir.join(&file)).unwrap(),
+                "{name}: presentation {p}"
+            );
+            let one = oadec(&[
+                "decode",
+                stream,
+                "-p",
+                &p,
+                "--json",
+                "-o",
+                dir.join("one.wav").to_str().unwrap(),
+            ]);
+            let alone: serde_json::Value = serde_json::from_slice(&one.stdout).expect("JSON");
+            for (key, value) in alone.as_object().unwrap() {
+                if key != "parts" {
+                    assert_eq!(&entry[key], value, "{name}: presentation {p}: {key}");
+                }
+            }
+            assert_eq!(entry["parts"], serde_json::json!([entry["file"]]));
+        }
+        // --json says it on stdout
+        let json = oadec(&[
+            "decode",
+            stream,
+            "-p",
+            "all",
+            "--json",
+            "-o",
+            json_dir.join("out.wav").to_str().unwrap(),
+        ]);
+        let said: serde_json::Value = serde_json::from_slice(&json.stdout).expect("JSON on stdout");
+        assert_eq!(said, report, "{name}");
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 #[test]
 fn every_presentation_is_refused_where_it_cannot_be_files_of_samples() {
     let dir = temp("refused");
@@ -148,18 +245,42 @@ fn every_presentation_is_refused_where_it_cannot_be_files_of_samples() {
     let thd = fixtures.join("authored-scene.mlp");
     let ec3 = fixtures.join("authored-scene.ec3");
     let out = dir.join("out.wav");
-    let (thd, ec3, out) = (
+    let stats = dir.join("stats.json");
+    let (thd, ec3, out, stats) = (
         thd.to_str().unwrap(),
         ec3.to_str().unwrap(),
         out.to_str().unwrap(),
+        stats.to_str().unwrap(),
     );
     for args in [
         vec!["decode", thd, "-p", "all", "-o", "-"],
+        vec!["decode", thd, "-p", "all", "--json", "-o", "-"],
         vec!["decode", thd, "-p", "all", "--format", "damf", "-o", out],
         vec!["decode", thd, "-p", "all", "--start", "1", "-o", out],
         vec!["decode", thd, "-p", "all", "--on-error", "stop", "-o", out],
-        vec!["decode", thd, "-p", "all", "--json", "-o", out],
+        vec![
+            "decode",
+            thd,
+            "-p",
+            "all",
+            "--on-layout-change",
+            "split",
+            "-o",
+            out,
+        ],
+        vec![
+            "decode",
+            thd,
+            "-p",
+            "all",
+            "--pipeline-stats",
+            stats,
+            "-o",
+            out,
+        ],
+        vec!["decode", thd, "-p", "all", "--programme", "all", "-o", out],
         vec!["decode", ec3, "-p", "all", "-o", out],
+        vec!["decode", ec3, "-p", "all", "--json", "-o", out],
         vec!["decode", thd, "-p", "every", "-o", out],
     ] {
         let ran = oadec(&args);
