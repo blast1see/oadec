@@ -11,19 +11,19 @@
 //! `decode -p all` without `--json` or `--report` is not here: it is
 //! `oadec_engine::decode::run_every`, as it always was.
 
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use oadec_engine::api::{PcmFile, PcmOptions, PcmSink, Verdict};
+use oadec_engine::api::{PcmFile, PcmOptions, PcmSink};
 use oadec_engine::decode::{presentation_file, programme_file};
 use oadec_engine::source::{STDIN, STDIN_NAME, Watcher, piped_stdin};
 use oadec_engine::stream::{
-    Every, EveryEnd, EverySink, MemberEnd, PcmFrame, StreamEvent, StreamOptions,
-    decode_reader_every,
+    Every, EverySink, MemberEnd, PcmFrame, StreamEvent, StreamOptions, decode_reader_every,
 };
 use serde_json::{Value, json};
 
@@ -109,21 +109,34 @@ pub(crate) struct Asked {
     pub pipeline_stats: Option<PathBuf>,
 }
 
+/// The file member `id` is written to.
+fn file_of(asked: &Asked, id: u8) -> PathBuf {
+    match asked.every {
+        Every::Programmes => programme_file(&asked.output, id),
+        Every::Presentations => presentation_file(&asked.output, usize::from(id)),
+    }
+}
+
+/// What a member is called.
+fn noun(every: Every) -> &'static str {
+    match every {
+        Every::Programmes => "programme",
+        Every::Presentations => "presentation",
+    }
+}
+
 /// One member as the run writes it.
 struct Member {
-    file: PathBuf,
     out: PcmFile,
+    /// What the report lists: everything but the remarks, in order.
     events: Vec<StreamEvent>,
-    /// Its decode ended with an error of the sink: nothing more of it is
-    /// written.
-    failed: bool,
 }
 
 /// The files of every member, made as each is met.
 struct Members<'a> {
     asked: &'a Asked,
     err: &'a mut dyn Write,
-    by_id: std::collections::BTreeMap<u8, Member>,
+    by_id: BTreeMap<u8, Member>,
 }
 
 impl std::fmt::Debug for Members<'_> {
@@ -133,13 +146,6 @@ impl std::fmt::Debug for Members<'_> {
 }
 
 impl Members<'_> {
-    fn noun(&self) -> &'static str {
-        match self.asked.every {
-            Every::Programmes => "programme",
-            Every::Presentations => "presentation",
-        }
-    }
-
     fn member(&mut self, id: u8) -> Result<&mut Member> {
         self.by_id
             .get_mut(&id)
@@ -149,32 +155,27 @@ impl Members<'_> {
 
 impl EverySink for Members<'_> {
     fn open(&mut self, id: u8) -> Result<()> {
-        let file = match self.asked.every {
-            Every::Programmes => programme_file(&self.asked.output, id),
-            Every::Presentations => presentation_file(&self.asked.output, usize::from(id)),
-        };
-        let out = PcmFile::create(&file, self.asked.wave)?;
+        let out = PcmFile::create(&file_of(self.asked, id), self.asked.wave)?;
         self.by_id.insert(
             id,
             Member {
-                file,
                 out,
                 events: Vec::new(),
-                failed: false,
             },
         );
         Ok(())
     }
 
     fn event(&mut self, id: u8, event: &StreamEvent) -> Result<()> {
-        let noun = self.noun();
         if let StreamEvent::Remark(line) = event {
             // what the decode of one says, said of its member
+            let noun = noun(self.asked.every);
             let line = match line.strip_prefix("warning: ") {
                 Some(rest) => format!("warning: {noun} {id}: {rest}"),
                 None => format!("{noun} {id}: {line}"),
             };
             writeln!(self.err, "{line}")?;
+            return Ok(());
         }
         let member = self.member(id)?;
         if let StreamEvent::Opened { layout, rate, .. } = event {
@@ -185,10 +186,7 @@ impl EverySink for Members<'_> {
     }
 
     fn pcm(&mut self, id: u8, frame: PcmFrame<'_>) -> Result<()> {
-        let member = self.member(id)?;
-        let written = member.out.write(frame.bytes);
-        member.failed |= written.is_err();
-        Ok(written?)
+        Ok(self.member(id)?.out.write(frame.bytes)?)
     }
 }
 
@@ -218,15 +216,32 @@ pub(crate) fn decode(asked: &Asked, err: &mut dyn Write) -> Result<ExitCode> {
     let mut members = Members {
         asked,
         err,
-        by_id: std::collections::BTreeMap::new(),
+        by_id: BTreeMap::new(),
     };
     let end = decode_reader_every(reader, options, asked.every, &mut members)?;
     let Members { by_id, err, .. } = members;
-    let mut written = std::collections::BTreeMap::new();
+    let mut events = BTreeMap::new();
+    let mut finished = BTreeMap::new();
     for (id, mut member) in by_id {
-        member.out.finish()?;
-        written.insert(id, (member.file, member.events));
+        // a file that cannot be finished is its member's failure
+        finished.insert(id, member.out.finish());
+        events.insert(id, member.events);
     }
+    let members: Vec<(u8, MemberEnd)> = end
+        .members
+        .into_iter()
+        .map(|(id, member)| match (member, finished.remove(&id)) {
+            (MemberEnd::Ended(end), Some(Err(e))) => (
+                id,
+                MemberEnd::Failed {
+                    error: anyhow::Error::new(e)
+                        .context(format!("writing {}", file_of(asked, id).display())),
+                    samples: end.samples,
+                },
+            ),
+            (member, _) => (id, member),
+        })
+        .collect();
     if let Some(path) = &asked.pipeline_stats {
         let stats = json!({
             "queue_bound": end.queue.bound,
@@ -239,8 +254,16 @@ pub(crate) fn decode(asked: &Asked, err: &mut dyn Write) -> Result<ExitCode> {
         std::fs::write(path, format!("{stats:#}\n"))
             .with_context(|| format!("writing {}", path.display()))?;
     }
-    let combined = combined_exit_code(end.members.iter().map(|(_, m)| m.exit_code()));
-    let report = report(&name, asked, &end, &written, combined);
+    let combined = combined_exit_code(members.iter().map(|(_, m)| m.exit_code()));
+    let report = report(
+        &name,
+        asked,
+        end.format.name(),
+        end.bytes,
+        &members,
+        &events,
+        combined,
+    );
     if let Some(path) = &asked.report {
         let text = format!("{report:#}\n");
         if path.as_os_str() == crate::pipe::STDOUT {
@@ -253,16 +276,10 @@ pub(crate) fn decode(asked: &Asked, err: &mut dyn Write) -> Result<ExitCode> {
         io::stdout().write_all(format!("{report}\n").as_bytes())?;
         return Ok(ExitCode::from(combined));
     }
-    let noun = match asked.every {
-        Every::Programmes => "programme",
-        Every::Presentations => "presentation",
-    };
+    let noun = noun(asked.every);
     let mut stdout = io::stdout();
-    for (id, member) in &end.members {
-        let file = written
-            .get(id)
-            .map_or_else(String::new, |(file, _)| file.display().to_string());
-        writeln!(err, "{noun} {id}: {file}")?;
+    for (id, member) in &members {
+        writeln!(err, "{noun} {id}: {}", file_of(asked, *id).display())?;
         match member {
             MemberEnd::Ended(end) => {
                 end.print_summary(&mut stdout, &mut *err)?;
@@ -279,25 +296,44 @@ pub(crate) fn decode(asked: &Asked, err: &mut dyn Write) -> Result<ExitCode> {
 
 /// The report of a decode of every member, as `--json` and `--report` write
 /// it: the stream, every member by its id in ascending order, and the
-/// combined exit code. Each member's entry holds what the report of its
-/// decode alone holds, and its `id` and `file`; a member whose decode could
-/// not go on holds what it wrote before, its `error`, and exit code 2. It
+/// combined exit code. Each member's entry is the report of its decode alone
+/// ([`crate::samples::report`]), its `parts` its file, with its `id` and
+/// `file`; a member whose decode could not go on has its `id`, `file`,
+/// `error`, the samples it wrote, the verdict `failed` and exit code 2. It
 /// holds no time, so the report of a stream is the same on every run.
 fn report(
     name: &str,
     asked: &Asked,
-    end: &EveryEnd,
-    written: &std::collections::BTreeMap<u8, (PathBuf, Vec<StreamEvent>)>,
+    format: &str,
+    bytes: u64,
+    members: &[(u8, MemberEnd)],
+    events: &BTreeMap<u8, Vec<StreamEvent>>,
     combined: u8,
 ) -> Value {
-    let members: Vec<Value> = end
-        .members
+    let entries: Vec<Value> = members
         .iter()
         .map(|(id, member)| {
-            let (file, events) = written
-                .get(id)
-                .map_or((None, &[][..]), |(f, e)| (Some(f.as_path()), &e[..]));
-            member_report(name, asked.wave, *id, file, events, member)
+            let file = file_of(asked, *id);
+            let mut entry = match member {
+                MemberEnd::Ended(end) => crate::samples::report(
+                    name,
+                    asked.wave,
+                    end,
+                    events.get(id).map_or(&[][..], Vec::as_slice),
+                    std::slice::from_ref(&file),
+                    end.verdict(),
+                ),
+                MemberEnd::Failed { error, samples } => json!({
+                    "stream": name,
+                    "samples": samples,
+                    "error": format!("{error:#}"),
+                    "verdict": "failed",
+                    "exit_code": member.exit_code(),
+                }),
+            };
+            entry["id"] = json!(id);
+            entry["file"] = json!(file.display().to_string());
+            entry
         })
         .collect();
     let key = match asked.every {
@@ -306,52 +342,12 @@ fn report(
     };
     let mut report = json!({
         "stream": name,
-        "format": end.format.name(),
-        "bytes": end.bytes,
+        "format": format,
+        "bytes": bytes,
         "combined_exit_code": combined,
     });
-    report[key] = Value::Array(members);
+    report[key] = Value::Array(entries);
     report
-}
-
-/// The entry of one member.
-///
-/// Stop 1: the fields of the report of the decode of one are made by
-/// `samples::report`, which this package may not change; until the lead
-/// says how the two are to share it (the report of stop 1), the entry holds
-/// what is known here, and the tests hold it to the report of the decode of
-/// one, field by field.
-fn member_report(
-    name: &str,
-    wave: bool,
-    id: u8,
-    file: Option<&Path>,
-    events: &[StreamEvent],
-    member: &MemberEnd,
-) -> Value {
-    let (verdict, samples, error) = match member {
-        MemberEnd::Ended(end) => (
-            match end.verdict() {
-                Verdict::Clean => "clean",
-                Verdict::Lossy => "lossy",
-                Verdict::Faulty => "faulty",
-            },
-            end.samples,
-            None,
-        ),
-        MemberEnd::Failed { error, samples } => ("failed", *samples, Some(format!("{error:#}"))),
-    };
-    json!({
-        "id": id,
-        "file": file.map(|f| f.display().to_string()),
-        "stream": name,
-        "format": if wave { "wav" } else { "pcm" },
-        "samples": samples,
-        "events": events.len(),
-        "verdict": verdict,
-        "exit_code": member.exit_code(),
-        "error": error,
-    })
 }
 
 #[cfg(test)]

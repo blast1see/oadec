@@ -50,6 +50,7 @@ use std::time::Instant;
 
 use anyhow::{Context, Result};
 use oadec_diag::{Rule, Tally};
+use oadec_eac3::FrameHeader;
 use oadec_truehd::{Extractor, Unit};
 
 use crate::api::{
@@ -439,6 +440,9 @@ pub struct StreamDecoder {
     /// what the decode tells of its units: for a test that holds the checks
     /// back. Never set outside the tests.
     gate: Option<Arc<Gate>>,
+    /// The members of a decode of every one ([`decode_reader_every`]);
+    /// `None` for a decode of one.
+    every: Option<Every>,
 }
 
 /// Holds the checks of a TrueHD stream back until a test lets them go, and
@@ -512,6 +516,34 @@ enum Codec {
     Ac3(Box<Ac3>),
 }
 
+/// A [`StreamSink`] as the one member of a decode of one: what the codecs
+/// tell their members goes to it, whatever the member.
+struct One<'a>(&'a mut dyn StreamSink);
+
+impl std::fmt::Debug for One<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("One")
+    }
+}
+
+impl EverySink for One<'_> {
+    fn open(&mut self, _: u8) -> Result<()> {
+        Ok(())
+    }
+
+    fn event(&mut self, _: u8, event: &StreamEvent) -> Result<()> {
+        self.0.event(event)
+    }
+
+    fn pcm(&mut self, _: u8, frame: PcmFrame<'_>) -> Result<()> {
+        self.0.pcm(frame)
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        self.0.flush()
+    }
+}
+
 impl StreamDecoder {
     /// A decode that has been pushed nothing yet.
     #[must_use]
@@ -530,6 +562,15 @@ impl StreamDecoder {
             walking,
             failed: false,
             gate: None,
+            every: None,
+        }
+    }
+
+    /// A decode of every member `every` names ([`decode_reader_every`]).
+    fn of_every(options: StreamOptions, every: Every) -> Self {
+        Self {
+            every: Some(every),
+            ..Self::new(options)
         }
     }
 
@@ -555,13 +596,18 @@ impl StreamDecoder {
     /// does not apply to its codec among them, what the sink gives, and
     /// when a call before this one ended with an error.
     pub fn push(&mut self, bytes: &[u8], sink: &mut dyn StreamSink) -> Result<()> {
+        self.push_to(bytes, &mut One(sink))
+    }
+
+    /// [`Self::push`], told member by member.
+    fn push_to(&mut self, bytes: &[u8], sink: &mut dyn EverySink) -> Result<()> {
         self.going()?;
         let pushed = self.push_on(bytes, sink);
         self.failed = pushed.is_err();
         pushed
     }
 
-    fn push_on(&mut self, bytes: &[u8], sink: &mut dyn StreamSink) -> Result<()> {
+    fn push_on(&mut self, bytes: &[u8], sink: &mut dyn EverySink) -> Result<()> {
         self.pushed += bytes.len() as u64;
         if let Some(codec) = &mut self.codec {
             return feed(codec, bytes, &mut self.walking, sink);
@@ -585,7 +631,22 @@ impl StreamDecoder {
     /// before this one ended with an error. A stream that held nothing, and
     /// a start past its end, deliver nothing, and the error says so by its
     /// kind: [`crate::Error::NoStream`].
-    pub fn finish(mut self, sink: &mut dyn StreamSink) -> Result<StreamEnd> {
+    pub fn finish(self, sink: &mut dyn StreamSink) -> Result<StreamEnd> {
+        let (_, mut members) = self.finish_members(&mut One(sink))?;
+        // a decode of one has one member, and fails where it does
+        match members.pop() {
+            Some((_, MemberEnd::Ended(end))) => Ok(*end),
+            Some((_, MemberEnd::Failed { error, .. })) => Err(error),
+            None => anyhow::bail!("the decode came to nothing"),
+        }
+    }
+
+    /// [`Self::finish`], every member: the syntax of the stream, and what
+    /// each member came to, by its id in ascending order.
+    fn finish_members(
+        mut self,
+        sink: &mut dyn EverySink,
+    ) -> Result<(Format, Vec<(u8, MemberEnd)>)> {
         self.going()?;
         let codec = match self.codec.take() {
             Some(codec) => codec,
@@ -597,10 +658,12 @@ impl StreamDecoder {
             }
         };
         let elapsed = || self.started.elapsed().as_secs_f64();
-        match codec {
-            Codec::TrueHd(t) => t.finish(&self.options, self.pushed, sink, elapsed),
-            Codec::Ac3(a) => a.finish(&self.options, self.pushed, sink, elapsed),
-        }
+        let (format, mut members) = match codec {
+            Codec::TrueHd(t) => t.finish(&self.options, self.pushed, sink, elapsed)?,
+            Codec::Ac3(a) => a.finish(&self.options, self.pushed, sink, elapsed)?,
+        };
+        members.sort_by_key(|(id, _)| *id);
+        Ok((format, members))
     }
 
     /// Tells `sink` everything decoded so far: what waits for the checks of
@@ -613,6 +676,11 @@ impl StreamDecoder {
     /// What the sink gives, and when a call before this one ended with an
     /// error.
     pub fn flush(&mut self, sink: &mut dyn StreamSink) -> Result<()> {
+        self.flush_to(&mut One(sink))
+    }
+
+    /// [`Self::flush`], told member by member.
+    fn flush_to(&mut self, sink: &mut dyn EverySink) -> Result<()> {
         self.going()?;
         let flushed = match &mut self.codec {
             Some(Codec::TrueHd(t)) => t.tell(sink, true),
@@ -639,6 +707,9 @@ impl StreamDecoder {
     fn begin(&self, head: &[u8]) -> Result<Codec> {
         let pcm = &self.options.pcm;
         Ok(if eac3::is_eac3_head(head) {
+            if self.every == Some(Every::Presentations) {
+                return Err(refusal(PRESENTATION_IS_TRUEHD));
+            }
             if pcm.on_error.is_some() {
                 return Err(refusal(ON_ERROR_IS_TRUEHD));
             }
@@ -651,8 +722,14 @@ impl StreamDecoder {
             if pcm.presentation.is_some() {
                 return Err(refusal(PRESENTATION_IS_TRUEHD));
             }
-            Codec::Ac3(Box::new(Ac3::new(&self.options)))
+            Codec::Ac3(Box::new(Ac3::new(
+                &self.options,
+                self.every == Some(Every::Programmes),
+            )))
         } else {
+            if self.every == Some(Every::Programmes) {
+                return Err(refusal(EVERY_PROGRAMME_IS_AC3));
+            }
             if pcm.core_only || !pcm.dither || !pcm.tpnp || pcm.ecpl_full {
                 return Err(refusal(CORE_DECODE_IS_AC3));
             }
@@ -665,7 +742,11 @@ impl StreamDecoder {
             if self.options.on_layout_change == Some(LayoutChange::Fixed) {
                 return Err(refusal(FIXED_LAYOUT_IS_EAC3));
             }
-            Codec::TrueHd(Box::new(TrueHd::new(&self.options, self.gate.clone())))
+            Codec::TrueHd(Box::new(TrueHd::new(
+                &self.options,
+                self.gate.clone(),
+                self.every == Some(Every::Presentations),
+            )))
         })
     }
 }
@@ -675,7 +756,7 @@ fn feed(
     codec: &mut Codec,
     bytes: &[u8],
     walking: &mut Walking,
-    sink: &mut dyn StreamSink,
+    sink: &mut dyn EverySink,
 ) -> Result<()> {
     match codec {
         Codec::TrueHd(t) => t.push(bytes, walking, sink),
@@ -752,8 +833,8 @@ impl decode::PcmSink for Kept {
 #[derive(Debug)]
 struct Waiting {
     unit: u64,
-    events: Vec<StreamEvent>,
-    pcm: Vec<u8>,
+    /// What each member made of it: its events, and its samples.
+    told: Vec<(Vec<StreamEvent>, Vec<u8>)>,
 }
 
 /// The checks of `verify` over the units of a TrueHD stream, on a thread of
@@ -887,21 +968,28 @@ impl Drop for Checks {
 }
 
 /// A TrueHD or MLP stream as it arrives.
+///
+/// Its units are framed once and checked once; each member, a presentation,
+/// is a [`ThdLane`] with a delivery of its own, which is what a decode of
+/// that presentation alone has. A decode of one has one lane.
 #[derive(Debug)]
 struct TrueHd {
     extractor: Extractor,
     opts: decode::Options,
     /// A change of configuration is followed ([`LayoutChange::Split`]).
     follow: bool,
-    delivery: Option<Delivery>,
+    /// Every presentation the stream carries is a member, and not the one
+    /// the options name.
+    every: bool,
+    /// The samples go into a WAVE stream or file, which names its channels.
+    wave: bool,
+    /// The members, once the first unit has said which they are.
+    lanes: Vec<ThdLane>,
     checks: Checks,
     waiting: VecDeque<Waiting>,
     /// Units framed so far.
     units: u64,
     format: Format,
-    opened: Option<(Layout, u32)>,
-    kept: Kept,
-    said: Vec<u8>,
     /// Buffers of samples that were told, to be written into again: a unit
     /// is a few hundred samples, and there are a million of them in an hour.
     spare: Vec<Vec<u8>>,
@@ -911,83 +999,43 @@ struct TrueHd {
     gate: Option<Arc<Gate>>,
 }
 
-impl TrueHd {
-    fn new(options: &StreamOptions, gate: Option<Arc<Gate>>) -> Self {
-        let pcm = &options.pcm;
-        Self {
-            extractor: Extractor::new(),
-            follow: options.on_layout_change == Some(LayoutChange::Split),
-            opts: decode::Options {
-                presentation: pcm.presentation,
-                format: decode::Format::Pcm,
-                order: pcm.order,
-                keep_duplicates: pcm.keep_duplicates,
-                start: pcm.start,
-                on_error: pcm.on_error.unwrap_or(OnError::Conceal),
-            },
-            delivery: None,
-            checks: Checks::spawn(&options.name, gate.clone()),
-            waiting: VecDeque::new(),
-            units: 0,
-            format: Format::TrueHd,
-            opened: None,
-            kept: Kept {
-                wave: options.wave,
-                ..Kept::default()
-            },
-            said: Vec::new(),
-            spare: Vec::new(),
-            waiting_high: 0,
-            gate,
-        }
+/// One presentation of a TrueHD stream as it arrives.
+#[derive(Debug)]
+struct ThdLane {
+    presentation: usize,
+    delivery: Delivery,
+    opened: Option<(Layout, u32)>,
+    kept: Kept,
+    said: Vec<u8>,
+    /// Its decode could not go on: at which unit, and why. Nothing of it
+    /// from that unit on is told.
+    failed: Option<(u64, anyhow::Error)>,
+}
+
+impl ThdLane {
+    fn id(&self) -> u8 {
+        self.presentation as u8
     }
 
-    fn push(
+    /// Whether what was made of `unit` is still told.
+    fn tells(&self, unit: u64) -> bool {
+        self.failed.as_ref().is_none_or(|(at, _)| unit < *at)
+    }
+
+    /// Decodes `unit`, the `index`th, and gives back what it came to: the
+    /// events, and the samples.
+    fn take(
         &mut self,
-        bytes: &[u8],
-        walking: &mut Walking,
-        sink: &mut dyn StreamSink,
-    ) -> Result<()> {
-        self.extractor.push(bytes);
-        while let Some(unit) = self.extractor.next_unit()? {
-            walking.at(unit.offset);
-            self.unit(unit, sink)?;
-        }
-        Ok(())
-    }
-
-    fn unit(&mut self, unit: Unit, sink: &mut dyn StreamSink) -> Result<()> {
-        let index = self.units;
-        self.units += 1;
-        let delivery = if let Some(delivery) = &mut self.delivery {
-            delivery
-        } else {
-            let presentation = self
-                .opts
-                .presentation
-                .unwrap_or_else(|| decode::default_presentation_of(Some(&unit)));
-            if unit.has_major_sync
-                && unit.bytes.get(4..8) == Some(&oadec_truehd::sync::SYNC_FBB.to_be_bytes()[..])
-            {
-                self.format = Format::Mlp;
-            }
-            let mut delivery = Delivery::new(&self.opts, presentation)?;
-            if self.follow {
-                delivery.session.follow_changes();
-            }
-            self.delivery.insert(delivery)
-        };
+        unit: &Unit,
+        index: u64,
+        format: Format,
+        spare: &mut Vec<Vec<u8>>,
+    ) -> Result<(Vec<StreamEvent>, Vec<u8>)> {
+        let delivery = &mut self.delivery;
         self.kept.bytes.clear();
         self.said.clear();
         let opened_before = self.kept.spec.is_some();
-        let taken = match delivery.take(&unit, &mut self.kept, &mut self.said) {
-            Ok(taken) => taken,
-            Err(e) => {
-                // what was decoded before goes out before the error does
-                self.tell(sink, true)?;
-                return Err(e);
-            }
-        };
+        let taken = delivery.take(unit, &mut self.kept, &mut self.said)?;
         let mut events = Vec::new();
         remarks(&self.said, &mut events);
         if !opened_before && let Some(spec) = self.kept.spec {
@@ -998,7 +1046,7 @@ impl TrueHd {
             };
             self.opened = Some((layout, spec.rate));
             events.push(StreamEvent::Opened {
-                format: self.format,
+                format,
                 layout,
                 rate: spec.rate,
             });
@@ -1051,16 +1099,147 @@ impl TrueHd {
             }
         }
         let pcm = if matches!(taken, Taken::Written | Taken::Changed) {
-            let spare = self.spare.pop().unwrap_or_default();
+            let spare = spare.pop().unwrap_or_default();
             std::mem::replace(&mut self.kept.bytes, spare)
         } else {
             Vec::new()
         };
-        self.waiting.push_back(Waiting {
-            unit: index,
-            events,
-            pcm,
-        });
+        Ok((events, pcm))
+    }
+}
+
+impl TrueHd {
+    fn new(options: &StreamOptions, gate: Option<Arc<Gate>>, every: bool) -> Self {
+        let pcm = &options.pcm;
+        Self {
+            extractor: Extractor::new(),
+            follow: options.on_layout_change == Some(LayoutChange::Split),
+            every,
+            wave: options.wave,
+            opts: decode::Options {
+                presentation: pcm.presentation,
+                format: decode::Format::Pcm,
+                order: pcm.order,
+                keep_duplicates: pcm.keep_duplicates,
+                start: pcm.start,
+                on_error: pcm.on_error.unwrap_or(OnError::Conceal),
+            },
+            lanes: Vec::new(),
+            checks: Checks::spawn(&options.name, gate.clone()),
+            waiting: VecDeque::new(),
+            units: 0,
+            format: Format::TrueHd,
+            spare: Vec::new(),
+            waiting_high: 0,
+            gate,
+        }
+    }
+
+    fn push(
+        &mut self,
+        bytes: &[u8],
+        walking: &mut Walking,
+        sink: &mut dyn EverySink,
+    ) -> Result<()> {
+        self.extractor.push(bytes);
+        while let Some(unit) = self.extractor.next_unit()? {
+            walking.at(unit.offset);
+            self.unit(unit, sink)?;
+        }
+        Ok(())
+    }
+
+    /// The members, told by the first unit: the presentation the options
+    /// name, or the default; or every presentation its major sync says the
+    /// stream carries itself, each opened in `sink`.
+    fn lanes_of(&self, unit: &Unit, sink: &mut dyn EverySink) -> Result<Vec<ThdLane>> {
+        let presentations = if self.every {
+            let (au, _) = oadec_truehd::AccessUnit::parse(&unit.bytes, None)?;
+            let Some(ms) = au.major_sync else {
+                anyhow::bail!("the stream does not start with a major sync");
+            };
+            let config = oadec_truehd::StreamConfig::from_major_sync(&ms)?;
+            (0..oadec_truehd::MAX_PRESENTATIONS)
+                .filter(|&p| config.presentations.is_carried(p))
+                .collect()
+        } else {
+            vec![
+                self.opts
+                    .presentation
+                    .unwrap_or_else(|| decode::default_presentation_of(Some(unit))),
+            ]
+        };
+        let mut lanes = Vec::with_capacity(presentations.len());
+        for presentation in presentations {
+            let mut delivery = Delivery::new(&self.opts, presentation)?;
+            if self.follow {
+                delivery.session.follow_changes();
+            }
+            let opened = sink.open(presentation as u8);
+            lanes.push(ThdLane {
+                presentation,
+                delivery,
+                opened: None,
+                kept: Kept {
+                    wave: self.wave,
+                    ..Kept::default()
+                },
+                said: Vec::new(),
+                failed: None,
+            });
+            if let Err(e) = opened {
+                Self::fail(self.every, lanes.last_mut(), 0, e)?;
+            }
+        }
+        Ok(lanes)
+    }
+
+    /// A member could not go on at unit `at`: in a decode of one that is
+    /// the end of the decode, and in a decode of every member the end of
+    /// that member's.
+    fn fail(every: bool, lane: Option<&mut ThdLane>, at: u64, e: anyhow::Error) -> Result<()> {
+        match lane {
+            Some(lane) if every => {
+                lane.failed = Some((at, e));
+                Ok(())
+            }
+            _ => Err(e),
+        }
+    }
+
+    fn unit(&mut self, unit: Unit, sink: &mut dyn EverySink) -> Result<()> {
+        let index = self.units;
+        self.units += 1;
+        if self.lanes.is_empty() {
+            if unit.has_major_sync
+                && unit.bytes.get(4..8) == Some(&oadec_truehd::sync::SYNC_FBB.to_be_bytes()[..])
+            {
+                self.format = Format::Mlp;
+            }
+            self.lanes = self.lanes_of(&unit, sink)?;
+        }
+        let mut told = Vec::with_capacity(self.lanes.len());
+        for k in 0..self.lanes.len() {
+            let lane = &mut self.lanes[k];
+            if lane.failed.is_some() {
+                told.push((Vec::new(), Vec::new()));
+                continue;
+            }
+            match lane.take(&unit, index, self.format, &mut self.spare) {
+                Ok(made) => told.push(made),
+                Err(e) => {
+                    if !self.every {
+                        // what was decoded before goes out before the error
+                        // does
+                        self.tell(sink, true)?;
+                        return Err(e);
+                    }
+                    self.lanes[k].failed = Some((index, e));
+                    told.push((Vec::new(), Vec::new()));
+                }
+            }
+        }
+        self.waiting.push_back(Waiting { unit: index, told });
         self.waiting_high = self.waiting_high.max(self.waiting.len());
         if let Some(gate) = &self.gate {
             gate.decoded(self.waiting.len());
@@ -1070,10 +1249,10 @@ impl TrueHd {
         self.tell(sink, false)
     }
 
-    /// Tells `sink` every unit whose checks are in, in order: its findings,
-    /// its events, its samples. With `all`, or with too many units waiting,
-    /// it waits for the checks.
-    fn tell(&mut self, sink: &mut dyn StreamSink, all: bool) -> Result<()> {
+    /// Tells `sink` every unit whose checks are in, in order: of each
+    /// member, its findings, its events, its samples. With `all`, or with
+    /// too many units waiting, it waits for the checks.
+    fn tell(&mut self, sink: &mut dyn EverySink, all: bool) -> Result<()> {
         while !self.waiting.is_empty() {
             let wait = all || self.waiting.len() > UNITS_AHEAD;
             if wait
@@ -1088,19 +1267,18 @@ impl TrueHd {
             let Some(unit) = self.waiting.pop_front() else {
                 return Ok(());
             };
-            for f in found {
-                sink.event(&StreamEvent::Finding(f))?;
-            }
-            for e in &unit.events {
-                sink.event(e)?;
-            }
-            if !unit.pcm.is_empty() {
-                sink.pcm(PcmFrame {
-                    unit: unit.unit,
-                    bytes: &unit.pcm,
-                })?;
-                if self.spare.len() < BATCH {
-                    let mut spare = unit.pcm;
+            for (k, (events, pcm)) in unit.told.into_iter().enumerate() {
+                if !self.lanes[k].tells(unit.unit) {
+                    continue;
+                }
+                let id = self.lanes[k].id();
+                let told = tell_unit(sink, id, &found, &events, unit.unit, &pcm);
+                if let Err(e) = told {
+                    let at = unit.unit;
+                    Self::fail(self.every, self.lanes.get_mut(k), at, e)?;
+                }
+                if !pcm.is_empty() && self.spare.len() < BATCH {
+                    let mut spare = pcm;
                     spare.clear();
                     self.spare.push(spare);
                 }
@@ -1113,9 +1291,9 @@ impl TrueHd {
         mut self,
         options: &StreamOptions,
         pushed: u64,
-        sink: &mut dyn StreamSink,
+        sink: &mut dyn EverySink,
         elapsed: impl Fn() -> f64,
-    ) -> Result<StreamEnd> {
+    ) -> Result<(Format, Vec<(u8, MemberEnd)>)> {
         let (rest, trailing_bytes) = self.extractor.finish()?;
         for unit in rest {
             self.unit(unit, sink)?;
@@ -1135,46 +1313,99 @@ impl TrueHd {
         // what was told already is told again by nobody
         let _ = listed.new_in(&scan.diag.tally, 0, 0);
         scan.finish(pass);
-        for f in listed.new_in(&scan.diag.tally, self.units, pushed) {
-            sink.event(&StreamEvent::Finding(f))?;
+        let last = listed.new_in(&scan.diag.tally, self.units, pushed);
+        for k in 0..self.lanes.len() {
+            if !self.lanes[k].tells(self.units) {
+                continue;
+            }
+            let id = self.lanes[k].id();
+            let told: Result<()> = last
+                .iter()
+                .try_for_each(|f| sink.event(id, &StreamEvent::Finding(f.clone())));
+            if let Err(e) = told {
+                let at = self.units;
+                Self::fail(self.every, self.lanes.get_mut(k), at, e)?;
+            }
         }
         let check = crate::verify::truehd_check_of(*scan, self.follow);
-        let Some(delivery) = self.delivery else {
+        if self.lanes.is_empty() {
             return Err(crate::info::no_stream_named(&options.name));
-        };
-        if delivery.session.stats().is_none() {
-            // a start that was never reached delivers nothing either, and is
-            // told so by its own cause
-            if let Some(complaint) = delivery.session.start_never_reached() {
-                return Err(crate::calls::no_stream(complaint));
+        }
+        let elapsed = elapsed();
+        let mut members = Vec::with_capacity(self.lanes.len());
+        for lane in self.lanes {
+            let id = lane.id();
+            let delivery = lane.delivery;
+            if let Some((_, error)) = lane.failed {
+                members.push((
+                    id,
+                    MemberEnd::Failed {
+                        error,
+                        samples: delivery.samples,
+                    },
+                ));
+                continue;
             }
-            return Err(crate::info::no_stream_named(&options.name));
+            if delivery.session.stats().is_none() {
+                // a start that was never reached delivers nothing either,
+                // and is told so by its own cause
+                let error = match delivery.session.start_never_reached() {
+                    Some(complaint) => crate::calls::no_stream(complaint),
+                    None => crate::info::no_stream_named(&options.name),
+                };
+                members.push((id, MemberEnd::Failed { error, samples: 0 }));
+                continue;
+            }
+            let summary = delivery.session.summary();
+            let mut findings = decode::truehd_findings(&pass, summary.stats.as_ref(), &check);
+            findings.note(summary.clipped, "samples clipped to 24 bits");
+            decode::note_concealment(&summary.concealment, &mut findings);
+            if let Some(stop) = &delivery.stopped {
+                stop.note(&mut findings);
+            }
+            let end = StreamEnd {
+                format: self.format,
+                findings,
+                samples: delivery.samples,
+                units: self.units,
+                bytes: pushed,
+                queue: QueueStats {
+                    units_bound: UNITS_AHEAD + 1,
+                    units_high_water: self.waiting_high,
+                    ..QueueStats::default()
+                },
+                told: Told::TrueHd {
+                    summary: Box::new(summary),
+                    stopped: delivery.stopped,
+                    elapsed,
+                },
+            };
+            members.push((id, MemberEnd::Ended(Box::new(end))));
         }
-        let summary = delivery.session.summary();
-        let mut findings = decode::truehd_findings(&pass, summary.stats.as_ref(), &check);
-        findings.note(summary.clipped, "samples clipped to 24 bits");
-        decode::note_concealment(&summary.concealment, &mut findings);
-        if let Some(stop) = &delivery.stopped {
-            stop.note(&mut findings);
-        }
-        Ok(StreamEnd {
-            format: self.format,
-            findings,
-            samples: delivery.samples,
-            units: self.units,
-            bytes: pushed,
-            queue: QueueStats {
-                units_bound: UNITS_AHEAD + 1,
-                units_high_water: self.waiting_high,
-                ..QueueStats::default()
-            },
-            told: Told::TrueHd {
-                summary: Box::new(summary),
-                stopped: delivery.stopped,
-                elapsed: elapsed(),
-            },
-        })
+        Ok((self.format, members))
     }
+}
+
+/// Tells member `id` of `sink` what one unit, the `unit`th, came to: the
+/// findings of its checks, its events, its samples.
+fn tell_unit(
+    sink: &mut dyn EverySink,
+    id: u8,
+    found: &[Finding],
+    events: &[StreamEvent],
+    unit: u64,
+    pcm: &[u8],
+) -> Result<()> {
+    for f in found {
+        sink.event(id, &StreamEvent::Finding(f.clone()))?;
+    }
+    for e in events {
+        sink.event(id, e)?;
+    }
+    if !pcm.is_empty() {
+        sink.pcm(id, PcmFrame { unit, bytes: pcm })?;
+    }
+    Ok(())
 }
 
 /// What the frame groups of an AC-3 family stream come to, kept to be told
@@ -1310,19 +1541,45 @@ impl Groups {
 }
 
 /// An AC-3 or E-AC-3 stream as it arrives.
+///
+/// Its frames are found once, by one splitter, and each is handed to every
+/// lane; a lane is a programme with a pass of its own ([`Walk`]: its
+/// decoders, dependent substreams, dither, overlap, look-ahead,
+/// concealment, layout and counts), and the decoder of a programme takes
+/// only the frames of its programme and counts the others, as the decode of
+/// that programme alone does. A decode of one has one lane, of the
+/// programme the options name; a decode of every programme has one for each
+/// of the eight a stream can carry, which is opened at the first frame of
+/// its programme and is dropped at the end if none came.
 #[derive(Debug)]
 struct Ac3 {
     splitter: Splitter,
+    lanes: Vec<Ac3Lane>,
+    /// Every programme is a member, and not the one the options name.
+    every: bool,
+}
+
+/// One programme of an AC-3 family stream as it arrives.
+#[derive(Debug)]
+struct Ac3Lane {
+    /// The programme: the substream id of its independent substream.
+    id: u8,
     walk: Walk,
     groups: Groups,
     listed: Listed,
+    /// Its first frame has come, and the sink has been told of it. Until
+    /// then, what the lane has to say waits here.
+    opened: bool,
+    waiting: Vec<StreamEvent>,
+    /// Its decode could not go on: nothing more of it is told.
+    failed: Option<anyhow::Error>,
 }
 
-impl Ac3 {
-    fn new(options: &StreamOptions) -> Self {
+impl Ac3Lane {
+    fn new(options: &StreamOptions, id: u8, programme: Option<u8>, opened: bool) -> Self {
         let pcm = &options.pcm;
         Self {
-            splitter: Splitter::new(eac3::READ_BYTES),
+            id,
             walk: Walk::new(
                 oadec_eac3::Options {
                     dither: pcm.dither,
@@ -1332,7 +1589,7 @@ impl Ac3 {
                     samples: true,
                 },
                 oadec_eac3::ProgramConfig {
-                    programme: pcm.programme,
+                    programme,
                     layout: if options.on_layout_change == Some(LayoutChange::Split) {
                         oadec_eac3::LayoutPolicy::Follow
                     } else {
@@ -1357,90 +1614,143 @@ impl Ac3 {
                 told: Vec::new(),
             },
             listed: Listed::default(),
+            opened,
+            waiting: Vec::new(),
+            failed: None,
         }
     }
 
-    fn push(
+    /// A syncframe at `offset`: what waited in the pass for it, then what
+    /// it completes, told to `sink`.
+    fn frame(
         &mut self,
+        offset: u64,
         bytes: &[u8],
-        walking: &mut Walking,
-        sink: &mut dyn StreamSink,
+        header: &FrameHeader,
+        sink: &mut dyn EverySink,
     ) -> Result<()> {
-        self.splitter.push(bytes);
-        self.split(walking, sink)
-    }
-
-    /// Takes whatever the splitter can tell, and tells `sink`.
-    fn split(&mut self, walking: &mut Walking, sink: &mut dyn StreamSink) -> Result<()> {
-        let walk = &mut self.walk;
-        loop {
-            let offset = match self.splitter.next() {
-                Split::Wait | Split::End => return Ok(()),
-                Split::Gap {
-                    offset,
-                    sync_error,
-                    bytes,
-                } => {
-                    walk.gap(offset, sync_error, bytes);
-                    offset
-                }
-                Split::Frame {
-                    offset,
-                    bytes,
-                    header,
-                } => {
-                    walking.at(offset);
-                    // With the decorrelation on, the independent frame
-                    // before this one waited for it: what it lets go is told
-                    // where it is, as it is with the decorrelation off.
-                    let groups = &mut self.groups;
-                    if let Some(at) =
-                        walk.settle(Some(&header), &mut |frame| groups.group(frame))?
-                    {
-                        let found = self.listed.new_in(walk.diag(), self.groups.groups, at);
-                        tell_groups(&mut self.groups, found, sink)?;
-                    }
-                    if header.stream_type != oadec_eac3::StreamType::Dependent {
-                        let k = self.groups.independents;
-                        self.groups.independents += 1;
-                        self.groups.starts.push_back((k, offset));
-                    }
-                    let groups = &mut self.groups;
-                    walk.frame(offset, bytes, &header, &mut |frame| groups.group(frame))?;
-                    offset
-                }
-            };
-            let found = self.listed.new_in(walk.diag(), self.groups.groups, offset);
-            tell_groups(&mut self.groups, found, sink)?;
+        // With the decorrelation on, the independent frame before this one
+        // waited for it: what it lets go is told where it is, as it is with
+        // the decorrelation off.
+        let groups = &mut self.groups;
+        if let Some(at) = self
+            .walk
+            .settle(Some(header), &mut |frame| groups.group(frame))?
+        {
+            let found = self.listed.new_in(self.walk.diag(), self.groups.groups, at);
+            self.tell(found, sink)?;
         }
+        if counts_as_a_start(header, self.id) {
+            let k = self.groups.independents;
+            self.groups.independents += 1;
+            self.groups.starts.push_back((k, offset));
+        }
+        let groups = &mut self.groups;
+        self.walk
+            .frame(offset, bytes, header, &mut |frame| groups.group(frame))?;
+        let found = self
+            .listed
+            .new_in(self.walk.diag(), self.groups.groups, offset);
+        self.tell(found, sink)
     }
 
+    /// Bytes at `offset` that are no syncframe.
+    fn gap(
+        &mut self,
+        offset: u64,
+        sync_error: bool,
+        bytes: u64,
+        sink: &mut dyn EverySink,
+    ) -> Result<()> {
+        self.walk.gap(offset, sync_error, bytes);
+        let found = self
+            .listed
+            .new_in(self.walk.diag(), self.groups.groups, offset);
+        self.tell(found, sink)
+    }
+
+    /// Tells `sink` the findings of a frame, then what its groups came to;
+    /// before the lane is opened, they wait.
+    fn tell(&mut self, found: Vec<Finding>, sink: &mut dyn EverySink) -> Result<()> {
+        if !self.opened {
+            // nothing but findings comes before the first frame of the
+            // programme, which opens it
+            self.waiting
+                .extend(found.into_iter().map(StreamEvent::Finding));
+            debug_assert!(self.groups.told.is_empty());
+            return Ok(());
+        }
+        let id = self.id;
+        for f in found {
+            sink.event(id, &StreamEvent::Finding(f))?;
+        }
+        for out in self.groups.told.drain(..) {
+            match out {
+                Out::Pcm(unit, bytes) => sink.pcm(
+                    id,
+                    PcmFrame {
+                        unit,
+                        bytes: &bytes,
+                    },
+                )?,
+                Out::Event(event) => sink.event(id, &event)?,
+            }
+        }
+        Ok(())
+    }
+
+    /// Opens the lane in `sink`, and tells it what waited.
+    fn open(&mut self, sink: &mut dyn EverySink) -> Result<()> {
+        self.opened = true;
+        sink.open(self.id)?;
+        for event in std::mem::take(&mut self.waiting) {
+            sink.event(self.id, &event)?;
+        }
+        Ok(())
+    }
+
+    /// The stream has ended, `pushed` bytes long: what the lane still holds
+    /// is told, and its pass drawn up.
     fn finish(
         mut self,
         options: &StreamOptions,
+        splitter: &Splitter,
         pushed: u64,
-        sink: &mut dyn StreamSink,
-        elapsed: impl Fn() -> f64,
+        sink: &mut dyn EverySink,
+        elapsed: f64,
     ) -> Result<StreamEnd> {
-        self.splitter.finish();
-        let mut nobody = Walking::of(None, "reading", 0);
-        self.split(&mut nobody, sink)?;
+        let groups = &mut self.groups;
+        if let Some(at) = self.walk.settle(None, &mut |frame| groups.group(frame))? {
+            let found = self.listed.new_in(self.walk.diag(), self.groups.groups, at);
+            self.tell(found, sink)?;
+        }
         let Self {
-            splitter,
-            mut walk,
+            walk,
             mut groups,
             mut listed,
+            id,
+            ..
         } = self;
-        if let Some(at) = walk.settle(None, &mut |frame| groups.group(frame))? {
-            let found = listed.new_in(walk.diag(), groups.groups, at);
-            tell_groups(&mut groups, found, sink)?;
-        }
         let pass = walk.end(splitter.sync_errors, splitter.skipped, &mut |frame| {
             groups.group(frame)
         })?;
         let found = listed.new_in(pass.0.diag(), groups.groups, pushed);
-        tell_groups(&mut groups, found, sink)?;
-        let Some(report) = eac3::Report::delivered(&options.name, pass, elapsed()) else {
+        for f in found {
+            sink.event(id, &StreamEvent::Finding(f))?;
+        }
+        for out in groups.told.drain(..) {
+            match out {
+                Out::Pcm(unit, bytes) => sink.pcm(
+                    id,
+                    PcmFrame {
+                        unit,
+                        bytes: &bytes,
+                    },
+                )?,
+                Out::Event(event) => sink.event(id, &event)?,
+            }
+        }
+        let Some(report) = eac3::Report::delivered(&options.name, pass, elapsed) else {
             return Err(crate::info::no_stream_named(&options.name));
         };
         Ok(StreamEnd {
@@ -1461,21 +1771,152 @@ impl Ac3 {
     }
 }
 
-/// Tells `sink` the findings of a frame, then what its groups came to.
-fn tell_groups(groups: &mut Groups, found: Vec<Finding>, sink: &mut dyn StreamSink) -> Result<()> {
-    for f in found {
-        sink.event(&StreamEvent::Finding(f))?;
-    }
-    for out in groups.told.drain(..) {
-        match out {
-            Out::Pcm(unit, bytes) => sink.pcm(PcmFrame {
-                unit,
-                bytes: &bytes,
-            })?,
-            Out::Event(event) => sink.event(&event)?,
+/// Whether the frame `header` begins a frame group of programme `id`, whose
+/// start the lane keeps until the group is told: an independent frame of
+/// that programme. The independent frames of the other programmes begin
+/// groups the lane never tells; counted, they put the start of its group
+/// `k` at the `k`th independent frame of the stream, and were held for the
+/// length of it.
+fn counts_as_a_start(header: &FrameHeader, id: u8) -> bool {
+    header.stream_type != oadec_eac3::StreamType::Dependent && header.substream_id == id
+}
+
+impl Ac3 {
+    fn new(options: &StreamOptions, every: bool) -> Self {
+        let lanes = if every {
+            (0..8)
+                .map(|id| Ac3Lane::new(options, id, Some(id), false))
+                .collect()
+        } else {
+            let programme = options.pcm.programme;
+            vec![Ac3Lane::new(
+                options,
+                programme.unwrap_or(0),
+                programme,
+                true,
+            )]
+        };
+        Self {
+            splitter: Splitter::new(eac3::READ_BYTES),
+            lanes,
+            every,
         }
     }
-    Ok(())
+
+    fn push(
+        &mut self,
+        bytes: &[u8],
+        walking: &mut Walking,
+        sink: &mut dyn EverySink,
+    ) -> Result<()> {
+        self.splitter.push(bytes);
+        self.split(walking, sink)
+    }
+
+    /// A lane could not go on: in a decode of one that is the end of the
+    /// decode, and in a decode of every programme the end of that one's.
+    fn fail(every: bool, lane: &mut Ac3Lane, e: anyhow::Error) -> Result<()> {
+        if !every {
+            return Err(e);
+        }
+        lane.failed = Some(e);
+        Ok(())
+    }
+
+    /// Takes whatever the splitter can tell, and tells `sink`.
+    fn split(&mut self, walking: &mut Walking, sink: &mut dyn EverySink) -> Result<()> {
+        loop {
+            match self.splitter.next() {
+                Split::Wait | Split::End => return Ok(()),
+                Split::Gap {
+                    offset,
+                    sync_error,
+                    bytes,
+                } => {
+                    for lane in &mut self.lanes {
+                        if lane.failed.is_some() {
+                            continue;
+                        }
+                        if let Err(e) = lane.gap(offset, sync_error, bytes, sink) {
+                            Self::fail(self.every, lane, e)?;
+                        }
+                    }
+                }
+                Split::Frame {
+                    offset,
+                    bytes,
+                    header,
+                } => {
+                    walking.at(offset);
+                    for lane in &mut self.lanes {
+                        if lane.failed.is_some() {
+                            continue;
+                        }
+                        // the first frame of a programme opens it
+                        if !lane.opened
+                            && header.stream_type != oadec_eac3::StreamType::Dependent
+                            && header.substream_id == lane.id
+                            && let Err(e) = lane.open(sink)
+                        {
+                            Self::fail(self.every, lane, e)?;
+                            continue;
+                        }
+                        if let Err(e) = lane.frame(offset, bytes, &header, sink) {
+                            Self::fail(self.every, lane, e)?;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn finish(
+        mut self,
+        options: &StreamOptions,
+        pushed: u64,
+        sink: &mut dyn EverySink,
+        elapsed: impl Fn() -> f64,
+    ) -> Result<(Format, Vec<(u8, MemberEnd)>)> {
+        self.splitter.finish();
+        let mut nobody = Walking::of(None, "reading", 0);
+        self.split(&mut nobody, sink)?;
+        let Self {
+            splitter,
+            lanes,
+            every,
+        } = self;
+        let elapsed = elapsed();
+        let mut members = Vec::new();
+        for lane in lanes {
+            // a programme the stream never carried is no member
+            if !lane.opened {
+                continue;
+            }
+            let id = lane.id;
+            let samples = lane.groups.samples;
+            if let Some(error) = lane.failed {
+                members.push((id, MemberEnd::Failed { error, samples }));
+                continue;
+            }
+            match lane.finish(options, &splitter, pushed, sink, elapsed) {
+                Ok(end) => members.push((id, MemberEnd::Ended(Box::new(end)))),
+                Err(e) if every => members.push((id, MemberEnd::Failed { error: e, samples })),
+                Err(e) => return Err(e),
+            }
+        }
+        if members.is_empty() {
+            // no frame of any programme came: the stream held nothing
+            return Err(crate::info::no_stream_named(&options.name));
+        }
+        let format = members
+            .iter()
+            .find_map(|(_, m)| match m {
+                MemberEnd::Ended(end) => Some(end.format),
+                MemberEnd::Failed { .. } => None,
+            })
+            .unwrap_or(Format::Eac3);
+        Ok((format, members))
+    }
 }
 
 /// Reads `from` to its end on a thread of its own and decodes what it reads
@@ -1500,7 +1941,25 @@ pub fn decode_reader(
     options: StreamOptions,
     sink: &mut dyn StreamSink,
 ) -> Result<StreamEnd> {
-    let name = options.name.clone();
+    let (decoder, high_water, read) =
+        read_through(from, StreamDecoder::new(options), &mut One(&mut *sink))?;
+    let mut end = decoder.finish(&mut *sink)?;
+    sink.flush()?;
+    end.queue.bound = QUEUE_PIECES;
+    end.queue.high_water = high_water;
+    debug_assert_eq!(end.bytes, read);
+    Ok(end)
+}
+
+/// Reads `from` to its end on a thread of its own, as [`decode_reader`]
+/// does, and pushes what it reads to `decoder`, which tells `sink`: the
+/// decoder, the most pieces the queue held at once, and the bytes read.
+fn read_through(
+    from: Box<dyn Read + Send>,
+    mut decoder: StreamDecoder,
+    sink: &mut dyn EverySink,
+) -> Result<(StreamDecoder, usize, u64)> {
+    let name = decoder.options.name.clone();
     let (to, pieces) = mpsc::sync_channel::<io::Result<Vec<u8>>>(QUEUE_PIECES);
     let sent = Arc::new(AtomicUsize::new(0));
     let read = Arc::new(AtomicU64::new(0));
@@ -1528,7 +1987,6 @@ pub fn decode_reader(
             }
         })
     };
-    let mut decoder = StreamDecoder::new(options);
     let mut received = 0usize;
     let mut high_water = 0usize;
     loop {
@@ -1538,7 +1996,7 @@ pub fn decode_reader(
         let piece = match pieces.try_recv() {
             Ok(piece) => piece,
             Err(TryRecvError::Empty) => {
-                decoder.flush(sink)?;
+                decoder.flush_to(sink)?;
                 sink.flush()?;
                 match pieces.recv() {
                     Ok(piece) => piece,
@@ -1549,15 +2007,10 @@ pub fn decode_reader(
         };
         received += 1;
         let piece = piece.with_context(|| format!("reading {name}"))?;
-        decoder.push(&piece, sink)?;
+        decoder.push_to(&piece, sink)?;
     }
     let _ = reader.join();
-    let mut end = decoder.finish(sink)?;
-    sink.flush()?;
-    end.queue.bound = QUEUE_PIECES;
-    end.queue.high_water = high_water;
-    debug_assert_eq!(end.bytes, read.load(Ordering::Relaxed));
-    Ok(end)
+    Ok((decoder, high_water, read.load(Ordering::Relaxed)))
 }
 
 /// Bytes of the WAVE header a stream to standard output begins with.
@@ -1718,9 +2171,30 @@ pub fn decode_reader_every(
     every: Every,
     sink: &mut dyn EverySink,
 ) -> Result<EveryEnd> {
-    // Stop 1 of round 4, package P1: the contract, not yet the decode.
-    let _ = (from, options, every, sink);
-    anyhow::bail!("decode of every {every:?} member is not implemented yet")
+    let (decoder, high_water, read) =
+        read_through(from, StreamDecoder::of_every(options, every), sink)?;
+    let (format, mut members) = decoder.finish_members(sink)?;
+    sink.flush()?;
+    let mut queue = QueueStats {
+        bound: QUEUE_PIECES,
+        high_water,
+        ..QueueStats::default()
+    };
+    for (_, member) in &mut members {
+        if let MemberEnd::Ended(end) = member {
+            end.queue.bound = QUEUE_PIECES;
+            end.queue.high_water = high_water;
+            queue.units_bound = end.queue.units_bound;
+            queue.units_high_water = end.queue.units_high_water;
+            debug_assert_eq!(end.bytes, read);
+        }
+    }
+    Ok(EveryEnd {
+        format,
+        members,
+        bytes: read,
+        queue,
+    })
 }
 
 #[cfg(test)]
@@ -2156,5 +2630,76 @@ mod tests {
             assert!(e.to_string().contains(words), "{every:?}: {e}");
             assert!(members.opened.is_empty(), "{every:?}");
         }
+    }
+
+    /// The events a sink was told.
+    #[derive(Debug, Default)]
+    struct Events(Vec<StreamEvent>);
+
+    impl StreamSink for Events {
+        fn event(&mut self, event: &StreamEvent) -> Result<()> {
+            self.0.push(event.clone());
+            Ok(())
+        }
+
+        fn pcm(&mut self, _: PcmFrame<'_>) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    /// A change of the channels of programme 1, which is interleaved with
+    /// programme 0, is told at the byte its group begins at: where the
+    /// independent frame of programme 1 that opens the group is, and not
+    /// where the independent frame of that count among all the programmes
+    /// is. And where the groups begin is held for the groups in flight, not
+    /// for every independent frame of the stream.
+    #[test]
+    fn a_change_of_layout_is_told_where_the_group_of_its_programme_begins() {
+        let zero = eac3_groups("eac3-20-coupled.ec3", 0);
+        let mut one = eac3_groups("eac3-71-tones.ec3", 1);
+        // 7.1, then 5.1 for twenty groups: the dependent frames left out
+        for group in &mut one[10..30] {
+            let independent = oadec_eac3::FrameHeader::parse(group)
+                .expect("a frame")
+                .frame_bytes;
+            group.truncate(independent);
+        }
+        let mut stream = Vec::new();
+        let mut starts_of_one = Vec::new();
+        for i in 0..zero.len().max(one.len()) {
+            stream.extend(zero.get(i).into_iter().flatten());
+            if let Some(group) = one.get(i) {
+                starts_of_one.push(stream.len() as u64);
+                stream.extend(group);
+            }
+        }
+        let options = StreamOptions {
+            on_layout_change: None,
+            pcm: PcmOptions {
+                programme: Some(1),
+                ..PcmOptions::default()
+            },
+            ..StreamOptions::new("a change of layout")
+        };
+        let mut events = Events::default();
+        let mut decoder = StreamDecoder::new(options);
+        decoder.push(&stream, &mut events).expect("decoded");
+        let Some(Codec::Ac3(ac3)) = &decoder.codec else {
+            panic!("an AC-3 family stream");
+        };
+        let held = ac3.lanes[0].groups.starts.len();
+        decoder.finish(&mut events).expect("finished");
+        let changes: Vec<(u64, u64)> = events
+            .0
+            .iter()
+            .filter_map(|e| match e {
+                StreamEvent::ConfigChange {
+                    unit, byte_offset, ..
+                } => Some((*unit, *byte_offset)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(changes, [(10, starts_of_one[10])]);
+        assert!(held <= 4, "{held} group starts held");
     }
 }
