@@ -1,5 +1,5 @@
 //! Says what a stream offers as a carrier of the enhanced coupling
-//! measurements (`tools/ecpl_amp_sweep.py`, `docs/eac3.md`): its layout and
+//! measurements (`tools/ecpl_amp_sweep.py`, `docs/audit/evidence/round-5-2026-11/p2-ecpl.json`): its layout and
 //! rate, how many of its blocks are coupled, over which bins and channels,
 //! and whether the coupling channel is coded with the hybrid transform.
 //!

@@ -7,7 +7,7 @@
 A model (`oadec_eac3::ecpl::Model`, decoded by the example
 `ecpl_model_decode`) is laid over the default, amplitude-only, reading of
 enhanced coupling. It is promoted to `--ecpl-model <name>` -- never to the
-default -- only when all of this holds (`docs/eac3.md`):
+default -- only when all of this holds (`docs/audit/evidence/round-5-2026-11/p2-ecpl.json`):
 
 1. on every carrier, the decode with the model off is byte-identical to
    the default decode (`off_identical`);
@@ -20,7 +20,16 @@ default -- only when all of this holds (`docs/eac3.md`):
 3. the holdout carriers include one 2/0 programme and one whose coupling
    channel is coded without the hybrid transform (`cpl_aht: false`), and
    none of them was encoded from a source signal a fitting carrier was
-   encoded from.
+   encoded from. Carriers encoded from one master (`master`, the source when
+   not given: the same signal at two rates, or a 5.1 master and its 2/0
+   fold) are one holdout, not two: at least two masters are needed.
+
+A carrier says how many cells it should have (`expected_cells`, one per
+amplitude code and coupled channel); a cell the measurement could not make
+(`dropped`, where Dolby's decode is silent over the band) counts as one in
+which the model is not closer. A carrier of fewer than 32 cells decides
+nothing in its favour. The thresholds are those of the round-5 plan and do
+not move.
 
 The fitting carriers are reported by the same figures, and do not decide.
 The cells of amplitude code 31 (minus infinity) count like any other and
@@ -33,7 +42,10 @@ One file a carrier, written by the measurement (Durak 2):
      "layout": "2.0" | "5.1",
      "cpl_aht": false,                       the coupling channel's AHT
      "source": "noise-bands-A",              the source signal's name
+     "master": "noise",                      what it was made from (optional)
      "off_identical": true,
+     "expected_cells": 64,                   codes x coupled channels (optional)
+     "dropped": [{"code": 31, "channel": "L", "why": "..."}],  (optional)
      "cells": [{"code": 8, "channel": "Ls",
                 "amp_only_db": 0.30, "model_db": 2.10}, ...]}
 
@@ -44,12 +56,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
 SHARE = 0.95
 WORST_DB = 0.5
 MIN_HOLDOUT = 2
+MIN_CELLS = 32
 
 
 class Bad(Exception):
@@ -80,8 +94,13 @@ def check(c: dict, where: str) -> dict:
             raise Bad(f"{where}: cell {key} twice")
         seen.add(key)
         for k in ("amp_only_db", "model_db"):
-            if not isinstance(cell.get(k), (int, float)):
+            if not isinstance(cell.get(k), (int, float)) or math.isnan(cell[k]):
                 raise Bad(f"{where}: cell {key} has no number '{k}'")
+    expected = c.get("expected_cells", len(c["cells"]))
+    if not isinstance(expected, int) or expected < len(c["cells"]):
+        raise Bad(f"{where}: expected_cells {expected!r} is fewer than the {len(c['cells'])} cells given")
+    if "master" in c and not isinstance(c["master"], str):
+        raise Bad(f"{where}: 'master' is not a string")
     return c
 
 
@@ -89,16 +108,19 @@ def judge(c: dict) -> dict:
     gains = [cell["model_db"] - cell["amp_only_db"] for cell in c["cells"]]
     better = sum(1 for g in gains if g > 0)
     worst = min(gains)
-    share = better / len(gains)
+    expected = c.get("expected_cells", len(gains))
+    # a cell that could not be made is one in which the model is not closer
+    share = better / expected
     # code 31 is minus infinity: the cells count, and are shown apart as well
     silent = [cell["model_db"] - cell["amp_only_db"] for cell in c["cells"] if cell.get("code") == 31]
     return {
         "carrier": c["carrier"], "role": c["role"], "layout": c["layout"],
-        "cpl_aht": c["cpl_aht"], "source": c["source"], "cells": len(gains),
+        "cpl_aht": c["cpl_aht"], "source": c["source"], "master": c.get("master", c["source"]),
+        "cells": len(gains), "expected_cells": expected, "missing_cells": expected - len(gains),
         "better": better, "share": round(share, 4), "worst_db": round(worst, 3),
         "median_db": round(sorted(gains)[len(gains) // 2], 3),
         "off_identical": c["off_identical"],
-        "passes": share >= SHARE and worst >= -WORST_DB,
+        "passes": share >= SHARE and worst >= -WORST_DB and expected >= MIN_CELLS,
         "code_31": None if not silent else {
             "cells": len(silent), "better": sum(1 for g in silent if g > 0),
             "worst_db": round(min(silent), 3), "median_db": round(sorted(silent)[len(silent) // 2], 3)},
@@ -108,16 +130,21 @@ def judge(c: dict) -> dict:
 def verdict(carriers: list[dict]) -> tuple[bool, dict]:
     rows = [judge(c) for c in carriers]
     hold = [r for r in rows if r["role"] == "holdout"]
-    fit_sources = {r["source"] for r in rows if r["role"] == "fit"}
+    fit_masters = {r["master"] for r in rows if r["role"] == "fit"}
     reasons = []
     if not all(r["off_identical"] for r in rows):
         reasons.append("off is not byte-identical on: " + ", ".join(r["carrier"] for r in rows if not r["off_identical"]))
-    leaked = [r["carrier"] for r in hold if r["source"] in fit_sources]
+    leaked = [r["carrier"] for r in hold if r["master"] in fit_masters]
     if leaked:
         reasons.append("holdout encoded from a fitting source: " + ", ".join(leaked))
-    clean = [r for r in hold if r["source"] not in fit_sources]
-    if len(clean) < MIN_HOLDOUT:
-        reasons.append(f"{len(clean)} holdout carriers, {MIN_HOLDOUT} needed")
+    clean = [r for r in hold if r["master"] not in fit_masters]
+    masters = {r["master"] for r in clean}
+    if len(masters) < MIN_HOLDOUT:
+        reasons.append(f"{len(masters)} independent holdout sources ({len(clean)} carriers), "
+                       f"{MIN_HOLDOUT} needed: carriers of one master count once")
+    small = [r["carrier"] for r in clean if r["expected_cells"] < MIN_CELLS]
+    if small:
+        reasons.append(f"holdout carriers of fewer than {MIN_CELLS} cells: " + ", ".join(small))
     if not any(r["layout"] == "2.0" for r in clean):
         reasons.append("no 2/0 holdout carrier")
     if not any(not r["cpl_aht"] for r in clean):
@@ -127,15 +154,15 @@ def verdict(carriers: list[dict]) -> tuple[bool, dict]:
         reasons.append("holdout carriers that do not pass: " + ", ".join(failing))
     ok = not reasons
     return ok, {"promoted": ok, "reasons": reasons, "share_needed": SHARE,
-                "worst_allowed_db": -WORST_DB, "carriers": rows}
+                "worst_allowed_db": -WORST_DB, "min_cells": MIN_CELLS, "carriers": rows}
 
 
 def self_test() -> int:
-    def carrier(name, role, layout, aht, source, deltas, off=True):
+    def carrier(name, role, layout, aht, source, deltas, off=True, **extra):
         return {"carrier": name, "role": role, "layout": layout, "cpl_aht": aht,
                 "source": source, "off_identical": off,
                 "cells": [{"code": i, "channel": "L", "amp_only_db": 1.0, "model_db": 1.0 + d}
-                          for i, d in enumerate(deltas)]}
+                          for i, d in enumerate(deltas)], **extra}
 
     good = [0.3] * 40
     cases = {
@@ -163,6 +190,16 @@ def self_test() -> int:
         "off not identical": ([carrier("a", "fit", "5.1", True, "s1", good, off=False),
                                carrier("b", "holdout", "2.0", True, "s2", good),
                                carrier("c", "holdout", "5.1", False, "s3", good)], False),
+        "two holdouts of one master count once": ([carrier("b", "holdout", "2.0", True, "s2-128", good, master="m"),
+                                                    carrier("c", "holdout", "5.1", False, "s2-51", good, master="m")], False),
+        "two holdouts of one source count once": ([carrier("b", "holdout", "2.0", True, "s2", good),
+                                                   carrier("c", "holdout", "5.1", False, "s2", good)], False),
+        "a holdout of 31 cells": ([carrier("b", "holdout", "2.0", True, "s2", [0.3] * 31),
+                                   carrier("c", "holdout", "5.1", False, "s3", good)], False),
+        "dropped cells count against": ([carrier("b", "holdout", "2.0", True, "s2", [0.3] * 38, expected_cells=41),
+                                         carrier("c", "holdout", "5.1", False, "s3", good)], False),
+        "dropped cells within the 5 per cent": ([carrier("b", "holdout", "2.0", True, "s2", [0.3] * 38, expected_cells=40),
+                                                 carrier("c", "holdout", "5.1", False, "s3", good)], True),
         "a failing fit carrier does not decide": ([carrier("a", "fit", "5.1", True, "s1", [-3.0] * 40),
                                                    carrier("b", "holdout", "2.0", True, "s2", good),
                                                    carrier("c", "holdout", "5.1", False, "s3", good)], True),
@@ -173,8 +210,11 @@ def self_test() -> int:
         mark = "ok" if got == want else "WRONG"
         wrong += got != want
         print(f"{mark:5} {name}: {'promoted' if got else 'not'} {out['reasons']}")
-    for bad in ({}, {"carrier": "x", "role": "test", "layout": "2.0", "cpl_aht": True, "source": "s",
-                     "off_identical": True, "cells": [{"code": 0, "channel": "L", "amp_only_db": 0, "model_db": 0}]}):
+    base = {"carrier": "x", "role": "holdout", "layout": "2.0", "cpl_aht": True, "source": "s",
+            "off_identical": True, "cells": [{"code": 0, "channel": "L", "amp_only_db": 0, "model_db": 0}]}
+    for bad in ({}, {**base, "role": "test"},
+                {**base, "cells": [{"code": 0, "channel": "L", "amp_only_db": 0, "model_db": float("nan")}]},
+                {**base, "expected_cells": 0}, {**base, "master": 3}):
         try:
             check(bad, "bad")
             print("WRONG a bad carrier was taken")

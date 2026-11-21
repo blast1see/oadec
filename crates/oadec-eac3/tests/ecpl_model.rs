@@ -4,7 +4,7 @@
 //!
 //! Round 5 (P2) has only the hook: `Model::Off` is the one model, and the
 //! tests that need a model, and the stream with enhanced coupling they read,
-//! are ignored until there is one (`docs/eac3.md`, the promotion criterion).
+//! are ignored until there is one (`tools/ecpl_promotion.py`, `docs/audit/evidence/round-5-2026-11/p2-ecpl.json`).
 //! They fail when run with `--ignored`, and say why.
 
 use std::path::Path;

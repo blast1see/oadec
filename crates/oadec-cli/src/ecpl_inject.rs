@@ -68,8 +68,9 @@ pub struct Shape {
 struct At {
     frame: usize,
     block: usize,
-    /// The block counted over the converted frames' blocks, from 0: the
-    /// index of `amp pattern`.
+    /// The block counted over the blocks of every frame of programme 0 from
+    /// the start of the stream, those `frames every <n>` copies included:
+    /// the index of `amp pattern`.
     global: usize,
 }
 
@@ -139,7 +140,12 @@ enum Every {
 /// ([`standard_coordinate`]), so a decoder that reads both alike makes the
 /// same coefficients of the two streams. It takes no `band` (standard
 /// coupling has bands of its own), and writes no angle, chaos, interpolation
-/// or transient, which standard coupling does not have.
+/// or transient, which standard coupling does not have. It writes one
+/// coordinate a channel, so it takes only an amplitude rule that gives every
+/// band the same code (`amp <code>`, `amp sweep-frames`, `amp pattern`) and
+/// refuses `amp walk`, the default, and `amp all`. Whether a decoder treats a
+/// stream and its twin alike was measured for such band-uniform amplitudes
+/// only.
 ///
 /// `seed zero` pads every rewritten frame, where the padding before the
 /// frame tail is shorter than a word, by one more word. A decoder of an
@@ -334,6 +340,15 @@ impl Plan {
         }
         if plan.standard && plan.bands != 0 {
             bail!("target standard takes no band: standard coupling has bands of its own");
+        }
+        // the twin writes one coordinate a channel, the amplitude of band 0
+        // in every band: only a rule that gives every band the same code
+        // makes a twin
+        if plan.standard && matches!(plan.amp, Rule::Walk | Rule::WalkMax(_) | Rule::All) {
+            bail!(
+                "target standard needs the same amplitude in every band: amp <code>, \
+                 amp sweep-frames or amp pattern, not amp walk (the default) or amp all"
+            );
         }
         Ok(plan)
     }
@@ -1244,11 +1259,26 @@ interp 1
             (p.bands, p.channels, p.rest, p.standard),
             (0b1001, 0b1_0010, 7, false)
         );
-        assert!(
-            Plan::parse("target standard\nchannel 0")
-                .expect("plan")
-                .standard
-        );
+        for twin in [
+            "amp 3\ntarget standard\nchannel 0",
+            "amp sweep-frames\ntarget standard",
+            "amp pattern 0,31\ntarget standard",
+        ] {
+            assert!(Plan::parse(twin).expect("plan").standard, "{twin}");
+        }
+        // a rule that gives the bands different codes makes no twin
+        for not_twin in [
+            "target standard",
+            "amp walk\ntarget standard",
+            "amp all\ntarget standard",
+            "target standard\namp all",
+        ] {
+            let e = Plan::parse(not_twin).expect_err(not_twin).to_string();
+            assert!(
+                e.contains("same amplitude in every band"),
+                "{not_twin}: {e}"
+            );
+        }
         let long = format!("amp pattern {}", vec!["1"; 65].join(","));
         for bad in [
             "band 22",

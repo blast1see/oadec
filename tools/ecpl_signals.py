@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Source signals for the enhanced coupling carriers (`docs/eac3.md`).
+"""Source signals for the enhanced coupling carriers (`docs/audit/evidence/round-5-2026-11/p2-ecpl.json`).
 
     python tools/ecpl_signals.py tones  --layout 2.0|5.1 --seconds 20 --out x.wav
     python tools/ecpl_signals.py noise  --layout 2.0|5.1 --seconds 20 --seed 1 --out x.wav

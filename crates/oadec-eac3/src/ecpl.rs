@@ -53,9 +53,14 @@ pub struct RandomValues {
 /// Measured against the Reference Player's `dlbac3dec`, the coupled channels
 /// of an enhanced coupling block come out decorrelated by an amount that
 /// depends on the amplitude code (a least-squares gain of 0,45 to 1,00 of
-/// Dolby's decode on the amplitude-only one; `docs/eac3.md`). No model of it
-/// has passed the promotion criterion yet, so [`Model::Off`] is the only
-/// one, and the decode is the same with it as without it. A model applies to
+/// Dolby's decode on the amplitude-only one; `docs/eac3.md`). Round 5
+/// measured it as the decorrelation Dolby's decoder gives every coupled
+/// channel: a stream and its standard coupling twin of the same, band-uniform
+/// amplitudes decode to the same bytes there (band by band amplitudes were
+/// not measured). No model of it has passed the promotion criterion of
+/// `tools/ecpl_promotion.py`
+/// (`docs/audit/evidence/round-5-2026-11/p2-ecpl.json`), so [`Model::Off`]
+/// is the only one, and the decode is the same with it as without it. A model applies to
 /// the amplitude-only reading alone: the full reading of
 /// [`crate::frame::Options::ecpl_full`] is the text of the standard, and no
 /// model is laid over it.

@@ -412,7 +412,7 @@ def cmd_cells(a: argparse.Namespace) -> int:
     sig = (np.abs(d) ** 2).sum(axis=1)
     e_amp = (np.abs(sp[f"{name}.oadec1"][0][:n] - d) ** 2).sum(axis=1)
     e_mod = (np.abs(sp[stem][0][:n] - d) ** 2).sum(axis=1)
-    cells = []
+    cells, dropped = [], []
     for k in range(CODES):
         mask = codes == k
         mask[0] = False
@@ -420,6 +420,10 @@ def cmd_cells(a: argparse.Namespace) -> int:
             ch = names.index(nm)
             s = float(sig[mask, ch].sum())
             if s <= 0:
+                # no SNR to state: the cell is listed, and the promotion
+                # counts it as one where the model is not closer
+                dropped.append({"code": k, "channel": nm, "why": "Dolby's decode is silent over the band"})
+                print(f"{a.carrier}: cell code {k} {nm} dropped: Dolby's decode is silent over the band")
                 continue
             cells.append({"code": k, "channel": nm,
                           "amp_only_db": round(snr_db(s, float(e_amp[mask, ch].sum())), 4),
@@ -427,10 +431,12 @@ def cmd_cells(a: argparse.Namespace) -> int:
     off = work / f"{name}.model-off.f32"
     off_identical = off.exists() and md5(off) == md5(work / f"{name}.oadec1.f32")
     out = {"carrier": a.carrier, "role": a.role, "layout": a.layout, "cpl_aht": bool(int(a.aht)),
-           "source": a.source, "off_identical": off_identical, "model": a.model_name,
-           "band_hz": list(band), "cells": cells}
+           "source": a.source, "master": a.master or a.source, "off_identical": off_identical,
+           "model": a.model_name, "band_hz": list(band),
+           "expected_cells": CODES * len(coupled), "dropped": dropped, "cells": cells}
     Path(a.out).write_text(json.dumps(out, indent=1) + "\n")
-    print(f"{a.carrier}: {len(cells)} cells, off identical: {off_identical}")
+    print(f"{a.carrier}: {len(cells)} of {CODES * len(coupled)} cells, {len(dropped)} dropped, "
+          f"off identical: {off_identical}")
     return 0
 
 
@@ -474,6 +480,7 @@ def main() -> int:
     p.add_argument("--carrier", required=True)
     p.add_argument("--role", choices=["fit", "holdout"], required=True)
     p.add_argument("--source", required=True)
+    p.add_argument("--master", help="what the source was made from, when another carrier shares it")
     p.add_argument("--aht", choices=["0", "1"], required=True)
     p.add_argument("--out", required=True)
     geo(p)
