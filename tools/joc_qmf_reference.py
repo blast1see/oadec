@@ -21,10 +21,9 @@ equation gives the phase `(j - 2n + 1/2)`, the pseudocode `(2j - 2n - 1)/2`.
 analysis rather than taking it on trust.
 
     python tools/joc_qmf_reference.py --tables <ts_103420_tables.c|zip> --self-check
-    python tools/joc_qmf_reference.py --tables <...> --compare-tap <dir>   (round 5, stop 2)
+    python tools/joc_qmf_reference.py --tables <...> --compare-tap <dir> [--out <json>]
 
-Exit codes: 0 every check held, 1 a check failed, 2 bad arguments,
-3 asked for what is not built yet.
+Exit codes: 0 every check held, 1 a check failed, 2 bad arguments.
 """
 
 from __future__ import annotations
@@ -186,10 +185,118 @@ def quadrature(q: np.ndarray, shifted: bool, operator: np.ndarray, plus: bool = 
     return out
 
 
-def compare_tap(directory: Path) -> int:
-    """Round 5, stop 2: hold the dump of `examples/joc_tap.rs` to this model."""
-    print(f"joc_qmf_reference: --compare-tap {directory}: not built yet (round 5, stop 2)", file=sys.stderr)
-    return 3
+DECODER_DELAY = 256  # samples the core decoder emits before the first frame's audio
+FRAME = 1536
+CLIP_RAMP = 256
+TAP_FLOOR_DB = 120.0
+# slots before every input of the comparison is known: the dump drops the
+# decoder delay of the core (256 samples), the analysis window reaches 640
+# samples back and the low-band operator 20 slots further
+FIRST_SLOT = 40
+
+
+def read_tap(directory: Path) -> dict:
+    """A dump of `examples/joc_tap.rs`, its planes as memory maps."""
+    index = json.loads((directory / "index.json").read_text(encoding="utf-8"))
+    slots = len(index["slots"])
+    ch, obj = index["channels"], index["objects"]
+    def plane(name, shape, dtype=np.float64):
+        return np.memmap(directory / name, dtype="<f8", mode="r").reshape(shape)
+    tap = {
+        "index": index,
+        "downmix": plane("downmix.f64", (slots, ch, N, 2)),
+        "matrix": plane("matrix.f64", (slots, obj, ch, N)),
+        "objects": plane("objects.f64", (slots, obj, N, 2)),
+        "pcm_objects": plane("pcm_objects.f64", (-1, obj)),
+        "pcm_core": plane("pcm_core.f64", (-1, len(index["core_channels"]))),
+    }
+    return tap
+
+
+def complex_plane(p: np.ndarray) -> np.ndarray:
+    return p[..., 0] + 1j * p[..., 1]
+
+
+def clip_gain_curve(index: dict, samples: int) -> np.ndarray:
+    """The gain the decoder puts on the core before the analysis, by sample of
+    the decode (decoder delay included): from the gain of the frame before to
+    the frame's own over its first block, a straight line."""
+    gain = np.ones(samples)
+    frames = {}
+    for frame, ts, _seq, _reset, flush, before, after in index["slots"]:
+        if not flush and ts == 0:
+            frames[frame] = (before, after)
+    ramp = np.arange(FRAME) / CLIP_RAMP
+    for f, (before, after) in frames.items():
+        at = f * FRAME
+        if at >= samples:
+            break
+        g = np.where(np.arange(FRAME) < CLIP_RAMP, before + (after - before) * ramp, after)
+        gain[at:at + FRAME] = g[: max(0, min(FRAME, samples - at))]
+    return gain
+
+
+def compare_tap(directory: Path, window: np.ndarray, operator: np.ndarray) -> dict:
+    """Holds a dump of `examples/joc_tap.rs` to this model, stage by stage, and
+    the whole chain: each must agree to TAP_FLOOR_DB or better."""
+    tap = read_tap(directory)
+    index = tap["index"]
+    slots = len(index["slots"])
+    first = FIRST_SLOT
+    rows = []
+
+    def row(stage, ref, test, **extra):
+        db = snr_db(np.asarray(ref), np.asarray(test))
+        rows.append({"stage": stage, "db": round(db, 2) if np.isfinite(db) else "identical",
+                     "ok": bool(db >= TAP_FLOOR_DB), **extra})
+
+    # 1. the downmix: the core, its clip gain, the analysis and the quadrature
+    core = np.asarray(tap["pcm_core"])
+    total = slots * N
+    gain = clip_gain_curve(index, total)
+    downmix_tap = complex_plane(np.asarray(tap["downmix"]))
+    downmix_model = np.empty_like(downmix_tap)
+    for k, coded in enumerate(index["inputs"]):
+        x = np.zeros(total)
+        x[DECODER_DELAY:DECODER_DELAY + len(core)] = core[: total - DECODER_DELAY, coded]
+        q = analysis(x * gain, window)
+        carry = index["carry"][k]
+        shifted = carry.startswith("Shifted")
+        if carry.startswith(("Flat", "FlatAbove")):
+            raise SystemExit(f"channel {k}: carry {carry} is not modelled")
+        plus = "plus: true" in carry
+        downmix_model[:, k] = quadrature(q, shifted, operator, plus)
+    for k in range(index["channels"]):
+        row(f"downmix ch {k} ({index['carry'][k]})", downmix_model[first:, k], downmix_tap[first:, k])
+    row("downmix, every channel", downmix_model[first:], downmix_tap[first:])
+
+    # 2. the matrix: the objects are the tap's matrix over the tap's downmix
+    matrix = np.asarray(tap["matrix"])
+    objects_tap = complex_plane(np.asarray(tap["objects"]))
+    objects_model = np.einsum("tocs,tcs->tos", matrix, downmix_tap)
+    row("objects = matrix x downmix", objects_model, objects_tap)
+
+    # 3. the synthesis: the tap's object subband samples give the objects
+    delay = index["object_delay"]
+    pcm = np.asarray(tap["pcm_objects"])
+    n = len(pcm)
+    for o in range(index["objects"]):
+        y = synthesis(objects_tap[:, o], window)[delay:delay + n]
+        row(f"synthesis object {o}", pcm[: len(y), o], y)
+
+    # 4. the chain: the model's downmix, the tap's matrix, the model's synthesis
+    chain = np.einsum("tocs,tcs->tos", matrix, downmix_model)
+    keep = slice(first * N + LENGTH, n)  # past the slots the model cannot know
+    worst = np.inf
+    for o in range(index["objects"]):
+        y = synthesis(chain[:, o], window)[delay:delay + n]
+        ref = pcm[keep, o]
+        if np.sum(ref ** 2) > 0:
+            worst = min(worst, snr_db(ref, y[keep]))
+    rows.append({"stage": "chain: model downmix, tap matrix, model synthesis, worst object",
+                 "db": round(worst, 2), "ok": bool(worst >= TAP_FLOOR_DB)})
+    return {"dump": index["what"], "slots": slots, "first_slot_compared": first,
+            "floor_db": TAP_FLOOR_DB, "ok": all(r["ok"] for r in rows), "rows": rows}
 
 
 # ---------------------------------------------------------------------------
@@ -298,7 +405,12 @@ def main() -> int:
         ap.error("nothing to do: --self-check or --compare-tap")
     window = read_window(args.tables)
     if args.compare_tap:
-        return compare_tap(args.compare_tap)
+        result = compare_tap(args.compare_tap, window, read_operator(args.operator))
+        for r in result["rows"]:
+            print(f"{'ok  ' if r['ok'] else 'FAIL'} {r['stage']}: {r['db']} dB")
+        if args.out:
+            args.out.write_text(json.dumps(result, indent=1), encoding="utf-8")
+        return 0 if result["ok"] else 1
     result = self_check(window, args.operator)
     for c in result["checks"]:
         extra = {k: v for k, v in c.items() if k not in ("check", "ok")}
