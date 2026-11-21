@@ -313,17 +313,18 @@ fn run_middle(synth: &mut Synth, blocks: &[[f64; N]; 3], proto: &EcplBlock) -> V
 }
 
 #[test]
-fn chaos_raises_the_amplitude_where_no_transient_is() {
-    // Clause E.3.5.5.2 as printed: `ampbnd *= 1 - 0.38 * chaos` for a
+fn chaos_lowers_the_amplitude_where_no_transient_is() {
+    // A/52:2018 clause E.3.5.5.2: `ampbnd *= 1 + 0.38 * chaos` for a
     // channel after the first without a transient. ecplchaostab[7] is -1, so
-    // the amplitude is 1.38. With every rand_notrans zero the angle is left
-    // alone and the channel is the carrier times 1.38.
+    // the amplitude is 0.62 (ETSI TS 102 366 V1.2.1 prints `1 - 0.38`, which
+    // would give 1.38). With every rand_notrans zero the angle is left alone
+    // and the channel is the carrier times 0.62.
     let blocks = carrier(0x5eed_0003_0000_0001);
     let proto = with_second(&[(37, 253)], 0, &[0], &[7], false);
     let mut synth = Synth::with_random_values(given(0.0, vec![0.0; 64]));
     let out = run_middle(&mut synth, &blocks, &proto);
     for bin in 37..253 {
-        let want = 1.38 * blocks[1][bin];
+        let want = 0.62 * blocks[1][bin];
         assert!(
             (out[1][bin] - want).abs() < 1e-9,
             "bin {bin}: {} where the text gives {want}",
@@ -336,7 +337,7 @@ fn chaos_raises_the_amplitude_where_no_transient_is() {
 fn the_chaos_term_is_subtracted_from_the_angle() {
     // Clause E.3.5.5.3: `angle += -chaos * rand`. With chaos -1 and every
     // rand_notrans 0.25 the bin angle is +0.25, the angle of code 8; the
-    // amplitude is 1.38 (clause E.3.5.5.2).
+    // amplitude is 0.62 (clause E.3.5.5.2).
     let blocks = carrier(0x5eed_0003_0000_0002);
     let chaotic = with_second(&[(37, 253)], 0, &[0], &[7], false);
     let rotated = with_second(&[(37, 253)], 0, &[8], &[0], false);
@@ -348,10 +349,10 @@ fn the_chaos_term_is_subtracted_from_the_angle() {
     let want = run_middle(&mut Synth::new(), &blocks, &rotated);
     for bin in 37..253 {
         assert!(
-            (got[1][bin] - 1.38 * want[1][bin]).abs() < 1e-9,
+            (got[1][bin] - 0.62 * want[1][bin]).abs() < 1e-9,
             "bin {bin}: {} against {}",
             got[1][bin],
-            1.38 * want[1][bin]
+            0.62 * want[1][bin]
         );
     }
 }

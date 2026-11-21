@@ -212,10 +212,12 @@ impl Synth {
                     ECPL_CHAOS_TAB[usize::from(c.chaos[bnd])]
                 };
                 if !c.transient && !first {
-                    // ETSI TS 102 366 V1.2.1 clause E.2.5.5.2 as printed:
-                    // `ampbnd *= 1 - 0.38 * chaos`. The chaos table runs from
-                    // 0 to -1, so this raises the amplitude, by up to 1.38.
-                    a *= 1.0 - 0.38 * chaos[bnd];
+                    // ATSC A/52:2018 clause E.3.5.5.2 prints
+                    // `ampbnd *= 1 + 0.38 * chaos`; the chaos table runs from
+                    // 0 to -1, so this lowers the amplitude, to 0.62 at code
+                    // 7. ETSI TS 102 366 V1.2.1 clause E.2.5.5.2 prints the
+                    // other sign (`1 - 0.38`); see `docs/eac3.md`.
+                    a *= 1.0 + 0.38 * chaos[bnd];
                 }
                 amp[bnd] = a;
                 angle_bnd[bnd] = if first {
