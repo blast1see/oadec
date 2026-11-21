@@ -1,0 +1,646 @@
+{
+ "id": "round-5-p3",
+ "title": "Round 5, P3: the loss ledger made complete, the ADM profile guard, what the model keeps; default outputs unchanged",
+ "topics": [
+  "loss ledger",
+  "loss report schema",
+  "ADM profile guard",
+  "programme model"
+ ],
+ "evidence_class": "MEASURED",
+ "structural_result": "PASS",
+ "semantic_result": "PASS",
+ "classification": "declared losses only; no output byte changed",
+ "method": "docs/audit/adm-remediation/tools/run_remediation.py --stage harness --no-dolby --no-ear; a replay of the committed object fixtures through the B0 binary and this branch; cargo test (cli_loss_report goldens, ledger_completeness)",
+ "inputs": [
+  "crates/oadec-cli/tests/fixtures/authored-scene.ec3",
+  "crates/oadec-cli/tests/fixtures/authored-scene.mlp",
+  "crates/oadec-eac3/tests/fixtures/joc-512-tones.ec3"
+ ],
+ "tolerance": "none: byte equality",
+ "generated_by": "round 5 P3 stop 2 (measure scripts outside the repository)",
+ "utc": "2026-11-21T12:14:52Z",
+ "head": "7f1a847",
+ "harness": {
+  "cases": 27,
+  "failures": 0,
+  "by_case": {
+   "C01-ramps": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "ramp-replaced": 4
+     }
+    }
+   },
+   "C02-gain": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "ramp-replaced": 1
+     }
+    }
+   },
+   "C03-importance": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "importance-omitted": 2
+     }
+    }
+   },
+   "C04-size3d": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "size-axes-collapsed": 1
+     },
+     "damf": {
+      "size-axes-collapsed": 1
+     }
+    }
+   },
+   "C05-bed-events": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "bed-event-dropped": 2,
+      "bed-gain-dropped": 1
+     }
+    }
+   },
+   "C06-late-first": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "late-first-event-held": 2,
+      "ramp-replaced": 2
+     }
+    }
+   },
+   "C07-beyond-end": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "event-beyond-end-dropped": 2,
+      "ramp-replaced": 1
+     }
+    }
+   },
+   "C08-same-pos": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "ramp-replaced": 1,
+      "same-position-superseded": 1
+     }
+    }
+   },
+   "C09-out-of-order": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "ramp-replaced": 2
+     },
+     "damf": {
+      "out-of-order-written-as-is": 1
+     }
+    }
+   },
+   "C10-zero-objects": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {}
+   },
+   "C11-no-bed": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {}
+   },
+   "C12-118-objects": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {}
+   },
+   "C13-isf": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {}
+   },
+   "C14-bed-tfl": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {}
+   },
+   "C15-96k": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {}
+   },
+   "C16-active-toggle": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "ramp-replaced": 2
+     }
+    }
+   },
+   "C17-zones": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {}
+   },
+   "C18-snap": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {}
+   },
+   "C19-oamd-extras": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "screen-reference-dropped": 1
+     },
+     "timeline": {
+      "distance-dropped": 2
+     }
+    }
+   },
+   "C20-ramp-only": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "ramp-replaced": 2
+     }
+    }
+   },
+   "C21-bed-order": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {}
+   },
+   "C21b-bed-order-nbc": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {}
+   },
+   "C13b-isf-drop": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "isf-dropped": 4
+     },
+     "damf": {
+      "isf-dropped": 4
+     }
+    }
+   },
+   "C15b-96k-allowed": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "non-profile-sample-rate": 1,
+      "ramp-replaced": 1
+     }
+    }
+   },
+   "C20b-real-ramps": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {}
+   },
+   "R01-119-objects": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {}
+   },
+   "R02-gain-tagged": {
+    "exit": 0,
+    "expectation_failures": 0,
+    "ledger": {
+     "adm": {
+      "ramp-replaced": 1
+     }
+    }
+   }
+  }
+ },
+ "fixtures_against_b0": {
+  "base": "baa764e (round 5 B0), release build",
+  "summary": {
+   "runs": 25,
+   "bytes_identical": 25,
+   "stderr_identical": 25,
+   "exit_identical": 25
+  },
+  "runs": [
+   {
+    "fixture": "authored-scene.ec3",
+    "format": "damf",
+    "options": [],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 3,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.ec3",
+    "format": "adm",
+    "options": [],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.ec3",
+    "format": "damf",
+    "options": [
+     "--no-bed-conform"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 3,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.ec3",
+    "format": "adm",
+    "options": [
+     "--no-bed-conform"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.ec3",
+    "format": "damf",
+    "options": [
+     "--all-events"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 3,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.ec3",
+    "format": "adm",
+    "options": [
+     "--adm-interpolation",
+     "real"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.ec3",
+    "format": "damf",
+    "options": [
+     "--warp-mode",
+     "stream"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 3,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.ec3",
+    "format": "adm",
+    "options": [
+     "--warp-mode",
+     "stream"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.ec3",
+    "format": "adm",
+    "options": [
+     "--dolby-origin-tag"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.mlp",
+    "format": "damf",
+    "options": [],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 3,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.mlp",
+    "format": "adm",
+    "options": [],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.mlp",
+    "format": "damf",
+    "options": [
+     "--no-bed-conform"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 3,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.mlp",
+    "format": "adm",
+    "options": [
+     "--no-bed-conform"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.mlp",
+    "format": "damf",
+    "options": [
+     "--all-events"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 3,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.mlp",
+    "format": "adm",
+    "options": [
+     "--adm-interpolation",
+     "real"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "authored-scene.mlp",
+    "format": "adm",
+    "options": [
+     "--dolby-origin-tag"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "joc-512-tones.ec3",
+    "format": "damf",
+    "options": [],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 3,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "joc-512-tones.ec3",
+    "format": "adm",
+    "options": [],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "joc-512-tones.ec3",
+    "format": "damf",
+    "options": [
+     "--no-bed-conform"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 3,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "joc-512-tones.ec3",
+    "format": "adm",
+    "options": [
+     "--no-bed-conform"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "joc-512-tones.ec3",
+    "format": "damf",
+    "options": [
+     "--all-events"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 3,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "joc-512-tones.ec3",
+    "format": "adm",
+    "options": [
+     "--adm-interpolation",
+     "real"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "joc-512-tones.ec3",
+    "format": "damf",
+    "options": [
+     "--warp-mode",
+     "stream"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 3,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "joc-512-tones.ec3",
+    "format": "adm",
+    "options": [
+     "--warp-mode",
+     "stream"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   },
+   {
+    "fixture": "joc-512-tones.ec3",
+    "format": "adm",
+    "options": [
+     "--dolby-origin-tag"
+    ],
+    "exit": [
+     0,
+     0
+    ],
+    "files": 1,
+    "bytes_identical": true,
+    "stderr_identical": true
+   }
+  ]
+ },
+ "loss_report_goldens": {
+  "streams": 15,
+  "changed_files": 4,
+  "changed_lines": 13,
+  "every_changed_line": "  \"schema\": 2,",
+  "stderr_lines_changed": 0
+ },
+ "ledger": {
+  "kinds_before": 17,
+  "kinds_after": 23,
+  "new_kinds": {
+   "additional-table-data-dropped": "unrepresentable",
+   "alternate-object-data-dropped": "unrepresentable",
+   "unknown-element-dropped": "unrepresentable",
+   "bed-distribute-dropped": "unrepresentable",
+   "reserved-data-dropped": "unrepresentable",
+   "reserved-zone-read-as-all": "approximation"
+  },
+  "newly_counted_with_existing_kinds": [
+   "importance-omitted: the first state of a bed channel in ADM",
+   "trim-bypass-dropped: the first state of a bed channel in ADM"
+  ],
+  "declared_loss_kinds_added": 0,
+  "tests": "crates/oadec-spatial/tests/ledger_completeness.rs"
+ },
+ "profile_guard": {
+  "limits": {
+   "MAX_ELEMENT_COUNT": 123,
+   "MAX_CHANNEL_COUNT": 128,
+   "objects": 118
+  },
+  "counted": [
+   "audioObject",
+   "audioPackFormat",
+   "audioChannelFormat",
+   "audioStreamFormat",
+   "audioTrackFormat",
+   "audioTrackUID",
+   "Objects channel formats"
+  ],
+  "largest_programme_written": {
+   "bed": "7.1.2",
+   "objects": 118,
+   "audioObject": 119,
+   "findings": 0
+  },
+  "grouping_verified_against_profile_text": false
+ }
+}
