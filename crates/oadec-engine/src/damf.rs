@@ -849,6 +849,80 @@ mod tests {
         assert_eq!((p.isf_objects, p.isf_index), (0, None));
     }
 
+    /// Table 19 of the TrueHD description: the major sync declares SR7.3.0.0
+    /// (010b), SR9.5.0.0 (011b) and SR7.5.3.0 (100b), and nothing else. The
+    /// four- and eight-object formats and the one of thirty, which TS 103 420
+    /// table 11b gives indices 0, 1 and 5, are reserved values here.
+    ///
+    /// P4 stop 1: red until stop 2. Stop 2 also rewrites the test above,
+    /// which declares index 0 and a presentation of one channel.
+    #[test]
+    fn the_major_sync_declares_only_the_formats_of_table_19() {
+        for (index, objects) in [(2u8, 10usize), (3, 14), (4, 15)] {
+            let extra = ExtraChannelMeaning {
+                sixteench_channel_count: objects as u8, // LFE + ISF
+                content_description: 0b011,
+                lfe_only: true,
+                isf_index: index,
+                ..ExtraChannelMeaning::default()
+            };
+            let p = program_from_extra(&extra).unwrap_or_else(|e| panic!("{index}: {e}"));
+            assert_eq!((p.isf_index, p.isf_objects), (Some(index), objects));
+        }
+        for index in [0u8, 1, 5, 6, 7] {
+            let extra = ExtraChannelMeaning {
+                sixteench_channel_count: 15,
+                content_description: 0b010,
+                isf_index: index,
+                ..ExtraChannelMeaning::default()
+            };
+            let err = program_from_extra(&extra).unwrap_err().to_string();
+            assert!(err.contains("reserved"), "{index}: {err}");
+            assert!(
+                err.contains(&format!("16ch_intermediate_spatial_format {index}")),
+                "{index}: {err}"
+            );
+        }
+    }
+
+    /// The bed, the ISF channels and the dynamic objects are the channels of
+    /// the presentation, no more and no fewer (section 4.4: "equal to the
+    /// number of channels specified by the value of 16ch_channel_count").
+    ///
+    /// P4 stop 1: red until stop 2.
+    #[test]
+    fn a_programme_that_is_not_its_presentation_is_refused_by_name() {
+        // C, LFE, SR7.5.3.0 and one object: 18 in a presentation of 16
+        let over = ExtraChannelMeaning {
+            sixteench_channel_count: 15,
+            content_description: 0b111,
+            sixteench_channel_assignment: 0b00_0000_0110,
+            isf_index: 4,
+            dynamic_object_count: 0,
+            ..ExtraChannelMeaning::default()
+        };
+        let err = program_from_extra(&over).unwrap_err().to_string();
+        assert!(err.contains("18") && err.contains("16"), "{err}");
+        assert!(err.contains("16ch_channel_count"), "{err}");
+        // the same in 14 channels: two short
+        let short = ExtraChannelMeaning {
+            sixteench_channel_count: 13,
+            content_description: 0b011,
+            lfe_only: true,
+            isf_index: 4,
+            ..ExtraChannelMeaning::default()
+        };
+        let err = program_from_extra(&short).unwrap_err().to_string();
+        assert!(err.contains("16") && err.contains("14"), "{err}");
+        // LFE and SR7.5.3.0: exactly 16
+        let fits = ExtraChannelMeaning {
+            sixteench_channel_count: 15,
+            ..short
+        };
+        let p = program_from_extra(&fits).unwrap();
+        assert_eq!(p.elements(), 16);
+    }
+
     fn sink_options(adm: bool) -> Options {
         Options {
             joc: crate::eac3_objects::JocOverrides::default(),

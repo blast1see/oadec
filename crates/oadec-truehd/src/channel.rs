@@ -184,6 +184,76 @@ impl ChannelMeaning {
 }
 
 /// Speaker label of a decoded channel.
+/// A channel of an intermediate spatial format: its ring and its place in
+/// the ring, from 1. The rings are the middle (`M`), the upper (`U`), the
+/// lower (`L`) and the zenith (`Z`); the channels of a format come in that
+/// order, the MULZ order of TS 103 420 table 11b and of table 19 of the TrueHD
+/// description.
+///
+/// Neither document says where a ring is or where its channels sit on it, so
+/// a channel has a name and no position.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum IsfChannel {
+    /// A channel of the middle ring.
+    M(u8),
+    /// A channel of the upper ring.
+    U(u8),
+    /// A channel of the lower ring.
+    L(u8),
+    /// The zenith channel.
+    Z(u8),
+}
+
+impl fmt::Display for IsfChannel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::M(k) => write!(f, "M{k}"),
+            Self::U(k) => write!(f, "U{k}"),
+            Self::L(k) => write!(f, "L{k}"),
+            Self::Z(k) => write!(f, "Z{k}"),
+        }
+    }
+}
+
+/// An intermediate spatial format the 16-channel presentation can declare.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IsfFormat {
+    /// `16ch_intermediate_spatial_format`.
+    pub index: u8,
+    /// The stacked-ring name of TS 103 420 table 11b (`SR7.3.0.0`); the
+    /// TrueHD description writes the same format `BH7.3.0.0`.
+    pub name: &'static str,
+    /// Channels of the middle, upper, lower and zenith rings.
+    pub rings: [u8; 4],
+}
+
+impl IsfFormat {
+    /// Channels of the format.
+    #[must_use]
+    pub fn channels(&self) -> usize {
+        self.rings.iter().map(|&n| usize::from(n)).sum()
+    }
+
+    /// The channels of the format in MULZ order.
+    #[must_use]
+    pub fn labels(&self) -> Vec<IsfChannel> {
+        // P4 stop 1: the contract only; the body comes at stop 2.
+        Vec::new()
+    }
+}
+
+/// The intermediate spatial format `16ch_intermediate_spatial_format` declares
+/// (TrueHD description, section 4.4, table 19): 2 is SR7.3.0.0 (10 channels),
+/// 3 SR9.5.0.0 (14), 4 SR7.5.3.0 (15). The other five values are reserved:
+/// the formats of four and eight objects (0 and 1) and of thirty (5) that
+/// TS 103 420 table 11b gives the same indices are not among them.
+#[must_use]
+pub fn sixteen_channel_isf(index: u8) -> Option<IsfFormat> {
+    // P4 stop 1: the contract only; the body comes at stop 2.
+    let _ = index;
+    None
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum ChannelLabel {
@@ -211,11 +281,16 @@ pub enum ChannelLabel {
     Rw,
     Tfc,
     LFE2,
+    /// A channel of an intermediate spatial format (no speaker).
+    Isf(IsfChannel),
 }
 
 impl fmt::Display for ChannelLabel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{self:?}")
+        match self {
+            Self::Isf(channel) => write!(f, "{channel}"),
+            other => write!(f, "{other:?}"),
+        }
     }
 }
 
@@ -331,11 +406,83 @@ impl ChannelLabel {
         }
         Self::sixteen_channel_bed(extra.sixteench_channel_assignment)
     }
+
+    /// The labelled channels of the sixteen-channel presentation: the bed
+    /// ([`ChannelLabel::sixteen_channel`]), then the channels of the
+    /// intermediate spatial format it declares, if any, in MULZ order. The
+    /// dynamic objects follow them unlabelled.
+    #[must_use]
+    pub fn sixteen_channel_with_isf(extra: &ExtraChannelMeaning) -> Vec<Self> {
+        // P4 stop 1: the contract only; the ISF channels come at stop 2.
+        Self::sixteen_channel(extra)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Table 19 of the TrueHD description: three formats, in MULZ order.
+    #[test]
+    fn the_major_sync_declares_three_intermediate_spatial_formats() {
+        let names = |f: IsfFormat| {
+            f.labels()
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        };
+        let f = sixteen_channel_isf(2).expect("010b");
+        assert_eq!((f.name, f.channels()), ("SR7.3.0.0", 10));
+        assert_eq!(
+            names(f),
+            ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "U1", "U2", "U3"]
+        );
+        let f = sixteen_channel_isf(3).expect("011b");
+        assert_eq!((f.name, f.channels()), ("SR9.5.0.0", 14));
+        assert_eq!(
+            names(f),
+            [
+                "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "U1", "U2", "U3", "U4", "U5"
+            ]
+        );
+        let f = sixteen_channel_isf(4).expect("100b");
+        assert_eq!((f.name, f.channels()), ("SR7.5.3.0", 15));
+        assert_eq!(
+            names(f),
+            [
+                "M1", "M2", "M3", "M4", "M5", "M6", "M7", "U1", "U2", "U3", "U4", "U5", "L1", "L2",
+                "L3"
+            ]
+        );
+        for reserved in [0, 1, 5, 6, 7] {
+            assert_eq!(sixteen_channel_isf(reserved), None, "{reserved}");
+        }
+    }
+
+    /// The example of section 4.4: content 0111b, C and LFE, format 010b,
+    /// two dynamic objects is "C LFE M1 M2 M3 M4 M5 M6 M7 U1 U2 U3 Obj1 Obj2".
+    #[test]
+    fn the_object_presentation_names_its_isf_channels_after_the_bed() {
+        let extra = ExtraChannelMeaning {
+            sixteench_channel_count: 13,
+            content_description: 0b0111,
+            sixteench_channel_assignment: 0b00_0000_0110,
+            isf_index: 2,
+            dynamic_object_count: 1,
+            ..ExtraChannelMeaning::default()
+        };
+        let labels: Vec<String> = ChannelLabel::sixteen_channel_with_isf(&extra)
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        assert_eq!(
+            labels,
+            [
+                "C", "LFE", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "U1", "U2", "U3"
+            ]
+        );
+        assert_eq!(extra.dynamic_objects(), 2);
+    }
 
     #[test]
     fn labels_follow_the_bit_order() {
@@ -454,6 +601,11 @@ impl ChannelLabel {
             Self::LFE2 => 35,
             Self::Tsl => 36,
             Self::Tsr => 37,
+            // after every speaker, in MULZ order
+            Self::Isf(IsfChannel::M(k)) => 64 + k,
+            Self::Isf(IsfChannel::U(k)) => 96 + k,
+            Self::Isf(IsfChannel::L(k)) => 128 + k,
+            Self::Isf(IsfChannel::Z(k)) => 160 + k,
         }
     }
 

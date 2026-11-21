@@ -40,7 +40,9 @@ pub(crate) mod testutil;
 pub use au::{AccessUnit, AuHeader, DirectoryEntry, StreamConfig};
 pub use block::{Block, BlockHeader, ChannelParams, SampleBuffer};
 pub use census::Census;
-pub use channel::{ChannelLabel, ChannelMeaning, ExtraChannelMeaning};
+pub use channel::{
+    ChannelLabel, ChannelMeaning, ExtraChannelMeaning, IsfChannel, IsfFormat, sixteen_channel_isf,
+};
 pub use decoder::{ConfigChange, DecodeStats, Decoded, Decoder, Following, OnConfigChange, Strict};
 pub use diag::{Finding, Location, RuleTally, Severity, Tally};
 pub use error::{Error, Result};
