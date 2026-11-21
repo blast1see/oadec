@@ -327,3 +327,171 @@ fn a_long_stream_comes_through_a_pipe_whole() {
     let out = piped(&["verify", "--json", "-"], &long);
     assert_eq!(units(&out), single * times as u64);
 }
+
+/// Bytes a stream piped into a report command may make the process hold at
+/// its most, whatever the length of the stream (round 5, gate 3).
+const PEAK: u64 = 64 << 20;
+
+/// The most memory process `pid` has held so far, as the system counts it:
+/// the high-water mark of its resident set on Linux, its peak working set on
+/// Windows. `None` where neither can be asked.
+fn peak_bytes(pid: u32) -> Option<u64> {
+    if cfg!(target_os = "linux") {
+        let status = std::fs::read_to_string(format!("/proc/{pid}/status")).ok()?;
+        let kib = status.lines().find_map(|l| l.strip_prefix("VmHWM:"))?;
+        let kib: u64 = kib.trim().trim_end_matches("kB").trim().parse().ok()?;
+        Some(kib << 10)
+    } else if cfg!(windows) {
+        let said = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                &format!("(Get-Process -Id {pid}).PeakWorkingSet64"),
+            ])
+            .output()
+            .ok()?;
+        text(&said.stdout).trim().parse().ok()
+    } else {
+        None
+    }
+}
+
+/// Runs `oadec` with what `feed` writes on its standard input. Once `feed`
+/// has written everything, and before the pipe is closed, the command has
+/// read all but what the pipe holds and waits for the end: the most memory
+/// it has held by then is asked for, and is what is handed back with what
+/// the command printed.
+fn piped_with_peak(args: &[&str], feed: impl FnOnce(&mut dyn Write)) -> (Output, Option<u64>) {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_oadec"))
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("run oadec");
+    let mut stdin = child.stdin.take().expect("a pipe");
+    feed(&mut stdin);
+    let peak = peak_bytes(child.id());
+    drop(stdin);
+    (child.wait_with_output().expect("waited"), peak)
+}
+
+/// What each report command is run as over a long stream, and the exit
+/// codes it may end with: a stream that is a fixture over and over is
+/// judged, and may be judged unclean where one copy meets the next; `au`
+/// walks to the end looking for a unit that is not there.
+const LONG_RUNS: [(&[&str], &[i32]); 6] = [
+    (&["info", "--json", "-"], &[0]),
+    (&["verify", "--json", "-"], &[0, 7]),
+    (&["verify", "--json", "--decode", "-"], &[0, 7]),
+    (&["emdf", "--json", "-"], &[0, 7]),
+    (&["oamd", "--json", "-"], &[0, 7]),
+    (&["au", "--index", "4000000000", "-"], &[2]),
+];
+
+/// A stream several times longer than the bound, piped in, does not make a
+/// report command hold it: what the process holds at its most stays within
+/// [`PEAK`]. Of a TrueHD and of an E-AC-3 stream, each a fixture over and
+/// over, written from here as the command reads it.
+///
+/// On a system that cannot be asked for the memory of a process the test
+/// says so and passes; Linux and Windows can.
+#[test]
+#[ignore = "r5 durak 2: stdin is read whole before a report command starts (2.5 GB held for a 2.6 GB stream)"]
+fn a_long_stream_piped_into_a_report_is_not_held_whole() {
+    const LENGTH: usize = 160 << 20;
+    for name in ["truehd-51-88k.thd", "authored-scene.ec3"] {
+        let once = std::fs::read(fixture(name)).unwrap();
+        for (args, codes) in LONG_RUNS {
+            let (out, peak) = piped_with_peak(args, |to| {
+                let mut written = 0;
+                while written < LENGTH {
+                    // a command that refused the stream has stopped reading
+                    if to.write_all(&once).is_err() {
+                        break;
+                    }
+                    written += once.len();
+                }
+            });
+            let at = format!("{args:?} of {name}");
+            assert!(
+                out.status.code().is_some_and(|c| codes.contains(&c)),
+                "{at}: {:?} {}",
+                out.status,
+                text(&out.stderr)
+            );
+            let Some(peak) = peak else {
+                eprintln!("{at}: the memory of a process cannot be asked for here");
+                continue;
+            };
+            assert!(peak <= PEAK, "{at}: {} MiB at most", peak >> 20);
+        }
+    }
+}
+
+/// [`a_long_stream_piped_into_a_report_is_not_held_whole`] of a stream of a
+/// feature's length, which no fixture is: the file `OADEC_LONG_STREAM` names
+/// is copied into the pipe as the command reads it, and never held here.
+#[test]
+#[ignore = "r5 durak 2, and media: OADEC_LONG_STREAM names a stream of gigabytes"]
+fn a_feature_length_stream_piped_into_a_report_is_not_held_whole() {
+    let path = std::env::var_os("OADEC_LONG_STREAM")
+        .expect("OADEC_LONG_STREAM names the stream this test reads");
+    for (args, codes) in LONG_RUNS {
+        let (out, peak) = piped_with_peak(args, |to| {
+            let mut from = std::fs::File::open(&path).expect("the stream");
+            // a command that refused the stream has stopped reading
+            let _ = std::io::copy(&mut from, to);
+        });
+        assert!(
+            out.status.code().is_some_and(|c| codes.contains(&c)),
+            "{args:?}: {:?} {}",
+            out.status,
+            text(&out.stderr)
+        );
+        let peak = peak.expect("the memory of the process");
+        assert!(peak <= PEAK, "{args:?}: {} MiB at most", peak >> 20);
+    }
+}
+
+/// A stream whose writer stopped inside a unit is judged as the file that
+/// ends there: the same report, the same exit code (7 where the bytes after
+/// the last whole unit count against it). What holds today, with the stream
+/// read whole, holds once it is read as it comes.
+#[test]
+fn a_stream_cut_off_in_a_pipe_is_judged_as_the_file_it_ends_in() {
+    let dir = temp("cut");
+    for name in [
+        "truehd-51-88k.thd",
+        "authored-scene.mlp",
+        "authored-scene.ec3",
+    ] {
+        let once = std::fs::read(fixture(name)).unwrap();
+        let bytes = once.repeat((1 << 20) / once.len() + 1);
+        let cut = &bytes[..bytes.len() / 2 + 17];
+        let file = dir.join(format!("cut-{name}"));
+        std::fs::write(&file, cut).unwrap();
+        let file = file.to_str().unwrap();
+        let mut judged = 0;
+        for command in [
+            vec!["info", "--json"],
+            vec!["verify", "--json"],
+            vec!["emdf", "--json"],
+            vec!["oamd", "--json"],
+        ] {
+            let (mut of_file, mut of_pipe) = (command.clone(), command.clone());
+            of_file.push(file);
+            of_pipe.push("-");
+            let (by_file, by_pipe) = (oadec(&of_file), piped(&of_pipe, cut));
+            let at = format!("{command:?} {name}");
+            assert_eq!(by_pipe.status.code(), by_file.status.code(), "{at}");
+            assert_eq!(report(&by_pipe, file), report(&by_file, file), "{at}");
+            assert_eq!(lines(&by_pipe.stderr, file), lines(&by_file.stderr, file));
+            judged += usize::from(by_file.status.code() == Some(7));
+        }
+        // verify at least calls a stream cut inside a unit unclean
+        assert!(judged >= 1, "{name}: nothing was judged unclean");
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}

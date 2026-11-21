@@ -20,8 +20,9 @@
 //!
 //! Every type a call takes or hands back has a name here.
 
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::Result;
 /// How an AC-3 or E-AC-3 core is decoded on the way to its objects.
@@ -360,6 +361,78 @@ pub fn emdf(source: &Source) -> Result<emdf::Report> {
         // nothing is listed in full, so nothing is written
         &mut io::sink(),
     )
+}
+
+// ---------------------------------------------------------------------------
+// The same calls of a stream that is read once.
+//
+// What a call above reads of a `Source` it may read more than once; what a
+// call below reads, it reads once, from the reader it is handed, and gives
+// what the call of the same bytes in a `Source` gives (the name aside, which
+// is the one it is handed). They are for a pipe or a socket: what they hold
+// does not grow with the stream (`crate::pipeline`).
+// ---------------------------------------------------------------------------
+
+/// [`info_of`] of a stream read once from `reader`, which reports call
+/// `name`; how far it has read is told to `watcher`, a walk of no known
+/// total.
+///
+/// # Errors
+/// As [`info_of`], and what reading gives.
+pub fn info_from(
+    name: &str,
+    reader: impl Read,
+    programme: Option<u8>,
+    watcher: Option<Arc<dyn Watcher>>,
+) -> Result<Info> {
+    let _ = (reader, programme, watcher);
+    Err(not_yet(name))
+}
+
+/// [`verify`] of a stream read once from `reader`, as [`info_from`].
+///
+/// # Errors
+/// As [`verify`], and what reading gives.
+pub fn verify_from(
+    name: &str,
+    reader: impl Read,
+    options: &VerifyOptions,
+    watcher: Option<Arc<dyn Watcher>>,
+) -> Result<Verified> {
+    let _ = (reader, options, watcher);
+    Err(not_yet(name))
+}
+
+/// [`oamd`] of a stream read once from `reader`, as [`info_from`].
+///
+/// # Errors
+/// As [`oamd`], and what reading gives.
+pub fn oamd_from(
+    name: &str,
+    reader: impl Read,
+    watcher: Option<Arc<dyn Watcher>>,
+) -> Result<oamd::Report> {
+    let _ = (reader, watcher);
+    Err(not_yet(name))
+}
+
+/// [`emdf`] of a stream read once from `reader`, as [`info_from`].
+///
+/// # Errors
+/// As [`emdf`], and what reading gives.
+pub fn emdf_from(
+    name: &str,
+    reader: impl Read,
+    watcher: Option<Arc<dyn Watcher>>,
+) -> Result<emdf::Report> {
+    let _ = (reader, watcher);
+    Err(not_yet(name))
+}
+
+/// What a call of a stream read once answers until it is built.
+fn not_yet(name: &str) -> anyhow::Error {
+    anyhow::Error::new(crate::pipeline::not_yet("a report of a stream read once"))
+        .context(name.to_string())
 }
 
 /// What a decode to samples is asked.

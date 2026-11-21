@@ -58,9 +58,11 @@ pub mod info;
 pub mod input;
 pub mod integrity;
 pub mod oamd;
+pub mod pipeline;
 pub mod protection;
 pub mod scan;
 pub mod source;
+pub mod spool;
 pub mod stream;
 pub mod verify;
 
