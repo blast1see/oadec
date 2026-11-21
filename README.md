@@ -97,7 +97,7 @@ flag is off by default and the DAMF output needs no such marker.
 
 `decode --decorrelate` is experimental and off by default: it decorrelates the
 coupled channels of an E-AC-3 programme that is its independent substream alone,
-as Dolby's decoders were measured to do. Its weight is this decoder's estimate fitted on measurements, and a decode with it is not claimed to equal Dolby's. An AC-3 stream and a
+as Dolby's decoders were measured to do. Its weight is this decoder's estimate fitted on measurements, and a decode with it is not claimed to equal Dolby's: on a stereo stream of a commercial release it was measured further from Dolby's decode than a decode without it ([`docs/eac3.md`](docs/eac3.md)). An AC-3 stream and a
 programme with dependent substreams are decoded as without it, and the summary
 and the report say where it was applied and why not elsewhere
 ([`docs/eac3.md`](docs/eac3.md)).
