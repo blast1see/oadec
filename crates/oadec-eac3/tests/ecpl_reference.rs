@@ -100,7 +100,14 @@ fn parse(path: &Path) -> Case {
     };
     let mut mant: Option<(Lcg, f64)> = None;
     // the block being read: (nfchans, begin, end, bndstrc, interp, chans)
-    type Open = (usize, usize, usize, [bool; 22], bool, Vec<Option<EcplChannel>>);
+    type Open = (
+        usize,
+        usize,
+        usize,
+        [bool; 22],
+        bool,
+        Vec<Option<EcplChannel>>,
+    );
     let mut open: Option<Open> = None;
     let close = |open: &mut Option<Open>, case: &mut Case, mant: &mut Option<(Lcg, f64)>| {
         if let Some((nf, begin, end, strc, interp, chans)) = open.take() {
@@ -132,7 +139,10 @@ fn parse(path: &Path) -> Case {
                     words[3].parse().expect("scale"),
                 ));
             }
-            "keep" => panic!("{}: the cases kept here compare every block", path.display()),
+            "keep" => panic!(
+                "{}: the cases kept here compare every block",
+                path.display()
+            ),
             "block" => {
                 close(&mut open, &mut case, &mut mant);
                 if words[1] == "none" {
