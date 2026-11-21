@@ -360,6 +360,11 @@ impl Decoder {
         let pcm = if self.opts.samples {
             if frame.blocks.iter().any(|b| b.ecpl.is_some()) {
                 self.synthesize_ecpl(&mut frame.blocks, next);
+            } else {
+                // A frame without enhanced coupling (standard coupling, or a
+                // concealed frame) is a predecessor of zeros for the next
+                // block that has it (clause E.3.5.5.1).
+                self.ecpl.skip_block();
             }
             let mut pcm: Vec<Vec<f32>> = (0..nch).map(|_| Vec::with_capacity(samples)).collect();
             let mut out = [0.0f64; N];
