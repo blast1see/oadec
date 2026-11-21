@@ -48,6 +48,8 @@ const RESTART_SYNC_NOISE: u64 = 0x31EA;
 /// The restart sync word of a substream with a table of dither in their
 /// place: the one encoders give the substreams over the first.
 const RESTART_SYNC_DITHER: u64 = 0x31EB;
+/// The restart sync word of the object presentation's substream, the fourth.
+const RESTART_SYNC_OBJECTS: u64 = 0x31EC;
 /// The dither a `0x31EB` substream draws on: 256 values that are part of the
 /// format, named by the top eight bits of the noise register. The two public
 /// decoders carry the same table (`noise_table` in FFmpeg, `DITHER_LUT` in
@@ -215,6 +217,9 @@ pub struct Layout {
     /// eight-channel one of a stream of two substreams is the six channels
     /// unless this says the stream has none.
     pub substream_info: Option<u8>,
+    /// The 16-channel presentation: what the major sync says of it. Only with
+    /// a fourth substream ([`Above::objects`]).
+    pub sixteen: Option<Sixteen>,
 }
 
 /// A substream over the first. It codes the channels it adds to those of the
@@ -241,6 +246,10 @@ pub struct Above {
     pub assignment: Vec<usize>,
     /// Its restart headers set `error_protect`.
     pub protection: Option<Protection>,
+    /// It is the substream of the 16-channel object presentation, the
+    /// fourth: its restart sync word is `0x31EC` and it has no noise
+    /// channels. The writer gives it no matrices.
+    pub object: bool,
 }
 
 impl Above {
@@ -255,8 +264,40 @@ impl Above {
             noise_seeds: Vec::new(),
             assignment: Vec::new(),
             protection: None,
+            object: false,
         }
     }
+
+    /// The fourth substream, of the 16-channel object presentation: `channels`
+    /// more channels, restart sync word `0x31EC`, no matrices.
+    #[must_use]
+    pub fn objects(channels: usize) -> Self {
+        Self {
+            object: true,
+            ..Self::new(channels)
+        }
+    }
+}
+
+/// What the major sync says of the 16-channel presentation
+/// (`16ch_channel_meaning`, TrueHD description section 4.4), each field as it
+/// is coded, so that a stream can say what it should not.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Sixteen {
+    /// `16ch_channel_count`: the channels of the presentation minus one;
+    /// `None` for the channels the stream codes.
+    pub channel_count: Option<u8>,
+    /// `16ch_content_description`: bit 0 loudspeaker feeds, bit 1 an
+    /// intermediate spatial format, bit 2 dynamic objects.
+    pub content_description: u8,
+    /// `lfe_only`, with bit 0.
+    pub lfe_only: bool,
+    /// `16ch_channel_assignment`, with bit 0 and not `lfe_only`.
+    pub assignment: u16,
+    /// `16ch_intermediate_spatial_format`, with bit 1.
+    pub isf: u8,
+    /// `16ch_dynamic_object_count`: the dynamic objects minus one, with bit 2.
+    pub dynamic_object_count: u8,
 }
 
 /// What a protected block states of itself. Neither field has a public
@@ -266,9 +307,53 @@ pub struct Protection {
     /// What `block_data_bits` counts beyond the bits of the block data: 0
     /// for those alone, 16 with the field itself.
     pub counted_beyond_the_data: u16,
-    /// `block_header_CRC`, as it is written: how it is computed is not
-    /// known.
-    pub check: u8,
+    /// What goes into `block_header_CRC`.
+    pub check: Check,
+}
+
+/// The byte a protected block writes behind its data, `block_header_CRC`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Check {
+    /// This byte, whatever the block holds: what the probes of a check no
+    /// one could compute wrote.
+    Stated(u8),
+    /// The CRC-8 of the bits of the block header (polynomial `0x1D`, the
+    /// register from `0xA2`, the bits most significant first; `0xA2` for a
+    /// block without one): the rule confirmed against Dolby's decoder as a
+    /// black box (`docs/truehd.md`, *Protected blocks*). Written here apart from the
+    /// decoder's reading of it, from the same primitive of `oadec-bits`.
+    HeaderCrc,
+    /// The CRC-8 of the block header with the header bit at this offset
+    /// from its first bit flipped: the stream is that of a header struck
+    /// after its check was made, every other check of the stream (the
+    /// restart header's, the lossless check, the parity and the CRC of the
+    /// segment) right. A block without a header writes the right check.
+    HeaderCrcOfFlipped(usize),
+}
+
+/// Where the fields of one written block lie in the stream, in bits from its
+/// first byte.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlockSpans {
+    /// The access unit.
+    pub unit: usize,
+    /// The substream.
+    pub substream: usize,
+    /// The block in its segment.
+    pub block: usize,
+    /// The segment, in bytes: its first byte and the one after its parity
+    /// and CRC bytes (or after its last byte without them).
+    pub segment: (usize, usize),
+    /// The restart header from its sync word to the byte of its CRC
+    /// included, when the block has one.
+    pub restart: Option<(usize, usize)>,
+    /// The block header, when the block has one: from the bit after the
+    /// flags to the bit before `block_data_bits`.
+    pub header: Option<(usize, usize)>,
+    /// The first bit of `block_data_bits`, with `error_protect`.
+    pub data_bits: Option<usize>,
+    /// The first bit of `block_header_CRC`, with `error_protect`.
+    pub check: Option<usize>,
 }
 
 impl Layout {
@@ -289,6 +374,7 @@ impl Layout {
             heavy_drc: None,
             above: Vec::new(),
             substream_info: None,
+            sixteen: None,
         }
     }
 
@@ -472,6 +558,74 @@ pub struct Stream {
     /// stream of one substream, whose presentation is the samples it was
     /// written from.
     pub below: Vec<Vec<Vec<i32>>>,
+    /// Where the fields of every block lie, in stream order.
+    pub blocks: Vec<BlockSpans>,
+}
+
+/// Flips bit `bit` of `stream` and writes again every check that covers it
+/// but `block_header_CRC`: the CRC of the restart header the bit is in, if
+/// any, and the parity and CRC bytes of its segment. A fault put this way
+/// into a block header, a restart header, `block_data_bits` or a
+/// `block_header_CRC` itself is the one fault of the stream.
+///
+/// # Errors
+/// When the bit is outside every segment, in the CRC of a restart header or
+/// in the parity or the CRC of its segment, or the segment has none.
+pub fn flip_and_reseal(stream: &mut Stream, bit: usize) -> Result<(), String> {
+    let byte = bit / 8;
+    let in_segment: Vec<BlockSpans> = stream
+        .blocks
+        .iter()
+        .copied()
+        .filter(|b| (b.segment.0..b.segment.1).contains(&byte))
+        .collect();
+    let Some(&first) = in_segment.first() else {
+        return Err(format!("bit {bit} is in no segment"));
+    };
+    let (s0, s1) = first.segment;
+    let sealed = |bytes: &[u8]| {
+        s1 - s0 >= 2 && {
+            let body = &bytes[s0..s1 - 2];
+            bytes[s1 - 2] == xor_bytes(body) ^ PARITY_XOR
+                && bytes[s1 - 1] == CRC8_SUBSTREAM.update_bytes(CRC8_SUBSTREAM_INIT, body)
+        }
+    };
+    if !sealed(&stream.bytes) {
+        return Err("the segment has no parity and CRC to write again".into());
+    }
+    if byte >= s1 - 2 {
+        return Err(format!(
+            "bit {bit} is in the parity or the CRC of its segment"
+        ));
+    }
+    let restart = in_segment.iter().find_map(|b| {
+        b.restart
+            .filter(|&(start, end)| (start..end).contains(&bit))
+    });
+    if let Some((_, end)) = restart
+        && bit >= end - 8
+    {
+        return Err(format!("bit {bit} is in the CRC of a restart header"));
+    }
+    stream.bytes[byte] ^= 0x80 >> (bit % 8);
+    if let Some((start, end)) = restart {
+        let crc = CRC8_RESTART.update_bits(0, &stream.bytes, start, end - 8 - start);
+        for k in 0..8 {
+            let pos = end - 8 + k;
+            let mask = 0x80 >> (pos % 8);
+            if (crc >> (7 - k)) & 1 == 1 {
+                stream.bytes[pos / 8] |= mask;
+            } else {
+                stream.bytes[pos / 8] &= !mask;
+            }
+        }
+    }
+    let body = &stream.bytes[s0..s1 - 2];
+    let parity = xor_bytes(body) ^ PARITY_XOR;
+    let crc = CRC8_SUBSTREAM.update_bytes(CRC8_SUBSTREAM_INIT, body);
+    stream.bytes[s1 - 2] = parity;
+    stream.bytes[s1 - 1] = crc;
+    Ok(())
 }
 
 /// The fewest bits of two's complement that hold every value; 1 for none.
@@ -763,7 +917,8 @@ fn major_sync(layout: &Layout, peak_data_rate: u64) -> Vec<u8> {
     w.put(15, peak_data_rate);
     // the substreams, and no object presentation to say more of
     w.put(4, 1 + layout.above.len() as u64);
-    w.put(4, 0);
+    // the object presentation reads every substream
+    w.put(4, if layout.sixteen.is_some() { 3 } else { 0 });
     // Which substreams each presentation reads (`substream_info`): two bits
     // for the six-channel one from bit 2 and three for the eight-channel
     // one from bit 4. Each reads its own substream and the ones under it,
@@ -776,7 +931,8 @@ fn major_sync(layout: &Layout, peak_data_rate: u64) -> Vec<u8> {
                 (Family::Mlp, _) => 0x05,
                 (Family::TrueHd, 0) => 0x14,
                 (Family::TrueHd, 1) => 0x3C,
-                (Family::TrueHd, _) => 0x7C,
+                (Family::TrueHd, 2) => 0x7C,
+                (Family::TrueHd, _) => 0xFC,
             });
     w.put(8, u64::from(substream_info));
     match layout.family {
@@ -799,8 +955,13 @@ fn major_sync(layout: &Layout, peak_data_rate: u64) -> Vec<u8> {
             w.put(5, 31);
             w.put(6, 0);
             w.put(6, 0);
-            // a reserved bit, and no extension
-            w.put(2, 0);
+            // a reserved bit, and the extra channel meaning of the
+            // 16-channel presentation if there is one
+            w.put(1, 0);
+            w.put_bool(layout.sixteen.is_some());
+            if let Some(sixteen) = layout.sixteen {
+                put_sixteen(&mut w, &sixteen, layout.total_channels());
+            }
         }
         // DVD-Audio lays these eight bytes out otherwise, and no source says
         // how; they are left at zero
@@ -809,6 +970,45 @@ fn major_sync(layout: &Layout, peak_data_rate: u64) -> Vec<u8> {
     let crc = CRC16_MAJOR_SYNC.update_bytes(0, w.bytes());
     w.put(16, u64::from(crc));
     w.into_bytes()
+}
+
+/// `extra_channel_meaning` with `16ch_channel_meaning` in it: a length,
+/// the fields, and zeros to the length; the major sync stays a whole number
+/// of 16-bit words.
+fn put_sixteen(w: &mut BitWriter, sixteen: &Sixteen, channels: usize) {
+    let mut f = BitWriter::new();
+    // a dialogue level of -31 dB and a mix level of 0, as the others have
+    f.put(5, 31);
+    f.put(6, 0);
+    f.put(
+        5,
+        u64::from(sixteen.channel_count.unwrap_or((channels - 1) as u8)),
+    );
+    // not dynamic objects only: the content is described
+    f.put_bool(false);
+    f.put(4, u64::from(sixteen.content_description));
+    if sixteen.content_description & 1 != 0 {
+        // no channel distribution, a reserved bit, then the LFE alone or a
+        // reserved bit and the assignment
+        f.put_bool(false);
+        f.put(1, 0);
+        f.put_bool(sixteen.lfe_only);
+        if !sixteen.lfe_only {
+            f.put(1, 0);
+            f.put(10, u64::from(sixteen.assignment));
+        }
+    }
+    if sixteen.content_description & 2 != 0 {
+        f.put(3, u64::from(sixteen.isf));
+    }
+    if sixteen.content_description & 4 != 0 {
+        f.put(5, u64::from(sixteen.dynamic_object_count));
+    }
+    // `(length + 1) * 16` bits from the length field on
+    let length = (4 + f.len_bits()).div_ceil(16) - 1;
+    w.put(4, length as u64);
+    w.append(&f);
+    w.put(((length + 1) * 16 - 4 - f.len_bits()) as u32, 0);
 }
 
 /// What a block sends for one channel.
@@ -837,6 +1037,8 @@ struct Sub<'a> {
     /// Its restart sync word is `0x31EB`: a table of dither where a `0x31EA`
     /// substream has two noise channels.
     dither: bool,
+    /// Its restart sync word is `0x31EC`.
+    object: bool,
     noise_shift: u8,
     noise_seeds: &'a [u32],
     assignment: &'a [usize],
@@ -875,6 +1077,7 @@ impl Layout {
             first: 0,
             last: self.channels - 1,
             dither: false,
+            object: false,
             noise_shift: self.noise_shift,
             noise_seeds: &self.noise_seeds,
             assignment: &self.assignment,
@@ -887,7 +1090,8 @@ impl Layout {
                 top: i + 1 == self.above.len(),
                 first,
                 last: first + above.channels - 1,
-                dither: above.dither,
+                dither: above.dither || above.object,
+                object: above.object,
                 noise_shift: above.noise_shift,
                 noise_seeds: &above.noise_seeds,
                 assignment: &above.assignment,
@@ -1352,16 +1556,20 @@ fn segment(
     plan: &UnitPlan,
     work: &mut Work<'_>,
     run: &mut Running,
-) -> Result<Vec<u8>, String> {
+) -> Result<(Vec<u8>, Vec<BlockSpans>), String> {
     let sub = work.subs[s];
     let per_unit = layout.samples_per_unit();
     let restart = k.is_multiple_of(layout.sync_interval);
     let reach = sub.reach();
     let blocks = blocks_of(plan, s);
     let mut w = BitWriter::new();
+    // where each block's fields lie, in bits from the start of the segment
+    let mut spans = Vec::with_capacity(blocks.len());
     // where the block in hand starts in its access unit
     let mut within = 0;
     for (j, block) in blocks.iter().enumerate() {
+        let mut restart_span = None;
+        let mut header_span = None;
         let size = block.size;
         if !(8..=per_unit).contains(&size) {
             return Err(format!("a block of {size} samples"));
@@ -1394,6 +1602,9 @@ fn segment(
             return Err("an output shift for each channel, of -8 to 7".into());
         }
         let steps = stated_steps(work.subs, &sub, plan, block, within)?;
+        if sub.object && !block.matrices.is_empty() {
+            return Err("the writer gives the 0x31EC substream no matrices".into());
+        }
         let matrices_change = block.matrices != run.matrices;
         let shifts_change = shifts != run.shifts;
         let steps_change = steps != run.steps;
@@ -1472,7 +1683,9 @@ fn segment(
                 let start = w.len_bits();
                 w.put(
                     14,
-                    if sub.dither {
+                    if sub.object {
+                        RESTART_SYNC_OBJECTS
+                    } else if sub.dither {
                         RESTART_SYNC_DITHER
                     } else {
                         RESTART_SYNC_NOISE
@@ -1516,7 +1729,9 @@ fn segment(
                 let len = w.len_bits() - start;
                 let crc = CRC8_RESTART.update_bits(0, w.bytes(), start, len);
                 w.put(8, u64::from(crc));
+                restart_span = Some((start, w.len_bits()));
             }
+            let header_start = w.len_bits();
             // A flag is in the stream only while its guard bit is set, and
             // every guard is set after a restart header. The guards a block
             // sends hold for the rest of its own header.
@@ -1607,6 +1822,7 @@ fn segment(
                 w.put(2, u64::from(state.held.book));
                 w.put(5, u64::from(state.lsbs));
             }
+            header_span = Some((header_start, w.len_bits()));
         }
 
         // The samples: for each one, the bypassed LSB of each matrix that
@@ -1632,17 +1848,50 @@ fn segment(
             }
             run.check ^= check_word((0..reach).map(|ch| outputs[sub.output_of(ch)][at + n]));
         }
+        let mut data_bits_at = None;
         if let Some(protection) = sub.protection {
             let stated = data.len_bits() + usize::from(protection.counted_beyond_the_data);
             if stated > 0xFFFF {
                 return Err(format!("a block of {stated} bits, which 16 cannot state"));
             }
+            data_bits_at = Some(w.len_bits());
             w.put(16, stated as u64);
         }
         w.append(&data);
+        let mut check_at = None;
         if let Some(protection) = sub.protection {
-            w.put(8, u64::from(protection.check));
+            let check = match protection.check {
+                Check::Stated(byte) => byte,
+                Check::HeaderCrc => header_crc(w.bytes(), header_span),
+                Check::HeaderCrcOfFlipped(bit) => match header_span {
+                    Some((start, end)) => {
+                        if bit >= end - start {
+                            return Err(format!(
+                                "bit {bit} of a block header of {} bits",
+                                end - start
+                            ));
+                        }
+                        let mut struck = w.bytes().to_vec();
+                        let pos = start + bit;
+                        struck[pos / 8] ^= 0x80 >> (pos % 8);
+                        header_crc(&struck, header_span)
+                    }
+                    None => header_crc(w.bytes(), None),
+                },
+            };
+            check_at = Some(w.len_bits());
+            w.put(8, u64::from(check));
         }
+        spans.push(BlockSpans {
+            unit: k,
+            substream: s,
+            block: j,
+            segment: (0, 0),
+            restart: restart_span,
+            header: header_span,
+            data_bits: data_bits_at,
+            check: check_at,
+        });
         within += size;
         w.put_bool(j + 1 == blocks.len());
     }
@@ -1659,7 +1908,17 @@ fn segment(
         w.put(8, u64::from(parity));
         w.put(8, u64::from(crc));
     }
-    Ok(w.into_bytes())
+    Ok((w.into_bytes(), spans))
+}
+
+/// `block_header_CRC` of the block header at bits `span` of `bytes`: the
+/// CRC-8 of polynomial `0x1D` from `0xA2`, the bits most significant first;
+/// `0xA2` for a block without a header.
+fn header_crc(bytes: &[u8], span: Option<(usize, usize)>) -> u8 {
+    match span {
+        Some((start, end)) => CRC8_RESTART.update_bits(0xA2, bytes, start, end - start),
+        None => 0xA2,
+    }
 }
 
 /// Whether the writer can write the substreams a layout has over its first:
@@ -1674,16 +1933,25 @@ fn check_above(layout: &Layout) -> Result<(), String> {
             "substreams over the first are TrueHD's here, and the first has two channels".into(),
         );
     }
-    if layout.above.len() > 2
+    let objects = layout.above.len() == 3;
+    if layout.above.len() > 3
         || layout
             .above
             .iter()
             .zip([4, 2])
             .any(|(above, channels)| above.channels != channels)
+        || layout
+            .above
+            .iter()
+            .enumerate()
+            .any(|(i, above)| above.object != (i == 2))
+        || (objects && !(1..=8).contains(&layout.above[2].channels))
+        || objects != layout.sixteen.is_some()
     {
         return Err(
-            "a second substream of four channels and a third of two: six channels and eight are \
-             the layouts the major sync of this writer names"
+            "a second substream of four channels and a third of two, and a fourth of one to eight \
+             channels of objects with what the major sync says of them: six channels, eight and \
+             sixteen are the layouts the major sync of this writer names"
                 .into(),
         );
     }
@@ -1693,6 +1961,15 @@ fn check_above(layout: &Layout) -> Result<(), String> {
         .any(|above| above.noise_shift > 15 || above.noise_seeds.iter().any(|&s| s > 0x7F_FFFF))
     {
         return Err("a noise shift of 0 to 15 and a register of 23 bits".into());
+    }
+    if let Some(sixteen) = layout.sixteen
+        && (sixteen.content_description > 15
+            || sixteen.assignment > 0x3FF
+            || sixteen.isf > 7
+            || sixteen.dynamic_object_count > 31
+            || sixteen.channel_count.is_some_and(|c| c > 31))
+    {
+        return Err("16ch_channel_meaning fields wider than their bits".into());
     }
     Ok(())
 }
@@ -1790,6 +2067,7 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
             .collect(),
     };
     let mut units = Vec::with_capacity(plans.len());
+    let mut spans: Vec<Vec<Vec<BlockSpans>>> = Vec::with_capacity(plans.len());
     for (k, plan) in plans.iter().enumerate() {
         for sub in &subs {
             let blocks = blocks_of(plan, sub.index);
@@ -1805,8 +2083,9 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
         // The top substream first: undoing its matrices is what settles the
         // samples every substream codes.
         let mut segments = vec![Vec::new(); subs.len()];
+        let mut unit_spans = vec![Vec::new(); subs.len()];
         for s in std::iter::once(top).chain(0..top) {
-            segments[s] = segment(
+            (segments[s], unit_spans[s]) = segment(
                 layout,
                 s,
                 k,
@@ -1818,10 +2097,12 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
             .map_err(|e| format!("{}: {e}", place(k, s)))?;
         }
         units.push(segments);
+        spans.push(unit_spans);
     }
+    let sync_len = major_sync(layout, 0).len();
     let unit_len = |k: usize, segments: &[Vec<u8>]| {
         let sync = if k.is_multiple_of(layout.sync_interval) {
-            28
+            sync_len
         } else {
             0
         };
@@ -1842,6 +2123,7 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
 
     let mut bytes = Vec::new();
     let mut unit_offsets = Vec::with_capacity(units.len());
+    let mut blocks = Vec::new();
     for (k, segments) in units.iter().enumerate() {
         let with_sync = k.is_multiple_of(layout.sync_interval);
         let len = unit_len(k, segments);
@@ -1876,7 +2158,19 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
         // the nibble that makes header and directory fold to 0xF
         let nibble = 0xF ^ fold_nibble(xor_bytes(&unit[..4]) ^ xor_bytes(&directory));
         unit[0] |= nibble << 4;
-        for segment in segments {
+        for (segment, local) in segments.iter().zip(&spans[k]) {
+            let first = bytes.len() + unit.len();
+            for span in local {
+                let bit = |at: usize| first * 8 + at;
+                blocks.push(BlockSpans {
+                    segment: (first, first + segment.len()),
+                    restart: span.restart.map(|(a, b)| (bit(a), bit(b))),
+                    header: span.header.map(|(a, b)| (bit(a), bit(b))),
+                    data_bits: span.data_bits.map(bit),
+                    check: span.check.map(bit),
+                    ..*span
+                });
+            }
             unit.extend_from_slice(segment);
         }
         unit_offsets.push(bytes.len());
@@ -1886,6 +2180,7 @@ pub fn write(layout: &Layout, plans: &[UnitPlan], pcm: &[Vec<i32>]) -> Result<St
         bytes,
         unit_offsets,
         below: work.below,
+        blocks,
     })
 }
 

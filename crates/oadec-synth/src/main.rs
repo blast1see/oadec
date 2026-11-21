@@ -14,6 +14,7 @@ usage: oadec-synth list
        oadec-synth all <directory>
        oadec-synth digests
        oadec-synth ac3-digests
+       oadec-synth spans <name>
 
 list     the recipes and then the probes: name, tab, what of the syntax the
          stream carries
@@ -34,6 +35,12 @@ The names that begin `ac3-` and `probe-ac3-` are AC-3 streams. `write` and
 little-endian float, left and right interleaved (<name>.f32 in `all`): they
 are the writer's own inverse transform of coefficients it knows exactly, and
 a decoder's are held to them by a signal-to-noise ratio, not by a digest.
+
+spans    where the fields of every block of a stream lie, a line a block, in
+         bits from the first byte of the stream: access unit, substream,
+         block, the restart header, the block header, `block_data_bits` and
+         `block_header_CRC` (a start and an end for the first two, a start
+         for the others; - for none), and the segment in bytes
 
 ac3-digests  for every AC-3 stream a line: name, SHA-256 of the stream,
          sampling rate, frames, `reference` or `probe`, and for a probe what
@@ -203,6 +210,29 @@ fn run(args: &[&str]) -> Result<(), String> {
                         presentation.index,
                     );
                 }
+            }
+            Ok(())
+        }
+        ["spans", name] => {
+            let unknown = || format!("nothing is called `{name}`; `oadec-synth list` names them");
+            let (stream, _, _) = written(find(name).ok_or_else(unknown)?)?;
+            let range = |r: Option<(usize, usize)>| {
+                r.map_or_else(|| "-".to_string(), |(a, b)| format!("{a}-{b}"))
+            };
+            let at = |r: Option<usize>| r.map_or_else(|| "-".to_string(), |a| a.to_string());
+            for b in &stream.blocks {
+                println!(
+                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}-{}",
+                    b.unit,
+                    b.substream,
+                    b.block,
+                    range(b.restart),
+                    range(b.header),
+                    at(b.data_bits),
+                    at(b.check),
+                    b.segment.0,
+                    b.segment.1,
+                );
             }
             Ok(())
         }

@@ -12,7 +12,9 @@ use std::time::Instant;
 
 use anyhow::Result;
 use oadec_emdf::container::{self, Container, PAYLOAD_ID_OAMD};
-use oadec_emdf::oamd::{Distance, Element, Gain, Oamd, Status, TrimConfig};
+use oadec_emdf::oamd::{
+    Distance, Element, Gain, ISF_RINGS, Oamd, Status, TrimConfig, isf_object_names,
+};
 use oadec_truehd::{AccessUnit, ExtraKind, StreamConfig};
 use serde::Serialize;
 
@@ -121,9 +123,36 @@ pub struct ProgramSummary {
     pub dyn_object_only: bool,
     pub beds: Vec<Vec<String>>,
     pub isf_index: Option<u8>,
+    /// The name of the ISF type and its objects in MULZ order (TS 103 420
+    /// table 11b), when the programme has ISF objects; absent from the
+    /// report otherwise, which so stays as it was.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub isf: Option<IsfSummary>,
     pub dynamic_objects: usize,
     pub objects: usize,
     pub bed_chan_distribute: bool,
+}
+
+/// The ISF objects of a programme.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct IsfSummary {
+    /// `SR7.3.0.0` and so on.
+    pub name: String,
+    /// `M1` … in MULZ order.
+    pub objects: Vec<String>,
+}
+
+impl IsfSummary {
+    /// The ISF objects of `intermediate_spatial_format_idx` `index`, or
+    /// `None` for a reserved one.
+    #[must_use]
+    pub fn of(index: u8) -> Option<Self> {
+        let rings = ISF_RINGS[usize::from(index & 7)]?;
+        Some(Self {
+            name: format!("SR{}.{}.{}.{}", rings[0], rings[1], rings[2], rings[3]),
+            objects: isf_object_names(index)?,
+        })
+    }
 }
 
 /// One trim configuration as a key for the tally; `None` when it is at its
@@ -215,6 +244,7 @@ impl OamdSummary {
                 .map(|b| b.channels.iter().map(|c| format!("{c:?}")).collect())
                 .collect(),
             isf_index: oamd.program.isf_index,
+            isf: oamd.program.isf_index.and_then(IsfSummary::of),
             dynamic_objects: oamd.program.dynamic_objects,
             objects: oamd.program.objects(),
             bed_chan_distribute: oamd.program.bed_chan_distribute,
@@ -812,6 +842,15 @@ impl Report {
                 p.objects,
                 summary.program_changes
             )?;
+            if let Some(isf) = &p.isf {
+                writeln!(
+                    out,
+                    "ISF objects:       {} ({}): {}",
+                    isf.name,
+                    isf.objects.len(),
+                    isf.objects.join(" ")
+                )?;
+            }
         }
         writeln!(out, "Object counts:     {:?}", summary.object_counts)?;
         writeln!(out, "Element ids:       {:?}", summary.element_ids)?;
@@ -892,6 +931,47 @@ mod tests {
     use oadec_emdf::oamd::{
         Balance, ELEMENT_TRIM, ElementMd, ProgramAssignment, TrimConfig, TrimElement,
     };
+
+    /// The ISF type of a programme is named with its objects, all six of
+    /// table 11b, and a programme without one writes the report it wrote
+    /// before: no `isf` field.
+    #[test]
+    fn the_isf_objects_of_a_programme_are_named() {
+        let all: Vec<(String, usize)> = (0..6)
+            .map(|i| {
+                let s = IsfSummary::of(i).unwrap();
+                (s.name, s.objects.len())
+            })
+            .collect();
+        assert_eq!(
+            all,
+            [
+                ("SR3.1.0.0".to_string(), 4),
+                ("SR5.3.0.0".to_string(), 8),
+                ("SR7.3.0.0".to_string(), 10),
+                ("SR9.5.0.0".to_string(), 14),
+                ("SR7.5.3.0".to_string(), 15),
+                ("SR15.9.5.1".to_string(), 30),
+            ]
+        );
+        assert_eq!(IsfSummary::of(6), None);
+        assert_eq!(IsfSummary::of(7), None);
+        let thirty = IsfSummary::of(5).unwrap();
+        assert_eq!(thirty.objects.first().map(String::as_str), Some("M1"));
+        assert_eq!(thirty.objects.last().map(String::as_str), Some("Z1"));
+        let none = ProgramSummary {
+            dyn_object_only: true,
+            beds: Vec::new(),
+            isf_index: None,
+            isf: None,
+            dynamic_objects: 3,
+            objects: 4,
+            bed_chan_distribute: false,
+        };
+        let json = serde_json::to_value(&none).unwrap();
+        assert!(json.get("isf").is_none(), "{json}");
+        assert!(json.get("isf_index").is_some());
+    }
 
     fn payload(trim: TrimElement, alternate: bool, distribute: bool) -> Oamd {
         Oamd {

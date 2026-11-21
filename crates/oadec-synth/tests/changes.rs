@@ -658,6 +658,9 @@ const PINS: &[(&str, usize, u64)] = &[
     ("six-blocks", 0, 0xb4d28b1f3923b31b),
     ("six-blocks", 1, 0x1f8a48685e6aaa0d),
     ("six-blocks", 2, 0x1f8a48685e6aaa0d),
+    ("protected-checked", 0, 0xe5b97bc9b78f37b5),
+    ("protected-checked", 1, 0xe5b97bc9b78f37b5),
+    ("protected-checked", 2, 0xe5b97bc9b78f37b5),
     ("probe-five-blocks", 0, 0x4aa5e759f7d1930c),
     ("probe-five-blocks", 1, 0x4aa5e759f7d1930c),
     ("probe-five-blocks", 2, 0x4aa5e759f7d1930c),
@@ -688,6 +691,24 @@ const PINS: &[(&str, usize, u64)] = &[
     ("probe-nine-matrices-over-eight", 0, 0xaed6ea6179b26fb2),
     ("probe-nine-matrices-over-eight", 1, 0x5a88c2d9b587c190),
     ("probe-nine-matrices-over-eight", 2, 0x4b97ab9184192403),
+    (
+        "probe-protected-checked-counting-itself",
+        0,
+        0xe5b97bc9b78f37b5,
+    ),
+    (
+        "probe-protected-checked-counting-itself",
+        1,
+        0xe5b97bc9b78f37b5,
+    ),
+    (
+        "probe-protected-checked-counting-itself",
+        2,
+        0xe5b97bc9b78f37b5,
+    ),
+    ("probe-protected-header-struck", 0, 0xe5b97bc9b78f37b5),
+    ("probe-protected-header-struck", 1, 0xe5b97bc9b78f37b5),
+    ("probe-protected-header-struck", 2, 0xe5b97bc9b78f37b5),
 ];
 
 /// Item 1 over the written streams. Every presentation of every recipe and

@@ -43,6 +43,7 @@ const SYNC_DECLARES: &str =
     "docs/audit/evidence/engine-round-2026-11/35-what-a-major-sync-declares.json";
 const FIFO: &str = "docs/audit/evidence/verification-upgrade-2026-11/06-fifo-model.json";
 const DISC: &str = "docs/audit/evidence/verification-upgrade-2026-11/07-disc-formats.json";
+const HEADER_CRC: &str = "docs/audit/evidence/round-4-2026-11/p4-block-header-crc.json";
 
 oadec_diag::catalog! {
     /// A check `verify` makes on a TrueHD stream.
@@ -238,6 +239,14 @@ oadec_diag::catalog! {
         legacy: Some("block_data_bits"),
         summary: "a block's coded size differs from its block_data_bits",
         provenance: [measured(MATRIX)],
+    },
+    /// `block_header_crc`.
+    BlockHeaderCrc {
+        id: "block.header_crc",
+        severity: Error,
+        legacy: None,
+        summary: "a protected block's block_header_crc is not the CRC-8 of its block header",
+        provenance: [measured(HEADER_CRC)],
     },
     /// A timing jump that is not a valid seamless branch.
     TimingInvalidBranch {
@@ -567,6 +576,24 @@ mod tests {
                 assert!(info.severity <= Severity::Warning, "{}", info.id);
             }
         }
+    }
+
+    /// `block_header_crc` has a rule of its own beside `block.data_bits`,
+    /// with no counter of the time before rules had names, so that the
+    /// `failures` of a report keep their fields.
+    ///
+    /// P4 stop 1: red until stop 2.
+    #[test]
+    fn the_check_byte_of_a_protected_block_has_a_rule() {
+        let rule = RuleId::from_id("block.header_crc").expect("block.header_crc");
+        let info = rule.info();
+        assert_eq!(info.legacy_counter, None);
+        assert!(
+            info.provenance
+                .iter()
+                .any(|p| matches!(p, Provenance::Measured { .. })),
+            "the rule rests on what Dolby's decoder was measured to do"
+        );
     }
 
     #[test]
