@@ -774,7 +774,12 @@ code, and agrees with every byte the writer puts down.
 
 `verify` holds a protected block to both: `block.data_bits` and
 `block.header_crc`, each an error. A stream without `error_protect` is not
-touched by either.
+touched by either. The damage region a wrong check opens runs to the next
+restart header in a segment whose every check holds, and a segment with a
+restart header and a wrong check is not one: with the check byte of the
+restart block of unit 8 struck, Dolby's decoder gives other samples from
+there and the right ones again only after the restart header of unit 16, and
+the region is units 8 to 15, entered at 16.
 
 ## Decoder buffer
 

@@ -125,3 +125,57 @@ fn a_single_wrong_check_is_found_where_it_is() {
         assert_eq!(findings[0]["unit"], 9, "{want_header}: {}", findings[0]);
     }
 }
+
+/// The damage region a wrong check opens runs to the next restart header of
+/// a segment every check of which holds, and no nearer: a segment that has
+/// a restart header and a block with a wrong check is not where the audio is
+/// right again. Dolby's decoder agrees on the stream below: with the check
+/// byte of the restart block of unit 8 struck, its samples are other from
+/// there and right again only after the restart header of unit 16
+/// (`docs/truehd.md`, *Protected blocks*).
+#[test]
+fn a_wrong_check_in_a_restart_segment_does_not_close_its_region() {
+    let dir = temp("region");
+    let right = written(Check::HeaderCrc);
+    // restart headers at units 0, 8 and 16
+    for unit in [8usize, 9] {
+        let block = right
+            .blocks
+            .iter()
+            .find(|b| b.unit == unit && b.block == 0)
+            .copied()
+            .unwrap_or_else(|| panic!("block 0 of unit {unit}"));
+        assert_eq!(block.restart.is_some(), unit == 8, "unit {unit}");
+        let mut stream = right.clone();
+        flip_and_reseal(&mut stream, block.check.unwrap() + 7).unwrap();
+        let path = dir.join(format!("region-{unit}.thd"));
+        std::fs::write(&path, &stream.bytes).unwrap();
+        let out = oadec(&["verify", "--json", path.to_str().unwrap()]);
+        let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        let rules: Vec<&str> = report["diagnostics"]["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["rule"].as_str().unwrap())
+            .collect();
+        assert_eq!(rules, ["block.header_crc"], "unit {unit}");
+        let regions: Vec<(String, u64, u64, Option<u64>)> = report["diagnostics"]["regions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| {
+                (
+                    r["kind"].as_str().unwrap().to_string(),
+                    r["first_unit"].as_u64().unwrap(),
+                    r["last_unit"].as_u64().unwrap(),
+                    r["entry_unit"].as_u64(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            regions,
+            [("audio".to_string(), unit as u64, 15, Some(16))],
+            "unit {unit}: damaged to the restart of unit 16, entered there"
+        );
+    }
+}
