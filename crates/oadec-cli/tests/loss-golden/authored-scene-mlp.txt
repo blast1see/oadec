@@ -7,6 +7,7 @@ exit 0
   "losses": [],
   "overrides": [],
   "ramp_sources": {},
+  "schema": 2,
   "target": "damf"
 }
 
@@ -43,6 +44,7 @@ adm: profile reductions: 13 interpolation lengths replaced by 250 samples (1536 
     "1536": 12,
     "768": 1
   },
+  "schema": 2,
   "target": "adm"
 }
 
@@ -55,6 +57,7 @@ exit 0
   "losses": [],
   "overrides": [],
   "ramp_sources": {},
+  "schema": 2,
   "target": "adm"
 }
 

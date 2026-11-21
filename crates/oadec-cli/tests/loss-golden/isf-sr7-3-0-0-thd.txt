@@ -40,6 +40,7 @@ damf: written with loss: 10 ISF elements dropped
   ],
   "overrides": [],
   "ramp_sources": {},
+  "schema": 2,
   "target": "damf"
 }
 
@@ -73,6 +74,7 @@ adm: written with loss: 10 ISF elements dropped
   ],
   "overrides": [],
   "ramp_sources": {},
+  "schema": 2,
   "target": "adm"
 }
 

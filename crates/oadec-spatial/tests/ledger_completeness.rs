@@ -1,14 +1,10 @@
 //! Round 5, P3: every OAMD field an object output drops has to leave a line
-//! in the loss ledger. These are the red tests of stop 1, one per field that
-//! today is parsed and dropped without a word, built from payloads made by
-//! hand (no committed stream carries any of them: see `docs/oamd.md`, *What a
-//! library carries*). Each is ignored until stop 2 adds its kind; run them
-//! with `cargo test -p oadec-spatial --test ledger_completeness -- --ignored`
-//! to see them fail.
-//!
-//! The kinds are named by their report names, not by `LossKind` variants,
-//! so that the tests compile before the variants exist. Every proposed kind
-//! is of a class that leaves the exit code at 0: none is a declared loss.
+//! in the loss ledger. One test per field that was parsed and dropped without
+//! a word before round 5, built from payloads made by hand (no committed
+//! stream carries any of them: see `docs/oamd.md`, *What a library carries*).
+//! They were written red, before the kinds existed, and name each kind by its
+//! report name, which is what a reader of the report meets. Every kind is of a
+//! class that leaves the exit code at 0: none is a declared loss.
 //!
 //! | report name | class | counted |
 //! |---|---|---|
@@ -19,19 +15,25 @@
 //! | `reserved-data-dropped` | unrepresentable | once per change, when present |
 //! | `reserved-zone-read-as-all` | approximation | per event whose zone index is 6 or 7 |
 //!
-//! Beside them, the ADM profile guard (task 2) and two counts the ADM writer
-//! misses on the first state of a bed channel.
+//! Beside them, the ADM profile guard (task 2), two counts the ADM writer
+//! used to miss on the first state of a bed channel, and what the timeline
+//! keeps of what it does not write.
 
 use std::path::{Path, PathBuf};
 
+use std::cell::RefCell;
+use std::io;
+
 use oadec_emdf::oamd::{
-    BasicInfo, Bed, BedChannel, BlockTiming, Element, ElementMd, Gain, Oamd, ObjectElement,
-    ObjectInfoBlock, ProgramAssignment, RenderInfo, Status, UpdateTiming,
+    BasicInfo, Bed, BedChannel, BlockTiming, Distance, Element, ElementMd, ExtendedObjectElement,
+    Gain, Oamd, ObjectElement, ObjectInfoBlock, ProgramAssignment, RenderInfo, ScreenRef, Status,
+    TrimConfig, TrimElement, UpdateTiming,
 };
-use oadec_spatial::adm::{self, MAX_ELEMENTS, MAX_OBJECTS, MAX_TRACKS};
-use oadec_spatial::program::{BedState, ObjectState};
+use oadec_spatial::adm::{self, Events, MAX_ELEMENTS, MAX_OBJECTS, MAX_TRACKS, MemoryEvents};
+use oadec_spatial::program::{BedState, Extras, ObjectState};
 use oadec_spatial::{
-    AdmOptions, AdmWriter, ElementState, Event, LossClass, LossLedger, Program, Timeline,
+    AdmOptions, AdmWriter, DamfOptions, DamfWriter, ElementState, Event, LossClass, LossLedger,
+    Program, Timeline,
 };
 
 // ---------------------------------------------------------------------------
@@ -167,7 +169,6 @@ fn assert_kind(
 /// to later versions, which neither output has a place for. Counted per update
 /// block that carries any, on beds and objects alike.
 #[test]
-#[ignore = "r5 durak 2: additional-table-data-dropped is not a LossKind yet"]
 fn additional_table_data_is_counted_per_update() {
     let mut p = payload();
     object_element(&mut p).objects[1][0].additional_table_data = vec![0xA5];
@@ -191,7 +192,6 @@ fn additional_table_data_is_counted_per_update() {
 /// reads the first and drops the rest. Counted once per change of the set it
 /// drops, not once per payload.
 #[test]
-#[ignore = "r5 durak 2: alternate-object-data-dropped is not a LossKind yet"]
 fn alternate_object_data_is_counted_once_per_change() {
     let mut p = payload();
     p.alternate_object_data_present = true;
@@ -217,7 +217,6 @@ fn alternate_object_data_is_counted_once_per_change() {
 /// (`truehdd` names them headphone and object description) and the reserved
 /// ids. Counted once per change of the set of ids.
 #[test]
-#[ignore = "r5 durak 2: unknown-element-dropped is not a LossKind yet"]
 fn unknown_elements_are_counted_once_per_change() {
     let mut three = payload();
     three
@@ -242,7 +241,6 @@ fn unknown_elements_are_counted_once_per_change() {
 /// a set left the encoders' output unchanged (`02-damf-key-probe.json`), and
 /// the ADM profile has no field. Counted once per change, when set.
 #[test]
-#[ignore = "r5 durak 2: bed-distribute-dropped is not a LossKind yet"]
 fn bed_channel_distribution_is_counted_once() {
     let mut p = payload();
     p.program.bed_chan_distribute = true;
@@ -263,7 +261,6 @@ fn bed_channel_distribution_is_counted_once() {
 /// of the syntax may say, carried by neither output. Counted once per change,
 /// when present.
 #[test]
-#[ignore = "r5 durak 2: reserved-data-dropped is not a LossKind yet"]
 fn reserved_data_is_counted_once_per_change() {
     let mut p = payload();
     p.program.content_description |= 0b1000;
@@ -286,7 +283,6 @@ fn reserved_data_is_counted_once_per_change() {
 /// writes them as `zones: all` and the ADM writer as no zone, which is what
 /// index 0 says. Counted per event that carries one.
 #[test]
-#[ignore = "r5 durak 2: reserved-zone-read-as-all is not a LossKind yet"]
 fn a_reserved_zone_index_is_counted_per_event() {
     let mut six = payload();
     object_element(&mut six).objects[1][0]
@@ -311,7 +307,6 @@ fn a_reserved_zone_index_is_counted_per_event() {
 /// The ledger is complete when a payload that carries every field above at
 /// once leaves a line for each, and no kind is a declared loss.
 #[test]
-#[ignore = "r5 durak 2: the six kinds above are not LossKinds yet"]
 fn a_payload_with_every_dropped_field_leaves_a_line_for_each() {
     let mut p = payload();
     p.program.bed_chan_distribute = true;
@@ -369,7 +364,6 @@ fn lfe_and_one_object() -> Program {
 /// importance is 0.5 or whose trim is bypassed loses that without a line.
 /// Stop 2 counts them under the kinds the objects use.
 #[test]
-#[ignore = "r5 durak 2: the ADM writer counts a bed's first importance and trim bypass"]
 fn the_first_state_of_a_bed_channel_is_counted_whole() {
     let dir = temp("bed-first");
     let mut w = AdmWriter::create(
@@ -431,8 +425,8 @@ fn instances(axml: &str, name: &str) -> usize {
 }
 
 /// The largest programme the writer takes, a 7.1.2 bed and 118 objects, stays
-/// inside every limit of the profile: what the guard of stop 2 will count is
-/// counted here by hand, today.
+/// inside every limit of the profile: what the guard counts is counted here
+/// by hand as well, and the guard finds nothing.
 #[test]
 fn the_largest_programme_the_writer_takes_is_inside_the_profile() {
     let dir = temp("largest");
@@ -468,7 +462,8 @@ fn the_largest_programme_the_writer_takes_is_inside_the_profile() {
             previous: None,
         });
     }
-    w.finish().unwrap();
+    let summary = w.finish().unwrap();
+    assert!(summary.profile.is_empty(), "{:?}", summary.profile);
     let axml = axml_of(&path);
     std::fs::remove_dir_all(&dir).ok();
     let objects = instances(&axml, "audioObject");
@@ -494,7 +489,6 @@ fn the_largest_programme_the_writer_takes_is_inside_the_profile() {
 /// line per kind of element, on stderr, beside the loss lines; the file is
 /// written as it was (the guard reads the chunk after it is written).
 #[test]
-#[ignore = "r5 durak 2: adm::profile_overruns is a skeleton that counts nothing"]
 fn the_guard_names_what_exceeds_the_profile() {
     let mut axml = String::from("<audioFormatExtended>\n");
     for k in 0..124 {
@@ -517,4 +511,179 @@ fn the_guard_names_what_exceeds_the_profile() {
             "adm: profile limit: 129 audioTrackUID elements, more than the 128 the profile allows (MAX_CHANNEL_COUNT)",
         ]
     );
+}
+
+// ---------------------------------------------------------------------------
+// What the timeline keeps of what it does not write (task 3).
+
+/// The distance, the divergence and the screen reference of an object's last
+/// update, the trim configurations and the bed channel distribution flag are
+/// kept beside the reduced state.
+#[test]
+fn what_no_output_writes_is_kept_beside_the_state() {
+    let mut p = payload();
+    p.program.bed_chan_distribute = true;
+    {
+        let render = &mut object_element(&mut p).objects[1][0].render;
+        render.distance = Distance::Factor(2.0);
+        render.screen_ref = Some(ScreenRef {
+            screen_factor: 0.5,
+            depth_factor: 1.0,
+        });
+    }
+    p.elements.push(element_md(
+        5,
+        Element::ExtendedObject(ExtendedObjectElement {
+            divergence: Some(vec![vec![0.0], vec![0.5]]),
+            ext_precision: None,
+        }),
+    ));
+    let configs = vec![TrimConfig::default(); 9];
+    p.elements.push(element_md(
+        2,
+        Element::Trim(TrimElement {
+            warp_mode: 1,
+            global_trim_mode: 2,
+            configs: configs.clone(),
+            disable_per_object: None,
+        }),
+    ));
+    let t = run(&[p]);
+    assert_eq!(
+        t.extras.get(&10),
+        Some(&Extras {
+            distance: Distance::Factor(2.0),
+            divergence: 0.5,
+            screen_ref: Some(ScreenRef {
+                screen_factor: 0.5,
+                depth_factor: 1.0
+            }),
+        })
+    );
+    assert_eq!(t.extras.get(&3), None, "a bed channel has no render info");
+    assert_eq!(t.trim, Some(configs));
+    assert_eq!(t.bed_chan_distribute, Some(true));
+}
+
+/// Pushes `payloads` through a timeline into a DAMF set and an ADM file and
+/// gives the bytes of the four files and the events.
+fn written(tag: &str, payloads: &[Oamd]) -> (Vec<Vec<u8>>, u64) {
+    let dir = temp(tag);
+    let program = Program::from_oamd(&payloads[0]);
+    let mut damf = DamfWriter::create(&dir, "d", &program, 48_000, &DamfOptions::default())
+        .expect("a DAMF set");
+    let mut adm = AdmWriter::create(&dir.join("a.wav"), &program, 48_000, &AdmOptions::default())
+        .expect("an ADM file");
+    let mut t = Timeline::new(false);
+    let rows = vec![[1i32, 2]; 1536];
+    for (k, p) in payloads.iter().enumerate() {
+        t.push(p, k as u64 * 1536, 0, |e| {
+            damf.push_event(e).unwrap();
+            adm.push_event(e);
+        })
+        .unwrap();
+        damf.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
+        adm.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
+    }
+    damf.finish().unwrap();
+    adm.finish().unwrap();
+    let files = ["d.atmos", "d.atmos.metadata", "d.atmos.audio", "a.wav"]
+        .iter()
+        .map(|f| std::fs::read(dir.join(f)).unwrap())
+        .collect();
+    std::fs::remove_dir_all(&dir).ok();
+    (files, t.events)
+}
+
+/// The extras are no part of the event decision: an update that changes only
+/// the distance or the divergence is no event, and the four files are the
+/// same bytes as those of a stream that never said either.
+#[test]
+fn an_update_that_changes_only_what_is_kept_beside_writes_the_same_files() {
+    let plain = payload();
+    let mut far = payload();
+    object_element(&mut far).objects[1][0].render.distance = Distance::Factor(2.0);
+    far.elements.push(element_md(
+        5,
+        Element::ExtendedObject(ExtendedObjectElement {
+            divergence: Some(vec![vec![0.0], vec![0.5]]),
+            ext_precision: None,
+        }),
+    ));
+    let (a, events_a) = written("extras-plain", &[plain.clone(), plain.clone(), plain]);
+    let (b, events_b) = written("extras-far", &[payload(), far.clone(), far]);
+    assert_eq!(events_a, events_b, "the same events");
+    for (k, (x, y)) in a.iter().zip(&b).enumerate() {
+        assert!(x == y, "file {k} differs");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The event store of the ADM writer (the seam of round 5's event spool).
+
+/// A store that keeps every event in one list, as a spool on disk would, and
+/// can be told to fail.
+#[derive(Debug, Default)]
+struct Log {
+    all: RefCell<Vec<(u32, u64, ObjectState)>>,
+    fail: bool,
+}
+
+impl Events for Log {
+    fn push(&mut self, id: u32, sample_pos: u64, state: &ObjectState) -> io::Result<()> {
+        if self.fail {
+            return Err(io::Error::other("the store is full"));
+        }
+        self.all.borrow_mut().push((id, sample_pos, state.clone()));
+        Ok(())
+    }
+
+    fn of(&self, id: u32) -> io::Result<Vec<(u64, ObjectState)>> {
+        Ok(self
+            .all
+            .borrow()
+            .iter()
+            .filter(|(i, _, _)| *i == id)
+            .map(|(_, p, s)| (*p, s.clone()))
+            .collect())
+    }
+}
+
+fn adm_bytes<E: Events>(tag: &str, events: E) -> Result<Vec<u8>, String> {
+    let dir = temp(tag);
+    let path = dir.join("e.wav");
+    let program = Program::from_oamd(&payload());
+    let mut w =
+        AdmWriter::create_with(&path, &program, 48_000, &AdmOptions::default(), events).unwrap();
+    let rows = vec![[0i32, 0]; 9_600];
+    w.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
+    let mut moving = payload();
+    let mut t = Timeline::new(false);
+    for k in 0..6u64 {
+        object_element(&mut moving).objects[1][0]
+            .render
+            .position_code = [k as i8 * 10, 31, 0];
+        t.push(&moving, k * 1536, 0, |e| w.push_event(e)).unwrap();
+    }
+    let result = w.finish().map_err(|e| e.to_string());
+    let bytes = std::fs::read(&path).unwrap_or_default();
+    std::fs::remove_dir_all(&dir).ok();
+    result.map(|_| bytes)
+}
+
+/// Whichever store holds the events, the file is the same bytes; a store
+/// that fails makes `finish` fail with its error.
+#[test]
+fn the_file_does_not_depend_on_where_the_events_waited() {
+    let memory = adm_bytes("store-memory", MemoryEvents::default()).unwrap();
+    let log = adm_bytes("store-log", Log::default()).unwrap();
+    assert!(memory == log, "the two stores wrote different files");
+    let failed = adm_bytes(
+        "store-fail",
+        Log {
+            fail: true,
+            ..Log::default()
+        },
+    );
+    assert_eq!(failed, Err("the store is full".to_string()));
 }

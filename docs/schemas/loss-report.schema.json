@@ -1,11 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "oadec loss report, version 1",
-  "description": "What `oadec decode --format damf|adm --loss-report <file>` writes: the ledger of what the DAMF set or the ADM BWF file does not carry of the programme it was given. Version 1 is the format as oadec 0.9.1 writes it (crates/oadec-engine/src/damf.rs, write_loss_report); the report itself names no version. The kinds and classes are LossKind and LossClass of crates/oadec-spatial/src/loss.rs, and crates/oadec-cli/tests/cli_loss_report.rs holds the two lists together.",
+  "title": "oadec loss report, version 2",
+  "description": "What `oadec decode --format damf|adm --loss-report <file>` writes: the ledger of what the DAMF set or the ADM BWF file does not carry of the programme it was given. Version 2 names itself in `schema` and adds six kinds of loss (round 5); version 1, the report of oadec 0.9.1 before that, had no `schema` field and the first seventeen kinds. The writer is write_loss_report in crates/oadec-engine/src/damf.rs. The kinds and classes are LossKind and LossClass of crates/oadec-spatial/src/loss.rs, and crates/oadec-cli/tests/cli_loss_report.rs holds the two lists together.",
   "type": "object",
-  "required": ["target", "declared_loss", "losses", "ramp_sources", "overrides"],
+  "required": ["schema", "target", "declared_loss", "losses", "ramp_sources", "overrides"],
   "additionalProperties": false,
   "properties": {
+    "schema": {
+      "description": "The version of this schema the report follows (REPORT_SCHEMA of crates/oadec-spatial/src/loss.rs).",
+      "enum": [2]
+    },
     "target": {
       "description": "The output the ledger is of.",
       "enum": ["damf", "adm"]
@@ -47,7 +51,7 @@
           "minimum": 1
         },
         "examples": {
-          "description": "The first losses recorded, at most three. A loss that belongs to the whole payload or programme (ramp-replaced aside, the kinds the stderr summary prints no place for) has element 0.",
+          "description": "The first losses recorded, at most three. A loss that belongs to the whole payload or programme (warp mode, trim configurations, alternate object data, unknown elements, bed channel distribution, reserved data, the sample rate) has element 0.",
           "type": "array",
           "maxItems": 3,
           "items": { "$ref": "#/$defs/example" }
@@ -72,7 +76,7 @@
       }
     },
     "kind": {
-      "description": "LossKind::name. The class of each is fixed: profile-reduction for ramp-replaced, importance-omitted, bed-event-dropped, bed-gain-dropped, screen-reference-dropped, trim-bypass-dropped; unrepresentable for distance-dropped, divergence-dropped, trim-config-dropped; approximation for warp-mode-dropped, size-axes-collapsed, late-first-event-held, same-position-superseded, event-beyond-end-dropped; declared-loss for isf-dropped, out-of-order-written-as-is, non-profile-sample-rate.",
+      "description": "LossKind::name. The class of each is fixed: profile-reduction for ramp-replaced, importance-omitted, bed-event-dropped, bed-gain-dropped, screen-reference-dropped, trim-bypass-dropped; unrepresentable for distance-dropped, divergence-dropped, trim-config-dropped, additional-table-data-dropped, alternate-object-data-dropped, unknown-element-dropped, bed-distribute-dropped, reserved-data-dropped; approximation for warp-mode-dropped, size-axes-collapsed, late-first-event-held, same-position-superseded, event-beyond-end-dropped, reserved-zone-read-as-all; declared-loss for isf-dropped, out-of-order-written-as-is, non-profile-sample-rate.",
       "enum": [
         "ramp-replaced",
         "importance-omitted",
@@ -83,11 +87,17 @@
         "distance-dropped",
         "divergence-dropped",
         "trim-config-dropped",
+        "additional-table-data-dropped",
+        "alternate-object-data-dropped",
+        "unknown-element-dropped",
+        "bed-distribute-dropped",
+        "reserved-data-dropped",
         "warp-mode-dropped",
         "size-axes-collapsed",
         "late-first-event-held",
         "same-position-superseded",
         "event-beyond-end-dropped",
+        "reserved-zone-read-as-all",
         "isf-dropped",
         "out-of-order-written-as-is",
         "non-profile-sample-rate"
@@ -127,11 +137,17 @@
     "distance-dropped": "unrepresentable",
     "divergence-dropped": "unrepresentable",
     "trim-config-dropped": "unrepresentable",
+    "additional-table-data-dropped": "unrepresentable",
+    "alternate-object-data-dropped": "unrepresentable",
+    "unknown-element-dropped": "unrepresentable",
+    "bed-distribute-dropped": "unrepresentable",
+    "reserved-data-dropped": "unrepresentable",
     "warp-mode-dropped": "approximation",
     "size-axes-collapsed": "approximation",
     "late-first-event-held": "approximation",
     "same-position-superseded": "approximation",
     "event-beyond-end-dropped": "approximation",
+    "reserved-zone-read-as-all": "approximation",
     "isf-dropped": "declared-loss",
     "out-of-order-written-as-is": "declared-loss",
     "non-profile-sample-rate": "declared-loss"

@@ -4,7 +4,8 @@
 use std::collections::BTreeMap;
 
 use oadec_emdf::oamd::{
-    BedChannel, Distance, Element, Gain, Oamd, ObjectElement, ObjectInfoBlock, TrimConfig,
+    BedChannel, Distance, Element, Gain, Oamd, ObjectElement, ObjectInfoBlock, ScreenRef,
+    TrimConfig,
 };
 use thiserror::Error;
 
@@ -361,6 +362,33 @@ fn object_state(
     }
 }
 
+/// What a dynamic object's update says that neither output writes today: kept
+/// beside the reduced state so that an output which can carry it (a BS.2076
+/// mode, an event spool) finds it, and kept out of [`ObjectState`] so that it
+/// can never decide whether an update is an event. An update that changes only
+/// one of these is no event, and the files the writers make do not change.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Extras {
+    /// `object_distance`, [`Distance::Unspecified`] when the update says none.
+    pub distance: Distance,
+    /// `object_divergence` of the extended object element, 0 when absent.
+    pub divergence: f32,
+    /// The screen reference as coded. [`ObjectState::screen_factor`] and
+    /// [`ObjectState::depth_factor`] stay what DAMF writes; this is the flag
+    /// itself (a coded `screen_factor` is never 0, so the two agree).
+    pub screen_ref: Option<ScreenRef>,
+}
+
+impl Default for Extras {
+    fn default() -> Self {
+        Self {
+            distance: Distance::Unspecified,
+            divergence: 0.0,
+            screen_ref: None,
+        }
+    }
+}
+
 /// Accumulates events from payloads and keeps the state of every element.
 #[derive(Debug, Clone, Default)]
 pub struct Timeline {
@@ -387,14 +415,29 @@ pub struct Timeline {
     /// The warp mode the output signals. `None` is an output that says nothing,
     /// which Dolby's encoders read as [`WarpMode::Warping`].
     pub signalled_warp: Option<WarpMode>,
+    /// What each dynamic object's last update said that the outputs do not
+    /// write (see [`Extras`]), by element id. Not part of the reduced state:
+    /// an update that changes only these is no event, and this map is how
+    /// such an update is still counted, once.
+    pub extras: BTreeMap<u32, Extras>,
+    /// The trim configurations of the last trim element when its
+    /// `global_trim_mode` was 2; `None` when it was another mode, and when no
+    /// payload has had a trim element.
+    pub trim: Option<Vec<TrimConfig>>,
+    /// `b_bed_chan_distribute` of the last payload. Kept here and not in
+    /// [`Program`], whose equality judges whether a payload belongs to the
+    /// programme: a stream that changes the flag is not refused for it.
+    pub bed_chan_distribute: Option<bool>,
     last_pos: BTreeMap<u32, u64>,
     last_warp: Option<u8>,
     last_trim: Option<Vec<TrimConfig>>,
-    /// The distance and the divergence last seen per object: neither is part
-    /// of the reduced state, so an update that changes only one of them is no
-    /// event, and these are how such an update is still counted, once.
-    last_distance: BTreeMap<u32, Distance>,
-    last_divergence: BTreeMap<u32, f32>,
+    /// The elements of the last payload the timeline did not read
+    /// (`oa_element_id_idx`, `alternate_object_data_id_idx`), the ids of its
+    /// elements without a syntax, and its reserved data: each counted once
+    /// per change.
+    last_alternate: Vec<(u8, Option<u8>)>,
+    last_unknown: Vec<u8>,
+    last_reserved: (Vec<u8>, Option<u8>),
 }
 
 /// How a programme asks to be rendered to speakers without the height it was
@@ -494,10 +537,12 @@ impl Timeline {
             None => vec![false; object_count],
         };
         let timing = &objects.timing;
+        let at = base + container_offset + u64::from(timing.sample_offset);
+        self.note_payload_wide(oamd, objects, at);
         // Warp mode and explicit trims are payload-wide and change rarely: one
         // note per change, not one per payload.
         if let Some(t) = trim {
-            let at = base + container_offset + u64::from(timing.sample_offset);
+            self.trim = (t.global_trim_mode == 2).then(|| t.configs.clone());
             let reads_as = self.signalled_warp.unwrap_or(WarpMode::Warping).code();
             if t.warp_mode != reads_as && self.last_warp != Some(t.warp_mode) {
                 self.losses.note(LossKind::WarpModeDropped, 0, at);
@@ -532,6 +577,10 @@ impl Timeline {
                 let Some(id) = program.element_id(index) else {
                     continue; // ISF objects have no DAMF representation
                 };
+                if !block.additional_table_data.is_empty() {
+                    self.losses
+                        .note(LossKind::AdditionalTableDataDropped, id, pos);
+                }
                 let state = if block.in_bed_or_isf {
                     ElementState::Bed(BedState {
                         active: !block.not_active,
@@ -571,25 +620,34 @@ impl Timeline {
                     // is counted (an update the writer drops the value from),
                     // and an update that is no event is counted when the value
                     // appears or changes, not when a payload restates it.
+                    let last = self.extras.get(&id).copied().unwrap_or_default();
                     let distance = block.render.distance;
-                    if distance != Distance::Unspecified
-                        && (is_event || self.last_distance.get(&id) != Some(&distance))
+                    if distance != Distance::Unspecified && (is_event || last.distance != distance)
                     {
                         self.losses.note(LossKind::DistanceDropped, id, pos);
                     }
-                    self.last_distance.insert(id, distance);
                     let divergence = ext
                         .and_then(|x| x.divergence.as_ref())
                         .and_then(|v| v.get(index))
                         .and_then(|v| v.get(blk))
                         .copied()
                         .unwrap_or(0.0);
-                    if divergence > 0.0
-                        && (is_event || self.last_divergence.get(&id) != Some(&divergence))
-                    {
+                    if divergence > 0.0 && (is_event || last.divergence != divergence) {
                         self.losses.note(LossKind::DivergenceDropped, id, pos);
                     }
-                    self.last_divergence.insert(id, divergence);
+                    self.extras.insert(
+                        id,
+                        Extras {
+                            distance,
+                            divergence,
+                            screen_ref: block.render.screen_ref,
+                        },
+                    );
+                    // Table 20 reserves 6 and 7; DAMF names them all zones and
+                    // the ADM writer writes no exclusion, as for 0.
+                    if is_event && block.render.zone_constraints >= 6 {
+                        self.losses.note(LossKind::ReservedZoneReadAsAll, id, pos);
+                    }
                 }
                 if is_event {
                     if let Some(&last) = self.last_pos.get(&id)
@@ -612,6 +670,48 @@ impl Timeline {
             }
         }
         Ok(emitted)
+    }
+}
+
+impl Timeline {
+    /// Counts what a payload carries beside its object, trim and extended
+    /// elements that no output has a place for: the elements the timeline
+    /// does not read, the reserved data, the bed channel distribution flag.
+    /// Each once per change, at `at`, the first sample of the payload.
+    fn note_payload_wide(&mut self, oamd: &Oamd, objects: &ObjectElement, at: u64) {
+        // The first element of each id with a syntax is the one read (see
+        // `Oamd::object_element` and its siblings); any other is an alternate.
+        let mut read: Vec<u8> = Vec::new();
+        let mut alternate: Vec<(u8, Option<u8>)> = Vec::new();
+        let mut unknown: Vec<u8> = Vec::new();
+        for e in &oamd.elements {
+            match e.element {
+                Element::Unknown(_) => unknown.push(e.id),
+                _ if read.contains(&e.id) => alternate.push((e.id, e.alternate_id)),
+                _ => read.push(e.id),
+            }
+        }
+        unknown.sort_unstable();
+        unknown.dedup();
+        if !alternate.is_empty() && alternate != self.last_alternate {
+            self.losses
+                .note(LossKind::AlternateObjectDataDropped, 0, at);
+        }
+        self.last_alternate = alternate;
+        if !unknown.is_empty() && unknown != self.last_unknown {
+            self.losses.note(LossKind::UnknownElementDropped, 0, at);
+        }
+        self.last_unknown = unknown;
+        let reserved = (oamd.program.reserved_data.clone(), objects.reserved);
+        if (!reserved.0.is_empty() || reserved.1.is_some()) && reserved != self.last_reserved {
+            self.losses.note(LossKind::ReservedDataDropped, 0, at);
+        }
+        self.last_reserved = reserved;
+        let distribute = oamd.program.bed_chan_distribute;
+        if distribute && self.bed_chan_distribute != Some(true) {
+            self.losses.note(LossKind::BedDistributeDropped, 0, at);
+        }
+        self.bed_chan_distribute = Some(distribute);
     }
 }
 

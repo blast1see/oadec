@@ -99,20 +99,60 @@ pub const MAX_TRACKS: usize = 128;
 /// general limits): 118 objects and at most five DirectSpeakers sets.
 pub const MAX_ELEMENTS: usize = 123;
 
-/// The ADM profile guard of round 5 (P3, task 2), as a skeleton: what an
-/// `axml` chunk has more of than the profile allows, one stderr line each.
+/// What the profile guard counts against which limit: the element, the
+/// limit, and the name the profile gives the limit.
 ///
-/// Stop 1 lays down the signature and the tests (`tests/ledger_completeness.rs`,
-/// ignored); nothing calls it and it counts nothing yet, so no output and no
-/// exit code depends on it. Stop 2 counts `audioObject` and `audioPackFormat`
-/// against [`MAX_ELEMENTS`], the channel-level elements against
-/// [`MAX_TRACKS`] and the `Objects` type against [`MAX_OBJECTS`], from the
-/// chunk the writer has already written, so that the file's bytes cannot
-/// depend on the count.
+/// The general limits of the profile say `MAX_ELEMENT_COUNT` is "the maximum
+/// number of XML element instances" and `MAX_CHANNEL_COUNT` the channels.
+/// Which elements the first applies to is in a table of the profile that is
+/// not among the extracts this repository holds
+/// (`docs/audit/evidence/adm/01-spec-extracts.json`): the grouping below, the
+/// object-level elements against 123 and the channel-level ones against 128,
+/// is read from the wording and not verified against the profile's text.
+const PROFILE_LIMITS: [(&str, usize, &str); 6] = [
+    ("audioObject", MAX_ELEMENTS, "MAX_ELEMENT_COUNT"),
+    ("audioPackFormat", MAX_ELEMENTS, "MAX_ELEMENT_COUNT"),
+    ("audioChannelFormat", MAX_TRACKS, "MAX_CHANNEL_COUNT"),
+    ("audioStreamFormat", MAX_TRACKS, "MAX_CHANNEL_COUNT"),
+    ("audioTrackFormat", MAX_TRACKS, "MAX_CHANNEL_COUNT"),
+    ("audioTrackUID", MAX_TRACKS, "MAX_CHANNEL_COUNT"),
+];
+
+/// The ADM profile guard: what an `axml` chunk has more of than the profile
+/// allows, one line each, in the words stderr prints them.
+///
+/// The writer refuses more than [`MAX_OBJECTS`] objects and [`MAX_TRACKS`]
+/// tracks before it writes anything, so no file it writes today has a line
+/// here; the guard is the proof that it stays so. It reads the chunk after it
+/// is written, so the file's bytes cannot depend on it, and what it finds is
+/// said and does not change the exit code. An opening tag is an instance;
+/// the `…IDRef` references are not.
 #[must_use]
 pub fn profile_overruns(axml: &str) -> Vec<String> {
-    let _ = axml;
-    Vec::new()
+    let mut out = Vec::new();
+    for (name, limit, label) in PROFILE_LIMITS {
+        let n = axml.matches(&format!("<{name} ")).count();
+        if n > limit {
+            out.push(format!(
+                "adm: profile limit: {n} {name} elements, more than the {limit} the profile allows ({label})"
+            ));
+        }
+    }
+    let objects = axml
+        .split("<audioChannelFormat ")
+        .skip(1)
+        .filter(|tag| {
+            tag.split('>')
+                .next()
+                .is_some_and(|t| t.contains("typeDefinition=\"Objects\""))
+        })
+        .count();
+    if objects > MAX_OBJECTS {
+        out.push(format!(
+            "adm: profile limit: {objects} channel formats of the Objects type, more than the {MAX_OBJECTS} the profile allows (table 17)"
+        ));
+    }
+    out
 }
 
 /// Summary returned when the file is closed.
@@ -130,6 +170,10 @@ pub struct AdmSummary {
     pub bytes: u64,
     /// What the file does not carry of the programme it was given.
     pub losses: LossLedger,
+    /// What the written `axml` chunk has more of than the profile allows
+    /// ([`profile_overruns`]), one stderr line each; empty for every file the
+    /// writer makes today.
+    pub profile: Vec<String>,
 }
 
 /// Where an element's audio goes.
@@ -225,9 +269,54 @@ fn bed_mask_bit(ch: BedChannel) -> u16 {
     }
 }
 
-/// Streaming ADM BWF writer.
+/// Where the ADM writer keeps the object events until [`AdmWriter::finish`]
+/// writes the `axml` chunk, which needs every event of an element before it
+/// can write the element's blocks.
+///
+/// [`MemoryEvents`] keeps them in memory, as the writer always has. A store on
+/// disk (the event spool of round 5's streaming engine) implements the same
+/// trait and is handed to [`AdmWriter::create_with`]; the writer sorts and
+/// reduces each element's events itself, so a store only has to give back,
+/// per element, what it was given in the order it was given, and the file is
+/// the same whichever store held them.
+pub trait Events: std::fmt::Debug {
+    /// Keeps one event of element `id`.
+    ///
+    /// # Errors
+    /// When the store cannot keep it; the writer reports the first such
+    /// error from [`AdmWriter::finish`].
+    fn push(&mut self, id: u32, sample_pos: u64, state: &ObjectState) -> io::Result<()>;
+
+    /// Every event of element `id`, in the order they were pushed; empty for
+    /// an element that had none.
+    ///
+    /// # Errors
+    /// When the store cannot read them back.
+    fn of(&self, id: u32) -> io::Result<Vec<(u64, ObjectState)>>;
+}
+
+/// The events in memory, per element id, in order.
+#[derive(Debug, Clone, Default)]
+pub struct MemoryEvents(BTreeMap<u32, Vec<(u64, ObjectState)>>);
+
+impl Events for MemoryEvents {
+    fn push(&mut self, id: u32, sample_pos: u64, state: &ObjectState) -> io::Result<()> {
+        self.0
+            .entry(id)
+            .or_default()
+            .push((sample_pos, state.clone()));
+        Ok(())
+    }
+
+    fn of(&self, id: u32) -> io::Result<Vec<(u64, ObjectState)>> {
+        Ok(self.0.get(&id).cloned().unwrap_or_default())
+    }
+}
+
+/// Streaming ADM BWF writer. `E` is where the object events wait for
+/// [`AdmWriter::finish`]: memory unless a store is given.
 #[derive(Debug)]
-pub struct AdmWriter {
+pub struct AdmWriter<E: Events = MemoryEvents> {
     out: BufWriter<File>,
     path: PathBuf,
     sample_rate: u32,
@@ -237,7 +326,10 @@ pub struct AdmWriter {
     objects: usize,
     frames: u64,
     /// Events per element id, in order.
-    events: BTreeMap<u32, Vec<(u64, ObjectState)>>,
+    events: E,
+    /// The first error of the event store: `push_event` has no result to
+    /// give it in, so `finish` gives it.
+    events_error: Option<io::Error>,
     options: AdmOptions,
     frame: Vec<u8>,
     /// The last state seen per bed channel id: a DirectSpeakers block has no
@@ -251,12 +343,25 @@ const JUNK_LEN: u32 = 28;
 const DATA_SIZE_POS: u64 = 12 + 8 + JUNK_LEN as u64 + 8 + 16 + 4;
 
 impl AdmWriter {
-    /// Creates the file for `program`.
+    /// Creates the file for `program`, the events kept in memory.
     pub fn create(
         path: &Path,
         program: &Program,
         sample_rate: u32,
         options: &AdmOptions,
+    ) -> Result<Self, AdmError> {
+        Self::create_with(path, program, sample_rate, options, MemoryEvents::default())
+    }
+}
+
+impl<E: Events> AdmWriter<E> {
+    /// Creates the file for `program`, the events kept in `events`.
+    pub fn create_with(
+        path: &Path,
+        program: &Program,
+        sample_rate: u32,
+        options: &AdmOptions,
+        events: E,
     ) -> Result<Self, AdmError> {
         let coded = program.bed_channels();
         let mut bed: Vec<BedChannel> = Vec::new();
@@ -351,7 +456,8 @@ impl AdmWriter {
             bed,
             objects: program.dynamic_objects,
             frames: 0,
-            events: BTreeMap::new(),
+            events,
+            events_error: None,
             options: options.clone(),
             frame: Vec::with_capacity(channels * 3 * 160),
             bed_last: BTreeMap::new(),
@@ -403,10 +509,11 @@ impl AdmWriter {
                     self.losses
                         .note(LossKind::SizeAxesCollapsed, event.id, event.sample_pos);
                 }
-                self.events
-                    .entry(event.id)
-                    .or_default()
-                    .push((event.sample_pos, s.clone()));
+                if let Err(e) = self.events.push(event.id, event.sample_pos, s)
+                    && self.events_error.is_none()
+                {
+                    self.events_error = Some(e);
+                }
             }
             ElementState::Bed(s) => {
                 match self.bed_last.get(&event.id) {
@@ -414,6 +521,23 @@ impl AdmWriter {
                         if s.gain != Gain::Db(0) || !s.active {
                             self.losses
                                 .note(LossKind::BedGainDropped, event.id, event.sample_pos);
+                        }
+                        // A DirectSpeakers block has no importance and no
+                        // trim bypass either: the first state loses them as
+                        // an object block does.
+                        if s.active && s.importance != 1.0 {
+                            self.losses.note(
+                                LossKind::ImportanceOmitted,
+                                event.id,
+                                event.sample_pos,
+                            );
+                        }
+                        if s.trim_bypass {
+                            self.losses.note(
+                                LossKind::TrimBypassDropped,
+                                event.id,
+                                event.sample_pos,
+                            );
                         }
                     }
                     Some(last) => {
@@ -438,9 +562,14 @@ impl AdmWriter {
         if data_bytes % 2 == 1 {
             self.out.write_all(&[0])?;
         }
-        let (xml, blocks, ledger) = self.axml();
+        if let Some(e) = self.events_error.take() {
+            return Err(e.into());
+        }
+        let (xml, blocks, ledger) = self.axml()?;
         self.losses.merge(&ledger);
         write_chunk(&mut self.out, b"axml", xml.as_bytes())?;
+        // counted on the chunk as written: the bytes are already out
+        let profile = profile_overruns(&xml);
         let chna = self.chna();
         write_chunk(&mut self.out, b"chna", &chna)?;
         let bed_mask = self
@@ -479,6 +608,7 @@ impl AdmWriter {
             rf64,
             bytes: total,
             losses: self.losses,
+            profile,
         })
     }
 
@@ -522,7 +652,7 @@ impl AdmWriter {
 
     /// The `axml` chunk, the number of object blocks written, and what the
     /// blocks could not carry.
-    fn axml(&self) -> (String, u64, LossLedger) {
+    fn axml(&self) -> io::Result<(String, u64, LossLedger)> {
         let mut ledger = LossLedger::default();
         let t = |s: u64| self.timecode(s);
         let end = t(self.frames);
@@ -632,8 +762,7 @@ impl AdmWriter {
             x.push_str(&format!(
                 "\t\t\t\t<audioChannelFormat audioChannelFormatID=\"AC_{id:08x}\" audioChannelFormatName=\"Atmos_Obj_{k}\" typeDefinition=\"Objects\" typeLabel=\"0003\">\n"
             ));
-            let mut events: Vec<(u64, ObjectState)> =
-                self.events.get(&element_id).cloned().unwrap_or_default();
+            let mut events: Vec<(u64, ObjectState)> = self.events.of(element_id)?;
             // Blocks tile in time; the events may not have arrived in it. The
             // sort is stable, so two events at one sample keep their order.
             events.sort_by_key(|(pos, _)| *pos);
@@ -813,7 +942,7 @@ impl AdmWriter {
         x.push_str(
             "\t\t\t</audioFormatExtended>\n\t\t</format>\n\t</coreMetadata>\n</ebuCoreMain>\n",
         );
-        (x, blocks_total, ledger)
+        Ok((x, blocks_total, ledger))
     }
 }
 

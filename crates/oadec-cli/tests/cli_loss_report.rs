@@ -230,6 +230,11 @@ fn the_schema_names_the_kinds_and_classes_of_the_ledger() {
             kind.name()
         );
     }
+    assert_eq!(
+        root["properties"]["schema"]["enum"],
+        json!([oadec_spatial::loss::REPORT_SCHEMA]),
+        "the report names the version of the schema it follows"
+    );
     // the kinds whose class sets exit code 4, as docs/exit-codes.md has them
     let declared: Vec<&str> = LossKind::ALL
         .iter()
@@ -252,6 +257,7 @@ fn the_schema_names_the_kinds_and_classes_of_the_ledger() {
 #[test]
 fn the_validator_refuses_what_the_schema_refuses() {
     let good = json!({
+        "schema": 2,
         "target": "adm",
         "declared_loss": true,
         "losses": [
@@ -275,12 +281,16 @@ fn the_validator_refuses_what_the_schema_refuses() {
         change(&mut v);
         violations(&v)
     };
-    let cases: [(&str, Change); 13] = [
+    let cases: [(&str, Change); 15] = [
+        ("no schema", &|v| {
+            v.as_object_mut().unwrap().remove("schema");
+        }),
+        ("schema 1", &|v| v["schema"] = json!(1)),
         ("no target", &|v| {
             v.as_object_mut().unwrap().remove("target");
         }),
         ("another target", &|v| v["target"] = json!("wav")),
-        ("a field more", &|v| v["schema"] = json!(1)),
+        ("a field more", &|v| v["comment"] = json!("x")),
         ("declared_loss as text", &|v| {
             v["declared_loss"] = json!("no")
         }),

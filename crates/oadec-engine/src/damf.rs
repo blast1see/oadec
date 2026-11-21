@@ -212,6 +212,16 @@ pub(crate) fn print_losses(
     Ok(())
 }
 
+/// Prints what the ADM profile guard found in the file, one line each, after
+/// the loss lines. A finding is said; it changes neither the file nor the
+/// exit code. Quiet when there is none, which is every file written today.
+pub(crate) fn print_profile(sink: &SinkSummary, err: &mut dyn Write) -> io::Result<()> {
+    for line in &sink.profile {
+        writeln!(err, "{line}")?;
+    }
+    Ok(())
+}
+
 /// Writes the loss ledger of an output as JSON when a path was given.
 /// `overrides` are the measurement overrides the run was given (see
 /// `eac3_objects::JocOverrides`); the report always carries the list, empty
@@ -244,6 +254,7 @@ pub(crate) fn write_loss_report(
             .map(|(ramp, n)| (ramp.to_string(), json!(n)))
             .collect();
         let doc = json!({
+            "schema": oadec_spatial::loss::REPORT_SCHEMA,
             "target": target,
             "declared_loss": losses.declared_loss(),
             "losses": kinds,
@@ -370,6 +381,9 @@ pub(crate) struct SinkSummary {
     pub(crate) paths: Vec<PathBuf>,
     pub(crate) note: String,
     pub(crate) losses: LossLedger,
+    /// What an ADM file has more of than the profile allows, as stderr says
+    /// it; empty for DAMF and for every file the writer makes today.
+    pub(crate) profile: Vec<String>,
 }
 
 impl Sink {
@@ -466,6 +480,7 @@ impl Sink {
                     paths,
                     note: String::new(),
                     losses: s.losses,
+                    profile: Vec::new(),
                 })
             }
             Writer::Adm(w) => {
@@ -483,6 +498,7 @@ impl Sink {
                         if s.rf64 { ", RF64" } else { "" }
                     ),
                     losses: s.losses,
+                    profile: s.profile,
                 })
             }
         }
@@ -561,6 +577,7 @@ impl Written {
             )?;
         }
         print_losses(self.target(), &self.losses, err)?;
+        print_profile(&self.sink, err)?;
         Ok(())
     }
 
