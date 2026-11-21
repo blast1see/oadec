@@ -436,6 +436,9 @@ pub struct Timeline {
     /// elements without a syntax, and its reserved data: each counted once
     /// per change.
     last_alternate: Vec<(u8, Option<u8>)>,
+    /// The additional table data of the last update of each element, by its
+    /// index in stream order (ISF objects have no element id).
+    last_table_data: BTreeMap<usize, Vec<u8>>,
     last_unknown: Vec<u8>,
     last_reserved: (Vec<u8>, Option<u8>),
 }
@@ -574,13 +577,21 @@ impl Timeline {
                 let Some(block) = updates.get(blk) else {
                     continue;
                 };
+                let table_data = &block.additional_table_data;
+                let new_table_data =
+                    !table_data.is_empty() && self.last_table_data.get(&index) != Some(table_data);
+                self.last_table_data.insert(index, table_data.clone());
                 let Some(id) = program.element_id(index) else {
-                    continue; // ISF objects have no DAMF representation
+                    // ISF objects have no DAMF representation and no event;
+                    // their table data is counted when it appears or changes,
+                    // under the ISF object's index, as `isf-dropped` names it.
+                    if new_table_data {
+                        let isf = index - program.bed_channels().len();
+                        self.losses
+                            .note(LossKind::AdditionalTableDataDropped, isf as u32, pos);
+                    }
+                    continue;
                 };
-                if !block.additional_table_data.is_empty() {
-                    self.losses
-                        .note(LossKind::AdditionalTableDataDropped, id, pos);
-                }
                 let state = if block.in_bed_or_isf {
                     ElementState::Bed(BedState {
                         active: !block.not_active,
@@ -612,6 +623,12 @@ impl Timeline {
                     }
                 };
                 let is_event = changed || self.keep_all;
+                // Counted as the distance is: on an event, and on an update
+                // that is no event when the bytes appear or change.
+                if !table_data.is_empty() && (is_event || new_table_data) {
+                    self.losses
+                        .note(LossKind::AdditionalTableDataDropped, id, pos);
+                }
                 if !block.in_bed_or_isf {
                     // Distance and divergence are not in the reduced state, so
                     // an update that changes only one of them is no event and
@@ -681,6 +698,9 @@ impl Timeline {
     fn note_payload_wide(&mut self, oamd: &Oamd, objects: &ObjectElement, at: u64) {
         // The first element of each id with a syntax is the one read (see
         // `Oamd::object_element` and its siblings); any other is an alternate.
+        // One that is read and says it is an alternate set (an id other than
+        // 0) stands in for the default data, which the payload does not carry
+        // there: that is counted too.
         let mut read: Vec<u8> = Vec::new();
         let mut alternate: Vec<(u8, Option<u8>)> = Vec::new();
         let mut unknown: Vec<u8> = Vec::new();
@@ -688,7 +708,12 @@ impl Timeline {
             match e.element {
                 Element::Unknown(_) => unknown.push(e.id),
                 _ if read.contains(&e.id) => alternate.push((e.id, e.alternate_id)),
-                _ => read.push(e.id),
+                _ => {
+                    read.push(e.id);
+                    if e.alternate_id.is_some_and(|k| k != 0) {
+                        alternate.push((e.id, e.alternate_id));
+                    }
+                }
             }
         }
         unknown.sort_unstable();

@@ -16,7 +16,9 @@
 //! OADEC_BLESS=1 cargo test -p oadec-cli --test cli_loss_report
 //! ```
 //!
-//! and read the difference before committing it.
+//! and read the difference before committing it. A recording run fails on
+//! purpose, each test naming the file it recorded and whether it changed; a CI
+//! run (`CI` set) refuses to record.
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -335,8 +337,17 @@ fn golden_dir() -> PathBuf {
     manifest_dir().join("tests").join("loss-golden")
 }
 
+/// Whether this run records the goldens instead of checking them. A recording
+/// run is never a pass: every test that recorded fails and says so, so an
+/// `OADEC_BLESS` left in an environment cannot turn the checks green in
+/// silence; and a CI run refuses to record at all.
 fn blessing() -> bool {
-    std::env::var_os("OADEC_BLESS").is_some_and(|v| v == "1")
+    let bless = std::env::var_os("OADEC_BLESS").is_some_and(|v| v == "1");
+    assert!(
+        !(bless && std::env::var_os("CI").is_some()),
+        "OADEC_BLESS=1 in CI: goldens are recorded by hand and read before they are committed, never by CI"
+    );
+    bless
 }
 
 /// The streams whose object outputs are recorded: every stream of the two
@@ -495,8 +506,19 @@ fn hold(name: &str, actual: &str) {
     let path = golden_dir().join(name);
     if blessing() {
         std::fs::create_dir_all(golden_dir()).unwrap();
+        let before = std::fs::read_to_string(&path)
+            .map(|t| t.replace("\r\n", "\n"))
+            .ok();
+        let said = match before.as_deref() {
+            Some(b) if b == actual => "unchanged",
+            Some(_) => "CHANGED",
+            None => "new",
+        };
         std::fs::write(&path, actual).unwrap();
-        return;
+        panic!(
+            "OADEC_BLESS=1: recorded {name} ({said}); this run checked nothing. \
+             Read `git diff` and run again without OADEC_BLESS."
+        );
     }
     let golden = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| {
@@ -616,9 +638,10 @@ fn every_fixture_stream_has_a_golden() {
 /// A golden nothing writes any more would stay and be read as coverage.
 #[test]
 fn every_golden_belongs_to_a_stream() {
-    if blessing() {
-        return;
-    }
+    assert!(
+        !blessing(),
+        "OADEC_BLESS=1: the golden directory was not checked; run again without it"
+    );
     let mut wanted: Vec<String> = STREAMS.iter().map(|s| golden_name(s)).collect();
     wanted.sort();
     let mut found: Vec<String> = std::fs::read_dir(golden_dir())

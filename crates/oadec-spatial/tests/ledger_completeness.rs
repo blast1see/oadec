@@ -166,24 +166,64 @@ fn assert_kind(
 // The fields that leave no line today.
 
 /// `additional_table_data` of an object info block: bytes the standard leaves
-/// to later versions, which neither output has a place for. Counted per update
-/// block that carries any, on beds and objects alike.
+/// to later versions, which neither output has a place for. Counted as the
+/// distance is: on an update that is an event, and on one that is not when
+/// the bytes appear or change; not again when a payload restates them. Beds
+/// and objects alike.
 #[test]
-fn additional_table_data_is_counted_per_update() {
+fn additional_table_data_is_counted_per_event_and_per_change() {
     let mut p = payload();
     object_element(&mut p).objects[1][0].additional_table_data = vec![0xA5];
+    let mut other = payload();
+    object_element(&mut other).objects[1][0].additional_table_data = vec![0xA6];
     let mut bed = payload();
     object_element(&mut bed).objects[0][0].additional_table_data = vec![1, 2];
-    let t = run(&[p.clone(), p, bed]);
+    // 0: first event; 1536: the same update again, no event, same bytes;
+    // 3072: other bytes, still no event; 4608: the bed's bytes
+    let t = run(&[p.clone(), p, other, bed]);
     assert_kind(
         &t.losses,
         "additional-table-data-dropped",
         LossClass::Unrepresentable,
         3,
-        &[(10, 0), (10, 1536), (3, 3072)],
+        &[(10, 0), (10, 3072), (3, 4608)],
         "damf: not representable in DAMF or the ADM profile: \
          3 updates with additional table data not carried \
-         (element 10 at 0, element 10 at 1536, element 3 at 3072)",
+         (element 10 at 0, element 10 at 3072, element 3 at 4608)",
+    );
+}
+
+/// An LFE, the four objects of ISF SR3.1.0.0 and one dynamic object.
+fn isf_payload() -> Oamd {
+    let mut p = payload();
+    p.object_count = 6;
+    p.program.content_description = 0b0111;
+    p.program.isf_index = Some(0);
+    let o = object_element(&mut p);
+    let object = o.objects.pop().expect("the dynamic object");
+    for _ in 0..4 {
+        o.objects.push(vec![block(true)]);
+    }
+    o.objects.push(object);
+    p
+}
+
+/// An ISF object has no element id and no event, and its additional table
+/// data is lost with the rest of it: counted when the bytes appear or change,
+/// with the ISF object's index as the element, as `isf-dropped` names it.
+#[test]
+fn additional_table_data_of_an_isf_object_is_counted() {
+    let mut p = isf_payload();
+    object_element(&mut p).objects[1 + 2][0].additional_table_data = vec![7];
+    let t = run(&[p.clone(), p]);
+    assert_kind(
+        &t.losses,
+        "additional-table-data-dropped",
+        LossClass::Unrepresentable,
+        1,
+        &[(2, 0)],
+        "damf: not representable in DAMF or the ADM profile: \
+         1 update with additional table data not carried (element 2 at 0)",
     );
 }
 
@@ -210,6 +250,28 @@ fn alternate_object_data_is_counted_once_per_change() {
         &[(0, 0), (0, 3072)],
         "damf: not representable in DAMF or the ADM profile: \
          2 alternate object data sets not carried",
+    );
+}
+
+/// An alternate set read in place of the default one: the only object element
+/// of a payload says it is alternate set 1. What the outputs carry is not the
+/// default data, and the ledger says so, once per change.
+#[test]
+fn an_alternate_set_read_in_place_of_the_default_is_counted() {
+    let mut p = payload();
+    p.alternate_object_data_present = true;
+    p.elements[0].alternate_id = Some(1);
+    let mut default = p.clone();
+    default.elements[0].alternate_id = Some(0);
+    let t = run(&[p.clone(), p, default]);
+    assert_kind(
+        &t.losses,
+        "alternate-object-data-dropped",
+        LossClass::Unrepresentable,
+        1,
+        &[(0, 0)],
+        "damf: not representable in DAMF or the ADM profile: \
+         1 alternate object data set not carried",
     );
 }
 
@@ -301,6 +363,22 @@ fn a_reserved_zone_index_is_counted_per_event() {
         &[(10, 0), (10, 1536)],
         "damf: approximations: 2 updates with a reserved zone index written as all zones \
          (element 10 at 0, element 10 at 1536)",
+    );
+}
+
+/// A payload that restates a reserved zone index is no event and leaves no
+/// second line: the count is per event, not per payload.
+#[test]
+fn a_restated_reserved_zone_index_is_counted_once() {
+    let mut six = payload();
+    object_element(&mut six).objects[1][0]
+        .render
+        .zone_constraints = 6;
+    let t = run(&[six.clone(), six.clone(), six]);
+    assert_eq!(t.events, 2, "the LFE and the object, once");
+    assert_eq!(
+        entry(&t.losses, "reserved-zone-read-as-all").map(|e| (e.0, e.2)),
+        Some((1, vec![(10, 0)]))
     );
 }
 
@@ -397,6 +475,64 @@ fn the_first_state_of_a_bed_channel_is_counted_whole() {
         entry(&summary.losses, "trim-bypass-dropped").map(|e| (e.0, e.2)),
         Some((1, vec![(3, 0)]))
     );
+}
+
+/// The ADM ledger of one LFE first state, written alone.
+fn bed_first_state_ledger(tag: &str, state: BedState) -> LossLedger {
+    let dir = temp(tag);
+    let mut w = AdmWriter::create(
+        &dir.join("b.wav"),
+        &lfe_and_one_object(),
+        48_000,
+        &AdmOptions::default(),
+    )
+    .unwrap();
+    let rows = vec![[0i32; 2]; 4_800];
+    w.write_frames(rows.iter().map(|r| &r[..]), 2).unwrap();
+    w.push_event(&Event {
+        id: 3,
+        sample_pos: 0,
+        state: ElementState::Bed(state),
+        previous: None,
+    });
+    let summary = w.finish().unwrap();
+    std::fs::remove_dir_all(&dir).ok();
+    summary.losses
+}
+
+/// What the bed block can say is not counted: an LFE at importance 1 with its
+/// trim in force loses nothing, and an inactive one loses its activity
+/// (`bed-gain-dropped`), not an importance: the 0 of an inactive channel is
+/// the profile's marker, as it is for an object.
+#[test]
+fn the_first_state_of_a_bed_channel_counts_only_what_it_loses() {
+    let plain = bed_first_state_ledger(
+        "bed-plain",
+        BedState {
+            active: true,
+            importance: 1.0,
+            gain: Gain::Db(0),
+            ramp: 1536,
+            trim_bypass: false,
+        },
+    );
+    assert!(
+        plain.is_empty(),
+        "{:?}",
+        plain.iter().map(|(k, n)| (k.name(), n)).collect::<Vec<_>>()
+    );
+    let inactive = bed_first_state_ledger(
+        "bed-inactive",
+        BedState {
+            active: false,
+            importance: 0.0,
+            gain: Gain::Db(0),
+            ramp: 1536,
+            trim_bypass: false,
+        },
+    );
+    let kinds: Vec<(&str, u64)> = inactive.iter().map(|(k, n)| (k.name(), n)).collect();
+    assert_eq!(kinds, [("bed-gain-dropped", 1)]);
 }
 
 // ---------------------------------------------------------------------------

@@ -831,6 +831,42 @@ pub fn write(
 mod tests {
     use super::*;
 
+    /// The profile guard's lines are printed as the sink has them, after the
+    /// loss lines, and nothing else reads them: the verdict and with it the
+    /// exit code come from `findings`, which never sees `profile`. A file
+    /// the writer makes cannot have such a line (it refuses more objects or
+    /// tracks than the profile allows before it writes), so the CLI cannot
+    /// show one; a sink that had them is built here.
+    #[test]
+    fn the_profile_guard_is_printed_and_read_by_nothing_else() {
+        let line = "adm: profile limit: 124 audioObject elements, more than the 123 the profile allows (MAX_ELEMENT_COUNT)";
+        let sink = SinkSummary {
+            frames: 0,
+            channels: 0,
+            events: 0,
+            paths: Vec::new(),
+            note: String::new(),
+            losses: LossLedger::default(),
+            profile: vec![line.to_string()],
+        };
+        let mut err = Vec::new();
+        print_profile(&sink, &mut err).unwrap();
+        assert_eq!(String::from_utf8(err).unwrap(), format!("{line}\n"));
+        let quiet = SinkSummary {
+            profile: Vec::new(),
+            ..sink
+        };
+        let mut err = Vec::new();
+        print_profile(&quiet, &mut err).unwrap();
+        assert!(err.is_empty());
+        // the one reader of the field besides the printer would be the
+        // verdict; it is built from the ledger alone
+        let source = include_str!("damf.rs");
+        let findings = &source[source.find("pub fn findings(self)").unwrap()..];
+        let findings = &findings[..findings.find("\n    }\n").unwrap()];
+        assert!(!findings.contains("profile"), "{findings}");
+    }
+
     /// A file with the source ramps is outside the Dolby profile and must not
     /// claim Dolby authorship.
     #[test]

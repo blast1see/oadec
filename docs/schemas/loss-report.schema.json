@@ -64,7 +64,7 @@
       "additionalProperties": false,
       "properties": {
         "element": {
-          "description": "DAMF element id: bed channels 0 to 9 and 130 up, dynamic objects 10 up; for isf-dropped the index of the ISF object; 0 for a payload-wide loss.",
+          "description": "DAMF element id: bed channels 0 to 9 and 130 up, dynamic objects 10 up; for isf-dropped, and for additional-table-data-dropped on an ISF object, the index of the ISF object; 0 for a payload-wide loss.",
           "type": "integer",
           "minimum": 0
         },

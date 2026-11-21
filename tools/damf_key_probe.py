@@ -13,7 +13,8 @@ A variant is {"name", "atmos": [lines for the header], "dbmd": "text of a sideca
 "metadata": [[old, new]], "args": [encoder arguments], "start": "0" or null}.
 `docs/audit/evidence/metadata-bridge-2026-11-09/02-damf-key-probe.json` holds the
 variants and results behind `docs/dolby-tools.md`. Needs a Dolby Media Encoder
-installation and its licence file; the licence is passed to the encoder and not read.
+installation (`DME_DEE`) and its licence file; the licence is passed to the encoder and
+not read. Without them it stops with exit code 3 before it runs anything.
 """
 
 from __future__ import annotations
@@ -32,6 +33,20 @@ from oadec_bin import find as oadec_binary  # noqa: E402
 
 DEE = Path(os.environ.get("DME_DEE", r"C:\Program Files\Dolby Media Encoder\resources\dee"))
 LICENCE = Path(os.environ.get("APPDATA", "")) / "Dolby Media Encoder" / "license.lic"
+
+
+def require_dee(*tools: str) -> None:
+    """Stops with exit code 3 when the encoder this run needs is not there: a
+    run that cannot reach Dolby's tools says it could not run, instead of
+    writing rows that read as results. `DME_DEE` names the folder of the
+    tools, the licence is read from where Dolby Media Encoder keeps it."""
+    missing = [t for t in tools if not (DEE / t).is_file()]
+    if not LICENCE.is_file():
+        missing.append(f"the licence ({LICENCE})")
+    if missing:
+        print(f"cannot run: {', '.join(missing)} not found under {DEE}; "
+              "set DME_DEE to the folder that holds the Dolby Media Encoder tools", file=sys.stderr)
+        raise SystemExit(3)
 
 
 def run(cmd: list[str], timeout: int = 900) -> tuple[int, str]:
@@ -101,6 +116,7 @@ def main() -> int:
     ap.add_argument("out", type=Path)
     ap.add_argument("--encoder", choices=("joc", "thd"), default="joc")
     args = ap.parse_args()
+    require_dee("atmos_info.exe", "dee_ddpjoc_encoder.exe" if args.encoder == "joc" else "dee_dthd_encoder.exe")
     stem = next(args.base.glob("*.atmos")).stem
     variants = json.loads(args.variants.read_text(encoding="utf-8"))
     oadec = oadec_binary()
