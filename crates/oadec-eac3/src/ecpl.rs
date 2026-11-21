@@ -56,7 +56,8 @@ pub struct Synth {
     /// `rand_notrans[ch][bin]`: uniform on [-1, 1), unique per bin and
     /// channel, drawn once and never redrawn (clause E.3.5.5.3).
     notrans: [[f64; N]; MAX_FBW],
-    /// The source of `rand_trans[ch][bnd]`, redrawn every block. Kept apart
+    /// The source of `rand_trans[ch][bnd]`, drawn anew every block for every
+    /// coupled channel after the first. Kept apart
     /// from the dither of clause 6.3.4 so the two do not interleave.
     trans: Noise,
     /// `rand_trans` given from outside and how far it has been read
@@ -187,9 +188,6 @@ impl Synth {
         // E.3.5.5.2-4: one rotation of the carrier per coupled channel.
         let nbnd = ecpl.bands.len();
         let mut rand_trans = [0.0f64; 22];
-        for v in rand_trans.iter_mut().take(nbnd) {
-            *v = self.draw_trans();
-        }
         let mut amp = [0.0f64; 22];
         let mut chaos = [0.0f64; 22];
         let mut angle_bnd = [0.0f64; 22];
@@ -197,6 +195,15 @@ impl Synth {
         for (ch, slot) in ecpl.chans.iter().enumerate() {
             let Some(c) = slot else { continue };
             let first = ch == ecpl.first_ch;
+            // rand_trans is "unique for each band [bnd] and channel [ch]" and
+            // new every block (clause E.2.5.5.3, V1.2.1). It is drawn for
+            // every channel after the first, a transient in it or not, so the
+            // draws follow the order of `RandomValues::trans`.
+            if !first {
+                for v in rand_trans.iter_mut().take(nbnd) {
+                    *v = self.draw_trans();
+                }
+            }
             for bnd in 0..nbnd {
                 let mut a = ecpl_amplitude(c.amp[bnd]);
                 chaos[bnd] = if first {
