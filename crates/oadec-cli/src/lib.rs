@@ -244,9 +244,12 @@ enum Command {
         #[arg(long, value_name = "FILE")]
         loss_report: Option<PathBuf>,
         /// DAMF/ADM: intermediate-spatial-format (ISF) objects, which neither
-        /// format can represent: refuse the decode (`error`, and what is done
+        /// format can place: refuse the decode (`error`, and what is done
         /// when this is absent), or write the output without them and declare
-        /// the loss (`drop`, exit 4).
+        /// the loss (`drop`, exit 4). A PCM or WAVE output needs no policy:
+        /// it decodes the ISF channels and labels them M1, M2, ... (MULZ).
+        /// There is no `objects`: no public source gives the ring elevations
+        /// or channel positions an object output would need.
         #[arg(long, value_enum)]
         isf: Option<IsfArg>,
         /// ADM: write a programme that is not at 48 kHz although the Dolby Atmos
