@@ -247,3 +247,268 @@ fn interpolation_writes_every_bin_of_the_region() {
         }
     }
 }
+
+// ---- P3: held against the text of A/52:2018 clause E.3.5.5 ----
+
+use crate::frame::MAX_FBW;
+
+/// Three blocks of carrier over `37..253`.
+fn carrier(seed: u64) -> [[f64; N]; 3] {
+    let mut seed = seed;
+    let mut blocks = [[0.0f64; N]; 3];
+    for b in &mut blocks {
+        for v in b[37..253].iter_mut() {
+            *v = lcg(&mut seed);
+        }
+    }
+    blocks
+}
+
+/// The hook's values: every `rand_notrans` is `notrans`, and `trans` is
+/// the `rand_trans` stream.
+fn given(notrans: f64, trans: Vec<f64>) -> RandomValues {
+    RandomValues {
+        notrans: vec![[notrans; N]; MAX_FBW],
+        trans,
+    }
+}
+
+/// A unity first channel and one more coupled channel over `bands`.
+fn with_second(
+    bands: &[(usize, usize)],
+    amp: u8,
+    angle: &[u8],
+    chaos: &[u8],
+    transient: bool,
+) -> EcplBlock {
+    let n = bands.len();
+    let mut b = one_band(bands[0].0, bands[n - 1].1, 0, 0, 0);
+    b.bands = bands.to_vec();
+    b.chans[0] = Some(EcplChannel {
+        amp: vec![0; n],
+        angle: vec![0; n],
+        chaos: vec![0; n],
+        transient: false,
+    });
+    b.chans.push(Some(EcplChannel {
+        amp: vec![amp; n],
+        angle: angle.to_vec(),
+        chaos: chaos.to_vec(),
+        transient,
+    }));
+    b
+}
+
+/// The middle block of three, every channel of it.
+fn run_middle(synth: &mut Synth, blocks: &[[f64; N]; 3], proto: &EcplBlock) -> Vec<[f64; N]> {
+    let imdct = Imdct::new();
+    let mut out = Vec::new();
+    for i in 0..2 {
+        let mut b = proto.clone();
+        b.coeffs = blocks[i];
+        out = vec![[0.0f64; N]; proto.chans.len()];
+        synth.block(&imdct, &b, &blocks[i + 1], &mut out);
+    }
+    out
+}
+
+#[test]
+fn chaos_lowers_the_amplitude_where_no_transient_is() {
+    // A/52:2018 clause E.3.5.5.2: `ampbnd *= 1 + 0.38 * chaos` for a
+    // channel after the first without a transient. ecplchaostab[7] is -1, so
+    // the amplitude is 0.62 (ETSI TS 102 366 V1.2.1 prints `1 - 0.38`, which
+    // would give 1.38). With every rand_notrans zero the angle is left alone
+    // and the channel is the carrier times 0.62.
+    let blocks = carrier(0x5eed_0003_0000_0001);
+    let proto = with_second(&[(37, 253)], 0, &[0], &[7], false);
+    let mut synth = Synth::with_random_values(given(0.0, vec![0.0; 64]));
+    let out = run_middle(&mut synth, &blocks, &proto);
+    for bin in 37..253 {
+        let want = 0.62 * blocks[1][bin];
+        assert!(
+            (out[1][bin] - want).abs() < 1e-9,
+            "bin {bin}: {} where the text gives {want}",
+            out[1][bin]
+        );
+    }
+}
+
+#[test]
+fn the_chaos_term_is_added_to_the_angle() {
+    // A/52:2018 clause E.3.5.5.3: `angle += chaos * rand` (ETSI TS 102 366
+    // V1.2.1 prints `+= -chaos * rand`). With chaos -1 and every
+    // rand_notrans 0.25 the bin angle is -0.25, the angle of code 56; the
+    // amplitude is 0.62 (clause E.3.5.5.2).
+    let blocks = carrier(0x5eed_0003_0000_0002);
+    let chaotic = with_second(&[(37, 253)], 0, &[0], &[7], false);
+    let rotated = with_second(&[(37, 253)], 0, &[56], &[0], false);
+    let got = run_middle(
+        &mut Synth::with_random_values(given(0.25, vec![0.0; 64])),
+        &blocks,
+        &chaotic,
+    );
+    let want = run_middle(&mut Synth::new(), &blocks, &rotated);
+    for bin in 37..253 {
+        assert!(
+            (got[1][bin] - 0.62 * want[1][bin]).abs() < 1e-9,
+            "bin {bin}: {} against {}",
+            got[1][bin],
+            0.62 * want[1][bin]
+        );
+    }
+}
+
+#[test]
+fn rand_trans_is_drawn_in_the_order_of_the_contract() {
+    // Per block, per coupled channel after the first, per band. The second
+    // call is the middle block and takes values 5..8 (in 1/32); chaos -1
+    // makes them the angles -5/32..-8/32, codes 59..56; a transient
+    // channel keeps its amplitude. rand_notrans is NaN, so a channel that
+    // reads it instead shows at once.
+    let blocks = carrier(0x5eed_0003_0000_0003);
+    let bands = [(37usize, 121usize), (121, 253)];
+    let mut proto = with_second(&bands, 0, &[0, 0], &[7, 7], true);
+    proto.chans.push(Some(EcplChannel {
+        amp: vec![0, 0],
+        angle: vec![0, 0],
+        chaos: vec![7, 7],
+        transient: true,
+    }));
+    let trans: Vec<f64> = (1..=8).map(|k| f64::from(k) / 32.0).collect();
+    let got = run_middle(
+        &mut Synth::with_random_values(given(f64::NAN, trans)),
+        &blocks,
+        &proto,
+    );
+    let mut want_proto = with_second(&bands, 0, &[59, 58], &[0, 0], true);
+    want_proto.chans.push(Some(EcplChannel {
+        amp: vec![0, 0],
+        angle: vec![57, 56],
+        chaos: vec![0, 0],
+        transient: true,
+    }));
+    let want = run_middle(&mut Synth::new(), &blocks, &want_proto);
+    for ch in 1..3 {
+        for bin in 37..253 {
+            assert!(
+                (got[ch][bin] - want[ch][bin]).abs() < 1e-9,
+                "channel {ch} bin {bin}: {} against {}",
+                got[ch][bin],
+                want[ch][bin]
+            );
+        }
+    }
+}
+
+#[test]
+fn every_transient_channel_draws_its_own_values() {
+    // Clause E.3.5.5.3: rand_trans "must be unique for each band [bnd] and
+    // channel [ch]". Two channels with the same codes and a transient must
+    // not come out the same.
+    let blocks = carrier(0x5eed_0003_0000_0004);
+    let mut proto = with_second(&[(37, 253)], 0, &[0], &[7], true);
+    proto.chans.push(Some(EcplChannel {
+        amp: vec![0],
+        angle: vec![0],
+        chaos: vec![7],
+        transient: true,
+    }));
+    let out = run_middle(&mut Synth::new(), &blocks, &proto);
+    let same = (37..253).all(|bin| out[1][bin] == out[2][bin]);
+    assert!(!same, "two transient channels drew the same rand_trans");
+}
+
+#[test]
+fn the_first_coupled_channel_ignores_angle_and_chaos() {
+    // Clauses E.3.5.5.2/3: angle and chaos are zero for firstchincpl, even
+    // when the codes held for it are not (a channel that was not first in
+    // an earlier block). Channel 0 is not coupled, so channel 1 is first.
+    let blocks = carrier(0x5eed_0003_0000_0005);
+    let mut proto = one_band(37, 253, 0, 32, 7);
+    proto.chans.insert(0, None);
+    proto.first_ch = 1;
+    let out = run_middle(&mut Synth::new(), &blocks, &proto);
+    for bin in 37..253 {
+        assert!((out[1][bin] - blocks[1][bin]).abs() < 1e-9, "bin {bin}");
+    }
+}
+
+#[test]
+fn rand_notrans_is_uniform_and_differs_per_channel() {
+    // Clause E.3.5.5.3: uniform on [-1, 1), unique per bin and channel.
+    let synth = Synth::new();
+    let all: Vec<f64> = synth.notrans.iter().flatten().copied().collect();
+    assert!(all.iter().all(|v| (-1.0..1.0).contains(v)));
+    let mean = all.iter().sum::<f64>() / all.len() as f64;
+    let var = all.iter().map(|v| (v - mean) * (v - mean)).sum::<f64>() / all.len() as f64;
+    assert!(mean.abs() < 0.03, "mean {mean}");
+    assert!((var - 1.0 / 3.0).abs() < 0.03, "variance {var}");
+    for a in 0..MAX_FBW {
+        for b in a + 1..MAX_FBW {
+            assert_ne!(synth.notrans[a], synth.notrans[b], "channels {a} and {b}");
+        }
+    }
+}
+
+#[test]
+fn rand_notrans_survives_a_reset() {
+    // "generated once ... must stay the same for every block of every frame"
+    let mut synth = Synth::new();
+    let before = synth.notrans;
+    synth.reset();
+    synth.skip_block();
+    assert_eq!(before, synth.notrans);
+}
+
+#[test]
+fn a_transient_redraws_every_block_and_no_transient_does_not() {
+    // The same block twice from a zero past: without a transient the output
+    // repeats exactly; with one, rand_trans is new and it does not.
+    let blocks = carrier(0x5eed_0003_0000_0006);
+    let imdct = Imdct::new();
+    for transient in [false, true] {
+        let mut proto = with_second(&[(37, 253)], 0, &[0], &[7], transient);
+        proto.coeffs = blocks[1];
+        let mut synth = Synth::new();
+        let mut twice = Vec::new();
+        for _ in 0..2 {
+            synth.skip_block();
+            let mut out = vec![[0.0f64; N]; 2];
+            synth.block(&imdct, &proto, &blocks[2], &mut out);
+            twice.push(out);
+        }
+        assert_eq!(twice[0] == twice[1], !transient, "transient {transient}");
+    }
+}
+
+#[test]
+fn the_band_layout_follows_the_syntax() {
+    // ecplsubbndtab and the default ecplbndstrc over the whole range:
+    // sub-bands up to 8 are never merged.
+    let s = crate::tables::DEFAULT_ECPL_BAND_STRUCT;
+    let ch = Some(EcplChannel::default());
+    let b = EcplBlock::from_syntax(0, 22, &s, false, vec![ch.clone()], [0.0; N]).expect("block");
+    let want = [
+        (13, 19),
+        (19, 25),
+        (25, 31),
+        (31, 37),
+        (37, 49),
+        (49, 61),
+        (61, 73),
+        (73, 85),
+        (85, 109),
+        (109, 133),
+        (133, 157),
+        (157, 205),
+        (205, 253),
+    ];
+    assert_eq!(b.bands, want);
+    assert_eq!((b.start, b.end, b.first_ch), (13, 253, 0));
+    // entries below max(9, begin + 1) are never sent, so they are ignored
+    let b =
+        EcplBlock::from_syntax(4, 12, &[true; 22], true, vec![None, ch], [0.0; N]).expect("block");
+    assert_eq!(b.bands, [(37, 49), (49, 61), (61, 73), (73, 85), (85, 133)]);
+    assert_eq!(b.first_ch, 1);
+    assert!(EcplBlock::from_syntax(5, 5, &[false; 22], false, vec![None], [0.0; N]).is_err());
+}

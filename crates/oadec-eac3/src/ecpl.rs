@@ -13,7 +13,8 @@
 //! ETSI TS 102 366 V1.4.1 does not describe any of this: its clause E.2.5.5
 //! reduces enhanced coupling to a real-valued gain. The full process is in
 //! ETSI TS 102 366 V1.2.1 clause E.2.5.5 and in ATSC A/52:2012 and A/52:2018
-//! clause E.3.5.5, which agree word for word. See `docs/eac3.md`.
+//! clause E.3.5.5. This follows A/52:2018; V1.2.1 prints the two chaos terms
+//! with the opposite sign. See `docs/eac3.md`.
 
 use std::f64::consts::PI;
 
@@ -30,6 +31,22 @@ const NN: usize = 2 * N;
 /// `unit_amplitude_and_zero_angle_return_the_carrier` measures it.
 const OLA_GAIN: f64 = 2.0;
 
+/// The de-correlation values of clause E.3.5.5.3 given from outside, so the
+/// synthesis can be held against `tools/ecpl_reference.py` with the same
+/// draws. A test hook: the decoder's own values are never replaced by it.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct RandomValues {
+    /// `rand_notrans[ch][bin]`, one row per full-bandwidth channel
+    /// (`MAX_FBW` rows), each value on `[-1, 1)`.
+    pub notrans: Vec<[f64; N]>,
+    /// `rand_trans[ch][bnd]` in draw order: per block with enhanced coupling,
+    /// per coupled channel after the first in ascending order, per band, a
+    /// transient in the channel or not. The decoder's own source draws in
+    /// the same order.
+    pub trans: Vec<f64>,
+}
+
 /// Deferred enhanced coupling synthesis; one per decoder.
 #[derive(Debug)]
 pub struct Synth {
@@ -40,9 +57,13 @@ pub struct Synth {
     /// `rand_notrans[ch][bin]`: uniform on [-1, 1), unique per bin and
     /// channel, drawn once and never redrawn (clause E.3.5.5.3).
     notrans: [[f64; N]; MAX_FBW],
-    /// The source of `rand_trans[ch][bnd]`, redrawn every block. Kept apart
+    /// The source of `rand_trans[ch][bnd]`, drawn anew every block for every
+    /// coupled channel after the first. Kept apart
     /// from the dither of clause 6.3.4 so the two do not interleave.
     trans: Noise,
+    /// `rand_trans` given from outside and how far it has been read
+    /// ([`Synth::with_random_values`]); `None` draws from `trans`.
+    given_trans: Option<(Vec<f64>, usize)>,
     /// `y[k] = cos(2 pi (N/4 + 1/2) (k + 1/2) / N)` of clause E.3.5.5.4.
     y: [f64; N],
 }
@@ -73,7 +94,39 @@ impl Synth {
             prev: [0.0; NN],
             notrans,
             trans: Noise::new(0x85EB_CA6B),
+            given_trans: None,
             y,
+        }
+    }
+
+    /// A synthesiser whose de-correlation values are `values` rather than
+    /// its own (a test hook, see [`RandomValues`]). Running past the end of
+    /// `values.trans` panics.
+    #[doc(hidden)]
+    #[must_use]
+    ///
+    /// # Panics
+    ///
+    /// When `values.notrans` does not hold `MAX_FBW` rows.
+    pub fn with_random_values(values: RandomValues) -> Self {
+        assert_eq!(values.notrans.len(), MAX_FBW, "one notrans row per channel");
+        let mut synth = Self::new();
+        for (row, given) in synth.notrans.iter_mut().zip(&values.notrans) {
+            *row = *given;
+        }
+        synth.given_trans = Some((values.trans, 0));
+        synth
+    }
+
+    /// The next `rand_trans` value: the given stream's, or the own source's.
+    fn draw_trans(&mut self) -> f64 {
+        match &mut self.given_trans {
+            Some((values, at)) => {
+                let v = values[*at];
+                *at += 1;
+                v
+            }
+            None => self.trans.uniform(),
         }
     }
 
@@ -136,9 +189,6 @@ impl Synth {
         // E.3.5.5.2-4: one rotation of the carrier per coupled channel.
         let nbnd = ecpl.bands.len();
         let mut rand_trans = [0.0f64; 22];
-        for v in rand_trans.iter_mut().take(nbnd) {
-            *v = self.trans.uniform();
-        }
         let mut amp = [0.0f64; 22];
         let mut chaos = [0.0f64; 22];
         let mut angle_bnd = [0.0f64; 22];
@@ -146,6 +196,15 @@ impl Synth {
         for (ch, slot) in ecpl.chans.iter().enumerate() {
             let Some(c) = slot else { continue };
             let first = ch == ecpl.first_ch;
+            // rand_trans is "unique for each band [bnd] and channel [ch]" and
+            // new every block (A/52:2018 clause E.3.5.5.3). It is drawn for
+            // every channel after the first, a transient in it or not, so the
+            // draws follow the order of `RandomValues::trans`.
+            if !first {
+                for v in rand_trans.iter_mut().take(nbnd) {
+                    *v = self.draw_trans();
+                }
+            }
             for bnd in 0..nbnd {
                 let mut a = ecpl_amplitude(c.amp[bnd]);
                 chaos[bnd] = if first {
@@ -154,6 +213,11 @@ impl Synth {
                     ECPL_CHAOS_TAB[usize::from(c.chaos[bnd])]
                 };
                 if !c.transient && !first {
+                    // ATSC A/52:2018 clause E.3.5.5.2 prints
+                    // `ampbnd *= 1 + 0.38 * chaos`; the chaos table runs from
+                    // 0 to -1, so this lowers the amplitude, to 0.62 at code
+                    // 7. ETSI TS 102 366 V1.2.1 clause E.2.5.5.2 prints the
+                    // other sign (`1 - 0.38`); see `docs/eac3.md`.
                     a *= 1.0 + 0.38 * chaos[bnd];
                 }
                 amp[bnd] = a;
@@ -171,6 +235,8 @@ impl Synth {
                     } else {
                         self.notrans[ch][bin]
                     };
+                    // A/52:2018 clause E.3.5.5.3: `angle += chaos * rand`
+                    // (ETSI TS 102 366 V1.2.1 prints `+= -chaos * rand`)
                     let mut ang = angle_bin[bin] + chaos[bnd] * r;
                     if ang < -1.0 {
                         ang += 2.0;
