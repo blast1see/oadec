@@ -23,6 +23,7 @@ mod author;
 mod catalog;
 mod compare;
 mod ecpl_inject;
+mod every;
 mod joc_config;
 mod joc_offset;
 mod pipe;
@@ -42,6 +43,7 @@ use crate::args::{
     PresentationArg, WarpArg,
 };
 use crate::compare::RefFormat;
+use crate::every::ProgrammeArg;
 use oadec_engine::damf::Warp;
 use oadec_engine::decode::{Format, OnError, Order};
 use oadec_engine::eac3_objects::{JocLowBand, JocLowFir, JocOverrides, JocPhase};
@@ -361,8 +363,11 @@ enum Command {
         /// independent substream (0 to 7); programme 0 when absent, as
         /// always. A programme the stream does not carry is an error that
         /// names the ones it does (exit 2). A TrueHD stream refuses it.
-        #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=7))]
-        programme: Option<u8>,
+        /// `all`: every programme the stream carries, in one pass, each to a
+        /// file of its own (OUT.g0.wav, OUT.g1.wav, ...), each the file
+        /// --programme N writes; to samples in a file only.
+        #[arg(long, value_name = "N|all")]
+        programme: Option<ProgrammeArg>,
         /// AC-3/E-AC-3 to wav or pcm, EXPERIMENTAL: decorrelate the coupled
         /// channels of an E-AC-3 programme that is its independent substream
         /// alone, in 2/0 or 3/2, as Dolby's decoders were measured to do. Its
@@ -545,8 +550,9 @@ const EVERY_IS_SAMPLES: &str = "-p all writes every presentation of a TrueHD str
 /// What `-p all` to standard output, or with a report of a stream decode, is
 /// told.
 const EVERY_IS_FILES: &str = "-p all writes every presentation to a file of its own \
-     (OUT.p0.wav, OUT.p1.wav, ...): name a file, and leave out -o -, --json, --report and \
-     --on-layout-change, which are of the decode of one presentation";
+     (OUT.p0.wav, OUT.p1.wav, ...): name a file, and leave out -o - and --on-layout-change, \
+     which are of the decode of one presentation; --pipeline-stats is of a decode that reads \
+     the stream once, which -p all is with --json or --report";
 
 /// What `-p all` with `--on-error stop` is told.
 const EVERY_CONCEALS: &str = "-p all conceals an access unit it cannot read, as decode does \
@@ -705,9 +711,71 @@ where
                 Some(PresentationArg::All) => (None, true),
                 None => (None, false),
             };
+            let (programme, every_programme) = match programme {
+                Some(ProgrammeArg::One(n)) => (Some(n), false),
+                Some(ProgrammeArg::All) => (None, true),
+                None => (None, false),
+            };
+            if every_programme && (every || presentation.is_some()) {
+                break 'decode Err(anyhow::anyhow!(every::PROGRAMMES_OR_PRESENTATIONS));
+            }
+            // what an object output takes, which no decode of every member
+            // takes
+            let given_beyond_samples = given_for_objects
+                || warp_mode.is_some()
+                || joc_lag.is_some()
+                || joc_low_band.is_some()
+                || joc_phase.is_some()
+                || joc_low_fir.is_some()
+                || no_clip_gain
+                || flat_quadrature
+                || sparse_as_printed
+                || steep_as_printed;
+            if every_programme {
+                // Every programme is a file of its own, written in one pass
+                // over a stream read once, from a file or a pipe.
+                let refused = if matches!(format, FormatArg::Damf | FormatArg::Adm) {
+                    Some(every::PROGRAMMES_ARE_SAMPLES)
+                } else if output.as_os_str() == pipe::STDOUT
+                    || start.is_some()
+                    || on_layout_change.is_some()
+                {
+                    Some(every::PROGRAMMES_ARE_FILES)
+                } else if given_beyond_samples || on_error.is_some() || keep_duplicates {
+                    // nor what a TrueHD decode takes besides its samples
+                    Some(every::PROGRAMMES_TAKE_LITTLE)
+                } else {
+                    None
+                };
+                if let Some(words) = refused {
+                    break 'decode Err(anyhow::anyhow!(words));
+                }
+                break 'decode every::decode(
+                    &every::Asked {
+                        file,
+                        output,
+                        wave: format == FormatArg::Wav,
+                        pcm: api::PcmOptions {
+                            order: order.map_or(Order::Interchange, Order::from),
+                            core_only,
+                            dither: !no_dither,
+                            tpnp: !no_tpnp,
+                            ecpl_full: ecpl_spec,
+                            decorrelate,
+                            ..api::PcmOptions::default()
+                        },
+                        every: oadec_engine::stream::Every::Programmes,
+                        json,
+                        report,
+                        pipeline_stats,
+                    },
+                    err,
+                );
+            }
             if every {
                 // Every presentation is a file of its own, written in one pass
                 // over a stream it reads as it reads any file.
+                let reported = json || report.is_some();
                 let refused = if matches!(format, FormatArg::Damf | FormatArg::Adm) {
                     Some(EVERY_IS_SAMPLES)
                 } else if output.as_os_str() == pipe::STDOUT {
@@ -716,11 +784,7 @@ where
                     Some(api::START_IS_TRUEHD_SAMPLES)
                 } else if on_error == Some(OnErrorArg::Stop) {
                     Some(EVERY_CONCEALS)
-                } else if json
-                    || report.is_some()
-                    || pipeline_stats.is_some()
-                    || on_layout_change.is_some()
-                {
+                } else if (pipeline_stats.is_some() && !reported) || on_layout_change.is_some() {
                     Some(EVERY_IS_FILES)
                 } else {
                     None
@@ -729,6 +793,38 @@ where
                     break 'decode Err(anyhow::anyhow!(words));
                 }
                 let order = order.map_or(Order::Interchange, Order::from);
+                if reported {
+                    // With a report, the stream is read once, as it arrives,
+                    // and every presentation is told as its decode alone
+                    // tells it; the decode tells the codec apart.
+                    if given_beyond_samples
+                        || core_only
+                        || no_dither
+                        || no_tpnp
+                        || ecpl_spec
+                        || decorrelate
+                        || programme.is_some()
+                    {
+                        break 'decode Err(anyhow::anyhow!(EVERY_TAKES_LITTLE));
+                    }
+                    break 'decode every::decode(
+                        &every::Asked {
+                            file,
+                            output,
+                            wave: format == FormatArg::Wav,
+                            pcm: api::PcmOptions {
+                                order,
+                                keep_duplicates,
+                                ..api::PcmOptions::default()
+                            },
+                            every: oadec_engine::stream::Every::Presentations,
+                            json,
+                            report,
+                            pipeline_stats,
+                        },
+                        err,
+                    );
+                }
                 break 'decode stream_named(&file)
                     .and_then(|source| {
                         if eac3::is_eac3(&source).unwrap_or(false) {

@@ -174,10 +174,11 @@ fault, exit 7, whether or not the change was followed. `verify` itself is not
 told what a decode followed, and calls such a stream non-conformant as it
 always did.
 
-`decode -p all` writes every presentation to a file of its own and exits
-with the worst verdict of them: 0 when every presentation is clean, 4 when
-the worst is lossy, 7 when one of them is faulty. A programme that `--programme`
-names and the stream does not carry is exit 2, and no file is left.
+`decode -p all` writes every presentation to a file of its own, and
+`decode --programme all` every programme; each run exits with the code of
+[every member](#every-programme-and-every-presentation) below. A programme
+that `--programme` names and the stream does not carry is exit 2, and no
+file is left.
 
 What cannot go to standard output is refused before the stream is read, exit
 2: `--format damf` or `adm`, whose files are gone back over when they are
@@ -190,6 +191,38 @@ shell gives a process that `SIGPIPE` ended. What the receiver read is a
 correct beginning of the samples; the decode is not judged, since it did not
 end. Only the samples on standard output end a run this way: a report that
 cannot be written to a closed pipe is still an I/O error, exit 2.
+
+## Every programme and every presentation
+
+`decode --programme all` decodes every programme of an AC-3 or E-AC-3 stream,
+and `decode -p all` every presentation of a TrueHD stream, each to a file of
+its own. Each member, programme or presentation, has the exit code the
+decode of it alone (`--programme N`, `-p N`) ends with on the same stream:
+0, 4 or 7 by its verdict, and 2 where its decode could not go on, such as a
+file of its own that cannot be written. A member that fails is that member's:
+the others are decoded on, to the end of the stream.
+
+The run ends with the code whose meaning weighs most among its members, and
+not with the largest number:
+
+```text
+2   if any member's decode could not go on
+7   otherwise, if any member is faulty
+4   otherwise, if any member was written with a declared loss
+0   otherwise: every member is clean
+```
+
+141 never ends such a run: neither writes to standard output (`-o -` is
+refused, exit 2). An error of the run itself, before any member, is exit 2
+as for a decode of one: a stream that cannot be read or holds no stream, an
+option that does not apply, a TrueHD stream given `--programme all` or an
+AC-3 family stream given `-p all`.
+
+With `--json` or `--report`, the report keeps each member's own verdict
+beside the run's: `programmes` (or `presentations`) holds an entry for every
+member, by id in ascending order, with its `verdict` and `exit_code`, and
+`combined_exit_code` is the code the run ended with. A member that failed
+has the verdict `failed`, exit code 2, and its `error`.
 
 ## An option that does not apply
 
@@ -219,7 +252,8 @@ for a measurement that is a wrong number under a right name.
 | `--on-layout-change split` | a sample output to a file | `-o -` |
 | `--programme N` | an AC-3 or E-AC-3 stream, in `decode`, `compare`, `info` and `verify` | a TrueHD stream, an object output, and `-p all` |
 | `--decorrelate` (`decode`, experimental) | a decode of an AC-3 or E-AC-3 stream to samples (`--format pcm` or `wav`) | a TrueHD stream, an object output, and `-p all` |
-| `-p all` (`decode`) | a TrueHD stream to sample files | an object output, `-o -`, `--json`, `--report`, `--on-layout-change`, `--start`, `--on-error stop`, and an AC-3 or E-AC-3 stream |
+| `-p all` (`decode`) | a TrueHD stream to sample files, with `--json` and `--report` | an object output, `-o -`, `--on-layout-change`, `--start`, `--on-error stop`, `--programme`, `--pipeline-stats` without a report, and an AC-3 or E-AC-3 stream |
+| `--programme all` (`decode`) | an AC-3 or E-AC-3 stream to sample files, from a file or a pipe, with `--json` and `--report` | an object output, `-o -`, `--on-layout-change`, `--start`, `-p`, the options of a TrueHD decode (`--on-error`, `--keep-duplicates`), and a TrueHD stream |
 | `--reference-format` (`compare`) | a TrueHD stream | an AC-3 or E-AC-3 stream, whose reference is 32-bit float |
 | `--worst` (`compare`) | an AC-3 or E-AC-3 stream | a TrueHD stream, whose comparison is exact and lists its mismatches (`--report`) |
 | `--require-disc`, `--trace-fifo`, `--census` (`verify`) | a TrueHD stream | an AC-3 or E-AC-3 stream |
