@@ -234,8 +234,9 @@ impl Synth {
                     } else {
                         self.notrans[ch][bin]
                     };
-                    // clause E.2.5.5.3 (V1.2.1): `angle += -chaos * rand`
-                    let mut ang = angle_bin[bin] - chaos[bnd] * r;
+                    // A/52:2018 clause E.3.5.5.3: `angle += chaos * rand`
+                    // (ETSI TS 102 366 V1.2.1 prints `+= -chaos * rand`)
+                    let mut ang = angle_bin[bin] + chaos[bnd] * r;
                     if ang < -1.0 {
                         ang += 2.0;
                     } else if ang >= 1.0 {

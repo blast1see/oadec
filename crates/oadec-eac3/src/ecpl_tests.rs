@@ -334,13 +334,14 @@ fn chaos_lowers_the_amplitude_where_no_transient_is() {
 }
 
 #[test]
-fn the_chaos_term_is_subtracted_from_the_angle() {
-    // Clause E.3.5.5.3: `angle += -chaos * rand`. With chaos -1 and every
-    // rand_notrans 0.25 the bin angle is +0.25, the angle of code 8; the
+fn the_chaos_term_is_added_to_the_angle() {
+    // A/52:2018 clause E.3.5.5.3: `angle += chaos * rand` (ETSI TS 102 366
+    // V1.2.1 prints `+= -chaos * rand`). With chaos -1 and every
+    // rand_notrans 0.25 the bin angle is -0.25, the angle of code 56; the
     // amplitude is 0.62 (clause E.3.5.5.2).
     let blocks = carrier(0x5eed_0003_0000_0002);
     let chaotic = with_second(&[(37, 253)], 0, &[0], &[7], false);
-    let rotated = with_second(&[(37, 253)], 0, &[8], &[0], false);
+    let rotated = with_second(&[(37, 253)], 0, &[56], &[0], false);
     let got = run_middle(
         &mut Synth::with_random_values(given(0.25, vec![0.0; 64])),
         &blocks,
@@ -360,8 +361,8 @@ fn the_chaos_term_is_subtracted_from_the_angle() {
 #[test]
 fn rand_trans_is_drawn_in_the_order_of_the_contract() {
     // Per block, per coupled channel after the first, per band. The second
-    // call is the middle block and takes values 5..8 (in 1/32), which are
-    // the angles of codes 5..8 once chaos -1 negates them; a transient
+    // call is the middle block and takes values 5..8 (in 1/32); chaos -1
+    // makes them the angles -5/32..-8/32, codes 59..56; a transient
     // channel keeps its amplitude. rand_notrans is NaN, so a channel that
     // reads it instead shows at once.
     let blocks = carrier(0x5eed_0003_0000_0003);
@@ -379,10 +380,10 @@ fn rand_trans_is_drawn_in_the_order_of_the_contract() {
         &blocks,
         &proto,
     );
-    let mut want_proto = with_second(&bands, 0, &[5, 6], &[0, 0], true);
+    let mut want_proto = with_second(&bands, 0, &[59, 58], &[0, 0], true);
     want_proto.chans.push(Some(EcplChannel {
         amp: vec![0, 0],
-        angle: vec![7, 8],
+        angle: vec![57, 56],
         chaos: vec![0, 0],
         transient: true,
     }));
