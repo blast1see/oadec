@@ -88,6 +88,7 @@ DEFAULTS = {
     "block_slots": 4,
     "bootstrap_draws": 200,
     "known_answer_db": 1.0,
+    # step 3's tolerance; added after the calibration ran and never calibrated
     "cross_db": 3.0,
     "unresolved_share": 0.30,
 }
@@ -768,6 +769,18 @@ def load_thresholds(path: Path | None) -> dict:
     return th
 
 
+UNCALIBRATED = "no verdict (calibration held no candidate): "
+
+
+def mark_uncalibrated(summary: dict) -> None:
+    """Prefixes every verdict of a summary (whole, by band, by object) so
+    that none reads as a verdict when the calibration held no candidate."""
+    parts = [summary["whole"], *summary["by_band"].values(), *summary["by_object"].values()]
+    for part in parts:
+        if "verdict" in part and not part["verdict"].startswith(UNCALIBRATED):
+            part["verdict"] = UNCALIBRATED + part["verdict"]
+
+
 def calibrated(path: Path | None) -> bool:
     """Whether a candidate held in the calibration: if none did, the tool's
     classes are descriptions and no verdict may be read from them."""
@@ -849,7 +862,9 @@ def measure(args, window) -> int:
     summary = summarise(grid, result, diff_q, valid, th)
     held = calibrated(args.calibration)
     if not held:
-        summary["whole"]["verdict"] = "no verdict (calibration held no candidate): " + summary["whole"]["verdict"]
+        mark_uncalibrated(summary)
+    if cross is not None:
+        cross["cross_db_calibrated"] = False
     out = {
         "tool": "tools/joc_slot_error.py",
         "calibrated": held,
@@ -1010,6 +1025,14 @@ def self_test() -> int:
                          args["rows"][i], args["cols"][i], th, 1.0) for i in range(n)]
     say("the classifier over arrays agrees with the one of a cell", list(vec) == one,
         classes=sorted(set(one)))
+    # with no calibrated candidate, no verdict line goes out bare
+    s = {"whole": {"verdict": "core"}, "by_band": {"0-6 kHz": {"verdict": "matrix"}},
+         "by_object": {"0": {"verdict": "the measurement could not resolve it"}}}
+    mark_uncalibrated(s)
+    mark_uncalibrated(s)
+    marked = [s["whole"], *s["by_band"].values(), *s["by_object"].values()]
+    say("uncalibrated: whole, band and object verdicts are all marked, once",
+        all(v["verdict"].startswith(UNCALIBRATED) and v["verdict"].count(UNCALIBRATED) == 1 for v in marked))
     return 0 if ok else 1
 
 

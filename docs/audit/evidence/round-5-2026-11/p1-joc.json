@@ -1,13 +1,19 @@
 {
- "what": "Round 5, P1 (JOC object fidelity): our E-AC-3 JOC objects against Dolby's decoder on development clips and on DEE encodes that move one variable each; the error-by-cell tool's calibration; the reset_banks A/B at a JOC sequence restart.",
+ "what": "Round 5, P1 (JOC object fidelity): our E-AC-3 JOC objects against Dolby's decoder on development clips and on DEE encodes meant to move one variable each; the error-by-cell tool's calibration; the reset_banks A/B at a JOC sequence restart. Revised after the lead's review of ad47c10: the core is reported per channel, and every claim is cut back to what was measured.",
  "why": "To find which of the round's suspects (core dither, SPX, AHT, the 12/18/21 kHz bands, sequence restarts, short frames, two outlier objects) explains the residual of the objects, under a criterion fixed before the data: a suspect is confirmed only when it explains at least 80 % of the residual in its own cells and a single-variable A/B moves it by at least 6 dB; above 30 % unresolved the verdict is 'the measurement could not resolve it'.",
  "method": [
-  "A read-only tap of the object path (crates/oadec-engine/src/eac3_objects/tap.rs, examples/joc_tap.rs) dumps downmix, matrix, objects and PCM slot by slot; tools/joc_qmf_reference.py --compare-tap holds every stage to an independent numpy model at 281 to 314 dB (the floor is 120).",
-  "Dolby's decoder: the Dolby Reference Player's GStreamer dlbac3dec, out-ch-config=21 for the objects (LFE then the objects in programme order) and 7 for the 5.1 core, DRC off, delay dropped; a black box.",
-  "DEE dee_ddpjoc_encoder 5.7.2.aec4fa9c-master, --input-format atmos_mezz, one master per suspect (oadec atmos-author scenes; noise written into the 24-bit samples), the data rate or the signal the only variable; every command line logged with its exit code.",
+  "A read-only tap of the object path (crates/oadec-engine/src/eac3_objects/tap.rs, examples/joc_tap.rs) dumps downmix, matrix, objects and PCM slot by slot; tools/joc_qmf_reference.py --compare-tap compares each stage with a numpy model at 281 to 314 dB (the floor is 120), within the limits written under compare_tap_limits.",
+  "Dolby's decoder: the Dolby Reference Player's GStreamer dlbac3dec, out-ch-config=21 for the objects (LFE then the objects in programme order) and 7 for the 5.1 core, DRC off, delay dropped; a black box. Versions under tools.",
+  "DEE dee_ddpjoc_encoder, --input-format atmos_mezz, one master per suspect (oadec atmos-author scenes; noise written into the 24-bit samples), the data rate or the signal meant to be the only variable; every command line logged with its exit code. The encoder chose the object count itself: 11 objects at 384 kbit/s, 15 at every higher rate, so across 384 the rate is never the only variable.",
   "SNR per object in the time domain, the reference's energy over the energy of the difference, whole clip and with the first two frames (3072 samples) left out ('steady').",
+  "Alignment: the tool's match_objects took a wrong lag (-2232 or -2160 samples) on four pairs with a periodic signal (dither-tone-384, dither-tone-768, dither-tone-384 without dither, aht-stationary) and mapped no object on the restart fixture (with and without reset_banks); those SNRs were computed directly at lag 0, the lag of every other pair from the same encoder.",
   "tools/joc_slot_error.py --calibrate on two development dumps with matrix, timing and core faults of known size, under a rule written before the run (tools/joc_slot_error_calibration.json); frozen before any reference decode was read."
  ],
+ "tools": {
+  "encoder": "DEE dee_ddpjoc_encoder 5.7.2.aec4fa9c-master (its own banner); the encodes ran on 2026-11-21 from 16:25 to 16:26. It is no longer installed on the machine, so no encode can be repeated with it.",
+  "decoder": "The Dolby Reference Player's dlbac3dec. Every reference decode was written on 2026-11-21 from 20:39:48 to 20:40:26, the splice at 22:31:44. The player installed now reports 4.3.0 (drp.exe product version), and its folder was last rewritten at 16:41:43 that day, before every decode, so as far as the files show the decodes ran on 4.3.0. The lead's record has it upgraded from 3.2.0 at 16:41; the version before was not read here. The version of the dlbac3dec plugin itself is unknown.",
+  "comparability": "The earlier round's reference decodes came from the player installed before the upgrade. This round's gate median (129.1 dB across clips) and the earlier 104.2 dB were taken against different decoder builds and cannot be compared as a change in our decoder."
+ },
  "read_on": {
   "calibration_frozen_at": "0366f05",
   "tap_and_reset_banks": "519136e",
@@ -16,8 +22,15 @@
  },
  "calibration": {
   "held": false,
-  "outcome": "no window (24, 48) and rows_per_column (8 to 128) held: timing faults were in the right class at most 0.32 of the judged cells, and on the library clip matrix faults stayed under 0.95 in the right class or within 1 dB. The rule was not relaxed; the tool's classes are descriptions, never verdicts, and measure writes calibrated: false."
+  "outcome": "no window (24, 48) and rows_per_column (8 to 128) held: timing faults were in the right class at most 0.32 of the judged cells, and on the library clip matrix faults stayed under 0.95 in the right class or within 1 dB. The rule was not relaxed; the tool's classes are descriptions, never verdicts. measure writes calibrated: false and marks every verdict line (whole, by band, by object) 'no verdict (calibration held no candidate)'.",
+  "cross_check": "Step 3's cross-check (a core cell whose residual is more than cross_db = 3.0 dB from what the reference core difference predicts becomes 'inconsistent') was added after the calibration ran and was never calibrated; measure writes cross_db_calibrated: false. The threshold was not changed."
  },
+ "compare_tap_limits": [
+  "The quadrature operator's coefficients come from the same measurement record as the Rust's (evidence 49); the model shares them and does not test them.",
+  "Stage 2 multiplies the tap's own matrix by the tap's own downmix and compares the product with the tap's own objects: it checks that the matrix was applied, not that the matrix is right.",
+  "The first 40 slots of a dump are left out of every comparison (FIRST_SLOT), so the start of a stream, where the first-frame finding lies, is not covered."
+ ],
+ "table": "The runs below were compiled by hand from the tap dumps and the reference decodes, with ad-hoc commands that were not kept; no committed script reproduces the table. core_difference_dbfs_by_channel is copied from each pair's joc_slot_error.py output (null where none was run).",
  "runs": [
   {
    "clip": "gate A",
@@ -25,7 +38,15 @@
    "whole_median_db": 129.19,
    "whole_worst_db": 124.82,
    "steady_median_db": 129.19,
-   "steady_worst_db": 124.82
+   "steady_worst_db": 124.82,
+   "core_difference_dbfs_by_channel": {
+    "L": -175.2,
+    "C": -176.9,
+    "R": -170.8,
+    "Ls": -176.8,
+    "Rs": -173.4,
+    "LFE": -173.9
+   }
   },
   {
    "clip": "gate B",
@@ -33,7 +54,15 @@
    "whole_median_db": 110.13,
    "whole_worst_db": 107.37,
    "steady_median_db": 110.13,
-   "steady_worst_db": 107.37
+   "steady_worst_db": 107.37,
+   "core_difference_dbfs_by_channel": {
+    "L": -149.1,
+    "C": -145.7,
+    "R": -149.9,
+    "Ls": -148.3,
+    "Rs": -148.0,
+    "LFE": -179.5
+   }
   },
   {
    "clip": "gate C",
@@ -41,7 +70,15 @@
    "whole_median_db": 127.18,
    "whole_worst_db": 126.59,
    "steady_median_db": 127.18,
-   "steady_worst_db": 126.59
+   "steady_worst_db": 126.59,
+   "core_difference_dbfs_by_channel": {
+    "L": -196.4,
+    "C": -194.9,
+    "R": -198.2,
+    "Ls": -199.1,
+    "Rs": -199.2,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "gate D",
@@ -49,7 +86,15 @@
    "whole_median_db": 100.96,
    "whole_worst_db": 76.18,
    "steady_median_db": 128.55,
-   "steady_worst_db": 88.02
+   "steady_worst_db": 88.02,
+   "core_difference_dbfs_by_channel": {
+    "L": -172.1,
+    "C": -174.1,
+    "R": -171.6,
+    "Ls": -177.2,
+    "Rs": -176.5,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "gate E",
@@ -57,7 +102,15 @@
    "whole_median_db": 129.0,
    "whole_worst_db": 124.76,
    "steady_median_db": 129.0,
-   "steady_worst_db": 124.76
+   "steady_worst_db": 124.76,
+   "core_difference_dbfs_by_channel": {
+    "L": -169.6,
+    "C": -177.9,
+    "R": -171.6,
+    "Ls": -173.7,
+    "Rs": -175.5,
+    "LFE": -180.9
+   }
   },
   {
    "clip": "gate F",
@@ -65,7 +118,15 @@
    "whole_median_db": 130.13,
    "whole_worst_db": 89.47,
    "steady_median_db": 130.14,
-   "steady_worst_db": 89.47
+   "steady_worst_db": 89.47,
+   "core_difference_dbfs_by_channel": {
+    "L": -156.7,
+    "C": -170.0,
+    "R": -157.0,
+    "Ls": -162.1,
+    "Rs": -161.8,
+    "LFE": -89.8
+   }
   },
   {
    "clip": "gate G (steep onset carrier)",
@@ -73,7 +134,15 @@
    "whole_median_db": 135.62,
    "whole_worst_db": 134.25,
    "steady_median_db": 135.62,
-   "steady_worst_db": 134.25
+   "steady_worst_db": 134.25,
+   "core_difference_dbfs_by_channel": {
+    "L": -230.5,
+    "C": -195.9,
+    "R": -180.6,
+    "Ls": -181.2,
+    "Rs": -188.6,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "gate H (steep carrier)",
@@ -81,7 +150,15 @@
    "whole_median_db": 113.75,
    "whole_worst_db": 109.22,
    "steady_median_db": 113.75,
-   "steady_worst_db": 109.22
+   "steady_worst_db": 109.22,
+   "core_difference_dbfs_by_channel": {
+    "L": -148.9,
+    "C": -142.3,
+    "R": -149.1,
+    "Ls": -155.6,
+    "Rs": -155.8,
+    "LFE": -176.5
+   }
   },
   {
    "clip": "fixture joc-clip-gain",
@@ -89,7 +166,15 @@
    "whole_median_db": 51.33,
    "whole_worst_db": 49.16,
    "steady_median_db": 115.17,
-   "steady_worst_db": 111.28
+   "steady_worst_db": 111.28,
+   "core_difference_dbfs_by_channel": {
+    "L": -132.2,
+    "C": -129.1,
+    "R": -131.9,
+    "Ls": -137.5,
+    "Rs": -135.5,
+    "LFE": -168.3
+   }
   },
   {
    "clip": "DEE encode dither-tone-384",
@@ -97,7 +182,15 @@
    "whole_median_db": 71.98,
    "whole_worst_db": 71.98,
    "steady_median_db": 89.34,
-   "steady_worst_db": 89.34
+   "steady_worst_db": 89.34,
+   "core_difference_dbfs_by_channel": {
+    "L": -201.3,
+    "C": -119.6,
+    "R": -119.6,
+    "Ls": -121.9,
+    "Rs": -113.2,
+    "LFE": -288.1
+   }
   },
   {
    "clip": "DEE encode dither-tone-768",
@@ -105,7 +198,15 @@
    "whole_median_db": 72.06,
    "whole_worst_db": 72.06,
    "steady_median_db": 137.04,
-   "steady_worst_db": 137.04
+   "steady_worst_db": 137.04,
+   "core_difference_dbfs_by_channel": {
+    "L": -276.1,
+    "C": -169.3,
+    "R": -169.5,
+    "Ls": -174.4,
+    "Rs": -167.7,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode dither-noise-384",
@@ -113,7 +214,15 @@
    "whole_median_db": 73.7,
    "whole_worst_db": 73.7,
    "steady_median_db": 86.22,
-   "steady_worst_db": 86.22
+   "steady_worst_db": 86.22,
+   "core_difference_dbfs_by_channel": {
+    "L": -201.9,
+    "C": -154.8,
+    "R": -75.1,
+    "Ls": -78.5,
+    "Rs": -71.8,
+    "LFE": -201.9
+   }
   },
   {
    "clip": "DEE encode dither-noise-768",
@@ -121,7 +230,15 @@
    "whole_median_db": 72.74,
    "whole_worst_db": 72.74,
    "steady_median_db": 100.71,
-   "steady_worst_db": 100.71
+   "steady_worst_db": 100.71,
+   "core_difference_dbfs_by_channel": {
+    "L": -266.5,
+    "C": -168.7,
+    "R": -169.0,
+    "Ls": -172.2,
+    "Rs": -167.6,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode spx-384",
@@ -129,7 +246,15 @@
    "whole_median_db": 62.15,
    "whole_worst_db": 62.15,
    "steady_median_db": 62.81,
-   "steady_worst_db": 62.81
+   "steady_worst_db": 62.81,
+   "core_difference_dbfs_by_channel": {
+    "L": -197.2,
+    "C": -89.2,
+    "R": -35.1,
+    "Ls": -38.9,
+    "Rs": -31.9,
+    "LFE": -197.2
+   }
   },
   {
    "clip": "DEE encode spx-448",
@@ -137,7 +262,15 @@
    "whole_median_db": 71.24,
    "whole_worst_db": 71.24,
    "steady_median_db": 91.86,
-   "steady_worst_db": 91.86
+   "steady_worst_db": 91.86,
+   "core_difference_dbfs_by_channel": {
+    "L": -248.1,
+    "C": -120.3,
+    "R": -35.1,
+    "Ls": -39.1,
+    "Rs": -31.9,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode spx-576",
@@ -145,7 +278,15 @@
    "whole_median_db": 71.35,
    "whole_worst_db": 71.35,
    "steady_median_db": 93.11,
-   "steady_worst_db": 93.11
+   "steady_worst_db": 93.11,
+   "core_difference_dbfs_by_channel": {
+    "L": -248.1,
+    "C": -121.3,
+    "R": -37.1,
+    "Ls": -41.1,
+    "Rs": -33.8,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode spx-640",
@@ -153,7 +294,15 @@
    "whole_median_db": 71.92,
    "whole_worst_db": 71.92,
    "steady_median_db": 94.7,
-   "steady_worst_db": 94.7
+   "steady_worst_db": 94.7,
+   "core_difference_dbfs_by_channel": {
+    "L": -248.1,
+    "C": -122.1,
+    "R": -122.6,
+    "Ls": -127.4,
+    "Rs": -120.3,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode spx-768",
@@ -161,7 +310,15 @@
    "whole_median_db": 71.88,
    "whole_worst_db": 71.88,
    "steady_median_db": 96.63,
-   "steady_worst_db": 96.63
+   "steady_worst_db": 96.63,
+   "core_difference_dbfs_by_channel": {
+    "L": -260.0,
+    "C": -124.1,
+    "R": -124.6,
+    "Ls": -128.9,
+    "Rs": -122.1,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode spx-1024",
@@ -169,7 +326,15 @@
    "whole_median_db": 71.83,
    "whole_worst_db": 71.83,
    "steady_median_db": 108.26,
-   "steady_worst_db": 108.26
+   "steady_worst_db": 108.26,
+   "core_difference_dbfs_by_channel": {
+    "L": -266.5,
+    "C": -134.0,
+    "R": -136.2,
+    "Ls": -136.5,
+    "Rs": -131.9,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode band-6k",
@@ -177,7 +342,15 @@
    "whole_median_db": 73.25,
    "whole_worst_db": 73.25,
    "steady_median_db": 137.4,
-   "steady_worst_db": 137.4
+   "steady_worst_db": 137.4,
+   "core_difference_dbfs_by_channel": {
+    "L": -276.1,
+    "C": -165.8,
+    "R": -166.2,
+    "Ls": -171.5,
+    "Rs": -164.2,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode band-12k",
@@ -185,7 +358,15 @@
    "whole_median_db": 71.21,
    "whole_worst_db": 71.21,
    "steady_median_db": 135.63,
-   "steady_worst_db": 135.63
+   "steady_worst_db": 135.63,
+   "core_difference_dbfs_by_channel": {
+    "L": -272.1,
+    "C": -164.9,
+    "R": -165.4,
+    "Ls": -170.7,
+    "Rs": -163.3,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode band-18k",
@@ -193,7 +374,15 @@
    "whole_median_db": 71.44,
    "whole_worst_db": 71.44,
    "steady_median_db": 135.96,
-   "steady_worst_db": 135.96
+   "steady_worst_db": 135.96,
+   "core_difference_dbfs_by_channel": {
+    "L": -269.9,
+    "C": -165.2,
+    "R": -165.5,
+    "Ls": -170.9,
+    "Rs": -163.6,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode band-21k",
@@ -201,7 +390,15 @@
    "whole_median_db": 74.53,
    "whole_worst_db": 74.53,
    "steady_median_db": 136.07,
-   "steady_worst_db": 136.07
+   "steady_worst_db": 136.07,
+   "core_difference_dbfs_by_channel": {
+    "L": -273.7,
+    "C": -170.4,
+    "R": -170.9,
+    "Ls": -175.9,
+    "Rs": -168.6,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode aht-stationary",
@@ -209,7 +406,15 @@
    "whole_median_db": 72.44,
    "whole_worst_db": 72.44,
    "steady_median_db": 137.38,
-   "steady_worst_db": 137.38
+   "steady_worst_db": 137.38,
+   "core_difference_dbfs_by_channel": {
+    "L": -276.1,
+    "C": -170.4,
+    "R": -170.6,
+    "Ls": -176.1,
+    "Rs": -168.7,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode aht-transient",
@@ -217,7 +422,15 @@
    "whole_median_db": 135.38,
    "whole_worst_db": 135.38,
    "steady_median_db": 135.38,
-   "steady_worst_db": 135.38
+   "steady_worst_db": 135.38,
+   "core_difference_dbfs_by_channel": {
+    "L": -272.9,
+    "C": -192.5,
+    "R": -190.6,
+    "Ls": -194.8,
+    "Rs": -187.8,
+    "LFE": -3000.0
+   }
   },
   {
    "clip": "DEE encode dither-noise-384-nodither",
@@ -225,7 +438,15 @@
    "whole_median_db": 40.07,
    "whole_worst_db": 40.07,
    "steady_median_db": 40.18,
-   "steady_worst_db": 40.18
+   "steady_worst_db": 40.18,
+   "core_difference_dbfs_by_channel": {
+    "L": -102.3,
+    "C": -110.6,
+    "R": -75.1,
+    "Ls": -78.5,
+    "Rs": -71.8,
+    "LFE": -201.9
+   }
   },
   {
    "clip": "DEE encode dither-tone-384-nodither",
@@ -233,7 +454,15 @@
    "whole_median_db": 71.8,
    "whole_worst_db": 71.8,
    "steady_median_db": 84.26,
-   "steady_worst_db": 84.26
+   "steady_worst_db": 84.26,
+   "core_difference_dbfs_by_channel": {
+    "L": -159.9,
+    "C": -116.0,
+    "R": -116.3,
+    "Ls": -117.2,
+    "Rs": -110.0,
+    "LFE": -288.1
+   }
   },
   {
    "clip": "fixture joc-counter-restarts",
@@ -241,7 +470,15 @@
    "whole_median_db": 122.8,
    "whole_worst_db": 116.24,
    "steady_median_db": 122.8,
-   "steady_worst_db": 116.24
+   "steady_worst_db": 116.24,
+   "core_difference_dbfs_by_channel": {
+    "L": -149.8,
+    "C": -149.7,
+    "R": -149.3,
+    "Ls": -157.6,
+    "Rs": -159.1,
+    "LFE": -171.8
+   }
   },
   {
    "clip": "two copies of the spx-768 encode, byte-spliced",
@@ -249,7 +486,8 @@
    "whole_median_db": 35.3,
    "whole_worst_db": 35.3,
    "steady_median_db": 35.3,
-   "steady_worst_db": 35.3
+   "steady_worst_db": 35.3,
+   "core_difference_dbfs_by_channel": null
   },
   {
    "clip": "the same splice with TapOptions.reset_banks",
@@ -257,24 +495,26 @@
    "whole_median_db": 37.56,
    "whole_worst_db": 37.56,
    "steady_median_db": 37.55,
-   "steady_worst_db": 37.55
+   "steady_worst_db": 37.55,
+   "core_difference_dbfs_by_channel": null
   }
  ],
  "findings": [
-  "Steady state, the objects meet Dolby's at f32 precision where the signal allows: DEE encodes of narrow-band noise at 6, 12, 18 and 21 kHz 135.6 to 137.4 dB, a steady tone at 768 kbit/s 137.0 dB, stationary tones 137.4 dB, impulses 135.4 dB; gate clips median 110.1 to 135.6 dB per clip.",
-  "The first frame: the first 512 object samples of a stream differ from Dolby's (about 40 dB in frame 0 of every DEE encode, 21 dB on the clip-gain fixture); this alone takes the fixture from 115.2 dB steady to 51.3 dB whole, and every single-object encode to 62 to 75 dB whole. The core matches there. Not explained; no candidate tried.",
-  "A JOC sequence restart: Dolby's objects go to digital zero for about 768 samples with a fade either side; its 5.1 core runs straight through and matches ours to -126 dB. Ours runs straight through: frame at the splice -5.6 dB, the 20 frames after it 14.2 dB. Clearing the QMF and quadrature banks (reset_banks) moves those 20 frames by 2.26 dB, under the 6 dB the criterion asks: not confirmed.",
+  "Steady state, on DEE encodes above 384 kbit/s: narrow-band noise at 6, 12, 18 and 21 kHz reached 135.6 to 137.4 dB, a steady tone at 768 kbit/s 137.0 dB, the stationary master 137.4 dB, the transient master 135.4 dB; one encode per variable. Gate clips median 110.1 to 135.6 dB per clip.",
+  "The first frame: the first 512 object samples of a stream differ from Dolby's (about 40 dB in frame 0 of the DEE encodes, 21 dB on the clip-gain fixture); this alone takes the fixture from 115.2 dB steady to 51.3 dB whole, and every single-object encode but one to 62 to 75 dB whole (the transient master is 135.4 dB whole). The core matches there. Not explained; no candidate tried.",
+  "A JOC sequence restart, on one splice (two copies of one 768 kbit/s encode): Dolby's objects go to digital zero for about 768 samples with a fade either side; its 5.1 core runs straight through and matches ours to -126 dB. Ours runs straight through: frame at the splice -5.6 dB, the 20 frames after it 14.2 dB. Clearing the QMF and quadrature banks (reset_banks) moves those 20 frames by 2.26 dB, under the 6 dB the criterion asks: not confirmed.",
   "The restart fixture (joc-counter-restarts) restarts only in its first 375 frames, which are digital silence: the banks hold zeros there and reset_banks changes no byte. It cannot measure the suspect.",
-  "Data rate: on one wide-band noise master the steady SNR climbs with the rate, 62.8 dB at 384, 91.9 at 448, 93.1 at 576, 94.7 at 640, 96.6 at 768, 108.3 at 1024 kbit/s; tone at 384 89.3 dB against 137.0 at 768, quiet noise 86.2 against 100.7. Dolby's 5.1 core matches ours at -197 dBFS or below in every one, so the rate-dependent part is on the object path, not in the core's SPX or dither. Not resolved.",
-  "Dither: ours matches Dolby's. Turning our dither off takes quiet noise at 384 kbit/s from 86.2 to 40.2 dB and the tone from 89.3 to 84.3 dB; the 6 dB A/B moves away from Dolby, not towards it.",
+  "Data rate and object count together: on one wide-band noise master the steady SNR is 62.8 dB at 384 kbit/s (11 objects), then 91.9 at 448, 93.1 at 576, 94.7 at 640, 96.6 at 768 and 108.3 at 1024 (15 objects each); the step from 62.8 to 91.9 dB coincides with the change of object count. The tone at 89.3 dB (384, 11 objects) against 137.0 dB (768, 15) and the quiet noise at 86.2 against 100.7 dB carry the same confound. Rate and object count were not separated.",
+  "Dolby's 5.1 core against ours, per channel (dBFS of the difference): spx-384, 448 and 576 L -197.2 to -248.1, C -89.2 to -121.3, R/Ls/Rs -31.9 to -41.1; spx-640, 768 and 1024 C/R/Ls/Rs -120.3 to -136.5; dither-noise-384 R/Ls/Rs -71.8 to -78.5, C -154.8; dither-tone-384 C/R/Ls/Rs -113.2 to -121.9; the band and AHT encodes -163.3 to -194.8 outside L. Only L is at -197 dBFS or below in every encode. Why the other channels differ is unknown: a real core difference, the channel layout of out-ch-config=7, or the decoder build. The measurement could not resolve it, and whether the object residual comes from the core or from the object path is not settled.",
+  "Dither, one A/B at 384 kbit/s on two masters: turning our dither off takes the quiet noise from 86.2 to 40.2 dB and the tone from 89.3 to 84.3 dB; the A/B moves the objects away from Dolby's, not towards them. The core's R/Ls/Rs difference on the noise master is the same with and without our dither (-71.8 to -78.5 dBFS).",
   "Two gate clips keep one object under 90 dB steady (88.0 and 89.5 dB); not explained."
  ],
  "suspects": {
-  "core dither": "eliminated: ours already matches; the A/B (dither off) costs 46.0 dB",
-  "SPX": "eliminated in the core (core difference at or below -197 dBFS at every rate); a rate-dependent object residual remains: the measurement could not resolve it",
+  "core dither": "not the cause of the object residual on the one A/B taken (384 kbit/s, two masters): dither off costs 46.0 dB on the noise master and 5.1 dB on the tone",
+  "SPX": "the measurement could not resolve it: at 384 to 576 kbit/s the core differs from Dolby's on R/Ls/Rs by -31.9 to -41.1 dBFS, and the object count changes between 384 and 448; neither was separated, and the cause is unknown (a real core difference, the out-ch-config=7 layout, or the decoder build)",
   "AHT": "not measurable: stationary and transient masters both at 135 to 137 dB steady, and whether DEE used AHT was not established (that read is P2's)",
-  "12/18/21 kHz bands": "eliminated on DEE encodes (135.6 to 136.1 dB steady)",
-  "sequence restart": "not confirmed for reset_banks (2.26 dB, under 6 dB); Dolby mutes its objects at a restart, which nothing in the round modelled",
+  "12/18/21 kHz bands": "not seen on one DEE encode per band (135.6 to 136.1 dB steady)",
+  "sequence restart": "not confirmed for reset_banks on the one splice (2.26 dB, under 6 dB); Dolby mutes its objects at a restart, which nothing in the round modelled",
   "frames shorter than six blocks": "not covered: every DEE encode is 1250 frames for 40 s, six blocks each; none was short",
   "two outlier objects (evidence 61)": "not measurable: their source tracks are not on the machine"
  },
@@ -282,7 +522,8 @@
  "open": [
   "The first 512 object samples of a stream.",
   "Dolby's object mute at a JOC sequence restart.",
-  "The object residual that falls with the data rate while the core matches.",
+  "The object residual that falls as rate and object count rise together; not separated.",
+  "The core difference on C, R, Ls and Rs against Dolby's out-ch-config=7 at 384 to 576 kbit/s.",
   "A known-answer method that tells timing from core faults; without it the error-by-cell tool gives no verdicts."
  ]
 }
