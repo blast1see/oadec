@@ -46,7 +46,11 @@ Evidence paths are relative to `docs/audit/`. Source anchors are
 > with the 157 library heads of the earlier rounds, none of which is here as
 > a file: 112 streams for the TrueHD changes, 125 for every programme in one
 > pass, 67 for the JOC configurations, 84 for enhanced coupling, and the
-> lead's run over the whole local corpus.
+> lead's run over the whole local corpus: the integrated binary against the
+> main code's with `tools/old_new.py --decode-all`, 140 of 140 streams
+> (4 102 794 234 bytes, the local corpus and the fixtures of the repository)
+> unchanged in every report and every delivery. These are the streams found
+> locally, not the 157 library heads.
 
 ## TrueHD
 
