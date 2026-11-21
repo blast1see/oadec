@@ -1949,9 +1949,9 @@ fn check_above(layout: &Layout) -> Result<(), String> {
         || objects != layout.sixteen.is_some()
     {
         return Err(
-            "a second substream of four channels, a third of two and a fourth of the objects with \
-             one to eight and what the major sync says of them: six channels, eight and sixteen are \
-             the layouts the major sync of this writer names"
+            "a second substream of four channels and a third of two, and a fourth of one to eight \
+             channels of objects with what the major sync says of them: six channels, eight and \
+             sixteen are the layouts the major sync of this writer names"
                 .into(),
         );
     }
