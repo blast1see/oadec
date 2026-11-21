@@ -145,10 +145,10 @@ there is no code and it counts as 0. The sample is
 where `sign` centres the range: `1 << (lsb_bits - 1)` without a book, and
 with one `1 << (lsb_bits + 2 - huff_type)`; a shift that would be negative
 makes it 0. With `error_protect` the data is preceded by `block_data_bits:16`
-and followed by `block_header_crc:8`. No public source defines either; what
-each holds was found by putting written streams to Dolby's decoder
-(*Protected blocks*, below): the first counts the bits of the block data
-alone, the second is a CRC-8 of the block header. `last_block_in_segment:1`
+and followed by `block_header_crc:8`. No public source defines either. The
+reading here, that the first counts the bits of the block data alone and the
+second is a CRC-8 of the block header, is confirmed against Dolby's decoder
+as a black box (*Protected blocks*, below). `last_block_in_segment:1`
 closes the block.
 
 **The matrices** of a `0x31EA` substream are `primitive_matrices:4` and then,
@@ -740,8 +740,10 @@ than eight, and the object substream has up to sixteen.
 A restart header with `error_protect` set makes every block of its substream
 state `block_data_bits:16` in front of its data and `block_header_crc:8`
 behind it. No real stream sets it (0 of the restart headers of 157 library
-tracks), and no public source defines either field. What they hold was found
-on streams `oadec-synth` writes and put to Dolby's decoder as a black box
+tracks), and no public source defines either field. The rule below is
+confirmed against Dolby's decoder as a black box: streams `oadec-synth` writes
+with it are accepted and decode bit-exact, and streams that break it, every
+other check right, are refused or lose audio
 (`docs/audit/evidence/round-4-2026-11/p4-block-header-crc.json`):
 
 * `block_data_bits` counts the bits of the block data alone, from the end of
@@ -766,7 +768,7 @@ one; so do FFmpeg and `truehdd`, which do not look at the byte. It refuses
 right, and where the byte of a single block is wrong it drops audio from that
 access unit to the next restart header, whether the block has a header or
 not. A bit of the restart header struck and its CRC written again changes
-nothing it gives, which is how the restart header is known to be outside.
+nothing it gives: the restart header is not under the check.
 `tools/crc8_reference.py` computes the check bit by bit, apart from the Rust
 code, and agrees with every byte the writer puts down.
 

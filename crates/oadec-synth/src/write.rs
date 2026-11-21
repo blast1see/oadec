@@ -319,8 +319,8 @@ pub enum Check {
     Stated(u8),
     /// The CRC-8 of the bits of the block header (polynomial `0x1D`, the
     /// register from `0xA2`, the bits most significant first; `0xA2` for a
-    /// block without one), as Dolby's decoder was found to take it
-    /// (`docs/truehd.md`, *Protected blocks*). Written here apart from the
+    /// block without one): the rule confirmed against Dolby's decoder as a
+    /// black box (`docs/truehd.md`, *Protected blocks*). Written here apart from the
     /// decoder's reading of it, from the same primitive of `oadec-bits`.
     HeaderCrc,
     /// The CRC-8 of the block header with the header bit at this offset

@@ -1,5 +1,5 @@
 {
- "what": "block_header_crc of TrueHD protected blocks (error_protect): CRC-8, polynomial 0x1D, register from 0xA2, bits most significant first, shift then XOR the bit in, over the bits of the block header alone (after the block-header and restart-header flags and after the restart header, up to block_data_bits); 0xA2 for a block without a header",
+ "what": "block_header_crc of TrueHD protected blocks (error_protect). No public document defines the field. The rule checked here: CRC-8, polynomial 0x1D, register from 0xA2, bits most significant first, shift then XOR the bit in, over the bits of the block header alone (after the block-header and restart-header flags and after the restart header, up to block_data_bits); 0xA2 for a block without a header. This file records what was measured of it on Dolby's decoder as a black box; it says nothing of where the rule came from",
  "method": "streams written by oadec-synth (recipes and probes named below), wrapped in MP4 with ffmpeg -c:a copy -strict -2 and decoded by the dlbtruehddec element of the Dolby Reference Player as a black box, beside FFmpeg and truehdd (tools/synth_accept.py); check bytes recomputed independently by tools/crc8_reference.py --spans over oadec-synth spans; single faults put in with every other check of the stream (restart header CRC, segment parity and CRC) written again",
  "versions": {
   "ffmpeg": "ffmpeg version 2026-11-19-git-01ca75d350-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
@@ -136,8 +136,8 @@
   "header_bit_resealed": "a bit of the first block header flipped in the bytes: the header no longer parses (segment.syntax); probe-protected-header-struck is the isolated form of this fault"
  },
  "findings": [
-  "Dolby's decoder gives the samples of protected-checked bit for bit (as FFmpeg and truehdd do): the rule above is the check it holds a protected block to",
-  "Dolby's decoder refuses probe-protected-header-struck (every check byte made over a header with one bit the other way, every other check right) and probe-protected (check bytes nought), and drops audio when the check byte of a single block is wrong: a failing block_header_crc loses audio, so block.header_crc is an error",
-  "Dolby's decoder refuses probe-protected-checked-counting-itself, whose check bytes are right and whose block_data_bits count their own 16 bits: block_data_bits counts the block data alone"
+  "Dolby's decoder accepts protected-checked, written with the rule, and gives its samples bit for bit (as FFmpeg and truehdd do)",
+  "Dolby's decoder refuses probe-protected-header-struck (every check byte made over a header with one bit the other way, every other check right) and probe-protected (check bytes nought), and gives other samples when the check byte of a single block is wrong: a failing block_header_crc loses audio, so block.header_crc is an error",
+  "Dolby's decoder refuses probe-protected-checked-counting-itself, whose check bytes follow the rule and whose block_data_bits count their own 16 bits: it accepts block_data_bits that count the block data alone and not ones that count the field too"
  ]
 }

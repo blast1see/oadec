@@ -1,5 +1,6 @@
-//! Protected blocks through `verify`: `block_header_crc` is checked as Dolby's
-//! decoder was found to check it (`docs/truehd.md`, *Protected blocks*), and
+//! Protected blocks through `verify`: `block_header_crc` is checked by the
+//! rule confirmed against Dolby's decoder (`docs/truehd.md`, *Protected
+//! blocks*), and
 //! a fault put into a written stream with every other check of it made right
 //! again is found by the rule it belongs to and by no other.
 //!

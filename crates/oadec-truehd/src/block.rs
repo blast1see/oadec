@@ -26,9 +26,10 @@ pub const MAX_BLOCK_DATA_BITS: u32 = 16000;
 /// significant first, the register shifted and then the bit XORed in (the
 /// restart header's CRC with another start).
 ///
-/// No public document defines the field. The rule was found on written
-/// streams and put to Dolby's decoder as a black box (`docs/truehd.md`,
-/// *Protected blocks*).
+/// No public document defines the field. The rule here is confirmed against
+/// Dolby's decoder as a black box: streams written with it are accepted and
+/// decode bit-exact, and a stream whose check bytes break it, every other
+/// check right, is refused (`docs/truehd.md`, *Protected blocks*).
 pub const BLOCK_HEADER_CRC: Crc8 = CRC8_RESTART;
 
 /// Where the register of `block_header_crc` starts, and so the check of a
