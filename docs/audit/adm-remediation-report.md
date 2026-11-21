@@ -106,6 +106,13 @@ adm: written with loss: 4 intermediate-spatial-format elements dropped (--isf dr
 | approximations | `size-axes-collapsed`, `late-first-event-held`, `same-position-superseded`, `event-beyond-end-dropped` | 0 |
 | written with loss | `isf-dropped`, `out-of-order-written-as-is`, `non-profile-sample-rate` | 4 |
 
+(A note of 2026-11-21: the table and the row of D12 above are as they stood when the audit was
+closed. The warp mode has moved since. `decode --warp-mode` writes it on request, to the header of
+a DAMF set and to the `dbmd` chunk of an ADM file, and `warp-mode-dropped` is now counted among
+the approximations, where the mode a stream declares is not the mode its output is written with;
+`docs/exit-codes.md` and `docs/dolby-tools.md` have it as it is. Distance, divergence and the trim
+configurations are still not representable.)
+
 New flags: `--loss-report FILE`, `--isf <error|drop>`, `--adm-allow-non-profile-rate`,
 `--adm-interpolation <profile|real>`, `--fps`. Refusals before anything is written (exit 2):
 an ISF programme without `--isf drop`, a non-48 kHz ADM without the override, more than 118
