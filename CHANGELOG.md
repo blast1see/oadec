@@ -38,7 +38,10 @@ Semantic Versioning.
   programme that is its independent substream alone, in 2/0 or 3/2, as
   Dolby's decoders were measured to do. Its weight is this decoder's
   estimate fitted on measurements, and a decode with it is not claimed to
-  equal Dolby's. Each independent frame waits for the frame after it, which
+  equal Dolby's: the fit holds on the test streams it was made on, and on a
+  stereo stream of a commercial release the decode with the option was
+  measured further from Dolby's than the decode without it (`docs/eac3.md`
+  has the figures). Each independent frame waits for the frame after it, which
   says whether the programme has a dependent substream; one that has is
   decoded as without the option, and so is an AC-3 stream, `--core-only`
   included. The summary and the JSON report say, for the programme, in how

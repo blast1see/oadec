@@ -410,6 +410,34 @@ four are the same specification, and for enhanced coupling they disagree.
   - That the first block of a run of coupled blocks is decorrelated: it is
     the plain decode, by this decoder's choice.
 
+  Measured afterwards on streams that were not made for the fit, the mode
+  does not hold, and on one of them it is further from Dolby's decode than
+  the plain decode is:
+
+  - Of 56 E-AC-3 streams of commercial releases, five use coupling. The mode
+    runs on every frame of one of them: stereo, 224 kbit/s, coupled from
+    coefficient 169 in four sub-bands, no AHT. Dolby's decode of it is
+    close to the plain decode: the coherence of the pair in the plain decode
+    stands 0,25, 0,01, 0,00 and 0,00 above Dolby's by sub-band. With the
+    mode on it stands 0,41, 0,79, 0,03 and 0,00 under Dolby's: the mode
+    decorrelates where Dolby's decoder all but does not. The pre-echo
+    figure of `measure` goes from 0,1 and 0,8 dB over Dolby's in the two
+    channels to 5,0 and 5,2 dB.
+  - On a 3/2 stream with the LFE, coupled from coefficient 73 in three
+    sub-bands, three frames in four have a coupling channel coded with AHT
+    and are left as they are. The coherence of the two pairs stands 0,43 to
+    0,74 above Dolby's in the plain decode and 0,36 to 0,48 above with the
+    mode on. Dolby's decoder decorrelates the frames with AHT too, then;
+    this mode does not.
+  - Two of the five have AHT in nearly every frame, and one is a programme
+    with a dependent substream: the mode leaves them as the plain decode.
+
+  So the fit stands for the streams it was made on (FFmpeg's, 128 kbit/s,
+  coupled from coefficient 49 in eight sub-bands) and not beyond them. Until
+  it is fitted again on other coupling ranges and on programme material, a
+  decode without the option is the closer one to Dolby's on a stream like
+  the first above.
+
   `tools/coupling_mix.py measure` sets a decode with the mode on against
   another decode of the same stream, a reference decoder's among them, by
   channel and sub-band.
