@@ -1201,6 +1201,18 @@ impl Scan {
                         format!("access unit {index}: substream {i}: block data bit count mismatch")
                     });
                 }
+                if !b.block_header_crc_ok() {
+                    fault(f, d, RuleId::BlockHeaderCrc, at_seg, || {
+                        format!(
+                            "block_header_crc 0x{:02X}, the block header's CRC-8 0x{:02X}",
+                            b.block_header_crc.unwrap_or(0),
+                            b.block_header_crc_expected.unwrap_or(0)
+                        )
+                    });
+                    note_first(&mut self.first_error, || {
+                        format!("access unit {index}: substream {i}: block header check mismatch")
+                    });
+                }
                 if let Some(m) = b.header.and_then(|h| h.matrixing) {
                     st.matrixing_blocks += 1;
                     if m.interpolation_used {
@@ -1284,7 +1296,10 @@ impl Scan {
                 && seg.sample_count_ok
                 && !seg.unexpected_tail
                 && seg.terminator.is_none_or(|t| t.tail_ok)
-                && seg.blocks.iter().all(|b| b.block_data_bits_ok)
+                && seg
+                    .blocks
+                    .iter()
+                    .all(|b| b.block_data_bits_ok && b.block_header_crc_ok())
                 && entry.restart_nonexistent != seg.has_restart;
             if seg.has_restart && clean_segment {
                 self.diag.damage.restart(index, i);

@@ -1396,16 +1396,32 @@ pub fn decode(
 /// `out` gives `out.p0`.
 #[must_use]
 pub fn presentation_file(name: &Path, p: usize) -> PathBuf {
+    member_file(name, 'p', p)
+}
+
+/// The file programme `id` of a decode of every programme to `name` is
+/// written to, by the rule of [`presentation_file`] with a `g` (the
+/// programme is the group of an independent substream and the dependent
+/// substreams after it): `out.wav` gives `out.g0.wav`, `out.g2.wav`; `out`
+/// gives `out.g0`.
+#[must_use]
+pub fn programme_file(name: &Path, id: u8) -> PathBuf {
+    member_file(name, 'g', usize::from(id))
+}
+
+/// `name` with `.{letter}{n}` before its extension, or after it where it has
+/// none.
+fn member_file(name: &Path, letter: char, n: usize) -> PathBuf {
     match (name.file_stem(), name.extension()) {
         (Some(stem), Some(ext)) => {
             let mut file = stem.to_os_string();
-            file.push(format!(".p{p}."));
+            file.push(format!(".{letter}{n}."));
             file.push(ext);
             name.with_file_name(file)
         }
         _ => {
             let mut file = name.as_os_str().to_os_string();
-            file.push(format!(".p{p}"));
+            file.push(format!(".{letter}{n}"));
             PathBuf::from(file)
         }
     }
@@ -1586,6 +1602,18 @@ pub fn run_every(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A programme's file is named as a presentation's is, with a `g`.
+    #[test]
+    fn a_member_is_numbered_before_the_extension_of_the_output() {
+        let p = |s: &str, n| presentation_file(Path::new(s), n);
+        let g = |s: &str, n| programme_file(Path::new(s), n);
+        assert_eq!(p("out.wav", 1), Path::new("out.p1.wav"));
+        assert_eq!(g("out.wav", 0), Path::new("out.g0.wav"));
+        assert_eq!(g("dir/take.one.pcm", 7), Path::new("dir/take.one.g7.pcm"));
+        assert_eq!(g("out", 2), Path::new("out.g2"));
+        assert_eq!(p("out", 2), Path::new("out.p2"));
+    }
 
     /// The clock's answer is taken where the bytes the gap skipped put the
     /// loss well inside one wrap and agree with it.

@@ -1,0 +1,125 @@
+{
+ "what": "Enhanced coupling (E-AC-3), two profiles. The ATSC profile, `--ecpl-spec`: the angle and chaos process of ATSC A/52:2018 clause E.3.5.5, checked against an independent reference written from that text; no decoder implements it, so it is not measurable against Dolby. The Dolby profile, the default: amplitude only, angle and chaos ignored, as Dolby's decoders were measured to do, measured against Dolby's decoder as a black box",
+ "method": "ATSC profile: tools/ecpl_reference.py, written from the A/52:2018 text and not from the Rust code, computes the coefficients of 15 cases (crates/oadec-eac3/tests/ecpl_reference/, each case with its f32 answer); the decoder is set against them, and against f64 answers kept outside the repository. Dolby profile: a 384 kbit/s E-AC-3 clip with standard coupling is converted three ways by eac3-ecpl-inject --plan and each stream, and the clip, decoded twice by Dolby's decoder and by oadec; per amplitude code and coupled channel the coupling band of oadec's decode is set against Dolby's, beside the same comparison under the standard coupling of the clip",
+ "commands": [
+  "cargo test -p oadec-eac3 --test ecpl_reference --locked -- --nocapture",
+  "the same with OADEC_ECPL_REF_F64 set to the folder of the f64 answers",
+  "oadec eac3-ecpl-inject <clip> -o <stream> --plan <plan>, for the plans 'amp sweep-frames / angle 0 / chaos 0 / interp 0 / trans never' (amp), 'angle 0 / chaos 0' (flat) and 'angle all / chaos all / trans alternate / interp alternate' (full)",
+  "gst-launch-1.0 filesrc ! dlbac3parse ! dlbac3dec out-ch-config=7 drc-suppress=true drc-mode=custom-0 drc-cut=0 drc-boost=0 drop-delay=true ! audio/x-raw,format=F32LE ! filesink",
+  "the default decode (--format pcm) and verify --json of every stream at hand, the round-4 enhanced coupling branch against the main release of 544344e"
+ ],
+ "versions": {
+  "oadec": "oadec 0.9.1, release builds of the round-4 enhanced coupling branch and of the integration branch",
+  "rustc": "1.99.1 (rust-toolchain.toml)",
+  "dolby": "the dlbac3dec element of the Dolby Reference Player",
+  "standard": "ATSC A/52:2018, a local copy of 1 919 274 bytes, SHA-256 4580b631f5ac1aafdd31034f28d5fc9c29bce72a3d3f6367e3d9746906e0ffa1; set against ETSI TS 102 366 V1.2.1 clause E.2.5.5. Neither is in the repository"
+ },
+ "repository_files": {
+  "tools/ecpl_reference.py": "4200989c15a435260728e69f3d2458f5a395c340eb049a5ea2f31611b554d17f",
+  "crates/oadec-eac3/tests/ecpl_reference/": {
+   "files": 31,
+   "is": "15 cases, their 15 f32 answers and the script that made the cases",
+   "sha256_of_listing": "5730b1f8628e5dc08b686b28b97b102e8b5b00a50724ff1e1443f1893a5be30f",
+   "sha256_of_listing_is": "SHA-256 of the output of `sha256sum *` in the folder, sorted by name"
+  }
+ },
+ "atsc_profile": {
+  "the_two_copies": "A/52:2018 clause E.3.5.5 and TS 102 366 V1.2.1 clause E.2.5.5, set side by side line by line, differ in two lines of pseudo-code and no other: 'ampbnd[ch][bnd] *= 1 + 0.38 * chaos[ch][bnd]' against '1 - 0,38 * chaos', and 'angle[ch][bin] += chaos[ch][bin] * rand[ch][bin]' against '+= -chaos * rand'. The decoder follows A/52:2018. The amplitude, angle and chaos tables, the window, the 1/N of step 5 and the missing factor of 2 in step 3 are the same in both",
+  "cases_db": {
+   "against_the_f32_answers": {
+    "angle-all-flat": 151.9,
+    "angle-all-interp": 152.0,
+    "angle-wrap-interp": 152.5,
+    "amp-all": 152.3,
+    "chaos-all-steady": 152.0,
+    "chaos-all-transient": 152.0,
+    "chaos-transient-switch": 152.0,
+    "bands-max": 152.1,
+    "bands-merged": 152.3,
+    "bands-min-flat": 152.7,
+    "bands-min-interp": 151.7,
+    "bands-narrow": 151.8,
+    "first-channel-later": 152.1,
+    "timeline-on-off": 152.0,
+    "timeline-eof": 152.2
+   },
+   "against_the_f64_answers": {
+    "angle-all-flat": 269.6,
+    "angle-all-interp": 269.6,
+    "angle-wrap-interp": 272.7,
+    "amp-all": 269.8,
+    "chaos-all-steady": 270.6,
+    "chaos-all-transient": 270.8,
+    "chaos-transient-switch": 270.5,
+    "bands-max": 269.8,
+    "bands-merged": 269.9,
+    "bands-min-flat": 268.9,
+    "bands-min-interp": 271.2,
+    "bands-narrow": 282.9,
+    "first-channel-later": 273.8,
+    "timeline-on-off": 272.4,
+    "timeline-eof": 272.8
+   },
+   "reading": "151.7 to 152.7 dB is the rounding floor of f32; 268.9 to 282.9 dB against f64"
+  },
+  "fixed": [
+   "every coupled channel draws its own transient random values (clause E.3.5.5.3, the same in both copies)",
+   "a frame without enhanced coupling, standard coupling or a concealed frame, gives the next enhanced coupling block a zero predecessor; it used to take the block of two frames before (512 samples apart in the test)"
+  ],
+  "coherence_by_chaos": {
+   "is": "on the reference, 40 blocks x 8 seeds; the A/52:2018 reading; a report, not a criterion",
+   "chaos": [0, 1, 2, 3, 4, 5, 6, 7],
+   "amplitude_factor": [1.0, 0.9457, 0.8914, 0.8371, 0.7829, 0.7286, 0.6743, 0.62],
+   "correlation_steady": [1.0, 0.967, 0.87, 0.721, 0.538, 0.342, 0.155, -0.005],
+   "correlation_transient": [1.0, 0.967, 0.873, 0.728, 0.548, 0.354, 0.166, 0.003]
+  },
+  "mutations": "7 of 8 caught by the cases and the unit tests (the chaos sign of the amplitude and of the angle, the transient random values per channel, the overlap gain, the angle spread, the first channel, the amplitude term under a transient); the eighth, the wrap of the angle at 1.0 against above 1.0, is equivalent"
+ },
+ "dolby_profile": {
+  "clip": {
+   "name": "ec3/pi-head-aht384.ec3",
+   "bytes": 5076480,
+   "sha256": "f70ad6baf1b4533972d3c3e7e0319f52c2a9161978999e14dfee1a6e509c17d4",
+   "is": "E-AC-3 5.1, 384 kbit/s, standard coupling"
+  },
+  "streams": {
+   "amp": {
+    "sha256": "9bc26c26b956855e0e5d44473b33c79b770f1716c97c5b291d3007ec407cbaf1"
+   },
+   "flat": {
+    "sha256": "f1766560260c726a79f4e377e69e8100b813540d1f9226144286b11e6e736508"
+   },
+   "full": {
+    "sha256": "0fdca033d8eaa9b6eb9ca1fcfe603c4ce30a9e85185b0dedab3a65d917678546"
+   },
+   "written_again": "at integration, by eac3-ecpl-inject --plan of the integration branch, to the bytes of the streams measured (the MD5 of each the same); each is clean in verify, 3305 of 3305 frames with enhanced coupling"
+  },
+  "angle_and_chaos_ignored": {
+   "dolby_flat_and_full": "the same bytes (MD5 de082da4977a26639062e8c9f2079a9f), each decode repeated the same",
+   "oadec_flat_and_full": "the same bytes (MD5 d29972650c80a6a116aada551129a9cb), each decode repeated the same",
+   "result": "PASS"
+  },
+  "amplitude_sweep": {
+   "band_hz": [10218.75, 18093.75],
+   "result": "NOT MET: of 128 pairs of 32 amplitude codes and the four coupled channels, 50 come out further from Dolby's decode under enhanced coupling than under the standard coupling of the same frames, by up to 4.0 dB (Rs, codes 8 and 9). The centre channel, which the conversion does not touch, comes out lower in 24 of its 32 buckets by up to 2.4 dB, so differences of that size are the measurement's own; 2 of the 50 are beyond it",
+   "reading": "the absolute figures are low on both sides, 3 to 5 dB in L and R under standard coupling, because Dolby's decoder writes a X + b D(X) for a coupled coefficient (engine-round-2026-11/52) and the default decode leaves X alone. A least-squares gain of Dolby's coupled channels on oadec's under enhanced coupling is 0.45 to 1.00 depending on the code, lowest at codes 8 to 13 and 1.00 at code 31: Dolby decorrelates enhanced coupled channels too, by an amount that varies with the amplitude code, which is not modelled. --decorrelate does not touch an enhanced coupling block, and the table does not move with it"
+  }
+ },
+ "default_outputs": {
+  "streams": 84,
+  "by_folder": {
+   "ec3": 56,
+   "clips": 25,
+   "fixtures": 3
+  },
+  "list_sha256": "50fc1f868ca33a6baeb66e2fefb9e4ecbabf0558972a9ea79c4992cd3a0f48f6",
+  "list_sha256_is": "SHA-256 of the lines '<sha256>  <folder>/<name>' of the 84 streams, sorted, joined by newlines",
+  "result": "84 of 84: the default decode byte-identical to the main release, and the decode with --ecpl-spec too (no stream at hand carries chaos or switches enhanced coupling off inside a frame run); verify --json the same but for its running time"
+ },
+ "time": "a 105-second stream with enhanced coupling, 25 alternating runs against the main release: default +0.8 per cent (median 0.241 to 0.243 s), --ecpl-spec 0.0 per cent (0.468 s)",
+ "open": [
+  "the code-dependent decorrelation Dolby's decoder applies to enhanced coupled channels is not modelled",
+  "A/52:2012 was not compared",
+  "under --ecpl-spec a bin of the carrier with zero bits is given no dither; the text does not say it should; not measured"
+ ]
+}

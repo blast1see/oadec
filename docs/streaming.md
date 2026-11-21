@@ -22,6 +22,8 @@ decoded, long before the stream has ended.
 | a file to a file, with `--json`, `--report`, `--on-layout-change` (or the hidden `--pipeline-stats`) | read once, as a stream: what those options report is of that path |
 | a file to a file, with none of them | the decode it always was: the checks of `verify` read the file on a thread of their own beside the decode |
 | `-p all`, a file to files | every presentation of a TrueHD stream in one pass (below); the stream is taken whole, as a decode of a file takes it, with the checks of `verify` beside it |
+| `-p all` with `--json` or `--report` | every presentation in one pass, the stream read once, as a stream (below) |
+| `--programme all`, to files | every programme of an AC-3 or E-AC-3 stream in one pass, the stream read once, as a stream, from a file or a pipe (below) |
 
 The last row is the faster where the stream is a file. A TrueHD decode hands
 every access unit to the checks when it reads its stream once, and the checks
@@ -217,10 +219,69 @@ the run exits with the worst of them. The substreams are decoded once for all
 of them ([`truehd.md`](truehd.md#several-presentations-in-one-pass)).
 
 It writes samples to files, and conceals what it cannot read, as `decode`
-does by default. So it refuses (exit 2): an object output, `-o -`, `--json`,
-`--report`, `--on-layout-change`, `--start`, `--on-error stop`, `--programme`
-and the options of an object output or of an AC-3 or E-AC-3 decode. An AC-3
-or E-AC-3 stream has no presentations and refuses `-p` altogether.
+does by default. So it refuses (exit 2): an object output, `-o -`,
+`--on-layout-change`, `--start`, `--on-error stop`, `--programme` and the
+options of an object output or of an AC-3 or E-AC-3 decode. An AC-3 or E-AC-3
+stream has no presentations and refuses `-p` altogether.
+
+With `--json` or `--report` it reads the stream once, as a stream, and
+reports every presentation as `decode -p N --json` reports it (*The report
+of every member*, below); the files are the same bytes.
+
+## Every programme in one pass
+
+`decode --programme all -o OUT.wav` decodes every programme an AC-3 or E-AC-3
+stream carries, each to a file of its own: `OUT.g0.wav`, `OUT.g2.wav`, and so
+on, by the id of the programme's independent substream (`OUT.g0` where the
+name has no extension). The letter is `g`, for the group of an independent
+substream and the dependent substreams after it, because `p` is the
+presentation's. Each file holds the bytes `decode --programme N -o` of its
+programme writes, from the same stream, and is judged as that decode judges
+it; a programme that begins late or ends early is as long as that decode's
+file, and a stream of one programme gives the one file `decode` gives.
+
+The stream is read once, from a file or from standard input: its frames are
+found once, and each frame is handed once to the programme of the
+independent frame it is or follows. Each programme has a decoder of its own,
+with its own dependent substreams, dither, overlap, look-ahead, concealment,
+layout and counts, so that nothing one programme carries reaches another:
+frames of one programme that fail their check leave the others' samples as
+they are. What the decode holds is bounded by the programmes and not by the
+length of the stream.
+
+It refuses (exit 2): an object output (the object programme is programme 0),
+`-o -`, `--start`, `--on-layout-change`, `-p`, the options of an object
+output and those of a TrueHD decode; a TrueHD stream has presentations and
+refuses it. A programme keeps the layout of its first group, as a decode of
+one to a file does. The exit code is the [combined
+one](exit-codes.md#every-programme-and-every-presentation).
+
+## The report of every member
+
+`--json` (on standard output) and `--report FILE` of `-p all` and
+`--programme all` write one JSON object:
+
+```json
+{
+  "bytes": 1234567,
+  "combined_exit_code": 7,
+  "format": "eac3",
+  "programmes": [
+    { "id": 0, "file": "OUT.g0.wav", "exit_code": 0, "verdict": "clean", "...": "..." },
+    { "id": 1, "file": "OUT.g1.wav", "exit_code": 7, "verdict": "faulty", "...": "..." }
+  ],
+  "stream": "in.ec3"
+}
+```
+
+`presentations` stands where `programmes` does for `-p all`. Every entry
+holds every field of the report of the decode of that member alone, with the
+same values, its `parts` naming its file; and `id` and `file`. A member whose
+decode could not go on has the verdict `failed`, exit code 2 and its
+`error`. The entries are in ascending order of id whatever order the stream
+first carries them in, the keys of every object in the order of their names,
+and the report holds no time: the report of a stream is the same, to the
+byte, on every run.
 
 `verify --decode` does not: it decodes each presentation on a thread of its
 own, as it always did, because by the clock that is the faster

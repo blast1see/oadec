@@ -601,7 +601,7 @@ ETSI TS 102 366 **V1.2.1** clause E.2.5.5, ATSC **A/52:2012** and
 reconstruct a non-aliased carrier `Z[k]` from the previous, current and next
 blocks, rotate it per band by `ecplangle`, de-correlate it per bin by
 `ecplchaos`, then project back. They name the fields and loop them over every
-band, `9 x necplbnd`. The three agree word for word; V1.4.1 is the odd one
+band, `9 x necplbnd`. The three agree on the process; V1.4.1 is the odd one
 out, and it is nine bits short.
 
 **What Dolby does.** Rewriting a real stream's standard coupling as enhanced
@@ -617,7 +617,8 @@ every `ecplangle` and `ecplchaos` zero and one with a full spread of both:
 
 Neither Dolby decoder implements the angle or the chaos. oadec therefore
 follows the amplitude-only reading by default, which is what the ETSI V1.4.1
-text describes, and `--ecpl-spec` selects the full ATSC process. The parser
+text describes, and `--ecpl-spec` selects the full process of V1.2.1 and the
+ATSC editions (below: "Two profiles, measured apart"). The parser
 always reads `9 x necplbnd`, because that is the field the encoder wrote and
 V1.4.1's count would desynchronise the block.
 
@@ -637,6 +638,179 @@ V1.4.1's count would desynchronise the block.
   arrays** under one name: `angle[ch][bnd]` is read while `angle[ch][bin]` is
   written, and the bin indices are relative to the start of the region. Read
   as one array the band values would be overwritten before they are used.
+- **The text says nothing where the interpolation has one band.** With
+  `ecplangleintrp` set and a single band, the pseudo-code skips its loop and
+  then reads `y` and `slope` before anything has set them. oadec, and the
+  reference below, hold the band angle flat over the band.
+- **The interpolation's bin index starts absolute and continues relative.**
+  It is set to `ecplsubbndtab[ecpl_begin_subbnd]` and then, inside the first
+  band, to `nbins_prev/2 - 1` and `count`. The first assignment only counts
+  where the first band is one bin wide, which never happens: every band is a
+  run of six- or twelve-bin sub-bands, so every band is even, and the
+  odd-width branches of the interpolation are unreachable too.
+- **Table 6.33 prints the window to five decimals.** The text gives no other
+  form of it. oadec uses the Kaiser-Bessel-derived window with alpha 5, which
+  rounds to every one of the 256 printed entries; the reference checks that
+  and uses the same window, since the printed table alone caps an agreement
+  at about 100 dB.
+
+### Two profiles, measured apart
+
+The default reading and `--ecpl-spec` answer two different questions, and a
+measurement of one is no evidence for the other.
+
+**The full reading (`--ecpl-spec`) against the text.** Its source is ATSC
+A/52:2018 clause E.3.5.5 (`A52-2018.pdf`, 1 919 274 bytes, SHA-256
+`4580b631f5ac1aafdd31034f28d5fc9c29bce72a3d3f6367e3d9746906e0ffa1`).
+`tools/ecpl_reference.py` is an independent reference written from that text
+with numpy, nothing taken from this crate: the inverse transform of clause
+7.9.4.1 steps 1 to 5, the carrier, the amplitudes, the angle interpolation
+and the products, as the pseudo-code writes them. It takes a case file of
+syntax elements, the random values of clause E.3.5.5.3 from a stated
+generator or from a file, and the test `tests/ecpl_reference.rs` feeds the
+decoder the same values through a test hook (`Synth::with_random_values`; the
+decoder's own source is not touched). Fifteen cases cover angle codes 0 to 63
+flat, interpolated and across +/-pi, amplitude codes 0 to 31, chaos codes 0
+to 7 with and without a transient, 1 to 22 bands, merged bands, a first
+coupled channel that is not channel 0, enhanced coupling switching off and
+on, and the end of the stream. Measured: within 151,7 to 152,7 dB of every case
+against the f32 answers kept in the repository (their rounding floor) and
+268,9 to 282,9 dB against the reference's f64 answers.
+
+**A/52:2018 and ETSI TS 102 366 V1.2.1 are not word for word the same.** Set
+side by side, clause E.3.5.5 and clause E.2.5.5 differ in wording and layout
+and in exactly two lines of pseudo-code, both signs of the chaos term:
+
+| | ATSC A/52:2018 E.3.5.5 | ETSI TS 102 366 V1.2.1 E.2.5.5 |
+|---|---|---|
+| amplitude (.2) | `ampbnd[ch][bnd] *= 1 + 0.38 * chaos[ch][bnd];` | `ampbnd[ch][bnd] *= 1 - 0,38 * chaos[ch][bnd];` |
+| angle (.3) | `angle[ch][bin] += chaos[ch][bin] * rand[ch][bin];` | `angle[ch][bin] += -chaos[ch][bin] * rand[ch][bin];` |
+
+Everything else agrees: the tables of amplitudes, angles and chaos (E3.10 to
+E3.12), the 256 printed values of the window (Table 7.33 and Table 6.33), the
+`1/N` of the transform of step 5, and the overlap-add of step 3, printed
+without the factor two in both. The chaos table runs from 0 to -1, so
+A/52:2018 lowers the amplitude, to 0,62 at code 7, and V1.2.1 raises it, to
+1,38; the angle signs agree in distribution, since the random values are
+symmetric, and only a given sequence tells them apart. The full reading
+follows A/52:2018, which is what the code did from the start; for a while it
+followed V1.2.1, and the commits that did so and undid it stand apart in the
+history. The reference reads either printing (`text a52-2018|ts102366-v121`).
+A/52:2012 was not compared.
+
+Held to the text, the full reading changed in one place:
+
+- **Every channel draws its own transient values.** `rand_trans` "must be
+  unique for each band [bnd] and channel [ch]" in both editions; one value
+  per band had been shared by every channel. Now every coupled channel after
+  the first draws one per band and block, a transient in it or not, so the
+  draws have a fixed order the reference can follow.
+
+A second fix is in the decoder, not the clause: a whole frame without
+enhanced coupling (standard coupling, or a concealed frame) did not tell the
+synthesis that the next enhanced block's predecessor is zero, so the last
+enhanced block before it stood in. A stream that switches the tool off and on
+at frame boundaries, with a concealed frame in it, is now decoded bit for bit
+as the synthesis run block by block over the whole stream.
+
+How much the chaos de-correlates, measured on the reference (two channels of
+the same carrier and codes, 22 bands, 320 blocks over eight seeds; mean
+correlation, a statistic rather than a requirement of any one block):
+
+| chaos code | amplitude | correlation, no transient | with a transient |
+|---:|---:|---:|---:|
+| 0 | 1,000 | 1,000 | 1,000 |
+| 1 | 0,946 | 0,967 | 0,967 |
+| 2 | 0,891 | 0,870 | 0,873 |
+| 3 | 0,837 | 0,721 | 0,728 |
+| 4 | 0,783 | 0,538 | 0,548 |
+| 5 | 0,729 | 0,342 | 0,354 |
+| 6 | 0,674 | 0,155 | 0,166 |
+| 7 | 0,620 | -0,005 | 0,003 |
+
+(The amplitude column applies without a transient only.) There is no
+unconditional conservation of power to look for: the clause scales the
+amplitude and rotates each bin, and the projection back onto the real
+transform drops what the rotation moves out of it.
+
+**The default reading against Dolby's decoder.** Measured again with the
+Reference Player's `dlbac3dec` element (`drc-suppress=true
+drc-mode=custom-0 drop-delay=true`) on `pi-head-aht384.ec3` converted three
+ways by `eac3-ecpl-inject --plan`: every angle and chaos code zero, every
+code of both spread over the channels and bands, and one amplitude code a
+frame (0 to 31 in turn, angle and chaos zero). The first two decode to the
+**same bytes** in Dolby's element, as they did in 2026-09, and in oadec's
+default reading; each decode repeated gives the same bytes again.
+
+Over the coupling band (10,2 to 18,1 kHz), per amplitude code and channel,
+the default reading is not as close to Dolby as the standard coupling of the
+same stream is over the same frames everywhere: of the 128 pairs of 32 codes
+and the four coupled channels, 50 come out lower, by up to 4,0 dB, the worst
+in Rs at codes 8 and 9. The
+figures are low on both sides, 3 to 5 dB in L and R under standard coupling,
+because Dolby's decoder writes `a X + b D(X)` for a coupled coefficient (the
+decorrelation row of the conformance matrix), and the default reading leaves
+`X` alone. The fitted gain of Dolby's coupled channels on oadec's is 0,45 to
+1,00 depending on the code, lowest at codes 8 to 13 and 1,00 at code 31,
+where the coupled channels are silent: Dolby decorrelates enhanced coupled
+channels too, and by an amount that varies with the amplitude code, which
+`--decorrelate` does not model (it does not touch an enhanced coupling block,
+and the table does not move with it). The centre channel, which the
+conversion does not touch at all, comes out lower in 24 of its 32 buckets, by
+up to 2,4 dB, so differences of that size are the measurement's own; two
+pairs of the 50 are beyond it
+(`docs/audit/evidence/round-4-2026-11/p3-ecpl-two-profiles.json`).
+
+- **A plan file sets every code the injector writes** (`eac3-ecpl-inject
+  --plan`): fixed codes, every code of a table, one amplitude code a frame,
+  the interpolation and transient flags, blocks that reuse the codes of the
+  block before, and which frames are converted. The injector also converts
+  2/0 streams now: their standard strategy opens with `phsflginu`, a bit
+  enhanced coupling does not have, and leaving it in shifted every frame of
+  the stereo fixture by one bit.
+
+### The plan file of `eac3-ecpl-inject`
+
+`oadec eac3-ecpl-inject IN.ec3 -o OUT.ec3 --plan PLAN` converts the standard
+coupling of every independent frame of programme 0 into enhanced coupling,
+as without `--plan`, and takes the codes it writes from the plan where the
+plan names them. One directive a line; `#` starts a comment, and a blank
+line is nothing:
+
+```text
+amp    walk | sweep-frames | all | <0-31>
+angle  walk | sweep-frames | all | <0-63>
+chaos  walk | walk:<max> | sweep-frames | all | <0-7>
+interp 0 | 1 | alternate
+trans  never | always | walk | alternate
+reuse  every <n>          # the codes of the block before, where block % n == n - 1
+frames all | every <n>    # convert the frames f with f % n == 0, copy the rest
+```
+
+- **A code** writes that code in every band of every channel; `sweep-frames`
+  writes the frame's number modulo the size of the table, one code a frame;
+  `all` spreads every code of the table over the channels and bands of a
+  block, moving from block to block.
+- **What the plan names wins; what it leaves out the shape flags give.**
+  `walk` is the walk the shape flags make: `--flat-amp` and `--flat-angle`
+  set it to code 0, and `--chaos N` bounds the chaos walk, which
+  `chaos walk:<max>` bounds instead. So `--flat-amp` with `amp 7` writes 7,
+  and `--flat-angle` with no `angle` line writes 0. `interp` wins over
+  `--interp`. A directive given twice is the last one.
+- **A plan of no directive is no plan:** an empty file, or one of comments,
+  writes the bytes the injector writes without `--plan`, and so does a plan
+  that names every default (`amp walk`, `angle walk`, `chaos walk`,
+  `trans walk`, `frames all`).
+- **What is refused, by name, before anything is written (exit 2):** a plan
+  file that cannot be read (its path is said), a directive the format does
+  not know and a value it does not take (`plan line N: unknown directive
+  ...`), and a code above the table (`plan line N: amp code 40 is above
+  31`). No output file is made.
+
+A stream written with a plan is a stream `verify` passes as clean: the test
+`crates/oadec-cli/tests/cli_ecpl_plan.rs` holds the four points above, and
+the three streams of the measurement against Dolby's decoder in the section
+before are written again from their plans to the same bytes.
 
 ## The bit allocation where enhanced coupling begins at its lowest sub-band
 

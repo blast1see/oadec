@@ -32,5 +32,6 @@ pub use ac3_recipe::{AC3_PROBES, AC3_RECIPES, Ac3Probe, Ac3Recipe};
 pub use change::{CHANGES, Change, Changed, Part};
 pub use recipe::{Made, PROBES, Probe, RECIPES, Recipe, pcm_bytes};
 pub use write::{
-    Above, BlockPlan, Coding, Family, Filter, Layout, Matrix, Protection, Stream, UnitPlan, write,
+    Above, BlockPlan, BlockSpans, Check, Coding, Family, Filter, Layout, Matrix, Protection,
+    Sixteen, Stream, UnitPlan, flip_and_reseal, write,
 };

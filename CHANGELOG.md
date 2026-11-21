@@ -55,6 +55,93 @@ Semantic Versioning.
   target of the programme decoder's configurations holds the decoder that
   makes each independent frame wait, with the decorrelation off, to the one
   that does not, group for group and sample for sample.
+- **`decode --programme all`.** Every programme of an AC-3 or E-AC-3 stream
+  from one read of it, from a file or from standard input, a file each
+  (`OUT.g0.wav`, `OUT.g2.wav` and on, by the id of the programme's
+  independent substream), each with the bytes and the exit code of a decode
+  of that programme alone (`--programme N`). The frames are found once and
+  each programme has a decoder of its own; the memory of a run does not grow
+  with its stream. The evidence of several programmes is synthetic only:
+  the local corpus holds no stream of more than one programme, so the tests
+  write theirs from fixtures, renumbering and interleaving their frame
+  groups; 125 of 125 streams of one programme or presentation of the local
+  corpus decode to the files of the decode of one
+  (`docs/streaming.md`, `docs/audit/evidence/round-4-2026-11/p1-every-programme.json`).
+- **`decode -p all` takes `--json` and `--report`.** The stream is then read
+  once, as a stream; the report holds an entry for every member, programme or
+  presentation, by id in ascending order, each the report of the decode of
+  that member alone with its `id` and `file`, and `combined_exit_code`.
+- **JOC downmix configurations 1 and 2 are tested.** Checked on authored
+  streams against the standard, not against Dolby: an independent reference
+  of TS 103 420 clauses 6.5 and 6.6 (`tools/joc_reference.py`) agrees with
+  the matrices within 1e-12 in f64 over 13 cases, and the objects match their
+  downmix channel through the filter banks to 309 dB. Against the core channel
+  itself they reach 75 to 87 dB, which is the floor of the banks: their
+  prototype window reconstructs at 75.7 dB, measured, a property and not an
+  error. The temporal interpolation of two data points is checked the same
+  way, and is not measured against Dolby, whose decoder discards a rewritten
+  payload. New fixture `joc-512-tones.ec3` (5.1.2, AC-3 core, configuration 4)
+  (`docs/joc.md`).
+- **`tools/ecpl_reference.py`**, an independent reference of enhanced
+  coupling written from ATSC A/52:2018, with 15 cases and their answers in the
+  repository.
+- **`eac3-ecpl-inject --plan <FILE>`.** A plan file sets every enhanced
+  coupling code, flag, reuse and converted frame it names; the shape flags
+  fill in what it leaves out. A directive the file names wins over the shape
+  flags, and `walk` asks for what the flags give. A plan that cannot be read,
+  an unknown directive and a code out of range are refused by name (exit 2),
+  and nothing is written. Without `--plan` the output is what it was
+  (`docs/eac3.md`).
+- **`verify` checks `block_header_crc` of protected TrueHD blocks**
+  (`block.header_crc`, error). The rule was confirmed against Dolby's decoder
+  as a black box: it accepts written streams whose check bytes follow it,
+  bit-exact, and refuses a stream with a wrong check byte; and it refuses a
+  stream whose `block_data_bits` counts its own 16 bits, so the field counts
+  the block data alone. No real stream carries the field. `oadec-synth` writes
+  protected blocks with their check
+  (`docs/audit/evidence/round-4-2026-11/p4-block-header-crc.json`).
+- **ISF channels are named.** The intermediate-spatial-format channels of the
+  16-channel presentation of a TrueHD stream are decoded and labelled `M1`
+  and on (MULZ) in PCM and WAVE output; `info` and `oamd` name the ISF type
+  and its channels. DAMF and ADM still cannot place them (`--isf error` or
+  `drop`); there is no `--isf objects`, since no public source gives the ring
+  elevations or channel positions. `oadec-synth` writes the 16-channel
+  presentation with ISF channels (`docs/oamd.md`).
+
+### Changed
+
+- **The exit code of a decode of every member** (`-p all`, `--programme
+  all`) is the one whose meaning weighs most, not the largest number: 2 if
+  any member's decode could not go on, else 7 if any member is faulty, else 4
+  if any has a declared loss, else 0. A member that cannot go on is that
+  member's; the others are decoded on (`docs/exit-codes.md`).
+- **ISF codes outside table 19 are reserved.** `16ch_intermediate_spatial_format`
+  0, 1 and 5 of a TrueHD major sync are reserved (TrueHD description, table
+  19): `info` says so, and DAMF and ADM refuse them, and a programme whose
+  bed, ISF and dynamic objects do not add up to the presentation's channels,
+  by name.
+- **A missing JOC downmix channel is refused by its table 47 names** (for
+  example `Tfl, Tfr`), and `eac3-joc-config` refuses to relabel a payload with
+  a configuration of another channel count, which used to write an unreadable
+  matrix.
+- **`--ecpl-spec` follows ATSC A/52:2018.** ETSI TS 102 366 V1.2.1 differs
+  from it in two lines of the pseudo-code, the signs of the two chaos terms;
+  `docs/eac3.md` quotes both. The default decode, the one Dolby's decoders
+  were measured to make, is unchanged.
+
+### Fixed
+
+- **A change of layout in one programme of a stream of several** was told at
+  the start of another programme's frame group (`config_change.byte_offset`
+  of `--json` and `--report`), and the starts of the frame groups were held
+  for the length of the stream. Streams of one programme report as before.
+- **`--ecpl-spec`: every coupled channel draws its own transient random
+  values** (A/52:2018 clause E.3.5.5.3), and a frame without enhanced
+  coupling, standard coupling or a concealed frame, gives the next enhanced
+  coupling block a zero predecessor.
+- **`eac3-ecpl-inject` converts 2/0 streams.** It left the `phsflginu` bit of
+  the standard strategy in place, and no frame of a converted stereo stream
+  decoded.
 
 ## [0.9.1] - 2026-11-17
 

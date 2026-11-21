@@ -754,6 +754,8 @@ mod tests {
             block_data_bits: None,
             block_data_bits_ok: true,
             block_header_crc: None,
+            header_bits: None,
+            block_header_crc_expected: None,
         }
     }
 

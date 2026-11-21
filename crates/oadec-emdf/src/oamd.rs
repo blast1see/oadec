@@ -56,6 +56,35 @@ pub const ISF_OBJECTS: [Option<usize>; 8] = [
     None,
 ];
 
+/// Channels of the middle, upper, lower and zenith rings of each
+/// intermediate spatial format (table 11b, "SR" notation: `SR7.5.3.0` is
+/// seven, five, three and none); 6 and 7 are reserved. The objects of a
+/// format are its rings in that order, MULZ, each numbered from 1.
+pub const ISF_RINGS: [Option<[u8; 4]>; 8] = [
+    Some([3, 1, 0, 0]),
+    Some([5, 3, 0, 0]),
+    Some([7, 3, 0, 0]),
+    Some([9, 5, 0, 0]),
+    Some([7, 5, 3, 0]),
+    Some([15, 9, 5, 1]),
+    None,
+    None,
+];
+
+/// The names of the objects of intermediate spatial format `index` in MULZ
+/// order (`M1` … `Z1`, table 11b), or `None` for a reserved index.
+#[must_use]
+pub fn isf_object_names(index: u8) -> Option<Vec<String>> {
+    let rings = ISF_RINGS[usize::from(index & 7)]?;
+    let mut names = Vec::new();
+    for (ring, count) in ["M", "U", "L", "Z"].iter().zip(rings) {
+        for k in 1..=count {
+            names.push(format!("{ring}{k}"));
+        }
+    }
+    Some(names)
+}
+
 /// `distance_factor` of table 15.
 pub const DISTANCE_FACTOR: [f32; 16] = [
     1.1, 1.3, 1.6, 2.0, 2.5, 3.2, 4.0, 5.0, 6.3, 7.9, 10.0, 12.6, 15.8, 20.0, 25.1, 50.1,
@@ -1604,6 +1633,81 @@ mod tests {
                 "presence {presence:03b}"
             );
         }
+    }
+
+    /// Table 11b, object by object: the ring of every object and the count
+    /// of every format, SR15.9.5.1 with its thirty included.
+    #[test]
+    fn every_intermediate_spatial_format_lists_its_objects_in_mulz_order() {
+        let table: [(&str, &[&str]); 6] = [
+            ("SR3.1.0.0", &["M1", "M2", "M3", "U1"]),
+            (
+                "SR5.3.0.0",
+                &["M1", "M2", "M3", "M4", "M5", "U1", "U2", "U3"],
+            ),
+            (
+                "SR7.3.0.0",
+                &["M1", "M2", "M3", "M4", "M5", "M6", "M7", "U1", "U2", "U3"],
+            ),
+            (
+                "SR9.5.0.0",
+                &[
+                    "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "U1", "U2", "U3", "U4",
+                    "U5",
+                ],
+            ),
+            (
+                "SR7.5.3.0",
+                &[
+                    "M1", "M2", "M3", "M4", "M5", "M6", "M7", "U1", "U2", "U3", "U4", "U5", "L1",
+                    "L2", "L3",
+                ],
+            ),
+            (
+                "SR15.9.5.1",
+                &[
+                    "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12",
+                    "M13", "M14", "M15", "U1", "U2", "U3", "U4", "U5", "U6", "U7", "U8", "U9",
+                    "L1", "L2", "L3", "L4", "L5", "Z1",
+                ],
+            ),
+        ];
+        for (index, (name, objects)) in table.iter().enumerate() {
+            let rings = ISF_RINGS[index].unwrap_or_else(|| panic!("{name}"));
+            let sr = format!("SR{}.{}.{}.{}", rings[0], rings[1], rings[2], rings[3]);
+            assert_eq!(&sr, name);
+            let names = isf_object_names(index as u8).unwrap();
+            assert_eq!(names, *objects, "{name}");
+            assert_eq!(Some(names.len()), ISF_OBJECTS[index], "{name}");
+        }
+        assert_eq!(ISF_RINGS[6], None);
+        assert_eq!(ISF_RINGS[7], None);
+        assert_eq!(isf_object_names(6), None);
+        assert_eq!(isf_object_names(7), None);
+    }
+
+    /// The thirty objects of SR15.9.5.1 are a programme of the payload: the
+    /// count of objects is what the program assignment declares, whatever
+    /// presentation could carry them.
+    #[test]
+    fn a_programme_of_thirty_isf_objects_parses() {
+        let mut w = Bits::default();
+        w.push(2, 0);
+        w.push(5, 30); // 31 objects
+        w.push(1, 0); // not dynamic objects only
+        w.push(4, 0b0110); // dynamic objects, ISF, no beds
+        w.push(3, 5); // SR15.9.5.1
+        w.push(5, 0); // one dynamic object
+        w.push(1, 0); // no alternate data
+        w.push(4, 0); // no elements
+        let oamd = Oamd::parse(&w.finish()).unwrap();
+        let p = &oamd.program;
+        assert_eq!(p.isf_index, Some(5));
+        assert_eq!(p.isf_objects(), 30);
+        assert_eq!(p.dynamic_objects, 1);
+        assert_eq!(p.objects(), 31);
+        assert_eq!(p.bed_or_isf_objects(), 30);
+        assert_eq!(isf_object_names(5).map(|n| n.len()), Some(30));
     }
 
     #[test]

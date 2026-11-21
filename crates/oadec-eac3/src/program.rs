@@ -207,6 +207,28 @@ impl ChannelLoc {
             _ => return None,
         })
     }
+
+    /// The name table 47 of TS 103 420 gives downmix input `input` of
+    /// configuration `dmx_config`: `L R C Ls Rs` for all five, then `Lb Rb`
+    /// for configuration 1 and `Tfl Tfr` for 2 and 4. `None` for an input the
+    /// configuration does not have and for a reserved configuration. The LFE
+    /// is no input (table 47, note).
+    ///
+    /// Table 53 calls `joc_channel_idx` 5 and 6 "Left Back" and "Right Back"
+    /// whenever there are seven channels; under configurations 2 and 4 those
+    /// two inputs are the top front pair all the same, as table 47 has them.
+    #[must_use]
+    pub const fn joc_input_name(dmx_config: u8, input: usize) -> Option<&'static str> {
+        const FIVE: [&str; 5] = ["L", "R", "C", "Ls", "Rs"];
+        match (dmx_config, input) {
+            (0..=4, 0..=4) => Some(FIVE[input]),
+            (1, 5) => Some("Lb"),
+            (1, 6) => Some("Rb"),
+            (2 | 4, 5) => Some("Tfl"),
+            (2 | 4, 6) => Some("Tfr"),
+            _ => None,
+        }
+    }
 }
 
 /// Channel locations of the custom channel map by `chanmap` bit, in the same

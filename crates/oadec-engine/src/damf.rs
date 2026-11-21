@@ -7,13 +7,16 @@ use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
 use oadec_emdf::container::{self, PAYLOAD_ID_OAMD};
-use oadec_emdf::oamd::{BedChannel, ISF_OBJECTS, Oamd};
+use oadec_emdf::oamd::{BedChannel, Oamd};
+use oadec_spatial::program::ISF_TYPES;
 use oadec_spatial::{
     AdmError, AdmOptions, AdmWriter, DamfError, DamfOptions, DamfWriter, Event, Interpolation,
     IsfPolicy, LossLedger, Program, Timeline, WarpMode,
 };
 use oadec_truehd::channel::ExtraChannelMeaning;
-use oadec_truehd::{AccessUnit, ChannelLabel, ExtraKind, MajorSync, StreamConfig};
+use oadec_truehd::{
+    AccessUnit, ChannelLabel, ExtraKind, MajorSync, StreamConfig, sixteen_channel_isf,
+};
 use serde_json::json;
 
 use crate::decode::{ConfigStop, Format, Order, Session, format_duration, print_summary};
@@ -278,8 +281,12 @@ fn bed_channel(label: ChannelLabel) -> Result<BedChannel> {
 }
 
 /// The program the extra channel meaning of a major sync declares: bed
-/// channels, then the ISF objects of the declared type (table 11b), then the
-/// dynamic objects.
+/// channels, then the ISF objects of the declared format, then the dynamic
+/// objects. The format is one of the three table 19 of the TrueHD description
+/// gives `16ch_intermediate_spatial_format` (the other values are reserved,
+/// those TS 103 420 table 11b gives four, eight and thirty objects
+/// included), and the three add up to the channels of the presentation
+/// (section 4.4).
 fn program_from_extra(extra: &ExtraChannelMeaning) -> Result<Program> {
     let bed: Vec<BedChannel> = ChannelLabel::sixteen_channel(extra)
         .into_iter()
@@ -287,15 +294,30 @@ fn program_from_extra(extra: &ExtraChannelMeaning) -> Result<Program> {
         .collect::<Result<_>>()?;
     let (isf_index, isf_objects) = if extra.has_isf() {
         let index = extra.isf_index & 7;
-        match ISF_OBJECTS[usize::from(index)] {
-            Some(n) => (Some(index), n),
+        match sixteen_channel_isf(index) {
+            Some(format) => (Some(index), format.channels()),
             None => bail!(
-                "the 16-channel presentation declares the reserved intermediate spatial format index {index}"
+                "the 16-channel presentation declares the reserved 16ch_intermediate_spatial_format {index}{}",
+                ISF_TYPES
+                    .get(usize::from(index))
+                    .map(|name| format!(
+                        " (TS 103 420 names {name} by this index; the TrueHD description gives the major sync SR7.3.0.0, SR9.5.0.0 and SR7.5.3.0 only)"
+                    ))
+                    .unwrap_or_default()
             ),
         }
     } else {
         (None, 0)
     };
+    let dynamic = usize::from(extra.dynamic_objects());
+    let declared = usize::from(extra.channels());
+    let programme = bed.len() + isf_objects + dynamic;
+    if programme != declared {
+        bail!(
+            "the 16-channel presentation declares {declared} channels (16ch_channel_count) and its bed, ISF and dynamic objects come to {programme} ({} + {isf_objects} + {dynamic})",
+            bed.len()
+        );
+    }
     Ok(Program {
         beds: if bed.is_empty() {
             Vec::new()
@@ -304,7 +326,7 @@ fn program_from_extra(extra: &ExtraChannelMeaning) -> Result<Program> {
         },
         isf_index,
         isf_objects,
-        dynamic_objects: usize::from(extra.dynamic_objects()),
+        dynamic_objects: dynamic,
     })
 }
 
@@ -826,14 +848,15 @@ mod tests {
     #[test]
     fn the_isf_count_comes_from_the_major_sync() {
         let extra = ExtraChannelMeaning {
+            sixteench_channel_count: 11,
             content_description: 0b110, // ISF and dynamic objects, no bed
-            isf_index: 0,
+            isf_index: 2,
             dynamic_object_count: 1,
             ..ExtraChannelMeaning::default()
         };
         let p = program_from_extra(&extra).unwrap();
-        assert_eq!(p.isf_objects, 4, "SR3.1.0.0 has four objects");
-        assert_eq!(p.isf_index, Some(0));
+        assert_eq!(p.isf_objects, 10, "SR7.3.0.0 has ten objects");
+        assert_eq!(p.isf_index, Some(2));
         assert_eq!(p.dynamic_objects, 2);
         assert!(p.beds.is_empty());
         let reserved = ExtraChannelMeaning {
@@ -842,11 +865,82 @@ mod tests {
         };
         assert!(program_from_extra(&reserved).is_err());
         let none = ExtraChannelMeaning {
+            sixteench_channel_count: 1,
             content_description: 0b100,
             ..reserved
         };
         let p = program_from_extra(&none).unwrap();
         assert_eq!((p.isf_objects, p.isf_index), (0, None));
+    }
+
+    /// Table 19 of the TrueHD description: the major sync declares SR7.3.0.0
+    /// (010b), SR9.5.0.0 (011b) and SR7.5.3.0 (100b), and nothing else. The
+    /// four- and eight-object formats and the one of thirty, which TS 103 420
+    /// table 11b gives indices 0, 1 and 5, are reserved values here.
+    ///
+    #[test]
+    fn the_major_sync_declares_only_the_formats_of_table_19() {
+        for (index, objects) in [(2u8, 10usize), (3, 14), (4, 15)] {
+            let extra = ExtraChannelMeaning {
+                sixteench_channel_count: objects as u8, // LFE + ISF
+                content_description: 0b011,
+                lfe_only: true,
+                isf_index: index,
+                ..ExtraChannelMeaning::default()
+            };
+            let p = program_from_extra(&extra).unwrap_or_else(|e| panic!("{index}: {e}"));
+            assert_eq!((p.isf_index, p.isf_objects), (Some(index), objects));
+        }
+        for index in [0u8, 1, 5, 6, 7] {
+            let extra = ExtraChannelMeaning {
+                sixteench_channel_count: 15,
+                content_description: 0b010,
+                isf_index: index,
+                ..ExtraChannelMeaning::default()
+            };
+            let err = program_from_extra(&extra).unwrap_err().to_string();
+            assert!(err.contains("reserved"), "{index}: {err}");
+            assert!(
+                err.contains(&format!("16ch_intermediate_spatial_format {index}")),
+                "{index}: {err}"
+            );
+        }
+    }
+
+    /// The bed, the ISF channels and the dynamic objects are the channels of
+    /// the presentation, no more and no fewer (section 4.4: "equal to the
+    /// number of channels specified by the value of 16ch_channel_count").
+    #[test]
+    fn a_programme_that_is_not_its_presentation_is_refused_by_name() {
+        // C, LFE, SR7.5.3.0 and one object: 18 in a presentation of 16
+        let over = ExtraChannelMeaning {
+            sixteench_channel_count: 15,
+            content_description: 0b111,
+            sixteench_channel_assignment: 0b00_0000_0110,
+            isf_index: 4,
+            dynamic_object_count: 0,
+            ..ExtraChannelMeaning::default()
+        };
+        let err = program_from_extra(&over).unwrap_err().to_string();
+        assert!(err.contains("18") && err.contains("16"), "{err}");
+        assert!(err.contains("16ch_channel_count"), "{err}");
+        // the same in 14 channels: two short
+        let short = ExtraChannelMeaning {
+            sixteench_channel_count: 13,
+            content_description: 0b011,
+            lfe_only: true,
+            isf_index: 4,
+            ..ExtraChannelMeaning::default()
+        };
+        let err = program_from_extra(&short).unwrap_err().to_string();
+        assert!(err.contains("16") && err.contains("14"), "{err}");
+        // LFE and SR7.5.3.0: exactly 16
+        let fits = ExtraChannelMeaning {
+            sixteench_channel_count: 15,
+            ..short
+        };
+        let p = program_from_extra(&fits).unwrap();
+        assert_eq!(p.elements(), 16);
     }
 
     fn sink_options(adm: bool) -> Options {

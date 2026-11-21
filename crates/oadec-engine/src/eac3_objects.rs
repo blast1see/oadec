@@ -34,7 +34,10 @@ use crate::integrity::{Findings, Verdict};
 /// Samples the core decoder emits before the first frame's audio proper (the
 /// first block's half window). The Dolby decoder drops them; the metadata
 /// timing counts from the first frame's first sample as it does.
-const DECODER_DELAY: usize = 256;
+///
+/// Public so that a test can work out from the constants, before it looks at
+/// any sample, where an object and the core channel it was made of meet.
+pub const DECODER_DELAY: usize = 256;
 
 /// Samples a change of the clip gain takes: the first block of a frame.
 const CLIP_GAIN_RAMP: usize = 256;
@@ -505,11 +508,17 @@ impl Pipeline {
             }
         }
         if joc_inputs.contains(&usize::MAX) {
-            bail!(
-                "the programme channels {:?} do not cover the {}-channel JOC downmix",
-                chans.iter().map(|c| c.name()).collect::<Vec<_>>(),
-                joc.num_channels
-            );
+            return Err(MissingDownmix {
+                dmx_config: joc.dmx_config,
+                missing: joc_inputs
+                    .iter()
+                    .enumerate()
+                    .filter(|&(_, &coded)| coded == usize::MAX)
+                    .map(|(i, _)| ChannelLoc::joc_input_name(joc.dmx_config, i).unwrap_or("?"))
+                    .collect(),
+                channels: chans.iter().map(|c| c.name()).collect(),
+            }
+            .into());
         }
         let lfe = chans.iter().position(|c| *c == ChannelLoc::Lfe);
         // element order: beds, then ISF, then dynamic objects (as the program lists them)
@@ -873,6 +882,193 @@ impl Tally {
         f.first_problem(self.first_error.as_deref().or(stats.first_error.as_deref()));
         f
     }
+}
+
+/// The programme of a stream does not carry every channel its JOC downmix
+/// configuration needs (TS 103 420 table 47).
+///
+/// Raised by the object decode in place of the bare message it used to give,
+/// so that what is missing is named in the words of table 47 and a caller can
+/// tell this refusal from any other.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MissingDownmix {
+    /// `joc_dmx_config_idx`.
+    pub dmx_config: u8,
+    /// The table 47 names of the downmix channels no programme channel feeds,
+    /// in table order (`"Lb"`, `"Tfl"`, ...).
+    pub missing: Vec<&'static str>,
+    /// The programme channels as coded, by their TS 102 366 names.
+    pub channels: Vec<&'static str>,
+}
+
+impl fmt::Display for MissingDownmix {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "JOC downmix configuration {} needs {}, which the programme channels {:?} do not carry",
+            self.dmx_config,
+            self.missing.join(", "),
+            self.channels
+        )
+    }
+}
+
+impl std::error::Error for MissingDownmix {}
+
+/// The JOC objects of an E-AC-3 stream as samples, decoded the way the object
+/// output decodes them but held in memory and without Object Audio Metadata:
+/// every object the payload carries, in payload order, and the LFE beside
+/// them. What the tests of the downmix configurations read; it writes nothing
+/// and changes nothing the DAMF and ADM outputs write.
+#[derive(Debug, Clone)]
+pub struct JocPcm {
+    /// Sample rate.
+    pub rate: u32,
+    /// `joc_dmx_config_idx` of the first payload.
+    pub dmx_config: u8,
+    /// The programme channels as coded.
+    pub channels: Vec<ChannelLoc>,
+    /// The programme channel each JOC downmix input is taken from, in the
+    /// order of table 47.
+    pub inputs: Vec<usize>,
+    /// The core decode of every programme channel, the first
+    /// [`DECODER_DELAY`] samples dropped and no clip gain applied: what the
+    /// objects are made of.
+    pub core: Vec<Vec<f64>>,
+    /// Every JOC object, aligned with `core` sample for sample by the delays
+    /// the decode drops (`object_delay`).
+    pub objects: Vec<Vec<f64>>,
+    /// The LFE as the object programme carries it (clip gain applied), when
+    /// the core has one.
+    pub lfe: Option<Vec<f64>>,
+    /// Samples dropped at the head of every object: [`DECODER_DELAY`], the
+    /// analysis and synthesis banks and the hold of the low-band operator.
+    pub object_delay: usize,
+    /// Frame groups decoded.
+    pub frames: u64,
+    /// Frames whose sequence counter said the stream was spliced.
+    pub splices: u64,
+}
+
+/// Decodes the JOC objects of an E-AC-3 stream into memory with the pipeline
+/// of [`write`], taking every object the first payload declares and no
+/// programme from metadata.
+///
+/// # Errors
+/// What [`write`] refuses, and [`MissingDownmix`] (as the error's source)
+/// when the programme does not carry the downmix.
+pub fn joc_pcm(source: &crate::source::Source, opts: &Options) -> Result<JocPcm> {
+    let mut decoder = ProgramDecoder::new(opts.core);
+    let mut pipeline: Option<Pipeline> = None;
+    let mut channels: Vec<ChannelLoc> = Vec::new();
+    let mut core: Vec<Vec<f64>> = Vec::new();
+    let mut dmx_config = 0u8;
+    let mut lfe_element = false;
+    let mut rate = 48_000u32;
+    let mut core_samples = 0usize;
+
+    let mut handle = |frame: &ProgramFrame| -> Result<()> {
+        rate = frame.core().header.sample_rate;
+        let payloads = frame_payloads(
+            &frame.metadata_part().decoded.skip_fields,
+            if opts.sparse_as_printed {
+                SparseReading::AsPrinted
+            } else {
+                SparseReading::Measured
+            },
+            false,
+        );
+        if pipeline.is_none() {
+            let Some(header) = payloads
+                .joc
+                .as_ref()
+                .map(Joc::header)
+                .or(payloads.joc_reserved)
+            else {
+                bail!("the first frame carries no JOC payload");
+            };
+            channels.clone_from(&frame.layout.channels);
+            lfe_element = channels.contains(&ChannelLoc::Lfe);
+            // every object the payload declares, and the LFE as a bed
+            let program = Program {
+                beds: if lfe_element {
+                    vec![vec![BedChannel::LFE]]
+                } else {
+                    Vec::new()
+                },
+                isf_index: None,
+                isf_objects: 0,
+                dynamic_objects: header.num_objects,
+            };
+            pipeline = Some(Pipeline::new(
+                &header,
+                &program,
+                &channels,
+                opts.clip_gain,
+                opts.flat_quadrature,
+                if opts.steep_as_printed {
+                    SteepReading::AsPrinted
+                } else {
+                    SteepReading::Measured
+                },
+                &opts.joc,
+                &mut io::sink(),
+            )?);
+            dmx_config = header.dmx_config;
+            core = vec![Vec::new(); channels.len()];
+        }
+        let pl = pipeline.as_mut().expect("created above");
+        let pcm: Vec<&[f32]> = (0..frame.channels()).map(|i| frame.channel(i)).collect();
+        for (to, from) in core.iter_mut().zip(&pcm) {
+            to.extend(from.iter().map(|&v| f64::from(v)));
+        }
+        pl.frame(&pcm, payloads.joc.as_ref());
+        core_samples += frame.samples();
+        Ok(())
+    };
+    for_each_frame(source, |_offset, bytes, header| {
+        decoder.push(bytes, header)?;
+        while let Some(frame) = decoder.pop() {
+            handle(&frame)?;
+        }
+        Ok(())
+    })?;
+    decoder.finish()?;
+    while let Some(frame) = decoder.pop() {
+        handle(&frame)?;
+    }
+    let _ = &mut handle;
+    let Some(mut pl) = pipeline else {
+        bail!("no decodable frames");
+    };
+    pl.flush();
+    // as long as the core less the decoder delay, as `write` makes it
+    let target = core_samples.saturating_sub(DECODER_DELAY);
+    let mut elements: Vec<Vec<f64>> = pl
+        .queues
+        .iter_mut()
+        .map(|q| {
+            let mut v: Vec<f64> = q.drain(..).collect();
+            v.resize(target, 0.0);
+            v
+        })
+        .collect();
+    let lfe = lfe_element.then(|| elements.remove(0));
+    for c in &mut core {
+        c.drain(..DECODER_DELAY.min(c.len()));
+    }
+    Ok(JocPcm {
+        rate,
+        dmx_config,
+        channels,
+        inputs: pl.joc_inputs.clone(),
+        core,
+        objects: elements,
+        lfe,
+        object_delay: DECODER_DELAY + DELAY + pl.low_delay,
+        frames: pl.frames,
+        splices: pl.splices,
+    })
 }
 
 /// What a decode of the objects of an E-AC-3 JOC stream wrote.

@@ -210,6 +210,15 @@ impl Decoder {
         self.decorrelation_status = status.unwrap_or(Status::NotApplied(NotApplied::NoCoupling));
     }
 
+    /// Feeds the enhanced coupling synthesis of the full ATSC reading
+    /// ([`crate::frame::Options::ecpl_full`]) `values` instead of its own
+    /// de-correlation values. A test hook for the comparison with
+    /// `tools/ecpl_reference.py`; it changes nothing on the default path.
+    #[doc(hidden)]
+    pub fn set_ecpl_random(&mut self, values: ecpl::RandomValues) {
+        self.ecpl = ecpl::Synth::with_random_values(values);
+    }
+
     /// Forgets the overlap history and any held frame (after a splice or an
     /// error). Drain [`Decoder::flush`] first if the held frame is wanted.
     pub fn reset(&mut self) {
@@ -279,6 +288,7 @@ impl Decoder {
             blocks: vec![silence; usize::from(header.blocks)],
             skip_fields: Vec::new(),
             skip_bits: Vec::new(),
+            skipflde_bit: None,
             coverage: Coverage::default(),
             end_bit: 0,
             crc_ok: bytes.len() >= header.frame_bytes && crc_ok(bytes, header),
@@ -350,6 +360,11 @@ impl Decoder {
         let pcm = if self.opts.samples {
             if frame.blocks.iter().any(|b| b.ecpl.is_some()) {
                 self.synthesize_ecpl(&mut frame.blocks, next);
+            } else {
+                // A frame without enhanced coupling (standard coupling, or a
+                // concealed frame) is a predecessor of zeros for the next
+                // block that has it (clause E.3.5.5.1).
+                self.ecpl.skip_block();
             }
             let mut pcm: Vec<Vec<f32>> = (0..nch).map(|_| Vec::with_capacity(samples)).collect();
             let mut out = [0.0f64; N];

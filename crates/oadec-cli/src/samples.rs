@@ -352,7 +352,7 @@ pub(crate) fn decode(asked: Asked, err: &mut dyn Write) -> Result<ExitCode> {
 
 /// The report of a decode as `--json` and `--report` write it. It holds no
 /// time, so the report of a stream is the same on every run.
-fn report(
+pub(crate) fn report(
     name: &str,
     wave: bool,
     end: &StreamEnd,
@@ -445,7 +445,7 @@ fn report(
     report
 }
 
-fn sample_name(sample: oadec_engine::api::WavSample) -> &'static str {
+pub(crate) fn sample_name(sample: oadec_engine::api::WavSample) -> &'static str {
     match sample {
         oadec_engine::api::WavSample::Int24 => "s24le",
         oadec_engine::api::WavSample::Float32 => "f32le",
