@@ -9,9 +9,13 @@
 #   tools/media_regression.sh [media-directory] [log-directory]
 #
 # The media directory defaults to $OADEC_MEDIA, the log directory to
-# media-regression/ beside it. The ADM stages are run when the Python
-# environment of docs/audit/adm is there, and skipped, not failed, when it is
-# not: they need Dolby's tools.
+# media-regression/ beside it. The ADM stage needs the Python environment of
+# docs/audit/adm in the media directory. Where that is missing the stage could
+# not run, and a run in which a stage could not run is not a pass: the script
+# names it and exits 3, as the gates under it do, where every other step passed.
+#
+# Exit codes: 0 every step passed; 1 a step failed; 2 no media directory;
+# 3 no step failed, and at least one could not run.
 set -u
 MEDIA=${1:-${OADEC_MEDIA:-}}
 if [ -z "$MEDIA" ] || [ ! -d "$MEDIA" ]; then
@@ -22,6 +26,7 @@ fi
 LOGS=${2:-$MEDIA/media-regression}
 mkdir -p "$LOGS"
 FAILED=()
+COULD_NOT_RUN=()
 step() {
   local name=$1
   shift
@@ -75,12 +80,19 @@ if [ -x "$ADM_PY" ]; then
   step adm-harness "$ADM_PY" docs/audit/adm-remediation/tools/run_remediation.py \
     --repo . --work "$LOGS/adm" --media "$MEDIA" --stage harness
 else
-  echo "adm-harness            skipped      (no $ADM_PY)"
+  echo "adm-harness            could not run (no $ADM_PY)"
+  COULD_NOT_RUN+=("adm-harness")
 fi
 
-if [ ${#FAILED[@]} -eq 0 ]; then
-  echo "all media checks passed"
-  exit 0
+if [ ${#FAILED[@]} -ne 0 ]; then
+  echo "failed: ${FAILED[*]}"
+  [ ${#COULD_NOT_RUN[@]} -eq 0 ] || echo "could not run: ${COULD_NOT_RUN[*]}"
+  exit 1
 fi
-echo "failed: ${FAILED[*]}"
-exit 1
+if [ ${#COULD_NOT_RUN[@]} -ne 0 ]; then
+  echo "could not run: ${COULD_NOT_RUN[*]}"
+  echo "no step failed, and this is not a pass"
+  exit 3
+fi
+echo "all media checks passed"
+exit 0

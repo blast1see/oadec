@@ -128,6 +128,17 @@ Semantic Versioning.
   from it in two lines of the pseudo-code, the signs of the two chaos terms;
   `docs/eac3.md` quotes both. The default decode, the one Dolby's decoders
   were measured to make, is unchanged.
+- **`tools/media_regression.sh` does not pass over a step that could not
+  run.** Where the Python environment of the ADM audit is not in the media
+  directory the ADM stage was printed as skipped and the run ended 0. It is
+  now named as a step that could not run and the run ends with exit code 3,
+  unless a step failed, which is still 1.
+- **The README and the audit documents say what was measured last.** The
+  JOC object figures are those of the 127 library tracks and not of
+  September; enhanced coupling is described by its three rows of the
+  conformance matrix, one of them not met; the ADM matrix of the September
+  audit is marked as that. The libFuzzer runs of all fourteen targets are
+  recorded (`docs/audit/evidence/round-5-2026-11/p0-libfuzzer-runs.json`).
 
 ### Fixed
 
