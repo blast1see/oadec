@@ -768,6 +768,63 @@ def load_thresholds(path: Path | None) -> dict:
     return th
 
 
+def calibrated(path: Path | None) -> bool:
+    """Whether a candidate held in the calibration: if none did, the tool's
+    classes are descriptions and no verdict may be read from them."""
+    p = path or CALIBRATION
+    return p.exists() and bool(json.loads(p.read_text(encoding="utf-8")).get("chosen"))
+
+
+WAVE_51 = ("L", "R", "C", "LFE", "Ls", "Rs")
+
+
+def cross_check(grid: Grid, result: dict, core_path: Path, th: dict) -> dict:
+    """Step 3: the reference decoder's core (`out-ch-config=7`, six channels
+    in WAVE order, starting where our dumped core starts) less ours, with our
+    clip gain, our analysis and quadrature and our matrix, through the round
+    trip: what the core difference alone makes of the objects. A cell the fit
+    calls `core` whose residual is more than cross_db from it becomes
+    `inconsistent`. Changes `result` in place."""
+    ref = read_reference(core_path, len(WAVE_51))
+    ix = grid.index
+    names = ix["core_channels"]
+    ours = np.asarray(grid.tap["pcm_core"])
+    if len(names) != len(WAVE_51) or set(names) != set(WAVE_51):
+        return {"done": False, "why": f"the core is {names}, the check reads 5.1 only"}
+    n = min(len(ours), len(ref))
+    delta = np.zeros((n, len(names)))
+    for i, name in enumerate(names):
+        delta[:, i] = ref[:n, WAVE_51.index(name)] - ours[:n, i]
+    total = grid.slots * N
+    gain = qmf.clip_gain_curve(ix, total)
+    op = qmf.read_operator(qmf.EVIDENCE_49)
+    dx = np.zeros_like(grid.downmix)
+    for kch, coded in enumerate(ix["inputs"]):
+        xx = np.zeros(total)
+        m = min(n, total - qmf.DECODER_DELAY)
+        xx[qmf.DECODER_DELAY: qmf.DECODER_DELAY + m] = delta[:m, coded]
+        carry = ix["carry"][kch]
+        dx[:, kch] = qmf.quadrature(qmf.analysis(xx * gain, grid.window), carry.startswith("Shifted"), op,
+                                    "plus: true" in carry)
+    c = np.einsum("tocs,tcs->tos", grid.matrix(), dx)
+    seen = grid.transform(synthesise_into(grid, c))
+    cl = result["cells"]
+    w = result["window_slots"]
+    first = result["first_slot"]
+    windows = result["windows"]
+    sw = (np.abs(seen[first: first + windows * w]) ** 2).reshape(windows, w, grid.objects, N)
+    pred = np.array([sw[c_["win"], :, c_["obj"], c_["lo"]:c_["hi"]].mean() for c_ in cl]) if len(cl) else np.zeros(0)
+    core_cells = cl["cls"] == "core"
+    with np.errstate(divide="ignore"):
+        gap = 10 * np.log10(np.maximum(cl["core"], 1e-300) / np.maximum(pred, 1e-300))
+    bad = core_cells & (np.abs(gap) > th["cross_db"])
+    cl["cls"][bad] = "inconsistent"
+    return {"done": True, "core_cells": int(core_cells.sum()), "inconsistent": int(bad.sum()),
+            "gap_db_median": float(np.median(gap[core_cells])) if core_cells.any() else None,
+            "core_difference_dbfs_by_channel": {
+                nm: round(float(10 * np.log10(max(np.mean(delta[:, i] ** 2), 1e-300))), 1) for i, nm in enumerate(names)}}
+
+
 def measure(args, window) -> int:
     th = load_thresholds(args.calibration)
     t0 = time.time()
@@ -786,9 +843,16 @@ def measure(args, window) -> int:
             ref_objects[:n, o] = ref[:n, ch]
     diff_q = grid.transform(ref_objects - grid.pcm)
     result = cells(grid, diff_q, th)
+    cross = None
+    if args.reference_core:
+        cross = cross_check(grid, result, args.reference_core, th)
     summary = summarise(grid, result, diff_q, valid, th)
+    held = calibrated(args.calibration)
+    if not held:
+        summary["whole"]["verdict"] = "no verdict (calibration held no candidate): " + summary["whole"]["verdict"]
     out = {
         "tool": "tools/joc_slot_error.py",
+        "calibrated": held,
         "thresholds": th,
         "calibration_sha256": hashlib.sha256(Path(args.calibration or CALIBRATION).read_bytes()).hexdigest()
         if Path(args.calibration or CALIBRATION).exists() else None,
@@ -797,6 +861,7 @@ def measure(args, window) -> int:
         "bands": result["bands"],
         "windows": result["windows"],
         "summary": summary,
+        "cross_check": cross,
         "seconds": round(time.time() - t0, 1),
     }
     if args.cells:
@@ -956,6 +1021,7 @@ def main() -> int:
     ap.add_argument("--tap", type=Path, action="append", default=[], help="a dump of examples/joc_tap.rs")
     ap.add_argument("--reference", type=Path, help="the reference decoder's objects, f32")
     ap.add_argument("--reference-channels", type=int, default=16)
+    ap.add_argument("--reference-core", type=Path, help="the reference decoder's core (out-ch-config=7), f32")
     ap.add_argument("--calibration", type=Path)
     ap.add_argument("--cells", type=Path, help="write every cell as a .npy")
     ap.add_argument("--out", type=Path)

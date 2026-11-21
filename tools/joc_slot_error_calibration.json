@@ -1,0 +1,270 @@
+{
+ "what": "thresholds of tools/joc_slot_error.py, fixed on our own objects with known faults injected (development clips only), before the tool met a reference decode",
+ "rule": "a candidate holds when its clean runs raise under 1 % false alarms and, in every injected run of every clip, the judged cells with the fault are in the right class 95 % of the time and 95 % of those are within known_answer_db of the fault's size; of the candidates that hold, the one that judges the largest share of the cells with a fault is taken.",
+ "clips": [
+  "fixture joc-clip-gain (development)",
+  "library clip, development group (name kept out of the repository)"
+ ],
+ "chosen": false,
+ "outcome": "no candidate held: no window and rows_per_column kept timing faults in the right class (at best 0.32 of judged cells), and on the library clip matrix faults stayed under 0.95 right class or within known_answer_db; the plan's values are kept and measure marks its output calibrated: false, so no class it gives may be read as a verdict",
+ "thresholds": {
+  "window_slots": 24,
+  "rank_rtol": 1e-06,
+  "kappa_good": 100.0,
+  "kappa_weak": 1000.0,
+  "energy_floor_dbfs": -80.0,
+  "column_range_db": 60.0,
+  "reference_floor_db": 140.0,
+  "leak_margin_db": 20.0,
+  "rows_per_column": 8,
+  "floor_margin_db": 10.0,
+  "chance_margin_db": 6.0,
+  "block_slots": 4,
+  "bootstrap_draws": 200,
+  "known_answer_db": 1.0,
+  "cross_db": 3.0,
+  "unresolved_share": 0.3
+ },
+ "tried": [
+  {
+   "window_slots": 24,
+   "rows_per_column": 8,
+   "holds": false,
+   "judged_share_mean": 0.595,
+   "worst_by_kind": {
+    "clean_false_alarm_max": 0.0,
+    "matrix": {
+     "right_class_min": 0.687,
+     "size_within_min": 0.692,
+     "judged_share_min": 0.411
+    },
+    "timing": {
+     "right_class_min": 0.318,
+     "size_within_min": 0.59,
+     "judged_share_min": 0.373
+    },
+    "core": {
+     "right_class_min": 0.958,
+     "size_within_min": 0.768,
+     "judged_share_min": 0.256
+    }
+   }
+  },
+  {
+   "window_slots": 24,
+   "rows_per_column": 16,
+   "holds": false,
+   "judged_share_mean": 0.335,
+   "worst_by_kind": {
+    "clean_false_alarm_max": 0.0,
+    "matrix": {
+     "right_class_min": 0.915,
+     "size_within_min": 0.81,
+     "judged_share_min": 0.135
+    },
+    "timing": {
+     "right_class_min": 0.234,
+     "size_within_min": 0.436,
+     "judged_share_min": 0.124
+    },
+    "core": {
+     "right_class_min": 0.983,
+     "size_within_min": 0.974,
+     "judged_share_min": 0.085
+    }
+   }
+  },
+  {
+   "window_slots": 24,
+   "rows_per_column": 32,
+   "holds": false,
+   "judged_share_mean": 0.151,
+   "worst_by_kind": {
+    "clean_false_alarm_max": 0.0,
+    "matrix": {
+     "right_class_min": 0.907,
+     "size_within_min": 0.842,
+     "judged_share_min": 0.041
+    },
+    "timing": {
+     "right_class_min": 0.159,
+     "size_within_min": 0.364,
+     "judged_share_min": 0.04
+    },
+    "core": {
+     "right_class_min": 0.997,
+     "size_within_min": 0.998,
+     "judged_share_min": 0.027
+    }
+   }
+  },
+  {
+   "window_slots": 24,
+   "rows_per_column": 64,
+   "holds": false,
+   "judged_share_mean": 0.065,
+   "worst_by_kind": {
+    "clean_false_alarm_max": 0.0,
+    "matrix": {
+     "right_class_min": 0.785,
+     "size_within_min": 0.802,
+     "judged_share_min": 0.009
+    },
+    "timing": {
+     "right_class_min": 0.106,
+     "size_within_min": 0.368,
+     "judged_share_min": 0.008
+    },
+    "core": {
+     "right_class_min": 0.999,
+     "size_within_min": 1.0,
+     "judged_share_min": 0.006
+    }
+   }
+  },
+  {
+   "window_slots": 24,
+   "rows_per_column": 128,
+   "holds": false,
+   "judged_share_mean": 0.028,
+   "worst_by_kind": {
+    "clean_false_alarm_max": 0.0,
+    "matrix": {
+     "right_class_min": 0.693,
+     "size_within_min": 0.784,
+     "judged_share_min": 0.003
+    },
+    "timing": {
+     "right_class_min": 0.054,
+     "size_within_min": 0.267,
+     "judged_share_min": 0.003
+    },
+    "core": {
+     "right_class_min": 0.999,
+     "size_within_min": 1.0,
+     "judged_share_min": 0.002
+    }
+   }
+  },
+  {
+   "window_slots": 48,
+   "rows_per_column": 8,
+   "holds": false,
+   "judged_share_mean": 0.597,
+   "worst_by_kind": {
+    "clean_false_alarm_max": 0.0,
+    "matrix": {
+     "right_class_min": 0.797,
+     "size_within_min": 0.706,
+     "judged_share_min": 0.412
+    },
+    "timing": {
+     "right_class_min": 0.246,
+     "size_within_min": 0.735,
+     "judged_share_min": 0.376
+    },
+    "core": {
+     "right_class_min": 0.98,
+     "size_within_min": 0.965,
+     "judged_share_min": 0.258
+    }
+   }
+  },
+  {
+   "window_slots": 48,
+   "rows_per_column": 16,
+   "holds": false,
+   "judged_share_mean": 0.597,
+   "worst_by_kind": {
+    "clean_false_alarm_max": 0.0,
+    "matrix": {
+     "right_class_min": 0.797,
+     "size_within_min": 0.706,
+     "judged_share_min": 0.412
+    },
+    "timing": {
+     "right_class_min": 0.246,
+     "size_within_min": 0.735,
+     "judged_share_min": 0.376
+    },
+    "core": {
+     "right_class_min": 0.98,
+     "size_within_min": 0.965,
+     "judged_share_min": 0.258
+    }
+   }
+  },
+  {
+   "window_slots": 48,
+   "rows_per_column": 32,
+   "holds": false,
+   "judged_share_mean": 0.336,
+   "worst_by_kind": {
+    "clean_false_alarm_max": 0.0,
+    "matrix": {
+     "right_class_min": 0.945,
+     "size_within_min": 0.827,
+     "judged_share_min": 0.136
+    },
+    "timing": {
+     "right_class_min": 0.102,
+     "size_within_min": 0.391,
+     "judged_share_min": 0.125
+    },
+    "core": {
+     "right_class_min": 0.992,
+     "size_within_min": 1.0,
+     "judged_share_min": 0.086
+    }
+   }
+  },
+  {
+   "window_slots": 48,
+   "rows_per_column": 64,
+   "holds": false,
+   "judged_share_mean": 0.152,
+   "worst_by_kind": {
+    "clean_false_alarm_max": 0.0,
+    "matrix": {
+     "right_class_min": 0.931,
+     "size_within_min": 0.854,
+     "judged_share_min": 0.041
+    },
+    "timing": {
+     "right_class_min": 0.062,
+     "size_within_min": 0.176,
+     "judged_share_min": 0.04
+    },
+    "core": {
+     "right_class_min": 0.999,
+     "size_within_min": 1.0,
+     "judged_share_min": 0.027
+    }
+   }
+  },
+  {
+   "window_slots": 48,
+   "rows_per_column": 128,
+   "holds": false,
+   "judged_share_mean": 0.065,
+   "worst_by_kind": {
+    "clean_false_alarm_max": 0.0,
+    "matrix": {
+     "right_class_min": 0.826,
+     "size_within_min": 0.796,
+     "judged_share_min": 0.008
+    },
+    "timing": {
+     "right_class_min": 0.033,
+     "size_within_min": 0.286,
+     "judged_share_min": 0.008
+    },
+    "core": {
+     "right_class_min": 0.999,
+     "size_within_min": 1.0,
+     "judged_share_min": 0.006
+    }
+   }
+  }
+ ]
+}
