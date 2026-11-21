@@ -216,8 +216,7 @@ impl Decoder {
     /// `tools/ecpl_reference.py`; it changes nothing on the default path.
     #[doc(hidden)]
     pub fn set_ecpl_random(&mut self, values: ecpl::RandomValues) {
-        let _ = values;
-        unimplemented!("P3 stop 2: the hook is the contract of stop 1")
+        self.ecpl = ecpl::Synth::with_random_values(values);
     }
 
     /// Forgets the overlap history and any held frame (after a splice or an

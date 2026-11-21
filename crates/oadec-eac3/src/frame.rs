@@ -291,9 +291,39 @@ impl EcplBlock {
         chans: Vec<Option<EcplChannel>>,
         coeffs: [f64; N],
     ) -> crate::Result<Self> {
-        let _ = (begin, end, bndstrc, angle_interp, chans, coeffs);
-        unimplemented!("P3 stop 2: the constructor is the contract of stop 1")
+        if begin >= end || end >= ECPL_SUBBAND_TABLE.len() {
+            return Err(Eac3Error::Syntax("enhanced coupling region out of range"));
+        }
+        let Some(first_ch) = chans.iter().position(Option::is_some) else {
+            return Err(Eac3Error::Syntax(
+                "enhanced coupling with no coupled channel",
+            ));
+        };
+        Ok(Self {
+            start: usize::from(ECPL_SUBBAND_TABLE[begin]),
+            end: usize::from(ECPL_SUBBAND_TABLE[end]),
+            bands: ecpl_band_layout(begin, end, bndstrc),
+            angle_interp,
+            first_ch,
+            chans,
+            coeffs,
+        })
     }
+}
+
+/// The `(first_bin, end_bin)` of every enhanced coupling band of the region
+/// `begin..end` in sub-bands (clause E.3.5.5.2). A sub-band joins the band
+/// before it where `ecplbndstrc` says so, except up to and including
+/// `max(begin, 8)`: the syntax never sends those bits, so they are zero
+/// whatever `bndstrc` holds there.
+fn ecpl_band_layout(begin: usize, end: usize, bndstrc: &[bool; 22]) -> Vec<(usize, usize)> {
+    let floor = begin.max(8);
+    let mut starts: Vec<usize> = (begin..end)
+        .filter(|&sbnd| !(sbnd > floor && bndstrc[sbnd]))
+        .map(|sbnd| usize::from(ECPL_SUBBAND_TABLE[sbnd]))
+        .collect();
+    starts.push(usize::from(ECPL_SUBBAND_TABLE[end]));
+    starts.windows(2).map(|w| (w[0], w[1])).collect()
 }
 
 /// One channel's transient pre-noise processing for one frame
@@ -1648,19 +1678,11 @@ impl<'a> Parser<'a> {
     /// `max(ecpl_begin, 8)` never join the previous band, so their structure
     /// bits are known to be zero and are not transmitted.
     fn map_ecpl_bands(&mut self) {
-        let floor = self.ecpl_begin.max(8);
-        let mut n = 0usize;
-        #[allow(
-            clippy::needless_range_loop,
-            reason = "the sub-band index addresses two parallel tables"
-        )]
-        for sbnd in self.ecpl_begin..self.ecpl_end {
-            if !(sbnd > floor && self.ecplbndstrc[sbnd]) {
-                self.ecplbnd_start[n] = usize::from(ECPL_SUBBAND_TABLE[sbnd]);
-                n += 1;
-            }
+        let bands = ecpl_band_layout(self.ecpl_begin, self.ecpl_end, &self.ecplbndstrc);
+        for (n, &(lo, hi)) in bands.iter().enumerate() {
+            self.ecplbnd_start[n] = lo;
+            self.ecplbnd_start[n + 1] = hi;
         }
-        self.ecplbnd_start[n] = usize::from(ECPL_SUBBAND_TABLE[self.ecpl_end]);
     }
 
     /// The `(first_bin, end_bin)` of every enhanced coupling band.

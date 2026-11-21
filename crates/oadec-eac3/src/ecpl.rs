@@ -59,6 +59,9 @@ pub struct Synth {
     /// The source of `rand_trans[ch][bnd]`, redrawn every block. Kept apart
     /// from the dither of clause 6.3.4 so the two do not interleave.
     trans: Noise,
+    /// `rand_trans` given from outside and how far it has been read
+    /// ([`Synth::with_random_values`]); `None` draws from `trans`.
+    given_trans: Option<(Vec<f64>, usize)>,
     /// `y[k] = cos(2 pi (N/4 + 1/2) (k + 1/2) / N)` of clause E.3.5.5.4.
     y: [f64; N],
 }
@@ -89,6 +92,7 @@ impl Synth {
             prev: [0.0; NN],
             notrans,
             trans: Noise::new(0x85EB_CA6B),
+            given_trans: None,
             y,
         }
     }
@@ -98,9 +102,30 @@ impl Synth {
     /// `values.trans` panics.
     #[doc(hidden)]
     #[must_use]
+    ///
+    /// # Panics
+    ///
+    /// When `values.notrans` does not hold `MAX_FBW` rows.
     pub fn with_random_values(values: RandomValues) -> Self {
-        let _ = values;
-        unimplemented!("P3 stop 2: the hook is the contract of stop 1")
+        assert_eq!(values.notrans.len(), MAX_FBW, "one notrans row per channel");
+        let mut synth = Self::new();
+        for (row, given) in synth.notrans.iter_mut().zip(&values.notrans) {
+            *row = *given;
+        }
+        synth.given_trans = Some((values.trans, 0));
+        synth
+    }
+
+    /// The next `rand_trans` value: the given stream's, or the own source's.
+    fn draw_trans(&mut self) -> f64 {
+        match &mut self.given_trans {
+            Some((values, at)) => {
+                let v = values[*at];
+                *at += 1;
+                v
+            }
+            None => self.trans.uniform(),
+        }
     }
 
     /// Forgets the previous block (after a splice or an error).
@@ -163,7 +188,7 @@ impl Synth {
         let nbnd = ecpl.bands.len();
         let mut rand_trans = [0.0f64; 22];
         for v in rand_trans.iter_mut().take(nbnd) {
-            *v = self.trans.uniform();
+            *v = self.draw_trans();
         }
         let mut amp = [0.0f64; 22];
         let mut chaos = [0.0f64; 22];
