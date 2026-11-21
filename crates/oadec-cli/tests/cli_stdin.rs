@@ -390,14 +390,32 @@ const LONG_RUNS: [(&[&str], &[i32]); 6] = [
     (&["au", "--index", "4000000000", "-"], &[2]),
 ];
 
-/// Runs every command of `runs` over `name` over and over, `length` bytes of
-/// it written from here as the command reads it, and holds what the process
-/// held at its most to [`PEAK`]. On a system that cannot be asked for the
-/// memory of a process it says so and holds nothing.
-fn held_within_the_bound(name: &str, runs: &[(&[&str], &[i32])], length: usize) {
-    let once = std::fs::read(fixture(name)).unwrap();
-    for &(args, codes) in runs {
-        let (out, peak) = piped_with_peak(args, |to| {
+/// Whether this system can be asked for the most memory a process has held:
+/// Linux and Windows can, and the tests of it are skipped elsewhere, saying
+/// so.
+fn peak_measurable(test: &str) -> bool {
+    let measurable = cfg!(any(target_os = "linux", windows));
+    if !measurable {
+        eprintln!("{test}: SKIPPED, the memory of a process cannot be asked for on this system");
+    }
+    measurable
+}
+
+/// A command of [`LONG_RUNS`] over a stream that is a fixture over and over.
+type LongRun = (&'static str, &'static [&'static str], &'static [i32]);
+
+/// Runs every command of `runs` over its fixture over and over, `length`
+/// bytes of it written from here as the command reads it, and holds what each
+/// process held at its most to [`PEAK`]. `together` starts them all at once,
+/// each with a thread of its own to write into it: the most a process held is
+/// its own, whatever runs beside it, and the runs take the time of the
+/// longest. A run whose memory could not be asked for says so; a call none of
+/// whose runs could be measured fails, so that the bound is never held by
+/// nothing having been measured.
+fn held_within_the_bound(runs: &[LongRun], length: usize, together: bool) {
+    let run = |&(name, args, _): &LongRun| {
+        let once = std::fs::read(fixture(name)).unwrap();
+        piped_with_peak(args, |to| {
             let mut written = 0;
             while written < length {
                 // a command that refused the stream has stopped reading
@@ -406,7 +424,21 @@ fn held_within_the_bound(name: &str, runs: &[(&[&str], &[i32])], length: usize) 
                 }
                 written += once.len();
             }
-        });
+        })
+    };
+    let ended: Vec<(Output, Option<u64>)> = if together {
+        std::thread::scope(|scope| {
+            let running: Vec<_> = runs.iter().map(|r| scope.spawn(move || run(r))).collect();
+            running
+                .into_iter()
+                .map(|r| r.join().expect("a run"))
+                .collect()
+        })
+    } else {
+        runs.iter().map(run).collect()
+    };
+    let mut measured = 0;
+    for (&(name, args, codes), (out, peak)) in runs.iter().zip(ended) {
         let at = format!("{args:?} of {name}");
         assert!(
             out.status.code().is_some_and(|c| codes.contains(&c)),
@@ -415,33 +447,49 @@ fn held_within_the_bound(name: &str, runs: &[(&[&str], &[i32])], length: usize) 
             text(&out.stderr)
         );
         let Some(peak) = peak else {
-            eprintln!("{at}: the memory of a process cannot be asked for here");
+            eprintln!("{at}: NOT MEASURED, the memory of the process could not be asked for");
             continue;
         };
+        measured += 1;
         eprintln!("{at}: {:.1} MiB at most", peak as f64 / f64::from(1 << 20));
         assert!(peak <= PEAK, "{at}: {} MiB at most", peak >> 20);
     }
+    assert!(
+        measured > 0,
+        "the memory of no run could be measured, and nothing is held to the bound"
+    );
+}
+
+/// The command of [`LONG_RUNS`] over `name` that `args` begins.
+fn long_run(name: &'static str, first: &[&str]) -> LongRun {
+    let (args, codes) = LONG_RUNS
+        .into_iter()
+        .find(|(args, _)| args.starts_with(first))
+        .expect("a run");
+    (name, args, codes)
 }
 
 /// A stream half as long again as the bound, piped in, does not make a report
 /// command hold it: what the process holds at its most stays within [`PEAK`].
-/// Over a TrueHD stream the scan of `verify`, the decodes beside it, the walk
-/// of `emdf` with the checks beside it and the walk of `au`; over an E-AC-3
-/// one, whose frames a build without optimisation parses some ten times
-/// slower, `info`. `info` and `oamd` of TrueHD lend their units to what
-/// `verify` and `emdf` do, and are left to the test of every command, so that
-/// this one takes well under a minute in such a build. Until round 5 the
-/// stream was read whole first, and `info` of 160 MiB held 182 MiB.
+/// Over a TrueHD stream `verify --decode`, the scan of `verify` with the
+/// decodes beside it, and `emdf`, a walk with the checks of `verify` beside
+/// it; over an E-AC-3 one, whose frames a build without optimisation parses
+/// some ten times slower, `info`. The other commands lend their units to the
+/// same pass and are left to the test of every command. The three run at
+/// once, so that the test takes the time of the longest, some twenty seconds
+/// in such a build. Until round 5 the stream was read whole first, and `info`
+/// of 160 MiB held 182 MiB.
 #[test]
 fn a_long_stream_piped_into_a_report_is_not_held_whole() {
-    const LENGTH: usize = 96 << 20;
-    let truehd: Vec<_> = LONG_RUNS
-        .iter()
-        .copied()
-        .filter(|(args, _)| !matches!(args[0], "info" | "oamd"))
-        .collect();
-    held_within_the_bound("truehd-51-88k.thd", &truehd, LENGTH);
-    held_within_the_bound("authored-scene.ec3", &LONG_RUNS[..1], LENGTH);
+    if !peak_measurable("a_long_stream_piped_into_a_report_is_not_held_whole") {
+        return;
+    }
+    let runs = [
+        long_run("truehd-51-88k.thd", &["verify", "--json", "--decode"]),
+        long_run("truehd-51-88k.thd", &["emdf"]),
+        long_run("authored-scene.ec3", &["info"]),
+    ];
+    held_within_the_bound(&runs, 96 << 20, true);
 }
 
 /// [`a_long_stream_piped_into_a_report_is_not_held_whole`], every command
@@ -450,9 +498,14 @@ fn a_long_stream_piped_into_a_report_is_not_held_whole() {
 #[test]
 #[ignore = "about ten minutes in a debug build: every report command over 160 MiB of each codec"]
 fn every_report_of_a_long_stream_piped_in_is_held_within_the_bound() {
-    for name in ["truehd-51-88k.thd", "authored-scene.ec3"] {
-        held_within_the_bound(name, &LONG_RUNS, 160 << 20);
+    if !peak_measurable("every_report_of_a_long_stream_piped_in_is_held_within_the_bound") {
+        return;
     }
+    let runs: Vec<LongRun> = ["truehd-51-88k.thd", "authored-scene.ec3"]
+        .into_iter()
+        .flat_map(|name| LONG_RUNS.map(|(args, codes)| (name, args, codes)))
+        .collect();
+    held_within_the_bound(&runs, 160 << 20, false);
 }
 
 /// [`every_report_of_a_long_stream_piped_in_is_held_within_the_bound`] of a
@@ -525,5 +578,174 @@ fn a_stream_cut_off_in_a_pipe_is_judged_as_the_file_it_ends_in() {
         // verify at least calls a stream cut inside a unit unclean
         assert!(judged >= 1, "{name}: nothing was judged unclean");
     }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// What a command printed in text on one of its outputs, with `<stdin>`
+/// where the path of the file stood, and without the line that says how long
+/// the run took. Every other byte is kept.
+fn timeless(bytes: &[u8], path: &str) -> String {
+    let mut kept = String::new();
+    for line in text(bytes).lines() {
+        if line.to_ascii_lowercase().starts_with("speed:") {
+            continue;
+        }
+        kept.push_str(&line.replace(path, STDIN));
+        kept.push('\n');
+    }
+    kept
+}
+
+/// `<stdin>` for every string of a report in JSON that is the path.
+fn renamed(value: &mut Value, path: &str) {
+    match value {
+        Value::Object(map) => map.values_mut().for_each(|v| renamed(v, path)),
+        Value::Array(items) => items.iter_mut().for_each(|v| renamed(v, path)),
+        Value::String(s) if s == path => *s = STDIN.to_string(),
+        _ => {}
+    }
+}
+
+/// Gives `into` the clock of `from`: the number of every `seconds` and
+/// `realtime_factor` that both reports have at the same place. Nothing else
+/// is touched, so two reports that are then equal differ in nothing else.
+fn clocked_as(into: &mut Value, from: &Value) {
+    match (into, from) {
+        (Value::Object(into), Value::Object(from)) => {
+            for (key, value) in into.iter_mut() {
+                let Some(theirs) = from.get(key) else {
+                    continue;
+                };
+                if matches!(key.as_str(), "seconds" | "realtime_factor")
+                    && value.is_number()
+                    && theirs.is_number()
+                {
+                    *value = theirs.clone();
+                } else {
+                    clocked_as(value, theirs);
+                }
+            }
+        }
+        (Value::Array(into), Value::Array(from)) => {
+            for (value, theirs) in into.iter_mut().zip(from) {
+                clocked_as(value, theirs);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// A run of a stream piped in told what the run of its file told: the same
+/// exit code, and on each output the same text but for the name and the
+/// line of the clock, or, where an output is a report in JSON, the same
+/// report but for the name and the numbers of the clock.
+fn told_alike(by_pipe: &Output, by_file: &Output, path: &str, at: &str) {
+    assert_eq!(by_pipe.status.code(), by_file.status.code(), "{at}");
+    for (pipe, file, which) in [
+        (&by_pipe.stdout, &by_file.stdout, "stdout"),
+        (&by_pipe.stderr, &by_file.stderr, "stderr"),
+    ] {
+        let reports = (
+            serde_json::from_slice::<Value>(pipe),
+            serde_json::from_slice::<Value>(file),
+        );
+        if let (Ok(mut pipe), Ok(mut file)) = reports {
+            renamed(&mut file, path);
+            clocked_as(&mut pipe, &file);
+            assert_eq!(pipe, file, "{at}: {which}");
+        } else {
+            assert_eq!(timeless(pipe, path), timeless(file, path), "{at}: {which}");
+        }
+    }
+}
+
+/// A stream longer than one read of four megabytes, piped in, is told what
+/// its file is told, byte for byte but for the name and the clock: the read
+/// that ends inside a unit and the next that goes on with it frame the units
+/// a file of the stream is framed into, for TrueHD and for E-AC-3, whose
+/// syncframes are cut where the reads of a file would cut them.
+#[test]
+fn a_stream_longer_than_a_read_piped_in_is_told_what_its_file_is_told() {
+    let dir = temp("longer");
+    for name in ["truehd-51-88k.thd", "authored-scene.ec3"] {
+        let once = std::fs::read(fixture(name)).unwrap();
+        // six megabytes and a part of a unit: the first read of four ends
+        // inside a unit, and the stream ends inside one
+        let mut bytes = once.repeat((6 << 20) / once.len() + 2);
+        bytes.truncate(bytes.len() - once.len() / 3 - 7);
+        assert!(bytes.len() > 6 << 20);
+        let file = dir.join(format!("long-{name}"));
+        std::fs::write(&file, &bytes).unwrap();
+        let file = file.to_str().unwrap();
+        for command in [
+            vec!["verify", "--json"],
+            vec!["verify"],
+            vec!["emdf", "--json"],
+        ] {
+            let (mut of_file, mut of_pipe) = (command.clone(), command.clone());
+            of_file.push(file);
+            of_pipe.push("-");
+            let (by_file, by_pipe) = (oadec(&of_file), piped(&of_pipe, &bytes));
+            let at = format!("{command:?} {name}");
+            told_alike(&by_pipe, &by_file, file, &at);
+            assert!(!by_file.stdout.is_empty(), "{at}");
+        }
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// The options of `verify`, and the ones a codec refuses, end a run of a
+/// stream piped in as they end a run of its file: with the same exit code
+/// and the same words, and `--trace-fifo` with the same trace.
+#[test]
+fn the_options_of_verify_and_their_refusals_are_those_of_a_file() {
+    let dir = temp("options");
+    let trace = dir.join("trace.csv");
+    let trace_name = trace.to_str().unwrap().to_string();
+    // a stream cut short has findings for the limits to list
+    let truehd = std::fs::read(fixture("truehd-51-88k.thd")).unwrap();
+    let cut = dir.join("cut.thd");
+    std::fs::write(&cut, &truehd[..truehd.len() / 2 + 17]).unwrap();
+    let mut asked = 0;
+    for path in [
+        fixture("truehd-51-88k.thd"),
+        cut,
+        fixture("authored-scene.ec3"),
+    ] {
+        let name = path.to_str().unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        for options in [
+            vec!["--census"],
+            vec!["--trace-fifo", &trace_name],
+            vec!["--require-disc", "bd"],
+            vec!["--require-disc", "dvda"],
+            vec!["--programme", "1"],
+            vec!["--fail-on", "warning"],
+            vec!["--fail-on", "info"],
+            vec!["--max-per-rule", "0"],
+            vec!["--max-per-rule", "1"],
+        ] {
+            for json in [false, true] {
+                let mut command = vec!["verify"];
+                command.extend(&options);
+                if json {
+                    command.push("--json");
+                }
+                let (mut of_file, mut of_pipe) = (command.clone(), command.clone());
+                of_file.push(name);
+                of_pipe.push("-");
+                let _ = std::fs::remove_file(&trace);
+                let by_file = oadec(&of_file);
+                let traced = std::fs::read(&trace).ok();
+                let _ = std::fs::remove_file(&trace);
+                let by_pipe = piped(&of_pipe, &bytes);
+                let at = format!("{command:?} {name}");
+                told_alike(&by_pipe, &by_file, name, &at);
+                assert_eq!(std::fs::read(&trace).ok(), traced, "{at}: the trace");
+                asked += 1;
+            }
+        }
+    }
+    assert_eq!(asked, 3 * 9 * 2);
     std::fs::remove_dir_all(&dir).ok();
 }

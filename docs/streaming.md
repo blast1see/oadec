@@ -52,8 +52,9 @@ standard input.
 ## The reports of a stream read once
 
 `info`, `verify`, `emdf`, `oamd` and `au` read standard input once, on the
-thread that runs the command, and hold nothing of it that grows with the
-stream:
+thread that runs the command, and hold no copy of it: what they hold is
+bounded but for what a report keeps of every unit, which is small and grows
+with the length of the stream (below):
 
 ```text
 mkvextract tracks input.mkv 1:/dev/stdout | oadec verify -
@@ -73,12 +74,38 @@ bytes, but for the name: the stream is `<stdin>`.
 
 What a run holds is a read of four megabytes, the head, and what the report
 keeps: the findings, which are listed in full up to a limit and counted past
-it. A test pipes 96 MiB into the commands and holds each to 64 MiB; a TrueHD
-or E-AC-3 stream of that length is read in 12 to 15 MiB. Two things a report
-keeps grow with the stream, from a file as from a pipe: the decoder-buffer
-trace of `verify --trace-fifo`, a row for every access unit (some hundred
-bytes each, written when the stream has ended), and the event times `emdf`
-keeps of an E-AC-3 stream, eight bytes for each block of object metadata.
+it. Measured in a release build on an idle machine, the most memory a run
+held was 17.1 MiB for `info`, `verify`, `emdf` and `oamd` of a TrueHD stream
+of 2.6 GB (16.8 MiB for `au`), and 17.3 to 17.5 MiB for an E-AC-3 stream of
+some 500 MB; read whole first, as before, they held 2 505 to 2 514 MiB and
+485 to 490 MiB. A test pipes 96 MiB into the commands and holds each to
+64 MiB. What was measured is the most the process had held when the last
+byte had been written into the pipe and before the pipe was closed: what the
+command does once it has read the end (the last checks, the decodes of
+`verify --decode` ending, the report being put together and printed) is not
+in it.
+
+The memory of a run is bounded but for these, which grow with the stream,
+from a file as from a pipe:
+
+- the event times `emdf` keeps of an E-AC-3 stream, eight bytes for each
+  block of object metadata, of which it prints the first 24: some 250 bytes
+  for every second of a stream that carries a block in every frame, under
+  3 MB for three hours (twice that at most while the list grows);
+- the decoder-buffer trace of `verify --trace-fifo`, a row for every access
+  unit (some hundred bytes each, written when the stream has ended);
+- the findings of `verify --max-per-rule 0`, which lists every finding in
+  full: a damaged stream may have one in every unit.
+
+The last two are asked for, and are outside the bound of 64 MiB.
+
+A known limit: `emdf` and `oamd` of an E-AC-3 stream take longer from a pipe
+than from a file, 8.4 s against 4.6 s for the stream of some 500 MB above
+(1.8 times; `info` and `verify` of it, and every command of a TrueHD stream,
+take the same time from both). A file is read twice, the walk of the report
+and the checks of `verify` each on a thread of its own, at the same time; a
+pipe is read once, and each syncframe goes through the walk and then the
+checks on the one thread.
 
 `verify --decode` of a TrueHD stream decodes every presentation the stream
 carries on a thread of its own, beside the scan, as it does for a file; the
