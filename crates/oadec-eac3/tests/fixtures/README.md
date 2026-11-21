@@ -1,8 +1,10 @@
 # AC-3 and E-AC-3 fixtures: a dependent substream, and coupling
 
-Three short streams of generated signals, for what the authored scene under
+Four short streams of generated signals, for what the authored scene under
 `crates/oadec-cli/tests/fixtures` does not carry: a programme of more than 5.1
-channels, a stereo programme, and AC-3. Nothing here is taken from a title.
+channels, a stereo programme, AC-3, and a 5.1.2 JOC stream with an AC-3 core
+and height channels, the carrier of the JOC downmix configuration 2 and 4
+tests. Nothing here is taken from a title.
 
 They stand in a folder of their own because the tests of the command line walk
 every stream under their fixtures and hold the list to what it was.
