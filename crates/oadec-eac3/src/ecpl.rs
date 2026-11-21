@@ -225,7 +225,8 @@ impl Synth {
                     } else {
                         self.notrans[ch][bin]
                     };
-                    let mut ang = angle_bin[bin] + chaos[bnd] * r;
+                    // clause E.2.5.5.3 (V1.2.1): `angle += -chaos * rand`
+                    let mut ang = angle_bin[bin] - chaos[bnd] * r;
                     if ang < -1.0 {
                         ang += 2.0;
                     } else if ang >= 1.0 {
