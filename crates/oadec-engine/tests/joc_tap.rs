@@ -194,3 +194,32 @@ fn reset_banks_changes_only_what_follows_a_splice() {
     let resets: Vec<_> = kept.resets.clone();
     assert_eq!(resets, [first], "the tap saw the splice frame");
 }
+
+/// A dump that fails leaves nothing half written. A stream without JOC is
+/// refused after the planes of the dump were made: they are removed, and so
+/// is the directory the call made; one that was there stays, empty.
+#[test]
+fn a_dump_that_fails_leaves_nothing_behind() {
+    use oadec_engine::eac3_objects::tap_to_dir;
+    let stream = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../oadec-cli/tests/fixtures/authored-scene.mlp");
+    let root = std::env::temp_dir().join(format!("oadec-joc-tap-fails-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+
+    let made = root.join("made");
+    let source = Source::file(&stream);
+    assert!(tap_to_dir(&source, &made, &Options::default(), TapOptions::default()).is_err());
+    assert!(!made.exists(), "the directory the dump made was left");
+
+    let there = root.join("there");
+    std::fs::create_dir_all(&there).unwrap();
+    assert!(tap_to_dir(&source, &there, &Options::default(), TapOptions::default()).is_err());
+    assert_eq!(std::fs::read_dir(&there).unwrap().count(), 0);
+
+    // and files that were there are not a dump's to write over or remove
+    std::fs::write(there.join("kept"), b"kept").unwrap();
+    assert!(tap_to_dir(&source, &there, &Options::default(), TapOptions::default()).is_err());
+    assert_eq!(std::fs::read(there.join("kept")).unwrap(), b"kept");
+    std::fs::remove_dir_all(&root).unwrap();
+}

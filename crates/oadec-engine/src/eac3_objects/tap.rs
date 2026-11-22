@@ -229,7 +229,10 @@ fn interleaved(path: &Path, columns: &[&[f64]]) -> std::io::Result<()> {
 ///
 /// Slots run from the first slot of the first frame; an object sample `i` is
 /// synthesis output sample `i + object_delay`. The decode is one of its own:
-/// it writes no object output and changes none.
+/// it writes no object output and changes none. It holds the objects and the
+/// core of the whole stream as f64 until it has written them, some 8 bytes a
+/// sample a channel and object: a dump is for a clip, not for a film. Where it
+/// fails, the files it wrote are removed.
 ///
 /// # Errors
 /// A directory that holds files, what [`super::joc_pcm`] refuses, and what
@@ -240,13 +243,56 @@ pub fn tap_to_dir(
     opts: &crate::damf::Options,
     measure: TapOptions,
 ) -> Result<()> {
+    check_tap_dir(dir)?;
+    let made = !dir.exists();
+    fs::create_dir_all(dir)?;
+    let done = dump(source, dir, opts, measure);
+    if done.is_err() {
+        // nothing half written is left: the files of a dump, and the
+        // directory where this call made it
+        for name in FILES {
+            let _ = fs::remove_file(dir.join(name));
+        }
+        if made {
+            let _ = fs::remove_dir(dir);
+        }
+    }
+    done
+}
+
+/// The files of a dump.
+const FILES: [&str; 6] = [
+    "downmix.f64",
+    "matrix.f64",
+    "objects.f64",
+    "pcm_objects.f64",
+    "pcm_core.f64",
+    "index.json",
+];
+
+/// Whether a dump can go into `dir`: it holds no files, or is not there yet.
+/// Asked before a decode whose dump follows it, so that the decode is not
+/// made for a dump that is then refused.
+///
+/// # Errors
+/// A directory that holds files, a path that is no directory, or one that
+/// cannot be read.
+pub fn check_tap_dir(dir: &Path) -> Result<()> {
     if dir.exists() && fs::read_dir(dir)?.next().is_some() {
         bail!(
             "{} holds files; a dump goes into an empty directory",
             dir.display()
         );
     }
-    fs::create_dir_all(dir)?;
+    Ok(())
+}
+
+fn dump(
+    source: &crate::source::Source,
+    dir: &Path,
+    opts: &crate::damf::Options,
+    measure: TapOptions,
+) -> Result<()> {
     let mut tap = DirTap::create(dir)?;
     let pcm = super::joc_pcm_tapped(source, opts, measure, &mut tap)?;
     if let Some(e) = tap.error.take() {

@@ -1145,22 +1145,32 @@ where
                             // refused above for E-AC-3
                             on_error: None,
                         };
-                        eac3_objects::run(&source, &output, &options, err).and_then(|verdict| {
-                            // The tap is a decode of its own, after the one
-                            // that wrote the objects: that one is the decode
-                            // it always was.
-                            if let Some(dir) = &joc_tap {
-                                use std::io::Write as _;
-                                eac3_objects::tap_to_dir(
-                                    &source,
-                                    dir,
-                                    &options,
-                                    eac3_objects::TapOptions::default(),
-                                )?;
-                                writeln!(err, "joc tap: {}", dir.display())?;
-                            }
-                            Ok(verdict)
-                        })
+                        // a dump that would be refused is refused before the
+                        // decode it follows writes anything
+                        let free = joc_tap
+                            .as_deref()
+                            .map_or(Ok(()), eac3_objects::check_tap_dir);
+                        match free {
+                            Err(e) => Err(e),
+                            Ok(()) => eac3_objects::run(&source, &output, &options, err).and_then(
+                                |verdict| {
+                                    // The tap is a decode of its own, after
+                                    // the one that wrote the objects: that
+                                    // one is the decode it always was.
+                                    if let Some(dir) = &joc_tap {
+                                        use std::io::Write as _;
+                                        eac3_objects::tap_to_dir(
+                                            &source,
+                                            dir,
+                                            &options,
+                                            eac3_objects::TapOptions::default(),
+                                        )?;
+                                        writeln!(err, "joc tap: {}", dir.display())?;
+                                    }
+                                    Ok(verdict)
+                                },
+                            ),
+                        }
                     }
                 } else if eac3::is_eac3(&source).unwrap_or(false) {
                     eac3::decode(

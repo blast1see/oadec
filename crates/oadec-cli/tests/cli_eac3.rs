@@ -2275,6 +2275,26 @@ fn a_joc_tap_leaves_the_objects_unchanged() {
     ]);
     assert_ne!(out.status.code(), Some(0), "{}", stderr(&out));
     assert!(stderr(&out).contains("holds files"), "{}", stderr(&out));
+    // and it is refused before the decode it follows writes anything
+    assert!(!dir.join("again.atmos").exists());
+    assert!(!dir.join("again.atmos.audio").exists());
+
+    // a dump that fails leaves nothing half written: a file stands where
+    // the directory would be made
+    let blocked = dir.join("blocked");
+    std::fs::write(&blocked, b"a file").unwrap();
+    let out = oadec(&[
+        "decode",
+        file.to_str().unwrap(),
+        "--format",
+        "damf",
+        "--joc-tap",
+        blocked.to_str().unwrap(),
+        "-o",
+        dir.join("blocked-out").to_str().unwrap(),
+    ]);
+    assert_ne!(out.status.code(), Some(0), "{}", stderr(&out));
+    assert_eq!(std::fs::read(&blocked).unwrap(), b"a file");
 
     // samples reconstruct no objects, and a TrueHD stream has no JOC
     for (stream, format) in [
