@@ -105,7 +105,7 @@ python tools/old_new.py --old old/oadec --new target/release/oadec \
 # Fuzzing
 
 `crates/oadec-fuzz` holds what must be true of the parsers and decoders
-whatever bytes they are given, as fourteen plain functions (`src/targets.rs`): the
+whatever bytes they are given, as sixteen plain functions (`src/targets.rs`): the
 TrueHD extractor, the access-unit and segment parsers, the TrueHD decoder, the
 EMDF container in both its carriages, the OAMD and JOC payloads, and the frame
 decoder and the programme decoder of the AC-3 family; and, added since, the
@@ -170,7 +170,10 @@ that finds something new says nothing about the change in front of it. What
 the last weekly run and the last run of all fourteen targets found, target by
 target, is in
 `docs/audit/evidence/round-5-2026-11/p0-libfuzzer-runs.json`: no crash in
-either, and three of the targets not yet run for the weekly ten minutes.
+either, and three of the targets not yet run for the weekly ten minutes. The
+two targets added after that record (`pipeline_push`, a stream told to the
+stages of a pass however its reads were cut, and `spool_merge`, records given
+to a spool and read back) have run in the seeded run alone.
 
 What a fuzzer finds becomes a unit test of the code it was found in and, where
 it is a rule, a mutation in `tools/mutants.py`. The fuzzers find; the suite

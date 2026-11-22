@@ -83,9 +83,11 @@ ffmpeg -i film.mkv -map 0:a:0 -c copy -f truehd - | oadec decode - --format wav 
 mkvextract. Where a command reads a stream, `-` is standard input, so a track
 can go from its container to a verdict without a file in between. `decode
 --format pcm` and `wav` read it once, as it arrives, and `-o -` writes the
-samples to standard output unit by unit ([`docs/streaming.md`](docs/streaming.md));
-every other command holds the stream in memory for as long as it runs,
-because it reads its stream more than once and a pipe can be read once. Every check `verify` makes, on TrueHD and on AC-3 and E-AC-3, is a named rule with a default
+samples to standard output unit by unit, and `info`, `verify`, `emdf`, `oamd`
+and `au` read it once as well, without holding it whole (17 MiB for a stream
+of 2.6 GB; [`docs/streaming.md`](docs/streaming.md)). `decode --format damf`
+and `adm`, `compare` and `eac3-blocks` still hold a stream on standard input
+in memory for as long as they run. Every check `verify` makes, on TrueHD and on AC-3 and E-AC-3, is a named rule with a default
 severity and a source (a public specification, a measurement, or another
 implementation), listed in [`docs/conformance-rules.md`](docs/conformance-rules.md);
 a finding says where it is (access unit or frame, byte and bit, substream, time), and

@@ -8,6 +8,46 @@ Semantic Versioning.
 
 ### Added
 
+- **The reports read a stream on standard input once.** `info`, `verify`
+  (with and without `--decode`), `emdf`, `oamd` and `au` read a stream piped
+  in as it comes and no longer hold it whole: of a TrueHD stream of 2.6 GB
+  they hold 17 MiB at the peak where they held 2.5 GB (release build). What
+  they print and their exit codes are those of a file of the same bytes. What
+  a report keeps of every unit still grows a little with the stream (the
+  event times of `emdf` of E-AC-3, eight bytes a block of object metadata),
+  and `--trace-fifo` and `--max-per-rule 0` keep a row or a finding for every
+  unit. `emdf` and `oamd` of an E-AC-3 stream take 1.8 times as long piped in
+  as from a file. A command that has what it needs before the stream ends
+  (`au`, a refused option) no longer reads the rest. New calls
+  `api::{info_from, verify_from, oamd_from, emdf_from}`; `pipeline` and
+  `spool` in the engine (`docs/streaming.md`).
+- **The loss ledger counts what it dropped without a word.** Six kinds are
+  new: additional table data, alternate object data, elements without a
+  syntax, the bed channel distribution, reserved data, and a reserved zone
+  index read as all; the first state of a bed channel is counted where an ADM
+  file loses it. None of them is a declared loss of exit 4, and no byte of a
+  DAMF set or an ADM file changes. The loss report has a schema
+  (`docs/schemas/loss-report.schema.json`) and says `"schema": 2`.
+- **An ADM file is counted against the limits of the Dolby profile** when it
+  is closed (123 elements of a kind, 128 channels); what exceeds one is a
+  line on standard error, and the exit code is not changed by it.
+- **The programme model keeps what no output writes**: distance, divergence,
+  the trim configuration, the bed channel distribution and the screen
+  reference flag, beside the state the outputs are written from.
+- **A read-only tap on the JOC object path**, for measuring against Dolby's
+  decoder: `eac3_objects::{JocTap, joc_pcm_tapped, tap_to_dir}`, the example
+  `joc_tap`, and the hidden `decode --joc-tap <DIR>`, which writes the dump
+  after the decode in a decode of its own. No default output changes. A dump
+  holds the objects of the whole stream in memory: it is for a clip.
+- **`eac3-ecpl-inject --plan`** takes `amp pattern`, `band`, `channel`,
+  `rest`, `target standard` and `seed zero`; `target standard` writes the
+  standard coupling twin of an enhanced coupling stream and refuses an
+  amplitude rule that differs by band. `tools/ecpl_amp_sweep.py`,
+  `ecpl_carriers.py`, `ecpl_signals.py` and `ecpl_promotion.py` are the
+  measurement of round 5. `oadec_eac3::ecpl::Model` has one value, `Off`: no
+  model of Dolby's enhanced coupling decode was promoted.
+- **Two fuzz targets**, sixteen in all: `pipeline_push` and `spool_merge`.
+
 - **A stream decoded as it arrives.** `decode --format pcm` and `wav` read
   their stream once, from a file or from standard input, and `-o -` writes
   the samples to standard output unit by unit, a WAVE header of unknown
@@ -109,6 +149,10 @@ Semantic Versioning.
   presentation with ISF channels (`docs/oamd.md`).
 
 ### Changed
+
+- `tools/damf_key_probe.py`, `interop.py` and `warp_roundtrip.py` end with
+  exit 3 when the Dolby encoder they need is not where `DME_DEE` says,
+  instead of a traceback or an empty row.
 
 - **The exit code of a decode of every member** (`-p all`, `--programme
   all`) is the one whose meaning weighs most, not the largest number: 2 if

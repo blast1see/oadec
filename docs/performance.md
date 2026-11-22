@@ -203,13 +203,18 @@ below.)
 spreads in the table, 35 and 8 per cent, are object files of TrueHD streams;
 every figure that is the decoder's alone repeats to within three per cent.
 
-**A stream on standard input costs its own size in memory.** A command reads
-its stream more than once, so a pipe is read to its end first and held.
-`verify` of the longest stream there is, 2.6 GB, holds 18 MiB reading the file
-and 2 506 MiB with the stream piped in, which is the stream and 18 MiB, and
-takes 19.7 s against 18.6; of five streams none took more than 20 MiB beside
-its own size
-(`docs/audit/evidence/engine-round-2026-11/21-standard-input.json`).
+**A stream on standard input cost its own size in memory, and for the reports
+no longer does.** A command that reads its stream more than once reads a pipe
+to its end first and holds it: `verify` of the longest stream there is, 2.6 GB,
+held 18 MiB reading the file and 2 506 MiB with the stream piped in
+(`docs/audit/evidence/engine-round-2026-11/21-standard-input.json`). Since
+round 5 `info`, `verify`, `emdf`, `oamd` and `au` read a pipe once: of the
+same stream they hold 16.8 to 17.1 MiB, in the time of the file, and of
+500 MB of E-AC-3 17.3 to 17.5 MiB. `emdf` and `oamd` of an E-AC-3 stream take
+1.8 times as long from a pipe as from a file, where two threads walk the file
+side by side. `decode --format damf` and `adm`, `compare` and `eac3-blocks`
+still hold a piped stream whole
+(`docs/audit/evidence/round-5-2026-11/p4-streaming.json`).
 
 So the order of work for speed is the AC-3 core first, then the object path,
 of which the filter banks are the half that is known, then the presentations
