@@ -173,7 +173,10 @@ target, is in
 either, and three of the targets not yet run for the weekly ten minutes. The
 two targets added after that record (`pipeline_push`, a stream told to the
 stages of a pass however its reads were cut, and `spool_merge`, records given
-to a spool and read back) have run in the seeded run alone.
+to a spool and read back) have run in the seeded run and for ninety seconds
+each under libFuzzer on Windows, without a finding
+(`docs/audit/evidence/round-5-2026-11/integration.json`); the workflow has
+not run them yet.
 
 What a fuzzer finds becomes a unit test of the code it was found in and, where
 it is a rule, a mutation in `tools/mutants.py`. The fuzzers find; the suite

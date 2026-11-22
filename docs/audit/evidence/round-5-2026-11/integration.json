@@ -1,0 +1,815 @@
+{
+ "what": "Round 5, the merged branch: what the lead ran on r5/integration after the four packages were merged, and what it found.",
+ "head": "4fcae89 for every gate below; the commit that records this file changes documents only",
+ "base": "B0, baa764e: main 1d32405 with the documents of P0",
+ "merges": {
+  "P3": "b455970",
+  "P1": "d075c9b",
+  "P4": "61830ce",
+  "P2": "29b42fe"
+ },
+ "gate_1": {
+  "cargo fmt --all --check": 0,
+  "cargo clippy --workspace --all-targets --locked -- -D warnings": 0,
+  "cargo test --workspace --locked": {
+   "passed": 1066,
+   "failed": 0,
+   "ignored": 39
+  },
+  "python tools/mutants.py --check": "718 mutations, the text of every one in its file",
+  "cargo deny check": "advisories ok, bans ok, licenses ok, sources ok",
+  "lock files against B0": "one line each: anyhow among the dependencies of oadec-fuzz; no version, feature or other package changed"
+ },
+ "corpus_against_b0": {
+  "tool": "tools/old_new.py --decode-all, release builds",
+  "streams": 126,
+  "stream_bytes": 4101593874,
+  "streams_changed": 0,
+  "fields_added": [],
+  "lines_added": [],
+  "reports": {
+   "info": {
+    "runs": 126,
+    "lines": 2216,
+    "fields": 0,
+    "exit_codes": {
+     "0": 126
+    }
+   },
+   "info --json": {
+    "runs": 126,
+    "lines": 0,
+    "fields": 23205,
+    "exit_codes": {
+     "0": 126
+    }
+   },
+   "verify": {
+    "runs": 126,
+    "lines": 2527,
+    "fields": 0,
+    "exit_codes": {
+     "0": 116,
+     "7": 10
+    }
+   },
+   "verify --json": {
+    "runs": 126,
+    "lines": 0,
+    "fields": 22094,
+    "exit_codes": {
+     "0": 116,
+     "7": 10
+    }
+   },
+   "emdf": {
+    "runs": 126,
+    "lines": 1505,
+    "fields": 0,
+    "exit_codes": {
+     "0": 116,
+     "7": 10
+    }
+   },
+   "emdf --json": {
+    "runs": 126,
+    "lines": 0,
+    "fields": 5697,
+    "exit_codes": {
+     "0": 116,
+     "7": 10
+    }
+   },
+   "oamd": {
+    "runs": 126,
+    "lines": 2375,
+    "fields": 0,
+    "exit_codes": {
+     "0": 116,
+     "7": 10
+    }
+   },
+   "oamd --json": {
+    "runs": 126,
+    "lines": 0,
+    "fields": 5395,
+    "exit_codes": {
+     "0": 116,
+     "7": 10
+    }
+   }
+  },
+  "deliveries": {
+   "pcm -p N": {
+    "runs": 184,
+    "wrote_output": 178,
+    "bytes": 30393005280,
+    "lines": 904,
+    "exit_codes": {
+     "0": 174,
+     "2": 6,
+     "7": 4
+    }
+   },
+   "wav": {
+    "runs": 126,
+    "wrote_output": 126,
+    "bytes": 13273387824,
+    "lines": 1634,
+    "exit_codes": {
+     "0": 116,
+     "7": 10
+    }
+   },
+   "damf": {
+    "runs": 126,
+    "wrote_output": 64,
+    "bytes": 26486818228,
+    "lines": 487,
+    "exit_codes": {
+     "0": 56,
+     "2": 62,
+     "7": 8
+    }
+   },
+   "adm": {
+    "runs": 126,
+    "wrote_output": 64,
+    "bytes": 26503143626,
+    "lines": 558,
+    "exit_codes": {
+     "0": 56,
+     "2": 62,
+     "7": 8
+    }
+   },
+   "pcm": {
+    "runs": 80,
+    "wrote_output": 80,
+    "bytes": 4553041920,
+    "lines": 1402,
+    "exit_codes": {
+     "0": 71,
+     "7": 9
+    }
+   },
+   "pcm --core-only": {
+    "runs": 80,
+    "wrote_output": 80,
+    "bytes": 4271953920,
+    "lines": 1402,
+    "exit_codes": {
+     "0": 71,
+     "7": 9
+    }
+   }
+  },
+  "reading": "every report of a file and every PCM, WAVE, DAMF and ADM output is the bytes of B0, with the exit codes of B0",
+  "not_covered": "the tool does not ask for --loss-report; the goldens below hold that"
+ },
+ "goldens": {
+  "transcripts": "no file under crates/oadec-cli/tests/golden changed against B0",
+  "loss_report": "the 15 goldens were recorded on the code of B0 (7866f8c); since then 13 lines were added in 4 files, each `\"schema\": 2,`, and none removed"
+ },
+ "mutations_of_round_5": [
+  {
+   "mutation": "the head of a stream read once taken from its first read alone",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "a_stream_is_told_alike_however_it_was_cut",
+    "the_head_is_read_again_and_tells_the_codec_a_file_tells"
+   ]
+  },
+  {
+   "mutation": "a stage that fails letting the pass go on",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "an_error_of_a_stage_ends_the_pass_at_its_unit_and_nobody_finishes"
+   ]
+  },
+  {
+   "mutation": "an AC-3 stream read once cut where the reads of a file do not cut it",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "a_long_run_of_bytes_that_are_no_frame_is_told_as_the_file_tells_it"
+   ],
+   "first_run": "survived: no test had a run of bytes that are no syncframe longer than a read; the test named here was added, and the mutation run again"
+  },
+  {
+   "mutation": "standard input that could not be read named as any other stream",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "a_read_that_fails_ends_the_pass_by_name_and_one_interrupted_is_read_again"
+   ]
+  },
+  {
+   "mutation": "the first unit not held for the decodes of verify --decode read once",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "verify::tests::the_first_unit_is_held_for_decodes_that_begin_after_it"
+   ]
+  },
+  {
+   "mutation": "a record that fills a spool to its limit sent to its file",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "a_spool_gives_back_what_it_was_given_in_order_wherever_its_limit_fell",
+    "a_spool_whose_file_cannot_be_made_fails_and_takes_nothing_more"
+   ]
+  },
+  {
+   "mutation": "additional table data counted at every update that restates it",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "additional_table_data_is_counted_per_event_and_per_change"
+   ]
+  },
+  {
+   "mutation": "an alternate set read in place of the default left out of the ledger",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "an_alternate_set_read_in_place_of_the_default_is_counted"
+   ]
+  },
+  {
+   "mutation": "the matrix the tap reads taken a slot late against the lag",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "a_joc_tap_leaves_the_objects_unchanged"
+   ]
+  },
+  {
+   "mutation": "--joc-tap taken where no JOC objects are reconstructed",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "a_joc_tap_leaves_the_objects_unchanged"
+   ]
+  },
+  {
+   "mutation": "a standard coupling twin made of amplitudes that differ by band",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "ecpl_inject::tests::the_selections_the_pattern_and_the_target_are_read_and_refused_by_name"
+   ]
+  },
+  {
+   "mutation": "a standard coordinate with the mantissa one code off",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "ecpl_inject::tests::a_standard_target_decodes_as_the_amplitudes_it_stands_for",
+    "ecpl_inject::tests::every_amplitude_is_a_standard_coordinate"
+   ]
+  },
+  {
+   "mutation": "the amplitude code of full scale written with another exponent",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "ecpl_inject::tests::a_standard_target_decodes_as_the_amplitudes_it_stands_for",
+    "ecpl_inject::tests::every_amplitude_is_a_standard_coordinate"
+   ]
+  },
+  {
+   "mutation": "the rest of the bands of a plan given amplitude 0",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "ecpl_inject::tests::a_band_and_a_channel_take_the_rules_and_the_rest_takes_rest",
+    "ecpl_inject::tests::the_selections_the_pattern_and_the_target_are_read_and_refused_by_name"
+   ]
+  },
+  {
+   "mutation": "a zero seed padded where a word is already free",
+   "applied": true,
+   "built": true,
+   "caught": true,
+   "caught_by": [
+    "ecpl_inject::tests::a_standard_target_decodes_as_the_amplitudes_it_stands_for"
+   ]
+  }
+ ],
+ "fuzz": {
+  "targets": 16,
+  "seeded_run": "all sixteen, in cargo test",
+  "libfuzzer": {
+   "where": "Windows, MSVC, rustc 1.101.0-nightly (822182db4 2026-10-13), cargo-fuzz 0.13.2, AddressSanitizer; ninety seconds each, seeds cut from the fixtures",
+   "pipeline_push": {
+    "executions": 25494,
+    "new_units": 602,
+    "findings": 0
+   },
+   "spool_merge": {
+    "executions": 435613,
+    "new_units": 1514,
+    "findings": 0
+   },
+   "the_other_fourteen": "not run again in this round"
+  },
+  "not_there": [
+   "a target for the loss ledger of the OAMD model: no oracle but a second parser; tests/ledger_completeness.rs holds its kinds one by one",
+   "a tap leg of joc_params: the tap is on the engine pipeline, not on the decoder that target drives"
+  ]
+ },
+ "standard_input": {
+  "conditions": "release, an idle machine, the fast cores, three runs, the least time and the greatest peak; b0 holds a pipe whole",
+  "rows": [
+   {
+    "stream": "pi.thd",
+    "command": "info",
+    "input": "file",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 16.659,
+    "peak_mib": 17.2
+   },
+   {
+    "stream": "pi.thd",
+    "command": "info",
+    "input": "file",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 16.823,
+    "peak_mib": 17.3
+   },
+   {
+    "stream": "pi.thd",
+    "command": "info",
+    "input": "pipe",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 17.124,
+    "peak_mib": 2505.5
+   },
+   {
+    "stream": "pi.thd",
+    "command": "info",
+    "input": "pipe",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 16.872,
+    "peak_mib": 17.2
+   },
+   {
+    "stream": "pi.thd",
+    "command": "verify",
+    "input": "file",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 16.537,
+    "peak_mib": 17.2
+   },
+   {
+    "stream": "pi.thd",
+    "command": "verify",
+    "input": "file",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 16.627,
+    "peak_mib": 17.3
+   },
+   {
+    "stream": "pi.thd",
+    "command": "verify",
+    "input": "pipe",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 17.229,
+    "peak_mib": 2505.5
+   },
+   {
+    "stream": "pi.thd",
+    "command": "verify",
+    "input": "pipe",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 16.672,
+    "peak_mib": 17.1
+   },
+   {
+    "stream": "pi.thd",
+    "command": "emdf",
+    "input": "file",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 16.596,
+    "peak_mib": 25.7
+   },
+   {
+    "stream": "pi.thd",
+    "command": "emdf",
+    "input": "file",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 16.677,
+    "peak_mib": 25.8
+   },
+   {
+    "stream": "pi.thd",
+    "command": "emdf",
+    "input": "pipe",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 17.223,
+    "peak_mib": 2514.0
+   },
+   {
+    "stream": "pi.thd",
+    "command": "emdf",
+    "input": "pipe",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 17.189,
+    "peak_mib": 17.1
+   },
+   {
+    "stream": "pi.thd",
+    "command": "oamd",
+    "input": "file",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 16.746,
+    "peak_mib": 25.8
+   },
+   {
+    "stream": "pi.thd",
+    "command": "oamd",
+    "input": "file",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 16.834,
+    "peak_mib": 25.7
+   },
+   {
+    "stream": "pi.thd",
+    "command": "oamd",
+    "input": "pipe",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 17.51,
+    "peak_mib": 2514.1
+   },
+   {
+    "stream": "pi.thd",
+    "command": "oamd",
+    "input": "pipe",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 17.736,
+    "peak_mib": 17.2
+   },
+   {
+    "stream": "long.ec3",
+    "command": "info",
+    "input": "file",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.774,
+    "peak_mib": 9.6
+   },
+   {
+    "stream": "long.ec3",
+    "command": "info",
+    "input": "file",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.791,
+    "peak_mib": 9.5
+   },
+   {
+    "stream": "long.ec3",
+    "command": "info",
+    "input": "pipe",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.881,
+    "peak_mib": 485.5
+   },
+   {
+    "stream": "long.ec3",
+    "command": "info",
+    "input": "pipe",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.897,
+    "peak_mib": 17.4
+   },
+   {
+    "stream": "long.ec3",
+    "command": "verify",
+    "input": "file",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.837,
+    "peak_mib": 9.4
+   },
+   {
+    "stream": "long.ec3",
+    "command": "verify",
+    "input": "file",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.81,
+    "peak_mib": 9.5
+   },
+   {
+    "stream": "long.ec3",
+    "command": "verify",
+    "input": "pipe",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.847,
+    "peak_mib": 485.5
+   },
+   {
+    "stream": "long.ec3",
+    "command": "verify",
+    "input": "pipe",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.826,
+    "peak_mib": 17.5
+   },
+   {
+    "stream": "long.ec3",
+    "command": "emdf",
+    "input": "file",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.704,
+    "peak_mib": 14.2
+   },
+   {
+    "stream": "long.ec3",
+    "command": "emdf",
+    "input": "file",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.754,
+    "peak_mib": 14.3
+   },
+   {
+    "stream": "long.ec3",
+    "command": "emdf",
+    "input": "pipe",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.807,
+    "peak_mib": 490.5
+   },
+   {
+    "stream": "long.ec3",
+    "command": "emdf",
+    "input": "pipe",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 8.772,
+    "peak_mib": 17.6
+   },
+   {
+    "stream": "long.ec3",
+    "command": "oamd",
+    "input": "file",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.697,
+    "peak_mib": 14.3
+   },
+   {
+    "stream": "long.ec3",
+    "command": "oamd",
+    "input": "file",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.754,
+    "peak_mib": 14.2
+   },
+   {
+    "stream": "long.ec3",
+    "command": "oamd",
+    "input": "pipe",
+    "binary": "b0",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 4.835,
+    "peak_mib": 490.4
+   },
+   {
+    "stream": "long.ec3",
+    "command": "oamd",
+    "input": "pipe",
+    "binary": "r5",
+    "exit": [
+     0
+    ],
+    "crashed": false,
+    "wall_s": 8.748,
+    "peak_mib": 17.5
+   }
+  ],
+  "au": "au --index 5000000 of the TrueHD stream, measured on P4 before the merge: 16.8 MiB piped where B0 held 2 505 MiB",
+  "not_met": "emdf and oamd of the E-AC-3 stream piped in take 1.8 times the time of the file; accepted as a known limit"
+ },
+ "joc_tap": {
+  "flag_off": "no second decode is made: the time and the peak of B0, and its metadata and audio files",
+  "flag_on": "the same metadata and audio files; the dump is a second decode",
+  "memory": "a dump holds the objects and the core of the whole stream: 903 MiB at the peak and 4.0 GB written for 60 s; it is for a clip",
+  "failure": "a directory that holds files is refused before the decode writes; a dump that fails removes its files and the directory it made",
+  "measured": {
+   "a clip of 60 s, configuration 4, 640 kbit/s": {
+    "b0": {
+     "wall_s": 1.12,
+     "peak_mib": 19.7,
+     "metadata_and_audio": [
+      "f6d7c52f3ff9df98",
+      "bd0f60d1129fac40"
+     ]
+    },
+    "r5 flag off": {
+     "wall_s": 1.149,
+     "peak_mib": 20.3,
+     "metadata_and_audio": [
+      "f6d7c52f3ff9df98",
+      "bd0f60d1129fac40"
+     ]
+    },
+    "r5 --joc-tap": {
+     "wall_s": 22.493,
+     "peak_mib": 902.8,
+     "metadata_and_audio": [
+      "f6d7c52f3ff9df98",
+      "bd0f60d1129fac40"
+     ],
+     "dump_bytes": 3966145289
+    }
+   },
+   "a clip with a clip gain that changes": {
+    "b0": {
+     "wall_s": 0.63,
+     "peak_mib": 16.3,
+     "metadata_and_audio": [
+      "e225dffb85ef517f",
+      "994db94531955bbf"
+     ]
+    },
+    "r5 flag off": {
+     "wall_s": 0.639,
+     "peak_mib": 16.4,
+     "metadata_and_audio": [
+      "e225dffb85ef517f",
+      "994db94531955bbf"
+     ]
+    },
+    "r5 --joc-tap": {
+     "wall_s": 1.941,
+     "peak_mib": 580.0,
+     "metadata_and_audio": [
+      "e225dffb85ef517f",
+      "994db94531955bbf"
+     ],
+     "dump_bytes": 2104719987
+    }
+   }
+  },
+  "note": "the .atmos file names its two siblings, so it differs with the name of the output and is left out here; the CLI test compares all three under one name"
+ },
+ "media_regression": {
+  "tools/media_regression.sh": {
+   "media-suite": "pass, 35 tests",
+   "media-negative": "fails without the corpus, as it must",
+   "truehd-gates": "pass: bit-exact against FFmpeg, truehdd and the stored Dolby decode",
+   "joc-object-gate": "pass: 6 titles, 0 regressed, worst 45.77 dB, lag 0",
+   "replay-joc": "pass",
+   "replay-truehd": "pass",
+   "adm-harness": "pass, every expectation met"
+  },
+  "a_run_that_failed": "the first run of truehd-gates and joc-object-gate ended on a Python without numpy; both were run again with the environment of the ADM audit first on PATH and passed. The script does not say which Python it needs.",
+  "adm_toolkit_self_test": "136 of 136",
+  "dolby_tools": "the gates read reference decodes made before the round; no Dolby tool was run by them"
+ },
+ "open": [
+  "Enhanced coupling against Dolby: NOT MET, unchanged; no model promoted",
+  "JOC objects: no cause settled; the first 512 samples and the mute at a sequence restart differ from Dolby and are open",
+  "emdf and oamd of E-AC-3 on standard input: 1.8 times the time of a file",
+  "peak memory of the reports on Linux: not measured",
+  "the DAMF event key probe: encoder version unknown, one scene",
+  "decode damf|adm wall times scatter by 0.56 to 1.67 between runs on this machine, in packages that do not touch that path as well: gate 3 could not be resolved to 3 % on those rows"
+ ]
+}
