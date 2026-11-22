@@ -11,7 +11,8 @@ Reference Player's own renderer and reports what the mode does to the sound.
         --work work/rt --render
 
 The census is what `tools/metadata_census.py` wrote; it says which tracks declare what.
-Needs a Dolby Media Encoder installation and, for `--render`, the Reference Player.
+Needs a Dolby Media Encoder installation (`DME_DEE`) and, for `--render`, the Reference
+Player (`DRP_DIR`); without them it stops with exit code 3 before it runs anything.
 """
 
 from __future__ import annotations
@@ -33,6 +34,20 @@ DEE = Path(os.environ.get("DME_DEE", r"C:\Program Files\Dolby Media Encoder\reso
 LICENCE = Path(os.environ.get("APPDATA", "")) / "Dolby Media Encoder" / "license.lic"
 DRP = Path(os.environ.get("DRP_DIR", r"C:\Program Files\Dolby\Dolby Reference Player"))
 GST = dict(os.environ, GST_PLUGIN_PATH=str(DRP / "gst-plugins"), PATH=str(DRP) + os.pathsep + os.environ.get("PATH", ""))
+
+
+def require_dee(*tools: str) -> None:
+    """Stops with exit code 3 when the encoder this run needs is not there: a
+    run that cannot reach Dolby's tools says it could not run, instead of
+    writing rows that read as results. `DME_DEE` names the folder of the
+    tools, the licence is read from where Dolby Media Encoder keeps it."""
+    missing = [t for t in tools if not (DEE / t).is_file()]
+    if not LICENCE.is_file():
+        missing.append(f"the licence ({LICENCE})")
+    if missing:
+        print(f"cannot run: {', '.join(missing)} not found under {DEE}; "
+              "set DME_DEE to the folder that holds the Dolby Media Encoder tools", file=sys.stderr)
+        raise SystemExit(3)
 
 
 def run(cmd: list[str], env: dict | None = None) -> tuple[int, str, str]:
@@ -111,6 +126,10 @@ def main() -> int:
     ap.add_argument("--old", help="a binary from before, to compare the output without the flag")
     ap.add_argument("--render", action="store_true")
     args = ap.parse_args()
+    require_dee("dee_ddpjoc_encoder.exe")
+    if args.render and not DRP.is_dir():
+        print(f"cannot run: --render needs the Reference Player, not found at {DRP}; set DRP_DIR", file=sys.stderr)
+        raise SystemExit(3)
     new = oadec_binary()
 
     def warp(path: Path):

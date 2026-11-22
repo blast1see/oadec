@@ -1,0 +1,12 @@
+$ oadec decode tests/fixtures/truehd-20-192k.thd --format damf --loss-report <out>/loss.json -o <out>/x
+exit 2
+[stderr ledger]
+error: the stream has no 16-channel presentation (no extra channel meaning)
+[loss report] not written
+
+$ oadec decode tests/fixtures/truehd-20-192k.thd --format adm --loss-report <out>/loss.json -o <out>/x
+exit 2
+[stderr ledger]
+error: the stream has no 16-channel presentation (no extra channel meaning)
+[loss report] not written
+

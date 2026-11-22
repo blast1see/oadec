@@ -64,7 +64,8 @@ that are not its defaults; the stream is decoded to a master
 told nothing and once with it told what `tools/encoder_arguments.py` reads of
 the first stream. What each of the three streams says is laid side by side.
 
-Exit code: 0, 2 on a usage error.
+Exit code: 0, 2 on a usage error, 3 when `run`, `probe` or `programme` cannot reach the encoder
+(no `DME_DEE` folder or licence): it says so and runs nothing.
 """
 
 from __future__ import annotations
@@ -91,6 +92,22 @@ from oadec_bin import find as oadec_binary  # noqa: E402
 
 DEE = Path(os.environ.get('DME_DEE', r'C:\Program Files\Dolby Media Encoder\resources\dee'))
 LICENCE = Path(os.environ.get('APPDATA', '')) / 'Dolby Media Encoder' / 'license.lic'
+
+
+def require_dee(*tools: str) -> None:
+    '''Stops with exit code 3 when the encoder this run needs is not there: a
+    run that cannot reach Dolby's tools says it could not run, instead of
+    writing rows that read as results. `DME_DEE` names the folder of the
+    tools, the licence is read from where Dolby Media Encoder keeps it.'''
+    missing = [t for t in tools if not (DEE / t).is_file()]
+    if not LICENCE.is_file():
+        missing.append(f'the licence ({LICENCE})')
+    if missing:
+        print(f'cannot run: {", ".join(missing)} not found under {DEE}; '
+              'set DME_DEE to the folder that holds the Dolby Media Encoder tools', file=sys.stderr)
+        raise SystemExit(3)
+
+
 PLAYER = Path(os.environ.get('DOLBY_PLAYER', r'C:\Program Files\Dolby\Dolby Reference Player'))
 CONVERSION_TOOL = Path(os.environ.get(
     'DOLBY_CONVERSION_TOOL', r'C:\Program Files\Dolby\Dolby Atmos Conversion Tool\cmdline_atmos_conversion_tool.exe'))
@@ -1299,6 +1316,7 @@ def main():
         print(f'{len(rows)} rows of {int(np.prod([len(v) for v in AXES.values()]))} combinations')
         return 0
     if args.command == 'run':
+        require_dee('dee_ddpjoc_encoder.exe', 'dee_dthd_encoder.exe')
         oadec = str(Path(args.bin).resolve()) if args.bin else oadec_binary()
         args.work = args.work.resolve()
         args.work.mkdir(parents=True, exist_ok=True)
@@ -1319,6 +1337,7 @@ def main():
                      if both.get('compared') else ''), flush=True)
         return 0
     if args.command == 'probe':
+        require_dee('dee_ddpjoc_encoder.exe', 'dee_dthd_encoder.exe')
         oadec = str(Path(args.bin).resolve()) if args.bin else oadec_binary()
         args.work = args.work.resolve()
         args.work.mkdir(parents=True, exist_ok=True)
@@ -1338,6 +1357,7 @@ def main():
                   flush=True)
         return 0
     if args.command == 'programme':
+        require_dee('dee_ddpjoc_encoder.exe', 'dee_dthd_encoder.exe')
         oadec = str(Path(args.bin).resolve()) if args.bin else oadec_binary()
         args.work = args.work.resolve()
         args.work.mkdir(parents=True, exist_ok=True)

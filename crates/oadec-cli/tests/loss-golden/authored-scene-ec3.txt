@@ -1,0 +1,159 @@
+$ oadec decode tests/fixtures/authored-scene.ec3 --format damf --loss-report <out>/loss.json -o <out>/x
+exit 0
+[stderr ledger] none
+[loss report]
+{
+  "declared_loss": false,
+  "losses": [],
+  "overrides": [],
+  "ramp_sources": {},
+  "schema": 2,
+  "target": "damf"
+}
+
+$ oadec decode tests/fixtures/authored-scene.ec3 --format adm --loss-report <out>/loss.json -o <out>/x
+exit 0
+[stderr ledger]
+adm: profile reductions: 17 interpolation lengths replaced by 250 samples (1536 x17)
+[loss report]
+{
+  "declared_loss": false,
+  "losses": [
+    {
+      "class": "profile-reduction",
+      "count": 17,
+      "examples": [
+        {
+          "element": 11,
+          "sample": 22784
+        },
+        {
+          "element": 11,
+          "sample": 24320
+        },
+        {
+          "element": 11,
+          "sample": 25856
+        }
+      ],
+      "kind": "ramp-replaced"
+    }
+  ],
+  "overrides": [],
+  "ramp_sources": {
+    "1536": 17
+  },
+  "schema": 2,
+  "target": "adm"
+}
+
+$ oadec decode tests/fixtures/authored-scene.ec3 --format damf --joc-lag 3 --loss-report <out>/loss.json -o <out>/x
+exit 0
+[stderr ledger] none
+[loss report]
+{
+  "declared_loss": false,
+  "losses": [],
+  "overrides": [
+    {
+      "default": 0,
+      "flag": "joc-lag",
+      "value": 3
+    }
+  ],
+  "ramp_sources": {},
+  "schema": 2,
+  "target": "damf"
+}
+
+$ oadec decode tests/fixtures/authored-scene.ec3 --format adm --joc-lag 3 --loss-report <out>/loss.json -o <out>/x
+exit 0
+[stderr ledger]
+adm: profile reductions: 17 interpolation lengths replaced by 250 samples (1536 x17)
+[loss report]
+{
+  "declared_loss": false,
+  "losses": [
+    {
+      "class": "profile-reduction",
+      "count": 17,
+      "examples": [
+        {
+          "element": 11,
+          "sample": 22784
+        },
+        {
+          "element": 11,
+          "sample": 24320
+        },
+        {
+          "element": 11,
+          "sample": 25856
+        }
+      ],
+      "kind": "ramp-replaced"
+    }
+  ],
+  "overrides": [
+    {
+      "default": 0,
+      "flag": "joc-lag",
+      "value": 3
+    }
+  ],
+  "ramp_sources": {
+    "1536": 17
+  },
+  "schema": 2,
+  "target": "adm"
+}
+
+$ oadec decode tests/fixtures/authored-scene.ec3 --format damf --warp-mode stream --loss-report <out>/loss.json -o <out>/x
+exit 0
+[stderr ledger] none
+[loss report]
+{
+  "declared_loss": false,
+  "losses": [],
+  "overrides": [],
+  "ramp_sources": {},
+  "schema": 2,
+  "target": "damf"
+}
+
+$ oadec decode tests/fixtures/authored-scene.ec3 --format adm --warp-mode stream --loss-report <out>/loss.json -o <out>/x
+exit 0
+[stderr ledger]
+adm: profile reductions: 17 interpolation lengths replaced by 250 samples (1536 x17)
+[loss report]
+{
+  "declared_loss": false,
+  "losses": [
+    {
+      "class": "profile-reduction",
+      "count": 17,
+      "examples": [
+        {
+          "element": 11,
+          "sample": 22784
+        },
+        {
+          "element": 11,
+          "sample": 24320
+        },
+        {
+          "element": 11,
+          "sample": 25856
+        }
+      ],
+      "kind": "ramp-replaced"
+    }
+  ],
+  "overrides": [],
+  "ramp_sources": {
+    "1536": 17
+  },
+  "schema": 2,
+  "target": "adm"
+}
+
