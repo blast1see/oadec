@@ -544,14 +544,14 @@ fn take_container(
 /// A unit whose metadata cannot be read is counted, not skipped: a report that
 /// leaves it out without a word reads like a stream that carries less.
 fn walk_truehd(
-    source: &Source,
+    drive: impl FnOnce(emdf::UnitFn<'_>) -> Result<input::PassSummary>,
     opts: &Options,
     dumped: &mut usize,
     out: &mut dyn Write,
 ) -> Result<OamdSummary> {
     let mut summary = OamdSummary::new("access unit");
     let mut config: Option<StreamConfig> = None;
-    let pass = input::for_each_unit(source, |unit| {
+    let pass = drive(&mut |unit| {
         let index = summary.units;
         summary.units += 1;
         let (au, cfg) = match AccessUnit::parse(&unit.bytes, config.as_ref()) {
@@ -639,7 +639,7 @@ fn walk_truehd(
 /// fields, and every syncframe of the walk is a unit. The walk is the one
 /// `emdf` makes, and what it could not read is judged as `emdf` judges it.
 fn walk_eac3(
-    source: &Source,
+    containers: impl FnOnce(emdf::ContainerFn<'_>) -> Result<emdf::Walk>,
     opts: &Options,
     dumped: &mut usize,
     out: &mut dyn Write,
@@ -650,7 +650,7 @@ fn walk_eac3(
     // what a listing in full could not be written for: the walk goes on and
     // the call ends with it
     let mut wrote: io::Result<()> = Ok(());
-    let walk = emdf::for_each_container(source, |site, c| {
+    let walk = containers(&mut |site, c| {
         // a container that does not open is counted once per frame by the walk,
         // in the words `emdf` uses, and only in a stream that carries EMDF
         let Ok(c) = c else {
@@ -730,18 +730,125 @@ pub fn report(source: &Source, opts: &Options, out: &mut dyn Write) -> Result<Re
     // beside the walk instead of after it
     let check = crate::verify::spawn_stream_check(source);
     let mut dumped = 0usize;
-    let mut summary = if eac3 {
-        walk_eac3(source, opts, &mut dumped, out)?
+    let summary = if eac3 {
+        walk_eac3(
+            |on_container| emdf::for_each_container(source, on_container),
+            opts,
+            &mut dumped,
+            out,
+        )
     } else {
-        walk_truehd(source, opts, &mut dumped, out)?
+        walk_truehd(
+            |walk| input::for_each_unit(source, |unit| walk(&unit)),
+            opts,
+            &mut dumped,
+            out,
+        )
     };
+    concluded(source.name(), summary?, started, || {
+        crate::verify::join_stream_check(check)
+    })
+}
+
+/// [`run`] of a stream read once from `reader`, which reports call `name`.
+///
+/// # Errors
+/// As [`report_from`], and what writing the report gives.
+pub fn run_from(
+    name: &str,
+    reader: impl std::io::Read,
+    watcher: Option<std::sync::Arc<dyn crate::source::Watcher>>,
+    opts: &Options,
+    out: &mut dyn Write,
+) -> Result<bool> {
+    let report = report_from(name, reader, watcher, opts, out)?;
+    report.print(opts.json, out)?;
+    Ok(report.clean())
+}
+
+/// [`report`] of a stream read once from `reader`, which reports call
+/// `name`: the walk and the checks of `verify` are lent the same units.
+///
+/// # Errors
+/// As [`report`], and what reading gives.
+pub fn report_from(
+    name: &str,
+    reader: impl std::io::Read,
+    watcher: Option<std::sync::Arc<dyn crate::source::Watcher>>,
+    opts: &Options,
+    out: &mut dyn Write,
+) -> Result<Report> {
+    use crate::pipeline::{OnFrame, OnUnit, Pass, ac3_totals};
+    let input = crate::api::head_of(name, reader)?;
+    let codec = input.codec();
+    let watcher = watcher.as_ref();
+    let started = Instant::now();
+    let check = std::cell::RefCell::new(Some(crate::verify::Checking::new(name, codec)));
+    let mut dumped = 0usize;
+    let summary = match codec {
+        crate::pipeline::Codec::Ac3 => walk_eac3(
+            |on_container| {
+                let mut bytes = 0;
+                let mut walk = emdf::containers_by(
+                    |frame| {
+                        let mut on = OnFrame(frame);
+                        let end = Pass::run(
+                            input,
+                            name,
+                            watcher,
+                            &mut [&mut on, emdf::checking(&mut check.borrow_mut())?],
+                        )?;
+                        bytes = end.bytes;
+                        Ok(ac3_totals(&end))
+                    },
+                    on_container,
+                )?;
+                walk.bytes = bytes;
+                Ok(walk)
+            },
+            opts,
+            &mut dumped,
+            out,
+        ),
+        crate::pipeline::Codec::TrueHd => walk_truehd(
+            |walk| {
+                let mut on = OnUnit(walk);
+                let end = Pass::run(
+                    input,
+                    name,
+                    watcher,
+                    &mut [&mut on, emdf::checking(&mut check.borrow_mut())?],
+                )?;
+                Ok(crate::pipeline::truehd_summary(&end))
+            },
+            opts,
+            &mut dumped,
+            out,
+        ),
+    };
+    concluded(name, summary?, started, || {
+        check.borrow_mut().take().map_or_else(
+            || Err(anyhow::anyhow!("the checks were not made")),
+            |c| c.verdict(),
+        )
+    })
+}
+
+/// The report of a walk over the stream reports call `name`; `verdict` is
+/// what `verify`'s checks came to.
+fn concluded(
+    name: &str,
+    mut summary: OamdSummary,
+    started: Instant,
+    verdict: impl FnOnce() -> Result<crate::verify::StreamCheck>,
+) -> Result<Report> {
     if summary.units == 0 {
-        return Err(crate::info::no_stream(source));
+        return Err(crate::info::no_stream_named(name));
     }
     // what the walk does not read, the audio of either codec and on E-AC-3 the
     // JOC payloads, the payload configuration and the complexity index,
     // `verify` checks: take its verdict rather than re-derive a part of it
-    let stream = crate::verify::join_stream_check(check)?;
+    let stream = verdict()?;
     if !stream.clean
         && let Some(problem) = &stream.first_problem
     {

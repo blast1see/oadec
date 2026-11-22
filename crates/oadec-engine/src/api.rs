@@ -20,8 +20,9 @@
 //!
 //! Every type a call takes or hands back has a name here.
 
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::Result;
 /// How an AC-3 or E-AC-3 core is decoded on the way to its objects.
@@ -46,6 +47,7 @@ pub use crate::emdf::Report as EmdfReport;
 pub use crate::info::Report as InfoReport;
 pub use crate::integrity::{Findings, Verdict};
 pub use crate::oamd::Report as OamdReport;
+use crate::pipeline::{Codec, Once};
 pub use crate::source::{Source, Walk, Walking, Watcher};
 pub use crate::verify::Report as VerifyReport;
 // `verify` and `decode` are named in full: the calls at the root of the crate
@@ -290,7 +292,26 @@ impl Verified {
 /// When the source cannot be read or holds no stream, and when an option of
 /// the TrueHD checks is given for an AC-3 family stream.
 pub fn verify(source: &Source, options: &VerifyOptions) -> Result<Verified> {
-    if eac3::is_eac3(source)? {
+    verified(
+        source.name(),
+        eac3::is_eac3(source)?,
+        options,
+        |_, asked| eac3::report_with(source, asked),
+        |_, asked| crate::verify::report(source, asked),
+    )
+}
+
+/// [`verify`] of the stream reports call `name`, of an AC-3 family stream
+/// where `ac3` says so: what is refused of `options` for the codec, and the
+/// report `of_ac3` or `of_truehd` makes with what is asked of it.
+fn verified(
+    name: &str,
+    ac3: bool,
+    options: &VerifyOptions,
+    of_ac3: impl FnOnce(&str, &eac3::ReportOptions) -> Result<eac3::Report>,
+    of_truehd: impl FnOnce(&str, &crate::verify::Options) -> Result<crate::verify::Report>,
+) -> Result<Verified> {
+    if ac3 {
         if options.census {
             return Err(refusal(CENSUS_IS_TRUEHD));
         }
@@ -300,8 +321,8 @@ pub fn verify(source: &Source, options: &VerifyOptions) -> Result<Verified> {
             // no disc format the checks know.
             return Err(refusal(BUFFER_AND_DISC_ARE_TRUEHD));
         }
-        return Ok(Verified::Ac3(eac3::report_with(
-            source,
+        return Ok(Verified::Ac3(of_ac3(
+            name,
             &eac3::ReportOptions {
                 fail_on: options.fail_on.unwrap_or(Severity::Error),
                 max_per_rule: options.max_per_rule.unwrap_or(Tally::DEFAULT_MAX_PER_RULE),
@@ -313,8 +334,8 @@ pub fn verify(source: &Source, options: &VerifyOptions) -> Result<Verified> {
     if options.programme.is_some() {
         return Err(refusal(PROGRAMME_IS_AC3));
     }
-    Ok(Verified::TrueHd(crate::verify::report(
-        source,
+    Ok(Verified::TrueHd(of_truehd(
+        name,
         &crate::verify::Options {
             decode: options.decode,
             fail_on: options.fail_on.unwrap_or(Severity::Error),
@@ -360,6 +381,125 @@ pub fn emdf(source: &Source) -> Result<emdf::Report> {
         // nothing is listed in full, so nothing is written
         &mut io::sink(),
     )
+}
+
+// ---------------------------------------------------------------------------
+// The same calls of a stream that is read once.
+//
+// What a call above reads of a `Source` it may read more than once; what a
+// call below reads, it reads once, from the reader it is handed, and gives
+// what the call of the same bytes in a `Source` gives (the name aside, which
+// is the one it is handed). They are for a pipe or a socket: what they hold
+// does not grow with the stream (`crate::pipeline`).
+// ---------------------------------------------------------------------------
+
+/// [`info_of`] of a stream read once from `reader`, which reports call
+/// `name`; how far it has read is told to `watcher`, a walk of no known
+/// total.
+///
+/// # Errors
+/// As [`info_of`], and what reading gives.
+pub fn info_from(
+    name: &str,
+    reader: impl Read,
+    programme: Option<u8>,
+    watcher: Option<Arc<dyn Watcher>>,
+) -> Result<Info> {
+    let input = head_of(name, reader)?;
+    let watcher = watcher.as_ref();
+    Ok(match input.codec() {
+        Codec::Ac3 => Info::Ac3(eac3::report_from(
+            name,
+            input,
+            watcher,
+            &eac3::ReportOptions {
+                programme,
+                ..eac3::ReportOptions::default()
+            },
+        )?),
+        Codec::TrueHd if programme.is_some() => return Err(refusal(PROGRAMME_IS_AC3)),
+        Codec::TrueHd => Info::TrueHd(info::report_from(name, input, watcher)?),
+    })
+}
+
+/// [`verify`] of a stream read once from `reader`, as [`info_from`].
+///
+/// # Errors
+/// As [`verify`], and what reading gives.
+pub fn verify_from(
+    name: &str,
+    reader: impl Read,
+    options: &VerifyOptions,
+    watcher: Option<Arc<dyn Watcher>>,
+) -> Result<Verified> {
+    let input = head_of(name, reader)?;
+    let watcher = watcher.as_ref();
+    let ac3 = input.codec() == Codec::Ac3;
+    // one of the two reads it
+    let input = std::cell::RefCell::new(Some(input));
+    let take = || {
+        input
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("the stream was read already"))
+    };
+    verified(
+        name,
+        ac3,
+        options,
+        |name, asked| eac3::report_from(name, take()?, watcher, asked),
+        |name, asked| crate::verify::report_from(name, take()?, watcher, asked),
+    )
+}
+
+/// [`oamd`] of a stream read once from `reader`, as [`info_from`].
+///
+/// # Errors
+/// As [`oamd`], and what reading gives.
+pub fn oamd_from(
+    name: &str,
+    reader: impl Read,
+    watcher: Option<Arc<dyn Watcher>>,
+) -> Result<oamd::Report> {
+    oamd::report_from(
+        name,
+        reader,
+        watcher,
+        &oamd::Options {
+            json: false,
+            dump: None,
+        },
+        // nothing is listed in full, so nothing is written
+        &mut io::sink(),
+    )
+}
+
+/// [`emdf`] of a stream read once from `reader`, as [`info_from`].
+///
+/// # Errors
+/// As [`emdf`], and what reading gives.
+pub fn emdf_from(
+    name: &str,
+    reader: impl Read,
+    watcher: Option<Arc<dyn Watcher>>,
+) -> Result<emdf::Report> {
+    emdf::report_from(
+        name,
+        reader,
+        watcher,
+        &emdf::Options {
+            json: false,
+            dump: None,
+        },
+        // nothing is listed in full, so nothing is written
+        &mut io::sink(),
+    )
+}
+
+/// The head of a stream read once, which tells its codec; what reading it
+/// gives, in the words of [`crate::pipeline::Pass::run`].
+pub(crate) fn head_of<R: Read>(name: &str, reader: R) -> Result<Once<R>> {
+    Once::new(reader).map_err(|e| crate::pipeline::read_error(name, e))
 }
 
 /// What a decode to samples is asked.

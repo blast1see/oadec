@@ -1412,6 +1412,48 @@ pub fn scan_announcing(
     Ok(scan)
 }
 
+/// A scan lent the access units of a pass over a stream read once: what
+/// [`scan_keeping`] does with the units it reads itself.
+#[derive(Debug)]
+pub(crate) struct Scanning {
+    pub(crate) scan: Box<Scan>,
+    since_major_sync: u64,
+}
+
+impl Scanning {
+    /// A scan of the stream reports call `name`, as [`scan_keeping`] makes
+    /// it.
+    pub(crate) fn new(name: &str, max_per_rule: usize, keep_layouts: bool) -> Self {
+        let mut scan = Box::new(Scan::named(name, max_per_rule));
+        if keep_layouts {
+            scan.layouts = Some(Vec::new());
+        }
+        Self {
+            scan,
+            since_major_sync: 0,
+        }
+    }
+
+    /// The next access unit.
+    pub(crate) fn take(&mut self, unit: &oadec_truehd::Unit) {
+        self.scan.take_unit(unit, &mut self.since_major_sync);
+    }
+}
+
+impl crate::pipeline::Stage for Scanning {
+    fn unit(&mut self, unit: &crate::pipeline::UnitRef<'_>) -> Result<()> {
+        if let Some(unit) = unit.truehd() {
+            self.take(unit);
+        }
+        Ok(())
+    }
+
+    fn finish(&mut self, end: &crate::pipeline::PassEnd) -> Result<()> {
+        self.scan.finish(crate::pipeline::truehd_summary(end));
+        Ok(())
+    }
+}
+
 /// The bits of a major sync that the description reserves and this one
 /// sets, in words; `None` for a major sync that sets none. They are the
 /// fields the census counts as `reserved_nonzero`,

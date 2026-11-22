@@ -1,0 +1,123 @@
+{
+  "question": "Do info, verify (with and without --decode), emdf, oamd and au read a stream on standard input once, in memory bounded by what their reports keep rather than by the stream, and report what they report of a file of the same bytes? What does reading it once cost in time?",
+  "method": "The commands take `-` through `pipeline::Pass`: the head (64 KiB) tells the codecs apart, the stream is framed by the framer a walk over a file uses and every unit is lent to the walk of the command and, for emdf and oamd, to the checks of verify. The equality of reports is held by tests on every fixture and every stream of tests/found: cli_stdin.rs (text, --json and exit code of the five commands, file against pipe) and oadec-engine/tests/pipeline.rs (api::*_from against the calls of a Source, pieces cut anywhere, a stream cut inside a unit, a read that fails, a stream entered between major syncs). Peak memory is read from the system once everything was written into the pipe and before it was closed: PeakWorkingSet64 on Windows. What a command does after it has read the end (the last checks, the decodes of verify --decode ending, the report put together and printed) is not in it. Wall time is one run of each command on the same stream as a file and as a pipe. Debug builds (cargo test profile), Windows 11, a 28-thread machine shared with other jobs; not the measurement of gate 3, which is tools/bench.py on a release build with nothing else running.",
+  "build": "debug",
+  "peak_memory_mib": {
+    "bound": 64,
+    "before": {
+      "info --json, TrueHD fixture repeated to 160 MiB": 182.0,
+      "verify, longest TrueHD stream of the corpus (2 608 566 196 bytes), release, round 4 evidence 21": 2506.0
+    },
+    "after": {
+      "TrueHD fixture repeated to 160 MiB": {
+        "info": 12.2,
+        "verify": 12.2,
+        "verify --decode": 14.6,
+        "emdf": 12.2,
+        "oamd": 12.2,
+        "au": 11.7
+      },
+      "E-AC-3 fixture repeated to 160 MiB": {
+        "info": 13.0,
+        "verify": 13.0,
+        "verify --decode": 13.3,
+        "emdf": 14.7,
+        "oamd": 13.3,
+        "au": 11.4
+      },
+      "longest TrueHD stream of the corpus, 2 608 566 196 bytes": {
+        "info": 17.6,
+        "verify": 11.8,
+        "verify --decode": 16.0,
+        "emdf": 11.9,
+        "oamd": 12.0,
+        "au": 11.1
+      }
+    },
+    "unexplained": "info of the longest stream held 17.6 MiB where verify, which makes the same scan, held 11.8; at 160 MiB both held 12.2. One sample each."
+  },
+  "wall_seconds_file_against_pipe": {
+    "stream": "a fixture repeated to 32 MiB",
+    "TrueHD": {
+      "info": [
+        1.35,
+        1.35
+      ],
+      "verify": [
+        1.35,
+        1.36
+      ],
+      "verify --decode": [
+        5.39,
+        5.81
+      ],
+      "emdf": [
+        1.36,
+        1.43
+      ],
+      "oamd": [
+        1.35,
+        1.41
+      ]
+    },
+    "E-AC-3": {
+      "info": [
+        8.42,
+        8.24
+      ],
+      "verify": [
+        8.39,
+        8.18
+      ],
+      "verify --decode": [
+        47.26,
+        47.63
+      ],
+      "emdf": [
+        8.55,
+        16.0
+      ],
+      "oamd": [
+        8.57,
+        16.0
+      ]
+    },
+    "reports_equal": 10,
+    "not_met": "emdf and oamd of an E-AC-3 stream take 1.87 times as long piped in as from the file: the file is walked twice on two threads, the checks of verify beside the walk; a pipe is read once on one thread, and the checks of an E-AC-3 stream parse every frame to its last bit. Not measured in a release build."
+  },
+  "not_measured": [
+    "the time of the file path before and after (tools/bench.py)",
+    "release builds, by this package (the lead's measurements are below)",
+    "peak memory on Linux (VmHWM)"
+  ],
+  "release_by_the_lead": {
+    "conditions": "measured by the lead of round 5 on 22.11: release builds, an idle machine on its fast cores, three runs; against B0 (baa764e), which read standard input whole",
+    "peak_memory_mib_pipe": {
+      "TrueHD, 2.6 GB": {
+        "info, verify, emdf, oamd": 17.1,
+        "au --index": 16.8,
+        "B0": "2505 to 2514"
+      },
+      "E-AC-3, some 500 MB": {
+        "after": "17.3 to 17.5",
+        "B0": "485 to 490"
+      }
+    },
+    "file_path": "time and peak memory as B0 (within 1.3 % and 0.3 MiB)",
+    "pipe_time": {
+      "TrueHD": "as B0 (0.97 to 1.01 times)",
+      "E-AC-3": {
+        "emdf -": 8.37,
+        "oamd -": 8.35,
+        "B0 pipe": 4.71,
+        "B0 file": 4.59,
+        "ratio": "1.8 times slower; info and verify as B0"
+      }
+    }
+  },
+  "grows_with_the_stream": [
+    "the event times emdf keeps of an E-AC-3 stream: eight bytes for each block of object metadata, of which it prints the first 24; some 250 bytes a second of a stream with a block in every frame (63 blocks in the 112 896 bytes of the E-AC-3 fixture)",
+    "the decoder-buffer trace of verify --trace-fifo, asked for: a row for every access unit",
+    "the findings of verify --max-per-rule 0, asked for: every finding listed in full"
+  ]
+}

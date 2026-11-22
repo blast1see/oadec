@@ -84,51 +84,46 @@ const WAITING: usize = 2;
 /// the whole takes as long as the widest presentation and not as long as all
 /// of them.
 fn lossless_checks(source: &Source, ms: &MajorSync) -> Result<LosslessChecks> {
+    let said = std::thread::scope(|scope| -> Result<Vec<PresentationChecks>> {
+        let mut hand = hand_over(scope, ms)?;
+        let read = input::for_each_unit(source, |unit| {
+            hand.take(unit);
+            Ok(())
+        });
+        let said = hand.end();
+        read.map(|_| said)
+    })?;
+    Ok(summed(said))
+}
+
+/// Begins a decode, on a thread of its own, of every presentation a stream
+/// whose first major sync is `ms` carries itself: what the units are to be
+/// handed to.
+fn hand_over<'scope>(
+    scope: &'scope std::thread::Scope<'scope, '_>,
+    ms: &MajorSync,
+) -> Result<HandOver<'scope>> {
     let config = StreamConfig::from_major_sync(ms)?;
     let carried: Vec<usize> = (0..MAX_PRESENTATIONS)
         .filter(|&p| config.presentations.is_carried(p))
         .collect();
-    let per_presentation = std::thread::scope(|scope| -> Result<Vec<PresentationChecks>> {
-        let mut hand_over = Vec::with_capacity(carried.len());
-        let mut decodes = Vec::with_capacity(carried.len());
-        for &presentation in &carried {
-            let (to, units) = std::sync::mpsc::sync_channel::<Arc<Vec<Unit>>>(WAITING);
-            hand_over.push(to);
-            decodes.push(scope.spawn(move || presentation_checks(presentation, &units)));
-        }
-        let give = |units: Vec<Unit>| {
-            let units = Arc::new(units);
-            for to in &hand_over {
-                // a decode that has stopped at a fault takes no more of
-                // them, and that is no fault of the hand-over
-                let _ = to.send(Arc::clone(&units));
-            }
-        };
-        let mut units = Vec::with_capacity(UNITS_AT_A_TIME);
-        let read = input::for_each_unit(source, |unit| {
-            units.push(unit);
-            if units.len() == UNITS_AT_A_TIME {
-                give(std::mem::replace(
-                    &mut units,
-                    Vec::with_capacity(UNITS_AT_A_TIME),
-                ));
-            }
-            Ok(())
-        });
-        // the units after the last full hand-over
-        give(units);
-        // the decodes end when there is nothing more to hand them
-        drop(hand_over);
-        let said = decodes
-            .into_iter()
-            .map(|decode| {
-                decode
-                    .join()
-                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
-            })
-            .collect();
-        read.map(|_| said)
-    })?;
+    let per_presentation = carried.into_iter().map(|presentation| {
+        let (to, units) = std::sync::mpsc::sync_channel::<Arc<Vec<Unit>>>(WAITING);
+        (
+            to,
+            scope.spawn(move || presentation_checks(presentation, &units)),
+        )
+    });
+    let (to, decodes) = per_presentation.unzip();
+    Ok(HandOver {
+        to,
+        decodes,
+        units: Vec::with_capacity(UNITS_AT_A_TIME),
+    })
+}
+
+/// The checks of every presentation, added up.
+fn summed(per_presentation: Vec<PresentationChecks>) -> LosslessChecks {
     let mut checks = LosslessChecks::default();
     for p in per_presentation {
         checks.evaluated += p.evaluated;
@@ -136,7 +131,206 @@ fn lossless_checks(source: &Source, ms: &MajorSync) -> Result<LosslessChecks> {
         checks.skipped += p.skipped;
         checks.per_presentation.push(p);
     }
-    Ok(checks)
+    checks
+}
+
+/// What hands the units of a stream to the decodes of its presentations,
+/// each on a thread of its own, [`UNITS_AT_A_TIME`] at a time.
+struct HandOver<'scope> {
+    to: Vec<std::sync::mpsc::SyncSender<Arc<Vec<Unit>>>>,
+    decodes: Vec<std::thread::ScopedJoinHandle<'scope, PresentationChecks>>,
+    units: Vec<Unit>,
+}
+
+impl HandOver<'_> {
+    /// The next unit.
+    fn take(&mut self, unit: Unit) {
+        self.units.push(unit);
+        if self.units.len() == UNITS_AT_A_TIME {
+            let units = std::mem::replace(&mut self.units, Vec::with_capacity(UNITS_AT_A_TIME));
+            self.give(units);
+        }
+    }
+
+    fn give(&self, units: Vec<Unit>) {
+        let give = |units: Vec<Unit>| {
+            let units = Arc::new(units);
+            for to in &self.to {
+                // a decode that has stopped at a fault takes no more of
+                // them, and that is no fault of the hand-over
+                let _ = to.send(Arc::clone(&units));
+            }
+        };
+        give(units);
+    }
+
+    /// The stream has ended: what each decode said, in the order of the
+    /// presentations.
+    fn end(mut self) -> Vec<PresentationChecks> {
+        let units = std::mem::take(&mut self.units);
+        let give = |units| self.give(units);
+        // the units after the last full hand-over
+        give(units);
+        // the decodes end when there is nothing more to hand them
+        drop(self.to);
+        self.decodes
+            .into_iter()
+            .map(|decode| {
+                decode
+                    .join()
+                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+            })
+            .collect()
+    }
+}
+
+/// The scan of `verify --decode` and the decodes of the presentations beside
+/// it, lent the units of a pass over a stream read once: what
+/// [`scan_beside_the_decodes`] does with a stream it reads twice.
+///
+/// The decodes begin at the unit at which the scan has the first major sync,
+/// as they begin once it is told there. They are handed every unit from the
+/// first: a decode that opens at a unit without a major sync, or one that
+/// does not parse, stops there with its error and takes nothing more
+/// ([`Session::decode`]), and the scan has the first major sync at the first
+/// unit when that unit has one that parses. So the first unit is the one
+/// held until the decodes begin, and no other: the units between it and the
+/// one that carries the first major sync are units no decode takes.
+struct Beside<'scope, 'env> {
+    scope: &'scope std::thread::Scope<'scope, 'env>,
+    scanning: scan::Scanning,
+    /// The first unit, while no decode has begun.
+    first: Option<Unit>,
+    hand: Option<HandOver<'scope>>,
+    /// The decodes could not begin.
+    refused: Option<anyhow::Error>,
+}
+
+impl crate::pipeline::Stage for Beside<'_, '_> {
+    fn unit(&mut self, lent: &crate::pipeline::UnitRef<'_>) -> Result<()> {
+        let Some(unit) = lent.truehd() else {
+            return Ok(());
+        };
+        self.scanning.take(unit);
+        if let Some(hand) = &mut self.hand {
+            hand.take(unit.clone());
+            return Ok(());
+        }
+        if self.refused.is_some() {
+            return Ok(());
+        }
+        let Some(sync) = &self.scanning.scan.first_major_sync else {
+            if lent.index == 0 {
+                self.first = Some(unit.clone());
+            }
+            return Ok(());
+        };
+        match hand_over(self.scope, sync) {
+            Ok(mut hand) => {
+                if let Some(first) = self.first.take() {
+                    hand.take(first);
+                }
+                hand.take(unit.clone());
+                self.hand = Some(hand);
+            }
+            Err(e) => self.refused = Some(e),
+        }
+        Ok(())
+    }
+
+    fn finish(&mut self, end: &crate::pipeline::PassEnd) -> Result<()> {
+        self.scanning.finish(end)
+    }
+}
+
+/// The scan and the decodes of `verify --decode` of a stream read once, as
+/// [`scan_beside_the_decodes`] gives them.
+fn scan_and_decodes_from<R: std::io::Read>(
+    name: &str,
+    input: crate::pipeline::Once<R>,
+    watcher: Option<&Arc<dyn crate::source::Watcher>>,
+    opts: &Options,
+) -> Result<(Box<scan::Scan>, Option<Result<LosslessChecks>>)> {
+    std::thread::scope(|scope| {
+        let mut beside = Beside {
+            scope,
+            scanning: scan::Scanning::new(name, opts.max_per_rule, opts.trace_fifo.is_some()),
+            first: None,
+            hand: None,
+            refused: None,
+        };
+        let read = crate::pipeline::Pass::run(input, name, watcher, &mut [&mut beside]);
+        let Beside {
+            scanning,
+            hand,
+            refused,
+            ..
+        } = beside;
+        // the decodes are joined however the pass ended
+        let checks = match (hand, refused) {
+            (Some(hand), _) => Some(Ok(summed(hand.end()))),
+            (None, Some(e)) => Some(Err(e)),
+            (None, None) => None,
+        };
+        read?;
+        Ok((scanning.scan, checks))
+    })
+}
+
+/// The checks of `verify` beside the pass of another command over a stream
+/// read once: what [`spawn_stream_check`] runs on a thread of its own over a
+/// stream it reads again.
+#[derive(Debug)]
+pub(crate) enum Checking {
+    /// Of a TrueHD stream.
+    TrueHd(scan::Scanning),
+    /// Of an AC-3 family stream.
+    Ac3(Box<crate::eac3::Checking>),
+}
+
+impl Checking {
+    /// The checks of a stream of `codec`, which reports call `name`.
+    pub(crate) fn new(name: &str, codec: crate::pipeline::Codec) -> Self {
+        match codec {
+            crate::pipeline::Codec::TrueHd => Self::TrueHd(scan::Scanning::new(
+                name,
+                Tally::DEFAULT_MAX_PER_RULE,
+                false,
+            )),
+            crate::pipeline::Codec::Ac3 => Self::Ac3(Box::new(crate::eac3::Checking::new())),
+        }
+    }
+
+    /// The verdict, as [`join_stream_check`] gives it.
+    pub(crate) fn verdict(self) -> Result<StreamCheck> {
+        match self {
+            Self::TrueHd(scanning) => Ok(truehd_check(*scanning.scan)),
+            Self::Ac3(checking) => checking.verdict(),
+        }
+    }
+}
+
+impl crate::pipeline::Stage for Checking {
+    fn unit(&mut self, unit: &crate::pipeline::UnitRef<'_>) -> Result<()> {
+        match self {
+            Self::TrueHd(s) => s.unit(unit),
+            Self::Ac3(c) => c.unit(unit),
+        }
+    }
+
+    fn gap(&mut self, gap: &crate::pipeline::Ac3Gap) {
+        match self {
+            Self::TrueHd(s) => s.gap(gap),
+            Self::Ac3(c) => c.gap(gap),
+        }
+    }
+
+    fn finish(&mut self, end: &crate::pipeline::PassEnd) -> Result<()> {
+        match self {
+            Self::TrueHd(s) => s.finish(end),
+            Self::Ac3(c) => c.finish(end),
+        }
+    }
 }
 
 /// Decodes one presentation from the units it is handed, and says what its
@@ -971,19 +1165,53 @@ pub struct Report {
 /// join the verdict.
 pub fn report(source: &Source, opts: &Options) -> Result<Report> {
     let started = Instant::now();
-    let (mut scan, decoded) = if opts.decode {
+    let (scan, decoded) = if opts.decode {
         scan_beside_the_decodes(source, opts)?
     } else {
         let scan = scan::scan_keeping(source, opts.max_per_rule, opts.trace_fifo.is_some())?;
         (Box::new(scan), None)
     };
+    concluded(source.name(), started, scan, decoded, opts)
+}
+
+/// [`report`] of a TrueHD stream read once from `input`, which reports call
+/// `name`.
+///
+/// # Errors
+/// As [`report`], and what reading gives.
+pub fn report_from<R: std::io::Read>(
+    name: &str,
+    input: crate::pipeline::Once<R>,
+    watcher: Option<&Arc<dyn crate::source::Watcher>>,
+    opts: &Options,
+) -> Result<Report> {
+    let started = Instant::now();
+    let (scan, decoded) = if opts.decode {
+        scan_and_decodes_from(name, input, watcher, opts)?
+    } else {
+        let mut scanning = scan::Scanning::new(name, opts.max_per_rule, opts.trace_fifo.is_some());
+        crate::pipeline::Pass::run(input, name, watcher, &mut [&mut scanning])?;
+        (scanning.scan, None)
+    };
+    concluded(name, started, scan, decoded, opts)
+}
+
+/// The report of a scan, and of the decodes beside it, of the stream reports
+/// call `name`.
+fn concluded(
+    name: &str,
+    started: Instant,
+    mut scan: Box<scan::Scan>,
+    decoded: Option<Result<LosslessChecks>>,
+    opts: &Options,
+) -> Result<Report> {
     if let (Some(out), Some(layouts)) = (&opts.trace_fifo, &scan.layouts) {
         write_trace(out, layouts)?;
     }
     if scan.units == 0 {
         // Nothing framed: the file is not a stream to judge but an unsupported
         // input, exit 2, as it is for every command that reports one.
-        return Err(crate::info::no_stream(source));
+        return Err(crate::info::no_stream_named(name));
     }
     let checks = match (decoded, opts.decode) {
         (Some(decoded), _) => Some(decoded?),
@@ -1740,5 +1968,122 @@ mod tests {
             // the thread held the other handle on the flag, and it has ended
             assert_eq!(Arc::strong_count(&given_up), 1, "{name}");
         }
+    }
+
+    /// The decodes of `verify --decode` of a stream read once, lent `units`
+    /// one at a time as a pass lends them: what the scan and the decodes
+    /// came to.
+    fn beside(units: &[Unit]) -> (Box<scan::Scan>, Option<Result<LosslessChecks>>) {
+        use crate::pipeline::{Codec, Framed, Head, PassEnd, Stage, UnitRef};
+        std::thread::scope(|scope| {
+            let mut beside = Beside {
+                scope,
+                scanning: scan::Scanning::new("lent", Tally::DEFAULT_MAX_PER_RULE, false),
+                first: None,
+                hand: None,
+                refused: None,
+            };
+            for (index, unit) in units.iter().enumerate() {
+                let lent = UnitRef {
+                    index: index as u64,
+                    offset: unit.offset,
+                    bytes: &unit.bytes,
+                    head: Head::TrueHd(unit),
+                };
+                beside.unit(&lent).expect("lent");
+            }
+            let end = PassEnd {
+                codec: Codec::TrueHd,
+                bytes: 0,
+                units: units.len() as u64,
+                framed: Framed::TrueHd(input::PassSummary {
+                    stats: oadec_truehd::ExtractStats::default(),
+                    trailing_bytes: 0,
+                    final_gap: None,
+                    file_bytes: 0,
+                }),
+            };
+            beside.finish(&end).expect("finished");
+            let checks = match (beside.hand, beside.refused) {
+                (Some(hand), _) => Some(Ok(summed(hand.end()))),
+                (None, Some(e)) => Some(Err(e)),
+                (None, None) => None,
+            };
+            (beside.scanning.scan, checks)
+        })
+    }
+
+    /// A first access unit that does not parse, which no framer of a file
+    /// has been seen to hand out (it locks on a major sync whose check
+    /// holds): the scan has the first major sync only at the unit after
+    /// it, and the decodes that begin there are handed the first unit,
+    /// which was held for them, and stop at it, as a decode of a file of
+    /// the same units does. Without any major sync no decode begins, and
+    /// nothing is held past the end.
+    #[test]
+    fn the_first_unit_is_held_for_decodes_that_begin_after_it() {
+        let mut whole = Vec::new();
+        std::io::Read::read_to_end(
+            &mut fixture("truehd-51-88k.thd").open().expect("opened"),
+            &mut whole,
+        )
+        .expect("read");
+        let (units, ms) = units_of(&whole);
+        let ms = ms.expect("a major sync");
+        // a unit whose length says more than it holds does not parse
+        let broken = Unit {
+            offset: 0,
+            bytes: vec![0x0F, 0xFF, 0, 0, 0, 0, 0, 0],
+            has_major_sync: false,
+            resynced: false,
+            gap_before: None,
+        };
+        let parse_error = AccessUnit::parse(&broken.bytes, None)
+            .expect_err("it does not parse")
+            .to_string();
+        let mut lent = vec![broken.clone()];
+        lent.extend(units.iter().cloned());
+        let (scan, checks) = beside(&lent);
+        assert_eq!(scan.units, lent.len() as u64);
+        assert_eq!(scan.first_major_sync.as_ref(), Some(&ms));
+        let checks = checks.expect("the decodes began").expect("they could");
+        // every presentation carried, each stopped at the first unit
+        let carried = (0..MAX_PRESENTATIONS)
+            .filter(|&p| {
+                StreamConfig::from_major_sync(&ms)
+                    .unwrap()
+                    .presentations
+                    .is_carried(p)
+            })
+            .count();
+        assert_eq!(checks.per_presentation.len(), carried);
+        for p in &checks.per_presentation {
+            assert_eq!(
+                p.error.as_deref(),
+                Some(parse_error.as_str()),
+                "{}",
+                p.presentation
+            );
+            assert_eq!(p.evaluated, 0);
+        }
+        // what a decode of the same units, all of them handed over, says
+        let handed = std::thread::scope(|scope| {
+            let mut hand = hand_over(scope, &ms).expect("begun");
+            for unit in &lent {
+                hand.take(unit.clone());
+            }
+            hand.end()
+        });
+        assert_eq!(
+            serde_json::to_value(&checks.per_presentation).unwrap(),
+            serde_json::to_value(&handed).unwrap()
+        );
+        // the stream as it is: the decodes begin at the first unit
+        let (_, as_is) = beside(&units);
+        assert!(as_is.expect("begun").expect("could").evaluated > 0);
+        // and no major sync at all: no decode, as the file path has none
+        let (scan, none) = beside(&[broken.clone(), broken]);
+        assert!(scan.first_major_sync.is_none());
+        assert!(none.is_none());
     }
 }
