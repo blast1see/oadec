@@ -69,6 +69,10 @@ pub struct Decoder {
     decorrelator: Decorrelator,
     /// What the decorrelation did to the frame rendered last.
     decorrelation_status: Status,
+    /// The model laid over the amplitude-only reading of enhanced coupling
+    /// ([`ecpl::Model`]); [`ecpl::Model::Off`] unless
+    /// [`Decoder::set_ecpl_model`] says otherwise.
+    ecpl_model: ecpl::Model,
 }
 
 impl Default for Decoder {
@@ -95,7 +99,23 @@ impl Decoder {
             scope: ProgrammeScope::Unknown,
             decorrelator: Decorrelator::new(),
             decorrelation_status: Status::NotApplied(NotApplied::Off),
+            ecpl_model: ecpl::Model::Off,
         }
+    }
+
+    /// Lays `model` over the amplitude-only reading of enhanced coupling
+    /// ([`ecpl::Model`]). [`ecpl::Model::Off`], the default, is the decode
+    /// as it is without the call. Under the full reading
+    /// ([`crate::frame::Options::ecpl_full`]) no model applies.
+    pub fn set_ecpl_model(&mut self, model: ecpl::Model) {
+        self.ecpl_model = model;
+    }
+
+    /// The model [`Self::set_ecpl_model`] gave last; [`ecpl::Model::Off`]
+    /// for a decoder never told one.
+    #[must_use]
+    pub fn ecpl_model(&self) -> ecpl::Model {
+        self.ecpl_model
     }
 
     /// Turns the experimental decorrelation of the coupled channels on or
