@@ -621,3 +621,35 @@ fn a_spool_whose_file_cannot_be_made_fails_and_takes_nothing_more() {
     assert!(spool.finish().is_err());
     assert!(!nowhere.exists());
 }
+
+/// A walk over an AC-3 family file tells a run of bytes that is no syncframe
+/// by the reads it made, and a pass tells it as that walk does. A run longer
+/// than 64 KiB is told in one piece by reads as long as the file's and in
+/// several by reads of 64 KiB, so a pass that framed by other reads than the
+/// file's would report other findings than `verify` of the file.
+#[test]
+fn a_long_run_of_bytes_that_are_no_frame_is_told_as_the_file_tells_it() {
+    let clean = read(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../oadec-cli/tests/fixtures/authored-scene.ec3"),
+    );
+    const FRAME: usize = 1792;
+    let mut bytes = clean[..36 * FRAME].to_vec();
+    bytes.extend((0..200_000).map(|i| (i % 7) as u8 + 1));
+    bytes.extend_from_slice(&clean[36 * FRAME..]);
+
+    let source = Source::memory(NAME, bytes.clone());
+    let options = VerifyOptions::default();
+    let of_file = api::verify(&source, &options).expect("verify of the source");
+    let of_pipe = api::verify_from(NAME, Cut::new(&bytes, 70_000, 3), &options, None)
+        .expect("verify of the reader");
+    assert_eq!(
+        of_pipe.json().expect("json").map(timeless),
+        of_file.json().expect("json").map(timeless)
+    );
+    // the run is told in two gaps, as the file's reader tells it: the byte
+    // where no frame starts, and all the rest in one
+    let (_, lines, _) = told(Cut::new(&bytes, 70_000, 3));
+    let gaps = lines.iter().filter(|l| l.contains("Ac3Gap")).count();
+    assert_eq!(gaps, 2, "{lines:?}");
+}
