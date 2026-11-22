@@ -421,6 +421,7 @@ dependencies = [
 name = "oadec-fuzz"
 version = "0.9.1"
 dependencies = [
+ "anyhow",
  "oadec-eac3",
  "oadec-emdf",
  "oadec-engine",

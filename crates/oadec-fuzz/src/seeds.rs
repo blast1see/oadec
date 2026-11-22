@@ -115,6 +115,10 @@ impl Seeds {
         self.push("truehd_multi", [&[0u8][..], &run].concat());
         self.push("truehd_multi", [&[1u8][..], &run].concat());
         self.push("stream_push", [&[7u8][..], &run].concat());
+        self.push("pipeline_push", [&[7u8][..], &run].concat());
+        // a limit the run passes, and one it stays under
+        self.push("spool_merge", [&[0u8][..], &run].concat());
+        self.push("spool_merge", [&[255u8][..], &run].concat());
         if let Ok((first, _)) = AccessUnit::parse(&units[start].bytes, None)
             && let Some(sync) = &first.major_sync
         {
@@ -165,6 +169,7 @@ impl Seeds {
         if !run.is_empty() {
             self.push("eac3_program_config", [&[0u8][..], &run].concat());
             self.push("stream_push", [&[3u8][..], &run].concat());
+            self.push("pipeline_push", [&[3u8][..], &run].concat());
         }
         self.push("verdict_parity", run);
 

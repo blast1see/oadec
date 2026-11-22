@@ -16,6 +16,8 @@ oadec-truehd.workspace = true
 oadec-eac3.workspace = true
 oadec-joc.workspace = true
 oadec-synth.workspace = true
+# the stages of a pass answer with it
+anyhow.workspace = true
 
 [lints]
 workspace = true

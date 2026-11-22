@@ -59,6 +59,8 @@ jobs:
           - truehd_multi
           - stream_push
           - eac3_program_config
+          - pipeline_push
+          - spool_merge
     steps:
       - uses: actions/checkout@v4
       # rust-toolchain.toml names the toolchain the seeds are cut with

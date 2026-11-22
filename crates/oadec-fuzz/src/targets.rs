@@ -737,6 +737,116 @@ pub fn stream_push(data: &[u8]) {
     assert!(pieces == whole, "the pieces differ from the whole");
 }
 
+/// A reader that gives its bytes in reads of the lengths `next` says.
+struct Cut<'a, F> {
+    bytes: &'a [u8],
+    at: usize,
+    next: F,
+}
+
+impl<F: FnMut() -> usize> std::io::Read for Cut<'_, F> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let left = self.bytes.len() - self.at;
+        let n = (self.next)().max(1).min(buf.len()).min(left);
+        buf[..n].copy_from_slice(&self.bytes[self.at..self.at + n]);
+        self.at += n;
+        Ok(n)
+    }
+}
+
+/// A stage that writes down everything it is told.
+#[derive(Default)]
+struct PassTold(Vec<String>);
+
+impl oadec_engine::pipeline::Stage for PassTold {
+    fn unit(&mut self, unit: &oadec_engine::pipeline::UnitRef<'_>) -> anyhow::Result<()> {
+        let mut digest = 0xcbf2_9ce4_8422_2325u64;
+        for &b in unit.bytes {
+            digest = (digest ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3);
+        }
+        self.0.push(format!(
+            "{} {} {} {digest:016x} {:?} {:?}",
+            unit.index,
+            unit.offset,
+            unit.bytes.len(),
+            unit.truehd()
+                .map(|u| (u.has_major_sync, u.resynced, u.gap_before)),
+            unit.ac3().map(|h| h.frame_bytes),
+        ));
+        Ok(())
+    }
+
+    fn gap(&mut self, gap: &oadec_engine::pipeline::Ac3Gap) {
+        self.0.push(format!("{gap:?}"));
+    }
+
+    fn finish(&mut self, end: &oadec_engine::pipeline::PassEnd) -> anyhow::Result<()> {
+        self.0.push(format!("{end:?}"));
+        Ok(())
+    }
+}
+
+/// What the stages of a pass are told of `stream` read in reads of the
+/// lengths `next` says: every unit, every gap and the end, or the error.
+fn pass_told(stream: &[u8], next: impl FnMut() -> usize) -> Result<Vec<String>, String> {
+    use oadec_engine::pipeline::{Once, Pass};
+    let reader = Cut {
+        bytes: stream,
+        at: 0,
+        next,
+    };
+    let once = Once::new(reader).map_err(|e| e.to_string())?;
+    let mut stage = PassTold::default();
+    Pass::run(once, "fuzz", None, &mut [&mut stage]).map_err(|e| format!("{e:#}"))?;
+    Ok(stage.0)
+}
+
+/// A stream of either family read once and told to the stages of a pass, in
+/// reads of the lengths the first byte of the input seeds, against the same
+/// bytes given in reads as long as the pass asks for: the same units, gaps
+/// and end, or the same error. A pipe cuts its reads where it likes, and a
+/// report must not depend on where.
+pub fn pipeline_push(data: &[u8]) {
+    let Some((&first, stream)) = data.split_first() else {
+        return;
+    };
+    let stream = &stream[..stream.len().min(MAX_UNITS * 4096)];
+    let whole = pass_told(stream, || usize::MAX);
+    let mut rng = crate::mutate::Rng::new(u64::from(first));
+    let most = 1 + usize::from(first) * 37;
+    let pieces = pass_told(stream, || rng.below(most) + 1);
+    assert!(pieces == whole, "the pieces differ from the whole");
+}
+
+/// Records given to a spool come back whole and in the order they were
+/// given, whether the limit the first byte of the input sets kept them in
+/// memory or sent them to a file; and the spool never holds more in memory
+/// than its limit. The records are the input cut at every byte 0xFF.
+pub fn spool_merge(data: &[u8]) {
+    let Some((&first, rest)) = data.split_first() else {
+        return;
+    };
+    // 64 bytes to 16 KiB: a short input stays in memory, a seed spills
+    let limit = 64 + usize::from(first) * 64;
+    let records: Vec<&[u8]> = rest.split(|&b| b == 0xFF).take(4096).collect();
+    let mut spool = oadec_engine::spool::Spool::new(limit);
+    for record in &records {
+        spool.push(record).expect("a record is taken");
+        assert!(spool.in_memory() <= limit, "more in memory than the limit");
+    }
+    assert_eq!(spool.records(), records.len() as u64);
+    let mut back = spool.finish().expect("the spool is read back");
+    let mut got = Vec::new();
+    for want in &records {
+        assert!(back.next_record(&mut got).expect("a record is read"));
+        assert!(&got[..] == *want, "a record came back changed");
+    }
+    assert!(
+        !back.next_record(&mut got).expect("the end is read"),
+        "more records than were given"
+    );
+}
+
 /// The frames of `data` the programme decoder takes: whole syncframes, from
 /// the first that parses, at most [`MAX_FRAMES`].
 fn syncframes(data: &[u8]) -> Vec<(&[u8], FrameHeader)> {
