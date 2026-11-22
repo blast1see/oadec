@@ -338,6 +338,12 @@ enum Command {
             conflicts_with_all = ["flat_quadrature", "joc_low_band"]
         )]
         joc_low_fir: Option<JocLowFir>,
+        /// JOC measurement: after the decode, write what the object path
+        /// holds, time slot by time slot, into DIR (f64 planes and
+        /// index.json); DIR must hold no files. The objects written are
+        /// unchanged.
+        #[arg(long, hide = true, value_name = "DIR")]
+        joc_tap: Option<PathBuf>,
         /// PCM/WAV: what to do when the channels or the sampling frequency
         /// change in the middle of the stream. stop: end the output at the
         /// unit that changed (exit 7), which is what a decode to standard
@@ -574,6 +580,11 @@ const EVERY_TAKES_LITTLE: &str = "-p all decodes a TrueHD stream to samples: it 
 const WARP_IS_OBJECTS: &str =
     "--warp-mode names a warp mode in an object output: it applies to --format damf or adm";
 
+/// What `--joc-tap` on anything but the object decode of an E-AC-3 stream is
+/// told.
+const JOC_TAP_IS_EAC3_OBJECTS: &str = "--joc-tap reads the JOC object decode: it applies to an \
+     E-AC-3 stream with --format damf or adm";
+
 /// Exit code when a verification finds non-conformance.
 const EXIT_NONCONFORMANT: u8 = 7;
 
@@ -723,6 +734,7 @@ where
             joc_low_band,
             joc_phase,
             joc_low_fir,
+            joc_tap,
             on_layout_change,
             json,
             report,
@@ -765,6 +777,7 @@ where
                 || joc_low_band.is_some()
                 || joc_phase.is_some()
                 || joc_low_fir.is_some()
+                || joc_tap.is_some()
                 || no_clip_gain
                 || flat_quadrature
                 || sparse_as_printed
@@ -961,6 +974,7 @@ where
                             (given_for_damf, api::FPS_IS_DAMF),
                             (warp_mode.is_some(), WARP_IS_OBJECTS),
                             (joc_measured, api::JOC_MEASURES_EAC3_OBJECTS),
+                            (joc_tap.is_some(), JOC_TAP_IS_EAC3_OBJECTS),
                             (joc_read, api::JOC_READINGS_ARE_EAC3_OBJECTS),
                         ]
                         .into_iter()
@@ -1033,6 +1047,13 @@ where
                     // A measurement override that reaches no JOC reconstruction would
                     // be read as applied while changing nothing.
                     Err(anyhow::anyhow!(api::JOC_MEASURES_EAC3_OBJECTS))
+                } else if joc_tap.is_some()
+                    && !(eac3::is_eac3(&source).unwrap_or(false)
+                        && matches!(format, Format::Damf | Format::Adm))
+                {
+                    // As the overrides above: a tap that reads no JOC
+                    // reconstruction would be read as having written one.
+                    Err(anyhow::anyhow!(JOC_TAP_IS_EAC3_OBJECTS))
                 } else if on_error.is_some() && eac3::is_eac3(&source).unwrap_or(false) {
                     // The E-AC-3 decoder has its own way with a bad frame; an
                     // option that reads as applied while changing nothing is the
@@ -1092,43 +1113,54 @@ where
                          --format wav or pcm"
                         ))
                     } else {
-                        eac3_objects::run(
-                            &source,
-                            &output,
-                            &damf::Options {
-                                keep_duplicates,
-                                bed_conform: !no_bed_conform,
-                                all_events,
-                                adm: format == Format::Adm,
-                                dolby_origin_tag,
-                                loss_report: loss_report.clone(),
-                                isf: isf.into(),
-                                allow_non_profile_rate: adm_allow_non_profile_rate,
-                                fps: fps.clone(),
-                                interpolation: adm_interpolation.into(),
-                                warp: warp_mode,
-                                clip_gain: !no_clip_gain,
-                                flat_quadrature,
-                                sparse_as_printed,
-                                steep_as_printed,
-                                joc: JocOverrides {
-                                    lag: joc_lag,
-                                    low_band: joc_low_band,
-                                    phase: joc_phase,
-                                    low_fir: joc_low_fir,
-                                },
-                                core: oadec_eac3::Options {
-                                    dither: !no_dither,
-                                    tpnp: !no_tpnp,
-                                    ecpl_full: ecpl_spec,
-                                    block_info: false,
-                                    samples: true,
-                                },
-                                // refused above for E-AC-3
-                                on_error: None,
+                        let options = damf::Options {
+                            keep_duplicates,
+                            bed_conform: !no_bed_conform,
+                            all_events,
+                            adm: format == Format::Adm,
+                            dolby_origin_tag,
+                            loss_report: loss_report.clone(),
+                            isf: isf.into(),
+                            allow_non_profile_rate: adm_allow_non_profile_rate,
+                            fps: fps.clone(),
+                            interpolation: adm_interpolation.into(),
+                            warp: warp_mode,
+                            clip_gain: !no_clip_gain,
+                            flat_quadrature,
+                            sparse_as_printed,
+                            steep_as_printed,
+                            joc: JocOverrides {
+                                lag: joc_lag,
+                                low_band: joc_low_band,
+                                phase: joc_phase,
+                                low_fir: joc_low_fir,
                             },
-                            err,
-                        )
+                            core: oadec_eac3::Options {
+                                dither: !no_dither,
+                                tpnp: !no_tpnp,
+                                ecpl_full: ecpl_spec,
+                                block_info: false,
+                                samples: true,
+                            },
+                            // refused above for E-AC-3
+                            on_error: None,
+                        };
+                        eac3_objects::run(&source, &output, &options, err).and_then(|verdict| {
+                            // The tap is a decode of its own, after the one
+                            // that wrote the objects: that one is the decode
+                            // it always was.
+                            if let Some(dir) = &joc_tap {
+                                use std::io::Write as _;
+                                eac3_objects::tap_to_dir(
+                                    &source,
+                                    dir,
+                                    &options,
+                                    eac3_objects::TapOptions::default(),
+                                )?;
+                                writeln!(err, "joc tap: {}", dir.display())?;
+                            }
+                            Ok(verdict)
+                        })
                     }
                 } else if eac3::is_eac3(&source).unwrap_or(false) {
                     eac3::decode(

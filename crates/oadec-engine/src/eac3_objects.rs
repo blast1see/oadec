@@ -32,7 +32,7 @@ use crate::eac3::for_each_frame;
 use crate::integrity::{Findings, Verdict};
 
 mod tap;
-pub use tap::{JocTap, TapOptions, TapSlot, TapStart};
+pub use tap::{JocTap, TapOptions, TapSlot, TapStart, tap_to_dir};
 
 /// Samples the core decoder emits before the first frame's audio proper (the
 /// first block's half window). The Dolby decoder drops them; the metadata

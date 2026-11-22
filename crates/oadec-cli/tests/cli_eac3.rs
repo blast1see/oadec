@@ -2213,3 +2213,91 @@ fn the_coupled_part_of_a_channel_draws_the_run_of_its_second_state() {
         "only {judged} coefficients of {bands} sub-bands to go by"
     );
 }
+
+/// `--joc-tap` dumps what the object path holds beside a decode that is the
+/// one without it: the files written are the same to the byte, the tap is not
+/// an override of the loss report, and a decode that reconstructs no objects
+/// refuses it.
+#[test]
+fn a_joc_tap_leaves_the_objects_unchanged() {
+    let dir = temp("tap");
+    let file = fixture("authored-scene.ec3");
+    let run = |name: &str, flags: &[&str]| {
+        let report = dir.join(format!("{name}.json"));
+        let out = Command::new(env!("CARGO_BIN_EXE_oadec"))
+            .args(["decode", file.to_str().unwrap(), "--format", "damf"])
+            .args(flags)
+            .arg("--loss-report")
+            .arg(&report)
+            .arg("-o")
+            .arg(dir.join(name))
+            .output()
+            .expect("run oadec");
+        assert_eq!(out.status.code(), Some(0), "{name}: {}", stderr(&out));
+        let files: Vec<Vec<u8>> = ["atmos", "atmos.metadata", "atmos.audio"]
+            .iter()
+            .map(|ext| std::fs::read(dir.join(format!("{name}.{ext}"))).unwrap())
+            .collect();
+        let report: Value = serde_json::from_slice(&std::fs::read(&report).unwrap()).unwrap();
+        (stderr(&out), files, report)
+    };
+    let (_, plain, plain_report) = run("plain", &[]);
+    let dump = dir.join("dump");
+    let (err, tapped, report) = run("plain", &["--joc-tap", dump.to_str().unwrap()]);
+    assert!(tapped == plain, "--joc-tap changed what the decode wrote");
+    assert_eq!(report, plain_report, "{report}");
+    assert!(!err.contains("measurement overrides"), "{err}");
+    assert!(err.contains("joc tap: "), "{err}");
+
+    let index: Value =
+        serde_json::from_slice(&std::fs::read(dump.join("index.json")).unwrap()).unwrap();
+    let slots = index["slots"].as_array().unwrap().len();
+    let (channels, objects) = (
+        index["channels"].as_u64().unwrap() as usize,
+        index["objects"].as_u64().unwrap() as usize,
+    );
+    assert!(slots > 0 && channels > 0 && objects > 0, "{index}");
+    let size = |name: &str| std::fs::metadata(dump.join(name)).unwrap().len() as usize;
+    assert_eq!(size("downmix.f64"), slots * channels * 64 * 2 * 8);
+    assert_eq!(size("matrix.f64"), slots * objects * channels * 64 * 8);
+    assert_eq!(size("objects.f64"), slots * objects * 64 * 2 * 8);
+
+    // a directory that holds files is not written over
+    let out = oadec(&[
+        "decode",
+        file.to_str().unwrap(),
+        "--format",
+        "damf",
+        "--joc-tap",
+        dump.to_str().unwrap(),
+        "-o",
+        dir.join("again").to_str().unwrap(),
+    ]);
+    assert_ne!(out.status.code(), Some(0), "{}", stderr(&out));
+    assert!(stderr(&out).contains("holds files"), "{}", stderr(&out));
+
+    // samples reconstruct no objects, and a TrueHD stream has no JOC
+    for (stream, format) in [
+        (file.clone(), "wav"),
+        (fixture("authored-scene.mlp"), "damf"),
+    ] {
+        let out = oadec(&[
+            "decode",
+            stream.to_str().unwrap(),
+            "--format",
+            format,
+            "--joc-tap",
+            dir.join("refused").to_str().unwrap(),
+            "-o",
+            dir.join("refused-out").to_str().unwrap(),
+        ]);
+        assert_eq!(out.status.code(), Some(2), "{format}: {}", stderr(&out));
+        assert!(
+            stderr(&out).contains("--joc-tap reads the JOC object decode"),
+            "{format}: {}",
+            stderr(&out)
+        );
+        assert!(!dir.join("refused").exists());
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
