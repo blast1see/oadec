@@ -438,6 +438,17 @@ a control and is recorded where the wrong figure was:
 From `conformance-matrix.md`, which has 131 rows where the round began with
 110: 93 PASS, 17 PASS-TOL, 3 PARTIAL, 7 N/I, 6 N/T, 5 UNK and no FAIL.
 
+(A note of 2026-11-21: this section and the count of section 9 are the
+matrix as it stood when this round ended. Two rounds later it has 144 rows:
+105 PASS, 17 PASS-TOL, 7 N/I, 4 N/T, 3 UNK, 3 PARTIAL, 3 SPEC-REF, 1 NOT MET
+and one row that is experimental and not a PASS; still no FAIL. Of what is
+listed below, the layout that changes mid-stream, `block_header_crc` and what
+`block_data_bits` counts are PASS; JOC configurations 1 and 2, two data
+points and the enhanced-coupling angle and chaos are SPEC-REF, held to a
+reference written from the specification; the decorrelation of coupled
+channels is experimental. The fuzzing row of section 1 says eleven libFuzzer
+targets; there are fourteen now.)
+
 - **Not testable with what there is (N/T).** Error protection of a TrueHD
   block, which no stream carries and whose two outside readers disagree (12);
   EMDF in auxiliary data; JOC downmix configurations 1 and 2 and two data

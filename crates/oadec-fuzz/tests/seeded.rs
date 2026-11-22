@@ -148,6 +148,8 @@ targets!(
     truehd_multi,
     stream_push,
     eac3_program_config,
+    pipeline_push,
+    spool_merge,
 );
 
 /// A target added to the crate and not to the list above would never run.

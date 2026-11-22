@@ -11,6 +11,7 @@ use oadec_truehd::{AccessUnit, ExtraKind, ParserState, SampleBuffer, Segment, St
 use serde_json::{Value, json};
 
 use oadec_engine::input;
+use oadec_engine::pipeline::{self, Once, Pass, PassEnd, Stage, UnitRef};
 use oadec_engine::source::Source;
 
 /// The walk stops once the unit is described; this is how it says so.
@@ -238,22 +239,62 @@ fn print_text(v: &Value) {
 
 /// Runs the command.
 pub fn run(source: &Source, index: u64, json_out: bool) -> Result<()> {
+    run_by(index, json_out, |walk| {
+        input::for_each_unit(source, |unit| walk(&unit)).map(|_| ())
+    })
+}
+
+/// Runs the command on a stream read once from `reader`, which reports call
+/// `name`. The walk stops at the unit asked for, and what is after it is not
+/// read.
+pub fn run_from(
+    name: &str,
+    reader: impl std::io::Read,
+    watcher: Option<std::sync::Arc<dyn oadec_engine::source::Watcher>>,
+    index: u64,
+    json_out: bool,
+) -> Result<()> {
+    run_by(index, json_out, |walk| {
+        // every stream is walked as TrueHD, as a file of it is
+        let input = Once::new(reader)
+            .map_err(|e| pipeline::read_error(name, e))?
+            .framed_as(pipeline::Codec::TrueHd);
+        let mut each = Each(walk);
+        Pass::run(input, name, watcher.as_ref(), &mut [&mut each]).map(|_| ())
+    })
+}
+
+/// What a walk over the access units hands each to.
+type UnitFn<'f> = &'f mut dyn FnMut(&oadec_truehd::Unit) -> Result<()>;
+
+/// A stage that hands every access unit to the walk of the command.
+struct Each<'f>(UnitFn<'f>);
+
+impl Stage for Each<'_> {
+    fn unit(&mut self, unit: &UnitRef<'_>) -> Result<()> {
+        match unit.truehd() {
+            Some(unit) => (self.0)(unit),
+            None => Ok(()),
+        }
+    }
+
+    fn finish(&mut self, _: &PassEnd) -> Result<()> {
+        Ok(())
+    }
+}
+
+/// The command over the units `drive` hands over.
+fn run_by(index: u64, json_out: bool, drive: impl FnOnce(UnitFn<'_>) -> Result<()>) -> Result<()> {
     let mut config: Option<StreamConfig> = None;
     let mut parser: Option<ParserState> = None;
     let mut buffer = Box::<SampleBuffer>::default();
     let mut seen = 0u64;
     let mut found = None;
-    let walk = input::for_each_unit(source, |unit| {
+    let walk = drive(&mut |unit| {
         let i = seen;
         seen += 1;
         if i == index {
-            found = Some(describe(
-                i,
-                &unit,
-                config.as_ref(),
-                &mut parser,
-                &mut buffer,
-            ));
+            found = Some(describe(i, unit, config.as_ref(), &mut parser, &mut buffer));
             return Err(anyhow::Error::new(Stop));
         }
         // keep the configuration and every substream's state current
@@ -284,7 +325,7 @@ pub fn run(source: &Source, index: u64, json_out: bool) -> Result<()> {
     match walk {
         Err(e) if e.downcast_ref::<Stop>().is_some() => {}
         Err(e) => return Err(e),
-        Ok(_) => {}
+        Ok(()) => {}
     }
     let Some(v) = found else {
         return Err(anyhow!(

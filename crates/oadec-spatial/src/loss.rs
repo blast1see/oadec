@@ -13,6 +13,11 @@
 
 use std::collections::BTreeMap;
 
+/// The version of `docs/schemas/loss-report.schema.json` the loss report
+/// follows, written into the report as `schema`. Version 1 was the report of
+/// 0.9.1 before it named its version; 2 adds the field and six kinds.
+pub const REPORT_SCHEMA: u32 = 2;
+
 /// Why an output does not carry something the programme had.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LossClass {
@@ -89,6 +94,21 @@ pub enum LossKind {
     DivergenceDropped,
     /// Explicit trim configurations.
     TrimConfigDropped,
+    /// An update block with `additional_table_data`: bytes the syntax leaves
+    /// to later versions, with a place in neither output.
+    AdditionalTableDataDropped,
+    /// Object, trim or extended-object elements of an alternate object data
+    /// set: the timeline reads the first element of each id and no other.
+    AlternateObjectDataDropped,
+    /// Elements of an id without a syntax here (3 and 4, which `truehdd`
+    /// names headphone and object description, and the reserved ids).
+    UnknownElementDropped,
+    /// `b_bed_chan_distribute`: DAMF's `bedDistribution` changed nothing an
+    /// encoder wrote when it was tried, and the ADM profile has no field.
+    BedDistributeDropped,
+    /// `reserved_data` of the programme assignment, or the reserved bits of
+    /// the object element.
+    ReservedDataDropped,
     /// A warp mode other than the one the output reads as: the one written, or
     /// warping, which is what Dolby's encoders read when none is.
     WarpModeDropped,
@@ -100,6 +120,9 @@ pub enum LossKind {
     SamePositionSuperseded,
     /// An event at or after the programme end.
     EventBeyondEndDropped,
+    /// A reserved zone index (6 or 7, TS 103 420 table 20), which DAMF writes
+    /// as all zones and the ADM writer as no exclusion.
+    ReservedZoneReadAsAll,
     /// ISF elements written out at the user's request.
     IsfDropped,
     /// DAMF: an event earlier than the previous one of its element, written as delivered.
@@ -109,6 +132,35 @@ pub enum LossKind {
 }
 
 impl LossKind {
+    /// Every kind, in reporting order. The loss report's schema
+    /// (`docs/schemas/loss-report.schema.json`) lists the same names, and a
+    /// test holds the two together.
+    pub const ALL: [Self; 23] = [
+        Self::RampReplaced,
+        Self::ImportanceOmitted,
+        Self::BedEventDropped,
+        Self::BedGainDropped,
+        Self::ScreenReferenceDropped,
+        Self::TrimBypassDropped,
+        Self::DistanceDropped,
+        Self::DivergenceDropped,
+        Self::TrimConfigDropped,
+        Self::AdditionalTableDataDropped,
+        Self::AlternateObjectDataDropped,
+        Self::UnknownElementDropped,
+        Self::BedDistributeDropped,
+        Self::ReservedDataDropped,
+        Self::WarpModeDropped,
+        Self::SizeAxesCollapsed,
+        Self::LateFirstEventHeld,
+        Self::SamePositionSuperseded,
+        Self::EventBeyondEndDropped,
+        Self::ReservedZoneReadAsAll,
+        Self::IsfDropped,
+        Self::OutOfOrderWrittenAsIs,
+        Self::NonProfileSampleRate,
+    ];
+
     /// The class the kind is reported under.
     #[must_use]
     pub const fn class(self) -> LossClass {
@@ -119,14 +171,20 @@ impl LossKind {
             | Self::BedGainDropped
             | Self::ScreenReferenceDropped
             | Self::TrimBypassDropped => LossClass::ProfileReduction,
-            Self::DistanceDropped | Self::DivergenceDropped | Self::TrimConfigDropped => {
-                LossClass::Unrepresentable
-            }
+            Self::DistanceDropped
+            | Self::DivergenceDropped
+            | Self::TrimConfigDropped
+            | Self::AdditionalTableDataDropped
+            | Self::AlternateObjectDataDropped
+            | Self::UnknownElementDropped
+            | Self::BedDistributeDropped
+            | Self::ReservedDataDropped => LossClass::Unrepresentable,
             Self::WarpModeDropped
             | Self::SizeAxesCollapsed
             | Self::LateFirstEventHeld
             | Self::SamePositionSuperseded
-            | Self::EventBeyondEndDropped => LossClass::Approximation,
+            | Self::EventBeyondEndDropped
+            | Self::ReservedZoneReadAsAll => LossClass::Approximation,
             Self::IsfDropped | Self::OutOfOrderWrittenAsIs | Self::NonProfileSampleRate => {
                 LossClass::DeclaredLoss
             }
@@ -147,6 +205,12 @@ impl LossKind {
             Self::DivergenceDropped => "divergence-dropped",
             Self::WarpModeDropped => "warp-mode-dropped",
             Self::TrimConfigDropped => "trim-config-dropped",
+            Self::AdditionalTableDataDropped => "additional-table-data-dropped",
+            Self::AlternateObjectDataDropped => "alternate-object-data-dropped",
+            Self::UnknownElementDropped => "unknown-element-dropped",
+            Self::BedDistributeDropped => "bed-distribute-dropped",
+            Self::ReservedDataDropped => "reserved-data-dropped",
+            Self::ReservedZoneReadAsAll => "reserved-zone-read-as-all",
             Self::SizeAxesCollapsed => "size-axes-collapsed",
             Self::LateFirstEventHeld => "late-first-event-held",
             Self::SamePositionSuperseded => "same-position-superseded",
@@ -165,8 +229,8 @@ impl LossKind {
                 "interpolation lengths replaced by 250 samples",
             ),
             Self::ImportanceOmitted => (
-                "importance value of an active object omitted",
-                "importance values of active objects omitted",
+                "importance value of an active element omitted",
+                "importance values of active elements omitted",
             ),
             Self::BedEventDropped => (
                 "bed event after the first not carried",
@@ -191,6 +255,30 @@ impl LossKind {
             Self::DivergenceDropped => ("update with divergence", "updates with divergence"),
             Self::WarpModeDropped => ("warp mode setting", "warp mode settings"),
             Self::TrimConfigDropped => ("trim configuration set", "trim configuration sets"),
+            Self::AdditionalTableDataDropped => (
+                "update with additional table data not carried",
+                "updates with additional table data not carried",
+            ),
+            Self::AlternateObjectDataDropped => (
+                "alternate object data set not carried",
+                "alternate object data sets not carried",
+            ),
+            Self::UnknownElementDropped => (
+                "element without a known syntax not carried",
+                "elements without a known syntax not carried",
+            ),
+            Self::BedDistributeDropped => (
+                "bed channel distribution flag not carried",
+                "bed channel distribution flags not carried",
+            ),
+            Self::ReservedDataDropped => (
+                "reserved data block not carried",
+                "reserved data blocks not carried",
+            ),
+            Self::ReservedZoneReadAsAll => (
+                "update with a reserved zone index written as all zones",
+                "updates with a reserved zone index written as all zones",
+            ),
             Self::SizeAxesCollapsed => (
                 "event with differing size axes written with the width",
                 "events with differing size axes written with the width",
@@ -228,6 +316,10 @@ impl LossKind {
                 | Self::ImportanceOmitted
                 | Self::WarpModeDropped
                 | Self::TrimConfigDropped
+                | Self::AlternateObjectDataDropped
+                | Self::UnknownElementDropped
+                | Self::BedDistributeDropped
+                | Self::ReservedDataDropped
                 | Self::IsfDropped
                 | Self::NonProfileSampleRate
         )
@@ -418,6 +510,46 @@ mod tests {
         assert_eq!(a.ramp_sources().get(&1536), Some(&2));
         assert_eq!(a.ramp_sources().get(&32), Some(&1));
         assert_eq!(a.count(LossKind::BedEventDropped), 1);
+    }
+
+    /// `ALL` names every kind once, in the order the variants are declared,
+    /// which is the order the ledger reports them in: a kind added to the
+    /// enum and not to the list fails the match below.
+    #[test]
+    fn all_lists_every_kind_once_in_reporting_order() {
+        let index = |kind: LossKind| match kind {
+            LossKind::RampReplaced => 0,
+            LossKind::ImportanceOmitted => 1,
+            LossKind::BedEventDropped => 2,
+            LossKind::BedGainDropped => 3,
+            LossKind::ScreenReferenceDropped => 4,
+            LossKind::TrimBypassDropped => 5,
+            LossKind::DistanceDropped => 6,
+            LossKind::DivergenceDropped => 7,
+            LossKind::TrimConfigDropped => 8,
+            LossKind::AdditionalTableDataDropped => 9,
+            LossKind::AlternateObjectDataDropped => 10,
+            LossKind::UnknownElementDropped => 11,
+            LossKind::BedDistributeDropped => 12,
+            LossKind::ReservedDataDropped => 13,
+            LossKind::WarpModeDropped => 14,
+            LossKind::SizeAxesCollapsed => 15,
+            LossKind::LateFirstEventHeld => 16,
+            LossKind::SamePositionSuperseded => 17,
+            LossKind::EventBeyondEndDropped => 18,
+            LossKind::ReservedZoneReadAsAll => 19,
+            LossKind::IsfDropped => 20,
+            LossKind::OutOfOrderWrittenAsIs => 21,
+            LossKind::NonProfileSampleRate => 22,
+        };
+        for (i, kind) in LossKind::ALL.iter().enumerate() {
+            assert_eq!(index(*kind), i, "{kind:?}");
+        }
+        assert!(LossKind::ALL.windows(2).all(|w| w[0] < w[1]));
+        let mut names: Vec<&str> = LossKind::ALL.iter().map(|k| k.name()).collect();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), LossKind::ALL.len(), "names are unique");
     }
 
     #[test]

@@ -1,0 +1,429 @@
+{
+ "schema": 1,
+ "what": "JOC measurement groups by content and common master; a group is a salted digest of its title, the names stay outside the repository (tools/joc_holdout.py)",
+ "salt_sha256": "2c5f228fac472342758fffea06606ec12baf014494566b34ff8a8f96d10bd1d3",
+ "seed": 20261121,
+ "holdout_share_aimed_at": 0.4,
+ "items": {
+  "development": 86,
+  "holdout": 57
+ },
+ "groups": [
+  {
+   "group": "03150783d6c8e452",
+   "side": "development"
+  },
+  {
+   "group": "0b12c6233e4cb7d4",
+   "side": "development"
+  },
+  {
+   "group": "0bfe76d0c36252d2",
+   "side": "holdout"
+  },
+  {
+   "group": "16625c9eeadd5e8f",
+   "side": "development"
+  },
+  {
+   "group": "1a37682e13e06d8c",
+   "side": "holdout"
+  },
+  {
+   "group": "1adb2249de3b3640",
+   "side": "holdout"
+  },
+  {
+   "group": "1d1b6858c96b33b3",
+   "side": "development"
+  },
+  {
+   "group": "1f5faa1d397c6faa",
+   "side": "development"
+  },
+  {
+   "group": "21632dcd065e37ab",
+   "side": "holdout"
+  },
+  {
+   "group": "23bec7e042765acf",
+   "side": "development"
+  },
+  {
+   "group": "243ad6607030f0e9",
+   "side": "development"
+  },
+  {
+   "group": "24afdaba27a47ef6",
+   "side": "holdout"
+  },
+  {
+   "group": "24b2d58aa2f33c9a",
+   "side": "holdout"
+  },
+  {
+   "group": "2803f7b095a110de",
+   "side": "development"
+  },
+  {
+   "group": "2bd77da6cf99a42a",
+   "side": "development"
+  },
+  {
+   "group": "2cceab86cd416df9",
+   "side": "holdout"
+  },
+  {
+   "group": "2f4d9bfd4ff57e04",
+   "side": "development"
+  },
+  {
+   "group": "2f82e0d86afbeecd",
+   "side": "holdout"
+  },
+  {
+   "group": "322be9bd104ab001",
+   "side": "holdout"
+  },
+  {
+   "group": "330120759061ef06",
+   "side": "development"
+  },
+  {
+   "group": "33db550d13034470",
+   "side": "development"
+  },
+  {
+   "group": "34a09536189f75b7",
+   "side": "holdout"
+  },
+  {
+   "group": "354d442bc1bd162e",
+   "side": "holdout"
+  },
+  {
+   "group": "36b48beabb580aa5",
+   "side": "holdout"
+  },
+  {
+   "group": "36bf87fd6f111b51",
+   "side": "holdout"
+  },
+  {
+   "group": "3763a37adf221ac3",
+   "side": "development"
+  },
+  {
+   "group": "3c9dd422bcd92fcd",
+   "side": "holdout"
+  },
+  {
+   "group": "3d0e52474b1c6cbb",
+   "side": "development"
+  },
+  {
+   "group": "434ac6220b8644b4",
+   "side": "holdout"
+  },
+  {
+   "group": "43a79b007baf11c3",
+   "side": "development"
+  },
+  {
+   "group": "44170acb1bc9ff79",
+   "side": "holdout"
+  },
+  {
+   "group": "4492daf6f89af726",
+   "side": "development"
+  },
+  {
+   "group": "461af0492382ff40",
+   "side": "holdout"
+  },
+  {
+   "group": "4714e5b21ad89340",
+   "side": "development"
+  },
+  {
+   "group": "4c362f4776c6858e",
+   "side": "development"
+  },
+  {
+   "group": "561075f565ca63b1",
+   "side": "holdout"
+  },
+  {
+   "group": "56e894f742291f8a",
+   "side": "development"
+  },
+  {
+   "group": "576068fa6f443514",
+   "side": "holdout"
+  },
+  {
+   "group": "581a60923d11b026",
+   "side": "development"
+  },
+  {
+   "group": "5cfc9433eab8d1f5",
+   "side": "development"
+  },
+  {
+   "group": "63d7106393caa6b5",
+   "side": "development"
+  },
+  {
+   "group": "64d0c3887f508216",
+   "side": "development"
+  },
+  {
+   "group": "6a1c9592cbd81b94",
+   "side": "development"
+  },
+  {
+   "group": "6a8a0a8cc1d7f3b0",
+   "side": "development"
+  },
+  {
+   "group": "6afbcbe5b2bfb710",
+   "side": "holdout"
+  },
+  {
+   "group": "6ebb0c8b8a4a511a",
+   "side": "holdout"
+  },
+  {
+   "group": "71249e5f626a4bc2",
+   "side": "holdout"
+  },
+  {
+   "group": "71b46ab8d14e8608",
+   "side": "holdout"
+  },
+  {
+   "group": "7728ff84eea10428",
+   "side": "development"
+  },
+  {
+   "group": "7845d57cdb3ec89d",
+   "side": "holdout"
+  },
+  {
+   "group": "78d165eccab562aa",
+   "side": "development"
+  },
+  {
+   "group": "7962d1e8b941eed6",
+   "side": "holdout"
+  },
+  {
+   "group": "7c4c80eaac957cfc",
+   "side": "holdout"
+  },
+  {
+   "group": "82d851702b51af82",
+   "side": "development"
+  },
+  {
+   "group": "85ff933f6c3f55df",
+   "side": "development"
+  },
+  {
+   "group": "88cab4a8a5b393ec",
+   "side": "holdout"
+  },
+  {
+   "group": "8b94a3fe93ce5e06",
+   "side": "development"
+  },
+  {
+   "group": "8ba3b71e289a5606",
+   "side": "development"
+  },
+  {
+   "group": "93c901ad056125e1",
+   "side": "holdout"
+  },
+  {
+   "group": "95b3534832766ef1",
+   "side": "development"
+  },
+  {
+   "group": "97c644ad782f080a",
+   "side": "holdout"
+  },
+  {
+   "group": "980b26c00c00dabc",
+   "side": "holdout"
+  },
+  {
+   "group": "9ac8d683f0b5efe1",
+   "side": "development"
+  },
+  {
+   "group": "9e2d973c1320b7ef",
+   "side": "holdout"
+  },
+  {
+   "group": "a2ed428d74abcf6a",
+   "side": "development"
+  },
+  {
+   "group": "a7bf6b969bf50135",
+   "side": "development"
+  },
+  {
+   "group": "a80c94107aea79c8",
+   "side": "development"
+  },
+  {
+   "group": "a9131d0fddfe92e0",
+   "side": "development"
+  },
+  {
+   "group": "a97ae50a0890e7ff",
+   "side": "holdout"
+  },
+  {
+   "group": "ae22b21edb4ec64d",
+   "side": "development"
+  },
+  {
+   "group": "b310fe912e325408",
+   "side": "development"
+  },
+  {
+   "group": "b36f4cf1e8e12fd2",
+   "side": "holdout"
+  },
+  {
+   "group": "b6ab374f588d2ae4",
+   "side": "development"
+  },
+  {
+   "group": "b6bcdab95e254eed",
+   "side": "holdout"
+  },
+  {
+   "group": "b70ace1ab824ae80",
+   "side": "development"
+  },
+  {
+   "group": "bc727ad1550a4add",
+   "side": "development"
+  },
+  {
+   "group": "bdb62d3a4f6b5cfe",
+   "side": "development"
+  },
+  {
+   "group": "be44bf7af7a01170",
+   "side": "development"
+  },
+  {
+   "group": "bfa9436ec68daceb",
+   "side": "holdout"
+  },
+  {
+   "group": "c0d7e689a6d716fb",
+   "side": "holdout"
+  },
+  {
+   "group": "c2e8f278827e1bf1",
+   "side": "development"
+  },
+  {
+   "group": "c59323fca4b32894",
+   "side": "development"
+  },
+  {
+   "group": "c6a193929af67d2a",
+   "side": "holdout"
+  },
+  {
+   "group": "c77b63b8d462b16f",
+   "side": "holdout"
+  },
+  {
+   "group": "cb326ceca4e1155c",
+   "side": "holdout"
+  },
+  {
+   "group": "ccd448e1d7350dfd",
+   "side": "holdout"
+  },
+  {
+   "group": "d078f526992b4a9d",
+   "side": "holdout"
+  },
+  {
+   "group": "d19f12a54112077f",
+   "side": "development"
+  },
+  {
+   "group": "d471d698b5f99e01",
+   "side": "holdout"
+  },
+  {
+   "group": "d6e30c5dda57a6f0",
+   "side": "holdout"
+  },
+  {
+   "group": "d734372ede97451b",
+   "side": "development"
+  },
+  {
+   "group": "d93612c1c33509ef",
+   "side": "development"
+  },
+  {
+   "group": "e2a83b2f2ca40d3d",
+   "side": "holdout"
+  },
+  {
+   "group": "e3aa2c2695733eb1",
+   "side": "holdout"
+  },
+  {
+   "group": "e578d67937a687c5",
+   "side": "development"
+  },
+  {
+   "group": "e69f3995cf14683d",
+   "side": "development"
+  },
+  {
+   "group": "f4fff4b6efe90f82",
+   "side": "holdout"
+  },
+  {
+   "group": "f549ceea0ca3da2e",
+   "side": "holdout"
+  },
+  {
+   "group": "f9aa2ba3a9d2d00a",
+   "side": "holdout"
+  },
+  {
+   "group": "fb27edcd4a5732fd",
+   "side": "development"
+  },
+  {
+   "group": "fcde5d7564cdfb83",
+   "side": "holdout"
+  },
+  {
+   "group": "fd04fb9126c6d48c",
+   "side": "development"
+  },
+  {
+   "group": "fe3ef88d3c00ff29",
+   "side": "holdout"
+  },
+  {
+   "group": "ff5037b24e8d6591",
+   "side": "development"
+  }
+ ]
+}

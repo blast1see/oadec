@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "oadec loss report, version 2",
+  "description": "What `oadec decode --format damf|adm --loss-report <file>` writes: the ledger of what the DAMF set or the ADM BWF file does not carry of the programme it was given. Version 2 names itself in `schema` and adds six kinds of loss (round 5); version 1, the report of oadec 0.9.1 before that, had no `schema` field and the first seventeen kinds. The writer is write_loss_report in crates/oadec-engine/src/damf.rs. The kinds and classes are LossKind and LossClass of crates/oadec-spatial/src/loss.rs, and crates/oadec-cli/tests/cli_loss_report.rs holds the two lists together.",
+  "type": "object",
+  "required": ["schema", "target", "declared_loss", "losses", "ramp_sources", "overrides"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "description": "The version of this schema the report follows (REPORT_SCHEMA of crates/oadec-spatial/src/loss.rs).",
+      "enum": [2]
+    },
+    "target": {
+      "description": "The output the ledger is of.",
+      "enum": ["damf", "adm"]
+    },
+    "declared_loss": {
+      "description": "Whether any loss of the class declared-loss was recorded: the case that sets exit code 4 (docs/exit-codes.md).",
+      "type": "boolean"
+    },
+    "losses": {
+      "description": "One entry per kind with a count above zero, in reporting order (the order of `kind` below); empty when nothing was lost.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/loss" }
+    },
+    "ramp_sources": {
+      "description": "For ramp-replaced: the source ramp length in samples, as a decimal string, against the number of events whose ramp of that length was replaced. Empty when no ramp was replaced.",
+      "type": "object",
+      "patternProperties": {
+        "^[0-9]+$": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "overrides": {
+      "description": "The measurement overrides of the JOC reconstruction the run was given (E-AC-3 JOC only); always present, empty when there were none.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/override" }
+    }
+  },
+  "$defs": {
+    "loss": {
+      "type": "object",
+      "required": ["kind", "class", "count", "examples"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "$ref": "#/$defs/kind" },
+        "class": { "$ref": "#/$defs/class" },
+        "count": {
+          "description": "Losses of the kind.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "examples": {
+          "description": "The first losses recorded, at most three. A loss that belongs to the whole payload or programme (warp mode, trim configurations, alternate object data, unknown elements, bed channel distribution, reserved data, the sample rate) has element 0.",
+          "type": "array",
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/example" }
+        }
+      }
+    },
+    "example": {
+      "type": "object",
+      "required": ["element", "sample"],
+      "additionalProperties": false,
+      "properties": {
+        "element": {
+          "description": "DAMF element id: bed channels 0 to 9 and 130 up, dynamic objects 10 up; for isf-dropped, and for additional-table-data-dropped on an ISF object, the index of the ISF object; 0 for a payload-wide loss.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "sample": {
+          "description": "Sample position in the output, from its first sample.",
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "kind": {
+      "description": "LossKind::name. The class of each is fixed: profile-reduction for ramp-replaced, importance-omitted, bed-event-dropped, bed-gain-dropped, screen-reference-dropped, trim-bypass-dropped; unrepresentable for distance-dropped, divergence-dropped, trim-config-dropped, additional-table-data-dropped, alternate-object-data-dropped, unknown-element-dropped, bed-distribute-dropped, reserved-data-dropped; approximation for warp-mode-dropped, size-axes-collapsed, late-first-event-held, same-position-superseded, event-beyond-end-dropped, reserved-zone-read-as-all; declared-loss for isf-dropped, out-of-order-written-as-is, non-profile-sample-rate.",
+      "enum": [
+        "ramp-replaced",
+        "importance-omitted",
+        "bed-event-dropped",
+        "bed-gain-dropped",
+        "screen-reference-dropped",
+        "trim-bypass-dropped",
+        "distance-dropped",
+        "divergence-dropped",
+        "trim-config-dropped",
+        "additional-table-data-dropped",
+        "alternate-object-data-dropped",
+        "unknown-element-dropped",
+        "bed-distribute-dropped",
+        "reserved-data-dropped",
+        "warp-mode-dropped",
+        "size-axes-collapsed",
+        "late-first-event-held",
+        "same-position-superseded",
+        "event-beyond-end-dropped",
+        "reserved-zone-read-as-all",
+        "isf-dropped",
+        "out-of-order-written-as-is",
+        "non-profile-sample-rate"
+      ]
+    },
+    "class": {
+      "description": "LossClass::name. Only declared-loss sets an exit code (4).",
+      "enum": ["profile-reduction", "unrepresentable", "approximation", "declared-loss"]
+    },
+    "override": {
+      "type": "object",
+      "required": ["flag", "value", "default"],
+      "additionalProperties": false,
+      "properties": {
+        "flag": {
+          "description": "The hidden flag, without its dashes.",
+          "enum": ["joc-lag", "joc-low-band", "joc-phase", "joc-low-fir"]
+        },
+        "value": {
+          "description": "What the flag was given: an integer for joc-lag, text otherwise.",
+          "type": ["integer", "string"]
+        },
+        "default": {
+          "description": "What the decode uses without the flag: an integer for joc-lag, text otherwise.",
+          "type": ["integer", "string"]
+        }
+      }
+    }
+  },
+  "x-oadec-kind-class": {
+    "ramp-replaced": "profile-reduction",
+    "importance-omitted": "profile-reduction",
+    "bed-event-dropped": "profile-reduction",
+    "bed-gain-dropped": "profile-reduction",
+    "screen-reference-dropped": "profile-reduction",
+    "trim-bypass-dropped": "profile-reduction",
+    "distance-dropped": "unrepresentable",
+    "divergence-dropped": "unrepresentable",
+    "trim-config-dropped": "unrepresentable",
+    "additional-table-data-dropped": "unrepresentable",
+    "alternate-object-data-dropped": "unrepresentable",
+    "unknown-element-dropped": "unrepresentable",
+    "bed-distribute-dropped": "unrepresentable",
+    "reserved-data-dropped": "unrepresentable",
+    "warp-mode-dropped": "approximation",
+    "size-axes-collapsed": "approximation",
+    "late-first-event-held": "approximation",
+    "same-position-superseded": "approximation",
+    "event-beyond-end-dropped": "approximation",
+    "reserved-zone-read-as-all": "approximation",
+    "isf-dropped": "declared-loss",
+    "out-of-order-written-as-is": "declared-loss",
+    "non-profile-sample-rate": "declared-loss"
+  }
+}

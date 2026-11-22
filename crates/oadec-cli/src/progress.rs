@@ -27,6 +27,14 @@
 //! The work is measured in bytes of the input: the size is known before the walk
 //! begins, every walk reports the offset it has reached, and a byte is the one
 //! unit every format has in common.
+//!
+//! A stream read once from standard input has no size to measure against. Its
+//! walk is drawn without a total, by [`Unmeasured`]: the bytes read so far and
+//! the rate, and no bar, percentage or estimate, which would be guesses.
+//!
+//! ```text
+//! reading  1.7 GiB  118 MiB/s
+//! ```
 
 use std::io::{IsTerminal, Write};
 use std::sync::Arc;
@@ -50,6 +58,23 @@ impl Walk for Progress {
     fn at(&mut self, done: u64) {
         Progress::at(self, done);
     }
+}
+
+/// The watcher of a stream read once, whose length is not known: every walk
+/// it is told of is drawn without a total, under the same three rules.
+#[derive(Debug)]
+pub struct Unmeasured;
+
+impl Watcher for Unmeasured {
+    fn begin(&self, what: &'static str, _total: u64) -> Box<dyn Walk> {
+        Box::new(Progress::unmeasured(what))
+    }
+}
+
+/// The watcher of a stream read once from standard input.
+#[must_use]
+pub fn unmeasured() -> Arc<dyn Watcher> {
+    Arc::new(Unmeasured)
 }
 
 /// A source the command line reads, watched by the line on the terminal.
@@ -124,6 +149,9 @@ pub struct Progress {
     last_len: usize,
     /// Whether to draw at all.
     live: bool,
+    /// The walk has a total to draw against; without one only the bytes and
+    /// the rate are drawn.
+    measured: bool,
     /// What the work is called, shown beside the bar.
     what: &'static str,
     /// Where the line goes.
@@ -144,6 +172,23 @@ impl Progress {
             last: Instant::now() - EVERY,
             last_len: 0,
             live,
+            measured: true,
+            what,
+            sink: Sink::Stderr,
+        }
+    }
+
+    /// A reporter for a walk whose total is not known: drawn under the same
+    /// rules as [`Progress::new`], with the bytes read and the rate only.
+    pub fn unmeasured(what: &'static str) -> Self {
+        let live = on_main_thread() && std::io::stderr().is_terminal() && claim();
+        Self {
+            total: 0,
+            started: Instant::now(),
+            last: Instant::now() - EVERY,
+            last_len: 0,
+            live,
+            measured: false,
             what,
             sink: Sink::Stderr,
         }
@@ -159,6 +204,7 @@ impl Progress {
             last: Instant::now() - EVERY,
             last_len: 0,
             live: true,
+            measured: true,
             what,
             sink: Sink::Buffer(std::rc::Rc::new(std::cell::RefCell::new(String::new()))),
         }
@@ -192,12 +238,12 @@ impl Progress {
             return;
         }
         self.last = Instant::now();
-        let line = Self::render(
-            self.what,
-            done,
-            self.total,
-            self.started.elapsed().as_secs_f64(),
-        );
+        let elapsed = self.started.elapsed().as_secs_f64();
+        let line = if self.measured {
+            Self::render(self.what, done, self.total, elapsed)
+        } else {
+            Self::render_unmeasured(self.what, done, elapsed)
+        };
         // a carriage return without a newline redraws the same line
         self.sink.put(&format!("\r{line}"));
         self.last_len = line.chars().count();
@@ -239,6 +285,19 @@ impl Progress {
             line.push_str(&format!("  {}/s", bytes(rate as u64)));
             let left = total.saturating_sub(done);
             line.push_str(&format!("  eta {}", eta(left as f64 / rate)));
+        }
+        line
+    }
+}
+
+impl Progress {
+    /// The line of a walk without a total: how much was read, and how fast
+    /// once there is work behind it.
+    fn render_unmeasured(what: &str, done: u64, elapsed: f64) -> String {
+        let mut line = format!("{what}  {}", bytes(done));
+        if elapsed > 0.5 && done > 0 {
+            let rate = done as f64 / elapsed;
+            line.push_str(&format!("  {}/s", bytes(rate as u64)));
         }
         line
     }
@@ -328,6 +387,28 @@ mod tests {
         let line = Progress::render("reading", 1000, 100_000, 0.1);
         assert!(!line.contains("/s"), "{line}");
         assert!(!line.contains("eta"), "{line}");
+    }
+
+    #[test]
+    fn a_walk_without_a_total_shows_the_bytes_and_the_rate_and_nothing_it_would_guess() {
+        let line = Progress::render_unmeasured("reading", 3 << 30, 10.0);
+        assert!(line.starts_with("reading  3.0 GiB"), "{line}");
+        assert!(line.contains("MiB/s"), "{line}");
+        for guess in ['%', '\u{2588}', '\u{2591}'] {
+            assert!(!line.contains(guess), "{line}");
+        }
+        assert!(!line.contains("eta"), "{line}");
+        // no rate from a tenth of a second
+        let early = Progress::render_unmeasured("reading", 1000, 0.1);
+        assert_eq!(early, "reading  1000 B");
+    }
+
+    #[test]
+    fn a_walk_without_a_total_is_silent_where_stderr_is_not_a_terminal() {
+        let mut p = Progress::unmeasured("reading");
+        assert!(!p.live, "a piped run must not be live");
+        p.at(500);
+        p.clear();
     }
 
     #[test]

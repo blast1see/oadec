@@ -761,6 +761,29 @@ up to 2,4 dB, so differences of that size are the measurement's own; two
 pairs of the 50 are beyond it
 (`docs/audit/evidence/round-4-2026-11/p3-ecpl-two-profiles.json`).
 
+**What Dolby's decoder does beyond the amplitude is, as far as it was
+measured, not enhanced coupling's.** Written twice from the same frames, once
+as enhanced coupling with one amplitude code a frame and once as standard
+coupling whose coordinates have the values of those amplitudes
+(`eac3-ecpl-inject --plan` with `target standard`, every code of table E3.10
+being a standard coordinate exactly, and `seed zero`, which gives both the
+same dither seed), a stream decodes to the same bytes in `dlbac3dec`: on 13
+carriers of Dolby's encoder, FFmpeg and TotalCode Studio, 2/0 and 5.1, 128 to
+640 kbit/s, with and without the hybrid transform on the coupling channel.
+Ten of the 13 were made for the measurement, from six independent sources;
+one is the clip above, and two are library streams whose independence from it
+is not verified. Angle, chaos, the angle interpolation and the transient flag
+are not read. The twin writes one coordinate a channel, so only amplitudes
+that are the same in every band were measured; amplitudes that differ from
+band to band were not. The decorrelation that moves with the amplitude code
+is then the one Dolby's decoder applies to every coupled channel (the
+decorrelation row of the conformance matrix). A model for enhanced coupling
+would be a model of that decorrelation: the experimental rule, laid over
+enhanced coupling, fails the promotion criterion of `tools/ecpl_promotion.py`
+on every holdout carrier, so no model is in the decoder and the default
+reading stays amplitude-only
+(`docs/audit/evidence/round-5-2026-11/p2-ecpl.json`).
+
 - **A plan file sets every code the injector writes** (`eac3-ecpl-inject
   --plan`): fixed codes, every code of a table, one amplitude code a frame,
   the interpolation and transient flags, blocks that reuse the codes of the

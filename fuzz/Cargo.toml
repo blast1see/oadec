@@ -120,3 +120,17 @@ path = "fuzz_targets/eac3_program_config.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "pipeline_push"
+path = "fuzz_targets/pipeline_push.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "spool_merge"
+path = "fuzz_targets/spool_merge.rs"
+test = false
+doc = false
+bench = false

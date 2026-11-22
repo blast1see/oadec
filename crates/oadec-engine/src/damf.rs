@@ -212,6 +212,16 @@ pub(crate) fn print_losses(
     Ok(())
 }
 
+/// Prints what the ADM profile guard found in the file, one line each, after
+/// the loss lines. A finding is said; it changes neither the file nor the
+/// exit code. Quiet when there is none, which is every file written today.
+pub(crate) fn print_profile(sink: &SinkSummary, err: &mut dyn Write) -> io::Result<()> {
+    for line in &sink.profile {
+        writeln!(err, "{line}")?;
+    }
+    Ok(())
+}
+
 /// Writes the loss ledger of an output as JSON when a path was given.
 /// `overrides` are the measurement overrides the run was given (see
 /// `eac3_objects::JocOverrides`); the report always carries the list, empty
@@ -244,6 +254,7 @@ pub(crate) fn write_loss_report(
             .map(|(ramp, n)| (ramp.to_string(), json!(n)))
             .collect();
         let doc = json!({
+            "schema": oadec_spatial::loss::REPORT_SCHEMA,
             "target": target,
             "declared_loss": losses.declared_loss(),
             "losses": kinds,
@@ -370,6 +381,9 @@ pub(crate) struct SinkSummary {
     pub(crate) paths: Vec<PathBuf>,
     pub(crate) note: String,
     pub(crate) losses: LossLedger,
+    /// What an ADM file has more of than the profile allows, as stderr says
+    /// it; empty for DAMF and for every file the writer makes today.
+    pub(crate) profile: Vec<String>,
 }
 
 impl Sink {
@@ -466,6 +480,7 @@ impl Sink {
                     paths,
                     note: String::new(),
                     losses: s.losses,
+                    profile: Vec::new(),
                 })
             }
             Writer::Adm(w) => {
@@ -483,6 +498,7 @@ impl Sink {
                         if s.rf64 { ", RF64" } else { "" }
                     ),
                     losses: s.losses,
+                    profile: s.profile,
                 })
             }
         }
@@ -561,6 +577,7 @@ impl Written {
             )?;
         }
         print_losses(self.target(), &self.losses, err)?;
+        print_profile(&self.sink, err)?;
         Ok(())
     }
 
@@ -813,6 +830,42 @@ pub fn write(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The profile guard's lines are printed as the sink has them, after the
+    /// loss lines, and nothing else reads them: the verdict and with it the
+    /// exit code come from `findings`, which never sees `profile`. A file
+    /// the writer makes cannot have such a line (it refuses more objects or
+    /// tracks than the profile allows before it writes), so the CLI cannot
+    /// show one; a sink that had them is built here.
+    #[test]
+    fn the_profile_guard_is_printed_and_read_by_nothing_else() {
+        let line = "adm: profile limit: 124 audioObject elements, more than the 123 the profile allows (MAX_ELEMENT_COUNT)";
+        let sink = SinkSummary {
+            frames: 0,
+            channels: 0,
+            events: 0,
+            paths: Vec::new(),
+            note: String::new(),
+            losses: LossLedger::default(),
+            profile: vec![line.to_string()],
+        };
+        let mut err = Vec::new();
+        print_profile(&sink, &mut err).unwrap();
+        assert_eq!(String::from_utf8(err).unwrap(), format!("{line}\n"));
+        let quiet = SinkSummary {
+            profile: Vec::new(),
+            ..sink
+        };
+        let mut err = Vec::new();
+        print_profile(&quiet, &mut err).unwrap();
+        assert!(err.is_empty());
+        // the one reader of the field besides the printer would be the
+        // verdict; it is built from the ledger alone
+        let source = include_str!("damf.rs");
+        let findings = &source[source.find("pub fn findings(self)").unwrap()..];
+        let findings = &findings[..findings.find("\n    }\n").unwrap()];
+        assert!(!findings.contains("profile"), "{findings}");
+    }
 
     /// A file with the source ramps is outside the Dolby profile and must not
     /// claim Dolby authorship.

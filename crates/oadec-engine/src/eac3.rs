@@ -2898,21 +2898,156 @@ pub fn report_with(source: &Source, options: &ReportOptions) -> Result<Report> {
         options.max_per_rule,
         |_| Ok(()),
     )?;
+    report_of(source.name(), (p, sync_errors, skipped), started, options)
+}
+
+/// [`report_with`] of a stream read once from `input`, which reports call
+/// `name`.
+///
+/// # Errors
+/// As [`report_with`], and what reading gives.
+pub fn report_from<R: Read>(
+    name: &str,
+    input: crate::pipeline::Once<R>,
+    watcher: Option<&std::sync::Arc<dyn crate::source::Watcher>>,
+    options: &ReportOptions,
+) -> Result<Report> {
+    let started = Instant::now();
+    let mut walking = WalkStage::new(Walk::new(
+        Options {
+            samples: options.decode,
+            ..Options::default()
+        },
+        programme(options.programme),
+        options.max_per_rule,
+    ));
+    crate::pipeline::Pass::run(input, name, watcher, &mut [&mut walking])?;
+    report_of(name, walking.end()?, started, options)
+}
+
+/// The report of a finished pass over the stream reports call `name`.
+fn report_of(
+    name: &str,
+    (p, sync_errors, skipped): (Pass, u64, u64),
+    started: Instant,
+    options: &ReportOptions,
+) -> Result<Report> {
     if p.independent + p.dependent == 0 {
         // A sync word opened the file and no whole syncframe followed. A report
         // of nothing reads like a clean stream that holds nothing: the file is
         // not a stream to judge but an unsupported input, exit 2, as it is for
         // every command that reports one.
-        return Err(crate::info::no_stream(source));
+        return Err(crate::info::no_stream_named(name));
     }
     Ok(Report {
-        name: source.name().to_string(),
+        name: name.to_string(),
         pass: Box::new(p),
         sync_errors,
         skipped,
         elapsed: started.elapsed().as_secs_f64(),
         fail_on: options.fail_on,
     })
+}
+
+/// A [`Walk`] lent the syncframes and gaps of a pass over a stream read
+/// once, which makes no samples for anyone: what [`pass_listing`] does with
+/// the syncframes it reads itself, given up at the first error of a frame,
+/// which is kept for the end.
+#[derive(Debug)]
+pub(crate) struct WalkStage {
+    walk: Option<Walk>,
+    /// The error that gave the walk up, or what its end came to.
+    ended: Option<Result<(Pass, u64, u64)>>,
+}
+
+impl WalkStage {
+    pub(crate) fn new(walk: Walk) -> Self {
+        Self {
+            walk: Some(walk),
+            ended: None,
+        }
+    }
+
+    /// The walk of `verify`'s checks ([`stream_check`]), which makes no
+    /// samples.
+    pub(crate) fn of_checks() -> Self {
+        Self::new(Walk::new(
+            Options {
+                samples: false,
+                ..Options::default()
+            },
+            ProgramConfig::default(),
+            Diag::DEFAULT_MAX_PER_RULE,
+        ))
+    }
+
+    /// What the pass came to: what [`pass_listing`] returns.
+    pub(crate) fn end(self) -> Result<(Pass, u64, u64)> {
+        self.ended
+            .unwrap_or_else(|| Err(anyhow::anyhow!("the pass did not end")))
+    }
+}
+
+impl crate::pipeline::Stage for WalkStage {
+    /// A frame the walk cannot take ends the pass with its error, as it
+    /// ends [`pass_listing`].
+    fn unit(&mut self, unit: &crate::pipeline::UnitRef<'_>) -> Result<()> {
+        if let (Some(walk), Some(header)) = (&mut self.walk, unit.ac3()) {
+            walk.frame(unit.offset, unit.bytes, header, &mut |_| Ok(()))?;
+        }
+        Ok(())
+    }
+
+    fn gap(&mut self, gap: &crate::pipeline::Ac3Gap) {
+        if let Some(walk) = &mut self.walk {
+            walk.gap(gap.offset, gap.sync_error, gap.bytes);
+        }
+    }
+
+    fn finish(&mut self, end: &crate::pipeline::PassEnd) -> Result<()> {
+        if let Some(walk) = self.walk.take() {
+            let (_, sync_errors, skipped) = crate::pipeline::ac3_totals(end);
+            self.ended = Some(walk.end(sync_errors, skipped, &mut |_| Ok(())));
+        }
+        Ok(())
+    }
+}
+
+/// A [`WalkStage`] of `verify`'s checks beside the pass of another command,
+/// which, as on a thread of its own, does not end that pass with an error
+/// of its own: the error is kept, and is what [`checked`] gives.
+#[derive(Debug)]
+pub(crate) struct Checking(WalkStage);
+
+impl Checking {
+    pub(crate) fn new() -> Self {
+        Self(WalkStage::of_checks())
+    }
+
+    /// The verdict, as [`stream_check`] gives it.
+    pub(crate) fn verdict(self) -> Result<crate::verify::StreamCheck> {
+        checked(self.0.end()?)
+    }
+}
+
+impl crate::pipeline::Stage for Checking {
+    fn unit(&mut self, unit: &crate::pipeline::UnitRef<'_>) -> Result<()> {
+        if self.0.walk.is_some()
+            && let Err(e) = self.0.unit(unit)
+        {
+            self.0.walk = None;
+            self.0.ended = Some(Err(e));
+        }
+        Ok(())
+    }
+
+    fn gap(&mut self, gap: &crate::pipeline::Ac3Gap) {
+        self.0.gap(gap);
+    }
+
+    fn finish(&mut self, end: &crate::pipeline::PassEnd) -> Result<()> {
+        self.0.finish(end)
+    }
 }
 
 impl Report {
@@ -3014,7 +3149,11 @@ pub fn stream_check(
     source: &Source,
     go_on: &dyn Fn() -> bool,
 ) -> Result<crate::verify::StreamCheck> {
-    let (p, sync_errors, skipped) = check_pass(source, go_on)?;
+    checked(check_pass(source, go_on)?)
+}
+
+/// The verdict of `verify`'s checks from the pass they made.
+fn checked((p, sync_errors, skipped): (Pass, u64, u64)) -> Result<crate::verify::StreamCheck> {
     Ok(crate::verify::StreamCheck {
         clean: is_clean(&p, sync_errors, skipped),
         first_problem: p.first_error.clone().or_else(|| p.emdf.first_error.clone()),

@@ -1,0 +1,68 @@
+{
+  "what": "What the libFuzzer runs of the fourteen targets found, read off the logs of two runs of the workflow `fuzz.yml`: the last one on a schedule and the last one on a pull request.",
+  "why": "Until now the documents recorded one run of eight targets and one of ten on Windows (engine-round-2026-11, 07 and 14). The weekly run was recorded nowhere, and three targets added since (`truehd_multi`, `stream_push`, `eac3_program_config`) had no run recorded at all.",
+  "method": "`gh run view <id> --log`, and from each target's job the lines libFuzzer prints at its end under `-print_final_stats=1`: `Done N runs in S second(s)`, `stat::number_of_executed_units`, `stat::new_units_added`. A log was also searched for `crash-`, `ERROR: libFuzzer` and `SUMMARY:`; none of the three occurs in either. The flags are those of the workflow: `-max_len=65536 -timeout=25 -rss_limit_mb=2048`, the seeds cut from the committed fixtures.",
+  "read_on": "2026-11-21",
+  "runs": [
+    {
+      "event": "schedule",
+      "started": "2026-11-16T04:36:23Z",
+      "commit": "53f9b5b",
+      "seconds_a_target": 600,
+      "conclusion": "success",
+      "targets": 11,
+      "executions": 16184534,
+      "crashes": 0,
+      "note": "the weekly run; at that commit the workflow had eleven targets",
+      "by_target": {
+        "truehd_extract": { "executions": 2002670, "new_units": 4147 },
+        "truehd_unit": { "executions": 997338, "new_units": 2574 },
+        "truehd_unit_repaired": { "executions": 536214, "new_units": 3142 },
+        "truehd_decode": { "executions": 1414903, "new_units": 5952 },
+        "truehd_decode_repaired": { "executions": 1651426, "new_units": 7699 },
+        "emdf_container": { "executions": 2324704, "new_units": 5164 },
+        "oamd_parse": { "executions": 5992812, "new_units": 5622 },
+        "joc_params": { "executions": 84398, "new_units": 1107 },
+        "eac3_frame": { "executions": 684341, "new_units": 3494 },
+        "eac3_program": { "executions": 455759, "new_units": 5989 },
+        "verdict_parity": { "executions": 39969, "new_units": 2385 }
+      }
+    },
+    {
+      "event": "pull_request",
+      "started": "2026-11-21T00:38:12Z",
+      "commit": "dc1efb2",
+      "seconds_a_target": 90,
+      "conclusion": "success",
+      "targets": 14,
+      "executions": 3680962,
+      "crashes": 0,
+      "note": "the last run of all fourteen targets; a pull request gives each ninety seconds",
+      "by_target": {
+        "truehd_extract": { "executions": 557466, "new_units": 2524 },
+        "truehd_unit": { "executions": 163975, "new_units": 1560 },
+        "truehd_unit_repaired": { "executions": 117535, "new_units": 1766 },
+        "truehd_decode": { "executions": 231473, "new_units": 2765 },
+        "truehd_decode_repaired": { "executions": 294409, "new_units": 3958 },
+        "emdf_container": { "executions": 891488, "new_units": 3748 },
+        "oamd_parse": { "executions": 1263690, "new_units": 3591 },
+        "joc_params": { "executions": 12574, "new_units": 431 },
+        "eac3_frame": { "executions": 59755, "new_units": 752 },
+        "eac3_program": { "executions": 17195, "new_units": 646 },
+        "verdict_parity": { "executions": 5196, "new_units": 774 },
+        "truehd_multi": { "executions": 37095, "new_units": 1507 },
+        "stream_push": { "executions": 26933, "new_units": 1466 },
+        "eac3_program_config": { "executions": 2178, "new_units": 260 }
+      }
+    }
+  ],
+  "findings": [
+    "Neither run found a crash, a timeout or an input over its memory limit.",
+    "`truehd_multi`, `stream_push` and `eac3_program_config` have run for ninety seconds each and never for the ten minutes of the weekly run: no scheduled run has started since they were added. The next one, on a Monday, is the first.",
+    "`eac3_program_config` is the slowest target, 24 executions a second, and `verdict_parity` the next at 57; ninety seconds give them 2,178 and 5,196 inputs."
+  ],
+  "open": [
+    "The corpus a run builds is not kept: `fuzz/corpus/` is ignored and a runner starts from the seeds each time, so no run stands on the one before it.",
+    "No run of the weekly length exists for three of the fourteen targets."
+  ]
+}

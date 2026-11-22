@@ -105,10 +105,14 @@ python tools/old_new.py --old old/oadec --new target/release/oadec \
 # Fuzzing
 
 `crates/oadec-fuzz` holds what must be true of the parsers and decoders
-whatever bytes they are given, as ten plain functions (`src/targets.rs`): the
+whatever bytes they are given, as sixteen plain functions (`src/targets.rs`): the
 TrueHD extractor, the access-unit and segment parsers, the TrueHD decoder, the
 EMDF container in both its carriages, the OAMD and JOC payloads, and the frame
-decoder and the programme decoder of the AC-3 family. The unit parser and the
+decoder and the programme decoder of the AC-3 family; and, added since, the
+verdicts every command gives of the same bytes (`verdict_parity`), every presentation
+decoded in one pass (`truehd_multi`), a stream pushed in pieces
+(`stream_push`) and the programme decoder under each of its configurations
+(`eac3_program_config`). The unit parser and the
 TrueHD decoder are there twice, the second time on the input with its
 checksums put right first (below), which is what gets a changed field past
 the checksum over it and into the code behind. A function takes bytes
@@ -162,7 +166,17 @@ has it. Without it a target ends before it reads an input, with
 The `fuzz` workflow runs every target on Linux each week, by hand, and on a
 pull request that touches the targets, and uploads what it finds; `replay`
 runs that on any platform. It does not gate other pull requests: a fuzzer
-that finds something new says nothing about the change in front of it.
+that finds something new says nothing about the change in front of it. What
+the last weekly run and the last run of all fourteen targets found, target by
+target, is in
+`docs/audit/evidence/round-5-2026-11/p0-libfuzzer-runs.json`: no crash in
+either, and three of the targets not yet run for the weekly ten minutes. The
+two targets added after that record (`pipeline_push`, a stream told to the
+stages of a pass however its reads were cut, and `spool_merge`, records given
+to a spool and read back) have run in the seeded run and for ninety seconds
+each under libFuzzer on Windows, without a finding
+(`docs/audit/evidence/round-5-2026-11/integration.json`); the workflow has
+not run them yet.
 
 What a fuzzer finds becomes a unit test of the code it was found in and, where
 it is a rule, a mutation in `tools/mutants.py`. The fuzzers find; the suite

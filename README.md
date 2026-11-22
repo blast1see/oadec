@@ -25,19 +25,22 @@ Atmos track can become an E-AC-3 Atmos track without losing the objects.
 | DAMF writer, Dolby validators, encoder round trip | done | validators exit 0; the encoder produces E-AC-3 JOC and TrueHD Atmos from our sets |
 | ADM BWF writer | done | structurally identical to the Dolby converter's own output; semantic fidelity audited against Dolby's converters and the audit's findings closed ([report](docs/audit/adm-remediation-report.md)) |
 | E-AC-3 / AC-3 core decoder (ETSI TS 102 366) | done | 19 streams, 3.3 million frames, zero CRC or parse failures; closer to a Dolby decode than FFmpeg is on every channel of the hardest streams, and of two fresh DD+ 5.1 cores once FFmpeg's default dynamic range compression is off (`-drc_scale 0`) |
-| JOC objects (ETSI TS 103 420) to DAMF / ADM | done | 380,000 payloads parse to the byte; against the Dolby decoder's own object output, over twelve titles (six never measured before), the worst object of a title sits at 29.6 to 50.5 dB and the median at 39.6 to 65.4 dB, at lag zero and with the inter-object correlation structure within 0.0021. The remainder is the E-AC-3 dither on some titles (switching ours off gains 3 dB) and the lowest 375 Hz subband on others (up to 96% of the residual, band SNR 25 to 40 dB) |
-| Enhanced coupling (clause E.3.5.5) | done | no stream of a library carries it, so `oadec eac3-ecpl-inject` makes one; both Dolby decoders accept it and agree with us at the dither floor. An encoder that writes it from the lowest sub-band showed two things in the bit allocation that the standard does not print; four of its streams decode clean, 2 879 frames, a median frame within 89 dB of the Dolby decode where each channel codes its own bins |
+| JOC objects (ETSI TS 103 420) to DAMF / ADM | done | 380,000 payloads parse to the byte; against the Dolby decoder's own object output, over 127 library tracks, the median object of a track sits at 104.2 dB over the whole band at the median (quartiles 96.2 and 112.4, least 80.5, most 122.7) and at 115.2 dB in the lowest 375 Hz subband, at lag zero. What is left is highest up: 74.1 dB at the median in the band at 12 kHz and 61.4 dB in the band at 18 kHz. The figures of September 2026 (the worst object of a title at 29.6 to 50.5 dB over twelve titles) are from before the operator on the lowest subband, the clip gain in the downmix and Dolby's dither were measured; the [conformance matrix](docs/audit/conformance-matrix.md) keeps both |
+| Enhanced coupling (clause E.3.5.5) | done | no stream of a library carries it, so `oadec eac3-ecpl-inject` makes one; both Dolby decoders accept it, and ignore its angle and chaos codes as the default decode here does. A sweep of the amplitude codes is **not met**: in 50 of 128 code and channel pairs the enhanced coupling decode is further from Dolby's than the standard coupling of the same frames, because Dolby decorrelates enhanced coupled channels by an amount that varies with the code and that is not modelled. `--ecpl-spec` decodes the angle and chaos terms as ATSC A/52:2018 prints them, checked against an independent reference and not against Dolby. An encoder that writes it from the lowest sub-band showed two things in the bit allocation that the standard does not print; four of its streams decode clean, 2 879 frames, a median frame within 89 dB of the Dolby decode where each channel codes its own bins |
 | Transient pre-noise processing (clause E.3.7) | done | the corrections are where two Dolby decoders have them, to the sample, and fade as theirs do; inside them a stream of Dolby's encoder is 20.9 dB closer to the Dolby decode with the tool than without; FFmpeg applies nothing |
 | JOC clip gain (clause 6.3.3.2) | done | the standard defines the value and not its use; a two-level encode shows the encoder divides the downmix by it, and the Dolby object decoder agrees on a title that changes it mid-reel |
 
-The numbers behind the table: [`docs/evidence/`](docs/evidence/). Format
+The numbers behind the table: [`docs/audit/evidence/`](docs/audit/evidence/),
+and the notes of September 2026 in [`docs/evidence/`](docs/evidence/). Format
 notes in our own words: [`docs/truehd.md`](docs/truehd.md),
 [`docs/oamd.md`](docs/oamd.md), [`docs/eac3.md`](docs/eac3.md),
 [`docs/joc.md`](docs/joc.md). Every coding tool the corpus exercises is decoded,
 including three nothing else decodes: enhanced coupling, transient pre-noise
-processing and the JOC clip gain. One syntax element is implemented but
-untested for want of an oracle: the enhanced-coupling angle and chaos terms
-(its row in the [conformance matrix](docs/audit/conformance-matrix.md)).
+processing and the JOC clip gain. One syntax element has a specification for
+its only referee: the enhanced-coupling angle and chaos terms, which Dolby's
+decoders ignore, are decoded under `--ecpl-spec` and held to a reference
+written from the text of A/52:2018 (the rows of enhanced coupling in the
+[conformance matrix](docs/audit/conformance-matrix.md), one of them not met).
 Delta bit allocation, which no stream examined applies, is tested on frames
 written for it, which FFmpeg's decoder and Dolby's read as this one does
 ([`docs/eac3.md`](docs/eac3.md)).
@@ -69,6 +72,8 @@ oadec info    film.ec3                            # E-AC-3: frames, coding tools
 oadec decode  film.ec3 --format damf -o out/film  # JOC objects + metadata as a DAMF set
 oadec compare film.ec3 -r ref.f32                 # against a 32-bit float reference (FFmpeg)
 oadec decode  film.ec3 --programme 1 -o p1.wav    # the second programme of an E-AC-3 stream
+oadec decode  film.ec3 --programme all -o film.wav   # every programme in one pass: film.g0.wav, film.g1.wav, ...
+oadec decode  film.ec3 --ecpl-spec -o film.wav    # enhanced coupling with its angle and chaos terms, as A/52:2018 prints them
 oadec decode  film.ec3 --decorrelate -o film.wav  # EXPERIMENTAL: the coupled channels decorrelated
 ffmpeg -i film.mkv -map 0:a:0 -c copy -f truehd - | oadec verify -   # a stream from a pipe
 ffmpeg -i film.mkv -map 0:a:0 -c copy -f truehd - | oadec decode - --format wav -o - | ffplay -   # decoded as it arrives
@@ -78,9 +83,11 @@ ffmpeg -i film.mkv -map 0:a:0 -c copy -f truehd - | oadec decode - --format wav 
 mkvextract. Where a command reads a stream, `-` is standard input, so a track
 can go from its container to a verdict without a file in between. `decode
 --format pcm` and `wav` read it once, as it arrives, and `-o -` writes the
-samples to standard output unit by unit ([`docs/streaming.md`](docs/streaming.md));
-every other command holds the stream in memory for as long as it runs,
-because it reads its stream more than once and a pipe can be read once. Every check `verify` makes, on TrueHD and on AC-3 and E-AC-3, is a named rule with a default
+samples to standard output unit by unit, and `info`, `verify`, `emdf`, `oamd`
+and `au` read it once as well, without holding it whole (17 MiB for a stream
+of 2.6 GB; [`docs/streaming.md`](docs/streaming.md)). `decode --format damf`
+and `adm`, `compare` and `eac3-blocks` still hold a stream on standard input
+in memory for as long as they run. Every check `verify` makes, on TrueHD and on AC-3 and E-AC-3, is a named rule with a default
 severity and a source (a public specification, a measurement, or another
 implementation), listed in [`docs/conformance-rules.md`](docs/conformance-rules.md);
 a finding says where it is (access unit or frame, byte and bit, substream, time), and
@@ -211,9 +218,21 @@ verdict:
 tools/media_regression.sh /path/to/work-directory
 ```
 
-It prints an exit code per step and fails if any step failed. CI cannot
-run it: the corpus is licensed material, tens of gigabytes of it, and no
-public runner may hold it.
+It prints an exit code per step and fails if any step failed. A step that
+could not run, because the Python environment of the ADM audit is not in
+the work directory, is not a pass: the run ends with exit code 3 and names
+it. CI cannot run it: the corpus is licensed material, tens of gigabytes of
+it, and no public runner may hold it.
+
+The ADM writer is checked in three layers that do not stand in for one
+another. The audit toolkit's own tests (`docs/audit/adm/tools/selftest`)
+run in CI and need nothing but Python. The writer harness
+(`docs/audit/adm/harness`, driven by
+`docs/audit/adm-remediation/tools/run_remediation.py --stage harness`) runs
+in CI without Dolby's tools and without media, and again in the command
+above. What reads real streams, Dolby's converters and a renderer (the
+other stages of that driver, and the ADM gate of the media suite) runs
+only by hand, on the machine that holds them.
 
 Those tests are `#[ignore]`d, so a plain `cargo test` never touches the media.
 Asking for `--ignored` without setting `OADEC_MEDIA` fails: a conformance suite
